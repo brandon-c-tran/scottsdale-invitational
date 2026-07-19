@@ -166,6 +166,7 @@ export default function App() {
   const [onboardStep, setOnboardStep] = useState(() => (localGet("si-onboard-v5") === "yes" ? 99 : 0));
   const [tab, setTab] = useState("board");
   const [gm, setGm] = useState(() => localGet("si-gm") === "yes" && hasGmToken());
+  const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
   const [tv, setTv] = useState(false);
   const [modal, setModal] = useState(null);
   const [burst, setBurst] = useState(0);
@@ -295,6 +296,8 @@ export default function App() {
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
+  const resetGame = () => act("resetTournament", {}, "Board reset");
+  const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
   const unlockGm = pin => dispatch("gmUnlock", { pin }).then(r => {
     if (!r.ok) return notify(r.error || "Wrong passcode");
     setGmToken(r.extra?.gmToken); setGm(true); saveMine("si-gm", "yes");
@@ -371,7 +374,7 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", paddingBottom:92, paddingTop:12 }}>
+      <div style={{ flex:1, overflowY:"auto", paddingBottom: gm && qa ? 168 : 92, paddingTop:12 }}>
         {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
           champion={champion} coChamps={coChamps} gm={gm}
           onAdjust={p => setModal({type:"adjust", player:p})}
@@ -385,6 +388,8 @@ export default function App() {
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} />}
       </div>
+
+      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa} />}
 
       {/* tab bar */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
@@ -421,6 +426,7 @@ export default function App() {
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             <Btn kind="dark" onClick={() => { setModal({type:"switch"}); }}>Switch player</Btn>
             <Btn kind="dark" onClick={() => { setTv(true); setModal(null); }}>📺 TV mode</Btn>
+            <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
               ? <Btn kind="danger" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</Btn>
@@ -1607,6 +1613,50 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
       <Btn disabled={maxStake < 1 || stake > maxStake} onClick={() => place({ ...pick, stake, status:"open" })}
         style={{ width:"100%", fontSize:15, padding:"14px" }}>Place it</Btn>
     </Sheet>
+  );
+}
+
+/* ─────────── QA bar (GM only, real names) ─────────── */
+function QABar({ me, onSwitch, onReset, onExit }) {
+  const [confirm, setConfirm] = useState(false);
+  const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
+    textTransform:"uppercase", padding:"6px 10px", borderRadius:9, cursor:"pointer", flexShrink:0 };
+  return (
+    <div style={{ position:"fixed", bottom:"calc(66px + env(safe-area-inset-bottom))", left:0, right:0,
+      display:"flex", justifyContent:"center", zIndex:55, pointerEvents:"none" }}>
+      <div style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
+        background:"rgba(19,14,9,0.95)", border:"1px solid rgba(217,164,65,0.4)", borderRadius:14,
+        padding:"8px 10px", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
+          <span style={{ ...label, fontSize:10, color:"#EFC978" }}>QA</span>
+          <span style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)", flex:1, minWidth:0,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            Acting as <b style={{ color:"var(--cream)" }}>{me || "nobody"}</b></span>
+          {confirm ? (
+            <>
+              <button onClick={() => { onReset(); setConfirm(false); }} style={{ ...small,
+                background:"#D64A20", border:"none", color:"#FFF4EC" }}>Confirm reset</button>
+              <button onClick={() => setConfirm(false)} style={{ ...small,
+                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Keep</button>
+            </>
+          ) : (
+            <button onClick={() => setConfirm(true)} style={{ ...small,
+              background:"none", border:"1px solid rgba(224,108,91,0.4)", color:"#E06C5B" }}>Reset game</button>
+          )}
+          <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
+            color:"var(--dust)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
+        </div>
+        <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
+          {ROSTER.map(p => (
+            <button key={p} onClick={() => onSwitch(p)} style={{ fontFamily:SANS, fontWeight:600,
+              fontSize:12, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
+              background: me === p ? GOLD_GRAD : "var(--panel2)",
+              color: me === p ? "#1E1608" : "var(--cream)",
+              border: me === p ? "1px solid transparent" : "1px solid var(--line)" }}>{p}</button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

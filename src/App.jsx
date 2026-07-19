@@ -105,10 +105,10 @@ function Sheet({ title, onClose, children, wide }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(10,7,4,0.78)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth: wide ? 780 : 540, maxHeight:"90vh",
+      <div onClick={e=>e.stopPropagation()} className="si-sheet" style={{ width:"100%", maxWidth: wide ? 780 : 540,
         overflowY:"auto", background:CARD_BG, borderRadius:"22px 22px 0 0",
         border:"1px solid var(--line)", borderBottom:"none",
-        padding:"20px 18px 30px", animation:"si-up .24s ease-out" }}>
+        padding:"20px 18px calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
           <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:22, letterSpacing:"0.02em", color:"var(--cream)" }}>{title}</div>
           <button onClick={onClose} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
@@ -352,7 +352,8 @@ export default function App() {
     <Shell>
       {/* header */}
       <div style={{ position:"sticky", top:0, zIndex:40, background:"rgba(19,14,9,0.82)",
-        backdropFilter:"blur(14px)", borderBottom:"1px solid rgba(59,48,33,0.6)" }}>
+        backdropFilter:"blur(14px)", borderBottom:"1px solid rgba(59,48,33,0.6)",
+        paddingTop:"env(safe-area-inset-top)" }}>
         <div style={{ padding:"12px 16px 10px", display:"flex", alignItems:"center", gap:10 }}>
           <button onClick={() => setModal({type:"profile"})} style={{ background:"none", border:"none", padding:0, cursor:"pointer" }}>
             {me ? <Avatar state={state} p={me} size={36} /> : null}
@@ -391,7 +392,8 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", paddingBottom: gm && qa ? 168 : 92, paddingTop:12 }}>
+      <div style={{ flex:1, overflowY:"auto", paddingTop:12,
+        paddingBottom:`calc(${gm && qa ? 168 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
           champion={champion} coChamps={coChamps} gm={gm}
           onAdjust={p => setModal({type:"adjust", player:p})}
@@ -490,7 +492,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div style={{ position:"fixed", bottom:98, left:"50%", transform:"translateX(-50%)", zIndex:150,
+        <div style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
           display:"flex", alignItems:"center", gap:12,
           background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
           color:"var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
@@ -512,7 +514,7 @@ export default function App() {
 /* ─────────── shell ─────────── */
 function Shell({ children, tv }) {
   return (
-    <div style={{ minHeight:"100vh", background:"var(--ink)", display:"flex", justifyContent:"center" }}>
+    <div className="si-vh" style={{ background:"var(--ink)", display:"flex", justifyContent:"center" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700;6..96,800&family=Archivo:wght@400;500;600;700&display=swap');
         :root {
@@ -534,8 +536,11 @@ function Shell({ children, tv }) {
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(217,164,65,0.22);} 50% { box-shadow:0 0 50px rgba(225,87,42,0.32);} }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
+        /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
+        .si-vh { min-height:100vh; min-height:100dvh; }
+        .si-sheet { max-height:90vh; max-height:90dvh; }
       `}</style>
-      <div style={{ width:"100%", maxWidth: tv ? "100%" : 540, minHeight:"100vh", display:"flex",
+      <div className="si-vh" style={{ width:"100%", maxWidth: tv ? "100%" : 540, display:"flex",
         flexDirection:"column", position:"relative",
         background:"radial-gradient(120% 55% at 50% -8%, #33261463 0%, transparent 60%), radial-gradient(90% 40% at 50% 108%, #2416083d 0%, transparent 60%), var(--ink)" }}>
         <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"overlay" }} />
@@ -558,7 +563,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     6: { k:"📲", t:"One tap away", b:"Put the board on your home screen. Full screen, no browser bar, there all weekend.", install:true },
   };
   if (step === 0) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"48px 22px 30px", animation:"si-in .3s ease-out" }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · October · MMXXVI</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"#CBBFA9", fontSize:15, marginBottom:28 }}>
@@ -572,7 +578,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     </div>
   );
   if (step === 1) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"40px 22px 28px", animation:"si-in .3s ease-out" }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Your card</div>
       <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
         Set up your profile</div>
@@ -586,7 +593,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === 2) {
     const complete = SPORTS.every(s => ratings[s.id] !== undefined);
     return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"40px 20px 28px", animation:"si-in .3s ease-out" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+        padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
         <div style={label}>Scouting report · sealed</div>
         <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
         <div style={{ fontFamily:SANS, fontSize:13.5, color:"#CBBFA9", lineHeight:1.55, marginBottom:16 }}>
@@ -619,7 +627,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   }
   const c = cards[step];
   return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"64px 26px 30px", animation:"si-in .3s ease-out" }} key={step}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(56px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))" }} key={step}>
       <div style={{ fontSize:46, marginBottom:14 }}>{c.k}</div>
       <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"#CBBFA9" }}>{c.b}</div>
@@ -1759,7 +1768,8 @@ function Reveal({ state, reveal, big, onClose }) {
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(13,9,5,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      padding:"30px 20px", overflowY:"auto" }}>
+      padding:"calc(30px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom))",
+      overflowY:"auto" }}>
       <div style={{ ...label, fontSize: big ? 15 : 11, animation:"si-in .4s both" }}>{reveal.title}</div>
       <div style={{ fontFamily:SERIF, fontWeight:700, fontSize: big ? 60 : 32, color:"var(--cream)",
         marginBottom: big ? 28 : 20, animation:"si-in .4s .1s both", textAlign:"center" }}>{reveal.subtitle}</div>
@@ -1852,12 +1862,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
       background:"radial-gradient(110% 60% at 50% -10%, #33261460 0%, transparent 60%), var(--ink)" }}>
-      <button onClick={onExit} style={{ position:"absolute", top:16, right:16, zIndex:70,
+      <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
         background:"var(--panel)", border:"1px solid var(--line)", color:"var(--dust)",
         width:38, height:38, borderRadius:11, fontSize:15, cursor:"pointer" }}>✕</button>
 
       {/* masthead */}
-      <div style={{ display:"flex", alignItems:"center", gap:22, padding:"26px 48px 14px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:22,
+        padding:"calc(26px + env(safe-area-inset-top)) 48px 14px" }}>
         <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(30px,3.4vw,50px)", lineHeight:1,
           background:EMBER_GRAD, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>
           The Invitational</div>

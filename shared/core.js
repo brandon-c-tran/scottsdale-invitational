@@ -83,7 +83,7 @@ const DRAW_METHODS = [
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
 const EMPTY_STATE = { v:5, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, updatedAt:0 };
+  stages:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0, updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
 const allEventsOf = state => [...BUILTIN_EVENTS, ...(state.customEvents || [])];

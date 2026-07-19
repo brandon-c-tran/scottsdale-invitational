@@ -235,6 +235,11 @@ export const ACTIONS = {
     state.frozen = !!f;
     return ok();
   },
+  rerunOnboarding(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    state.onboardEpoch = (state.onboardEpoch || 0) + 1;
+    return ok();
+  },
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     Object.assign(state, structuredClone(EMPTY_STATE));

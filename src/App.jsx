@@ -9,6 +9,15 @@ import {
 } from "./lib/client.js";
 
 
+/* PWA install: stash the browser's install prompt when offered. iOS never fires it. */
+let installEvt = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
+}
+const isStandalone = () => typeof window !== "undefined" &&
+  (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
+const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+
 /* ─────────── visual system ─────────── */
 const SERIF = "'Bodoni Moda','Didot',Georgia,serif";
 const SANS = "'Archivo',system-ui,sans-serif";
@@ -199,6 +208,12 @@ export default function App() {
   /* re-claim identity on every (re)connect so the server knows who this device is */
   useEffect(() => { if (connected && me) dispatch("claim", { player: me }); }, [connected, me]);
 
+  /* GM can rerun onboarding for everyone; each device compares the epoch it finished */
+  useEffect(() => {
+    if (!ready || onboardStep < 99) return;
+    if ((state.onboardEpoch || 0) > Number(localGet("si-onboard-epoch") || 0)) setOnboardStep(0);
+  }, [ready, state.onboardEpoch, onboardStep]);
+
   /* celebrate on broadcasts so every phone pops, not just the GM's */
   useEffect(() => {
     if (version > prevVersion.current && prevVersion.current > 0) {
@@ -297,6 +312,7 @@ export default function App() {
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
   const resetGame = () => act("resetTournament", {}, "Board reset");
+  const rerunOnboard = () => act("rerunOnboarding", {}, "Intro replays on every phone");
   const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
   const unlockGm = pin => dispatch("gmUnlock", { pin }).then(r => {
     if (!r.ok) return notify(r.error || "Wrong passcode");
@@ -314,7 +330,8 @@ export default function App() {
           saveProfile={prof => saveProfile(me, prof)}
           submitSeeds={saveSeeds}
           next={() => setOnboardStep(s => s + 1)}
-          done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes"); setBurst(b=>b+1); }} />
+          done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
+            saveMine("si-onboard-epoch", String(state.onboardEpoch || 0)); setBurst(b=>b+1); }} />
         <Confetti burst={burst} />
       </Shell>
     );
@@ -389,7 +406,7 @@ export default function App() {
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} />}
       </div>
 
-      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa} />}
+      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onRerun={rerunOnboard} onExit={toggleQa} />}
 
       {/* tab bar */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
@@ -538,6 +555,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     3: { k:"🏆", t:"One board", b:"13 players, one leaderboard, all weekend. Every event and every wager counts. Everyone starts with 5. Teams reshuffle every event.", meter:true },
     4: { k:"🎟️", t:"Wagers", b:"When an event goes on deck, betting opens. Back anyone, including yourself, to win at 2 to 1. Matchups, heats, and pools pay even. Stakes of 1 to 3, max 3 at risk. Everything settles off the official result." },
     5: { k:"👑", t:"Saturday night", b:"The Finale pays 6 / 3 / 1, then the board freezes and the champion is crowned. Check the app in ten seconds, then get back out there." },
+    6: { k:"📲", t:"One tap away", b:"Put the board on your home screen. Full screen, no browser bar, there all weekend.", install:true },
   };
   if (step === 0) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", padding:"48px 22px 30px", animation:"si-in .3s ease-out" }}>
@@ -618,12 +636,29 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
       )}
+      {c.install && (
+        <div style={{ marginTop:26 }}>
+          {installEvt ? (
+            <Btn onClick={() => installEvt.prompt()}>Add to home screen</Btn>
+          ) : isIOS() ? (
+            [["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
+              <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
+                <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"#EFC978" }}>{n}</span>
+                <span style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>{t}</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>
+              In your browser menu, choose Add to Home Screen.</div>
+          )}
+        </div>
+      )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "#D9A441" : "var(--line)" }} />)}
+          {(isStandalone() ? [3,4,5] : [3,4,5,6]).map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "#D9A441" : "var(--line)" }} />)}
         </div>
-        <Btn onClick={step === 5 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
-          {step === 5 ? "I'm in" : "Next"}
+        <Btn onClick={step === 6 || (step === 5 && isStandalone()) ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
+          {step === 6 || (step === 5 && isStandalone()) ? "I'm in" : "Next"}
         </Btn>
       </div>
     </div>
@@ -1617,7 +1652,7 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
 }
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
-function QABar({ me, onSwitch, onReset, onExit }) {
+function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
   const [confirm, setConfirm] = useState(false);
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
     textTransform:"uppercase", padding:"6px 10px", borderRadius:9, cursor:"pointer", flexShrink:0 };
@@ -1640,8 +1675,12 @@ function QABar({ me, onSwitch, onReset, onExit }) {
                 background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Keep</button>
             </>
           ) : (
-            <button onClick={() => setConfirm(true)} style={{ ...small,
-              background:"none", border:"1px solid rgba(224,108,91,0.4)", color:"#E06C5B" }}>Reset game</button>
+            <>
+              <button onClick={onRerun} style={{ ...small,
+                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Rerun intro</button>
+              <button onClick={() => setConfirm(true)} style={{ ...small,
+                background:"none", border:"1px solid rgba(224,108,91,0.4)", color:"#E06C5B" }}>Reset game</button>
+            </>
           )}
           <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
             color:"var(--dust)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>

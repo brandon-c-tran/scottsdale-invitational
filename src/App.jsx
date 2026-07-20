@@ -311,6 +311,8 @@ export default function App() {
   const setOnDeck = id => act("setOnDeck", { id });
   const shelveEvent = (id, on) => act("shelve", { id, on });
   const addCustomEvent = ev => act("addEvent", { ev });
+  const editEvent = (id, patch) => act("editEvent", { id, patch }, "Saved");
+  const reorderEvents = ids => act("reorderEvents", { ids });
   const removeCustomEvent = ev => {
     dispatch("removeEvent", { id: ev.id }).then(r => {
       if (!r.ok) return notify(r.error || "Rejected");
@@ -423,7 +425,8 @@ export default function App() {
           onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
           finaleDone={!!state.results["finale"]} />}
         {tab === "sched" && <Schedule state={state} events={events} gm={gm}
-          open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})} />}
+          open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
+          onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gm} events={events}
           onDeckEv={onDeckEv}
           onPick={pick => setModal({type:"placeWager", pick})}
@@ -476,10 +479,11 @@ export default function App() {
           </div>
         </Sheet>
       )}
-      {modal?.type === "event" && <EventSheet ev={modal.ev} state={state} gm={gm}
+      {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gm}
         onClose={() => setModal(null)}
         enterResult={() => setModal({type:"result", ev:modal.ev})}
         clearRes={() => { clearResult(modal.ev); setModal(null); notify("Result cleared, wagers reopened"); }}
+        onEdit={patch => editEvent(modal.ev.id, patch)}
         onDraw={(m, players) => { runDraw(modal.ev, m, players); setModal(null); }}
         onClearDraw={() => clearDraw(modal.ev)}
         onStages={cfg => { runStages(modal.ev, cfg); setModal(null); }}
@@ -493,7 +497,7 @@ export default function App() {
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gm}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)} />}
-      {modal?.type === "result" && <ResultSheet ev={modal.ev} state={state}
+      {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
       {modal?.type === "addEvent" && <AddEventSheet state={state} onClose={() => setModal(null)}
@@ -864,31 +868,58 @@ function ChampionCard({ state, champion, coChamps, big }) {
 }
 
 /* ─────────── slate ─────────── */
-function Schedule({ state, events, gm, open, onAdd }) {
+function Schedule({ state, events, gm, open, onAdd, onReorder }) {
+  const [reorderMode, setReorderMode] = useState(false);
   const shelved = events.filter(e => state.shelved[e.id]);
-  const section = (evList) => evList.map(ev => {
+  const inSession = s => events.filter(e => e.session === s.id && !state.shelved[e.id]);
+  const extras = events.filter(e => e.custom && !SESSIONS.find(s => s.id === e.session) && !state.shelved[e.id]);
+  const move = (ev, dir) => {
+    const ids = [...SESSIONS.map(s => inSession(s).map(e => e.id)), extras.map(e => e.id)];
+    for (const g of ids) {
+      const i = g.indexOf(ev.id);
+      if (i >= 0) {
+        const j = i + dir;
+        if (j < 0 || j >= g.length) return;
+        [g[i], g[j]] = [g[j], g[i]];
+        break;
+      }
+    }
+    onReorder(ids.flat());
+  };
+  const arrow = (ev, dir, edge) => (
+    <button disabled={edge} onClick={e => { e.stopPropagation(); move(ev, dir); }}
+      style={{ width:34, height:34, borderRadius:10, cursor: edge ? "default" : "pointer",
+        background:"var(--panel2)", border:"1px solid var(--line)", color: edge ? "#4A3E2C" : "#EFC978",
+        fontSize:13, flexShrink:0 }}>{dir < 0 ? "▲" : "▼"}</button>
+  );
+  const section = (evList, canMove) => evList.map((ev, i) => {
     const res = state.results[ev.id];
     const draw = state.draws[ev.id];
     const st = state.stages[ev.id];
     const deck = state.onDeck === ev.id;
+    const moving = reorderMode && gm && canMove;
     return (
-      <button key={ev.id} onClick={() => open(ev)} style={{ display:"block", width:"100%", textAlign:"left",
+      <button key={ev.id} onClick={moving ? undefined : () => open(ev)} style={{ display:"block", width:"100%", textAlign:"left",
         background: deck ? "linear-gradient(90deg, rgba(225,87,42,0.12), rgba(225,87,42,0.02)), var(--panel)" : CARD_BG,
         border: deck ? "1px solid rgba(225,87,42,0.5)" : ev.finale ? "1px solid rgba(239,201,120,0.5)" : "1px solid var(--line)",
-        borderRadius:15, padding:"13px 15px", marginBottom:8, cursor:"pointer",
+        borderRadius:15, padding:"13px 15px", marginBottom:8, cursor: moving ? "default" : "pointer",
         boxShadow:"0 2px 10px rgba(0,0,0,0.22)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15.5, color:"var(--cream)" }}>
               {res && <span style={{ color:"var(--green)" }}>✓ </span>}{ev.name}{ev.finale && " 👑"}
             </div>
-            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>
-              {ev.loc || "Anywhere"}{ev.custom && " · added"}</div>
           </div>
-          {deck && <Tag tone="flame">On deck</Tag>}
-          {!res && !deck && st && <Tag tone="green">{st.kind === "heats" ? "Heats live" : "Pools live"}</Tag>}
-          {!res && !deck && !st && draw && <Tag tone="green">Teams set</Tag>}
-          {!res && !deck && !st && !draw && <Tag>{ev.value} pt{ev.value>1?"s":""}</Tag>}
+          {moving ? (
+            <>{arrow(ev, -1, i === 0)}{arrow(ev, 1, i === evList.length - 1)}</>
+          ) : (
+            <>
+              {deck && <Tag tone="flame">On deck</Tag>}
+              {!res && !deck && st && <Tag tone="green">{st.kind === "heats" ? "Heats live" : "Pools live"}</Tag>}
+              {!res && !deck && !st && draw && <Tag tone="green">Teams set</Tag>}
+              {!res && !deck && !st && !draw && <Tag>{ev.value} pt{ev.value>1?"s":""}</Tag>}
+            </>
+          )}
         </div>
         {res && res.slots?.[0]?.length > 0 && (
           <div style={{ marginTop:9, display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
@@ -907,7 +938,7 @@ function Schedule({ state, events, gm, open, onAdd }) {
   return (
     <div style={{ padding:"0 16px" }}>
       {SESSIONS.map(s => {
-        const evs = events.filter(e => e.session === s.id && !state.shelved[e.id]);
+        const evs = inSession(s);
         if (evs.length === 0) return null;
         return (
           <div key={s.id} style={{ marginBottom:18 }}>
@@ -915,26 +946,29 @@ function Schedule({ state, events, gm, open, onAdd }) {
               <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>{s.label}</span>
               <Tag tone="gold">{s.tag}</Tag>
             </div>
-            {section(evs)}
+            {section(evs, true)}
           </div>
         );
       })}
-      {(() => {
-        const customs = events.filter(e => e.custom && !state.shelved[e.id]);
-        return customs.length > 0 && (
-          <div style={{ marginBottom:18 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:10, margin:"4px 2px 9px" }}>
-              <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>Added</span>
-            </div>
-            {section(customs)}
+      {extras.length > 0 && (
+        <div style={{ marginBottom:18 }}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:10, margin:"4px 2px 9px" }}>
+            <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>Extra</span>
           </div>
-        );
-      })()}
-      {gm && <Btn kind="ghost" onClick={onAdd} style={{ width:"100%", marginBottom:14 }}>+ Add an event</Btn>}
+          {section(extras, true)}
+        </div>
+      )}
+      {gm && (
+        <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+          <Btn kind="ghost" onClick={onAdd} style={{ flex:1 }}>+ Add an event</Btn>
+          <Btn kind={reorderMode ? "primary" : "ghost"} onClick={() => setReorderMode(v => !v)}>
+            {reorderMode ? "Done" : "Reorder"}</Btn>
+        </div>
+      )}
       {shelved.length > 0 && (
         <div style={{ marginBottom:16, opacity:0.55 }}>
           <div style={{ ...label, margin:"4px 2px 8px" }}>Shelved</div>
-          {section(shelved)}
+          {section(shelved, false)}
         </div>
       )}
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"#6E6350", textAlign:"center", padding:"4px 20px 16px", lineHeight:1.6 }}>
@@ -998,7 +1032,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 }
 
 /* ─────────── event sheet ─────────── */
-function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onDraw, onClearDraw,
+function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
   onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
@@ -1008,6 +1042,18 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onDraw, onC
   const shelvedNow = !!state.shelved[ev.id];
   const [confirmRedraw, setConfirmRedraw] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmScrap, setConfirmScrap] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [eName, setEName] = useState("");
+  const [eDesc, setEDesc] = useState("");
+  const [eValue, setEValue] = useState(1);
+  const [eSession, setESession] = useState(null);
+  const openEdit = () => {
+    setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value);
+    setESession(SESSIONS.find(s => s.id === ev.session) ? ev.session : null);
+    setEditOpen(true);
+  };
   const [method, setMethod] = useState(null);
   const [outs, setOuts] = useState([]);
   const [showOuts, setShowOuts] = useState(false);
@@ -1028,7 +1074,6 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onDraw, onC
     <Sheet title={ev.name} onClose={onClose}>
       <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
         <Tag tone={ev.finale ? "flame" : "gold"}>{ev.value} pt{ev.value>1?"s":""}</Tag>
-        {ev.loc && <Tag>{ev.loc}</Tag>}
         <Tag>{ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"}</Tag>
         {state.onDeck === ev.id && <Tag tone="flame">On deck</Tag>}
         {shelvedNow && <Tag>Shelved</Tag>}
@@ -1186,19 +1231,69 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onDraw, onC
                 </div>
               )
           )}
-          {st && !res && <Btn kind="ghost" onClick={onClearStages} style={{ width:"100%", marginBottom:10 }}>
-            Scrap {st.kind === "heats" ? "heats" : "pools"}</Btn>}
+          {st && !res && (
+            confirmScrap
+              ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                  <Btn kind="danger" onClick={() => { onClearStages(); setConfirmScrap(false); }} style={{ flex:1 }}>
+                    Scrap {st.kind === "heats" ? "heats" : "pools"}, sure</Btn>
+                  <Btn kind="ghost" onClick={() => setConfirmScrap(false)} style={{ flex:1 }}>Keep</Btn>
+                </div>
+              : <Btn kind="ghost" onClick={() => setConfirmScrap(true)} style={{ width:"100%", marginBottom:10 }}>
+                  Scrap {st.kind === "heats" ? "heats" : "pools"}</Btn>
+          )}
 
           <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
             <Btn onClick={enterResult} style={{ flex:1 }}>{res ? "Edit result" : "Post result"}</Btn>
             {!res && <Btn kind="dark" onClick={onDeckToggle}>{state.onDeck === ev.id ? "Close betting" : "Open betting"}</Btn>}
-            {res && <Btn kind="danger" onClick={clearRes}>Clear</Btn>}
+            {res && !confirmClear && <Btn kind="danger" onClick={() => setConfirmClear(true)}>Clear</Btn>}
+            {res && confirmClear && <Btn kind="danger" onClick={clearRes}>Clear, sure</Btn>}
           </div>
-          <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
-            {!res && <Btn kind="ghost" onClick={() => onShelve(!shelvedNow)} style={{ flex:1 }}>{shelvedNow ? "Restore to slate" : "Shelve"}</Btn>}
-            {ev.custom && !confirmRemove && <Btn kind="danger" onClick={() => setConfirmRemove(true)}>Remove</Btn>}
-            {ev.custom && confirmRemove && <Btn kind="danger" onClick={onRemove}>Confirm remove</Btn>}
-          </div>
+          {editOpen ? (
+            <div style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:13,
+              padding:"12px 13px", marginTop:8 }}>
+              <div style={{ ...label, marginBottom:6 }}>Name</div>
+              <input value={eName} onChange={e => setEName(e.target.value)} maxLength={28}
+                style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line)", borderRadius:11,
+                  padding:"11px 12px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:15, marginBottom:12, outline:"none" }} />
+              <div style={{ ...label, marginBottom:6 }}>How it works</div>
+              <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} maxLength={300} rows={3}
+                style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line)", borderRadius:11,
+                  padding:"11px 12px", color:"var(--cream)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
+                  marginBottom:12, outline:"none", resize:"vertical" }} />
+              <div style={{ ...label, marginBottom:6 }}>Worth</div>
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                {[1,2,3,4,...(ev.value === 6 ? [6] : [])].map(v => (
+                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:40, borderRadius:11, cursor:"pointer",
+                    fontFamily:SERIF, fontWeight:700, fontSize:17,
+                    background: eValue===v ? GOLD_GRAD : "var(--panel)",
+                    color: eValue===v ? "#1E1608" : "#CBBFA9",
+                    border: eValue===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
+                ))}
+              </div>
+              <div style={{ ...label, marginBottom:6 }}>When</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+                {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
+                  <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
+                    fontSize:12.5, padding:"8px 11px", borderRadius:10, cursor:"pointer",
+                    background: eSession===id ? GOLD_GRAD : "var(--panel)",
+                    color: eSession===id ? "#1E1608" : "var(--cream)",
+                    border: eSession===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <Btn disabled={!eName.trim()} onClick={() => { onEdit({ name:eName, desc:eDesc, value:eValue, session:eSession }); setEditOpen(false); }}
+                  style={{ flex:1 }}>Save</Btn>
+                <Btn kind="ghost" onClick={() => setEditOpen(false)}>Cancel</Btn>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
+              <Btn kind="ghost" onClick={openEdit} style={{ flex:1 }}>Edit details</Btn>
+              {!res && <Btn kind="ghost" onClick={() => onShelve(!shelvedNow)} style={{ flex:1 }}>{shelvedNow ? "Restore to slate" : "Shelve"}</Btn>}
+              {ev.custom && !confirmRemove && <Btn kind="danger" onClick={() => setConfirmRemove(true)}>Remove</Btn>}
+              {ev.custom && confirmRemove && <Btn kind="danger" onClick={onRemove}>Confirm remove</Btn>}
+            </div>
+          )}
         </div>
       )}
       {!gm && br && !res && <Btn kind="dark" onClick={openBracket} style={{ width:"100%" }}>View bracket</Btn>}
@@ -1211,6 +1306,7 @@ function AddEventSheet({ state, onClose, save }) {
   const [name, setName] = useState("");
   const [value, setValue] = useState(1);
   const [fmt, setFmt] = useState("solo");
+  const [sess, setSess] = useState(null);
   const fmts = [
     { id:"solo", label:"Individual" },
     { id:"pairs", label:"Pairs" },
@@ -1220,7 +1316,7 @@ function AddEventSheet({ state, onClose, save }) {
   ];
   const build = () => {
     const id = "c" + Date.now();
-    const base = { id, custom:true, name:name.trim(), value, loc:"", desc:"" };
+    const base = { id, custom:true, name:name.trim(), value, desc:"", ...(sess ? { session:sess } : {}) };
     if (fmt === "solo") return { ...base, kind:"solo" };
     if (fmt === "pairs") return { ...base, kind:"pairs", teamCfg:{ teams:6, size:2 } };
     const n = Number(fmt[1]);
@@ -1240,6 +1336,16 @@ function AddEventSheet({ state, onClose, save }) {
             background: value===v ? GOLD_GRAD : "var(--panel2)",
             color: value===v ? "#1E1608" : "#CBBFA9",
             border: value===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
+        ))}
+      </div>
+      <div style={{ ...label, marginBottom:6 }}>When</div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+        {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
+          <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
+            padding:"9px 12px", borderRadius:10, cursor:"pointer",
+            background: sess===id ? GOLD_GRAD : "var(--panel2)",
+            color: sess===id ? "#1E1608" : "var(--cream)",
+            border: sess===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
         ))}
       </div>
       <div style={{ ...label, marginBottom:6 }}>Format</div>
@@ -1356,12 +1462,22 @@ function ResultSheet({ ev, state, onClose, save }) {
   }, []); // eslint-disable-line
   const [slots, setSlots] = useState(initial);
   const [active, setActive] = useState(0);
+  const [byPlayer, setByPlayer] = useState(false);
+  const draw = state.draws[ev.id];
+  const teamMode = !!draw?.teams?.length && ev.kind !== "solo" && !byPlayer;
   const taken = p => slots.findIndex(s => s.includes(p));
   const toggle = p => setSlots(prev => {
     const nx = prev.map(s => [...s]);
     const w = nx.findIndex(s => s.includes(p));
     if (w === active) nx[active] = nx[active].filter(x => x !== p);
     else { if (w >= 0) nx[w] = nx[w].filter(x => x !== p); nx[active].push(p); }
+    return nx;
+  });
+  const teamSlot = t => slots.findIndex(s => t.players.length && t.players.every(p => s.includes(p)));
+  const toggleTeam = t => setSlots(prev => {
+    const was = prev.findIndex(s => t.players.length && t.players.every(p => s.includes(p)));
+    const nx = prev.map(s => s.filter(p => !t.players.includes(p)));
+    if (was !== active) nx[active] = [...nx[active], ...t.players];
     return nx;
   });
   return (
@@ -1377,14 +1493,40 @@ function ResultSheet({ ev, state, onClose, save }) {
           </button>
         ))}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:18 }}>
-        {ROSTER.map(p => {
-          const w = taken(p);
-          return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} · ${SLOT_META[w].label}` : p}
-            selected={w===active} onClick={() => toggle(p)} small />;
-        })}
-      </div>
-      <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:15, padding:"14px" }}>
+      {teamMode ? (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {draw.teams.map((t, i) => {
+            const w = teamSlot(t);
+            return (
+              <button key={i} onClick={() => toggleTeam(t)} style={{ display:"flex", alignItems:"center", gap:8,
+                padding:"10px 11px", borderRadius:12, cursor:"pointer", textAlign:"left",
+                background: w === active ? GOLD_GRAD : "var(--panel2)",
+                border: w === active ? "1px solid transparent" : "1px solid var(--line)" }}>
+                <AvatarStack state={state} players={t.players} size={22} max={3} />
+                <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:13, minWidth:0,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                  color: w === active ? "#1E1608" : "var(--cream)" }}>{teamLabel(state, t)}</span>
+                {w >= 0 && w !== active && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
+                  color:SLOT_META[w].color, flexShrink:0 }}>{SLOT_META[w].label}</span>}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
+          {ROSTER.map(p => {
+            const w = taken(p);
+            return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} · ${SLOT_META[w].label}` : p}
+              selected={w===active} onClick={() => toggle(p)} small />;
+          })}
+        </div>
+      )}
+      {!!draw?.teams?.length && ev.kind !== "solo" && (
+        <button onClick={() => setByPlayer(v => !v)} style={{ background:"none", border:"none", cursor:"pointer",
+          fontFamily:SANS, fontSize:12.5, color:"var(--dust)", padding:"0 0 14px", display:"block" }}>
+          {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
+      )}
+      <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:15, padding:"14px", marginTop:4 }}>
         Post result</Btn>
     </Sheet>
   );

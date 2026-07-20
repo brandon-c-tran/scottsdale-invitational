@@ -20,8 +20,8 @@ const SPORTS = [
 const RATINGS = [
   { v:4,   label:"Elite" },
   { v:3,   label:"Solid" },
+  { v:2,   label:"Average" },
   { v:1.5, label:"Rough" },
-  { v:2,   label:"No idea" },
   { v:1,   label:"Never played" },
 ];
 
@@ -34,38 +34,38 @@ const SESSIONS = [
 ];
 
 const BUILTIN_EVENTS = [
-  { id:"putt", n:1, session:"fri", value:1, name:"Long Putt", loc:"The Green", kind:"solo", sport:"golf",
-    desc:"Three attempts from one long spot. Closest to the cup wins. A sunk putt beats everything. Ties: sudden-death putt." },
-  { id:"8ball", n:2, session:"fri", value:1, name:"8-Ball Doubles", loc:"Garage", kind:"pairs", sport:"pool",
+  { id:"putt", n:1, session:"fri", value:1, name:"Long Putt", kind:"solo", sport:"golf",
+    desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
+  { id:"8ball", n:2, session:"fri", value:1, name:"8-Ball Doubles", kind:"pairs", sport:"pool",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Pairs, single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"kart", n:3, session:"fri", value:1, name:"Mario Kart GP", loc:"Living Room", kind:"solo", sport:"kart",
-    desc:"Heats of four, four races each, in-game points. Top finishers run a four-race final. Highest total wins." },
-  { id:"pong", n:4, session:"fri", value:1, name:"Beer Pong Doubles", loc:"Patio", kind:"pairs",
+    desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
+  { id:"kart", n:3, session:"fri", value:1, name:"Mario Kart GP", kind:"solo", sport:"kart",
+    desc:"Heats of four, four races each. Top finishers race a final. Highest total wins." },
+  { id:"pong", n:4, session:"fri", value:1, name:"Beer Pong Doubles", kind:"pairs",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Pairs, single elimination. Six cups, one re-rack. Bounce counts two but can be swatted. Redemption in semis and final. Rack cups hold water." },
-  { id:"bball", n:5, session:"sam", value:2, name:"3v3 Basketball", loc:"Sport Court", kind:"team", sport:"bball",
+    desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
+  { id:"bball", n:5, session:"sam", value:2, name:"3v3 Basketball", kind:"team", sport:"bball",
     teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Four teams. Half court, to 7 by 1s and 2s, win by 1. Call your own fouls. No hard contact." },
-  { id:"spike", n:6, session:"sam", value:2, name:"Spikeball Doubles", loc:"Back Turf", kind:"pairs", sport:"spike",
+    desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
+  { id:"spike", n:6, session:"sam", value:2, name:"Spikeball Doubles", kind:"pairs", sport:"spike",
     teamCfg:{ teams:6, size:2 },
-    desc:"Pairs, two pools, pool winners meet in the final. First to 11, win by 2, cap 15." },
-  { id:"volley", n:7, session:"sap", value:3, name:"Sand Volleyball", loc:"Sand Court", kind:"team", sport:"volley",
+    desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
+  { id:"volley", n:7, session:"sap", value:3, name:"Sand Volleyball", kind:"team", sport:"volley",
     teamCfg:{ teams:2, size:6 },
-    desc:"Two teams. Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers. Sport court is the weather backup." },
-  { id:"nine", n:8, session:"sap", value:3, name:"Nine-Hole Putting", loc:"The Green", kind:"solo", sport:"golf",
-    desc:"Nine holes built around the green. Lowest total strokes wins. Max 5 per hole." },
-  { id:"relay", n:9, session:"sap", value:3, name:"Four-Station Relay", loc:"Full Yard", kind:"team",
+    desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
+  { id:"nine", n:8, session:"sap", value:3, name:"Nine-Hole Putting", kind:"solo", sport:"golf",
+    desc:"Nine holes, lowest total strokes. Max 5 per hole." },
+  { id:"relay", n:9, session:"sap", value:3, name:"Four-Station Relay", kind:"team",
     teamCfg:{ teams:3, size:4 },
     desc:"Cornhole, free throw, target serve, pressure putt. Clear your station or take the penalty. First full team home wins." },
-  { id:"flip", n:10, session:"san", value:4, name:"Flip Cup", loc:"Patio", kind:"team",
+  { id:"flip", n:10, session:"san", value:4, name:"Flip Cup", kind:"team",
     teamCfg:{ teams:2, size:6 },
-    desc:"Two teams, best of 3. Standard pour or NA equivalent, flip clean, next teammate goes." },
-  { id:"karaoke", n:11, session:"san", value:4, name:"Karaoke", loc:"Living Room", kind:"team",
+    desc:"Best of 3. Flip clean, next teammate goes." },
+  { id:"karaoke", n:11, session:"san", value:4, name:"Karaoke", kind:"team",
     teamCfg:{ teams:4, size:3 },
-    desc:"Trios, one song each, ten minutes to prep. Secret ballot on commitment, entertainment, crowd response. Beerio Kart is the swap." },
-  { id:"finale", n:12, session:"fin", value:6, name:"Jackbox Finale", loc:"Living Room", kind:"solo", finale:true,
-    desc:"Quiplash, then Fibbage. Placements combine into one finish order. Pays 6 / 3 / 1, individual only. Championship tie: one pressure putt on the green." },
+    desc:"Trios, one song each, ten minutes to prep. Secret ballot decides." },
+  { id:"finale", n:12, session:"fin", value:6, name:"Jackbox Finale", kind:"solo", finale:true,
+    desc:"Quiplash then Fibbage, one combined finish order. Pays 6 / 3 / 1. Championship tie: one pressure putt." },
 ];
 
 const SLOT_META = [
@@ -83,10 +83,24 @@ const DRAW_METHODS = [
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
 const EMPTY_STATE = { v:5, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0, updatedAt:0 };
+  stages:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
+  eventEdits:{}, eventOrder:[], updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
-const allEventsOf = state => [...BUILTIN_EVENTS, ...(state.customEvents || [])];
+/* built-ins can be edited (name, desc, value, session) via state.eventEdits and
+   reordered via state.eventOrder; results and wagers key off ids so both are safe */
+function allEventsOf(state) {
+  const evs = [
+    ...BUILTIN_EVENTS.map(e => ({ ...e, ...(state.eventEdits?.[e.id] || {}) })),
+    ...(state.customEvents || []),
+  ];
+  const ord = state.eventOrder || [];
+  if (ord.length) {
+    const idx = id => { const i = ord.indexOf(id); return i < 0 ? 999 : i; };
+    evs.sort((a, b) => idx(a.id) - idx(b.id) || (a.n || 99) - (b.n || 99));
+  }
+  return evs;
+}
 const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
 

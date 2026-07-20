@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, EMPTY_STATE, allEventsOf, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, allEventsOf, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, makeBracket, stageFinalists, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
@@ -139,6 +139,37 @@ export const ACTIONS = {
     state.wagers = state.wagers.filter(w => w.eventId !== id);
     if (state.onDeck === id) state.onDeck = null;
     return ok({ snapshot });
+  },
+  editEvent(state, { id, patch }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!allEventsOf(state).find(e => e.id === id)) return err("No such event");
+    const clean = {};
+    if (patch?.name !== undefined) {
+      const n = String(patch.name).trim();
+      if (!n) return err("Name required");
+      clean.name = n.slice(0, 28);
+    }
+    if (patch?.desc !== undefined) clean.desc = String(patch.desc).trim().slice(0, 300);
+    if (patch?.value !== undefined) {
+      const v = Number(patch.value);
+      if (!AWARDS[v]) return err("Bad value");
+      clean.value = v;
+    }
+    if (patch?.session !== undefined) {
+      if (patch.session !== null && !SESSIONS.find(s => s.id === patch.session)) return err("Bad session");
+      clean.session = patch.session;
+    }
+    if (!Object.keys(clean).length) return err("Nothing to change");
+    const custom = state.customEvents.find(e => e.id === id);
+    if (custom) Object.assign(custom, clean);
+    else state.eventEdits = { ...(state.eventEdits || {}), [id]: { ...(state.eventEdits?.[id] || {}), ...clean } };
+    return ok();
+  },
+  reorderEvents(state, { ids }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!Array.isArray(ids) || ids.length > 40 || !ids.every(x => typeof x === "string")) return err("Bad order");
+    state.eventOrder = ids;
+    return ok();
   },
   restoreEvent(state, { snapshot }, ctx) {
     const g = gmOnly(ctx); if (g) return g;

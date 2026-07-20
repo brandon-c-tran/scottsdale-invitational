@@ -17,6 +17,7 @@ if (typeof window !== "undefined") {
 const isStandalone = () => typeof window !== "undefined" &&
   (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
 
 /* ─────────── visual system ─────────── */
 const SERIF = "'Bodoni Moda','Didot',Georgia,serif";
@@ -172,7 +173,8 @@ function VersusDraw({ state, teams, size="md" }) {
 export default function App() {
   const { state, connected, ready, version, lastAction } = useTournament();
   const [me, setMe] = useState(() => localGet("si-me"));
-  const [onboardStep, setOnboardStep] = useState(() => (localGet("si-onboard-v5") === "yes" ? 99 : 0));
+  const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
+    : isStandalone() || !isMobile() ? 0 : -1);
   const [tab, setTab] = useState("board");
   const [gm, setGm] = useState(() => localGet("si-gm") === "yes" && hasGmToken());
   const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
@@ -322,7 +324,7 @@ export default function App() {
   const switchPlayer = p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); setModal(null); notify(`Now viewing as ${p}`); };
 
 
-  if (onboardStep >= 0 && onboardStep < 99) {
+  if (onboardStep < 99) {
     return (
       <Shell>
         <Onboarding step={onboardStep} me={me} state={state}
@@ -550,6 +552,23 @@ function Shell({ children, tv }) {
   );
 }
 
+/* install UI: native prompt where the browser offers one, instructions where it never will */
+function InstallHint() {
+  if (installEvt) return <Btn onClick={() => installEvt.prompt()} style={{ alignSelf:"flex-start" }}>Add to home screen</Btn>;
+  if (isIOS()) return (
+    <div>
+      {[["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
+        <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
+          <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"#EFC978" }}>{n}</span>
+          <span style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>{t}</span>
+        </div>
+      ))}
+    </div>
+  );
+  return <div style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>
+    In your browser menu, choose Add to Home Screen.</div>;
+}
+
 /* ─────────── onboarding ─────────── */
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, done }) {
   const [ratings, setRatings] = useState({});
@@ -560,8 +579,24 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     3: { k:"🏆", t:"One board", b:"13 players, one leaderboard, all weekend. Every event and every wager counts. Everyone starts with 5. Teams reshuffle every event.", meter:true },
     4: { k:"🎟️", t:"Wagers", b:"When an event goes on deck, betting opens. Back anyone, including yourself, to win at 2 to 1. Matchups, heats, and pools pay even. Stakes of 1 to 3, max 3 at risk. Everything settles off the official result." },
     5: { k:"👑", t:"Saturday night", b:"The Finale pays 6 / 3 / 1, then the board freezes and the champion is crowned. Check the app in ten seconds, then get back out there." },
-    6: { k:"📲", t:"One tap away", b:"Put the board on your home screen. Full screen, no browser bar, there all weekend.", install:true },
   };
+  if (step === -1) return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <div style={label}>Scottsdale · October · MMXXVI</div>
+      <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
+      <div style={{ fontFamily:SANS, color:"#CBBFA9", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
+        First move: put this on your home screen. Full screen, no browser bar, there all weekend.
+      </div>
+      <InstallHint />
+      <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginTop:18, lineHeight:1.6 }}>
+        Then open it from your home screen and check in there.
+      </div>
+      <div style={{ marginTop:"auto" }}>
+        <Btn kind="ghost" onClick={next} style={{ width:"100%" }}>Skip, stay in the browser</Btn>
+      </div>
+    </div>
+  );
   if (step === 0) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
@@ -645,29 +680,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
       )}
-      {c.install && (
-        <div style={{ marginTop:26 }}>
-          {installEvt ? (
-            <Btn onClick={() => installEvt.prompt()}>Add to home screen</Btn>
-          ) : isIOS() ? (
-            [["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
-              <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
-                <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"#EFC978" }}>{n}</span>
-                <span style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>{t}</span>
-              </div>
-            ))
-          ) : (
-            <div style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>
-              In your browser menu, choose Add to Home Screen.</div>
-          )}
-        </div>
-      )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {(isStandalone() ? [3,4,5] : [3,4,5,6]).map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "#D9A441" : "var(--line)" }} />)}
+          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "#D9A441" : "var(--line)" }} />)}
         </div>
-        <Btn onClick={step === 6 || (step === 5 && isStandalone()) ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
-          {step === 6 || (step === 5 && isStandalone()) ? "I'm in" : "Next"}
+        <Btn onClick={step === 5 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
+          {step === 5 ? "I'm in" : "Next"}
         </Btn>
       </div>
     </div>
@@ -2010,6 +2028,12 @@ function Guide({ replay }) {
       <S n="06" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.
       </S>
+      {!isStandalone() && (
+        <S n="07" t="The app">
+          <div style={{ marginBottom:8 }}>Best from your home screen. Full screen, one tap away.</div>
+          <InstallHint />
+        </S>
+      )}
       <div style={{ display:"flex", justifyContent:"center", padding:"6px 0 18px" }}>
         <Btn kind="ghost" onClick={replay}>Replay the intro</Btn>
       </div>

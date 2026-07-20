@@ -143,7 +143,7 @@ function Btn({ children, onClick, kind="primary", disabled, style }) {
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:700,
-      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:9,
+      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:9, minHeight:44,
       cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
       transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
   );
@@ -161,7 +161,7 @@ function Sheet({ title, onClose, children, wide }) {
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
             textTransform:"uppercase", color:"var(--ink)" }}>{title}</div>
           <button onClick={onClose} aria-label="Close" style={{ background:"var(--paper2)", border:"1.5px solid rgba(42,33,25,0.4)",
-            color:"var(--ink)", width:32, height:32, borderRadius:8, fontSize:14, cursor:"pointer" }}>✕</button>
+            color:"var(--ink)", width:36, height:36, borderRadius:9, fontSize:14, cursor:"pointer" }}>✕</button>
         </div>
         {children}
       </div>
@@ -171,11 +171,11 @@ function Sheet({ title, onClose, children, wide }) {
 function PlayerChip({ name, selected, disabled, onClick, small }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:600,
-      fontSize: small ? 13 : 14, padding: small ? "8px 8px" : "10px 10px", borderRadius:11,
+      fontSize: small ? 13 : 14, padding: small ? "9px 8px" : "11px 10px", borderRadius:9,
       cursor: disabled ? "default" : "pointer",
-      background: selected ? GOLD_GRAD : "var(--panel2)",
+      background: selected ? GOLD_GRAD : "var(--paper)",
       color: selected ? "var(--ink)" : disabled ? "#AE9C80" : "var(--cream)",
-      border: selected ? "1px solid transparent" : "1px solid var(--line)",
+      border: selected ? "1.5px solid var(--ink)" : "1px solid var(--line)",
       opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s" }}>{name}</button>
   );
 }
@@ -919,7 +919,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
               <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
                 {RATINGS.map(r => (
                   <button key={r.label} onClick={() => setRatings(x => ({...x, [s.id]: r.v}))}
-                    style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"9px 2px", borderRadius:7,
+                    style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"11px 2px", borderRadius:9,
                       cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.02em",
                       background: ratings[s.id] === r.v ? "var(--sun)" : "var(--paper)",
                       color:"var(--ink)",
@@ -1469,7 +1469,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
                 <div style={{ ...label, flex:1 }}>Draw teams</div>
                 <button onClick={() => setShowOuts(v => !v)} style={{ background:"none", border:"none",
-                  fontFamily:SANS, fontSize:12, color:"var(--dust)", cursor:"pointer" }}>
+                  fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--accent2)", cursor:"pointer" }}>
                   {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
               </div>
               {showOuts && (
@@ -1481,11 +1481,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
                 {methods.map(m => (
                   <button key={m.id} onClick={() => setMethod(m.id)} style={{ textAlign:"left", padding:"11px 13px",
-                    cursor:"pointer", borderRadius:12,
-                    background: method === m.id ? "rgba(192,91,51,0.1)" : "var(--panel2)",
-                    border:"1px solid " + (method === m.id ? "var(--gold)" : "var(--line)") }}>
-                    <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
-                      color: method === m.id ? "var(--accent2)" : "var(--cream)" }}>{m.name}</span>
+                    cursor:"pointer", borderRadius:9,
+                    background: method === m.id ? "rgba(233,180,65,0.35)" : "var(--paper)",
+                    border: method === m.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
+                    <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</span>
                     <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>  ·  {m.desc}</span>
                   </button>
                 ))}
@@ -1516,7 +1515,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                       <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
                         <div style={{ ...label, flex:1 }}>Heats</div>
                         <button onClick={() => setShowOuts(v => !v)} style={{ background:"none", border:"none",
-                          fontFamily:SANS, fontSize:12, color:"var(--dust)", cursor:"pointer" }}>
+                          fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--accent2)", cursor:"pointer" }}>
                           {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
                       </div>
                       {showOuts && (
@@ -1530,30 +1529,30 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <span style={{ ...label }}>{canHeats ? "Heats" : "Pools"}</span>
                     {[2,3,4].filter(n => n <= stageEntrantCount).map(n => (
-                      <button key={n} onClick={() => setNGroups(n)} style={{ width:38, height:36, borderRadius:10,
-                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:16,
-                        background: groupsChoice===n ? GOLD_GRAD : "var(--panel)",
-                        color: groupsChoice===n ? "var(--ink)" : "var(--muted2)",
-                        border: groupsChoice===n ? "1px solid transparent" : "1px solid var(--line)" }}>{n}</button>
+                      <button key={n} onClick={() => setNGroups(n)} style={{ width:44, height:44, borderRadius:9,
+                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:19,
+                        background: groupsChoice===n ? GOLD_GRAD : "var(--paper)",
+                        color:"var(--ink)",
+                        border: groupsChoice===n ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{n}</button>
                     ))}
                     <span style={{ flex:1 }} />
                     <span style={{ ...label }}>Through</span>
                     {[1,2].map(n => (
-                      <button key={n} onClick={() => setAdvance(n)} style={{ width:38, height:36, borderRadius:10,
-                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:16,
-                        background: advance===n ? GOLD_GRAD : "var(--panel)",
-                        color: advance===n ? "var(--ink)" : "var(--muted2)",
-                        border: advance===n ? "1px solid transparent" : "1px solid var(--line)" }}>{n}</button>
+                      <button key={n} onClick={() => setAdvance(n)} style={{ width:44, height:44, borderRadius:9,
+                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:19,
+                        background: advance===n ? GOLD_GRAD : "var(--paper)",
+                        color:"var(--ink)",
+                        border: advance===n ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{n}</button>
                     ))}
                   </div>
                   {canHeats && ev.sport && (
                     <div style={{ display:"flex", gap:6, marginBottom:10 }}>
                       {[["random","Blind"],["balanced","Balanced"]].map(([id,lb]) => (
-                        <button key={id} onClick={() => setStageMethod(id)} style={{ flex:1, padding:"8px",
-                          borderRadius:10, cursor:"pointer", fontFamily:SANS, fontWeight:600, fontSize:12.5,
-                          background: stageMethod===id ? GOLD_GRAD : "var(--panel)",
-                          color: stageMethod===id ? "var(--ink)" : "var(--cream)",
-                          border: stageMethod===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
+                        <button key={id} onClick={() => setStageMethod(id)} style={{ flex:1, padding:"10px 8px",
+                          borderRadius:9, cursor:"pointer", fontFamily:SANS, fontWeight:600, fontSize:12.5,
+                          background: stageMethod===id ? GOLD_GRAD : "var(--paper)",
+                          color:"var(--ink)",
+                          border: stageMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
                       ))}
                     </div>
                   )}
@@ -1598,21 +1597,21 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[1,2,3,4,...(ev.value === 6 ? [6] : [])].map(v => (
-                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:40, borderRadius:11, cursor:"pointer",
+                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:9, cursor:"pointer",
                     fontFamily:DISPLAY, fontWeight:700, fontSize:17,
-                    background: eValue===v ? GOLD_GRAD : "var(--panel)",
-                    color: eValue===v ? "var(--ink)" : "var(--muted2)",
-                    border: eValue===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
+                    background: eValue===v ? GOLD_GRAD : "var(--paper)",
+                    color:"var(--ink)",
+                    border: eValue===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
                 ))}
               </div>
               <div style={{ ...label, marginBottom:6 }}>When</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
                 {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
                   <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
-                    fontSize:12.5, padding:"8px 11px", borderRadius:10, cursor:"pointer",
-                    background: eSession===id ? GOLD_GRAD : "var(--panel)",
+                    fontSize:12.5, padding:"10px 12px", borderRadius:9, cursor:"pointer",
+                    background: eSession===id ? GOLD_GRAD : "var(--paper)",
                     color: eSession===id ? "var(--ink)" : "var(--cream)",
-                    border: eSession===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
+                    border: eSession===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
                 ))}
               </div>
               <div style={{ display:"flex", gap:8 }}>
@@ -1666,31 +1665,31 @@ function AddEventSheet({ state, onClose, save }) {
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {[1,2,3,4].map(v => (
-          <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:12, cursor:"pointer",
+          <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:9, cursor:"pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19,
-            background: value===v ? GOLD_GRAD : "var(--panel2)",
-            color: value===v ? "var(--ink)" : "var(--muted2)",
-            border: value===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
+            background: value===v ? GOLD_GRAD : "var(--paper)",
+            color:"var(--ink)",
+            border: value===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
         ))}
       </div>
       <div style={{ ...label, marginBottom:6 }}>When</div>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
         {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
           <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
-            padding:"9px 12px", borderRadius:10, cursor:"pointer",
-            background: sess===id ? GOLD_GRAD : "var(--panel2)",
+            padding:"10px 12px", borderRadius:9, cursor:"pointer",
+            background: sess===id ? GOLD_GRAD : "var(--paper)",
             color: sess===id ? "var(--ink)" : "var(--cream)",
-            border: sess===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
+            border: sess===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
         ))}
       </div>
       <div style={{ ...label, marginBottom:6 }}>Format</div>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
         {fmts.map(f => (
           <button key={f.id} onClick={() => setFmt(f.id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
-            padding:"9px 12px", borderRadius:10, cursor:"pointer",
-            background: fmt===f.id ? GOLD_GRAD : "var(--panel2)",
+            padding:"10px 12px", borderRadius:9, cursor:"pointer",
+            background: fmt===f.id ? GOLD_GRAD : "var(--paper)",
             color: fmt===f.id ? "var(--ink)" : "var(--cream)",
-            border: fmt===f.id ? "1px solid transparent" : "1px solid var(--line)" }}>{f.label}</button>
+            border: fmt===f.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{f.label}</button>
         ))}
       </div>
       <Btn disabled={!name.trim()} onClick={() => save(build())} style={{ width:"100%", fontSize:15, padding:"14px" }}>
@@ -1835,8 +1834,8 @@ function ResultSheet({ ev, state, onClose, save }) {
             return (
               <button key={i} onClick={() => toggleTeam(t)} style={{ display:"flex", alignItems:"center", gap:8,
                 padding:"10px 11px", borderRadius:12, cursor:"pointer", textAlign:"left",
-                background: w === active ? GOLD_GRAD : "var(--panel2)",
-                border: w === active ? "1px solid transparent" : "1px solid var(--line)" }}>
+                background: w === active ? GOLD_GRAD : "var(--paper)",
+                border: w === active ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
                 <AvatarStack state={state} players={t.players} size={22} max={3} />
                 <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:13, minWidth:0,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
@@ -1858,7 +1857,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       )}
       {!!draw?.teams?.length && ev.kind !== "solo" && (
         <button onClick={() => setByPlayer(v => !v)} style={{ background:"none", border:"none", cursor:"pointer",
-          fontFamily:SANS, fontSize:12.5, color:"var(--dust)", padding:"0 0 14px", display:"block" }}>
+          fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"0 0 14px", display:"block" }}>
           {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
       )}
       <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:15, padding:"14px", marginTop:4 }}>
@@ -2167,11 +2166,11 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
         <div style={label}>Stake</div>
         {[1,2,3].map(v => (
           <button key={v} onClick={() => setStake(v)} disabled={v > maxStake}
-            style={{ width:46, height:42, borderRadius:12, cursor: v > maxStake ? "default" : "pointer",
+            style={{ width:48, height:44, borderRadius:9, cursor: v > maxStake ? "default" : "pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19, opacity: v > maxStake ? 0.35 : 1,
-            background: stake===v ? GOLD_GRAD : "var(--panel2)",
-            color: stake===v ? "var(--ink)" : "var(--muted2)",
-            border: stake===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
+            background: stake===v ? GOLD_GRAD : "var(--paper)",
+            color:"var(--ink)",
+            border: stake===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
         ))}
         <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginLeft:"auto" }}>
           wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b> · loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
@@ -2462,8 +2461,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
       background:"radial-gradient(110% 60% at 50% -10%, rgba(233,180,65,0.10) 0%, transparent 60%), var(--night)" }}>
       <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
-        background:"var(--panel)", border:"1px solid var(--line)", color:"var(--dust)",
-        width:38, height:38, borderRadius:11, fontSize:15, cursor:"pointer" }}>✕</button>
+        background:"var(--paper)", border:"1.5px solid rgba(42,33,25,0.4)", color:"var(--ink)",
+        width:40, height:40, borderRadius:9, fontSize:15, cursor:"pointer" }}>✕</button>
 
       {/* masthead */}
       <div style={{ display:"flex", alignItems:"center", gap:22,

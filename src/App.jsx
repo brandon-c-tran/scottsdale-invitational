@@ -82,12 +82,17 @@ function Avatar({ state, p, size=34, ring, style }) {
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
       display:"flex", alignItems:"center", justifyContent:"center",
-      background: src ? "var(--paper2)" : c,
+      background: src ? "var(--paper2)" : c, position:"relative",
       border: ring ? "2px solid var(--ink)" : "1.5px solid rgba(42,33,25,0.5)", ...style }}>
       {src
         ? <img src={src} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:size*0.42, letterSpacing:"0.02em",
-            color: c === "#D89C2F" ? "var(--ink)" : BONE }}>{initials}</span>}
+        : <>
+            <div style={{ position:"absolute", inset:0,
+              background:"linear-gradient(135deg, transparent 40%, rgba(251,243,228,0.26) 40%, rgba(251,243,228,0.26) 62%, transparent 62%)" }} />
+            <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
+              fontSize:size*0.5, letterSpacing:"0.01em",
+              color: c === "#D89C2F" ? "var(--ink)" : BONE }}>{playerNo(p) ?? initials}</span>
+          </>}
     </div>
   );
 }
@@ -137,7 +142,7 @@ function Btn({ children, onClick, kind="primary", disabled, style }) {
   const kinds = {
     primary: { background:"var(--sun)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
     flame:   { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink)" },
-    ghost:   { background:"transparent", color:"var(--ink)", border:"1.5px solid rgba(42,33,25,0.35)" },
+    ghost:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
     dark:    { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
     danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(188,75,60,0.55)" },
   };
@@ -355,7 +360,7 @@ export default function App() {
 
   /* reveal detection: team draws and stage draws reveal on every phone */
   useEffect(() => {
-    if (seenReveals === null || onboardStep < 99 || reveal || !ready) return;
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -483,20 +488,22 @@ export default function App() {
       if (!ev || s.results[evId] || s.onDeck !== evId) break;
       const pts = computeStandings(s).find(r => r.player === p)?.pts ?? 0;
       const exp = atRisk(s, p, events2);
-      if (Math.min(3 - exp, pts - exp) < 1) continue;
+      const room = Math.min(3 - exp, pts - exp);
+      if (room < 1) continue;
+      const stake = Math.min(room, rnd([1, 1, 2, 2, 3]));
       const draw = s.draws[evId];
       let wager = null;
       if (ev.kind === "solo") {
         const pick = rnd(ROSTER);
-        wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake:1 };
+        wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake };
       } else if (draw) {
         const t = rnd(draw.teams.map((x, i) => i));
         wager = { kind:"outright", eventId:evId, evName:ev.name, pickTeam:true,
-          pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake:1 };
+          pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake };
       } else continue;
       await simDo("claim", { player: p });
       await simDo("placeWager", { wager },
-        `${p} puts 1 on ${wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
+        `${p} puts ${stake} on ${wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
       await simWait(700);
     }
   };
@@ -586,6 +593,9 @@ export default function App() {
     const br = state.brackets[ev.id];
     if (br && bracketChampion(br) === null)
       return { label:`Advance the ${ev.name} bracket`, run:() => setModal({type:"bracket", ev}) };
+    const st = state.stages[ev.id];
+    if (st && (!stageFinalists(st) || st.finalWinner === null || st.finalWinner === undefined))
+      return { label:`Advance the ${st.kind === "heats" ? "heats" : "pools"}`, run:() => setModal({type:"event", ev}) };
     return { label:`Post result · ${ev.name}`, run:() => setModal({type:"result", ev}) };
   })();
 
@@ -766,7 +776,8 @@ export default function App() {
         openBracket={() => setModal({type:"bracket", ev:modal.ev})} />}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
-        onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)} />}
+        onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
+        onPostResult={() => setModal({type:"result", ev:modal.ev})} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
@@ -1499,13 +1510,24 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
 
       {gm && !state.frozen && (
         <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
-          {ev.teamCfg && !draw && !res && (
+          {ev.teamCfg && !draw && !res && (() => {
+            const fit = ev.teamCfg.teams * ev.teamCfg.size;
+            const diff = inPlayers.length - fit;
+            return (
             <>
-              <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
+              <div style={{ display:"flex", alignItems:"center", marginBottom:4 }}>
                 <div style={{ ...label, flex:1 }}>Draw teams</div>
-                <button onClick={() => setShowOuts(v => !v)} style={{ background:"none", border:"none",
-                  fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--accent2)", cursor:"pointer" }}>
+                <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
+                  fontFamily:SANS, fontWeight:700, fontSize:13, padding:"7px 12px", borderRadius:9,
+                  background: diff !== 0 ? "rgba(192,71,58,0.12)" : "var(--paper)",
+                  border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
+                  color: diff !== 0 ? "var(--clay)" : "var(--ink)" }}>
                   {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
+              </div>
+              <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
+                color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
+                Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size} · fits {fit}
+                {diff > 0 ? ` · ${diff} extra will double up` : diff < 0 ? ` · ${-diff} short` : " · even teams"}
               </div>
               {showOuts && (
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:5, marginBottom:10 }}>
@@ -1527,7 +1549,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <Btn disabled={!method || inPlayers.length < 2} onClick={() => onDraw(method, inPlayers)} style={{ width:"100%", marginBottom:10 }}>
                 Run the draw</Btn>
             </>
-          )}
+            );
+          })()}
           {ev.teamCfg && draw && !res && (
             confirmRedraw
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
@@ -1549,8 +1572,9 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     <>
                       <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
                         <div style={{ ...label, flex:1 }}>Heats</div>
-                        <button onClick={() => setShowOuts(v => !v)} style={{ background:"none", border:"none",
-                          fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--accent2)", cursor:"pointer" }}>
+                        <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
+                          fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"6px 11px", borderRadius:9,
+                          background:"var(--paper)", border:"1px solid var(--line)", color:"var(--ink)" }}>
                           {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
                       </div>
                       {showOuts && (
@@ -1788,7 +1812,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
     </div>
   );
 }
-function BracketSheet({ ev, state, gm, onClose, onPick }) {
+function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
   if (!br || !draw) return null;
@@ -1803,7 +1827,10 @@ function BracketSheet({ ev, state, gm, onClose, onPick }) {
         </div>
       )}
       <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick} />
-      {gm && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:10 }}>
+      {gm && champ !== null && !state.results[ev.id] && (
+        <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
+      )}
+      {gm && champ === null && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:10 }}>
         Tap the winner of each matchup to advance them. Matchup wagers settle as you go.</div>}
     </Sheet>
   );
@@ -2381,11 +2408,12 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
     return () => clearTimeout(t);
   }, [shown, items]);
   const doneAll = shown >= items;
+  const closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(() => {
     if (!auto || !doneAll) return;
-    const t = setTimeout(onClose, 7000);
+    const t = setTimeout(() => closeRef.current(), 6000);
     return () => clearTimeout(t);
-  }, [auto, doneAll, onClose]);
+  }, [auto, doneAll]);
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
@@ -2436,6 +2464,84 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 }
 
 /* ─────────── TV mode ─────────── */
+/* poker-chip stack for one bet: colored chips to the stake height, bettor on top */
+function TVChipStack({ state, player, stake }) {
+  const c = playerColor(player);
+  const lift = 9;
+  return (
+    <div style={{ position:"relative", width:44, height:44 + (stake - 1) * lift, flexShrink:0 }}>
+      {Array.from({ length: stake }).map((_, i) => (
+        <div key={i} style={{ position:"absolute", bottom:i * lift, left:0 }}>
+          {i === stake - 1
+            ? <Avatar state={state} p={player} size={44} />
+            : <div style={{ width:44, height:44, borderRadius:"50%", background:c,
+                border:"1.5px solid var(--ink)", boxShadow:"inset 0 0 0 4px rgba(251,243,228,0.5)" }} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+/* the betting board: one cell per live pick, bets sit on it as chip stacks */
+function TVBetsBoard({ state, events, ev, big }) {
+  const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
+    .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
+  const cells = new Map();
+  open.forEach(x => {
+    const w = x.w;
+    const k = w.kind === "outright" ? "o:" + (w.pickTeam ? (w.pickPlayers || []).join("+") : w.pick)
+      : w.kind === "match" ? `m:${w.match?.join("-")}:${w.teamIdx}` : `s:${w.final ? "F" : w.group}:${w.pickKey}`;
+    if (!cells.has(k)) {
+      const l = wagerPickLabel(state, w, events);
+      cells.set(k, { name: l.pick, bets: [] });
+    }
+    cells.get(k).bets.push({ player: w.player, stake: w.stake });
+  });
+  const list = [...cells.values()];
+  if (!list.length) return (
+    <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"#C9B896",
+      textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
+  );
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:14, justifyContent: big ? "center" : "flex-start",
+      alignItems:"flex-end" }}>
+      {list.map((cell, i) => (
+        <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)", borderRadius:12,
+          padding:"10px 14px 12px", minWidth:150 }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
+            textTransform:"uppercase", color:"var(--ink)", marginBottom:10, whiteSpace:"nowrap",
+            overflow:"hidden", textOverflow:"ellipsis", maxWidth:230 }}>{cell.name}</div>
+          <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" }}>
+            {cell.bets.map((b, j) => <TVChipStack key={j} state={state} player={b.player} stake={b.stake} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+/* compact standings rail for live scenes */
+function TVMiniBoard({ state, standings, allTied }) {
+  return (
+    <div style={{ width:320, flexShrink:0, background:CARD_BG, border:"1px solid var(--line)",
+      borderRadius:14, overflow:"hidden", alignSelf:"flex-start" }}>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.06em",
+        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)",
+        padding:"6px 14px", borderBottom:"1px solid var(--line)" }}>Standings</div>
+      {standings.map((r, i) => (
+        <div key={r.player} style={{ display:"flex", alignItems:"center", gap:10,
+          padding:"clamp(3px,0.55vh,7px) 14px", borderTop: i > 0 ? "1px solid var(--line)" : "none",
+          background: i === 0 && !allTied ? "var(--sun)" : "transparent" }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:20, textAlign:"center",
+            color: i === 0 && !allTied ? "var(--ink)" : "var(--muted)" }}>{allTied ? "·" : r.rank}</span>
+          <Avatar state={state} p={r.player} size={24} />
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)", flex:1,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--ink)" }}>{r.pts}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, onExit }) {
   const liveBracketEv = useMemo(() => {
     const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
@@ -2472,18 +2578,17 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     } catch { return null; }
   }, []);
 
+  const liveEv = onDeckEv || liveBracketEv || liveStageEv;
   const scenes = useMemo(() => {
     const s = ["board"];
     if (champion) return s;
     if (joinNeeded && qrUrl) s.push("join");
     if (scen && scen.alive.length) s.push("finale");
-    if (liveBracketEv) s.push("bracket");
-    if (liveStageEv) s.push("stages");
-    if (!liveBracketEv && !liveStageEv && nextEv) s.push("next");
+    if (nextEv) s.push("next");
     if (latest) s.push("latest");
     if (openBook.length) s.push("book");
     return s;
-  }, [liveBracketEv, liveStageEv, champion, joinNeeded, qrUrl, scen, nextEv, latest, openBook.length]);
+  }, [champion, joinNeeded, qrUrl, scen, nextEv, latest, openBook.length]);
   const [sceneIdx, setSceneIdx] = useState(0);
   useEffect(() => { setSceneIdx(0); }, [scenes.length]);
   useEffect(() => {
@@ -2552,25 +2657,26 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <ChampionCard state={state} champion={champion} coChamps={coChamps} big />
           </div>
         </div>
-      ) : scene === "bracket" && liveBracketEv ? (
-        <div key="scene-br" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 }}>Live bracket</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)", textTransform:"uppercase",
-            color:"#FBF3E4", marginBottom:24 }}>{liveBracketEv.name}</div>
-          <div style={{ width:"100%", maxWidth:1240 }}>
-            <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg" />
+      ) : liveEv ? (
+        <div key="scene-live" style={{ flex:1, display:"flex", gap:26, padding:"6px 44px 16px",
+          minHeight:0, animation:"si-fade .6s ease-out" }}>
+          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", minHeight:0, overflow:"hidden" }}>
+            <div style={{ ...sceneLabel, marginBottom:2 }}>
+              {onDeckEv ? "Betting open" : liveBracketEv ? "Live bracket"
+                : state.stages[liveStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
+            <div style={{ ...sceneTitle, marginBottom:14, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
+            <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
+              {liveBracketEv ? <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg" />
+                : liveStageEv ? <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
+                : <TVBetsBoard state={state} events={events} ev={onDeckEv} big />}
+            </div>
+            {onDeckEv && (liveBracketEv || liveStageEv) && (
+              <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
+                <TVBetsBoard state={state} events={events} ev={onDeckEv} />
+              </div>
+            )}
           </div>
-        </div>
-      ) : scene === "stages" && liveStageEv ? (
-        <div key="scene-st" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={sceneLabel}>
-            {state.stages[liveStageEv.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
-          <div style={sceneTitle}>{liveStageEv.name}</div>
-          <div style={{ width:"100%", maxWidth:1300 }}>
-            <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
-          </div>
+          <TVMiniBoard state={state} standings={standings} allTied={allTied} />
         </div>
       ) : scene === "join" ? (
         <div key="scene-join" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
@@ -2717,7 +2823,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       )}
 
       {/* scene dots + ticker */}
-      {scenes.length > 1 && !champion && (
+      {scenes.length > 1 && !champion && !liveEv && (
         <div style={{ display:"flex", justifyContent:"center", gap:8, paddingBottom:8 }}>
           {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:2,
             background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}

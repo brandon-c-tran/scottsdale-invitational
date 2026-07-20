@@ -143,7 +143,7 @@ function Btn({ children, onClick, kind="primary", disabled, style }) {
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:700,
-      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:9, minHeight:44,
+      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:11, minHeight:44,
       cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
       transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
   );
@@ -153,7 +153,7 @@ function Sheet({ title, onClose, children, wide }) {
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(42,33,25,0.45)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
       <div onClick={e=>e.stopPropagation()} className="si-sheet" style={{ width:"100%", maxWidth: wide ? 780 : 540,
-        overflowY:"auto", background:"var(--paper)", borderRadius:"14px 14px 0 0",
+        overflowY:"auto", background:"var(--paper)", borderRadius:"18px 18px 0 0",
         border:"1.5px solid var(--ink)", borderBottom:"none",
         padding:"18px 18px calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14,
@@ -240,7 +240,10 @@ export default function App() {
   const [guestLens, setGuestLens] = useState(false);
   const gmView = gm && !guestLens;
   const [sim, setSim] = useState(null);
-  const [tv, setTv] = useState(false);
+  const [qaMin, setQaMin] = useState(() => localGet("si-qa-min") === "yes");
+  const [qaTop, setQaTop] = useState(() => localGet("si-qa-pos") === "top");
+  const [tv, setTv] = useState(() => typeof window !== "undefined" &&
+    (window.location.pathname === "/tv" || new URLSearchParams(window.location.search).has("tv")));
   const [modal, setModal] = useState(null);
   const [burst, setBurst] = useState(0);
   const [toast, setToast] = useState(null);
@@ -572,27 +575,41 @@ export default function App() {
   const switchPlayer = p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); setModal(null); notify(`Now viewing as ${p}`); };
 
 
-  if (onboardStep < 99) {
-    return (
-      <Shell>
-        <Onboarding step={onboardStep} me={me} state={state}
-          pick={p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); }}
-          saveProfile={prof => saveProfile(me, prof)}
-          submitSeeds={saveSeeds}
-          next={() => setOnboardStep(s => s + 1)}
-          done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
-            saveMine("si-onboard-epoch", String(state.onboardEpoch || 0)); setBurst(b=>b+1); }} />
-        <Confetti burst={burst} />
-      </Shell>
-    );
-  }
+  const gmNext = (() => {
+    if (!gmView || state.frozen || !ready) return null;
+    const ev = events.find(e => !state.results[e.id] && !state.shelved[e.id]);
+    if (!ev) return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
+    if (ev.teamCfg && !state.draws[ev.id])
+      return { label:`Draw ${ev.name}`, run:() => runDraw(ev, "random", ROSTER) };
+    if (state.onDeck !== ev.id)
+      return { label:`Open betting · ${ev.name}`, run:() => setOnDeck(ev.id) };
+    const br = state.brackets[ev.id];
+    if (br && bracketChampion(br) === null)
+      return { label:`Advance the ${ev.name} bracket`, run:() => setModal({type:"bracket", ev}) };
+    return { label:`Post result · ${ev.name}`, run:() => setModal({type:"result", ev}) };
+  })();
 
   if (tv) {
     return (
       <Shell tv>
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} onExit={() => setTv(false)} />
-        {reveal && <Reveal state={state} reveal={reveal} big onClose={closeReveal} />}
+        {reveal && <Reveal state={state} reveal={reveal} big auto onClose={closeReveal} />}
+        <Confetti burst={burst} />
+      </Shell>
+    );
+  }
+
+  if (onboardStep < 99) {
+    return (
+      <Shell>
+        <Onboarding step={onboardStep} me={me} state={state} onTv={() => setTv(true)}
+          pick={p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); }}
+          saveProfile={prof => saveProfile(me, prof)}
+          submitSeeds={saveSeeds}
+          next={() => setOnboardStep(s => s + 1)}
+          done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
+            saveMine("si-onboard-epoch", String(state.onboardEpoch || 0)); setBurst(b=>b+1); }} />
         <Confetti burst={burst} />
       </Shell>
     );
@@ -669,7 +686,21 @@ export default function App() {
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} />}
       </div>
 
+      {gmNext && !modal && (
+        <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
+          bottom:`calc(${gm && qa && !qaMin && !qaTop ? 224 : 74}px + env(safe-area-inset-bottom))`,
+          display:"flex", alignItems:"center", gap:8, background:"var(--ink)", color:BONE,
+          border:"none", borderRadius:99, padding:"11px 18px", cursor:"pointer",
+          boxShadow:"0 6px 20px rgba(42,33,25,0.35)", maxWidth:"78vw" }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15.5, letterSpacing:"0.04em",
+            textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {gmNext.label}</span>
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
+        </button>
+      )}
       {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onRerun={rerunOnboard} onExit={toggleQa}
+        minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
+        top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}
         sim={sim} onStop={stopSim} guestLens={guestLens}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         onSimBets={runSim(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
@@ -683,11 +714,11 @@ export default function App() {
           {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
             <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none",
               cursor:"pointer", padding:"7px 0" }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.05em",
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
                 textTransform:"uppercase",
-                color: tab===id ? "var(--accent2)" : "var(--muted)",
-                borderBottom: tab===id ? "3px solid var(--accent)" : "3px solid transparent",
-                display:"inline-block", paddingBottom:4 }}>{lb}</div>
+                color: tab===id ? BONE : "var(--muted)",
+                background: tab===id ? "var(--ink)" : "transparent",
+                borderRadius:99, padding:"8px 14px", display:"inline-block" }}>{lb}</div>
             </button>
           ))}
         </div>
@@ -791,8 +822,8 @@ function Shell({ children, tv }) {
           --bg:#F2E9D8; --paper:#FBF5E9; --paper2:#EADFC8; --line:#DACDB4;
           --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49;
           /* phase + signal palette: pool (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale) */
-          --accent:#C05B33; --accent2:#9C4526; --sun:#E9B441; --pool:#4F93A3;
-          --olive:#77804C; --clay:#BC4B3C; --live2:#B23B2E;
+          --accent:#C25832; --accent2:#9C4526; --sun:#F0B02F; --pool:#4694A8;
+          --olive:#77804C; --clay:#C0473A; --live2:#B23B2E;
           --night:#251C14; --night2:#3A2C1E;
           /* legacy aliases still used by not-yet-restyled surfaces */
           --panel:#FBF5E9; --panel2:#EDE2CB; --cream:#2A2119; --dust:#8A7A63;
@@ -821,7 +852,7 @@ function Shell({ children, tv }) {
       <div className="si-vh" style={{ width:"100%", maxWidth: tv ? "100%" : 540, display:"flex",
         flexDirection:"column", position:"relative",
         background:"radial-gradient(120% 50% at 50% -6%, rgba(233,180,65,0.14) 0%, transparent 60%), var(--bg)" }}>
-        <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"multiply" }} />
+        {!tv && <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"multiply" }} />}
         {children}
       </div>
     </div>
@@ -846,7 +877,7 @@ function InstallHint() {
 }
 
 /* ─────────── onboarding ─────────── */
-function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, done }) {
+function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, done, onTv }) {
   const [ratings, setRatings] = useState({});
   const [display, setDisplay] = useState("");
   const [photo, setPhoto] = useState(null);
@@ -886,6 +917,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => pick(p)} />)}
       </div>
       <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:15, padding:"15px" }}>Check in</Btn>
+      {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
+        fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--accent2)", alignSelf:"center" }}>
+        On the big screen? Open TV mode</button>}
     </div>
   );
   if (step === 1) return (
@@ -1100,8 +1134,8 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
           <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)" }}>The first result sets the board</div>
         </div>
       )}
-      <div style={{ background:"var(--paper)", border:"1.5px solid var(--ink)", borderRadius:10,
-        overflow:"hidden", animation:"si-in .25s both" }}>
+      <div style={{ background:"var(--paper)", border:"1px solid rgba(42,33,25,0.3)", borderRadius:14,
+        overflow:"hidden", boxShadow:"0 4px 16px rgba(42,33,25,0.08)", animation:"si-in .25s both" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 12px",
           borderBottom:"1.5px solid var(--ink)", background:"var(--paper2)" }}>
           <span style={{ ...label, fontSize:10.5, width:26, textAlign:"center" }}>Pos</span>
@@ -1231,7 +1265,7 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
         background: deck ? "rgba(188,75,60,0.09)" : "var(--paper)",
         border: deck ? "1.5px solid var(--clay)" : "1px solid var(--line)",
         boxShadow:`inset 4px 0 0 ${ph.bg}`,
-        borderRadius:9, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
+        borderRadius:12, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontFamily:DISPLAY, fontWeight:600, fontSize:18.5, letterSpacing:"0.01em",
@@ -1380,6 +1414,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmScrap, setConfirmScrap] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [more, setMore] = useState(false);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
   const [eValue, setEValue] = useState(1);
@@ -1620,6 +1655,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                 <Btn kind="ghost" onClick={() => setEditOpen(false)}>Cancel</Btn>
               </div>
             </div>
+          ) : !more ? (
+            <button onClick={() => setMore(true)} style={{ background:"none", border:"none", cursor:"pointer",
+              fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"10px 0 0",
+              display:"block", marginLeft:"auto" }}>More options ▾</button>
           ) : (
             <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
               <Btn kind="ghost" onClick={openEdit} style={{ flex:1 }}>Edit details</Btn>
@@ -2011,8 +2050,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
       )}
 
       {ev && (
-        <div style={{ borderRadius:10, border:"1.5px solid var(--ink)", overflow:"hidden",
-          background:"var(--paper)", marginBottom:16 }}>
+        <div style={{ borderRadius:14, border:"1px solid rgba(42,33,25,0.3)", overflow:"hidden",
+          background:"var(--paper)", boxShadow:"0 4px 16px rgba(42,33,25,0.08)", marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 13px",
             background:"var(--clay)", color:BONE }}>
             <span style={{ width:8, height:8, borderRadius:99, background:BONE, animation:"si-pulse 1.6s infinite" }} />
@@ -2187,13 +2226,24 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
 function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens, onLens,
-  onSimBets, onPlayNext, onFastForward }) {
+  onSimBets, onPlayNext, onFastForward, minimized, onMin, top, onPos }) {
   const [confirm, setConfirm] = useState(false);
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
     textTransform:"uppercase", padding:"6px 10px", borderRadius:9, cursor:"pointer", flexShrink:0 };
+  if (minimized) return (
+    <button onClick={onMin} style={{ position:"fixed", left:14, zIndex:55,
+      bottom:"calc(74px + env(safe-area-inset-bottom))", display:"flex", alignItems:"center", gap:7,
+      background:"var(--sun)", color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:99,
+      padding:"9px 14px", cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:14,
+      letterSpacing:"0.06em", boxShadow:"0 6px 20px rgba(42,33,25,0.3)" }}>
+      {sim && <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)",
+        animation:"si-pulse 1s infinite" }} />}QA</button>
+  );
   return (
-    <div style={{ position:"fixed", bottom:"calc(66px + env(safe-area-inset-bottom))", left:0, right:0,
-      display:"flex", justifyContent:"center", zIndex:55, pointerEvents:"none" }}>
+    <div style={{ position:"fixed", zIndex:55, left:0, right:0, display:"flex", justifyContent:"center",
+      pointerEvents:"none",
+      ...(top ? { top:"calc(64px + env(safe-area-inset-top))" }
+              : { bottom:"calc(66px + env(safe-area-inset-bottom))" }) }}>
       <div style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
         background:"rgba(42,33,25,0.97)", border:"1px solid rgba(192,91,51,0.4)", borderRadius:14,
         padding:"8px 10px", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
@@ -2217,8 +2267,12 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
                 background:"none", border:"1px solid rgba(188,75,60,0.4)", color:"var(--clay)" }}>Reset game</button>
             </>
           )}
+          <button onClick={onPos} title="Dock top or bottom" style={{ background:"none", border:"1px solid rgba(251,243,228,0.3)",
+            color:"#FBF3E4", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
+          <button onClick={onMin} title="Minimize" style={{ background:"none", border:"1px solid rgba(251,243,228,0.3)",
+            color:"#FBF3E4", width:26, height:26, borderRadius:8, fontSize:13, cursor:"pointer", flexShrink:0 }}>–</button>
           <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
-            color:"var(--dust)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
+            color:"var(--ink)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
         </div>
         <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:7 }}>
           {ROSTER.map(p => (
@@ -2318,7 +2372,7 @@ function ProfileSheet({ state, me, onClose, save }) {
 }
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
-function Reveal({ state, reveal, big, onClose, onBets }) {
+function Reveal({ state, reveal, big, auto, onClose, onBets }) {
   const items = reveal.versus ? 2 : reveal.groups.length;
   const [shown, setShown] = useState(0);
   useEffect(() => {
@@ -2327,6 +2381,11 @@ function Reveal({ state, reveal, big, onClose, onBets }) {
     return () => clearTimeout(t);
   }, [shown, items]);
   const doneAll = shown >= items;
+  useEffect(() => {
+    if (!auto || !doneAll) return;
+    const t = setTimeout(onClose, 7000);
+    return () => clearTimeout(t);
+  }, [auto, doneAll, onClose]);
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
@@ -2364,13 +2423,13 @@ function Reveal({ state, reveal, big, onClose, onBets }) {
           ))}
         </div>
       )}
-      {doneAll && (
+      {doneAll && !auto && (
         <div style={{ display:"flex", gap:10, marginTop: big ? 30 : 22, animation:"si-in .3s both" }}>
           {onBets && <Btn onClick={onBets} style={{ fontSize:15, padding:"13px 28px" }}>To the bets</Btn>}
           <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:15, padding:"13px 28px" }}>Close</Btn>
         </div>
       )}
-      {!doneAll && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
+      {!doneAll && !auto && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
         border:"none", color:"#B7A386", fontFamily:SANS, fontSize:13, cursor:"pointer" }}>skip</button>}
     </div>
   );
@@ -2622,9 +2681,6 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <div style={{ display:"flex", alignItems:"center", gap:20, padding:"clamp(10px,1.6vh,20px) 26px",
               marginBottom:12, borderRadius:16, position:"relative", overflow:"hidden",
               background:GOLD_GRAD, border:"1px solid var(--accent2)", boxShadow:"0 8px 34px rgba(192,91,51,0.3)" }}>
-              <div style={{ position:"absolute", top:0, bottom:0, width:110,
-                background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)",
-                animation:"si-shine 3.4s 1s infinite" }} />
               <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(24px,3.4vh,42px)", color:"var(--ink)", width:46, textAlign:"center" }}>1</div>
               <Avatar state={state} p={leader.player} size={56} />
               <div style={{ flex:1 }}>
@@ -2668,7 +2724,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
         </div>
       )}
       <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"11px 0" }}>
-        <div style={{ display:"inline-flex", whiteSpace:"nowrap", animation:`si-tick ${Math.max(30, tickerStr.length/3)}s linear infinite` }}>
+        <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
+          animation:`si-tick ${Math.max(30, tickerStr.length/3)}s linear infinite` }}>
           {[0,1].map(k => (
             <span key={k} style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
               letterSpacing:"0.06em", color:"var(--accent2)", paddingRight:60 }}>{tickerStr}   ✦   </span>

@@ -212,6 +212,7 @@ export default function App() {
 
   /* your own wagers settling deserve a moment: watch pending picks flip to won or lost */
   const prevWagerRes = useRef(null);
+  const settleToastV = useRef(0);
   useEffect(() => {
     if (!ready) return;
     const map = {};
@@ -226,9 +227,10 @@ export default function App() {
     if (any && onboardStep >= 99) {
       notify(delta > 0 ? `Cashed +${delta}` : delta < 0 ? `Wager lost ${delta}` : "Wagers settled even",
         null, delta > 0 ? "gold" : undefined);
+      settleToastV.current = version;
     }
     prevWagerRes.current = map;
-  }, [state, events, me, ready, onboardStep, notify]);
+  }, [state, events, me, ready, onboardStep, notify, version]);
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it finished */
   useEffect(() => {
@@ -236,13 +238,31 @@ export default function App() {
     if ((state.onboardEpoch || 0) > Number(localGet("si-onboard-epoch") || 0)) setOnboardStep(0);
   }, [ready, state.onboardEpoch, onboardStep]);
 
-  /* celebrate on broadcasts so every phone pops, not just the GM's */
+  /* celebrate on broadcasts so every phone pops, not just the GM's;
+     tell people plainly when their own points moved and why */
   useEffect(() => {
     if (version > prevVersion.current && prevVersion.current > 0) {
       if (lastAction === "saveResult" || (lastAction === "setFrozen" && state.frozen)) setBurst(b => b + 1);
+      if (me && settleToastV.current !== version) {
+        if (lastAction === "saveResult") {
+          let latest = null;
+          Object.entries(state.results || {}).forEach(([eid, res]) => {
+            if (!latest || res.ts > latest.res.ts) latest = { eid, res };
+          });
+          const ev = latest && events.find(e => e.id === latest.eid);
+          const idx = latest ? latest.res.slots.findIndex(s => (s || []).includes(me)) : -1;
+          const award = ev && idx >= 0 ? AWARDS[ev.value][idx] : 0;
+          if (award > 0) notify(`You took ${["1st","2nd","3rd"][idx]} · +${award}`, null, "gold");
+        }
+        if (lastAction === "adjust") {
+          const a = state.adjustments?.[0];
+          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? " · " + a.reason : ""}`,
+            null, a.delta > 0 ? "gold" : undefined);
+        }
+      }
     }
     prevVersion.current = version;
-  }, [version, lastAction, state.frozen]);
+  }, [version, lastAction, state, me, events, notify]);
 
   useEffect(() => {
     if (allTied) return;
@@ -266,7 +286,7 @@ export default function App() {
         const groups = draw.teams.length === 2
           ? null
           : draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
-        setReveal({ id:draw.id, title:"The draw", subtitle:ev.name, groups, versus: draw.teams.length === 2 ? draw.teams : null });
+        setReveal({ id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups, versus: draw.teams.length === 2 ? draw.teams : null });
         return;
       }
     }
@@ -281,7 +301,7 @@ export default function App() {
             return { avatars: v.players, text: v.name };
           }),
         }));
-        setReveal({ id:st.id, title: st.kind === "heats" ? "The heats" : "The pools", subtitle:ev.name, groups, versus:null });
+        setReveal({ id:st.id, evId:ev.id, title: st.kind === "heats" ? "The heats" : "The pools", subtitle:ev.name, groups, versus:null });
         return;
       }
     }
@@ -421,6 +441,7 @@ export default function App() {
         {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
           champion={champion} coChamps={coChamps} gm={gm} events={events}
           myAtRisk={me ? atRisk(state, me, events) : 0}
+          onOpen={ev => setModal({type:"event", ev})}
           onAdjust={p => setModal({type:"adjust", player:p})}
           onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
           finaleDone={!!state.results["finale"]} />}
@@ -441,7 +462,7 @@ export default function App() {
         <div style={{ width:"100%", maxWidth:540, display:"flex", background:"rgba(19,14,9,0.88)",
           backdropFilter:"blur(16px)", borderTop:"1px solid rgba(59,48,33,0.6)",
           padding:"8px 10px calc(12px + env(safe-area-inset-bottom))" }}>
-          {[["board","Board"],["sched","Slate"],["bets","Wagers"],["guide","Rules"]].map(([id,lb]) => (
+          {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
             <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none",
               cursor:"pointer", padding:"7px 0" }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.12em",
@@ -467,7 +488,7 @@ export default function App() {
       )}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
-          <p style={pStyle}>Draws, heats, pools, and results run from the Slate. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
+          <p style={pStyle}>Draws, heats, pools, and results run from Events. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             <Btn kind="dark" onClick={() => { setModal({type:"switch"}); }}>Switch player</Btn>
             <Btn kind="dark" onClick={() => { setTv(true); setModal(null); }}>📺 TV mode</Btn>
@@ -531,7 +552,9 @@ export default function App() {
             textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
         </div>
       )}
-      {reveal && <Reveal state={state} reveal={reveal} onClose={closeReveal} />}
+      {reveal && <Reveal state={state} reveal={reveal} onClose={closeReveal}
+        onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
+          ? () => { closeReveal(); setTab("bets"); } : null} />}
       <Confetti burst={burst} />
       {!loaded && <div style={{ position:"fixed", inset:0, background:"var(--ink)", zIndex:500,
         display:"flex", alignItems:"center", justifyContent:"center" }}><Wordmark size={30} /></div>}
@@ -603,9 +626,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   useEffect(() => { if (me) setDisplay(state.profiles?.[me]?.display || me); }, [me]); // eslint-disable-line
   const cards = {
-    3: { k:"🏆", t:"One board", b:"13 players, one leaderboard, all weekend. Every event and every wager counts. Everyone starts with 5. Teams reshuffle every event.", meter:true },
-    4: { k:"🎟️", t:"Wagers", b:"When an event goes on deck, betting opens. Back anyone, including yourself, to win at 2 to 1. Matchups, heats, and pools pay even. Stakes of 1 to 3, max 3 at risk. Everything settles off the official result." },
-    5: { k:"👑", t:"Saturday night", b:"The Finale pays 6 / 3 / 1, then the board freezes and the champion is crowned. Check the app in ten seconds, then get back out there." },
+    3: { k:"🏆", t:"One board", b:"13 players, one board, all weekend. Every event and every bet moves it. Everyone starts with 5.", meter:true },
+    4: { k:"🎟️", t:"Bets", b:"When an event opens, back anyone to win it, even yourself. Winner pays 2 to 1. Stakes of 1 to 3. It settles itself." },
+    5: { k:"👑", t:"Saturday night", b:"The Finale pays big, then the champion is crowned. Glance for ten seconds, get back out there." },
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -766,7 +789,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
 }
 
 /* ─────────── the board ─────────── */
-function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onAdjust, onFreeze, onUnfreeze, finaleDone }) {
+function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onOpen, onAdjust, onFreeze, onUnfreeze, finaleDone }) {
   let latest = null;
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = events.find(e => e.id === eid);
@@ -786,6 +809,24 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
           <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={3} />
         </div>
       )}
+      {!champion && (() => {
+        const open = e => !state.results[e.id] && !state.shelved[e.id] && e.id !== state.onDeck;
+        const live = events.find(e => open(e) && (state.brackets[e.id] || state.stages[e.id]));
+        const next = live || events.find(open);
+        if (!next) return null;
+        return (
+          <button onClick={() => onOpen(next)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+            padding:"9px 13px", marginBottom:10, borderRadius:13, cursor:"pointer", textAlign:"left",
+            background: live ? "linear-gradient(90deg, rgba(225,87,42,0.1), rgba(225,87,42,0.02)), var(--panel)" : "var(--panel)",
+            border: live ? "1px solid rgba(225,87,42,0.4)" : "1px solid var(--line)" }}>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
+              color: live ? "#FF8A5C" : "#EFC978", textTransform:"uppercase" }}>{live ? "Live" : "Next"}</span>
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1, minWidth:0,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
+            <span style={{ fontFamily:SANS, color:"var(--dust)", fontSize:15 }}>›</span>
+          </button>
+        );
+      })()}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
           <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
@@ -1289,7 +1330,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           ) : (
             <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
               <Btn kind="ghost" onClick={openEdit} style={{ flex:1 }}>Edit details</Btn>
-              {!res && <Btn kind="ghost" onClick={() => onShelve(!shelvedNow)} style={{ flex:1 }}>{shelvedNow ? "Restore to slate" : "Shelve"}</Btn>}
+              {!res && <Btn kind="ghost" onClick={() => onShelve(!shelvedNow)} style={{ flex:1 }}>{shelvedNow ? "Restore" : "Shelve"}</Btn>}
               {ev.custom && !confirmRemove && <Btn kind="danger" onClick={() => setConfirmRemove(true)}>Remove</Btn>}
               {ev.custom && confirmRemove && <Btn kind="danger" onClick={onRemove}>Confirm remove</Btn>}
             </div>
@@ -1667,7 +1708,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
 
       {!ev && !state.frozen && (
         <div style={{ textAlign:"center", padding:"22px 20px", color:"#6E6350", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
-          Betting is closed.<br/>It opens when an event goes on deck.
+          Betting is closed.<br/>When Brandon opens the next event, it shows up here.
         </div>
       )}
       {state.frozen && (
@@ -1940,7 +1981,7 @@ function ProfileSheet({ state, me, onClose, save }) {
 }
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
-function Reveal({ state, reveal, big, onClose }) {
+function Reveal({ state, reveal, big, onClose, onBets }) {
   const items = reveal.versus ? 2 : reveal.groups.length;
   const [shown, setShown] = useState(0);
   useEffect(() => {
@@ -1987,8 +2028,10 @@ function Reveal({ state, reveal, big, onClose }) {
         </div>
       )}
       {doneAll && (
-        <Btn onClick={onClose} style={{ marginTop: big ? 30 : 22, fontSize:15, padding:"13px 32px", animation:"si-in .3s both" }}>
-          Close</Btn>
+        <div style={{ display:"flex", gap:10, marginTop: big ? 30 : 22, animation:"si-in .3s both" }}>
+          {onBets && <Btn onClick={onBets} style={{ fontSize:15, padding:"13px 28px" }}>To the bets</Btn>}
+          <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:15, padding:"13px 28px" }}>Close</Btn>
+        </div>
       )}
       {!doneAll && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
         border:"none", color:"#6E6350", fontFamily:SANS, fontSize:13, cursor:"pointer" }}>skip</button>}

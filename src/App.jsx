@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
   allEventsOf, disp, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
+  resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
@@ -322,7 +323,19 @@ export default function App() {
     prevVersion.current = version;
   }, [version, lastAction, state, me, events, notify]);
 
+  /* rank deltas plus lead-change detection: when the top of the board flips,
+     every phone announces it */
+  const prevLeaders = useRef(null);
   useEffect(() => {
+    if (ready) {
+      const key = allTied ? "__tied__" : standings.filter(r => r.rank === 1).map(r => r.player).join("+");
+      if (!allTied && !state.frozen && prevLeaders.current && prevLeaders.current !== key) {
+        const names = standings.filter(r => r.rank === 1).map(p => p.player === me ? "You" : disp(state, p.player));
+        notify(names.length > 1 ? `${names.join(" and ")} share the lead`
+          : `${names[0]} ${names[0] === "You" ? "take" : "takes"} the lead`, null, "gold");
+      }
+      prevLeaders.current = key;
+    }
     if (allTied) return;
     const d = {};
     standings.forEach(r => {
@@ -332,7 +345,7 @@ export default function App() {
     if (Object.keys(d).length) setDeltas(d);
     const map = {}; standings.forEach(r => map[r.player] = r.rank);
     prevRanks.current = map;
-  }, [standings, allTied]);
+  }, [standings, allTied, ready, state, me, notify]);
 
   /* reveal detection: team draws and stage draws reveal on every phone */
   useEffect(() => {
@@ -764,14 +777,14 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
             <div key={s.id} style={{ marginBottom:14 }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, letterSpacing:"0.06em",
                 color:"var(--cream)", marginBottom:6 }}>{s.label}</div>
-              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
                 {RATINGS.map(r => (
                   <button key={r.label} onClick={() => setRatings(x => ({...x, [s.id]: r.v}))}
-                    style={{ fontFamily:SANS, fontWeight:600, fontSize:12, padding:"7px 10px", borderRadius:9,
-                      cursor:"pointer",
-                      background: ratings[s.id] === r.v ? GOLD_GRAD : "var(--panel2)",
-                      color: ratings[s.id] === r.v ? "var(--ink)" : "var(--cream)",
-                      border: ratings[s.id] === r.v ? "1px solid transparent" : "1px solid var(--line)" }}>
+                    style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"9px 2px", borderRadius:7,
+                      cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.02em",
+                      background: ratings[s.id] === r.v ? "var(--sun)" : "var(--paper)",
+                      color:"var(--ink)",
+                      border: ratings[s.id] === r.v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
                     {r.label}
                   </button>
                 ))}
@@ -864,12 +877,51 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
 }
 
 /* ─────────── the board ─────────── */
+const NEED_CHIP = [
+  { bg:"var(--olive)", fg:BONE, text:"Any finish" },
+  { bg:"var(--pool)",  fg:BONE, text:"3rd or better" },
+  { bg:"var(--sun)",   fg:"var(--ink)", text:"2nd or better" },
+  { bg:"var(--clay)",  fg:BONE, text:"Needs the win" },
+];
+function ScenarioCard({ state, scen, me }) {
+  return (
+    <div style={{ marginBottom:12, borderRadius:12, overflow:"hidden", border:"1.5px solid var(--ink)",
+      background:"radial-gradient(120% 90% at 50% 0%, rgba(233,180,65,0.12) 0%, transparent 55%), var(--night)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px",
+        borderBottom:"1px solid rgba(251,243,228,0.18)" }}>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, letterSpacing:"0.06em",
+          textTransform:"uppercase", color:"var(--sun)", flex:1 }}>The Finale picture</span>
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, color:"#C9B896" }}>
+          {scen.alive.length} of {scen.total} can still win it</span>
+      </div>
+      <div style={{ padding:"4px 0 6px" }}>
+        {scen.alive.map((a, i) => (
+          <div key={a.player} style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 14px",
+            borderTop: i > 0 ? "1px solid rgba(251,243,228,0.08)" : "none" }}>
+            <Avatar state={state} p={a.player} size={26} />
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:BONE, flex:1,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> · you</span>}</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"#C9B896", marginRight:2 }}>{a.pts}</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
+              textTransform:"uppercase", padding:"3px 8px", borderRadius:4,
+              background:NEED_CHIP[a.needIdx].bg, color:NEED_CHIP[a.needIdx].fg }}>{NEED_CHIP[a.needIdx].text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onOpen, onAdjust, onFreeze, onUnfreeze, finaleDone }) {
   let latest = null;
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = events.find(e => e.id === eid);
     if (ev && res?.slots?.[0]?.length && (!latest || res.ts > latest.res.ts)) latest = { ev, res };
   });
+  const upcoming = events.find(e => !state.results[e.id] && !state.shelved[e.id]);
+  const scen = !champion && (state.onDeck && events.find(e => e.id === state.onDeck)?.finale || upcoming?.finale)
+    ? computeScenarios(state) : null;
   return (
     <div style={{ padding:"0 16px" }}>
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
@@ -902,6 +954,7 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
           </button>
         );
       })()}
+      {scen && <ScenarioCard state={state} scen={scen} me={me} />}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
@@ -1820,14 +1873,16 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
       )}
 
       {ev && (
-        <div style={{ borderRadius:16, border:"1px solid rgba(192,91,51,0.4)",
-          background:"linear-gradient(180deg, rgba(192,91,51,0.06), transparent), var(--panel)",
-          padding:"14px 14px 10px", marginBottom:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.6s infinite" }} />
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>{ev.name}</span>
-            <Tag tone="gold">Betting open</Tag>
+        <div style={{ borderRadius:10, border:"1.5px solid var(--ink)", overflow:"hidden",
+          background:"var(--paper)", marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 13px",
+            background:"var(--clay)", color:BONE }}>
+            <span style={{ width:8, height:8, borderRadius:99, background:BONE, animation:"si-pulse 1.6s infinite" }} />
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.02em",
+              textTransform:"uppercase", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ev.name}</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.06em" }}>BETTING OPEN</span>
           </div>
+          <div style={{ padding:"12px 13px 8px" }}>
 
           {outrights.length > 0 && (
             <>
@@ -1930,12 +1985,17 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
           )}
           {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             You are maxed out until a wager settles.</div>}
+          </div>
         </div>
       )}
 
-      {pending.length > 0 && <div style={{ ...label, margin:"4px 2px 8px" }}>Open</div>}
+      {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
+        textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:5,
+        padding:"3px 10px", margin:"4px 0 8px" }}>Open · {pending.length}</div>}
       {pending.map(x => <Row key={x.w.id} x={x} />)}
-      {settled.length > 0 && <div style={{ ...label, margin:"14px 2px 8px" }}>Settled</div>}
+      {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
+        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:5,
+        padding:"3px 10px", margin:"14px 0 8px", border:"1px solid var(--line)" }}>Settled</div>}
       {settled.map(x => <Row key={x.w.id} x={x} />)}
     </div>
   );
@@ -2168,20 +2228,54 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
     return c[0] || null;
   }, [events, state, onDeckEv]);
+  /* ambient broadcast data: the channel cycles through whatever is alive right now */
+  let latest = null;
+  Object.entries(state.results || {}).forEach(([eid, res]) => {
+    const ev = events.find(e => e.id === eid);
+    if (ev && res?.slots?.[0]?.length && (!latest || res.ts > latest.res.ts)) latest = { ev, res };
+  });
+  const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== onDeckEv?.id);
+  const openBook = (state.wagers || [])
+    .map(w => ({ w, r: resolveWager(state, w, events) }))
+    .filter(x => x.r.status === "pending").slice(0, 9);
+  const scen = useMemo(() => {
+    const finaleNext = onDeckEv?.finale ||
+      events.find(e => !state.results[e.id] && !state.shelved[e.id])?.finale;
+    return finaleNext ? computeScenarios(state) : null;
+  }, [state, events, onDeckEv]);
+  const joinNeeded = Object.keys(state.profiles || {}).length < ROSTER.length;
+  const qrUrl = useMemo(() => {
+    try {
+      const qr = qrcode(0, "M");
+      qr.addData(window.location.origin);
+      qr.make();
+      return qr.createDataURL(8, 0);
+    } catch { return null; }
+  }, []);
+
   const scenes = useMemo(() => {
     const s = ["board"];
-    if (!champion && liveBracketEv) s.push("bracket");
-    if (!champion && liveStageEv) s.push("stages");
+    if (champion) return s;
+    if (joinNeeded && qrUrl) s.push("join");
+    if (scen && scen.alive.length) s.push("finale");
+    if (liveBracketEv) s.push("bracket");
+    if (liveStageEv) s.push("stages");
+    if (!liveBracketEv && !liveStageEv && nextEv) s.push("next");
+    if (latest) s.push("latest");
+    if (openBook.length) s.push("book");
     return s;
-  }, [liveBracketEv, liveStageEv, champion]);
+  }, [liveBracketEv, liveStageEv, champion, joinNeeded, qrUrl, scen, nextEv, latest, openBook.length]);
   const [sceneIdx, setSceneIdx] = useState(0);
   useEffect(() => { setSceneIdx(0); }, [scenes.length]);
   useEffect(() => {
     if (scenes.length < 2) return;
-    const t = setInterval(() => setSceneIdx(i => (i + 1) % scenes.length), 14000);
+    const t = setInterval(() => setSceneIdx(i => (i + 1) % scenes.length), 12000);
     return () => clearInterval(t);
   }, [scenes.length]);
   const scene = scenes[sceneIdx] || "board";
+  const sceneLabel = { ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 };
+  const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
+    textTransform:"uppercase", color:BONE, marginBottom:24 };
 
   const results = Object.entries(state.results || {}).map(([eid, r]) => {
     const ev = events.find(e => e.id === eid);
@@ -2252,12 +2346,113 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       ) : scene === "stages" && liveStageEv ? (
         <div key="scene-st" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 }}>
+          <div style={sceneLabel}>
             {state.stages[liveStageEv.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)", textTransform:"uppercase",
-            color:"#FBF3E4", marginBottom:24 }}>{liveStageEv.name}</div>
+          <div style={sceneTitle}>{liveStageEv.name}</div>
           <div style={{ width:"100%", maxWidth:1300 }}>
             <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
+          </div>
+        </div>
+      ) : scene === "join" ? (
+        <div key="scene-join" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+          gap:"clamp(40px,6vw,110px)", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
+          <div>
+            <FDMark size={120} />
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(64px,8vw,130px)", lineHeight:0.9,
+              textTransform:"uppercase", color:"var(--sun)", margin:"26px 0 8px" }}>Field<br/>Day</div>
+            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.5vw,22px)",
+              letterSpacing:"0.14em", color:"#C9B896" }}>SCOTTSDALE · 2026</div>
+            <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.4vw,20px)", color:BONE, marginTop:22, lineHeight:1.5 }}>
+              Scan to check in.<br/>13 players. One board.
+            </div>
+          </div>
+          <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:16,
+            padding:"clamp(14px,1.6vw,24px)", textAlign:"center" }}>
+            <img src={qrUrl} alt="Scan to join" style={{ width:"clamp(220px,24vw,340px)", display:"block",
+              imageRendering:"pixelated" }} />
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
+              textTransform:"uppercase", color:"var(--ink)", marginTop:10 }}>Player check-in</div>
+          </div>
+        </div>
+      ) : scene === "finale" && scen ? (
+        <div key="scene-fin" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
+          <div style={sceneLabel}>The Finale picture</div>
+          <div style={sceneTitle}>{scen.alive.length} of {scen.total} can still win it</div>
+          <div style={{ display:"grid", gridTemplateColumns: scen.alive.length > 4 ? "1fr 1fr" : "1fr",
+            gap:"8px 40px", width:"100%", maxWidth:1100 }}>
+            {scen.alive.map(a => (
+              <div key={a.player} style={{ display:"flex", alignItems:"center", gap:16,
+                padding:"clamp(8px,1.3vh,14px) 20px", borderRadius:12, background:CARD_BG,
+                border:"1px solid var(--line)" }}>
+                <Avatar state={state} p={a.player} size={44} />
+                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)",
+                  color:"var(--ink)", flex:1 }}>{disp(state, a.player)}</span>
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(18px,2.4vh,28px)",
+                  color:"var(--muted2)" }}>{a.pts}</span>
+                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1.4vh,15px)",
+                  letterSpacing:"0.05em", textTransform:"uppercase", padding:"4px 12px", borderRadius:5,
+                  background:NEED_CHIP[a.needIdx].bg, color:NEED_CHIP[a.needIdx].fg }}>
+                  {NEED_CHIP[a.needIdx].text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : scene === "next" && nextEv ? (
+        <div key="scene-next" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
+          <div style={sceneLabel}>Next up</div>
+          <div style={{ background:phaseOf(nextEv).bg, color:phaseOf(nextEv).fg, border:"2px solid var(--ink)",
+            borderRadius:18, padding:"clamp(26px,4vh,50px) clamp(40px,5vw,90px)", textAlign:"center", maxWidth:1000 }}>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,100px)", lineHeight:0.95,
+              textTransform:"uppercase" }}>{nextEv.name}</div>
+            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.6vw,22px)", marginTop:14,
+              letterSpacing:"0.06em" }}>WORTH {nextEv.value} PT{nextEv.value > 1 ? "S" : ""}</div>
+          </div>
+          {nextEv.desc && <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.5vw,20px)", color:"#C9B896",
+            marginTop:22, maxWidth:760, textAlign:"center", lineHeight:1.5 }}>{nextEv.desc}</div>}
+        </div>
+      ) : scene === "latest" && latest ? (
+        <div key="scene-latest" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
+          <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
+            textTransform:"uppercase", background:"var(--olive)", color:BONE,
+            fontSize:"clamp(14px,1.5vw,20px)", padding:"4px 18px", borderRadius:5, marginBottom:14 }}>Final</div>
+          <div style={sceneTitle}>{latest.ev.name}</div>
+          <div style={{ display:"flex", justifyContent:"center", gap:14, marginBottom:18 }}>
+            {latest.res.slots[0].map(p => <Avatar key={p} state={state} p={p} size={84} ring />)}
+          </div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(36px,4.5vw,72px)",
+            textTransform:"uppercase", color:"var(--sun)", lineHeight:1, textAlign:"center" }}>
+            {teamLabel(state, { players: latest.res.slots[0] })}</div>
+          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"#C9B896", marginTop:12 }}>
+            +{AWARDS[latest.ev.value][0]} each</div>
+        </div>
+      ) : scene === "book" ? (
+        <div key="scene-book" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
+          <div style={sceneLabel}>The book</div>
+          <div style={sceneTitle}>{openBook.length} open wager{openBook.length === 1 ? "" : "s"}</div>
+          <div style={{ display:"grid", gridTemplateColumns: openBook.length > 4 ? "1fr 1fr 1fr" : "1fr",
+            gap:"10px 24px", width:"100%", maxWidth:1300 }}>
+            {openBook.map(x => {
+              const l = wagerPickLabel(state, x.w, events);
+              return (
+                <div key={x.w.id} style={{ display:"flex", alignItems:"center", gap:12,
+                  padding:"clamp(8px,1.2vh,14px) 16px", borderRadius:12, background:CARD_BG,
+                  border:"1px solid var(--line)" }}>
+                  <Avatar state={state} p={x.w.player} size={38} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.7vh,19px)", color:"var(--ink)" }}>
+                      {disp(state, x.w.player)} · {x.w.stake} on {l.pick}</div>
+                    <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.4vh,15px)", color:"var(--muted)",
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
+                  </div>
+                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,2vh,22px)", color:"var(--olive)" }}>
+                    +{x.w.kind === "outright" ? OUTRIGHT_MULT * x.w.stake : x.w.stake}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : (

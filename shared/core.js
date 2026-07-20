@@ -202,6 +202,35 @@ function computeStandings(state) {
   rows.forEach((r,i) => { if (r.pts !== prev) { rank = i+1; prev = r.pts; } r.rank = rank; });
   return rows;
 }
+/* championship scenarios going into the finale: who is still mathematically
+   alive and the weakest finale finish that keeps them alive. Awards only;
+   open wagers are ignored (they cannot be bounded). Ties count as alive
+   because a championship tie goes to the pressure putt. */
+function computeScenarios(state) {
+  const evs = allEventsOf(state);
+  const finale = evs.find(e => e.finale && !state.shelved?.[e.id]);
+  if (!finale || state.results[finale.id] || state.frozen) return null;
+  const table = AWARDS[finale.value] || [6, 3, 1];
+  const rows = computeStandings(state);
+  const options = [0, table[2] || 0, table[1] || 0, table[0] || 0];
+  const NEED = ["any finish", "3rd or better", "2nd or better", "the win"];
+  const alive = [];
+  rows.forEach(r => {
+    for (let i = 0; i < options.length; i++) {
+      const mine = r.pts + options[i];
+      const rem = table.filter(v => v > 0);
+      if (i > 0) rem.splice(rem.indexOf(options[i]), 1);
+      const remD = [...rem].sort((a, b) => b - a);
+      const others = rows.filter(x => x.player !== r.player).map(x => x.pts).sort((a, b) => a - b);
+      if (others.every((v, j) => v + (j < remD.length ? remD[j] : 0) <= mine)) {
+        alive.push({ player: r.player, pts: r.pts, needIdx: i, need: NEED[i] });
+        break;
+      }
+    }
+  });
+  return { finaleId: finale.id, finaleName: finale.name, alive, total: rows.length };
+}
+
 function atRisk(state, p, events) {
   return (state.wagers || [])
     .filter(w => w.player === p && resolveWager(state, w, events).status === "pending")
@@ -280,6 +309,6 @@ export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE,
   allEventsOf, disp, shuffle, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, computeStandings, atRisk, drawTeams, splitIntoGroups,
+  resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

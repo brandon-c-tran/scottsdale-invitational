@@ -90,8 +90,8 @@ function Avatar({ state, p, size=34, ring, style }) {
             <div style={{ position:"absolute", inset:0,
               background:"linear-gradient(135deg, transparent 40%, rgba(251,243,228,0.26) 40%, rgba(251,243,228,0.26) 62%, transparent 62%)" }} />
             <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
-              fontSize:size*0.5, letterSpacing:"0.01em",
-              color: c === "#D89C2F" ? "var(--ink)" : BONE }}>{playerNo(p) ?? initials}</span>
+              fontSize:size*0.44, letterSpacing:"0.03em",
+              color: c === "#D89C2F" ? "var(--ink)" : BONE }}>{initials}</span>
           </>}
     </div>
   );
@@ -738,19 +738,10 @@ export default function App() {
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} unlock={unlockGm} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)}
         save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
-      {modal?.type === "switch" && (
-        <Sheet title="Switch player" onClose={() => setModal(null)}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-            {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => switchPlayer(p)} />)}
-          </div>
-        </Sheet>
-      )}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
           <p style={pStyle}>Draws, heats, pools, and results run from Events. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-            <Btn kind="dark" onClick={() => { setModal({type:"switch"}); }}>Switch player</Btn>
-            <Btn kind="dark" onClick={() => { setTv(true); setModal(null); }}>TV mode</Btn>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
@@ -2187,6 +2178,17 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
               ))}
             </>
           )}
+          {pending.some(x => x.w.eventId === ev.id) && (
+            <>
+              <div style={{ display:"flex", alignItems:"baseline", gap:8, margin:"2px 0 8px" }}>
+                <span style={{ ...label }}>The board</span>
+                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>every chip is a point</span>
+              </div>
+              <div style={{ marginBottom:10 }}>
+                <BetsBoard state={state} events={events} ev={ev} compact />
+              </div>
+            </>
+          )}
           {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             You are maxed out until a wager settles.</div>}
           </div>
@@ -2465,24 +2467,24 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 
 /* ─────────── TV mode ─────────── */
 /* poker-chip stack for one bet: colored chips to the stake height, bettor on top */
-function TVChipStack({ state, player, stake }) {
+function ChipStack({ state, player, stake, size=44 }) {
   const c = playerColor(player);
-  const lift = 9;
+  const lift = Math.round(size * 0.2);
   return (
-    <div style={{ position:"relative", width:44, height:44 + (stake - 1) * lift, flexShrink:0 }}>
+    <div style={{ position:"relative", width:size, height:size + (stake - 1) * lift, flexShrink:0 }}>
       {Array.from({ length: stake }).map((_, i) => (
         <div key={i} style={{ position:"absolute", bottom:i * lift, left:0 }}>
           {i === stake - 1
-            ? <Avatar state={state} p={player} size={44} />
-            : <div style={{ width:44, height:44, borderRadius:"50%", background:c,
-                border:"1.5px solid var(--ink)", boxShadow:"inset 0 0 0 4px rgba(251,243,228,0.5)" }} />}
+            ? <Avatar state={state} p={player} size={size} />
+            : <div style={{ width:size, height:size, borderRadius:"50%", background:c,
+                border:"1.5px solid var(--ink)", boxShadow:`inset 0 0 0 ${Math.max(3, size*0.09)}px rgba(251,243,228,0.5)` }} />}
         </div>
       ))}
     </div>
   );
 }
 /* the betting board: one cell per live pick, bets sit on it as chip stacks */
-function TVBetsBoard({ state, events, ev, big }) {
+function BetsBoard({ state, events, ev, big, compact }) {
   const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
     .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
   const cells = new Map();
@@ -2497,21 +2499,22 @@ function TVBetsBoard({ state, events, ev, big }) {
     cells.get(k).bets.push({ player: w.player, stake: w.stake });
   });
   const list = [...cells.values()];
-  if (!list.length) return (
+  if (!list.length) return compact ? null : (
     <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"#C9B896",
       textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
   );
+  const chip = compact ? 30 : 44;
   return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:14, justifyContent: big ? "center" : "flex-start",
-      alignItems:"flex-end" }}>
+    <div style={{ display:"flex", flexWrap:"wrap", gap: compact ? 8 : 14,
+      justifyContent: big ? "center" : "flex-start", alignItems:"flex-end" }}>
       {list.map((cell, i) => (
-        <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)", borderRadius:12,
-          padding:"10px 14px 12px", minWidth:150 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
-            textTransform:"uppercase", color:"var(--ink)", marginBottom:10, whiteSpace:"nowrap",
-            overflow:"hidden", textOverflow:"ellipsis", maxWidth:230 }}>{cell.name}</div>
-          <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" }}>
-            {cell.bets.map((b, j) => <TVChipStack key={j} state={state} player={b.player} stake={b.stake} />)}
+        <div key={i} style={{ background:CARD_BG, border: compact ? "1px solid var(--line)" : "1.5px solid var(--ink)",
+          borderRadius:12, padding: compact ? "7px 10px 9px" : "10px 14px 12px", minWidth: compact ? 96 : 150 }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: compact ? 13.5 : big ? "clamp(16px,1.6vw,22px)" : 16,
+            textTransform:"uppercase", color:"var(--ink)", marginBottom: compact ? 7 : 10, whiteSpace:"nowrap",
+            overflow:"hidden", textOverflow:"ellipsis", maxWidth: compact ? 150 : 230 }}>{cell.name}</div>
+          <div style={{ display:"flex", gap: compact ? 6 : 8, alignItems:"flex-end", flexWrap:"wrap" }}>
+            {cell.bets.map((b, j) => <ChipStack key={j} state={state} player={b.player} stake={b.stake} size={chip} />)}
           </div>
         </div>
       ))}
@@ -2668,11 +2671,11 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
               {liveBracketEv ? <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg" />
                 : liveStageEv ? <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
-                : <TVBetsBoard state={state} events={events} ev={onDeckEv} big />}
+                : <BetsBoard state={state} events={events} ev={onDeckEv} big />}
             </div>
             {onDeckEv && (liveBracketEv || liveStageEv) && (
               <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
-                <TVBetsBoard state={state} events={events} ev={onDeckEv} />
+                <BetsBoard state={state} events={events} ev={onDeckEv} />
               </div>
             )}
           </div>

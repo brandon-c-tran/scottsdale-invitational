@@ -1,8 +1,9 @@
-# The Scottsdale Invitational
+# Field Day (Scottsdale · 2026)
 
 Companion app for a 13-player bachelor party game weekend (Oct 16-18, 2026).
 One leaderboard, live wagers, GM-run draws/brackets/heats, TV mode. Built to be
-glanced at for ten seconds, not stared at.
+glanced at for ten seconds, not stared at. "Field Day" is the enduring event
+identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 
 ## Architecture
 
@@ -48,8 +49,14 @@ glanced at for ten seconds, not stared at.
 ## Copy and design taste (Brandon's rules)
 
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
-- Prestige clubhouse look: Bodoni Moda serif wordmark, Archivo body, warm ink
-  palette (CSS vars in `Shell`), gold/ember gradients, film grain.
+- Field Day look: sun-faded rec-tournament, treated with championship seriousness.
+  Barlow Condensed display for scores/ranks/event names, Archivo for everything
+  functional, no serif. Light bone paper with ink rules; semantic tokens in
+  `Shell` (:root). Phase palette: pool (Fri), sun (Sat AM), terracotta (Sat PM),
+  clay (Sat night), night (Finale). Dark warm night surfaces are reserved for
+  reveals, champion, and TV, never the default. Flat scorecard components, 13
+  curated flat player colors, the FD sun-over-lanes mark, subtle grain only.
+  No emojis as final artwork, no gradients, no glows, no luxury conventions.
 - Real names in all commissioner controls. Fun is for reveals, not for admin.
 - The app should reduce mental load during the weekend, not add process.
 

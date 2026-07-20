@@ -19,29 +19,74 @@ const isStandalone = () => typeof window !== "undefined" &&
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
 
-/* ─────────── visual system ─────────── */
-const SERIF = "'Bodoni Moda','Didot',Georgia,serif";
+/* ─────────── visual system: FIELD DAY ───────────
+   Sun-faded rec-tournament look. Barlow Condensed carries scores, ranks, and
+   event names; Archivo carries everything functional. Light bone paper by
+   default; warm night surfaces are reserved for reveals, finals, and TV. */
+const DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
 const SANS = "'Archivo',system-ui,sans-serif";
-const GOLD_GRAD = "linear-gradient(135deg,#EFC978 0%,#D9A441 45%,#B9822C 100%)";
-const EMBER_GRAD = "linear-gradient(120deg,#EFC978,#E1572A)";
-const CARD_BG = "linear-gradient(180deg,#28211712,#00000000), linear-gradient(180deg,#262019,#1E1912)";
-const AV_HUES = [["#E8B45A","#8A5A1E"],["#E1572A","#7A2A12"],["#7CB98A","#2E5A3C"],["#B58AD9","#4E3070"],["#6FA8DC","#2A4A72"],["#D97795","#6E2A44"]];
-const GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E\")";
+const BONE = "#FBF3E4";
+const GOLD_GRAD = "var(--sun)";
+const EMBER_GRAD = "var(--accent)";
+const CARD_BG = "var(--paper)";
+const GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")";
+
+/* 13 curated flat player colors, assigned by roster order; readable on paper and night */
+const PLAYER_COLORS = ["#C05B33","#4F93A3","#77804C","#B23B2E","#D89C2F","#7A5C43","#557B72",
+  "#A9663F","#5E7291","#8A4F62","#4E6E39","#B37A4A","#6F6546"];
+const playerColor = p => PLAYER_COLORS[Math.max(0, ROSTER.indexOf(p)) % PLAYER_COLORS.length];
+const playerNo = p => { const i = ROSTER.indexOf(p); return i < 0 ? null : i + 1; };
+
+/* the Field Day mark: a sun over lanes; works as favicon, patch, or stamp */
+function FDMark({ size=28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
+      <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="7" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
+      <circle cx="16" cy="12.5" r="6.2" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
+      <path d="M5 22h22M5 26h22" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  );
+}
+const IconTV = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3" y="7" width="18" height="12" rx="2"/><path d="m8.5 2.5 3.5 3.5 3.5-3.5"/>
+  </svg>
+);
+const ArtTicket = () => (
+  <svg width="58" height="42" viewBox="0 0 56 40" aria-hidden="true">
+    <rect x="1.5" y="1.5" width="53" height="37" rx="6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="2"/>
+    <line x1="38" y1="4" x2="38" y2="36" stroke="var(--ink)" strokeWidth="2" strokeDasharray="3.5 3.5"/>
+    <circle cx="16" cy="20" r="6.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="2"/>
+  </svg>
+);
+const ArtStar = () => (
+  <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 2.6 15 8.6l6.6.9-4.8 4.6 1.2 6.6L12 17.6l-6 3.1 1.2-6.6L2.4 9.5l6.6-.9z"
+      fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
+  </svg>
+);
+const IconGM = ({ filled }) => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor"
+    strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3.2 14.6 8.5l5.9.8-4.3 4.1 1 5.9L12 16.5l-5.2 2.8 1-5.9L3.5 9.3l5.9-.8z"/>
+  </svg>
+);
 
 function Avatar({ state, p, size=34, ring, style }) {
   const prof = state.profiles?.[p];
   const src = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
   const initials = (prof?.display || p).slice(0,2).toUpperCase();
-  const hue = AV_HUES[(p.charCodeAt(0) + p.length) % AV_HUES.length];
+  const c = playerColor(p);
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
       display:"flex", alignItems:"center", justifyContent:"center",
-      background: src ? "var(--panel2)" : `linear-gradient(140deg,${hue[0]},${hue[1]})`,
-      border: ring ? "2px solid var(--gold)" : "1.5px solid rgba(244,233,212,0.15)",
-      boxShadow:"0 2px 6px rgba(0,0,0,0.35)", ...style }}>
+      background: src ? "var(--paper2)" : c,
+      border: ring ? "2px solid var(--ink)" : "1.5px solid rgba(42,33,25,0.5)", ...style }}>
       {src
         ? <img src={src} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : <span style={{ fontFamily:SANS, fontWeight:700, fontSize:size*0.36, color:"#171209" }}>{initials}</span>}
+        : <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:size*0.42, letterSpacing:"0.02em",
+            color: c === "#D89C2F" ? "var(--ink)" : BONE }}>{initials}</span>}
     </div>
   );
 }
@@ -52,7 +97,7 @@ function AvatarStack({ state, players, size=24, max=4 }) {
     <div style={{ display:"flex", alignItems:"center" }}>
       {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
       {extra > 0 && <div style={{ width:size, height:size, borderRadius:"50%", marginLeft:-size*0.32,
-        background:"var(--panel2)", border:"1.5px solid rgba(244,233,212,0.15)", display:"flex",
+        background:"var(--panel2)", border:"1.5px solid rgba(42,33,25,0.15)", display:"flex",
         alignItems:"center", justifyContent:"center", fontFamily:SANS, fontWeight:700,
         fontSize:size*0.4, color:"var(--dust)", flexShrink:0 }}>+{extra}</div>}
     </div>
@@ -60,7 +105,7 @@ function AvatarStack({ state, players, size=24, max=4 }) {
 }
 function Confetti({ burst }) {
   if (!burst) return null;
-  const colors = ["#EFC978","#D9A441","#E1572A","#F4E9D4","#7CB98A"];
+  const colors = ["var(--accent2)","var(--accent)","#E1572A","#F4E9D4","#7CB98A"];
   const pieces = Array.from({length:90}, (_,i) => ({
     left: Math.random()*100, delay: Math.random()*0.5, dur: 2.4 + Math.random()*1.6,
     color: colors[i % colors.length], size: 5 + Math.random()*8, rot: Math.random()*360,
@@ -76,44 +121,46 @@ function Confetti({ burst }) {
     </div>
   );
 }
-const label = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.18em", color:"var(--dust)", textTransform:"uppercase" };
+const label = { fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.07em", color:"var(--muted)", textTransform:"uppercase" };
 function Tag({ children, tone="dim", style }) {
   const tones = {
-    dim:   { color:"var(--dust)", background:"rgba(244,233,212,0.05)" },
-    gold:  { color:"#EFC978", background:"rgba(217,164,65,0.12)" },
-    flame: { color:"#FF8A5C", background:"rgba(225,87,42,0.14)" },
-    green: { color:"var(--green)", background:"rgba(124,185,138,0.12)" },
+    dim:   { color:"var(--dust)", background:"rgba(42,33,25,0.05)" },
+    gold:  { color:"var(--accent2)", background:"rgba(192,91,51,0.12)" },
+    flame: { color:"var(--live2)", background:"rgba(188,75,60,0.14)" },
+    green: { color:"var(--green)", background:"rgba(95,122,69,0.12)" },
   };
-  return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.14em",
-    padding:"4px 9px", borderRadius:99, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
+  return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+    padding:"3px 8px", borderRadius:4, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
 }
 function Btn({ children, onClick, kind="primary", disabled, style }) {
   const kinds = {
-    primary: { background:GOLD_GRAD, color:"#1E1608", border:"none", boxShadow:"0 4px 14px rgba(217,164,65,0.25)" },
-    flame:   { background:"linear-gradient(135deg,#F07A4E,#D64A20)", color:"#FFF4EC", border:"none", boxShadow:"0 4px 14px rgba(225,87,42,0.25)" },
-    ghost:   { background:"rgba(244,233,212,0.04)", color:"var(--cream)", border:"1px solid var(--line)" },
-    dark:    { background:"var(--panel2)", color:"var(--cream)", border:"1px solid var(--line)" },
-    danger:  { background:"transparent", color:"#E06C5B", border:"1px solid rgba(224,108,91,0.4)" },
+    primary: { background:"var(--sun)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
+    flame:   { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink)" },
+    ghost:   { background:"transparent", color:"var(--ink)", border:"1.5px solid rgba(42,33,25,0.35)" },
+    dark:    { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
+    danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(188,75,60,0.55)" },
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:700,
-      letterSpacing:"0.1em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:13,
+      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:9,
       cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
       transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
   );
 }
 function Sheet({ title, onClose, children, wide }) {
   return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(10,7,4,0.78)",
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(42,33,25,0.45)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
       <div onClick={e=>e.stopPropagation()} className="si-sheet" style={{ width:"100%", maxWidth: wide ? 780 : 540,
-        overflowY:"auto", background:CARD_BG, borderRadius:"22px 22px 0 0",
-        border:"1px solid var(--line)", borderBottom:"none",
-        padding:"20px 18px calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-          <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:22, letterSpacing:"0.02em", color:"var(--cream)" }}>{title}</div>
-          <button onClick={onClose} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
-            color:"var(--dust)", width:32, height:32, borderRadius:10, fontSize:14, cursor:"pointer" }}>✕</button>
+        overflowY:"auto", background:"var(--paper)", borderRadius:"14px 14px 0 0",
+        border:"1.5px solid var(--ink)", borderBottom:"none",
+        padding:"18px 18px calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14,
+          borderBottom:"1.5px solid var(--ink)", paddingBottom:10 }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
+            textTransform:"uppercase", color:"var(--ink)" }}>{title}</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"var(--paper2)", border:"1.5px solid rgba(42,33,25,0.4)",
+            color:"var(--ink)", width:32, height:32, borderRadius:8, fontSize:14, cursor:"pointer" }}>✕</button>
         </div>
         {children}
       </div>
@@ -126,43 +173,54 @@ function PlayerChip({ name, selected, disabled, onClick, small }) {
       fontSize: small ? 13 : 14, padding: small ? "8px 8px" : "10px 10px", borderRadius:11,
       cursor: disabled ? "default" : "pointer",
       background: selected ? GOLD_GRAD : "var(--panel2)",
-      color: selected ? "#1E1608" : disabled ? "#5E5342" : "var(--cream)",
+      color: selected ? "var(--ink)" : disabled ? "#AE9C80" : "var(--cream)",
       border: selected ? "1px solid transparent" : "1px solid var(--line)",
       opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s" }}>{name}</button>
   );
 }
-const pStyle = { fontFamily:SANS, fontSize:14, lineHeight:1.6, color:"#CBBFA9", marginBottom:14 };
+const pStyle = { fontFamily:SANS, fontSize:14, lineHeight:1.6, color:"var(--muted2)", marginBottom:14 };
 function Wordmark({ size=28 }) {
   return (
-    <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:size, lineHeight:1, letterSpacing:"0.04em",
-      background:EMBER_GRAD, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent",
-      filter:"drop-shadow(0 2px 10px rgba(217,164,65,0.25))" }}>
-      The Invitational
+    <div style={{ display:"flex", alignItems:"center", gap:size*0.4 }}>
+      <FDMark size={size*1.6} />
+      <div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:size*1.25, lineHeight:0.92,
+          letterSpacing:"0.015em", textTransform:"uppercase", color:"var(--ink)" }}>Field Day</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:Math.max(9.5, size*0.34),
+          letterSpacing:"0.12em", color:"var(--accent2)", marginTop:3 }}>SCOTTSDALE · 2026</div>
+      </div>
     </div>
   );
 }
-/* two big teams side by side */
+/* two big teams side by side, broadcast style: each side gets a color band and a VS disc sits between */
+const SIDE_COLORS = ["var(--pool)", "var(--accent)"];
 function VersusDraw({ state, teams, size="md" }) {
   const av = size === "lg" ? 34 : 26;
   const f = size === "lg" ? 19 : 14;
-  const tf = size === "lg" ? 24 : 15;
+  const tf = size === "lg" ? 26 : 17;
   return (
-    <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap: size==="lg" ? 18 : 10, alignItems:"start" }}>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap: size==="lg" ? 18 : 10, alignItems:"stretch" }}>
       {[teams[0], null, teams[1]].map((t, i) => i === 1 ? (
-        <div key="vs" style={{ alignSelf:"center", fontFamily:SERIF, fontWeight:800, fontStyle:"italic",
-          fontSize: size==="lg" ? 40 : 22, color:"#EFC978", padding:"0 2px" }}>vs</div>
+        <div key="vs" style={{ alignSelf:"center", width: size==="lg" ? 54 : 36, height: size==="lg" ? 54 : 36,
+          borderRadius:"50%", background:"var(--ink)", color:BONE, display:"flex", alignItems:"center",
+          justifyContent:"center", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
+          fontSize: size==="lg" ? 24 : 16, border:"2px solid var(--ink)", zIndex:2 }}>VS</div>
       ) : (
-        <div key={i} style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:14,
-          padding: size==="lg" ? "14px 16px" : "10px 12px" }}>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:tf, color:"#EFC978", marginBottom:7,
-            textAlign: i === 0 ? "left" : "right" }}>{teamLabel(state, t)}</div>
-          {t.players.map(p => (
-            <div key={p} style={{ display:"flex", alignItems:"center", gap:8, padding:"2.5px 0",
-              flexDirection: i === 0 ? "row" : "row-reverse" }}>
-              <Avatar state={state} p={p} size={av} />
-              <span style={{ fontFamily:SANS, fontWeight:600, fontSize:f, color:"var(--cream)" }}>{disp(state, p)}</span>
-            </div>
-          ))}
+        <div key={i} style={{ background:"var(--paper)", border:"1.5px solid var(--ink)", borderRadius:10,
+          overflow:"hidden", display:"flex", flexDirection:"column" }}>
+          <div style={{ background:SIDE_COLORS[i === 0 ? 0 : 1], color:BONE, fontFamily:DISPLAY, fontWeight:700,
+            fontSize:tf, letterSpacing:"0.02em", textTransform:"uppercase", padding: size==="lg" ? "8px 14px" : "5px 11px",
+            textAlign: i === 0 ? "left" : "right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {teamLabel(state, t)}</div>
+          <div style={{ padding: size==="lg" ? "10px 14px" : "8px 11px" }}>
+            {t.players.map(p => (
+              <div key={p} style={{ display:"flex", alignItems:"center", gap:8, padding:"3px 0",
+                flexDirection: i === 0 ? "row" : "row-reverse" }}>
+                <Avatar state={state} p={p} size={av} />
+                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:f, color:"var(--ink)" }}>{disp(state, p)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -395,41 +453,49 @@ export default function App() {
   return (
     <Shell>
       {/* header */}
-      <div style={{ position:"sticky", top:0, zIndex:40, background:"rgba(19,14,9,0.82)",
-        backdropFilter:"blur(14px)", borderBottom:"1px solid rgba(59,48,33,0.6)",
+      <div style={{ position:"sticky", top:0, zIndex:40, background:"rgba(244,237,223,0.93)",
+        backdropFilter:"blur(14px)", borderBottom:"1px solid var(--line)",
         paddingTop:"env(safe-area-inset-top)" }}>
-        <div style={{ padding:"12px 16px 10px", display:"flex", alignItems:"center", gap:10 }}>
-          <button onClick={() => setModal({type:"profile"})} style={{ background:"none", border:"none", padding:0, cursor:"pointer" }}>
-            {me ? <Avatar state={state} p={me} size={36} /> : null}
+        <div style={{ padding:"10px 16px 9px", display:"flex", alignItems:"center", gap:10 }}>
+          <button onClick={() => setModal({type:"profile"})} aria-label="Your profile"
+            style={{ background:"none", border:"none", padding:0, cursor:"pointer" }}>
+            {me ? <Avatar state={state} p={me} size={38} /> : null}
           </button>
-          <div style={{ flex:1 }}>
-            <div style={{ ...label, fontSize:9.5 }}>Scottsdale · MMXXVI</div>
-            <Wordmark size={24} />
+          <div style={{ flex:1, display:"flex", alignItems:"center", gap:9 }}>
+            <FDMark size={30} />
+            <div style={{ lineHeight:1 }}>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, letterSpacing:"0.015em",
+                textTransform:"uppercase", color:"var(--ink)" }}>Field Day</div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:9, letterSpacing:"0.14em",
+                color:"var(--muted)", marginTop:2 }}>SCOTTSDALE · 2026</div>
+            </div>
           </div>
-          <button onClick={() => setTv(true)} title="TV mode"
-            style={{ background:"var(--panel)", border:"1px solid var(--line)", borderRadius:11,
-              width:36, height:36, fontSize:15, cursor:"pointer", color:"var(--dust)" }}>📺</button>
-          <button onClick={() => gm ? setModal({type:"gmMenu"}) : setModal({type:"pin"})}
-            style={{ background: gm ? GOLD_GRAD : "var(--panel)",
-              border: gm ? "none" : "1px solid var(--line)", borderRadius:11, width:36, height:36,
-              fontSize:15, cursor:"pointer", color: gm ? "#1E1608" : "var(--dust)" }}>👑</button>
+          <button onClick={() => setTv(true)} title="TV mode" aria-label="TV mode"
+            style={{ background:"var(--paper)", border:"1.5px solid rgba(42,33,25,0.4)", borderRadius:9,
+              width:38, height:38, cursor:"pointer", color:"var(--ink)",
+              display:"flex", alignItems:"center", justifyContent:"center" }}><IconTV /></button>
+          <button onClick={() => gm ? setModal({type:"gmMenu"}) : setModal({type:"pin"})} aria-label="Commissioner"
+            style={{ background: gm ? "var(--sun)" : "var(--paper)",
+              border:"1.5px solid " + (gm ? "var(--ink)" : "rgba(42,33,25,0.4)"), borderRadius:9,
+              width:38, height:38, cursor:"pointer", color:"var(--ink)",
+              display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gm} /></button>
         </div>
         {!connected && loaded && (
           <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
-            padding:"7px 13px", borderRadius:11, background:"rgba(224,108,91,0.1)",
-            border:"1px solid rgba(224,108,91,0.4)" }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"#E06C5B", animation:"si-pulse 1.2s infinite" }} />
+            padding:"7px 13px", borderRadius:11, background:"rgba(188,75,60,0.1)",
+            border:"1px solid rgba(188,75,60,0.4)" }}>
+            <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.2s infinite" }} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.12em",
-              color:"#E06C5B", textTransform:"uppercase" }}>Reconnecting</span>
+              color:"var(--clay)", textTransform:"uppercase" }}>Reconnecting</span>
           </div>
         )}
         {onDeckEv && (
           <button onClick={() => setTab("bets")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"calc(100% - 32px)", margin:"0 16px 10px",
-            padding:"9px 13px", borderRadius:13, border:"1px solid rgba(225,87,42,0.4)",
-            background:"linear-gradient(90deg, rgba(225,87,42,0.14), rgba(225,87,42,0.04))", cursor:"pointer", textAlign:"left" }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"#FF8A5C", animation:"si-pulse 1.6s infinite" }} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"#FF8A5C" }}>ON DECK</span>
+            padding:"9px 13px", borderRadius:13, border:"1px solid rgba(188,75,60,0.4)",
+            background:"linear-gradient(90deg, rgba(188,75,60,0.14), rgba(188,75,60,0.04))", cursor:"pointer", textAlign:"left" }}>
+            <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.6s infinite" }} />
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--live2)" }}>ON DECK</span>
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)", flex:1 }}>{onDeckEv.name}</span>
             <Tag tone="gold">Betting open</Tag>
           </button>
@@ -459,16 +525,16 @@ export default function App() {
 
       {/* tab bar */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
-        <div style={{ width:"100%", maxWidth:540, display:"flex", background:"rgba(19,14,9,0.88)",
-          backdropFilter:"blur(16px)", borderTop:"1px solid rgba(59,48,33,0.6)",
+        <div style={{ width:"100%", maxWidth:540, display:"flex", background:"rgba(244,237,223,0.95)",
+          backdropFilter:"blur(16px)", borderTop:"1px solid var(--line)",
           padding:"8px 10px calc(12px + env(safe-area-inset-bottom))" }}>
           {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
             <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none",
               cursor:"pointer", padding:"7px 0" }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.12em",
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.05em",
                 textTransform:"uppercase",
-                color: tab===id ? "#EFC978" : "var(--dust)",
-                borderBottom: tab===id ? "2px solid #D9A441" : "2px solid transparent",
+                color: tab===id ? "var(--accent2)" : "var(--muted)",
+                borderBottom: tab===id ? "3px solid var(--accent)" : "3px solid transparent",
                 display:"inline-block", paddingBottom:4 }}>{lb}</div>
             </button>
           ))}
@@ -491,7 +557,7 @@ export default function App() {
           <p style={pStyle}>Draws, heats, pools, and results run from Events. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             <Btn kind="dark" onClick={() => { setModal({type:"switch"}); }}>Switch player</Btn>
-            <Btn kind="dark" onClick={() => { setTv(true); setModal(null); }}>📺 TV mode</Btn>
+            <Btn kind="dark" onClick={() => { setTv(true); setModal(null); }}>TV mode</Btn>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
@@ -530,8 +596,8 @@ export default function App() {
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
       {modal?.type === "freeze" && (
         <Sheet title="Crown the champion" onClose={() => setModal(null)}>
-          <p style={pStyle}>Freezes the board and crowns <b style={{color:"#EFC978"}}>{disp(state, standings[0]?.player)}</b> at {standings[0]?.pts} points. All betting closes.</p>
-          {!state.results["finale"] && <p style={{...pStyle, color:"#FF8A5C"}}>No Finale result yet.</p>}
+          <p style={pStyle}>Freezes the board and crowns <b style={{color:"var(--accent2)"}}>{disp(state, standings[0]?.player)}</b> at {standings[0]?.pts} points. All betting closes.</p>
+          {!state.results["finale"] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={() => { setFrozen(true); setModal(null); setTab("board"); }}>Freeze the board</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Not yet</Btn>
@@ -542,13 +608,13 @@ export default function App() {
       {toast && (
         <div style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
           display:"flex", alignItems:"center", gap:12,
-          background: toast.tone === "gold" ? "linear-gradient(180deg, rgba(217,164,65,0.16), rgba(217,164,65,0.05)), var(--panel2)" : "var(--panel2)",
-          border:"1px solid " + (toast.tone === "gold" ? "rgba(239,201,120,0.6)" : "var(--line)"), borderRadius:12,
-          color: toast.tone === "gold" ? "#EFC978" : "var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
+          background: toast.tone === "gold" ? "linear-gradient(180deg, rgba(192,91,51,0.16), rgba(192,91,51,0.05)), var(--panel2)" : "var(--panel2)",
+          border:"1px solid " + (toast.tone === "gold" ? "rgba(156,69,38,0.6)" : "var(--line)"), borderRadius:12,
+          color: toast.tone === "gold" ? "var(--accent2)" : "var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
           whiteSpace:"nowrap", boxShadow:"0 10px 34px rgba(0,0,0,0.55)", animation:"si-up .2s ease-out" }}>
           {toast.msg}
           {toast.action && <button onClick={toast.action.fn} style={{ background:"none", border:"none",
-            color:"#EFC978", fontFamily:SANS, fontWeight:700, fontSize:13.5, cursor:"pointer",
+            color:"var(--accent2)", fontFamily:SANS, fontWeight:700, fontSize:13.5, cursor:"pointer",
             textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
         </div>
       )}
@@ -556,7 +622,7 @@ export default function App() {
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setTab("bets"); } : null} />}
       <Confetti burst={burst} />
-      {!loaded && <div style={{ position:"fixed", inset:0, background:"var(--ink)", zIndex:500,
+      {!loaded && <div style={{ position:"fixed", inset:0, background:"var(--bg)", zIndex:500,
         display:"flex", alignItems:"center", justifyContent:"center" }}><Wordmark size={30} /></div>}
     </Shell>
   );
@@ -565,17 +631,25 @@ export default function App() {
 /* ─────────── shell ─────────── */
 function Shell({ children, tv }) {
   return (
-    <div className="si-vh" style={{ background:"var(--ink)", display:"flex", justifyContent:"center" }}>
+    <div className="si-vh" style={{ background:"var(--bg)", display:"flex", justifyContent:"center" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600;6..96,700;6..96,800&family=Archivo:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,700&family=Archivo:wght@400;500;600;700&display=swap');
         :root {
-          --ink:#130E09; --panel:#211A12; --panel2:#2B2318; --line:#3B3021;
-          --cream:#F4E9D4; --dust:#A2937A; --gold:#D9A441; --flame:#E1572A; --green:#7CB98A;
+          /* Field Day tokens. Canvas and paper are warm bone; ink is brown-black. */
+          --bg:#F2E9D8; --paper:#FBF5E9; --paper2:#EADFC8; --line:#DACDB4;
+          --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49;
+          /* phase + signal palette: pool (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale) */
+          --accent:#C05B33; --accent2:#9C4526; --sun:#E9B441; --pool:#4F93A3;
+          --olive:#77804C; --clay:#BC4B3C; --live2:#B23B2E;
+          --night:#251C14; --night2:#3A2C1E;
+          /* legacy aliases still used by not-yet-restyled surfaces */
+          --panel:#FBF5E9; --panel2:#EDE2CB; --cream:#2A2119; --dust:#8A7A63;
+          --gold:#C05B33; --flame:#BC4B3C; --green:#4E6E39;
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { margin:0; background:var(--ink); }
+        body { margin:0; background:var(--bg); }
         button:active { transform: scale(0.97); }
-        input::placeholder { color:#6E6350; }
+        input::placeholder { color:var(--muted); }
         @keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
         @keyframes si-pulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
         @keyframes si-up { from { transform: translateY(26px); opacity:0; } to { transform:none; opacity:1; } }
@@ -584,7 +658,7 @@ function Shell({ children, tv }) {
         @keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
         @keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
         @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(217,164,65,0.22);} 50% { box-shadow:0 0 50px rgba(225,87,42,0.32);} }
+        @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(192,91,51,0.22);} 50% { box-shadow:0 0 50px rgba(188,75,60,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
@@ -594,8 +668,8 @@ function Shell({ children, tv }) {
       `}</style>
       <div className="si-vh" style={{ width:"100%", maxWidth: tv ? "100%" : 540, display:"flex",
         flexDirection:"column", position:"relative",
-        background:"radial-gradient(120% 55% at 50% -8%, #33261463 0%, transparent 60%), radial-gradient(90% 40% at 50% 108%, #2416083d 0%, transparent 60%), var(--ink)" }}>
-        <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"overlay" }} />
+        background:"radial-gradient(120% 50% at 50% -6%, rgba(233,180,65,0.14) 0%, transparent 60%), var(--bg)" }}>
+        <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"multiply" }} />
         {children}
       </div>
     </div>
@@ -609,7 +683,7 @@ function InstallHint() {
     <div>
       {[["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
         <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
-          <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"#EFC978" }}>{n}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>{n}</span>
           <span style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>{t}</span>
         </div>
       ))}
@@ -626,16 +700,16 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   useEffect(() => { if (me) setDisplay(state.profiles?.[me]?.display || me); }, [me]); // eslint-disable-line
   const cards = {
-    3: { k:"🏆", t:"One board", b:"13 players, one board, all weekend. Every event and every bet moves it. Everyone starts with 5.", meter:true },
-    4: { k:"🎟️", t:"Bets", b:"When an event opens, back anyone to win it, even yourself. Winner pays 2 to 1. Stakes of 1 to 3. It settles itself." },
-    5: { k:"👑", t:"Saturday night", b:"The Finale pays big, then the champion is crowned. Glance for ten seconds, get back out there." },
+    3: { art:<FDMark size={54} />, t:"One board", b:"13 players, one board, all weekend. Every event and every bet moves it. Everyone starts with 5.", meter:true },
+    4: { art:<ArtTicket />, t:"Bets", b:"When an event opens, back anyone to win it, even yourself. Winner pays 2 to 1. Stakes of 1 to 3. It settles itself." },
+    5: { art:<ArtStar />, t:"Saturday night", b:"The Finale pays big, then the champion is crowned. Glance for ten seconds, get back out there." },
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · October · MMXXVI</div>
+      <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, color:"#CBBFA9", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
+      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
         First move: put this on your home screen. Full screen, no browser bar, there all weekend.
       </div>
       <InstallHint />
@@ -650,9 +724,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === 0) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · October · MMXXVI</div>
+      <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, color:"#CBBFA9", fontSize:15, marginBottom:28 }}>
+      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, marginBottom:28 }}>
         13 players. One board. A champion Saturday night.
       </div>
       <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
@@ -666,7 +740,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Your card</div>
-      <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
         Set up your profile</div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
       <div style={{ marginTop:"auto" }}>
@@ -681,8 +755,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
         <div style={label}>Scouting report · sealed</div>
-        <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
-        <div style={{ fontFamily:SANS, fontSize:13.5, color:"#CBBFA9", lineHeight:1.55, marginBottom:16 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
+        <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
           Nobody sees this. It only balances draws and heats.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
@@ -696,7 +770,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
                     style={{ fontFamily:SANS, fontWeight:600, fontSize:12, padding:"7px 10px", borderRadius:9,
                       cursor:"pointer",
                       background: ratings[s.id] === r.v ? GOLD_GRAD : "var(--panel2)",
-                      color: ratings[s.id] === r.v ? "#1E1608" : "var(--cream)",
+                      color: ratings[s.id] === r.v ? "var(--ink)" : "var(--cream)",
                       border: ratings[s.id] === r.v ? "1px solid transparent" : "1px solid var(--line)" }}>
                     {r.label}
                   </button>
@@ -714,9 +788,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(56px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))" }} key={step}>
-      <div style={{ fontSize:46, marginBottom:14 }}>{c.k}</div>
-      <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
-      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"#CBBFA9" }}>{c.b}</div>
+      <div style={{ marginBottom:16 }}>{c.art}</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
+      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)" }}>{c.b}</div>
       {c.meter && (
         <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
           {[["Fri",1],["Sat AM",2],["Sat PM",3],["Sat Nite",4],["Finale",6]].map(([lb,v]) => (
@@ -725,14 +799,14 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
                 background: v===6 ? EMBER_GRAD : GOLD_GRAD, opacity: v===6 ? 1 : 0.3 + v*0.13,
                 animation: v===6 ? "si-glow 2s infinite" : "none" }} />
               <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--dust)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
-              <div style={{ fontFamily:SERIF, fontSize:16, color:"#EFC978", fontWeight:700 }}>{v}</div>
+              <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v}</div>
             </div>
           ))}
         </div>
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "#D9A441" : "var(--line)" }} />)}
+          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
         </div>
         <Btn onClick={step === 5 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
           {step === 5 ? "I'm in" : "Next"}
@@ -770,10 +844,11 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
       <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:18 }}>
         <button onClick={() => fileRef.current?.click()} style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative" }}>
           {current
-            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--gold)", boxShadow:"0 4px 18px rgba(217,164,65,0.3)" }} />
+            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--gold)", boxShadow:"0 4px 18px rgba(192,91,51,0.3)" }} />
             : me && <Avatar state={state} p={me} size={84} ring />}
           <div style={{ position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:"50%",
-            background:GOLD_GRAD, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>📷</div>
+            background:"var(--sun)", border:"1.5px solid var(--ink)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
         </button>
         <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", lineHeight:1.5 }}>
           Photo is optional. It shows on the board, the bracket, and the TV.
@@ -800,7 +875,7 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
       {latest && !champion && (
         <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 13px", marginBottom:10,
-          borderRadius:13, background:"rgba(124,185,138,0.06)", border:"1px solid rgba(124,185,138,0.25)" }}>
+          borderRadius:13, background:"rgba(95,122,69,0.06)", border:"1px solid rgba(95,122,69,0.25)" }}>
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
             color:"var(--green)", textTransform:"uppercase" }}>Latest</span>
           <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1,
@@ -817,10 +892,10 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
         return (
           <button onClick={() => onOpen(next)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
             padding:"9px 13px", marginBottom:10, borderRadius:13, cursor:"pointer", textAlign:"left",
-            background: live ? "linear-gradient(90deg, rgba(225,87,42,0.1), rgba(225,87,42,0.02)), var(--panel)" : "var(--panel)",
-            border: live ? "1px solid rgba(225,87,42,0.4)" : "1px solid var(--line)" }}>
+            background: live ? "linear-gradient(90deg, rgba(188,75,60,0.1), rgba(188,75,60,0.02)), var(--panel)" : "var(--panel)",
+            border: live ? "1px solid rgba(188,75,60,0.4)" : "1px solid var(--line)" }}>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
-              color: live ? "#FF8A5C" : "#EFC978", textTransform:"uppercase" }}>{live ? "Live" : "Next"}</span>
+              color: live ? "var(--live2)" : "var(--accent2)", textTransform:"uppercase" }}>{live ? "Live" : "Next"}</span>
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1, minWidth:0,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
             <span style={{ fontFamily:SANS, color:"var(--dust)", fontSize:15 }}>›</span>
@@ -829,46 +904,52 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       })()}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
-          <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
           <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)" }}>The first result sets the board</div>
         </div>
       )}
-      {standings.map((r, i) => {
-        const isMe = r.player === me;
-        const first = r.rank === 1 && !allTied;
-        const medal = !allTied && r.rank === 2 ? "#BDB2A0" : !allTied && r.rank === 3 ? "#C07A4B" : null;
-        return (
-          <div key={r.player} onClick={gm ? () => onAdjust(r.player) : undefined}
-            style={{ display:"flex", alignItems:"center", gap:12, padding: first ? "13px 14px" : "11px 14px",
-              marginBottom:7, borderRadius:16, cursor: gm ? "pointer" : "default", position:"relative", overflow:"hidden",
-              background: first ? GOLD_GRAD : CARD_BG,
-              border: first ? "1px solid #EFC978" : isMe ? "1px solid rgba(217,164,65,0.5)" : "1px solid var(--line)",
-              boxShadow: first ? "0 6px 24px rgba(217,164,65,0.25)" : "0 2px 10px rgba(0,0,0,0.25)",
-              animation:`si-in .25s ${i*0.02}s both` }}>
-            {first && <div style={{ position:"absolute", top:0, bottom:0, width:60,
-              background:"linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
-              animation:"si-shine 3.4s 1s infinite" }} />}
-            <div style={{ width:26, textAlign:"center", fontFamily:SERIF, fontWeight:700, fontSize:21,
-              color: first ? "#1E1608" : medal || "#6E6350" }}>{allTied ? "·" : r.rank}</div>
-            <Avatar state={state} p={r.player} size={38} />
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15.5, color: first ? "#1E1608" : "var(--cream)" }}>
-                {disp(state, r.player)}{isMe && <span style={{ opacity:0.6, fontWeight:600, fontSize:12 }}> · you</span>}
-                {champion && r.rank === 1 && " 👑"}
+      <div style={{ background:"var(--paper)", border:"1.5px solid var(--ink)", borderRadius:10,
+        overflow:"hidden", animation:"si-in .25s both" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 12px",
+          borderBottom:"1.5px solid var(--ink)", background:"var(--paper2)" }}>
+          <span style={{ ...label, fontSize:10.5, width:26, textAlign:"center" }}>Pos</span>
+          <span style={{ ...label, fontSize:10.5, flex:1 }}>Player</span>
+          <span style={{ ...label, fontSize:10.5 }}>Pts</span>
+        </div>
+        {standings.map((r, i) => {
+          const isMe = r.player === me;
+          const first = r.rank === 1 && !allTied;
+          const medal = !allTied && r.rank === 2 ? "#75818C" : !allTied && r.rank === 3 ? "#AC6A3B" : null;
+          return (
+            <div key={r.player} onClick={gm ? () => onAdjust(r.player) : undefined}
+              style={{ display:"flex", alignItems:"center", gap:12, padding: first ? "11px 12px" : "8px 12px",
+                cursor: gm ? "pointer" : "default", position:"relative",
+                background: first ? "var(--sun)" : isMe ? "rgba(192,91,51,0.08)" : i % 2 ? "rgba(42,33,25,0.03)" : "transparent",
+                borderTop: i > 0 ? "1px solid var(--line)" : "none",
+                boxShadow: isMe && !first ? "inset 3px 0 0 var(--accent)" : "none" }}>
+              <div style={{ width:26, textAlign:"center", fontFamily:DISPLAY, fontWeight:700,
+                fontSize: first ? 24 : 19, color: first ? "var(--ink)" : medal || "var(--muted)" }}>
+                {allTied ? "·" : r.rank}</div>
+              <Avatar state={state} p={r.player} size={first ? 36 : 30} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize: first ? 16 : 14.5, color:"var(--ink)",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> · you</span>}
+                </div>
+                <div style={{ fontFamily:SANS, fontSize:11.5, color: first ? "rgba(42,33,25,0.65)" : "var(--muted)" }}>
+                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <> · wagers {r.betNet>0?"+":""}{r.betNet}</>}
+                  {isMe && myAtRisk > 0 && <> · <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
+                </div>
               </div>
-              <div style={{ fontFamily:SANS, fontSize:12, color: first ? "rgba(30,22,8,0.6)" : "var(--dust)" }}>
-                {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <> · wagers {r.betNet>0?"+":""}{r.betNet}</>}
-                {isMe && myAtRisk > 0 && <> · <span style={{ color: first ? "#7A2A12" : "#FF8A5C" }}>{myAtRisk} at risk</span></>}
-              </div>
+              {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:12.5,
+                color: deltas[r.player] > 0 ? "var(--green)" : "var(--clay)" }}>
+                {deltas[r.player] > 0 ? `▲${deltas[r.player]}` : `▼${-deltas[r.player]}`}</div>}
+              <div key={r.pts} style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: first ? 30 : 24,
+                minWidth:36, textAlign:"right", color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
             </div>
-            {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:13,
-              color: first ? "#1E1608" : deltas[r.player] > 0 ? "var(--green)" : "#E06C5B" }}>
-              {deltas[r.player] > 0 ? `▲${deltas[r.player]}` : `▼${-deltas[r.player]}`}</div>}
-            <div key={r.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:26, minWidth:38, textAlign:"right",
-              color: first ? "#1E1608" : medal || "var(--cream)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {gm && !champion && (
         <div style={{ padding:"14px 4px 8px", textAlign:"center" }}>
           <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginBottom:10 }}>
@@ -887,28 +968,41 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
 }
 function ChampionCard({ state, champion, coChamps, big }) {
   return (
-    <div style={{ padding: big ? "44px 30px" : "28px 18px", textAlign:"center", marginBottom:16,
-      position:"relative", overflow:"hidden", borderRadius:20,
-      background:"linear-gradient(160deg, rgba(239,201,120,0.16), rgba(225,87,42,0.08)), var(--panel)",
-      border:"1px solid rgba(239,201,120,0.5)", animation:"si-glow 3s infinite" }}>
-      <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:10 }}>
-        {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={big ? 110 : 64} ring />)}
+    <div style={{ padding: big ? "48px 30px" : "26px 18px", textAlign:"center", marginBottom:16,
+      position:"relative", overflow:"hidden", borderRadius:12,
+      background:"radial-gradient(110% 80% at 50% 0%, rgba(233,180,65,0.14) 0%, transparent 55%), var(--night)",
+      border:"1.5px solid var(--ink)" }}>
+      <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14 }}>
+        {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={big ? 110 : 64}
+          style={{ border:"2.5px solid var(--sun)" }} />)}
       </div>
-      <div style={{ ...label, fontSize: big ? 16 : 11, color:"#EFC978" }}>Champion</div>
-      <div style={{ fontFamily:SERIF, fontWeight:800, fontSize: big ? 96 : 42, lineHeight:1, margin:"6px 0 4px",
-        background:EMBER_GRAD, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>
+      <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
+        textTransform:"uppercase", background:"var(--sun)", color:"var(--night)",
+        fontSize: big ? 19 : 12.5, padding: big ? "5px 22px" : "3px 14px", borderRadius:4 }}>Champion</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", textTransform:"uppercase",
+        fontSize: big ? 104 : 46, lineHeight:0.95, margin:"10px 0 6px", color:"var(--sun)" }}>
         {coChamps.map(c => disp(state, c.player)).join(" & ")}
       </div>
-      <div style={{ fontFamily:SANS, color:"#CBBFA9", fontSize: big ? 20 : 13.5 }}>
-        {champion.pts} points · The Scottsdale Invitational · MMXXVI
+      <div style={{ fontFamily:SANS, fontWeight:600, color:"#D8C6A6", fontSize: big ? 19 : 13 }}>
+        {champion.pts} points · Field Day · Scottsdale 2026
       </div>
-      {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"#FF8A5C", fontSize: big ? 17 : 13 }}>
+      {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"#E5967F", fontSize: big ? 17 : 13 }}>
         Tied. One pressure putt on the green decides it.</div>}
     </div>
   );
 }
 
 /* ─────────── slate ─────────── */
+/* phase colors: each session of the weekend gets its own band */
+const PHASE = {
+  fri: { bg:"var(--pool)",   fg:BONE },
+  sam: { bg:"var(--sun)",    fg:"var(--ink)" },
+  sap: { bg:"var(--accent)", fg:BONE },
+  san: { bg:"var(--clay)",   fg:BONE },
+  fin: { bg:"var(--night)",  fg:"var(--sun)" },
+};
+const phaseOf = ev => PHASE[ev?.session] || { bg:"var(--paper2)", fg:"var(--ink)" };
+
 function Schedule({ state, events, gm, open, onAdd, onReorder }) {
   const [reorderMode, setReorderMode] = useState(false);
   const shelved = events.filter(e => state.shelved[e.id]);
@@ -930,7 +1024,7 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
   const arrow = (ev, dir, edge) => (
     <button disabled={edge} onClick={e => { e.stopPropagation(); move(ev, dir); }}
       style={{ width:34, height:34, borderRadius:10, cursor: edge ? "default" : "pointer",
-        background:"var(--panel2)", border:"1px solid var(--line)", color: edge ? "#4A3E2C" : "#EFC978",
+        background:"var(--panel2)", border:"1px solid var(--line)", color: edge ? "#A5947B" : "var(--accent2)",
         fontSize:13, flexShrink:0 }}>{dir < 0 ? "▲" : "▼"}</button>
   );
   const section = (evList, canMove) => evList.map((ev, i) => {
@@ -939,16 +1033,19 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
     const st = state.stages[ev.id];
     const deck = state.onDeck === ev.id;
     const moving = reorderMode && gm && canMove;
+    const ph = phaseOf(ev);
     return (
       <button key={ev.id} onClick={moving ? undefined : () => open(ev)} style={{ display:"block", width:"100%", textAlign:"left",
-        background: deck ? "linear-gradient(90deg, rgba(225,87,42,0.12), rgba(225,87,42,0.02)), var(--panel)" : CARD_BG,
-        border: deck ? "1px solid rgba(225,87,42,0.5)" : ev.finale ? "1px solid rgba(239,201,120,0.5)" : "1px solid var(--line)",
-        borderRadius:15, padding:"13px 15px", marginBottom:8, cursor: moving ? "default" : "pointer",
-        boxShadow:"0 2px 10px rgba(0,0,0,0.22)" }}>
+        background: deck ? "rgba(188,75,60,0.09)" : "var(--paper)",
+        border: deck ? "1.5px solid var(--clay)" : "1px solid var(--line)",
+        boxShadow:`inset 4px 0 0 ${ph.bg}`,
+        borderRadius:9, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15.5, color:"var(--cream)" }}>
-              {res && <span style={{ color:"var(--green)" }}>✓ </span>}{ev.name}{ev.finale && " 👑"}
+            <div style={{ fontFamily:DISPLAY, fontWeight:600, fontSize:18.5, letterSpacing:"0.01em",
+              textTransform:"uppercase", color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {res && <span style={{ color:"var(--green)" }}>✓ </span>}{ev.name}
+              {ev.finale && <span style={{ color:"var(--accent)" }}> ★</span>}
             </div>
           </div>
           {moving ? (
@@ -967,7 +1064,7 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
             {res.slots[0].map(p => (
               <span key={p} style={{ display:"inline-flex", alignItems:"center", gap:6,
                 fontFamily:SANS, fontWeight:700, fontSize:12, padding:"3px 10px 3px 4px", borderRadius:99,
-                background:"rgba(217,164,65,0.14)", color:"#EFC978" }}>
+                background:"rgba(192,91,51,0.14)", color:"var(--accent2)" }}>
                 <Avatar state={state} p={p} size={20} />{disp(state, p)}
               </span>
             ))}
@@ -981,20 +1078,25 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
       {SESSIONS.map(s => {
         const evs = inSession(s);
         if (evs.length === 0) return null;
+        const ph = PHASE[s.id] || { bg:"var(--paper2)", fg:"var(--ink)" };
         return (
-          <div key={s.id} style={{ marginBottom:18 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:10, margin:"4px 2px 9px" }}>
-              <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>{s.label}</span>
-              <Tag tone="gold">{s.tag}</Tag>
+          <div key={s.id} style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
+              borderRadius:7, background:ph.bg, color:ph.fg, border:"1.5px solid var(--ink)" }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.03em",
+                textTransform:"uppercase", flex:1 }}>{s.label}</span>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em" }}>{s.tag}</span>
             </div>
             {section(evs, true)}
           </div>
         );
       })}
       {extras.length > 0 && (
-        <div style={{ marginBottom:18 }}>
-          <div style={{ display:"flex", alignItems:"baseline", gap:10, margin:"4px 2px 9px" }}>
-            <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>Extra</span>
+        <div style={{ marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
+            borderRadius:7, background:"var(--paper2)", color:"var(--ink)", border:"1.5px solid var(--ink)" }}>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.03em",
+              textTransform:"uppercase", flex:1 }}>Extra</span>
           </div>
           {section(extras, true)}
         </div>
@@ -1012,7 +1114,7 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
           {section(shelved, false)}
         </div>
       )}
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"#6E6350", textAlign:"center", padding:"4px 20px 16px", lineHeight:1.6 }}>
+      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", textAlign:"center", padding:"4px 20px 16px", lineHeight:1.6 }}>
         Order is loose. Events run whenever. Sunday is unscored: breakfast, cleanup, group photo, out by 11.
       </div>
     </div>
@@ -1029,10 +1131,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
     lg: { av:36, f:19,   tf:17, pad:"11px 14px", gap:14, col:`repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` },
   }[size];
   const GroupCard = ({ title, entrants, through, gIdx, isFinal }) => (
-    <div style={{ background:"var(--panel2)", border:"1px solid " + (isFinal ? "rgba(239,201,120,0.5)" : "var(--line)"),
+    <div style={{ background:"var(--panel2)", border:"1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
       borderRadius:13, overflow:"hidden", boxShadow:"0 3px 12px rgba(0,0,0,0.3)" }}>
       <div style={{ ...label, fontSize: size==="lg" ? 13 : 10.5, padding: size==="lg" ? "9px 14px 5px" : "7px 10px 3px",
-        color: isFinal ? "#EFC978" : "var(--dust)" }}>{title}</div>
+        color: isFinal ? "var(--accent2)" : "var(--dust)" }}>{title}</div>
       {entrants.map(key => {
         const v = stageEntrantView(state, st, key);
         const isThrough = isFinal ? st.finalWinner === key : (through || []).includes(key);
@@ -1046,13 +1148,13 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
             style={{ display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
               padding:dims.pad, border:"none", borderTop:"1px solid var(--line)",
               cursor: clickable ? "pointer" : "default",
-              background: isThrough ? "rgba(217,164,65,0.16)" : "transparent",
+              background: isThrough ? "rgba(192,91,51,0.16)" : "transparent",
               opacity: dimmed ? 0.38 : 1 }}>
             <AvatarStack state={state} players={v.players} size={dims.av} max={3} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f, flex:1,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              color: isThrough ? "#EFC978" : "var(--cream)" }}>{v.name}</span>
-            {isThrough && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.tf, color:"#EFC978" }}>
+              color: isThrough ? "var(--accent2)" : "var(--cream)" }}>{v.name}</span>
+            {isThrough && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.tf, color:"var(--accent2)" }}>
               {isFinal ? "🏆" : "✓"}</span>}
           </button>
         );
@@ -1134,7 +1236,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
             <div style={{ display:"grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap:8 }}>
               {draw.teams.map((t,i) => (
                 <div key={i} style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12, padding:"10px 12px" }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"#EFC978", marginBottom:5 }}>{teamLabel(state, t)}</div>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
                   <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
                   </div>
@@ -1188,10 +1290,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                 {methods.map(m => (
                   <button key={m.id} onClick={() => setMethod(m.id)} style={{ textAlign:"left", padding:"11px 13px",
                     cursor:"pointer", borderRadius:12,
-                    background: method === m.id ? "rgba(217,164,65,0.1)" : "var(--panel2)",
+                    background: method === m.id ? "rgba(192,91,51,0.1)" : "var(--panel2)",
                     border:"1px solid " + (method === m.id ? "var(--gold)" : "var(--line)") }}>
                     <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
-                      color: method === m.id ? "#EFC978" : "var(--cream)" }}>{m.name}</span>
+                      color: method === m.id ? "var(--accent2)" : "var(--cream)" }}>{m.name}</span>
                     <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>  ·  {m.desc}</span>
                   </button>
                 ))}
@@ -1237,18 +1339,18 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     <span style={{ ...label }}>{canHeats ? "Heats" : "Pools"}</span>
                     {[2,3,4].filter(n => n <= stageEntrantCount).map(n => (
                       <button key={n} onClick={() => setNGroups(n)} style={{ width:38, height:36, borderRadius:10,
-                        cursor:"pointer", fontFamily:SERIF, fontWeight:700, fontSize:16,
+                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                         background: groupsChoice===n ? GOLD_GRAD : "var(--panel)",
-                        color: groupsChoice===n ? "#1E1608" : "#CBBFA9",
+                        color: groupsChoice===n ? "var(--ink)" : "var(--muted2)",
                         border: groupsChoice===n ? "1px solid transparent" : "1px solid var(--line)" }}>{n}</button>
                     ))}
                     <span style={{ flex:1 }} />
                     <span style={{ ...label }}>Through</span>
                     {[1,2].map(n => (
                       <button key={n} onClick={() => setAdvance(n)} style={{ width:38, height:36, borderRadius:10,
-                        cursor:"pointer", fontFamily:SERIF, fontWeight:700, fontSize:16,
+                        cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                         background: advance===n ? GOLD_GRAD : "var(--panel)",
-                        color: advance===n ? "#1E1608" : "#CBBFA9",
+                        color: advance===n ? "var(--ink)" : "var(--muted2)",
                         border: advance===n ? "1px solid transparent" : "1px solid var(--line)" }}>{n}</button>
                     ))}
                   </div>
@@ -1258,7 +1360,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                         <button key={id} onClick={() => setStageMethod(id)} style={{ flex:1, padding:"8px",
                           borderRadius:10, cursor:"pointer", fontFamily:SANS, fontWeight:600, fontSize:12.5,
                           background: stageMethod===id ? GOLD_GRAD : "var(--panel)",
-                          color: stageMethod===id ? "#1E1608" : "var(--cream)",
+                          color: stageMethod===id ? "var(--ink)" : "var(--cream)",
                           border: stageMethod===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
                       ))}
                     </div>
@@ -1305,9 +1407,9 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[1,2,3,4,...(ev.value === 6 ? [6] : [])].map(v => (
                   <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:40, borderRadius:11, cursor:"pointer",
-                    fontFamily:SERIF, fontWeight:700, fontSize:17,
+                    fontFamily:DISPLAY, fontWeight:700, fontSize:17,
                     background: eValue===v ? GOLD_GRAD : "var(--panel)",
-                    color: eValue===v ? "#1E1608" : "#CBBFA9",
+                    color: eValue===v ? "var(--ink)" : "var(--muted2)",
                     border: eValue===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
                 ))}
               </div>
@@ -1317,7 +1419,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
                     fontSize:12.5, padding:"8px 11px", borderRadius:10, cursor:"pointer",
                     background: eSession===id ? GOLD_GRAD : "var(--panel)",
-                    color: eSession===id ? "#1E1608" : "var(--cream)",
+                    color: eSession===id ? "var(--ink)" : "var(--cream)",
                     border: eSession===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
                 ))}
               </div>
@@ -1373,9 +1475,9 @@ function AddEventSheet({ state, onClose, save }) {
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {[1,2,3,4].map(v => (
           <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:12, cursor:"pointer",
-            fontFamily:SERIF, fontWeight:700, fontSize:19,
+            fontFamily:DISPLAY, fontWeight:700, fontSize:19,
             background: value===v ? GOLD_GRAD : "var(--panel2)",
-            color: value===v ? "#1E1608" : "#CBBFA9",
+            color: value===v ? "var(--ink)" : "var(--muted2)",
             border: value===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
         ))}
       </div>
@@ -1385,7 +1487,7 @@ function AddEventSheet({ state, onClose, save }) {
           <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
             padding:"9px 12px", borderRadius:10, cursor:"pointer",
             background: sess===id ? GOLD_GRAD : "var(--panel2)",
-            color: sess===id ? "#1E1608" : "var(--cream)",
+            color: sess===id ? "var(--ink)" : "var(--cream)",
             border: sess===id ? "1px solid transparent" : "1px solid var(--line)" }}>{lb}</button>
         ))}
       </div>
@@ -1395,7 +1497,7 @@ function AddEventSheet({ state, onClose, save }) {
           <button key={f.id} onClick={() => setFmt(f.id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
             padding:"9px 12px", borderRadius:10, cursor:"pointer",
             background: fmt===f.id ? GOLD_GRAD : "var(--panel2)",
-            color: fmt===f.id ? "#1E1608" : "var(--cream)",
+            color: fmt===f.id ? "var(--ink)" : "var(--cream)",
             border: fmt===f.id ? "1px solid transparent" : "1px solid var(--line)" }}>{f.label}</button>
         ))}
       </div>
@@ -1438,11 +1540,11 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
                         padding:dims.pad,
                         cursor: gm && onPick && tIdx !== null ? "pointer" : "default", border:"none",
                         borderBottom: side === 0 ? "1px solid var(--line)" : "none",
-                        background: isWinner ? "rgba(217,164,65,0.16)" : "transparent",
+                        background: isWinner ? "rgba(192,91,51,0.16)" : "transparent",
                         opacity: isLoser ? 0.38 : 1 }}>
                       {t && <AvatarStack state={state} players={t.players} size={dims.av} max={3} />}
                       <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f,
-                        color: isWinner ? "#EFC978" : t ? "var(--cream)" : "#5E5342" }}>
+                        color: isWinner ? "var(--accent2)" : t ? "var(--cream)" : "#AE9C80" }}>
                         {t ? teamLabel(state, t) : "TBD"}{isWinner && " ✓"}
                       </div>
                     </button>
@@ -1465,8 +1567,8 @@ function BracketSheet({ ev, state, gm, onClose, onPick }) {
     <Sheet title={`${ev.name} bracket`} onClose={onClose} wide>
       {champ !== null && (
         <div style={{ textAlign:"center", marginBottom:14, padding:"12px", borderRadius:14,
-          background:"rgba(217,164,65,0.1)", border:"1px solid rgba(217,164,65,0.4)" }}>
-          <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"#EFC978" }}>
+          background:"rgba(192,91,51,0.1)", border:"1px solid rgba(192,91,51,0.4)" }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>
             {teamLabel(state, draw.teams[champ])} take it</span>
         </div>
       )}
@@ -1527,7 +1629,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         {slotIdxs.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
             borderRadius:12, border:"1px solid " + (active===i ? "var(--gold)" : "var(--line)"),
-            background: active===i ? "rgba(217,164,65,0.1)" : "var(--panel2)" }}>
+            background: active===i ? "rgba(192,91,51,0.1)" : "var(--panel2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
             <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each · {slots[i].length} in</div>
@@ -1546,7 +1648,7 @@ function ResultSheet({ ev, state, onClose, save }) {
                 <AvatarStack state={state} players={t.players} size={22} max={3} />
                 <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:13, minWidth:0,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                  color: w === active ? "#1E1608" : "var(--cream)" }}>{teamLabel(state, t)}</span>
+                  color: w === active ? "var(--ink)" : "var(--cream)" }}>{teamLabel(state, t)}</span>
                 {w >= 0 && w !== active && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                   color:SLOT_META[w].color, flexShrink:0 }}>{SLOT_META[w].label}</span>}
               </button>
@@ -1649,14 +1751,14 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
       style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
         borderRadius:12, width:"100%",
         background:"var(--panel2)",
-        border:"1px solid " + (mine > 0 ? "rgba(217,164,65,0.55)" : "var(--line)"),
+        border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
         cursor: room < 1 ? "default" : "pointer",
         opacity: room < 1 ? 0.5 : 1, textAlign:"left" }}>
       <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
       <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
       {mine > 0 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.08em",
-        padding:"3px 7px", borderRadius:99, background:"rgba(217,164,65,0.16)", color:"#EFC978",
+        padding:"3px 7px", borderRadius:99, background:"rgba(192,91,51,0.16)", color:"var(--accent2)",
         textTransform:"uppercase", flexShrink:0 }}>You: {mine}</span>}
     </button>
   );
@@ -1667,22 +1769,22 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
     const win = w.kind === "outright" ? OUTRIGHT_MULT * w.stake : w.stake;
     return (
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 13px",
-        borderRadius:14, background: r.status === "pending" ? CARD_BG : "#1A140D",
-        border:"1px solid " + (r.status === "pending" ? "var(--line)" : "#2C2317"), marginBottom:7 }}>
+        borderRadius:14, background: r.status === "pending" ? CARD_BG : "var(--paper2)",
+        border:"1px solid " + (r.status === "pending" ? "var(--line)" : "var(--line)"), marginBottom:7 }}>
         <Avatar state={state} p={w.player} size={30} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)" }}>
-            <b>{disp(state, w.player)}</b> · {w.stake} on <b style={{ color:"#EFC978" }}>{l.pick}</b>
+            <b>{disp(state, w.player)}</b> · {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
           </div>
           <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>{l.ctx}</div>
         </div>
         {r.status === "pending" && <span style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>to win +{win}</span>}
         {r.status === "won" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--green)" }}>+{r.delta}</span>}
-        {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"#E06C5B" }}>{r.delta}</span>}
-        {r.status === "void" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"#6E6350" }}>VOID</span>}
+        {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--clay)" }}>{r.delta}</span>}
+        {r.status === "void" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"var(--muted)" }}>VOID</span>}
         {gm && r.status === "pending" && (
-          <button onClick={() => onVoid(w.id)} style={{ background:"none", border:"1px solid rgba(224,108,91,0.4)",
-            borderRadius:8, color:"#E06C5B", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"4px 8px",
+          <button onClick={() => onVoid(w.id)} style={{ background:"none", border:"1px solid rgba(188,75,60,0.4)",
+            borderRadius:8, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"4px 8px",
             cursor:"pointer", textTransform:"uppercase" }}>Void</button>
         )}
       </div>
@@ -1707,23 +1809,23 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
       )}
 
       {!ev && !state.frozen && (
-        <div style={{ textAlign:"center", padding:"22px 20px", color:"#6E6350", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
+        <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
           Betting is closed.<br/>When Brandon opens the next event, it shows up here.
         </div>
       )}
       {state.frozen && (
-        <div style={{ textAlign:"center", padding:"22px 20px", color:"#6E6350", fontFamily:SANS, fontSize:14 }}>
+        <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14 }}>
           The board is frozen. All wagers are settled.
         </div>
       )}
 
       {ev && (
-        <div style={{ borderRadius:16, border:"1px solid rgba(217,164,65,0.4)",
-          background:"linear-gradient(180deg, rgba(217,164,65,0.06), transparent), var(--panel)",
+        <div style={{ borderRadius:16, border:"1px solid rgba(192,91,51,0.4)",
+          background:"linear-gradient(180deg, rgba(192,91,51,0.06), transparent), var(--panel)",
           padding:"14px 14px 10px", marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"#FF8A5C", animation:"si-pulse 1.6s infinite" }} />
-            <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>{ev.name}</span>
+            <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.6s infinite" }} />
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--cream)", flex:1 }}>{ev.name}</span>
             <Tag tone="gold">Betting open</Tag>
           </div>
 
@@ -1826,7 +1928,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
               ))}
             </>
           )}
-          {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"#E06C5B", padding:"2px 0 6px" }}>
+          {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             You are maxed out until a wager settles.</div>}
         </div>
       )}
@@ -1867,16 +1969,16 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
         {[1,2,3].map(v => (
           <button key={v} onClick={() => setStake(v)} disabled={v > maxStake}
             style={{ width:46, height:42, borderRadius:12, cursor: v > maxStake ? "default" : "pointer",
-            fontFamily:SERIF, fontWeight:700, fontSize:19, opacity: v > maxStake ? 0.35 : 1,
+            fontFamily:DISPLAY, fontWeight:700, fontSize:19, opacity: v > maxStake ? 0.35 : 1,
             background: stake===v ? GOLD_GRAD : "var(--panel2)",
-            color: stake===v ? "#1E1608" : "#CBBFA9",
+            color: stake===v ? "var(--ink)" : "var(--muted2)",
             border: stake===v ? "1px solid transparent" : "1px solid var(--line)" }}>{v}</button>
         ))}
         <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginLeft:"auto" }}>
-          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b> · loses <b style={{ color:"#E06C5B" }}>−{stake}</b>
+          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b> · loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
         </div>
       </div>
-      <div style={{ fontFamily:SANS, fontSize:12, color:"#6E6350", marginBottom:14 }}>
+      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginBottom:14 }}>
         Settles automatically off the official result. {maxStake < 1 ? "You are maxed out." : ""}
       </div>
       <Btn disabled={maxStake < 1 || stake > maxStake} onClick={() => place({ ...pick, stake, status:"open" })}
@@ -1894,13 +1996,13 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
     <div style={{ position:"fixed", bottom:"calc(66px + env(safe-area-inset-bottom))", left:0, right:0,
       display:"flex", justifyContent:"center", zIndex:55, pointerEvents:"none" }}>
       <div style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
-        background:"rgba(19,14,9,0.95)", border:"1px solid rgba(217,164,65,0.4)", borderRadius:14,
+        background:"rgba(42,33,25,0.97)", border:"1px solid rgba(192,91,51,0.4)", borderRadius:14,
         padding:"8px 10px", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
-          <span style={{ ...label, fontSize:10, color:"#EFC978" }}>QA</span>
-          <span style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)", flex:1, minWidth:0,
+          <span style={{ ...label, fontSize:10, color:"var(--sun)" }}>QA</span>
+          <span style={{ fontFamily:SANS, fontSize:12, color:"#C9B896", flex:1, minWidth:0,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            Acting as <b style={{ color:"var(--cream)" }}>{me || "nobody"}</b></span>
+            Acting as <b style={{ color:"#FBF3E4" }}>{me || "nobody"}</b></span>
           {confirm ? (
             <>
               <button onClick={() => { onReset(); setConfirm(false); }} style={{ ...small,
@@ -1913,7 +2015,7 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
               <button onClick={onRerun} style={{ ...small,
                 background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Rerun intro</button>
               <button onClick={() => setConfirm(true)} style={{ ...small,
-                background:"none", border:"1px solid rgba(224,108,91,0.4)", color:"#E06C5B" }}>Reset game</button>
+                background:"none", border:"1px solid rgba(188,75,60,0.4)", color:"var(--clay)" }}>Reset game</button>
             </>
           )}
           <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
@@ -1924,7 +2026,7 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
             <button key={p} onClick={() => onSwitch(p)} style={{ fontFamily:SANS, fontWeight:600,
               fontSize:12, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
               background: me === p ? GOLD_GRAD : "var(--panel2)",
-              color: me === p ? "#1E1608" : "var(--cream)",
+              color: me === p ? "var(--ink)" : "var(--cream)",
               border: me === p ? "1px solid transparent" : "1px solid var(--line)" }}>{p}</button>
           ))}
         </div>
@@ -1941,8 +2043,8 @@ function AdjustSheet({ player, onClose, save }) {
     <Sheet title={`Ruling · ${player}`} onClose={onClose}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
         <Btn kind="dark" onClick={() => setDelta(d => d - 1)} style={{ fontSize:20, width:54 }}>−</Btn>
-        <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:46, width:84, textAlign:"center",
-          color: delta >= 0 ? "var(--green)" : "#E06C5B" }}>{delta>0?"+":""}{delta}</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:46, width:84, textAlign:"center",
+          color: delta >= 0 ? "var(--green)" : "var(--clay)" }}>{delta>0?"+":""}{delta}</div>
         <Btn kind="dark" onClick={() => setDelta(d => d + 1)} style={{ fontSize:20, width:54 }}>+</Btn>
       </div>
       <input value={reason} onChange={e => setReason(e.target.value)} maxLength={50}
@@ -1961,7 +2063,7 @@ function PinSheet({ onClose, unlock }) {
         inputMode="numeric" placeholder="Passcode" autoFocus
         onKeyDown={e => e.key === "Enter" && unlock(pin)}
         style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"13px 12px", color:"var(--cream)", fontFamily:SERIF, fontSize:26,
+          padding:"13px 12px", color:"var(--cream)", fontFamily:DISPLAY, fontSize:26,
           letterSpacing:"0.4em", textAlign:"center", marginBottom:12, outline:"none" }} />
       <Btn disabled={pin.length !== 4} onClick={() => unlock(pin)} style={{ width:"100%", fontSize:15, padding:"14px" }}>Unlock</Btn>
     </Sheet>
@@ -1973,6 +2075,21 @@ function ProfileSheet({ state, me, onClose, save }) {
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
+      <div style={{ border:"1.5px solid var(--ink)", borderRadius:10, overflow:"hidden", marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, background:playerColor(me), color:BONE,
+          padding:"7px 12px" }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.05em",
+            textTransform:"uppercase", flex:1 }}>Field Day · Player credential</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(playerNo(me)).padStart(2,"0")}</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
+          <Avatar state={state} p={me} size={40} />
+          <div>
+            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15, color:"var(--ink)" }}>{disp(state, me)}</div>
+            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>Scottsdale · 2026</div>
+          </div>
+        </div>
+      </div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(), ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:15, padding:"14px", marginTop:16 }}>Save</Btn>
@@ -1991,13 +2108,13 @@ function Reveal({ state, reveal, big, onClose, onBets }) {
   }, [shown, items]);
   const doneAll = shown >= items;
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(13,9,5,0.97)",
+    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       padding:"calc(30px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom))",
       overflowY:"auto" }}>
-      <div style={{ ...label, fontSize: big ? 15 : 11, animation:"si-in .4s both" }}>{reveal.title}</div>
-      <div style={{ fontFamily:SERIF, fontWeight:700, fontSize: big ? 60 : 32, color:"var(--cream)",
-        marginBottom: big ? 28 : 20, animation:"si-in .4s .1s both", textAlign:"center" }}>{reveal.subtitle}</div>
+      <div style={{ ...label, fontSize: big ? 15 : 11, color:"var(--sun)", animation:"si-in .4s both" }}>{reveal.title}</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 64 : 36, color:BONE, textTransform:"uppercase",
+        lineHeight:0.95, marginBottom: big ? 28 : 20, animation:"si-in .4s .1s both", textAlign:"center" }}>{reveal.subtitle}</div>
 
       {reveal.versus ? (
         <div style={{ width:"100%", maxWidth: big ? 900 : 470,
@@ -2011,10 +2128,10 @@ function Reveal({ state, reveal, big, onClose, onBets }) {
           {reveal.groups.map((g, i) => (
             <div key={i} style={{ visibility: i < shown ? "visible" : "hidden",
               animation: i < shown ? "si-flag .55s both" : "none",
-              background:CARD_BG, border:"1px solid rgba(239,201,120,0.45)", borderRadius:16,
+              background:CARD_BG, border:"1px solid rgba(156,69,38,0.45)", borderRadius:16,
               padding: big ? "18px 20px" : "14px 15px", boxShadow:"0 8px 30px rgba(0,0,0,0.4)" }}>
-              <div style={{ fontFamily:SERIF, fontWeight:700, fontSize: big ? 26 : 16,
-                color:"#EFC978", marginBottom:8 }}>{g.title}</div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 26 : 16,
+                color:"var(--accent2)", marginBottom:8 }}>{g.title}</div>
               {g.lines.map((ln, j) => (
                 <div key={j} style={{ display:"flex", alignItems:"center", gap:9, padding:"3px 0",
                   animation: i < shown ? `si-in .3s ${0.25 + j*0.15}s both` : "none" }}>
@@ -2034,7 +2151,7 @@ function Reveal({ state, reveal, big, onClose, onBets }) {
         </div>
       )}
       {!doneAll && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
-        border:"none", color:"#6E6350", fontFamily:SANS, fontSize:13, cursor:"pointer" }}>skip</button>}
+        border:"none", color:"#B7A386", fontFamily:SANS, fontSize:13, cursor:"pointer" }}>skip</button>}
     </div>
   );
 }
@@ -2079,7 +2196,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     .map(x => `${disp(state, x.w.player)} cashed +${x.r.delta}`);
   const rulings = (state.adjustments||[]).slice(0,4).map(a => `Ruling: ${disp(state,a.player)} ${a.delta>0?"+":""}${a.delta}${a.reason ? " · " + a.reason : ""}`);
   let ticker = [...tickerWagers, ...results, ...cashes, ...rulings];
-  if (ticker.length === 0) ticker = ["The Scottsdale Invitational", "13 players · one board", "Champion crowned Saturday night"];
+  if (ticker.length === 0) ticker = ["Field Day", "13 players · one board", "Champion crowned Saturday night"];
   const tickerStr = ticker.join("   ✦   ");
 
   const leader = !allTied ? standings[0] : null;
@@ -2088,7 +2205,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
-      background:"radial-gradient(110% 60% at 50% -10%, #33261460 0%, transparent 60%), var(--ink)" }}>
+      background:"radial-gradient(110% 60% at 50% -10%, rgba(233,180,65,0.10) 0%, transparent 60%), var(--night)" }}>
       <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
         background:"var(--panel)", border:"1px solid var(--line)", color:"var(--dust)",
         width:38, height:38, borderRadius:11, fontSize:15, cursor:"pointer" }}>✕</button>
@@ -2096,19 +2213,20 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       {/* masthead */}
       <div style={{ display:"flex", alignItems:"center", gap:22,
         padding:"calc(26px + env(safe-area-inset-top)) 48px 14px" }}>
-        <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(30px,3.4vw,50px)", lineHeight:1,
-          background:EMBER_GRAD, WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>
-          The Invitational</div>
-        <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)" }}>Scottsdale · MMXXVI</div>
-        <span style={{ width:10, height:10, borderRadius:99, background:"#FF8A5C", animation:"si-pulse 1.6s infinite" }} />
+        <FDMark size={46} />
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3.4vw,50px)", lineHeight:1,
+          textTransform:"uppercase", letterSpacing:"0.015em", color:"var(--sun)" }}>
+          Field Day</div>
+        <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"#C9B896" }}>Scottsdale · 2026</div>
+        <span style={{ width:10, height:10, borderRadius:99, background:"#E5967F", animation:"si-pulse 1.6s infinite" }} />
         <div style={{ flex:1 }} />
         {onDeckEv && !champion && (
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 20px", borderRadius:14,
-            background:"linear-gradient(90deg, rgba(225,87,42,0.14), rgba(225,87,42,0.03))",
-            border:"1px solid rgba(225,87,42,0.45)", marginRight:56 }}>
+            background:"linear-gradient(90deg, rgba(188,75,60,0.14), rgba(188,75,60,0.03))",
+            border:"1px solid rgba(188,75,60,0.45)", marginRight:56 }}>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
-              letterSpacing:"0.18em", color:"#FF8A5C", textTransform:"uppercase" }}>On deck</span>
-            <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"var(--cream)" }}>
+              letterSpacing:"0.18em", color:"var(--live2)", textTransform:"uppercase" }}>On deck</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"#FBF3E4" }}>
               {onDeckEv.name}</span>
             <Tag tone="gold" style={{ fontSize:"clamp(10px,0.9vw,13px)" }}>Betting open</Tag>
           </div>
@@ -2124,9 +2242,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       ) : scene === "bracket" && liveBracketEv ? (
         <div key="scene-br" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", marginBottom:6 }}>Live bracket</div>
-          <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-            color:"var(--cream)", marginBottom:24 }}>{liveBracketEv.name}</div>
+          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 }}>Live bracket</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)", textTransform:"uppercase",
+            color:"#FBF3E4", marginBottom:24 }}>{liveBracketEv.name}</div>
           <div style={{ width:"100%", maxWidth:1240 }}>
             <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg" />
           </div>
@@ -2134,10 +2252,10 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       ) : scene === "stages" && liveStageEv ? (
         <div key="scene-st" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", marginBottom:6 }}>
+          <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 }}>
             {state.stages[liveStageEv.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
-          <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-            color:"var(--cream)", marginBottom:24 }}>{liveStageEv.name}</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)", textTransform:"uppercase",
+            color:"#FBF3E4", marginBottom:24 }}>{liveStageEv.name}</div>
           <div style={{ width:"100%", maxWidth:1300 }}>
             <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
           </div>
@@ -2148,19 +2266,19 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           {leader && (
             <div style={{ display:"flex", alignItems:"center", gap:20, padding:"clamp(10px,1.6vh,20px) 26px",
               marginBottom:12, borderRadius:16, position:"relative", overflow:"hidden",
-              background:GOLD_GRAD, border:"1px solid #EFC978", boxShadow:"0 8px 34px rgba(217,164,65,0.3)" }}>
+              background:GOLD_GRAD, border:"1px solid var(--accent2)", boxShadow:"0 8px 34px rgba(192,91,51,0.3)" }}>
               <div style={{ position:"absolute", top:0, bottom:0, width:110,
                 background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)",
                 animation:"si-shine 3.4s 1s infinite" }} />
-              <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(24px,3.4vh,42px)", color:"#1E1608", width:46, textAlign:"center" }}>1</div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(24px,3.4vh,42px)", color:"var(--ink)", width:46, textAlign:"center" }}>1</div>
               <Avatar state={state} p={leader.player} size={56} />
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(20px,3vh,34px)", color:"#1E1608", lineHeight:1.1 }}>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(20px,3vh,34px)", color:"var(--ink)", lineHeight:1.1 }}>
                   {disp(state, leader.player)}</div>
                 <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.5vh,15px)", color:"rgba(30,22,8,0.6)" }}>
                   {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? ` · wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
               </div>
-              <div key={leader.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"#1E1608", animation:"si-pop .5s ease-out" }}>{leader.pts}</div>
+              <div key={leader.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{leader.pts}</div>
             </div>
           )}
           <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px 22px", alignContent:"start", minHeight:0 }}>
@@ -2171,13 +2289,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     padding:"clamp(5px,0.9vh,11px) 16px", marginBottom:7, borderRadius:13,
                     background:CARD_BG,
                     border:"1px solid " + (r.rank===2 && !allTied ? "rgba(189,178,160,0.5)" : r.rank===3 && !allTied ? "rgba(192,122,75,0.5)" : "var(--line)") }}>
-                    <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)", width:36,
-                      color: !allTied && r.rank===2 ? "#BDB2A0" : !allTied && r.rank===3 ? "#C07A4B" : "#6E6350",
+                    <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)", width:36,
+                      color: !allTied && r.rank===2 ? "#75818C" : !allTied && r.rank===3 ? "#AC6A3B" : "var(--muted)",
                       textAlign:"center" }}>{allTied ? "·" : r.rank}</div>
                     <Avatar state={state} p={r.player} size={36} />
                     <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,2vh,24px)", flex:1,
                       color:"var(--cream)" }}>{disp(state, r.player)}</div>
-                    <div key={r.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
+                    <div key={r.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
                       color:"var(--cream)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
                   </div>
                 ))}
@@ -2191,14 +2309,14 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       {scenes.length > 1 && !champion && (
         <div style={{ display:"flex", justifyContent:"center", gap:8, paddingBottom:8 }}>
           {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:2,
-            background: i === sceneIdx ? "#D9A441" : "var(--line)" }} />)}
+            background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
         </div>
       )}
-      <div style={{ borderTop:"1px solid rgba(217,164,65,0.5)", background:"#1A140D", overflow:"hidden", padding:"11px 0" }}>
+      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"11px 0" }}>
         <div style={{ display:"inline-flex", whiteSpace:"nowrap", animation:`si-tick ${Math.max(30, tickerStr.length/3)}s linear infinite` }}>
           {[0,1].map(k => (
             <span key={k} style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
-              letterSpacing:"0.06em", color:"#EFC978", paddingRight:60 }}>{tickerStr}   ✦   </span>
+              letterSpacing:"0.06em", color:"var(--accent2)", paddingRight:60 }}>{tickerStr}   ✦   </span>
           ))}
         </div>
       </div>
@@ -2211,10 +2329,10 @@ function Guide({ replay }) {
   const S = ({ n, t, children }) => (
     <div style={{ marginBottom:18 }}>
       <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:6 }}>
-        <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:13, color:"var(--dust)" }}>{n}</span>
-        <span style={{ fontFamily:SERIF, fontWeight:700, fontSize:18, color:"#EFC978" }}>{t}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:13, color:"var(--dust)" }}>{n}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--accent2)" }}>{t}</span>
       </div>
-      <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.62, color:"#CBBFA9" }}>{children}</div>
+      <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.62, color:"var(--muted2)" }}>{children}</div>
     </div>
   );
   return (
@@ -2246,8 +2364,8 @@ function Guide({ replay }) {
       <div style={{ display:"flex", justifyContent:"center", padding:"6px 0 18px" }}>
         <Btn kind="ghost" onClick={replay}>Replay the intro</Btn>
       </div>
-      <div style={{ fontFamily:SERIF, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
-        color:"#4A3E2C", paddingBottom:8 }}>SCOTTSDALE ✦ MMXXVI</div>
+      <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
+        color:"#A5947B", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
     </div>
   );
 }

@@ -42,6 +42,8 @@ glanced at for ten seconds, not stared at.
 - `npm run build` - production build
 - `npm run deploy` - build + `wrangler deploy` (needs `wrangler login` once)
 - `npm run tail` - live production logs
+- `npm run test:e2e` - full game loop over two WebSocket clients (dev server must
+  be running; `WS_BASE=wss://.../ws` targets prod; resets the board when done)
 
 ## Copy and design taste (Brandon's rules)
 
@@ -54,9 +56,10 @@ glanced at for ten seconds, not stared at.
 ## Backlog
 
 - [ ] Brandon's feature notes (pending, ask him)
-- [ ] PWA manifest + icons + add-to-home-screen flow
+- [x] PWA manifest + icons + add-to-home-screen flow (install gate opens onboarding)
+- [x] E2E test: tests/e2e.mjs, full loop over WebSocket
 - [ ] Awards voting Saturday night (Fraud of the Weekend, etc.)
 - [ ] Sudden-death pressure putt flow for championship ties
 - [ ] Odds tuning option: payout scaling by field size
 - [ ] Photo optimization (resize server-side, R2 if state grows)
-- [ ] E2E test: full weekend simulation script against local DO
+- [ ] Web Push for betting-open and results (installed PWAs, iOS 16.4+)

@@ -6,7 +6,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "deploy": "vite build && wrangler deploy",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

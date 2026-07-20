@@ -201,14 +201,34 @@ export default function App() {
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
 
-  const notify = useCallback((msg, action) => {
-    setToast({ msg, action });
+  const notify = useCallback((msg, action, tone) => {
+    setToast({ msg, action, tone });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 2600);
+    toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : tone === "gold" ? 4000 : 2600);
   }, []);
 
   /* re-claim identity on every (re)connect so the server knows who this device is */
   useEffect(() => { if (connected && me) dispatch("claim", { player: me }); }, [connected, me]);
+
+  /* your own wagers settling deserve a moment: watch pending picks flip to won or lost */
+  const prevWagerRes = useRef(null);
+  useEffect(() => {
+    if (!ready) return;
+    const map = {};
+    let delta = 0, any = false;
+    (state.wagers || []).forEach(w => {
+      if (w.player !== me) return;
+      const r = resolveWager(state, w, events);
+      map[w.id] = r.status;
+      if (prevWagerRes.current && prevWagerRes.current[w.id] === "pending" &&
+          (r.status === "won" || r.status === "lost")) { any = true; delta += r.delta; }
+    });
+    if (any && onboardStep >= 99) {
+      notify(delta > 0 ? `Cashed +${delta}` : delta < 0 ? `Wager lost ${delta}` : "Wagers settled even",
+        null, delta > 0 ? "gold" : undefined);
+    }
+    prevWagerRes.current = map;
+  }, [state, events, me, ready, onboardStep, notify]);
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it finished */
   useEffect(() => {
@@ -397,7 +417,8 @@ export default function App() {
       <div style={{ flex:1, overflowY:"auto", paddingTop:12,
         paddingBottom:`calc(${gm && qa ? 168 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-          champion={champion} coChamps={coChamps} gm={gm}
+          champion={champion} coChamps={coChamps} gm={gm} events={events}
+          myAtRisk={me ? atRisk(state, me, events) : 0}
           onAdjust={p => setModal({type:"adjust", player:p})}
           onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
           finaleDone={!!state.results["finale"]} />}
@@ -496,8 +517,9 @@ export default function App() {
       {toast && (
         <div style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
           display:"flex", alignItems:"center", gap:12,
-          background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          color:"var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
+          background: toast.tone === "gold" ? "linear-gradient(180deg, rgba(217,164,65,0.16), rgba(217,164,65,0.05)), var(--panel2)" : "var(--panel2)",
+          border:"1px solid " + (toast.tone === "gold" ? "rgba(239,201,120,0.6)" : "var(--line)"), borderRadius:12,
+          color: toast.tone === "gold" ? "#EFC978" : "var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
           whiteSpace:"nowrap", boxShadow:"0 10px 34px rgba(0,0,0,0.55)", animation:"si-up .2s ease-out" }}>
           {toast.msg}
           {toast.action && <button onClick={toast.action.fn} style={{ background:"none", border:"none",
@@ -536,6 +558,7 @@ function Shell({ children, tv }) {
         @keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
         @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(217,164,65,0.22);} 50% { box-shadow:0 0 50px rgba(225,87,42,0.32);} }
+        @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
@@ -739,10 +762,26 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
 }
 
 /* ─────────── the board ─────────── */
-function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, onAdjust, onFreeze, onUnfreeze, finaleDone }) {
+function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onAdjust, onFreeze, onUnfreeze, finaleDone }) {
+  let latest = null;
+  Object.entries(state.results || {}).forEach(([eid, res]) => {
+    const ev = events.find(e => e.id === eid);
+    if (ev && res?.slots?.[0]?.length && (!latest || res.ts > latest.res.ts)) latest = { ev, res };
+  });
   return (
     <div style={{ padding:"0 16px" }}>
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
+      {latest && !champion && (
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 13px", marginBottom:10,
+          borderRadius:13, background:"rgba(124,185,138,0.06)", border:"1px solid rgba(124,185,138,0.25)" }}>
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
+            color:"var(--green)", textTransform:"uppercase" }}>Latest</span>
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {latest.ev.name}: {teamLabel(state, { players: latest.res.slots[0] })}</span>
+          <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={3} />
+        </div>
+      )}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
           <div style={{ fontFamily:SERIF, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
@@ -774,13 +813,14 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
               </div>
               <div style={{ fontFamily:SANS, fontSize:12, color: first ? "rgba(30,22,8,0.6)" : "var(--dust)" }}>
                 {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <> · wagers {r.betNet>0?"+":""}{r.betNet}</>}
+                {isMe && myAtRisk > 0 && <> · <span style={{ color: first ? "#7A2A12" : "#FF8A5C" }}>{myAtRisk} at risk</span></>}
               </div>
             </div>
             {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:13,
               color: first ? "#1E1608" : deltas[r.player] > 0 ? "var(--green)" : "#E06C5B" }}>
               {deltas[r.player] > 0 ? `▲${deltas[r.player]}` : `▼${-deltas[r.player]}`}</div>}
-            <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:26, minWidth:38, textAlign:"right",
-              color: first ? "#1E1608" : medal || "var(--cream)" }}>{r.pts}</div>
+            <div key={r.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:26, minWidth:38, textAlign:"right",
+              color: first ? "#1E1608" : medal || "var(--cream)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
           </div>
         );
       })}
@@ -1417,22 +1457,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
   }
 
   /* my open stake per pick, so multiple picks per event read clearly */
-  const wagerSig = w =>
-    w.kind === "outright" ? `o:${(w.pickPlayers || [w.pick]).join("+")}`
-    : w.kind === "match" ? `m:${w.match.join("-")}:${w.teamIdx}`
-    : `s:${w.final ? "F" : w.group}:${w.pickKey}`;
-  const myStakes = {};
-  if (ev && me) pending.forEach(x => {
-    if (x.w.player === me && x.w.eventId === ev.id) {
-      const k = wagerSig(x.w);
-      myStakes[k] = (myStakes[k] || 0) + x.w.stake;
-    }
-  });
-  const pickSig = pick =>
-    pick.kind === "outright" ? `o:${pick.pickPlayers.join("+")}`
-    : pick.kind === "match" ? `m:${pick.match.join("-")}:${pick.teamIdx}`
-    : `s:${pick.final ? "F" : pick.group}:${pick.pickKey}`;
-
   const myStakeOn = pred => pending
     .filter(x => x.w.player === me && pred(x.w))
     .reduce((s,x) => s + x.w.stake, 0);
@@ -1951,7 +1975,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.5vh,15px)", color:"rgba(30,22,8,0.6)" }}>
                   {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? ` · wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
               </div>
-              <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"#1E1608" }}>{leader.pts}</div>
+              <div key={leader.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"#1E1608", animation:"si-pop .5s ease-out" }}>{leader.pts}</div>
             </div>
           )}
           <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px 22px", alignContent:"start", minHeight:0 }}>
@@ -1968,8 +1992,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     <Avatar state={state} p={r.player} size={36} />
                     <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,2vh,24px)", flex:1,
                       color:"var(--cream)" }}>{disp(state, r.player)}</div>
-                    <div style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
-                      color:"var(--cream)" }}>{r.pts}</div>
+                    <div key={r.pts} style={{ fontFamily:SERIF, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
+                      color:"var(--cream)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
                   </div>
                 ))}
               </div>

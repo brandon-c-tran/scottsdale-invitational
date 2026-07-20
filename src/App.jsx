@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
-  allEventsOf, disp, teamLabel, stageFinalists, stageEntrantView,
+  allEventsOf, disp, shuffle, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
 import {
@@ -237,6 +237,9 @@ export default function App() {
   const [tab, setTab] = useState("board");
   const [gm, setGm] = useState(() => localGet("si-gm") === "yes" && hasGmToken());
   const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
+  const [guestLens, setGuestLens] = useState(false);
+  const gmView = gm && !guestLens;
+  const [sim, setSim] = useState(null);
   const [tv, setTv] = useState(false);
   const [modal, setModal] = useState(null);
   const [burst, setBurst] = useState(0);
@@ -350,6 +353,16 @@ export default function App() {
   /* reveal detection: team draws and stage draws reveal on every phone */
   useEffect(() => {
     if (seenReveals === null || onboardStep < 99 || reveal || !ready) return;
+    /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
+    if (simRef.current.running && simRef.current.fast) {
+      const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
+        .filter(x => x && !seenReveals.includes(x.id)).map(x => x.id);
+      if (ids.length) {
+        const nx = [...seenReveals, ...ids].slice(-60);
+        setSeenReveals(nx); localSet("si-seen-v5", JSON.stringify(nx));
+      }
+      return;
+    }
     for (const [eid, draw] of Object.entries(state.draws || {})) {
       if (draw && !seenReveals.includes(draw.id)) {
         const ev = events.find(e => e.id === eid);
@@ -429,6 +442,128 @@ export default function App() {
   const resetGame = () => act("resetTournament", {}, "Board reset");
   const rerunOnboard = () => act("rerunOnboarding", {}, "Intro replays on every phone");
   const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
+
+  /* ── QA simulation driver ──
+     Plays the weekend through real actions on this device's socket, claiming
+     each player in turn, so every connected phone and the TV see exactly the
+     broadcasts a live weekend would produce. Always re-claims your identity. */
+  const stateRef = useRef(state); stateRef.current = state;
+  const simRef = useRef({ running:false, cancel:false, fast:false });
+  const rnd = a => a[Math.floor(Math.random() * a.length)];
+  const simWait = ms => new Promise((res, rej) => setTimeout(() =>
+    simRef.current.cancel ? rej(new Error("stopped")) : res(), simRef.current.fast ? Math.min(ms, 120) : ms));
+  const simDo = async (type, payload, lbl) => {
+    if (simRef.current.cancel) throw new Error("stopped");
+    if (lbl) setSim(lbl);
+    const r = await dispatch(type, payload);
+    if (!r.ok) throw new Error(r.error || type);
+    return r;
+  };
+  const simCheckIn = async () => {
+    for (const p of ROSTER) {
+      const s = stateRef.current;
+      if (s.profiles?.[p]?.display && s.seeds?.[p]) continue;
+      await simDo("claim", { player: p }, `${p} checks in`);
+      await simDo("saveProfile", { player: p, display: p });
+      const ratings = {}; SPORTS.forEach(sp => { ratings[sp.id] = rnd(RATINGS).v; });
+      await simDo("saveSeeds", { player: p, ratings });
+      await simWait(120);
+    }
+  };
+  const simBetsRound = async () => {
+    const evId = stateRef.current.onDeck;
+    if (!evId) throw new Error("Open betting on an event first");
+    for (const p of shuffle(ROSTER).slice(0, 9)) {
+      const s = stateRef.current;
+      const events2 = allEventsOf(s);
+      const ev = events2.find(e => e.id === evId);
+      if (!ev || s.results[evId] || s.onDeck !== evId) break;
+      const pts = computeStandings(s).find(r => r.player === p)?.pts ?? 0;
+      const exp = atRisk(s, p, events2);
+      if (Math.min(3 - exp, pts - exp) < 1) continue;
+      const draw = s.draws[evId];
+      let wager = null;
+      if (ev.kind === "solo") {
+        const pick = rnd(ROSTER);
+        wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake:1 };
+      } else if (draw) {
+        const t = rnd(draw.teams.map((x, i) => i));
+        wager = { kind:"outright", eventId:evId, evName:ev.name, pickTeam:true,
+          pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake:1 };
+      } else continue;
+      await simDo("claim", { player: p });
+      await simDo("placeWager", { wager },
+        `${p} puts 1 on ${wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
+      await simWait(700);
+    }
+  };
+  const simPlayEvent = async () => {
+    await simCheckIn();
+    const s0 = stateRef.current;
+    const ev = allEventsOf(s0).find(e => !s0.results[e.id] && !s0.shelved[e.id]);
+    if (!ev) throw new Error("Nothing left to play");
+    const table = AWARDS[ev.value];
+    if (ev.teamCfg && !stateRef.current.draws[ev.id]) {
+      await simDo("runDraw", { evId: ev.id, method: "random", players: ROSTER }, `Drawing ${ev.name}`);
+      await simWait(1300);
+    }
+    await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
+    await simWait(600);
+    await simBetsRound();
+    let br = stateRef.current.brackets[ev.id];
+    if (br) {
+      for (let r = 0; r < br.rounds.length; r++) {
+        for (let m = 0; m < br.rounds[r].length; m++) {
+          const cur = stateRef.current.brackets[ev.id];
+          const match = cur.rounds[r][m];
+          if (match.winner !== null && match.winner !== undefined) continue;
+          const a = resolveSlot(cur, match.a), b = resolveSlot(cur, match.b);
+          if (a === null || b === null) continue;
+          await simDo("pickBracketWinner", { evId: ev.id, r, m, teamIdx: rnd([a, b]) }, `Advancing the ${ev.name} bracket`);
+          await simWait(900);
+        }
+      }
+    }
+    const s1 = stateRef.current;
+    const draw = s1.draws[ev.id];
+    br = s1.brackets[ev.id];
+    let slots;
+    if (br && draw) {
+      const champ = bracketChampion(br);
+      const final = br.rounds[br.rounds.length - 1][0];
+      const a = resolveSlot(br, final.a), b = resolveSlot(br, final.b);
+      const runner = champ === a ? b : a;
+      slots = [[...draw.teams[champ].players],
+        table[1] > 0 && runner !== null ? [...draw.teams[runner].players] : [], []];
+    } else if (draw) {
+      const order = shuffle(draw.teams.map((_, i) => i));
+      slots = [[...draw.teams[order[0]].players],
+        table[1] > 0 && order[1] !== undefined ? [...draw.teams[order[1]].players] : [], []];
+    } else {
+      const order = shuffle(ROSTER);
+      slots = [[order[0]], table[1] > 0 ? [order[1]] : [], table[2] > 0 ? [order[2]] : []];
+    }
+    await simDo("saveResult", { evId: ev.id, slots }, `Posting the ${ev.name} result`);
+    await simWait(800);
+  };
+  const simFastForward = async () => {
+    for (let i = 0; i < 14; i++) {
+      const s = stateRef.current;
+      const nxt = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
+      if (!nxt || nxt.finale) return;
+      await simPlayEvent();
+    }
+  };
+  const runSim = (fn, fast = false) => () => {
+    if (simRef.current.running) return;
+    simRef.current = { running: true, cancel: false, fast };
+    (async () => {
+      try { await fn(); setSim(null); notify("Sim complete"); }
+      catch (e) { setSim(null); notify(e.message === "stopped" ? "Sim stopped" : "Sim halted: " + e.message); }
+      finally { simRef.current.running = false; if (me) dispatch("claim", { player: me }); }
+    })();
+  };
+  const stopSim = () => { simRef.current.cancel = true; };
   const unlockGm = pin => dispatch("gmUnlock", { pin }).then(r => {
     if (!r.ok) return notify(r.error || "Wrong passcode");
     setGmToken(r.extra?.gmToken); setGm(true); saveMine("si-gm", "yes");
@@ -488,10 +623,10 @@ export default function App() {
               width:38, height:38, cursor:"pointer", color:"var(--ink)",
               display:"flex", alignItems:"center", justifyContent:"center" }}><IconTV /></button>
           <button onClick={() => gm ? setModal({type:"gmMenu"}) : setModal({type:"pin"})} aria-label="Commissioner"
-            style={{ background: gm ? "var(--sun)" : "var(--paper)",
-              border:"1.5px solid " + (gm ? "var(--ink)" : "rgba(42,33,25,0.4)"), borderRadius:9,
+            style={{ background: gmView ? "var(--sun)" : "var(--paper)",
+              border:"1.5px solid " + (gmView ? "var(--ink)" : "rgba(42,33,25,0.4)"), borderRadius:9,
               width:38, height:38, cursor:"pointer", color:"var(--ink)",
-              display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gm} /></button>
+              display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gmView} /></button>
         </div>
         {!connected && loaded && (
           <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
@@ -516,25 +651,29 @@ export default function App() {
       </div>
 
       <div style={{ flex:1, overflowY:"auto", paddingTop:12,
-        paddingBottom:`calc(${gm && qa ? 168 : 92}px + env(safe-area-inset-bottom))` }}>
+        paddingBottom:`calc(${gm && qa ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-          champion={champion} coChamps={coChamps} gm={gm} events={events}
+          champion={champion} coChamps={coChamps} gm={gmView} events={events}
           myAtRisk={me ? atRisk(state, me, events) : 0}
           onOpen={ev => setModal({type:"event", ev})}
           onAdjust={p => setModal({type:"adjust", player:p})}
           onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
           finaleDone={!!state.results["finale"]} />}
-        {tab === "sched" && <Schedule state={state} events={events} gm={gm}
+        {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
-        {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gm} events={events}
+        {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
           onDeckEv={onDeckEv}
           onPick={pick => setModal({type:"placeWager", pick})}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} />}
       </div>
 
-      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onRerun={rerunOnboard} onExit={toggleQa} />}
+      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onRerun={rerunOnboard} onExit={toggleQa}
+        sim={sim} onStop={stopSim} guestLens={guestLens}
+        onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
+        onSimBets={runSim(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
+        onFastForward={runSim(simFastForward, true)} />}
 
       {/* tab bar */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
@@ -579,7 +718,7 @@ export default function App() {
           </div>
         </Sheet>
       )}
-      {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gm}
+      {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gmView}
         onClose={() => setModal(null)}
         enterResult={() => setModal({type:"result", ev:modal.ev})}
         clearRes={() => { clearResult(modal.ev); setModal(null); notify("Result cleared, wagers reopened"); }}
@@ -594,7 +733,7 @@ export default function App() {
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
         openBracket={() => setModal({type:"bracket", ev:modal.ev})} />}
-      {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gm}
+      {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
@@ -2048,7 +2187,8 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
 }
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
-function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
+function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens, onLens,
+  onSimBets, onPlayNext, onFastForward }) {
   const [confirm, setConfirm] = useState(false);
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
     textTransform:"uppercase", padding:"6px 10px", borderRadius:9, cursor:"pointer", flexShrink:0 };
@@ -2081,15 +2221,36 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit }) {
           <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
             color:"var(--dust)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
         </div>
-        <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
+        <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:7 }}>
           {ROSTER.map(p => (
             <button key={p} onClick={() => onSwitch(p)} style={{ fontFamily:SANS, fontWeight:600,
               fontSize:12, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
-              background: me === p ? GOLD_GRAD : "var(--panel2)",
-              color: me === p ? "var(--ink)" : "var(--cream)",
-              border: me === p ? "1px solid transparent" : "1px solid var(--line)" }}>{p}</button>
+              background: me === p ? "var(--sun)" : "var(--panel2)",
+              color:"var(--ink)",
+              border: me === p ? "1px solid var(--ink)" : "1px solid var(--line)" }}>{p}</button>
           ))}
         </div>
+        {sim ? (
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ width:7, height:7, borderRadius:99, background:"var(--sun)",
+              animation:"si-pulse 1s infinite", flexShrink:0 }} />
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"#FBF3E4", flex:1, minWidth:0,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sim}</span>
+            <button onClick={onStop} style={{ ...small, background:"#B23B2E", border:"none", color:"#FBF3E4" }}>Stop</button>
+          </div>
+        ) : (
+          <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
+            {[["Sim bets", onSimBets], ["Play next event", onPlayNext], ["To the Finale", onFastForward]].map(([lb, fn]) => (
+              <button key={lb} onClick={fn} style={{ ...small,
+                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--ink)" }}>{lb}</button>
+            ))}
+            <button onClick={onLens} style={{ ...small,
+              background: guestLens ? "var(--sun)" : "transparent",
+              border: guestLens ? "1px solid var(--ink)" : "1px solid rgba(251,243,228,0.35)",
+              color: guestLens ? "var(--ink)" : "#FBF3E4" }}>
+              {guestLens ? "Guest view on" : "Guest view"}</button>
+          </div>
+        )}
       </div>
     </div>
   );

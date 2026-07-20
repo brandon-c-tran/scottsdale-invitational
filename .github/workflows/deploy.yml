@@ -1,0 +1,33 @@
+name: Deploy to Cloudflare
+
+# Auto-deploys the app to the live Cloudflare Worker on every push.
+# Push from your branch and your installed PWA updates in ~30s (pull-to-refresh
+# to clear the service worker cache). master is covered too, for after merges.
+on:
+  push:
+    branches: [master, "claude/**"]
+  workflow_dispatch: {}
+
+# A newer push cancels an in-flight deploy for the same branch, so rapid
+# iteration never stacks up half-finished deploys.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

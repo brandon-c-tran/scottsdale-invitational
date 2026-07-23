@@ -105,13 +105,6 @@ const BUILTIN_EVENTS = [
       objective:"Post the lowest total across nine holes.",
       steps:["Play the nine holes in order.","Count every stroke.","Cap a blow-up hole at five.","Lowest total wins."],
       win:"Fewest total strokes takes it.", house:"Max five per hole, then pick up." } },
-  { id:"relay", n:11, session:"sap", value:3, name:"Four-Station Relay", kind:"team",
-    teamCfg:{ teams:3, size:4 },
-    desc:"Cornhole, free throw, target serve, pressure putt. Clear your station or take the penalty. First full team home wins.",
-    howto:{ players:"Teams of four", gear:["Cornhole","Free throw","Target serve","Pressure putt"],
-      objective:"Clear all four stations and get home first.",
-      steps:["One teammate posts at each station.","Clear your task to release the next.","Take the penalty if you stall.","Anchor brings the team home."],
-      win:"First full team home wins.", house:"Miss your clear, serve the penalty, then go." } },
   { id:"pickleball", n:12, session:"sap", value:3, name:"Pickleball", kind:"pairs",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2.",
@@ -160,12 +153,13 @@ const DRAW_METHODS = [
   { id:"random",   name:"Blind Draw",    desc:"Names out of a hat." },
   { id:"balanced", name:"Balanced Draw", desc:"Sealed seeds spread the talent.", needsSport:true },
   { id:"seeded",   name:"Buddy System",  desc:"Top seeds paired with bottom seeds.", pairsOnly:true, needsSport:true },
+  { id:"draft",    name:"Captains Draft", desc:"Captains pick in turn, live on every phone.", teamOnly:true },
 ];
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
 const EMPTY_STATE = { v:5, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
+  stages:{}, drafts:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
   eventEdits:{}, eventOrder:[], updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
@@ -185,6 +179,8 @@ function allEventsOf(state) {
 }
 const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
+/* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
+const snakeTeam = (k, T) => { const r = Math.floor(k / T), p = k % T; return r % 2 === 0 ? p : T - 1 - p; };
 
 function teamLabel(state, t) {
   const names = t.players.map(p => disp(state, p));
@@ -390,7 +386,7 @@ const bracketChampion = br => {
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE,
-  allEventsOf, disp, shuffle, teamLabel, stageFinalists, stageEntrantView,
+  allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

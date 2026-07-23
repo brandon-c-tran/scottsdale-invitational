@@ -5,7 +5,7 @@
 
 import {
   ROSTER, AWARDS, SESSIONS, EMPTY_STATE, allEventsOf, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, OUTRIGHT_MULT,
+  drawTeams, splitIntoGroups, makeBracket, stageFinalists, snakeTeam, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -251,6 +251,64 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const st = state.stages[evId]; if (!st) return err("No stages");
     st.finalWinner = st.finalWinner === key ? null : key;
+    return ok();
+  },
+
+  /* ── captains draft (GM sets up + can override; on-clock captain picks) ── */
+  startDraft(state, { evId, captains, players }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    if (!ev?.teamCfg || ev.kind !== "team") return err("Not a team event");
+    if (state.draws[evId]) return err("Teams already set, clear them first");
+    if (!Array.isArray(captains) || captains.length !== ev.teamCfg.teams) return err("Pick one captain per team");
+    if (new Set(captains).size !== captains.length) return err("A captain is listed twice");
+    const pool = (players || []).filter(p => ROSTER.includes(p));
+    if (!captains.every(c => pool.includes(c))) return err("Captains must be in the playing pool");
+    state.drafts = state.drafts || {};
+    state.drafts[evId] = {
+      id: "df" + Date.now(), method: "draft", ts: Date.now(),
+      teams: captains.map(c => ({ captain: c, players: [c] })),
+      pool: pool.filter(p => !captains.includes(p)),
+      picks: [],
+    };
+    return ok();
+  },
+  pickDraftPlayer(state, { evId, player }, ctx) {
+    const d = state.drafts?.[evId]; if (!d) return err("No draft running");
+    if (!d.pool.includes(player)) return err("Player not available");
+    const team = snakeTeam(d.picks.length, d.teams.length);
+    const cur = d.teams[team].captain;
+    if (!ctx.isGm && ctx.player !== cur) return err("Not your pick");
+    d.teams[team].players.push(player);
+    d.pool = d.pool.filter(p => p !== player);
+    d.picks.push({ team, player });
+    return ok();
+  },
+  undoDraftPick(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const d = state.drafts?.[evId]; if (!d) return err("No draft running");
+    const last = d.picks.pop(); if (!last) return err("Nothing to undo");
+    d.teams[last.team].players = d.teams[last.team].players.filter(p => p !== last.player);
+    d.pool.push(last.player);
+    return ok();
+  },
+  finalizeDraft(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    const d = state.drafts?.[evId]; if (!ev || !d) return err("No draft running");
+    if (d.pool.length) return err("Pool not empty yet");
+    state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(),
+      teams: d.teams.map(t => ({ players: t.players })) };
+    delete state.stages[evId];
+    if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)
+      state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
+    else delete state.brackets[evId];
+    delete state.drafts[evId];
+    return ok();
+  },
+  cancelDraft(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (state.drafts) delete state.drafts[evId];
     return ok();
   },
 

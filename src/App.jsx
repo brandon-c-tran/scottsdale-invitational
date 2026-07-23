@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
-  allEventsOf, disp, shuffle, teamLabel, stageFinalists, stageEntrantView,
+  allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
 import {
@@ -406,6 +406,22 @@ export default function App() {
     setReveal(null);
   };
 
+  /* nudge a captain when the draft comes around to them, once per pick */
+  const draftNudge = useRef("");
+  useEffect(() => {
+    if (!me || !ready) return;
+    for (const [eid, d] of Object.entries(state.drafts || {})) {
+      if (!d?.pool?.length) continue;
+      const cur = d.teams[snakeTeam(d.picks.length, d.teams.length)]?.captain;
+      if (cur !== me) continue;
+      const key = `${eid}:${d.picks.length}`;
+      if (draftNudge.current === key) return;
+      draftNudge.current = key;
+      notify(`You're on the clock · ${events.find(e => e.id === eid)?.name || "draft"}`, null, "gold");
+      return;
+    }
+  }, [state.drafts, me, events, ready]); // eslint-disable-line
+
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
     if (!r.ok) notify(r.error || "Rejected");
@@ -438,6 +454,11 @@ export default function App() {
   };
   const runDraw = (ev, method, players) => act("runDraw", { evId: ev.id, method, players });
   const clearDraw = ev => act("clearDraw", { evId: ev.id });
+  const startDraft = (evId, captains, players) => act("startDraft", { evId, captains, players });
+  const pickDraftPlayer = (evId, player) => act("pickDraftPlayer", { evId, player });
+  const undoDraftPick = evId => act("undoDraftPick", { evId });
+  const finalizeDraft = evId => act("finalizeDraft", { evId });
+  const cancelDraft = evId => act("cancelDraft", { evId });
   const runStages = (ev, cfg) => act("runStages", { evId: ev.id, cfg });
   const clearStages = ev => act("clearStages", { evId: ev.id });
   const toggleThrough = (evId, g, key) => act("toggleThrough", { evId, g, key });
@@ -764,11 +785,20 @@ export default function App() {
         onDeckToggle={() => { setOnDeck(state.onDeck === modal.ev.id ? null : modal.ev.id); }}
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
-        openBracket={() => setModal({type:"bracket", ev:modal.ev})} />}
+        openBracket={() => setModal({type:"bracket", ev:modal.ev})}
+        openDraft={pool => setModal({type:"draft", ev:modal.ev, pool})} />}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
         onPostResult={() => setModal({type:"result", ev:modal.ev})} />}
+      {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
+        state={state} gm={gmView} me={me} standings={standings} pool={modal.pool}
+        onClose={() => setModal({type:"event", ev:modal.ev})}
+        onStart={(captains, players) => startDraft(modal.ev.id, captains, players)}
+        onPick={player => pickDraftPlayer(modal.ev.id, player)}
+        onUndo={() => undoDraftPick(modal.ev.id)}
+        onFinalize={() => { finalizeDraft(modal.ev.id); setModal(null); }}
+        onCancel={() => { cancelDraft(modal.ev.id); setModal({type:"event", ev:modal.ev}); }} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
@@ -1411,9 +1441,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 
 /* ─────────── event sheet ─────────── */
 function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
-  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket }) {
+  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket, openDraft }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
+  const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value];
@@ -1443,7 +1474,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [stageMethod, setStageMethod] = useState("random");
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
   const methods = DRAW_METHODS.filter(m =>
-    (!m.needsSport || ev.sport) && (!m.pairsOnly || ev.teamCfg?.size === 2));
+    (!m.needsSport || ev.sport) && (!m.pairsOnly || ev.teamCfg?.size === 2) && (!m.teamOnly || ev.kind === "team"));
   const canHeats = ev.kind === "solo" && !res;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
   const stageKind = canHeats ? "heats" : "pools";
@@ -1469,6 +1500,14 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
         Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(" · ")}
         {ev.kind !== "solo" && ". Team results pay every player the full amount."}
       </p>
+
+      {draftLive && !draw && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
+          <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
+            Draft underway · open the board</Btn>
+        </div>
+      )}
 
       {draw && (
         <div style={{ marginBottom:14 }}>
@@ -1515,7 +1554,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
 
       {gm && !state.frozen && (
         <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
-          {ev.teamCfg && !draw && !res && (() => {
+          {ev.teamCfg && !draw && !draftLive && !res && (() => {
             const fit = ev.teamCfg.teams * ev.teamCfg.size;
             const diff = inPlayers.length - fit;
             return (
@@ -1551,8 +1590,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   </button>
                 ))}
               </div>
-              <Btn disabled={!method || inPlayers.length < 2} onClick={() => onDraw(method, inPlayers)} style={{ width:"100%", marginBottom:10 }}>
-                Run the draw</Btn>
+              <Btn disabled={!method || inPlayers.length < 2}
+                onClick={() => method === "draft" ? openDraft(inPlayers) : onDraw(method, inPlayers)}
+                style={{ width:"100%", marginBottom:10 }}>
+                {method === "draft" ? "Set up the draft" : "Run the draw"}</Btn>
             </>
             );
           })()}
@@ -1837,6 +1878,115 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
       )}
       {gm && champ === null && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:10 }}>
         Tap the winner of each matchup to advance them. Matchup wagers settle as you go.</div>}
+    </Sheet>
+  );
+}
+
+/* ─────────── captains draft (GM sets up + can override; on-clock captain picks) ─────────── */
+function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPick, onUndo, onFinalize, onCancel }) {
+  const d = state.drafts?.[ev.id];
+  const N = ev.teamCfg?.teams || 2;
+  const seedVal = p => ev.sport
+    ? (state.seeds?.[p]?.[ev.sport] ?? 0)
+    : -(standings.findIndex(s => s.player === p) + 1 || 999);
+  const [capMethod, setCapMethod] = useState("pick");
+  const [captains, setCaptains] = useState([]);
+  if (!d && !pool) return <Sheet title="Captains draft" onClose={onClose}><p style={pStyle}>No draft to show.</p></Sheet>;
+
+  /* ── setup (GM only reaches this) ── */
+  if (!d) {
+    const applyMethod = mth => {
+      setCapMethod(mth);
+      if (mth === "seed") setCaptains([...pool].sort((a,b) => seedVal(b) - seedVal(a)).slice(0, N));
+      else if (mth === "random") setCaptains(shuffle(pool).slice(0, N));
+      else setCaptains([]);
+    };
+    const toggleCap = p => setCaptains(c =>
+      c.includes(p) ? c.filter(x => x !== p) : c.length < N ? [...c, p] : c);
+    const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
+    return (
+      <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+        <p style={pStyle}>Choose {N} captain{N>1?"s":""}, then each captain drafts on their own phone in snake order. You can pick for anyone who is not on their phone.</p>
+        <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+          {CAP_METHODS.map(([id,lb]) => (
+            <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
+              borderRadius:11, fontFamily:SANS, fontWeight:700, fontSize:13,
+              background: capMethod===id ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
+              border: capMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
+          ))}
+        </div>
+        <div style={{ ...label, marginBottom:8 }}>Captains · {captains.length}/{N}</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:14 }}>
+          {(pool || []).map(p => {
+            const i = captains.indexOf(p);
+            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} · C${i+1}` : disp(state,p)}
+              selected={i >= 0} onClick={() => toggleCap(p)} />;
+          })}
+        </div>
+        <Btn disabled={captains.length !== N} onClick={() => onStart(captains, pool)} style={{ width:"100%" }}>
+          Start the draft</Btn>
+      </Sheet>
+    );
+  }
+
+  /* ── live board ── */
+  const T = d.teams.length;
+  const poolEmpty = d.pool.length === 0;
+  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
+  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
+  const myTurn = cur && me === cur;
+  const canPick = !poolEmpty && (gm || myTurn);
+  const round = Math.floor(d.picks.length / T) + 1;
+  return (
+    <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+      <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:13,
+        background: poolEmpty ? "rgba(95,122,69,0.14)" : myTurn ? "rgba(233,180,65,0.35)" : "var(--panel2)",
+        border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
+          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `On the clock · ${disp(state, cur)}`}</div>
+        {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
+          Round {round} · {d.pool.length} left{gm && !myTurn ? " · tap to pick for them" : ""}</div>}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
+        {d.teams.map((t, i) => (
+          <div key={i} style={{ background:"var(--paper)", borderRadius:12, padding:"9px 11px",
+            border: i === onClock ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+              <Tag tone="gold">C</Tag>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--accent2)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
+              <span style={{ flex:1 }} />
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"var(--muted)" }}>{t.players.length}</span>
+            </div>
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+              {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {!poolEmpty && (
+        <>
+          <div style={{ ...label, marginBottom:8 }}>{canPick ? "Tap to draft" : "Still available"}</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
+            {d.pool.map(p => <PlayerChip key={p} small name={disp(state,p)}
+              disabled={!canPick} onClick={() => canPick && onPick(p)} />)}
+          </div>
+        </>
+      )}
+
+      {gm && (
+        <div style={{ display:"flex", gap:8 }}>
+          {poolEmpty
+            ? <Btn onClick={onFinalize} style={{ flex:2 }}>Lock in the teams</Btn>
+            : <Btn kind="dark" disabled={!d.picks.length} onClick={onUndo} style={{ flex:1 }}>Undo</Btn>}
+          <Btn kind="danger" onClick={onCancel} style={{ flex:1 }}>Cancel</Btn>
+        </div>
+      )}
+      {!gm && !poolEmpty && !myTurn && (
+        <p style={{ ...pStyle, textAlign:"center", marginBottom:0 }}>Waiting on {disp(state, cur)} to pick.</p>
+      )}
     </Sheet>
   );
 }

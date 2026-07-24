@@ -120,6 +120,18 @@ export const ACTIONS = {
     state.wagers.unshift(w);
     return ok();
   },
+  /* pull your own chip back while the market is still open */
+  retractWager(state, { id }, ctx) {
+    const w = state.wagers.find(x => x.id === id);
+    if (!w) return err("No such wager");
+    if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
+    if (state.frozen) return err("The board is frozen");
+    if (state.onDeck !== w.eventId) return err("Betting is closed");
+    const r = resolveWager(state, w, allEventsOf(state));
+    if (r.status !== "pending") return err("Already settled");
+    state.wagers = state.wagers.filter(x => x.id !== id);
+    return ok();
+  },
   voidWager(state, { id }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const w = state.wagers.find(x => x.id === id);

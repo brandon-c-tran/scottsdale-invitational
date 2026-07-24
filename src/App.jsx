@@ -465,7 +465,8 @@ export default function App() {
   const toggleThrough = (evId, g, key) => act("toggleThrough", { evId, g, key });
   const setFinalWinner = (evId, key) => act("setFinalWinner", { evId, key });
   const pickBracketWinner = (evId, r, m, teamIdx) => act("pickBracketWinner", { evId, r, m, teamIdx });
-  const placeWager = w => act("placeWager", { wager: w }, "Wager placed");
+  const placeWager = w => act("placeWager", { wager: w }, "Chip down");
+  const retractWager = id => act("retractWager", { id }, "Chip back");
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
@@ -716,7 +717,8 @@ export default function App() {
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
           onDeckEv={onDeckEv}
-          onPick={pick => setModal({type:"placeWager", pick})}
+          onPick={pick => placeWager({ ...pick, stake: 1 })}
+          onRetract={id => retractWager(id)}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} events={events} />}
       </div>
@@ -766,6 +768,10 @@ export default function App() {
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            {state.onDeck && (
+              <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
+                Close betting</Btn>
+            )}
             <Btn kind="dark" onClick={() => { setLive(!state.live); setModal(null); }}>
               {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
@@ -809,9 +815,6 @@ export default function App() {
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
       {modal?.type === "addEvent" && <AddEventSheet state={state} onClose={() => setModal(null)}
         save={ev => { addCustomEvent(ev); setModal(null); notify(`${ev.name} added`); }} />}
-      {modal?.type === "placeWager" && <PlaceWagerSheet state={state} me={me} standings={standings}
-        events={events} pick={modal.pick} onClose={() => setModal(null)}
-        place={w => { setModal(null); placeWager(w); }} />}
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
       {modal?.type === "freeze" && (
@@ -2420,7 +2423,7 @@ function wagerPickLabel(state, w, events) {
   return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
 }
 
-function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) {
+function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
   const wagers = state.wagers || [];
   const resolved = wagers.map(w => ({ w, r: resolveWager(state, w, events) }));
   const pending = resolved.filter(x => x.r.status === "pending");
@@ -2473,27 +2476,35 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
     if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) stageFinal = finalists;
   }
 
-  /* my open stake per pick, so multiple picks per event read clearly */
-  const myStakeOn = pred => pending
-    .filter(x => x.w.player === me && pred(x.w))
-    .reduce((s,x) => s + x.w.stake, 0);
+  /* one tap drops a chip on the pick; tap the x to pull your last one back */
+  const myWagersOn = pred => pending.filter(x => x.w.player === me && pred(x.w));
 
-  const PickRow = ({ players, name, onClick, wide, mine }) => (
-    <button disabled={room < 1} onClick={onClick}
-      style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
-        borderRadius:12, width:"100%",
-        background:"var(--panel2)",
-        border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
-        cursor: room < 1 ? "default" : "pointer",
-        opacity: room < 1 ? 0.5 : 1, textAlign:"left" }}>
-      <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
-      <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
-        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
-      {mine > 0 && <span style={{ display:"flex", gap:3, flexShrink:0 }}>
-        {Array.from({ length: Math.min(mine, 3) }).map((_, i) => <BankChip key={i} p={me} size={16} />)}
-      </span>}
-    </button>
-  );
+  const PickRow = ({ players, name, onClick, wide, pred }) => {
+    const minew = pred ? myWagersOn(pred) : [];
+    const mine = minew.reduce((s, x) => s + x.w.stake, 0);
+    return (
+      <button onClick={room < 1 ? undefined : onClick}
+        style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
+          borderRadius:12, width:"100%",
+          background:"var(--panel2)",
+          border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
+          cursor: room < 1 ? "default" : "pointer",
+          opacity: room < 1 && !mine ? 0.5 : 1, textAlign:"left" }}>
+        <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
+        <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
+        {mine > 0 && (
+          <span onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
+            {Array.from({ length: Math.min(mine, 3) }).map((_, i) => <BankChip key={i} p={me} size={16} />)}
+            <span onClick={() => onRetract(minew[minew.length - 1].w.id)} role="button"
+              style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
+                justifyContent:"center", cursor:"pointer", marginLeft:2, fontSize:11,
+                background:"rgba(42,33,25,0.08)", color:"var(--muted2)" }}>✕</span>
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const Row = ({ x }) => {
     const { w, r } = x;
@@ -2584,10 +2595,10 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                 gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
                 {outrights.map(o => (
                   <PickRow key={o.key} players={o.players} name={o.name} wide={bigTeams}
-                    mine={myStakeOn(w => w.kind === "outright" && w.eventId === ev.id &&
+                    pred={w => w.kind === "outright" && w.eventId === ev.id &&
                       (o.pick.pickTeam
                         ? w.pickTeam && w.drawId === o.pick.drawId && (w.pickPlayers||[]).join("|") === o.pick.pickPlayers.join("|")
-                        : !w.pickTeam && w.pick === o.key))}
+                        : !w.pickTeam && w.pick === o.key)}
                     onClick={() => onPick(o.pick)} />
                 ))}
               </div>
@@ -2613,8 +2624,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                     {g.entrants.map(k => {
                       const v = stageEntrantView(state, st, k);
                       return <PickRow key={String(k)} players={v.players} name={v.name}
-                        mine={myStakeOn(w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
-                          w.group === g.gi && w.pickKey === k)}
+                        pred={w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
+                          w.group === g.gi && w.pickKey === k}
                         onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
                           groupName:g.name, pickKey:k, pickPlayers:[...v.players],
                           pickTeam: st.entrantType === "team", evName:ev.name })} />;
@@ -2635,7 +2646,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                 {stageFinal.map(k => {
                   const v = stageEntrantView(state, st, k);
                   return <PickRow key={String(k)} players={v.players} name={v.name}
-                    mine={myStakeOn(w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k)}
+                    pred={w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k}
                     onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
                       pickKey:k, pickPlayers:[...v.players], pickTeam: st.entrantType === "team", evName:ev.name })} />;
                 })}
@@ -2659,9 +2670,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                       return (
                         <div key={side} style={{ flex:1 }}>
                           <PickRow players={t.players} name={teamLabel(state, t)}
-                            mine={myStakeOn(w => w.kind === "match" && w.eventId === ev.id &&
+                            pred={w => w.kind === "match" && w.eventId === ev.id &&
                               w.drawId === draw.id && w.match?.[0] === mu.r && w.match?.[1] === mu.m &&
-                              w.teamIdx === tIdx)}
+                              w.teamIdx === tIdx}
                             onClick={() => onPick({ kind:"match", eventId:ev.id, teamIdx:tIdx,
                               pickPlayers:[...t.players], pickTeam:true, drawId:draw.id, match:[mu.r, mu.m],
                               matchName: mu.roundName, evName: ev.name })} />
@@ -2699,51 +2710,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
   );
 }
 
-function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place }) {
-  const [stake, setStake] = useState(1);
-  const myPts = standings.find(r => r.player === me)?.pts ?? 0;
-  const myExp = atRisk(state, me, events);
-  const maxStake = Math.max(0, Math.min(3 - myExp, myPts - myExp, 3));
-  const mult = pick.kind === "outright" ? OUTRIGHT_MULT : 1;
-  const pickName = pick.pickPlayers.length > 1
-    ? teamLabel(state, { players: pick.pickPlayers }) : disp(state, pick.pickPlayers[0]);
-  const ctx = pick.kind === "outright" ? `to win ${pick.evName}`
-    : pick.kind === "match" ? `to win the ${pick.matchName} in ${pick.evName}`
-    : pick.final ? `to win the Final in ${pick.evName}`
-    : `to advance from ${pick.groupName} in ${pick.evName}`;
-  const self = pick.pickPlayers.includes(me);
-  return (
-    <Sheet title="Place a wager" onClose={onClose}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-        <AvatarStack state={state} players={pick.pickPlayers} size={40} max={4} />
-        <div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:16, color:"var(--cream)" }}>
-            {pickName}{self ? " (you)" : ""}</div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>{ctx}</div>
-        </div>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"16px 0 8px" }}>
-        <div style={label}>Stake</div>
-        {[1,2,3].map(v => (
-          <button key={v} onClick={() => setStake(v)} disabled={v > maxStake}
-            style={{ width:48, height:44, borderRadius:9, cursor: v > maxStake ? "default" : "pointer",
-            fontFamily:DISPLAY, fontWeight:700, fontSize:19, opacity: v > maxStake ? 0.35 : 1,
-            background: stake===v ? GOLD_GRAD : "var(--paper)",
-            color:"var(--ink)",
-            border: stake===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
-        ))}
-        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginLeft:"auto" }}>
-          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b>, loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
-        </div>
-      </div>
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginBottom:14 }}>
-        Settles automatically off the official result. {maxStake < 1 ? "You are maxed out." : ""}
-      </div>
-      <Btn disabled={maxStake < 1 || stake > maxStake} onClick={() => place({ ...pick, stake, status:"open" })}
-        style={{ width:"100%", fontSize:15, padding:"14px" }}>Place it</Btn>
-    </Sheet>
-  );
-}
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
 function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens, onLens,

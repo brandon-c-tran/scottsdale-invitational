@@ -4,8 +4,8 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, snakeTeam, OUTRIGHT_MULT,
+  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -313,8 +313,9 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(e => e.id === evId);
     const d = state.drafts?.[evId]; if (!ev || !d) return err("No draft running");
     if (d.pool.length) return err("Pool not empty yet");
+    const mascots = (ev.teamCfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
     state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(),
-      teams: d.teams.map(t => ({ players: t.players })) };
+      teams: d.teams.map((t, i) => mascots ? { players: t.players, name: mascots[i % mascots.length] } : { players: t.players }) };
     delete state.stages[evId];
     if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)
       state.brackets[evId] = makeBracket(ev.teamCfg.bracket);

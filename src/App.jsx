@@ -997,24 +997,26 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           Nobody sees this. It only balances draws and heats.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
-          {SPORTS.map(s => (
-            <div key={s.id} style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, letterSpacing:"0.06em",
-                color:"var(--cream)", marginBottom:6 }}>{s.label}</div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
-                {RATINGS.map(r => (
-                  <button key={r.label} onClick={() => setRatings(x => ({...x, [s.id]: r.v}))}
-                    style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"11px 2px", borderRadius:9,
-                      cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.02em",
-                      background: ratings[s.id] === r.v ? "var(--sun)" : "var(--paper)",
-                      color:"var(--ink)",
-                      border: ratings[s.id] === r.v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
-                    {r.label}
-                  </button>
-                ))}
+          {SPORTS.map(s => {
+            const idx = RATINGS.findIndex(r => r.v === ratings[s.id]);
+            return (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
+                borderBottom:"1px solid var(--line)" }}>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)", width:92 }}>{s.label}</div>
+                <div style={{ display:"flex", gap:7, flex:1 }}>
+                  {RATINGS.map((r, i) => (
+                    <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))} aria-label={r.label}
+                      style={{ width:34, height:34, borderRadius:"50%", cursor:"pointer", padding:0,
+                        background: idx >= 0 && i <= idx ? "var(--sun)" : "var(--paper)",
+                        border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                        transition:"background .12s" }} />
+                  ))}
+                </div>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, width:88, textAlign:"right",
+                  color: idx >= 0 ? "var(--accent2)" : "var(--muted)" }}>{idx >= 0 ? RATINGS[idx].label : ""}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
           style={{ width:"100%", fontSize:15, padding:"15px" }}>Seal it</Btn>
@@ -1143,14 +1145,16 @@ function LockerRoom({ state, me, gm, onProfile, onStart }) {
                 border: p === me ? "1.5px solid var(--ink)" : "1px solid var(--line)",
                 cursor: p === me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
                 animation:"si-in .25s both" }}>
-              <div style={{ display:"flex", justifyContent:"center", marginBottom:7, position:"relative" }}>
-                <Avatar state={state} p={p} size={54} ring={p === me} />
-                {pr?.num != null && (
-                  <span style={{ position:"absolute", right:"50%", marginRight:-38, top:-3,
-                    background:playerColor(p), color:BONE, border:"1.5px solid var(--ink)", borderRadius:99,
-                    fontFamily:DISPLAY, fontWeight:700, fontSize:13, minWidth:24, height:24,
-                    lineHeight:"21px", padding:"0 3px" }}>{pr.num}</span>
-                )}
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:9, position:"relative" }}>
+                <span style={{ position:"relative", display:"inline-block" }}>
+                  <Avatar state={state} p={p} size={54} ring={p === me} />
+                  {pr?.num != null && (
+                    <span style={{ position:"absolute", bottom:-6, left:"50%", transform:"translateX(-50%)",
+                      background:BONE, color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:5,
+                      fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, lineHeight:1,
+                      padding:"2px 7px" }}>{pr.num}</span>
+                  )}
+                </span>
               </div>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</div>
@@ -2959,6 +2963,89 @@ function TVMiniBoard({ state, standings, allTied }) {
   );
 }
 
+/* the draft, broadcast style: on-the-clock captain up top, pick stamps slam in,
+   team columns fill live, the remaining pool waits at the bottom */
+function TVDraft({ state, ev, d }) {
+  const T = d.teams.length;
+  const poolEmpty = d.pool.length === 0;
+  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
+  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
+  const last = d.picks[d.picks.length - 1];
+  const round = Math.floor(d.picks.length / T) + 1;
+  return (
+    <div key="scene-draft" style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
+      padding:"6px 48px 16px", animation:"si-fade .6s ease-out" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:26, marginBottom:16 }}>
+        {poolEmpty ? (
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)",
+            textTransform:"uppercase", color:"var(--sun)" }}>Draft complete</div>
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:18 }}>
+            <span style={{ borderRadius:"50%", animation:"si-glow 2s infinite" }}>
+              <Avatar state={state} p={cur} size={84} ring />
+            </span>
+            <div>
+              <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896" }}>{ev.name} draft</div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)", lineHeight:1.05,
+                textTransform:"uppercase", color:BONE }}>{disp(state, cur)} is on the clock</div>
+              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.2vw,17px)", color:"#C9B896", marginTop:2 }}>
+                Round {round}, pick {d.picks.length + 1}</div>
+            </div>
+          </div>
+        )}
+        {last && (
+          <div key={d.picks.length} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
+            background:CARD_BG, border:"2px solid var(--ink)", borderRadius:16, padding:"12px 20px",
+            animation:"si-flag .55s ease-out both" }}>
+            <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)" }}>Pick {d.picks.length}</span>
+            <Avatar state={state} p={last.player} size={46} />
+            <div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(19px,1.9vw,28px)", lineHeight:1,
+                textTransform:"uppercase", color:"var(--ink)" }}>{disp(state, last.player)}</div>
+              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(12px,1.1vw,15px)", color:"var(--muted2)" }}>
+                to {disp(state, d.teams[last.team].captain)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${T},1fr)`, gap:16, flex:1, minHeight:0 }}>
+        {d.teams.map((t, i) => (
+          <div key={i} style={{ background:CARD_BG, borderRadius:16, padding:"13px 15px", overflowY:"auto",
+            border: i === onClock ? "2px solid var(--sun)" : "1px solid var(--line)",
+            animation: i === onClock ? "si-glow 2s infinite" : "none" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:9, marginBottom:9,
+              borderBottom:"1.5px solid var(--ink)" }}>
+              <Avatar state={state} p={t.captain} size={34} />
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,1.6vw,24px)",
+                textTransform:"uppercase", color:"var(--ink)", flex:1, overflow:"hidden",
+                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
+                color:"var(--muted)" }}>{t.players.length}</span>
+            </div>
+            {t.players.map(p => (
+              <div key={p} style={{ display:"flex", alignItems:"center", gap:10, padding:"5px 0",
+                animation:"si-in .3s ease-out both" }}>
+                <Avatar state={state} p={p} size={30} />
+                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.3vw,18px)",
+                  color:"var(--ink)" }}>{disp(state, p)}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {!poolEmpty && (
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
+          <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"#C9B896", flexShrink:0 }}>
+            Still on the board</span>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {d.pool.map(p => <Avatar key={p} state={state} p={p} size={38} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, onExit }) {
   const liveBracketEv = useMemo(() => {
     const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
@@ -2970,6 +3057,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
     return c[0] || null;
   }, [events, state, onDeckEv]);
+  const draftLive = useMemo(() => {
+    for (const [eid, d] of Object.entries(state.drafts || {})) {
+      const ev = events.find(e => e.id === eid);
+      if (ev && d) return { ev, d };
+    }
+    return null;
+  }, [state.drafts, events]);
   /* ambient broadcast data: the channel cycles through whatever is alive right now */
   let latest = null;
   Object.entries(state.results || {}).forEach(([eid, res]) => {
@@ -3018,21 +3112,34 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
     textTransform:"uppercase", color:BONE, marginBottom:24 };
 
-  const results = Object.entries(state.results || {}).map(([eid, r]) => {
-    const ev = events.find(e => e.id === eid);
-    return ev && r.slots?.[0]?.length ? `${ev.name}: ${r.slots[0].map(p => disp(state,p)).join(" + ")}` : null;
-  }).filter(Boolean);
+  /* ticker: a handful of labeled, high-signal segments instead of a name dump */
   const allW = (state.wagers||[]).map(w => ({ w, r: resolveWager(state, w, events) }));
-  const tickerWagers = allW.filter(x => x.r.status === "pending").slice(0,8).map(x => {
-    const l = wagerPickLabel(state, x.w, events);
-    return `${disp(state, x.w.player)}: ${x.w.stake} on ${l.pick}`;
-  });
-  const cashes = allW.filter(x => x.r.status === "won").slice(0,5)
-    .map(x => `${disp(state, x.w.player)} cashed +${x.r.delta}`);
-  const rulings = (state.adjustments||[]).slice(0,4).map(a => `Ruling: ${disp(state,a.player)} ${a.delta>0?"+":""}${a.delta}${a.reason ? ", " + a.reason : ""}`);
-  let ticker = [...tickerWagers, ...results, ...cashes, ...rulings];
-  if (ticker.length === 0) ticker = ["Field Day", "Scottsdale 2026"];
-  const tickerStr = ticker.join("   ✦   ");
+  const tickerItems = [];
+  if (draftLive && draftLive.d.pool.length) {
+    const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
+    if (cur) tickerItems.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
+      text:`${disp(state, cur)} is on the clock` });
+  }
+  if (latest) tickerItems.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0,4),
+    text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
+  if (onDeckEv) {
+    const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
+    const chipsIn = riding.reduce((n, x) => n + x.w.stake, 0);
+    if (chipsIn > 0) tickerItems.push({ tag:"The book", tone:"var(--accent2)",
+      players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
+      text:`${chipsIn} chip${chipsIn > 1 ? "s" : ""} riding on ${onDeckEv.name}` });
+  }
+  allW.filter(x => x.r.status === "won").slice(0,2).forEach(x =>
+    tickerItems.push({ tag:"Cashed", tone:"var(--green)", players:[x.w.player],
+      text:`${disp(state, x.w.player)} +${x.r.delta}` }));
+  const lastRuling = (state.adjustments||[])[0];
+  if (lastRuling) tickerItems.push({ tag:"Ruling", tone:"var(--clay)", players:[lastRuling.player],
+    text:`${disp(state, lastRuling.player)} ${lastRuling.delta > 0 ? "+" : ""}${lastRuling.delta}${lastRuling.reason ? ", " + lastRuling.reason : ""}` });
+  if (!allTied && standings[0]) tickerItems.push({ tag:"Leader", tone:"var(--sun)", players:[standings[0].player],
+    text:`${disp(state, standings[0].player)}, ${standings[0].pts} points` });
+  if (nextEv) tickerItems.push({ tag:"Next", tone:"var(--pool)",
+    text:`${nextEv.name}, ${nextEv.value} pt${nextEv.value > 1 ? "s" : ""}` });
+  if (!tickerItems.length) tickerItems.push({ tag:"Field Day", tone:"var(--accent)", text:"Scottsdale 2026" });
 
   const leader = !allTied ? standings[0] : null;
   const rest = leader ? standings.slice(1) : standings;
@@ -3074,6 +3181,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <ChampionCard state={state} champion={champion} coChamps={coChamps} big />
           </div>
         </div>
+      ) : draftLive ? (
+        <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />
       ) : liveEv ? (
         <div key="scene-live" style={{ flex:1, display:"flex", gap:26, padding:"6px 44px 16px",
           minHeight:0, animation:"si-fade .6s ease-out" }}>
@@ -3246,12 +3355,22 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
         </div>
       )}
-      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"11px 0" }}>
+      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
         <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
-          animation:`si-tick ${Math.max(30, tickerStr.length/3)}s linear infinite` }}>
+          animation:`si-tick ${Math.max(24, tickerItems.length * 9)}s linear infinite` }}>
           {[0,1].map(k => (
-            <span key={k} style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
-              letterSpacing:"0.06em", color:"var(--accent2)", paddingRight:60 }}>{tickerStr}   ✦   </span>
+            <span key={k} style={{ display:"inline-flex", alignItems:"center" }}>
+              {tickerItems.map((it, i) => (
+                <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:11, paddingRight:84 }}>
+                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(12px,1.1vw,15px)",
+                    letterSpacing:"0.1em", textTransform:"uppercase", borderRadius:5, padding:"3px 10px",
+                    background:it.tone, color: it.tone === "var(--sun)" ? "var(--ink)" : BONE }}>{it.tag}</span>
+                  {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={27} />)}
+                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
+                    color:"var(--ink)" }}>{it.text}</span>
+                </span>
+              ))}
+            </span>
           ))}
         </div>
       </div>

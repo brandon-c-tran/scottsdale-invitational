@@ -17,12 +17,13 @@ const SPORTS = [
   { id:"pool",   label:"Pool" },
   { id:"kart",   label:"Mario Kart" },
 ];
+/* worst first so meters fill left to right */
 const RATINGS = [
-  { v:4,   label:"Elite" },
-  { v:3,   label:"Solid" },
-  { v:2,   label:"Average" },
-  { v:1.5, label:"Rough" },
   { v:1,   label:"Never played" },
+  { v:1.5, label:"Rough" },
+  { v:2,   label:"Average" },
+  { v:3,   label:"Solid" },
+  { v:4,   label:"Elite" },
 ];
 
 const SESSIONS = [
@@ -184,7 +185,12 @@ const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--
 /* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
 const snakeTeam = (k, T) => { const r = Math.floor(k / T), p = k % T; return r % 2 === 0 ? p : T - 1 - p; };
 
+/* mascot bank for teams of 3+; assigned at draw time, stable for the event */
+const TEAM_NAMES = ["The Sidewinders","The Javelinas","The Roadrunners","The Coyotes","The Scorpions",
+  "The Gila Monsters","The Jackrabbits","The Rattlers","The Dust Devils","The Bobcats","The Vultures","The Quail"];
+
 function teamLabel(state, t) {
+  if (t.name) return t.name;
   const names = t.players.map(p => disp(state, p));
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} & ${names[1]}`;
@@ -343,7 +349,9 @@ function drawTeams(ev, method, seeds, players) {
       groups = groups.map(g => shuffle(g));
     }
   }
-  return { id:"d"+Date.now(), method, ts:Date.now(), teams: groups.map(players => ({ players })) };
+  const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+  return { id:"d"+Date.now(), method, ts:Date.now(),
+    teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
 }
 
 function splitIntoGroups(keys, nGroups, method, skillOf) {
@@ -387,7 +395,7 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES,
+  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES, TEAM_NAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,

@@ -322,11 +322,11 @@ export default function App() {
           const ev = latest && events.find(e => e.id === latest.eid);
           const idx = latest ? latest.res.slots.findIndex(s => (s || []).includes(me)) : -1;
           const award = ev && idx >= 0 ? AWARDS[ev.value][idx] : 0;
-          if (award > 0) notify(`You took ${["1st","2nd","3rd"][idx]} · +${award}`, null, "gold");
+          if (award > 0) notify(`You took ${["1st","2nd","3rd"][idx]}, +${award}`, null, "gold");
         }
         if (lastAction === "adjust") {
           const a = state.adjustments?.[0];
-          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? " · " + a.reason : ""}`,
+          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? ", " + a.reason : ""}`,
             null, a.delta > 0 ? "gold" : undefined);
         }
       }
@@ -417,7 +417,7 @@ export default function App() {
       const key = `${eid}:${d.picks.length}`;
       if (draftNudge.current === key) return;
       draftNudge.current = key;
-      notify(`You're on the clock · ${events.find(e => e.id === eid)?.name || "draft"}`, null, "gold");
+      notify(`You're on the clock for ${events.find(e => e.id === eid)?.name || "the draft"}`, null, "gold");
       return;
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
@@ -610,14 +610,14 @@ export default function App() {
     if (ev.teamCfg && !state.draws[ev.id])
       return { label:`Draw ${ev.name}`, run:() => runDraw(ev, "random", ROSTER) };
     if (state.onDeck !== ev.id)
-      return { label:`Open betting · ${ev.name}`, run:() => setOnDeck(ev.id) };
+      return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
     const br = state.brackets[ev.id];
     if (br && bracketChampion(br) === null)
       return { label:`Advance the ${ev.name} bracket`, run:() => setModal({type:"bracket", ev}) };
     const st = state.stages[ev.id];
     if (st && (!stageFinalists(st) || st.finalWinner === null || st.finalWinner === undefined))
       return { label:`Advance the ${st.kind === "heats" ? "heats" : "pools"}`, run:() => setModal({type:"event", ev}) };
-    return { label:`Post result · ${ev.name}`, run:() => setModal({type:"result", ev}) };
+    return { label:`Post the ${ev.name} result`, run:() => setModal({type:"result", ev}) };
   })();
 
   if (tv) {
@@ -975,7 +975,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-        <div style={label}>Scouting report · sealed</div>
+        <div style={label}>Sealed scouting report</div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
         <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
           Nobody sees this. It only balances draws and heats.
@@ -1109,7 +1109,7 @@ function ScenarioCard({ state, scen, me }) {
             <Avatar state={state} p={a.player} size={26} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:BONE, flex:1,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> · you</span>}</span>
+              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> (you)</span>}</span>
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"#C9B896", marginRight:2 }}>{a.pts}</span>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
               textTransform:"uppercase", padding:"3px 8px", borderRadius:4,
@@ -1194,11 +1194,11 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize: first ? 16 : 14.5, color:"var(--ink)",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> · you</span>}
+                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> (you)</span>}
                 </div>
                 <div style={{ fontFamily:SANS, fontSize:11.5, color: first ? "rgba(42,33,25,0.65)" : "var(--muted)" }}>
-                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <> · wagers {r.betNet>0?"+":""}{r.betNet}</>}
-                  {isMe && myAtRisk > 0 && <> · <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
+                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <>, wagers {r.betNet>0?"+":""}{r.betNet}</>}
+                  {isMe && myAtRisk > 0 && <>, <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
                 </div>
               </div>
               {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:12.5,
@@ -1241,7 +1241,7 @@ function ChampionCard({ state, champion, coChamps, big }) {
         {coChamps.map(c => disp(state, c.player)).join(" & ")}
       </div>
       <div style={{ fontFamily:SANS, fontWeight:600, color:"#D8C6A6", fontSize: big ? 19 : 13 }}>
-        {champion.pts} points · Field Day · Scottsdale 2026
+        {champion.pts} points
       </div>
       {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"#E5967F", fontSize: big ? 17 : 13 }}>
         Tied. One pressure putt on the green decides it.</div>}
@@ -1418,7 +1418,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
   return (
     <div style={{ display:"grid", gridTemplateColumns:dims.col, gap:dims.gap, alignItems:"start" }}>
       {st.groups.map((g, i) => (
-        <GroupCard key={i} title={`${g.name}${st.advance > 1 ? ` · top ${st.advance} through` : ""}`}
+        <GroupCard key={i} title={`${g.name}${st.advance > 1 ? `, top ${st.advance} through` : ""}`}
           entrants={g.entrants} through={g.through} gIdx={i} />
       ))}
       {finalists && (
@@ -1486,14 +1486,14 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
       )}
       {howTo && <HowToSheet ev={ev} onClose={() => setHowTo(false)} />}
       <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
-        Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(" · ")}
+        Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(", ")}
       </p>
 
       {draftLive && !draw && (
         <div style={{ marginBottom:14 }}>
           <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
           <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
-            Draft underway · open the board</Btn>
+            Open the draft board</Btn>
         </div>
       )}
 
@@ -1555,8 +1555,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               </div>
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
                 color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
-                Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size} · fits {fit}
-                {diff > 0 ? ` · ${diff} extra will double up` : diff < 0 ? ` · ${-diff} short` : " · even teams"}
+                Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size}, fits {fit}.
+                {diff > 0 ? ` ${diff} extra will double up.` : diff < 0 ? ` ${-diff} short.` : ""}
               </div>
               {showOuts && (
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:5, marginBottom:10 }}>
@@ -1570,8 +1570,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     cursor:"pointer", borderRadius:9,
                     background: method === m.id ? "rgba(233,180,65,0.35)" : "var(--paper)",
                     border: method === m.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
-                    <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</span>
-                    <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>  ·  {m.desc}</span>
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</div>
+                    <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:2 }}>{m.desc}</div>
                   </button>
                 ))}
               </div>
@@ -1888,7 +1888,7 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
       c.includes(p) ? c.filter(x => x !== p) : c.length < N ? [...c, p] : c);
     const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
     return (
-      <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+      <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
         <div style={{ display:"flex", gap:8, marginBottom:12 }}>
           {CAP_METHODS.map(([id,lb]) => (
             <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -1897,11 +1897,11 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
               border: capMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
           ))}
         </div>
-        <div style={{ ...label, marginBottom:8 }}>Captains · {captains.length}/{N}</div>
+        <div style={{ ...label, marginBottom:8 }}>Captains {captains.length}/{N}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:14 }}>
           {(pool || []).map(p => {
             const i = captains.indexOf(p);
-            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} · C${i+1}` : disp(state,p)}
+            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} (C${i+1})` : disp(state,p)}
               selected={i >= 0} onClick={() => toggleCap(p)} />;
           })}
         </div>
@@ -1920,14 +1920,14 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
   const canPick = !poolEmpty && (gm || myTurn);
   const round = Math.floor(d.picks.length / T) + 1;
   return (
-    <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+    <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
       <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:13,
         background: poolEmpty ? "rgba(95,122,69,0.14)" : myTurn ? "rgba(233,180,65,0.35)" : "var(--panel2)",
         border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
-          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `On the clock · ${disp(state, cur)}`}</div>
+          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `${disp(state, cur)} is on the clock`}</div>
         {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
-          Round {round} · {d.pool.length} left</div>}
+          Round {round}, {d.pool.length} left</div>}
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
@@ -2018,7 +2018,7 @@ function ResultSheet({ ev, state, onClose, save }) {
     return nx;
   });
   return (
-    <Sheet title={`Result · ${ev.name}`} onClose={onClose}>
+    <Sheet title={`${ev.name} result`} onClose={onClose}>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {slotIdxs.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -2026,7 +2026,7 @@ function ResultSheet({ ev, state, onClose, save }) {
             background: active===i ? "rgba(192,91,51,0.1)" : "var(--panel2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each · {slots[i].length} in</div>
+            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each, {slots[i].length} in</div>
           </button>
         ))}
       </div>
@@ -2053,7 +2053,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
           {ROSTER.map(p => {
             const w = taken(p);
-            return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} · ${SLOT_META[w].label}` : p}
+            return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} (${SLOT_META[w].label})` : p}
               selected={w===active} onClick={() => toggle(p)} small />;
           })}
         </div>
@@ -2225,9 +2225,9 @@ function wagerPickLabel(state, w, events) {
     ? teamLabel(state, { players: w.pickPlayers })
     : disp(state, w.pickPlayers ? w.pickPlayers[0] : w.pick);
   if (w.kind === "outright") return { pick: pickName, ctx: `to win ${evName}` };
-  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} · ${evName}` };
-  if (w.final) return { pick: pickName, ctx: `to win the Final · ${evName}` };
-  return { pick: pickName, ctx: `to advance from ${w.groupName} · ${evName}` };
+  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} in ${evName}` };
+  if (w.final) return { pick: pickName, ctx: `to win the Final in ${evName}` };
+  return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
 }
 
 function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) {
@@ -2316,7 +2316,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
         <Avatar state={state} p={w.player} size={30} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)" }}>
-            <b>{disp(state, w.player)}</b> · {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
+            <b>{disp(state, w.player)}</b> put {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
           </div>
           <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>{l.ctx}</div>
         </div>
@@ -2336,16 +2336,27 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
   return (
     <div style={{ padding:"0 16px" }}>
       {me && (
-        <div style={{ display:"flex", alignItems:"center", gap:12, background:CARD_BG,
+        <div style={{ display:"flex", alignItems:"center", gap:14, background:CARD_BG,
           border:"1px solid var(--line)", borderRadius:15, padding:"12px 14px", marginBottom:12 }}>
           <Avatar state={state} p={me} size={34} />
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)" }}>{disp(state, me)}</div>
-            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>{myPts} banked · {myExp} of 3 at risk</div>
+          <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)",
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, me)}</div>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, height:26 }}>
+              <div style={{ position:"relative", width:18, height:26, flexShrink:0 }}>
+                {[0,1,2].map(i => <div key={i} style={{ position:"absolute", bottom:i*4, left:0 }}>
+                  <BankChip p={me} size={18} /></div>)}
+              </div>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1, color:"var(--ink)" }}>{myPts}</span>
+            </div>
+            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>Stack</div>
           </div>
-          <div style={{ display:"flex", gap:5 }}>
-            {[1,2,3].map(i => <div key={i} style={{ width:12, height:20, borderRadius:4,
-              background: i<=myExp ? EMBER_GRAD : "var(--panel2)", border:"1px solid var(--line)" }} />)}
+          <div style={{ width:1, alignSelf:"stretch", background:"var(--line)" }} />
+          <div style={{ textAlign:"center" }}>
+            <div style={{ display:"flex", gap:5, alignItems:"center", height:26 }}>
+              {[1,2,3].map(i => <BankChip key={i} p={me} size={18} empty={i > myExp} />)}
+            </div>
+            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>On the table</div>
           </div>
         </div>
       )}
@@ -2474,10 +2485,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
           )}
           {pending.some(x => x.w.eventId === ev.id) && (
             <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, margin:"2px 0 8px" }}>
-                <span style={{ ...label }}>The board</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>every chip is a point</span>
-              </div>
+              <div style={{ ...label, margin:"2px 0 8px" }}>The board</div>
               <div style={{ marginBottom:10 }}>
                 <BetsBoard state={state} events={events} ev={ev} compact />
               </div>
@@ -2491,7 +2499,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
 
       {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:5,
-        padding:"3px 10px", margin:"4px 0 8px" }}>Open · {pending.length}</div>}
+        padding:"3px 10px", margin:"4px 0 8px" }}>{pending.length} open</div>}
       {pending.map(x => <Row key={x.w.id} x={x} />)}
       {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:5,
@@ -2510,9 +2518,9 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
   const pickName = pick.pickPlayers.length > 1
     ? teamLabel(state, { players: pick.pickPlayers }) : disp(state, pick.pickPlayers[0]);
   const ctx = pick.kind === "outright" ? `to win ${pick.evName}`
-    : pick.kind === "match" ? `to win the ${pick.matchName} · ${pick.evName}`
-    : pick.final ? `to win the Final · ${pick.evName}`
-    : `to advance from ${pick.groupName} · ${pick.evName}`;
+    : pick.kind === "match" ? `to win the ${pick.matchName} in ${pick.evName}`
+    : pick.final ? `to win the Final in ${pick.evName}`
+    : `to advance from ${pick.groupName} in ${pick.evName}`;
   const self = pick.pickPlayers.includes(me);
   return (
     <Sheet title="Place a wager" onClose={onClose}>
@@ -2535,7 +2543,7 @@ function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place })
             border: stake===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
         ))}
         <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginLeft:"auto" }}>
-          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b> · loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
+          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b>, loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
         </div>
       </div>
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginBottom:14 }}>
@@ -2637,7 +2645,7 @@ function AdjustSheet({ player, onClose, save }) {
   const [delta, setDelta] = useState(1);
   const [reason, setReason] = useState("");
   return (
-    <Sheet title={`Ruling · ${player}`} onClose={onClose}>
+    <Sheet title={`Ruling for ${player}`} onClose={onClose}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
         <Btn kind="dark" onClick={() => setDelta(d => d - 1)} style={{ fontSize:20, width:54 }}>−</Btn>
         <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:46, width:84, textAlign:"center",
@@ -2676,7 +2684,7 @@ function ProfileSheet({ state, me, onClose, save }) {
         <div style={{ display:"flex", alignItems:"center", gap:8, background:playerColor(me), color:BONE,
           padding:"7px 12px" }}>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.05em",
-            textTransform:"uppercase", flex:1 }}>Field Day · Player credential</span>
+            textTransform:"uppercase", flex:1 }}>Player credential</span>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(playerNo(me)).padStart(2,"0")}</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
@@ -2760,6 +2768,14 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 }
 
 /* ─────────── TV mode ─────────── */
+/* one point as a poker chip; empty renders the open table spot it could fill */
+function BankChip({ p, size=18, empty }) {
+  if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
+    border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
+  return <div style={{ width:size, height:size, borderRadius:"50%", background:playerColor(p),
+    border:"1.5px solid var(--ink)", flexShrink:0,
+    boxShadow:`inset 0 0 0 ${Math.max(2.5, size*0.09)}px rgba(251,243,228,0.5)` }} />;
+}
 /* poker-chip stack for one bet: colored chips to the stake height, bettor on top */
 function ChipStack({ state, player, stake, size=44 }) {
   const c = playerColor(player);
@@ -2909,9 +2925,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   });
   const cashes = allW.filter(x => x.r.status === "won").slice(0,5)
     .map(x => `${disp(state, x.w.player)} cashed +${x.r.delta}`);
-  const rulings = (state.adjustments||[]).slice(0,4).map(a => `Ruling: ${disp(state,a.player)} ${a.delta>0?"+":""}${a.delta}${a.reason ? " · " + a.reason : ""}`);
+  const rulings = (state.adjustments||[]).slice(0,4).map(a => `Ruling: ${disp(state,a.player)} ${a.delta>0?"+":""}${a.delta}${a.reason ? ", " + a.reason : ""}`);
   let ticker = [...tickerWagers, ...results, ...cashes, ...rulings];
-  if (ticker.length === 0) ticker = ["Field Day", "13 players · one board", "Champion crowned Saturday night"];
+  if (ticker.length === 0) ticker = ["Field Day", "Scottsdale 2026"];
   const tickerStr = ticker.join("   ✦   ");
 
   const leader = !allTied ? standings[0] : null;
@@ -3066,7 +3082,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                   <Avatar state={state} p={x.w.player} size={38} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.7vh,19px)", color:"var(--ink)" }}>
-                      {disp(state, x.w.player)} · {x.w.stake} on {l.pick}</div>
+                      {disp(state, x.w.player)} put {x.w.stake} on {l.pick}</div>
                     <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.4vh,15px)", color:"var(--muted)",
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
                   </div>
@@ -3090,7 +3106,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(20px,3vh,34px)", color:"var(--ink)", lineHeight:1.1 }}>
                   {disp(state, leader.player)}</div>
                 <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.5vh,15px)", color:"rgba(30,22,8,0.6)" }}>
-                  {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? ` · wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
+                  {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? `, wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
               </div>
               <div key={leader.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{leader.pts}</div>
             </div>
@@ -3184,7 +3200,7 @@ function Guide({ replay, events }) {
         </div>
       </S>
       <S n="06" t="Saturday night awards">
-        The Championship · Fraud of the Weekend · Sharpshooter · Degenerate of the Weekend · Media MVP · Teammate of the Weekend.
+        The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
       </S>
       <S n="07" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.

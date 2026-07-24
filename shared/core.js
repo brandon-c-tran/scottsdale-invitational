@@ -30,7 +30,7 @@ const SESSIONS = [
   { id:"sam", label:"Saturday Morning",   tag:"2 PTS" },
   { id:"sap", label:"Saturday Afternoon", tag:"3 PTS" },
   { id:"san", label:"Saturday Night",     tag:"4 PTS" },
-  { id:"fin", label:"The Finale",         tag:"6 · 3 · 1" },
+  { id:"fin", label:"The Finale",         tag:"6 / 3 / 1" },
 ];
 
 const BUILTIN_EVENTS = [

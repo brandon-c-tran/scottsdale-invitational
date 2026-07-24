@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT, SIZES,
+  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT, SIZES, GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
@@ -881,11 +881,31 @@ function Shell({ children, tv }) {
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(192,91,51,0.22);} 50% { box-shadow:0 0 50px rgba(188,75,60,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
         @keyframes si-die-arc {
-          0%   { transform: translate(4px,30px)   rotate(0deg); }
-          38%  { transform: translate(60px,-6px)  rotate(200deg); }
-          60%  { transform: translate(96px,30px)  rotate(320deg); }
-          72%  { transform: translate(112px,16px) rotate(370deg); }
-          100% { transform: translate(132px,30px) rotate(420deg); }
+          0%   { transform: translate(0px,30px)   rotate(0deg); }
+          12%  { transform: translate(18px,2px)   rotate(80deg); }
+          24%  { transform: translate(38px,-12px) rotate(160deg); }
+          36%  { transform: translate(58px,-6px)  rotate(240deg); }
+          48%  { transform: translate(78px,12px)  rotate(310deg); }
+          56%  { transform: translate(90px,30px)  rotate(350deg); }
+          64%  { transform: translate(102px,14px) rotate(380deg); }
+          74%  { transform: translate(114px,10px) rotate(400deg); }
+          84%  { transform: translate(126px,24px) rotate(415deg); }
+          90%, 100% { transform: translate(132px,30px) rotate(420deg); }
+        }
+        @keyframes si-pong-arc {
+          0%   { transform: translate(0px,26px);   opacity:1; }
+          30%  { transform: translate(50px,-12px); opacity:1; }
+          55%  { transform: translate(96px,0px);   opacity:1; }
+          70%  { transform: translate(116px,16px); opacity:1; }
+          80%, 100% { transform: translate(121px,30px); opacity:0; }
+        }
+        @keyframes si-flip-cup {
+          0%, 14%   { transform: translate(0,0) rotate(0deg); }
+          44%       { transform: translate(0,-26px) rotate(-120deg); }
+          62%       { transform: translate(0,-6px) rotate(-180deg); }
+          70%       { transform: translate(0,0) rotate(-180deg); }
+          76%       { transform: translate(0,-4px) rotate(-180deg); }
+          82%, 100% { transform: translate(0,0) rotate(-180deg); }
         }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
@@ -938,6 +958,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 5 points. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
     4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, stakes run 1 to 3, and everything settles automatically once the result posts." },
     5: { art:<ArtStar />, t:"The Finale", b:"The Finale pays 6 / 3 / 1 to the top three finishers. Whoever leads the board after it takes the championship." },
+    6: { art:<FDMark size={54} />, t:"Four tabs", b:"Everything lives one tap away.", tabs:[
+      ["Board","Standings, live as results post."],
+      ["Events","The schedule. Draws, brackets, and results run here."],
+      ["Bets","Back anyone when betting opens."],
+      ["Rules","Scoring, wagers, and how to play every game."],
+    ]},
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -997,7 +1023,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           Nobody sees this. It only balances draws and heats.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
-          {SPORTS.map(s => {
+          {[["sport","Sports"],["drink","Drinking games"]].map(([gid, glabel]) => (
+          <div key={gid}>
+          <div style={{ ...label, margin: gid === "sport" ? "0 0 2px" : "16px 0 2px" }}>{glabel}</div>
+          {SPORTS.filter(s => s.group === gid).map(s => {
             const idx = RATINGS.findIndex(r => r.v === ratings[s.id]);
             return (
               <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
@@ -1017,6 +1046,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
               </div>
             );
           })}
+          </div>
+          ))}
         </div>
         <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
           style={{ width:"100%", fontSize:15, padding:"15px" }}>Seal it</Btn>
@@ -1030,6 +1061,19 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ marginBottom:16 }}>{c.art}</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)" }}>{c.b}</div>
+      {c.tabs && (
+        <div style={{ marginTop:20 }}>
+          {c.tabs.map(([t, d]) => (
+            <div key={t} style={{ display:"flex", alignItems:"center", gap:14, padding:"10px 0",
+              borderBottom:"1px solid var(--line)" }}>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
+                textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:99,
+                padding:"7px 14px", flexShrink:0 }}>{t}</span>
+              <span style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)" }}>{d}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {c.meter && (
         <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
           {[["Fri",1],["Sat AM",2],["Sat PM",3],["Sat Nite",4],["Finale",6]].map(([lb,v]) => (
@@ -1045,10 +1089,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
+          {[3,4,5,6].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
         </div>
-        <Btn onClick={step === 5 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
-          {step === 5 ? "I'm in" : "Next"}
+        <Btn onClick={step === 6 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
+          {step === 6 ? "I'm in" : "Next"}
         </Btn>
       </div>
     </div>
@@ -1097,28 +1141,24 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
         style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
           padding:"13px 14px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
-      <div style={{ display:"flex", gap:14, marginTop:14 }}>
-        <div style={{ width:104 }}>
-          <div style={{ ...label, marginBottom:6 }}>Number</div>
-          <input value={num} inputMode="numeric" placeholder="00"
-            onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-            style={{ width:"100%", background:"var(--panel2)", borderRadius:12, textAlign:"center",
-              border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-              padding:"10px 8px", color:"var(--cream)", fontFamily:DISPLAY, fontWeight:700, fontSize:24, outline:"none" }} />
-          {takenBy && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay)", marginTop:4 }}>
-            {disp(state, takenBy[0])} has {Number(num)}</div>}
-        </div>
-        <div style={{ flex:1 }}>
-          <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
-            {SIZES.map(s => (
-              <button key={s} onClick={() => setSize(size === s ? null : s)}
-                style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"12px 2px", borderRadius:9,
-                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
-                  border: size === s ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{s}</button>
-            ))}
-          </div>
-        </div>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
+        <div style={{ ...label, flex:1 }}>Jersey number</div>
+        <input value={num} inputMode="numeric" placeholder="00"
+          onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+          style={{ width:96, background:"var(--panel2)", borderRadius:12, textAlign:"center",
+            border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
+            padding:"11px 8px", color:"var(--cream)", fontFamily:DISPLAY, fontWeight:700, fontSize:22, outline:"none" }} />
+      </div>
+      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginTop:4, textAlign:"right" }}>
+        {disp(state, takenBy[0])} has {Number(num)}</div>}
+      <div style={{ ...label, margin:"14px 0 6px" }}>Shirt size</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+        {SIZES.map(s => (
+          <button key={s} onClick={() => setSize(size === s ? null : s)}
+            style={{ fontFamily:SANS, fontWeight:700, fontSize:14, padding:"13px 2px", borderRadius:10,
+              cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
+              border: size === s ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{s}</button>
+        ))}
       </div>
     </div>
   );
@@ -1582,13 +1622,13 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
         {state.onDeck === ev.id && <Tag tone="flame">On deck</Tag>}
         {shelvedNow && <Tag>Shelved</Tag>}
       </div>
-      {ev.desc && <p style={{ ...pStyle, marginBottom: ev.howto ? 8 : 14 }}>{ev.desc}</p>}
-      {ev.howto && (
+      {ev.desc && <p style={{ ...pStyle, marginBottom: GAMES[ev.game] ? 8 : 14 }}>{ev.desc}</p>}
+      {GAMES[ev.game] && (
         <button onClick={() => setHowTo(true)} style={{ background:"none", border:"none", cursor:"pointer",
           fontFamily:SANS, fontWeight:700, fontSize:13, letterSpacing:"0.02em", color:"var(--accent2)",
           padding:"0 0 14px", display:"block" }}>How to play →</button>
       )}
-      {howTo && <HowToSheet ev={ev} onClose={() => setHowTo(false)} />}
+      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={() => setHowTo(false)} />}
       <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
         Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(", ")}
       </p>
@@ -2179,34 +2219,35 @@ const svgMark = (s, kids) => (
   <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{kids}</svg>
 );
 const MARKS = {
-  golf: s => svgMark(s, <>
+  putting: s => svgMark(s, <>
     <path d="M11 27V6" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
     <path d="M11 6l10 3-10 3z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
     <ellipse cx="15" cy="27" rx="8" ry="2.2" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
   </>),
-  pool: s => svgMark(s, <>
+  "8ball": s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--ink)"/>
     <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
     <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="Archivo, sans-serif" fill="var(--ink)">8</text>
   </>),
-  bball: s => svgMark(s, <>
+  basketball: s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M5 16h22M16 5v22M8.5 8c4.5 4 4.5 12 0 16M23.5 8c-4.5 4-4.5 12 0 16" stroke="var(--ink)" strokeWidth="1.3" fill="none"/>
   </>),
-  spike: s => svgMark(s, <>
+  spikeball: s => svgMark(s, <>
     <circle cx="16" cy="8.5" r="3.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.7"/>
     <ellipse cx="16" cy="22" rx="11" ry="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M9 22h14M16 17.5v9" stroke="var(--ink)" strokeWidth="1.1"/>
   </>),
-  volley: s => svgMark(s, <>
+  volleyball: s => svgMark(s, <>
     <circle cx="12" cy="16" r="8" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M12 8c3 4 3 12 0 16M5 13.5c5 1.5 12 1 15-3.5" stroke="var(--ink)" strokeWidth="1.1" fill="none"/>
     <path d="M25 5v22" stroke="var(--ink)" strokeWidth="1.5" strokeDasharray="2 2"/>
   </>),
-  kart: s => svgMark(s, <>
-    <circle cx="16" cy="16" r="10.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <circle cx="16" cy="16" r="3.4" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.4"/>
-    <path d="M16 6.5v6M8.5 21.5l5-3.5M23.5 21.5l-5-3.5" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round"/>
+  die: s => svgMark(s, <>
+    <rect x="6" y="6" width="20" height="20" rx="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <circle cx="11.5" cy="11.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="11.5" r="1.8" fill="var(--ink)"/>
+    <circle cx="16" cy="16" r="1.8" fill="var(--ink)"/>
+    <circle cx="11.5" cy="20.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="20.5" r="1.8" fill="var(--ink)"/>
   </>),
   beerio: s => svgMark(s, <>
     <circle cx="13" cy="16" r="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
@@ -2236,7 +2277,7 @@ const MARKS = {
     <ellipse cx="16" cy="12" rx="6" ry="1.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
     <circle cx="16" cy="6" r="2.6" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.4"/>
   </>),
-  flip: s => svgMark(s, <>
+  flipcup: s => svgMark(s, <>
     <path d="M6 27a10 5 0 0 1 20 0" fill="none" stroke="var(--ink)" strokeWidth="1.1" strokeDasharray="2 2"/>
     <g transform="rotate(34 16 15)">
       <path d="M12 9h8l-1 11h-6z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -2251,8 +2292,8 @@ const MARKS = {
     })}
   </>),
 };
-function EventMark({ ev, size=54 }) {
-  const draw = MARKS[ev.id] || MARKS[ev.sport];
+function GameMark({ id, size=54 }) {
+  const draw = MARKS[id];
   return draw ? draw(size) : <FDMark size={size} />;
 }
 /* beer die flagship: a die that arcs and bounces off the far edge of the table */
@@ -2272,24 +2313,69 @@ function DieHero() {
     </svg>
   );
 }
-/* optional, on-demand rules for one event. Purely client-side, nested over the sheet below. */
-function HowToSheet({ ev, onClose }) {
-  const h = ev.howto;
+/* pong ball arcs down the table and drops in the cup */
+function PongHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M112 30h20l-2.5 28h-15z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+      <ellipse cx="122" cy="30" rx="10" ry="3" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+      <g style={{ animation:"si-pong-arc 2s linear infinite" }}>
+        <circle cx="8" cy="0" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* flip cup: the cup hops, turns over, and sticks the landing */
+function FlipHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="62" x2="172" y2="62" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <g style={{ animation:"si-flip-cup 2.2s ease-in-out infinite", transformOrigin:"90px 46px" }}>
+        <path d="M78 32h24l-3 28H81z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+        <ellipse cx="90" cy="32" rx="12" ry="3.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+      </g>
+    </svg>
+  );
+}
+const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero };
+/* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
+function HowToSheet({ gameId, variant, onClose }) {
+  const game = GAMES[gameId];
+  const variants = game?.variants || null;
+  const [vIdx, setVIdx] = useState(() => {
+    const i = variants ? variants.findIndex(v => v.id === variant) : -1;
+    return i < 0 ? 0 : i;
+  });
+  const h = variants ? variants[vIdx]?.howto : game?.howto;
   const steps = h?.steps || [];
   const rm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const [shown, setShown] = useState(rm ? steps.length : 0);
+  useEffect(() => { setShown(rm ? steps.length : 0); }, [vIdx]); // eslint-disable-line
   useEffect(() => {
     if (shown >= steps.length) return;
     const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 320 : 480);
     return () => clearTimeout(t);
   }, [shown, steps.length]);
   if (!h) return null;
+  const Hero = GAME_HEROES[gameId];
   return (
     <Sheet title="How to play" onClose={onClose}>
       <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6 }}>
-        {ev.id === "die" ? <DieHero /> : <EventMark ev={ev} size={56} />}
+        {Hero ? <Hero /> : <span style={{ animation:"si-pop .4s ease-out" }}><GameMark id={gameId} size={56} /></span>}
       </div>
-      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{ev.name}</div>
+      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{game.name}</div>
+      {variants && (
+        <div style={{ display:"flex", justifyContent:"center", gap:6, marginBottom:12 }}>
+          {variants.map((v, i) => (
+            <button key={v.id} onClick={() => setVIdx(i)} style={{ fontFamily:DISPLAY, fontWeight:700,
+              fontSize:16, padding:"7px 18px", borderRadius:99, cursor:"pointer",
+              background: i === vIdx ? "var(--ink)" : "var(--paper)",
+              color: i === vIdx ? BONE : "var(--ink)",
+              border: i === vIdx ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v.label}</button>
+          ))}
+        </div>
+      )}
       {h.objective && <p style={{ ...pStyle, textAlign:"center", marginBottom:12 }}>{h.objective}</p>}
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom:16 }}>
         {h.players && <Tag tone="gold">{h.players}</Tag>}
@@ -3406,16 +3492,17 @@ function Guide({ replay, events }) {
       </S>
       <S n="05" t="Learn the games">
         <div style={{ display:"grid", gap:8 }}>
-          {(events || []).filter(e => e.howto).map(e => (
-            <button key={e.id} onClick={() => setHowToEv(e)} style={{ display:"flex", alignItems:"center",
+          {Object.entries(GAMES).map(([id, g]) => (
+            <button key={id} onClick={() => setHowToEv(id)} style={{ display:"flex", alignItems:"center",
               gap:12, textAlign:"left", cursor:"pointer", background:"var(--paper)",
               border:"1px solid var(--line)", borderRadius:12, padding:"9px 11px" }}>
-              <EventMark ev={e} size={30} />
+              <GameMark id={id} size={30} />
               <span style={{ flex:1, minWidth:0 }}>
                 <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--ink)",
-                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{e.name}</span>
+                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{g.name}</span>
                 <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", display:"block",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.howto.objective}</span>
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {(g.howto || g.variants?.[0]?.howto)?.objective}</span>
               </span>
               <span style={{ color:"var(--accent2)", fontFamily:SANS, fontWeight:700, flexShrink:0 }}>→</span>
             </button>
@@ -3438,7 +3525,7 @@ function Guide({ replay, events }) {
       </div>
       <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
         color:"#A5947B", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
-      {howToEv && <HowToSheet ev={howToEv} onClose={() => setHowToEv(null)} />}
+      {howToEv && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
     </div>
   );
 }

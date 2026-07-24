@@ -5,7 +5,7 @@
 
 import {
   ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, OUTRIGHT_MULT,
+  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -72,6 +72,28 @@ export const ACTIONS = {
       const m = state.brackets[ev.id]?.rounds?.[wager.match?.[0]]?.[wager.match?.[1]];
       if (!m) return err("No such matchup");
       if (m.winner !== null && m.winner !== undefined) return err("Matchup already decided");
+    }
+    /* back anyone, but never the side facing your own team */
+    const drawG = state.draws[ev.id];
+    const myTeamIdx = drawG ? drawG.teams.findIndex(t => t.players.includes(player)) : -1;
+    if (myTeamIdx >= 0) {
+      const AGAINST = "You can't bet against your own team";
+      if (wager.kind === "outright" && wager.pickTeam && drawG.teams.length === 2
+          && !(wager.pickPlayers || []).includes(player))
+        return err(AGAINST);
+      if (wager.kind === "match" && wager.teamIdx !== myTeamIdx) {
+        const br = state.brackets[ev.id];
+        const mu = br?.rounds?.[wager.match?.[0]]?.[wager.match?.[1]];
+        if (mu && (resolveSlot(br, mu.a) === myTeamIdx || resolveSlot(br, mu.b) === myTeamIdx))
+          return err(AGAINST);
+      }
+      if (wager.kind === "stage" && state.stages[ev.id]?.entrantType === "team" && wager.pickKey !== myTeamIdx) {
+        const st = state.stages[ev.id];
+        const inPlay = wager.final
+          ? (stageFinalists(st) || []).includes(myTeamIdx)
+          : (st.groups?.[wager.group]?.entrants || []).includes(myTeamIdx);
+        if (inPlay) return err(AGAINST);
+      }
     }
     if (wager.kind === "stage") {
       const st = state.stages[ev.id];

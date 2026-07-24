@@ -95,12 +95,13 @@ await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
-r = await a.dispatch("runDraw", { evId: "8ball", method: "random", players: ROSTER });
+/* Evan sits out the draw so his wagers are never against his own team */
+r = await a.dispatch("runDraw", { evId: "8ball", method: "random", players: ROSTER.filter(p => p !== "Evan") });
 assert(r.ok, "GM draws 8-Ball teams");
 await b.waitVersion(a.version);
 const draw = b.state.draws["8ball"];
 assert(draw && draw.teams.length === 6, "draw produced 6 teams (window B sees it)");
-assert(draw.teams.flatMap(t => t.players).length === 13, "all 13 players placed");
+assert(draw.teams.flatMap(t => t.players).length === 12, "all 12 entrants placed");
 const br0 = b.state.brackets["8ball"];
 assert(br0 && br0.size === 6, "6-team bracket created");
 
@@ -124,10 +125,10 @@ assert(!r.ok, "stale drawId rejected (" + r.error + ")");
 
 const m00 = br0.rounds[0][0];
 const aIdx = m00.a.t, bIdx = m00.b.t;
-r = await a.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
+r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
   teamIdx: aIdx, pickPlayers: [...draw.teams[aIdx].players], pickTeam: true, drawId: draw.id,
   match: [0, 0], matchName: "Play-in", stake: 1 } });
-assert(r.ok, "Brandon places matchup wager (1 on play-in)");
+assert(r.ok, "Evan places matchup wager (1 on play-in)");
 await b.waitVersion(a.version);
 assert(b.state.wagers.length === 2, "both open wagers visible in window B");
 
@@ -139,7 +140,7 @@ await b.waitVersion(a.version);
   const events = allEventsOf(b.state);
   const mw = b.state.wagers.find(w => w.kind === "match");
   const res = resolveWager(b.state, mw, events);
-  assert(res.status === "won" && res.delta === 1, "Brandon's matchup wager settled WON +1 on window B immediately");
+  assert(res.status === "won" && res.delta === 1, "the matchup wager settled WON +1 on window B immediately");
   const resA = resolveWager(a.state, a.state.wagers.find(w => w.kind === "match"), allEventsOf(a.state));
   assert(resA.status === res.status, "both windows agree on matchup settlement");
 }
@@ -183,9 +184,7 @@ for (const [label, win] of [["A", a], ["B", b]]) {
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-const evanOnTeam0 = t0.players.includes("Evan");
-const evanExpected = 5 + (evanOnTeam0 ? 1 : 0) + 4;
-assert(evanRow.pts === evanExpected && evanRow.betNet === 4, `Evan at ${evanExpected} pts (5 start ${evanOnTeam0 ? "+1 win " : ""}+4 wager), got ${evanRow.pts}`);
+assert(evanRow.pts === 10 && evanRow.betNet === 5, `Evan at 10 pts (5 start +4 outright +1 matchup), got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);

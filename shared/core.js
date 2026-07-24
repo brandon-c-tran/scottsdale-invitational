@@ -158,7 +158,9 @@ const DRAW_METHODS = [
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
-const EMPTY_STATE = { v:5, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
+const SIZES = ["S", "M", "L", "XL", "XXL"];
+
+const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
   eventEdits:{}, eventOrder:[], updatedAt:0 };
 
@@ -385,7 +387,7 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE,
+  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,

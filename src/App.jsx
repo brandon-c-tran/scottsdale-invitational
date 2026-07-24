@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
+  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT, SIZES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
@@ -430,9 +430,10 @@ export default function App() {
   });
 
   const saveProfile = (p, prof) => {
-    act("saveProfile", { player: p, display: prof.display });
+    act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
+  const setLive = on => act("setLive", { on });
   const saveSeeds = r => act("saveSeeds", { player: me, ratings: r });
   const saveResult = (ev, slots) => act("saveResult", { evId: ev.id, slots });
   const clearResult = ev => act("clearResult", { evId: ev.id });
@@ -700,13 +701,16 @@ export default function App() {
 
       <div style={{ flex:1, overflowY:"auto", paddingTop:12,
         paddingBottom:`calc(${gm && qa ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
-        {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-          champion={champion} coChamps={coChamps} gm={gmView} events={events}
-          myAtRisk={me ? atRisk(state, me, events) : 0}
-          onOpen={ev => setModal({type:"event", ev})}
-          onAdjust={p => setModal({type:"adjust", player:p})}
-          onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
-          finaleDone={!!state.results[events.find(e => e.finale)?.id]} />}
+        {tab === "board" && (state.live
+          ? <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
+              champion={champion} coChamps={coChamps} gm={gmView} events={events}
+              myAtRisk={me ? atRisk(state, me, events) : 0}
+              onOpen={ev => setModal({type:"event", ev})}
+              onAdjust={p => setModal({type:"adjust", player:p})}
+              onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
+              finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
+          : <LockerRoom state={state} me={me} gm={gmView}
+              onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)} />)}
         {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
@@ -762,6 +766,8 @@ export default function App() {
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            <Btn kind="dark" onClick={() => { setLive(!state.live); setModal(null); }}>
+              {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
@@ -919,11 +925,19 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [ratings, setRatings] = useState({});
   const [display, setDisplay] = useState("");
   const [photo, setPhoto] = useState(null);
-  useEffect(() => { if (me) setDisplay(state.profiles?.[me]?.display || me); }, [me]); // eslint-disable-line
+  const [num, setNum] = useState("");
+  const [size, setSize] = useState(null);
+  useEffect(() => {
+    if (!me) return;
+    const pr = state.profiles?.[me];
+    setDisplay(pr?.display || me);
+    setNum(pr?.num != null ? String(pr.num) : "");
+    setSize(pr?.size ?? null);
+  }, [me]); // eslint-disable-line
   const cards = {
-    3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts with 5. Results and wagers move your total. Point values climb through the weekend.", meter:true },
-    4: { art:<ArtTicket />, t:"Bets", b:"When betting opens, back anyone to win, including yourself. Winner pays 2 to 1, stakes 1 to 3. Settles automatically off the result." },
-    5: { art:<ArtStar />, t:"The Finale", b:"Pays 6 / 3 / 1. Top of the board after it is the champion." },
+    3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 5 points. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
+    4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, stakes run 1 to 3, and everything settles automatically once the result posts." },
+    5: { art:<ArtStar />, t:"The Finale", b:"The Finale pays 6 / 3 / 1 to the top three finishers. Whoever leads the board after it takes the championship." },
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -931,7 +945,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
-        Put this on your home screen.
+        This runs best from your home screen. Add it once and it opens full screen, like any other app.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginTop:18, lineHeight:1.6 }}>
@@ -963,9 +977,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Your card</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
         Set up your profile</div>
-      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
+      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
+        num={num} setNum={setNum} size={size} setSize={setSize} />
       <div style={{ marginTop:"auto" }}>
-        <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(), ...(photo ? {photo} : {}) }); next(); }}
+        <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
+            num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) }); next(); }}
           style={{ width:"100%", fontSize:15, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
@@ -1037,10 +1053,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   );
 }
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize }) {
   const fileRef = useRef(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
+  const takenBy = num !== "" ? Object.entries(state.profiles || {})
+    .find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
   const onFile = e => {
     const f = e.target.files?.[0]; if (!f) return;
     const reader = new FileReader();
@@ -1071,15 +1089,97 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
             background:"var(--sun)", border:"1.5px solid var(--ink)", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
         </button>
-        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", lineHeight:1.5 }}>
-          Photo is optional. It shows on the board, the bracket, and the TV.
-        </div>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
       </div>
       <div style={{ ...label, marginBottom:6 }}>Display name</div>
       <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
         style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
           padding:"13px 14px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
+      <div style={{ display:"flex", gap:14, marginTop:14 }}>
+        <div style={{ width:104 }}>
+          <div style={{ ...label, marginBottom:6 }}>Number</div>
+          <input value={num} inputMode="numeric" placeholder="00"
+            onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            style={{ width:"100%", background:"var(--panel2)", borderRadius:12, textAlign:"center",
+              border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
+              padding:"10px 8px", color:"var(--cream)", fontFamily:DISPLAY, fontWeight:700, fontSize:24, outline:"none" }} />
+          {takenBy && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay)", marginTop:4 }}>
+            {disp(state, takenBy[0])} has {Number(num)}</div>}
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
+            {SIZES.map(s => (
+              <button key={s} onClick={() => setSize(size === s ? null : s)}
+                style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"12px 2px", borderRadius:9,
+                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
+                  border: size === s ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{s}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
+function LockerRoom({ state, me, gm, onProfile, onStart }) {
+  const profs = state.profiles || {};
+  const inCount = ROSTER.filter(p => profs[p]).length;
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <div style={{ display:"flex", alignItems:"baseline", marginBottom:10 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
+          color:"var(--ink)", flex:1 }}>The roster</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--muted2)" }}>
+          {inCount} of {ROSTER.length} in</div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+        {ROSTER.map(p => {
+          const pr = profs[p];
+          return (
+            <button key={p} onClick={p === me ? onProfile : undefined}
+              style={{ background:"var(--paper)", borderRadius:13, padding:"12px 6px 10px", textAlign:"center",
+                border: p === me ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                cursor: p === me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
+                animation:"si-in .25s both" }}>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:7, position:"relative" }}>
+                <Avatar state={state} p={p} size={54} ring={p === me} />
+                {pr?.num != null && (
+                  <span style={{ position:"absolute", right:"50%", marginRight:-38, top:-3,
+                    background:playerColor(p), color:BONE, border:"1.5px solid var(--ink)", borderRadius:99,
+                    fontFamily:DISPLAY, fontWeight:700, fontSize:13, minWidth:24, height:24,
+                    lineHeight:"21px", padding:"0 3px" }}>{pr.num}</span>
+                )}
+              </div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</div>
+            </button>
+          );
+        })}
+      </div>
+      {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
+      {gm && (
+        <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
+          borderRadius:13, padding:"12px 13px" }}>
+          <div style={{ ...label, marginBottom:8 }}>Jersey sheet</div>
+          {ROSTER.map(p => {
+            const pr = profs[p];
+            return (
+              <div key={p} style={{ display:"flex", gap:10, alignItems:"center", padding:"5px 0",
+                borderBottom:"1px solid var(--line)", fontFamily:SANS, fontSize:13.5 }}>
+                <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, width:36,
+                  color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
+                  {pr?.num != null ? `#${pr.num}` : "?"}</span>
+                <span style={{ width:36, fontWeight:700, color: pr?.size ? "var(--ink)" : "var(--line)" }}>
+                  {pr?.size || "?"}</span>
+              </div>
+            );
+          })}
+          <Btn onClick={onStart} style={{ width:"100%", marginTop:12 }}>Start the weekend</Btn>
+        </div>
+      )}
     </div>
   );
 }
@@ -2299,9 +2399,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
       <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
       <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
-      {mine > 0 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.08em",
-        padding:"3px 7px", borderRadius:99, background:"rgba(192,91,51,0.16)", color:"var(--accent2)",
-        textTransform:"uppercase", flexShrink:0 }}>You: {mine}</span>}
+      {mine > 0 && <span style={{ display:"flex", gap:3, flexShrink:0 }}>
+        {Array.from({ length: Math.min(mine, 3) }).map((_, i) => <BankChip key={i} p={me} size={16} />)}
+      </span>}
     </button>
   );
 
@@ -2677,6 +2777,8 @@ function PinSheet({ onClose, unlock }) {
 function ProfileSheet({ state, me, onClose, save }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
+  const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
+  const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
@@ -2685,7 +2787,7 @@ function ProfileSheet({ state, me, onClose, save }) {
           padding:"7px 12px" }}>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.05em",
             textTransform:"uppercase", flex:1 }}>Player credential</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(playerNo(me)).padStart(2,"0")}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(state.profiles?.[me]?.num ?? playerNo(me)).padStart(2,"0")}</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
           <Avatar state={state} p={me} size={40} />
@@ -2695,8 +2797,10 @@ function ProfileSheet({ state, me, onClose, save }) {
           </div>
         </div>
       </div>
-      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
-      <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(), ...(photo ? {photo} : {}) })}
+      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
+        num={num} setNum={setNum} size={size} setSize={setSize} />
+      <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
+          num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:15, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );

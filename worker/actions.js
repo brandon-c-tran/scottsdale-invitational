@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, allEventsOf, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, makeBracket, stageFinalists, snakeTeam, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
@@ -14,11 +14,27 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display }, ctx) {
+  saveProfile(state, { player, display, num, size }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
-    state.profiles[player] = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    if (num !== undefined) {
+      if (num === null) delete prof.num;
+      else {
+        const n = Math.floor(Number(num));
+        if (!Number.isFinite(n) || n < 0 || n > 99) return err("Numbers run 0 to 99");
+        const taken = Object.entries(state.profiles).find(([p, pr]) => p !== player && pr?.num === n);
+        if (taken) return err(`${disp(state, taken[0])} already has ${n}`);
+        prof.num = n;
+      }
+    }
+    if (size !== undefined) {
+      if (size === null) delete prof.size;
+      else if (!SIZES.includes(size)) return err("Bad size");
+      else prof.size = size;
+    }
+    state.profiles[player] = prof;
     return ok();
   },
   saveSeeds(state, { player, ratings }, ctx) {
@@ -329,9 +345,19 @@ export const ACTIONS = {
     state.onboardEpoch = (state.onboardEpoch || 0) + 1;
     return ok();
   },
+  setLive(state, { on }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    state.live = !!on;
+    return ok();
+  },
+  /* resets wipe the game, never the people: profiles (names, photos, numbers,
+     sizes) and sealed seeds survive so nobody re-registers between test runs */
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    const profiles = state.profiles, seeds = state.seeds;
     Object.assign(state, structuredClone(EMPTY_STATE));
+    state.profiles = profiles;
+    state.seeds = seeds;
     return ok();
   },
 };

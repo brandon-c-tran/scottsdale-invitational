@@ -921,9 +921,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   useEffect(() => { if (me) setDisplay(state.profiles?.[me]?.display || me); }, [me]); // eslint-disable-line
   const cards = {
-    3: { art:<FDMark size={54} />, t:"One board", b:"13 players, one board, all weekend. Every event and every bet moves it. Everyone starts with 5.", meter:true },
-    4: { art:<ArtTicket />, t:"Bets", b:"When an event opens, back anyone to win it, even yourself. Winner pays 2 to 1. Stakes of 1 to 3. It settles itself." },
-    5: { art:<ArtStar />, t:"Saturday night", b:"The Finale pays big, then the champion is crowned. Glance for ten seconds, get back out there." },
+    3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts with 5. Results and wagers move your total. Point values climb through the weekend.", meter:true },
+    4: { art:<ArtTicket />, t:"Bets", b:"When betting opens, back anyone to win, including yourself. Winner pays 2 to 1, stakes 1 to 3. Settles automatically off the result." },
+    5: { art:<ArtStar />, t:"The Finale", b:"Pays 6 / 3 / 1. Top of the board after it is the champion." },
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -931,7 +931,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
-        First move: put this on your home screen. Full screen, no browser bar, there all weekend.
+        Put this on your home screen.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginTop:18, lineHeight:1.6 }}>
@@ -946,10 +946,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · October 2026</div>
-      <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, marginBottom:28 }}>
-        13 players. One board. A champion Saturday night.
-      </div>
+      <div style={{ margin:"10px 0 28px" }}><Wordmark size={46} /></div>
       <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"auto" }}>
         {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => pick(p)} />)}
@@ -957,7 +954,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:15, padding:"15px" }}>Check in</Btn>
       {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
         fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--accent2)", alignSelf:"center" }}>
-        On the big screen? Open TV mode</button>}
+        TV mode</button>}
     </div>
   );
   if (step === 1) return (

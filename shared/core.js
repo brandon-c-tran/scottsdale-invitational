@@ -132,14 +132,14 @@ const BUILTIN_EVENTS = [
     howto:{ players:"Two teams of five", gear:["Full court","One ball"],
       objective:"Outscore them the length of the floor.",
       steps:["Tip off to start.","Ones and twos, make it take it.","Clear past half on a turnover.","Play to the set score, win by two."],
-      win:"First team to the set score, win by two.", house:"Call your own fouls. Keep it clean, it is a long weekend." } },
+      win:"First team to the set score, win by two.", house:"Call your own fouls. No hard contact." } },
   /* ── The Finale · 6 / 3 / 1 ── */
   { id:"ragecage", n:16, session:"fin", value:6, name:"Rage Cage", kind:"solo", finale:true,
     desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins.",
     howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
       objective:"Never get caught holding a ball. Empty the ring before you.",
-      steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Last player standing wins the weekend."],
-      win:"Last one standing takes the crown. Elimination order sets 2nd and 3rd.",
+      steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Last player standing wins."],
+      win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd.",
       house:"Sink the center cup to end the game. Miss it and you drink it." } },
 ];
 

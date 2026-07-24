@@ -2305,7 +2305,7 @@ function DieHero() {
     <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
       <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
       <line x1="8" y1="66" x2="172" y2="66" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round" opacity="0.4"/>
-      <g style={{ animation:"si-die-arc 2.4s cubic-bezier(.4,0,.5,1) infinite" }}>
+      <g style={{ animation:"si-die-arc 2.6s linear 1 both" }}>
         <rect x="0" y="0" width="20" height="20" rx="4.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
         <circle cx="5.5" cy="5.5" r="1.7" fill="var(--ink)"/>
         <circle cx="14.5" cy="5.5" r="1.7" fill="var(--ink)"/>
@@ -2323,7 +2323,7 @@ function PongHero() {
       <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
       <path d="M112 30h20l-2.5 28h-15z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
       <ellipse cx="122" cy="30" rx="10" ry="3" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
-      <g style={{ animation:"si-pong-arc 2s linear infinite" }}>
+      <g style={{ animation:"si-pong-arc 2s linear 1 both" }}>
         <circle cx="8" cy="0" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
       </g>
     </svg>
@@ -2334,7 +2334,7 @@ function FlipHero() {
   return (
     <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
       <line x1="8" y1="62" x2="172" y2="62" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <g style={{ animation:"si-flip-cup 2.2s ease-in-out infinite", transformOrigin:"90px 46px" }}>
+      <g style={{ animation:"si-flip-cup 2.2s ease-in-out 1 both", transformOrigin:"90px 46px" }}>
         <path d="M78 32h24l-3 28H81z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
         <ellipse cx="90" cy="32" rx="12" ry="3.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
       </g>
@@ -2354,6 +2354,7 @@ function HowToSheet({ gameId, variant, onClose }) {
   const steps = h?.steps || [];
   const rm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const [shown, setShown] = useState(rm ? steps.length : 0);
+  const [heroKey, setHeroKey] = useState(0);
   useEffect(() => { setShown(rm ? steps.length : 0); }, [vIdx]); // eslint-disable-line
   useEffect(() => {
     if (shown >= steps.length) return;
@@ -2364,8 +2365,11 @@ function HowToSheet({ gameId, variant, onClose }) {
   const Hero = GAME_HEROES[gameId];
   return (
     <Sheet title="How to play" onClose={onClose}>
-      <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6 }}>
-        {Hero ? <Hero /> : <span style={{ animation:"si-pop .4s ease-out" }}><GameMark id={gameId} size={56} /></span>}
+      <div onClick={() => Hero && setHeroKey(k => k + 1)}
+        style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6,
+          cursor: Hero ? "pointer" : "default" }}>
+        {Hero ? <span key={heroKey}><Hero /></span>
+          : <span style={{ animation:"si-pop .4s ease-out" }}><GameMark id={gameId} size={56} /></span>}
       </div>
       <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{game.name}</div>
       {variants && (
@@ -2476,12 +2480,14 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) stageFinal = finalists;
   }
 
-  /* one tap drops a chip on the pick; tap the x to pull your last one back */
-  const myWagersOn = pred => pending.filter(x => x.w.player === me && pred(x.w));
-
+  /* the whiteboard row: one tap drops a chip, everyone's chips sit on the pick
+     in their own colors, and the x pulls your last one back */
   const PickRow = ({ players, name, onClick, wide, pred }) => {
-    const minew = pred ? myWagersOn(pred) : [];
-    const mine = minew.reduce((s, x) => s + x.w.stake, 0);
+    const bets = pred ? pending.filter(x => pred(x.w)) : [];
+    const mineBets = bets.filter(x => x.w.player === me);
+    const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
+    const chips = bets.flatMap(x => Array.from({ length: x.w.stake }, () => x.w.player));
+    const shownChips = chips.slice(0, 6);
     return (
       <button onClick={room < 1 ? undefined : onClick}
         style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
@@ -2493,13 +2499,17 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
         <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
         <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
-        {mine > 0 && (
-          <span onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
-            {Array.from({ length: Math.min(mine, 3) }).map((_, i) => <BankChip key={i} p={me} size={16} />)}
-            <span onClick={() => onRetract(minew[minew.length - 1].w.id)} role="button"
-              style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
-                justifyContent:"center", cursor:"pointer", marginLeft:2, fontSize:11,
-                background:"rgba(42,33,25,0.08)", color:"var(--muted2)" }}>✕</span>
+        {chips.length > 0 && (
+          <span onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+            {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -5 : 0 }}><BankChip p={p} size={16} /></span>)}
+            {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
+              color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
+            {mine > 0 && (
+              <span onClick={() => onRetract(mineBets[mineBets.length - 1].w.id)} role="button"
+                style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
+                  justifyContent:"center", cursor:"pointer", marginLeft:4, fontSize:11,
+                  background:"rgba(42,33,25,0.08)", color:"var(--muted2)" }}>✕</span>
+            )}
           </span>
         )}
       </button>
@@ -2584,6 +2594,18 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.06em" }}>BETTING OPEN</span>
           </div>
           <div style={{ padding:"12px 13px 8px" }}>
+
+          {/* the whiteboard: live event state up top, chips ride on the picks below */}
+          {br && draw && (
+            <div style={{ marginBottom:14, overflowX:"auto" }}>
+              <BracketGrid state={state} ev={ev} gm={false} />
+            </div>
+          )}
+          {st && !br && (
+            <div style={{ marginBottom:14 }}>
+              <StageGrid state={state} ev={ev} gm={false} />
+            </div>
+          )}
 
           {outrights.length > 0 && (
             <>
@@ -2682,14 +2704,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                   </div>
                 </div>
               ))}
-            </>
-          )}
-          {pending.some(x => x.w.eventId === ev.id) && (
-            <>
-              <div style={{ ...label, margin:"2px 0 8px" }}>The board</div>
-              <div style={{ marginBottom:10 }}>
-                <BetsBoard state={state} events={events} ev={ev} compact />
-              </div>
             </>
           )}
           {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>

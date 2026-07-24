@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
-  allEventsOf, disp, shuffle, teamLabel, stageFinalists, stageEntrantView,
+  allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
 import {
@@ -406,6 +406,22 @@ export default function App() {
     setReveal(null);
   };
 
+  /* nudge a captain when the draft comes around to them, once per pick */
+  const draftNudge = useRef("");
+  useEffect(() => {
+    if (!me || !ready) return;
+    for (const [eid, d] of Object.entries(state.drafts || {})) {
+      if (!d?.pool?.length) continue;
+      const cur = d.teams[snakeTeam(d.picks.length, d.teams.length)]?.captain;
+      if (cur !== me) continue;
+      const key = `${eid}:${d.picks.length}`;
+      if (draftNudge.current === key) return;
+      draftNudge.current = key;
+      notify(`You're on the clock · ${events.find(e => e.id === eid)?.name || "draft"}`, null, "gold");
+      return;
+    }
+  }, [state.drafts, me, events, ready]); // eslint-disable-line
+
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
     if (!r.ok) notify(r.error || "Rejected");
@@ -438,6 +454,11 @@ export default function App() {
   };
   const runDraw = (ev, method, players) => act("runDraw", { evId: ev.id, method, players });
   const clearDraw = ev => act("clearDraw", { evId: ev.id });
+  const startDraft = (evId, captains, players) => act("startDraft", { evId, captains, players });
+  const pickDraftPlayer = (evId, player) => act("pickDraftPlayer", { evId, player });
+  const undoDraftPick = evId => act("undoDraftPick", { evId });
+  const finalizeDraft = evId => act("finalizeDraft", { evId });
+  const cancelDraft = evId => act("cancelDraft", { evId });
   const runStages = (ev, cfg) => act("runStages", { evId: ev.id, cfg });
   const clearStages = ev => act("clearStages", { evId: ev.id });
   const toggleThrough = (evId, g, key) => act("toggleThrough", { evId, g, key });
@@ -685,7 +706,7 @@ export default function App() {
           onOpen={ev => setModal({type:"event", ev})}
           onAdjust={p => setModal({type:"adjust", player:p})}
           onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
-          finaleDone={!!state.results["finale"]} />}
+          finaleDone={!!state.results[events.find(e => e.finale)?.id]} />}
         {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
@@ -693,7 +714,7 @@ export default function App() {
           onDeckEv={onDeckEv}
           onPick={pick => setModal({type:"placeWager", pick})}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
-        {tab === "guide" && <Guide replay={() => setOnboardStep(3)} />}
+        {tab === "guide" && <Guide replay={() => setOnboardStep(3)} events={events} />}
       </div>
 
       {gmNext && !modal && (
@@ -764,11 +785,20 @@ export default function App() {
         onDeckToggle={() => { setOnDeck(state.onDeck === modal.ev.id ? null : modal.ev.id); }}
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
-        openBracket={() => setModal({type:"bracket", ev:modal.ev})} />}
+        openBracket={() => setModal({type:"bracket", ev:modal.ev})}
+        openDraft={pool => setModal({type:"draft", ev:modal.ev, pool})} />}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
         onPostResult={() => setModal({type:"result", ev:modal.ev})} />}
+      {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
+        state={state} gm={gmView} me={me} standings={standings} pool={modal.pool}
+        onClose={() => setModal({type:"event", ev:modal.ev})}
+        onStart={(captains, players) => startDraft(modal.ev.id, captains, players)}
+        onPick={player => pickDraftPlayer(modal.ev.id, player)}
+        onUndo={() => undoDraftPick(modal.ev.id)}
+        onFinalize={() => { finalizeDraft(modal.ev.id); setModal(null); }}
+        onCancel={() => { cancelDraft(modal.ev.id); setModal({type:"event", ev:modal.ev}); }} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
@@ -782,7 +812,7 @@ export default function App() {
       {modal?.type === "freeze" && (
         <Sheet title="Crown the champion" onClose={() => setModal(null)}>
           <p style={pStyle}>Freezes the board and crowns <b style={{color:"var(--accent2)"}}>{disp(state, standings[0]?.player)}</b> at {standings[0]?.pts} points. All betting closes.</p>
-          {!state.results["finale"] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
+          {!state.results[events.find(e => e.finale)?.id] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={() => { setFrozen(true); setModal(null); setTab("board"); }}>Freeze the board</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Not yet</Btn>
@@ -845,6 +875,13 @@ function Shell({ children, tv }) {
         @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(192,91,51,0.22);} 50% { box-shadow:0 0 50px rgba(188,75,60,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
+        @keyframes si-die-arc {
+          0%   { transform: translate(4px,30px)   rotate(0deg); }
+          38%  { transform: translate(60px,-6px)  rotate(200deg); }
+          60%  { transform: translate(96px,30px)  rotate(320deg); }
+          72%  { transform: translate(112px,16px) rotate(370deg); }
+          100% { transform: translate(132px,30px) rotate(420deg); }
+        }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
@@ -1404,9 +1441,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 
 /* ─────────── event sheet ─────────── */
 function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
-  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket }) {
+  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket, openDraft }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
+  const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value];
@@ -1416,6 +1454,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmScrap, setConfirmScrap] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [howTo, setHowTo] = useState(false);
   const [more, setMore] = useState(false);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
@@ -1435,7 +1474,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [stageMethod, setStageMethod] = useState("random");
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
   const methods = DRAW_METHODS.filter(m =>
-    (!m.needsSport || ev.sport) && (!m.pairsOnly || ev.teamCfg?.size === 2));
+    (!m.needsSport || ev.sport) && (!m.pairsOnly || ev.teamCfg?.size === 2) && (!m.teamOnly || ev.kind === "team"));
   const canHeats = ev.kind === "solo" && !res;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
   const stageKind = canHeats ? "heats" : "pools";
@@ -1450,11 +1489,25 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
         {state.onDeck === ev.id && <Tag tone="flame">On deck</Tag>}
         {shelvedNow && <Tag>Shelved</Tag>}
       </div>
-      {ev.desc && <p style={pStyle}>{ev.desc}</p>}
+      {ev.desc && <p style={{ ...pStyle, marginBottom: ev.howto ? 8 : 14 }}>{ev.desc}</p>}
+      {ev.howto && (
+        <button onClick={() => setHowTo(true)} style={{ background:"none", border:"none", cursor:"pointer",
+          fontFamily:SANS, fontWeight:700, fontSize:13, letterSpacing:"0.02em", color:"var(--accent2)",
+          padding:"0 0 14px", display:"block" }}>How to play →</button>
+      )}
+      {howTo && <HowToSheet ev={ev} onClose={() => setHowTo(false)} />}
       <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
         Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(" · ")}
         {ev.kind !== "solo" && ". Team results pay every player the full amount."}
       </p>
+
+      {draftLive && !draw && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
+          <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
+            Draft underway · open the board</Btn>
+        </div>
+      )}
 
       {draw && (
         <div style={{ marginBottom:14 }}>
@@ -1501,7 +1554,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
 
       {gm && !state.frozen && (
         <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
-          {ev.teamCfg && !draw && !res && (() => {
+          {ev.teamCfg && !draw && !draftLive && !res && (() => {
             const fit = ev.teamCfg.teams * ev.teamCfg.size;
             const diff = inPlayers.length - fit;
             return (
@@ -1537,8 +1590,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   </button>
                 ))}
               </div>
-              <Btn disabled={!method || inPlayers.length < 2} onClick={() => onDraw(method, inPlayers)} style={{ width:"100%", marginBottom:10 }}>
-                Run the draw</Btn>
+              <Btn disabled={!method || inPlayers.length < 2}
+                onClick={() => method === "draft" ? openDraft(inPlayers) : onDraw(method, inPlayers)}
+                style={{ width:"100%", marginBottom:10 }}>
+                {method === "draft" ? "Set up the draft" : "Run the draw"}</Btn>
             </>
             );
           })()}
@@ -1827,6 +1882,115 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
   );
 }
 
+/* ─────────── captains draft (GM sets up + can override; on-clock captain picks) ─────────── */
+function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPick, onUndo, onFinalize, onCancel }) {
+  const d = state.drafts?.[ev.id];
+  const N = ev.teamCfg?.teams || 2;
+  const seedVal = p => ev.sport
+    ? (state.seeds?.[p]?.[ev.sport] ?? 0)
+    : -(standings.findIndex(s => s.player === p) + 1 || 999);
+  const [capMethod, setCapMethod] = useState("pick");
+  const [captains, setCaptains] = useState([]);
+  if (!d && !pool) return <Sheet title="Captains draft" onClose={onClose}><p style={pStyle}>No draft to show.</p></Sheet>;
+
+  /* ── setup (GM only reaches this) ── */
+  if (!d) {
+    const applyMethod = mth => {
+      setCapMethod(mth);
+      if (mth === "seed") setCaptains([...pool].sort((a,b) => seedVal(b) - seedVal(a)).slice(0, N));
+      else if (mth === "random") setCaptains(shuffle(pool).slice(0, N));
+      else setCaptains([]);
+    };
+    const toggleCap = p => setCaptains(c =>
+      c.includes(p) ? c.filter(x => x !== p) : c.length < N ? [...c, p] : c);
+    const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
+    return (
+      <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+        <p style={pStyle}>Choose {N} captain{N>1?"s":""}, then each captain drafts on their own phone in snake order. You can pick for anyone who is not on their phone.</p>
+        <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+          {CAP_METHODS.map(([id,lb]) => (
+            <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
+              borderRadius:11, fontFamily:SANS, fontWeight:700, fontSize:13,
+              background: capMethod===id ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
+              border: capMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
+          ))}
+        </div>
+        <div style={{ ...label, marginBottom:8 }}>Captains · {captains.length}/{N}</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:14 }}>
+          {(pool || []).map(p => {
+            const i = captains.indexOf(p);
+            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} · C${i+1}` : disp(state,p)}
+              selected={i >= 0} onClick={() => toggleCap(p)} />;
+          })}
+        </div>
+        <Btn disabled={captains.length !== N} onClick={() => onStart(captains, pool)} style={{ width:"100%" }}>
+          Start the draft</Btn>
+      </Sheet>
+    );
+  }
+
+  /* ── live board ── */
+  const T = d.teams.length;
+  const poolEmpty = d.pool.length === 0;
+  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
+  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
+  const myTurn = cur && me === cur;
+  const canPick = !poolEmpty && (gm || myTurn);
+  const round = Math.floor(d.picks.length / T) + 1;
+  return (
+    <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+      <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:13,
+        background: poolEmpty ? "rgba(95,122,69,0.14)" : myTurn ? "rgba(233,180,65,0.35)" : "var(--panel2)",
+        border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
+          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `On the clock · ${disp(state, cur)}`}</div>
+        {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
+          Round {round} · {d.pool.length} left{gm && !myTurn ? " · tap to pick for them" : ""}</div>}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
+        {d.teams.map((t, i) => (
+          <div key={i} style={{ background:"var(--paper)", borderRadius:12, padding:"9px 11px",
+            border: i === onClock ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+              <Tag tone="gold">C</Tag>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--accent2)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
+              <span style={{ flex:1 }} />
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"var(--muted)" }}>{t.players.length}</span>
+            </div>
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+              {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {!poolEmpty && (
+        <>
+          <div style={{ ...label, marginBottom:8 }}>{canPick ? "Tap to draft" : "Still available"}</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
+            {d.pool.map(p => <PlayerChip key={p} small name={disp(state,p)}
+              disabled={!canPick} onClick={() => canPick && onPick(p)} />)}
+          </div>
+        </>
+      )}
+
+      {gm && (
+        <div style={{ display:"flex", gap:8 }}>
+          {poolEmpty
+            ? <Btn onClick={onFinalize} style={{ flex:2 }}>Lock in the teams</Btn>
+            : <Btn kind="dark" disabled={!d.picks.length} onClick={onUndo} style={{ flex:1 }}>Undo</Btn>}
+          <Btn kind="danger" onClick={onCancel} style={{ flex:1 }}>Cancel</Btn>
+        </div>
+      )}
+      {!gm && !poolEmpty && !myTurn && (
+        <p style={{ ...pStyle, textAlign:"center", marginBottom:0 }}>Waiting on {disp(state, cur)} to pick.</p>
+      )}
+    </Sheet>
+  );
+}
+
 /* ─────────── result entry (GM, real names) ─────────── */
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
@@ -1919,6 +2083,154 @@ function ResultSheet({ ev, state, onClose, save }) {
       )}
       <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:15, padding:"14px", marginTop:4 }}>
         Post result</Btn>
+    </Sheet>
+  );
+}
+
+/* ─────────── how to play ─────────── */
+/* flat inline marks, one per event or per sport; fall back to the FD mark */
+const svgMark = (s, kids) => (
+  <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{kids}</svg>
+);
+const MARKS = {
+  golf: s => svgMark(s, <>
+    <path d="M11 27V6" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M11 6l10 3-10 3z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
+    <ellipse cx="15" cy="27" rx="8" ry="2.2" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+  </>),
+  pool: s => svgMark(s, <>
+    <circle cx="16" cy="16" r="11" fill="var(--ink)"/>
+    <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
+    <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="Archivo, sans-serif" fill="var(--ink)">8</text>
+  </>),
+  bball: s => svgMark(s, <>
+    <circle cx="16" cy="16" r="11" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <path d="M5 16h22M16 5v22M8.5 8c4.5 4 4.5 12 0 16M23.5 8c-4.5 4-4.5 12 0 16" stroke="var(--ink)" strokeWidth="1.3" fill="none"/>
+  </>),
+  spike: s => svgMark(s, <>
+    <circle cx="16" cy="8.5" r="3.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.7"/>
+    <ellipse cx="16" cy="22" rx="11" ry="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <path d="M9 22h14M16 17.5v9" stroke="var(--ink)" strokeWidth="1.1"/>
+  </>),
+  volley: s => svgMark(s, <>
+    <circle cx="12" cy="16" r="8" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <path d="M12 8c3 4 3 12 0 16M5 13.5c5 1.5 12 1 15-3.5" stroke="var(--ink)" strokeWidth="1.1" fill="none"/>
+    <path d="M25 5v22" stroke="var(--ink)" strokeWidth="1.5" strokeDasharray="2 2"/>
+  </>),
+  kart: s => svgMark(s, <>
+    <circle cx="16" cy="16" r="10.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <circle cx="16" cy="16" r="3.4" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.4"/>
+    <path d="M16 6.5v6M8.5 21.5l5-3.5M23.5 21.5l-5-3.5" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round"/>
+  </>),
+  beerio: s => svgMark(s, <>
+    <circle cx="13" cy="16" r="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <circle cx="13" cy="16" r="3" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.3"/>
+    <path d="M13 8.5v4.5M8 20l3.5-2.5" stroke="var(--ink)" strokeWidth="1.5" strokeLinecap="round"/>
+    <rect x="21" y="12" width="6" height="10" rx="1.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.5"/>
+  </>),
+  pickleball: s => svgMark(s, <>
+    <ellipse cx="13" cy="12.5" rx="8" ry="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <path d="M11 21l-3.5 6" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round"/>
+    <circle cx="23" cy="21" r="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.5"/>
+    <circle cx="21.6" cy="20" r="0.7" fill="var(--ink)"/><circle cx="24" cy="20" r="0.7" fill="var(--ink)"/><circle cx="22.8" cy="22.4" r="0.7" fill="var(--ink)"/>
+  </>),
+  foosball: s => svgMark(s, <>
+    <path d="M16 3v26" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
+    <rect x="11" y="12" width="10" height="8" rx="2" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
+    <path d="M12.5 20l-2 5M19.5 20l2 5" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round"/>
+    <circle cx="8" cy="24.5" r="2" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.3"/>
+  </>),
+  pingpong: s => svgMark(s, <>
+    <circle cx="14" cy="13" r="8" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <path d="M12 20.5l-4 6.5" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round"/>
+    <circle cx="24" cy="22" r="3" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.5"/>
+  </>),
+  pong: s => svgMark(s, <>
+    <path d="M10 12h12l-1.5 13h-9z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+    <ellipse cx="16" cy="12" rx="6" ry="1.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+    <circle cx="16" cy="6" r="2.6" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.4"/>
+  </>),
+  flip: s => svgMark(s, <>
+    <path d="M6 27a10 5 0 0 1 20 0" fill="none" stroke="var(--ink)" strokeWidth="1.1" strokeDasharray="2 2"/>
+    <g transform="rotate(34 16 15)">
+      <path d="M12 9h8l-1 11h-6z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+      <ellipse cx="16" cy="9" rx="4" ry="1.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.2"/>
+    </g>
+  </>),
+  ragecage: s => svgMark(s, <>
+    <circle cx="16" cy="16" r="3.6" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.5"/>
+    {[0,60,120,180,240,300].map(a => {
+      const r = 10, x = 16 + r*Math.cos(a*Math.PI/180), y = 16 + r*Math.sin(a*Math.PI/180);
+      return <circle key={a} cx={x} cy={y} r="2.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4"/>;
+    })}
+  </>),
+};
+function EventMark({ ev, size=54 }) {
+  const draw = MARKS[ev.id] || MARKS[ev.sport];
+  return draw ? draw(size) : <FDMark size={size} />;
+}
+/* beer die flagship: a die that arcs and bounces off the far edge of the table */
+function DieHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="8" y1="66" x2="172" y2="66" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round" opacity="0.4"/>
+      <g style={{ animation:"si-die-arc 2.4s cubic-bezier(.4,0,.5,1) infinite" }}>
+        <rect x="0" y="0" width="20" height="20" rx="4.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+        <circle cx="5.5" cy="5.5" r="1.7" fill="var(--ink)"/>
+        <circle cx="14.5" cy="5.5" r="1.7" fill="var(--ink)"/>
+        <circle cx="10" cy="10" r="1.7" fill="var(--ink)"/>
+        <circle cx="5.5" cy="14.5" r="1.7" fill="var(--ink)"/>
+        <circle cx="14.5" cy="14.5" r="1.7" fill="var(--ink)"/>
+      </g>
+    </svg>
+  );
+}
+/* optional, on-demand rules for one event. Purely client-side, nested over the sheet below. */
+function HowToSheet({ ev, onClose }) {
+  const h = ev.howto;
+  const steps = h?.steps || [];
+  const rm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const [shown, setShown] = useState(rm ? steps.length : 0);
+  useEffect(() => {
+    if (shown >= steps.length) return;
+    const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 320 : 480);
+    return () => clearTimeout(t);
+  }, [shown, steps.length]);
+  if (!h) return null;
+  return (
+    <Sheet title="How to play" onClose={onClose}>
+      <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6 }}>
+        {ev.id === "die" ? <DieHero /> : <EventMark ev={ev} size={56} />}
+      </div>
+      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{ev.name}</div>
+      {h.objective && <p style={{ ...pStyle, textAlign:"center", marginBottom:12 }}>{h.objective}</p>}
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom:16 }}>
+        {h.players && <Tag tone="gold">{h.players}</Tag>}
+        {(h.gear || []).map(g => <Tag key={g}>{g}</Tag>)}
+      </div>
+      <ol style={{ listStyle:"none", padding:0, margin:"0 0 16px" }}>
+        {steps.map((s, i) => (
+          <li key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"9px 0",
+            borderBottom: i < steps.length-1 ? "1px solid var(--line)" : "none",
+            visibility: i < shown ? "visible" : "hidden",
+            animation: i < shown ? "si-in .32s ease-out both" : "none" }}>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, lineHeight:1, color:"var(--accent2)",
+              minWidth:20, textAlign:"center" }}>{i+1}</span>
+            <span style={{ fontFamily:SANS, fontSize:14.5, lineHeight:1.5, color:"var(--muted2)" }}>{s}</span>
+          </li>
+        ))}
+      </ol>
+      <div style={{ background:"var(--paper2)", border:"1.5px solid var(--ink)", borderRadius:12,
+        padding:"11px 13px", marginBottom: h.house ? 10 : 0 }}>
+        <div style={{ ...label, fontSize:11, marginBottom:4 }}>To win</div>
+        <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.5, color:"var(--ink)" }}>{h.win}</div>
+      </div>
+      {h.house && (
+        <div style={{ fontFamily:SANS, fontSize:13, lineHeight:1.5, color:"var(--dust)" }}>
+          <b style={{ color:"var(--accent2)" }}>House rule.</b> {h.house}
+        </div>
+      )}
     </Sheet>
   );
 }
@@ -2846,7 +3158,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 }
 
 /* ─────────── rules ─────────── */
-function Guide({ replay }) {
+function Guide({ replay, events }) {
+  const [howToEv, setHowToEv] = useState(null);
   const S = ({ n, t, children }) => (
     <div style={{ marginBottom:18 }}>
       <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:6 }}>
@@ -2870,14 +3183,33 @@ function Guide({ replay }) {
       <S n="04" t="Draws, brackets, heats">
         Brandon runs each draw and it reveals on every phone. Blind Draw is chance. Balanced Draw uses sealed self-ratings. Buddy System pairs top and bottom seeds. Ratings are never shown. Brackets, heats, and pools track live in the app and on the TV as they progress.
       </S>
-      <S n="05" t="Saturday night awards">
+      <S n="05" t="Learn the games">
+        <div style={{ marginBottom:10 }}>New to any of these? Tap for a ten second rundown.</div>
+        <div style={{ display:"grid", gap:8 }}>
+          {(events || []).filter(e => e.howto).map(e => (
+            <button key={e.id} onClick={() => setHowToEv(e)} style={{ display:"flex", alignItems:"center",
+              gap:12, textAlign:"left", cursor:"pointer", background:"var(--paper)",
+              border:"1px solid var(--line)", borderRadius:12, padding:"9px 11px" }}>
+              <EventMark ev={e} size={30} />
+              <span style={{ flex:1, minWidth:0 }}>
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--ink)",
+                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{e.name}</span>
+                <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", display:"block",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.howto.objective}</span>
+              </span>
+              <span style={{ color:"var(--accent2)", fontFamily:SANS, fontWeight:700, flexShrink:0 }}>→</span>
+            </button>
+          ))}
+        </div>
+      </S>
+      <S n="06" t="Saturday night awards">
         The Championship · Fraud of the Weekend · Sharpshooter · Degenerate of the Weekend · Media MVP · Teammate of the Weekend.
       </S>
-      <S n="06" t="House rules">
+      <S n="07" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.
       </S>
       {!isStandalone() && (
-        <S n="07" t="The app">
+        <S n="08" t="The app">
           <div style={{ marginBottom:8 }}>Best from your home screen. Full screen, one tap away.</div>
           <InstallHint />
         </S>
@@ -2887,6 +3219,7 @@ function Guide({ replay }) {
       </div>
       <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
         color:"#A5947B", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
+      {howToEv && <HowToSheet ev={howToEv} onClose={() => setHowToEv(null)} />}
     </div>
   );
 }

@@ -761,7 +761,6 @@ export default function App() {
         save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
-          <p style={pStyle}>Draws, heats, pools, and results run from Events. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
@@ -1170,7 +1169,6 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
-          <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)" }}>The first result sets the board</div>
         </div>
       )}
       <div style={{ background:"var(--paper)", border:"1px solid rgba(42,33,25,0.3)", borderRadius:14,
@@ -1217,9 +1215,6 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       </div>
       {gm && !champion && (
         <div style={{ padding:"14px 4px 8px", textAlign:"center" }}>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginBottom:10 }}>
-            Tap a player for a bonus or penalty
-          </div>
           <Btn kind={finaleDone ? "primary" : "ghost"} onClick={onFreeze}>Crown the champion</Btn>
         </div>
       )}
@@ -1379,9 +1374,6 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
           {section(shelved, false)}
         </div>
       )}
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", textAlign:"center", padding:"4px 20px 16px", lineHeight:1.6 }}>
-        Order is loose. Events run whenever. Sunday is unscored: breakfast, cleanup, group photo, out by 11.
-      </div>
     </div>
   );
 }
@@ -1498,7 +1490,6 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
       {howTo && <HowToSheet ev={ev} onClose={() => setHowTo(false)} />}
       <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
         Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(" · ")}
-        {ev.kind !== "solo" && ". Team results pay every player the full amount."}
       </p>
 
       {draftLive && !draw && (
@@ -1535,9 +1526,6 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           <div style={{ ...label, marginBottom:8 }}>{st.kind === "heats" ? "Heats" : "Pools"}</div>
           <StageGrid state={state} ev={ev} gm={gm && !state.frozen}
             onThrough={onThrough} onFinal={onFinal} />
-          {gm && !res && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)", marginTop:8 }}>
-            Tap who goes through in each {st.kind === "heats" ? "heat" : "pool"}, then tap the final winner. Wagers settle as you go.
-          </div>}
         </div>
       )}
 
@@ -1876,8 +1864,6 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
       {gm && champ !== null && !state.results[ev.id] && (
         <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
       )}
-      {gm && champ === null && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:10 }}>
-        Tap the winner of each matchup to advance them. Matchup wagers settle as you go.</div>}
     </Sheet>
   );
 }
@@ -1906,7 +1892,6 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
     const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
     return (
       <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
-        <p style={pStyle}>Choose {N} captain{N>1?"s":""}, then each captain drafts on their own phone in snake order. You can pick for anyone who is not on their phone.</p>
         <div style={{ display:"flex", gap:8, marginBottom:12 }}>
           {CAP_METHODS.map(([id,lb]) => (
             <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -1945,7 +1930,7 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
           {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `On the clock · ${disp(state, cur)}`}</div>
         {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
-          Round {round} · {d.pool.length} left{gm && !myTurn ? " · tap to pick for them" : ""}</div>}
+          Round {round} · {d.pool.length} left</div>}
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
@@ -3003,7 +2988,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.5vw,22px)",
               letterSpacing:"0.14em", color:"#C9B896" }}>SCOTTSDALE · 2026</div>
             <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.4vw,20px)", color:BONE, marginTop:22, lineHeight:1.5 }}>
-              Scan to check in.<br/>13 players. One board.
+              Scan to check in.
             </div>
           </div>
           <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:16,
@@ -3184,7 +3169,6 @@ function Guide({ replay, events }) {
         Brandon runs each draw and it reveals on every phone. Blind Draw is chance. Balanced Draw uses sealed self-ratings. Buddy System pairs top and bottom seeds. Ratings are never shown. Brackets, heats, and pools track live in the app and on the TV as they progress.
       </S>
       <S n="05" t="Learn the games">
-        <div style={{ marginBottom:10 }}>New to any of these? Tap for a ten second rundown.</div>
         <div style={{ display:"grid", gap:8 }}>
           {(events || []).filter(e => e.howto).map(e => (
             <button key={e.id} onClick={() => setHowToEv(e)} style={{ display:"flex", alignItems:"center",
@@ -3210,7 +3194,6 @@ function Guide({ replay, events }) {
       </S>
       {!isStandalone() && (
         <S n="08" t="The app">
-          <div style={{ marginBottom:8 }}>Best from your home screen. Full screen, one tap away.</div>
           <InstallHint />
         </S>
       )}

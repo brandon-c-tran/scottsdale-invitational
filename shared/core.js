@@ -190,6 +190,22 @@ const DUEL_GAMES = {
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
+/* chip identity: everyone starts gray; colors are claimed first come first
+   serve and lock when the weekend goes live. Skins repeat freely; the color
+   is the unique claim. light:true colors take ink initials/text. */
+const CHIP_GRAY = "#6B6558";
+const CHIP_COLORS = [
+  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B", light:true }, { hex:"#D89C2F", light:true },
+  { hex:"#C9B25A", light:true }, { hex:"#A8A03F", light:true }, { hex:"#77804C" }, { hex:"#4E6E39" },
+  { hex:"#6E9450" }, { hex:"#3F7D5C" }, { hex:"#557B72" }, { hex:"#2F7E83" },
+  { hex:"#4F93A3" }, { hex:"#3B6E9C" }, { hex:"#5E7291" }, { hex:"#6D6FA8" },
+  { hex:"#7C5CA6" }, { hex:"#8A4F62" }, { hex:"#A6527C" }, { hex:"#B23B5E" },
+  { hex:"#B23B2E" }, { hex:"#8E3B2F" }, { hex:"#7A5C43" }, { hex:"#A9663F" },
+  { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
+  { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
+];
+const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring"];
+
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
   eventEdits:{}, eventOrder:[], updatedAt:0 };
@@ -468,6 +484,7 @@ const bracketChampion = br => {
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   DRAW_METHODS, OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,

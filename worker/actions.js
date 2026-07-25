@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel,
 } from "../shared/core.js";
@@ -34,6 +34,31 @@ export const ACTIONS = {
       if (size === null) delete prof.size;
       else if (!SIZES.includes(size)) return err("Bad size");
       else prof.size = size;
+    }
+    state.profiles[player] = prof;
+    return ok();
+  },
+  /* chip identity: color is a first-come-first-serve claim, skin repeats
+     freely. Both lock when the weekend goes live so the board stays learnable. */
+  pickChip(state, { player, color, skin }, ctx) {
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Not your chip");
+    const prof = { ...(state.profiles[player] || {}) };
+    if (color !== undefined) {
+      if (state.live && !ctx.isGm && color !== prof.color) return err("Chips locked for the weekend");
+      if (color === null) delete prof.color;
+      else {
+        if (!CHIP_COLORS.find(c => c.hex === color)) return err("Bad color");
+        const taken = Object.entries(state.profiles).find(([p, pr]) => p !== player && pr?.color === color);
+        if (taken) return err(`${disp(state, taken[0])} already has that color`);
+        prof.color = color;
+      }
+    }
+    if (skin !== undefined) {
+      if (state.live && !ctx.isGm && skin !== prof.skin) return err("Chips locked for the weekend");
+      if (skin === null) delete prof.skin;
+      else if (!CHIP_SKINS.includes(skin)) return err("Bad skin");
+      else prof.skin = skin;
     }
     state.profiles[player] = prof;
     return ok();

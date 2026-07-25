@@ -59,8 +59,9 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
   PLAYER_COLORS, tints via the --*-tint tokens, shadows via --shadow-1/2/3
   (deep warm, never pure black), radii 6/10/14/16/99. Phase palette: pool
   (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale).
-  Flat scorecard components, 13 curated flat player colors, subtle grain
-  (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
+  Flat scorecard components, chip identity for players (30 claimable colors
+  plus 6 edge-tick skins, first come first serve, gray until claimed, locked
+  once the weekend goes live), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
   edge ticks and a geometric sun at center; scripts/icons.mjs regenerates the
   PWA icons from the same geometry, no fonts needed. No emojis as final
   artwork, no gradients, no glows, no luxury conventions.

@@ -51,12 +51,17 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
 - Field Day look: sun-faded rec-tournament, treated with championship seriousness.
   Barlow Condensed display for scores/ranks/event names, Archivo for everything
-  functional, no serif. Light bone paper with ink rules; semantic tokens in
-  `Shell` (:root). Phase palette: pool (Fri), sun (Sat AM), terracotta (Sat PM),
-  clay (Sat night), night (Finale). Dark warm night surfaces are reserved for
-  reveals, champion, and TV, never the default. Flat scorecard components, 13
-  curated flat player colors, the FD sun-over-lanes mark, subtle grain only.
-  No emojis as final artwork, no gradients, no glows, no luxury conventions.
+  functional, no serif (fonts load in index.html, never via CSS import). Light
+  bone paper content framed by warm-night CHROME (header, tab bar, sheet title
+  bands, toasts); night also carries reveals, champion, and TV. Semantic tokens
+  in `Shell` (:root) are the only color source: no raw hex outside :root and
+  PLAYER_COLORS, tints via the --*-tint tokens, shadows via --shadow-1/2/3
+  (warm ink, never black), radii 6/10/14/16/99. Phase palette: pool (Fri), sun
+  (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale). Flat
+  scorecard components, 13 curated flat player colors, subtle grain only. The
+  mark is the FD crest (sun roundel, italic FD); scripts/icons.mjs regenerates
+  the PWA icons from it. No emojis as final artwork, no gradients, no glows,
+  no luxury conventions.
 - Real names in all commissioner controls. Fun is for reveals, not for admin.
 - The app should reduce mental load during the weekend, not add process.
 

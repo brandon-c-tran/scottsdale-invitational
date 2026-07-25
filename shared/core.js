@@ -169,9 +169,9 @@ const GAMES = {
 };
 
 const SLOT_META = [
-  { label:"1st", team:"Winners",    color:"var(--gold)" },
-  { label:"2nd", team:"Runners-up", color:"#BDB2A0" },
-  { label:"3rd", team:"3rd place",  color:"#C07A4B" },
+  { label:"1st", team:"Winners",    color:"var(--accent)" },
+  { label:"2nd", team:"Runners-up", color:"var(--silver)" },
+  { label:"3rd", team:"3rd place",  color:"var(--bronze)" },
 ];
 
 const DRAW_METHODS = [

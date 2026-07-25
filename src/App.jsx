@@ -27,7 +27,7 @@ const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|
    default; warm night surfaces are reserved for reveals, finals, and TV. */
 const DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
 const SANS = "'Archivo',system-ui,sans-serif";
-const BONE = "#FBF3E4";
+const BONE = "var(--bone)";
 const GOLD_GRAD = "var(--sun)";
 const EMBER_GRAD = "var(--accent)";
 const CARD_BG = "var(--paper)";
@@ -39,13 +39,18 @@ const PLAYER_COLORS = ["#C05B33","#4F93A3","#77804C","#B23B2E","#D89C2F","#7A5C4
 const playerColor = p => PLAYER_COLORS[Math.max(0, ROSTER.indexOf(p)) % PLAYER_COLORS.length];
 const playerNo = p => { const i = ROSTER.indexOf(p); return i < 0 ? null : i + 1; };
 
-/* the Field Day mark: a sun over lanes; works as favicon, patch, or stamp */
-function FDMark({ size=28 }) {
+/* the Field Day crest: sun-gold roundel, hairline inner ring, italic FD.
+   One mark everywhere: header, wordmark, TV, onboarding, and the PWA icons
+   (regenerated from this same geometry by scripts/icons.mjs).
+   variant "night" swaps the outer ring to bone for dark chrome. */
+function FDMark({ size=28, variant }) {
+  const ring = variant === "night" ? "var(--bone)" : "var(--ink)";
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
-      <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="7" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
-      <circle cx="16" cy="12.5" r="6.2" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
-      <path d="M5 22h22M5 26h22" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
+      <circle cx="32" cy="32" r="29.5" fill="var(--sun)" stroke={ring} strokeWidth="3.5"/>
+      <circle cx="32" cy="32" r="24" fill="none" stroke="var(--ink)" strokeWidth="1.4" opacity="0.55"/>
+      <text x="34" y="43.5" textAnchor="middle" fontFamily={DISPLAY} fontWeight="700" fontStyle="italic"
+        fontSize="33" letterSpacing="-0.5" fill="var(--ink)">FD</text>
     </svg>
   );
 }
@@ -104,15 +109,15 @@ function AvatarStack({ state, players, size=24, max=4 }) {
     <div style={{ display:"flex", alignItems:"center" }}>
       {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
       {extra > 0 && <div style={{ width:size, height:size, borderRadius:"50%", marginLeft:-size*0.32,
-        background:"var(--panel2)", border:"1.5px solid rgba(42,33,25,0.15)", display:"flex",
+        background:"var(--paper2)", border:"1.5px solid rgba(42,33,25,0.15)", display:"flex",
         alignItems:"center", justifyContent:"center", fontFamily:SANS, fontWeight:700,
-        fontSize:size*0.4, color:"var(--dust)", flexShrink:0 }}>+{extra}</div>}
+        fontSize:size*0.4, color:"var(--muted)", flexShrink:0 }}>+{extra}</div>}
     </div>
   );
 }
 function Confetti({ burst }) {
   if (!burst) return null;
-  const colors = ["var(--accent2)","var(--accent)","#E1572A","#F4E9D4","#7CB98A"];
+  const colors = ["var(--accent2)","var(--accent)","var(--sun)","var(--bone)","var(--olive)"];
   const pieces = Array.from({length:90}, (_,i) => ({
     left: Math.random()*100, delay: Math.random()*0.5, dur: 2.4 + Math.random()*1.6,
     color: colors[i % colors.length], size: 5 + Math.random()*8, rot: Math.random()*360,
@@ -128,16 +133,16 @@ function Confetti({ burst }) {
     </div>
   );
 }
-const label = { fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.07em", color:"var(--muted)", textTransform:"uppercase" };
+const label = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.07em", color:"var(--muted)", textTransform:"uppercase" };
 function Tag({ children, tone="dim", style }) {
   const tones = {
-    dim:   { color:"var(--dust)", background:"rgba(42,33,25,0.05)" },
-    gold:  { color:"var(--accent2)", background:"rgba(192,91,51,0.12)" },
-    flame: { color:"var(--live2)", background:"rgba(188,75,60,0.14)" },
-    green: { color:"var(--green)", background:"rgba(95,122,69,0.12)" },
+    dim:   { color:"var(--muted)", background:"var(--ink-tint)" },
+    gold:  { color:"var(--accent2)", background:"var(--accent-tint)" },
+    flame: { color:"var(--live2)", background:"rgba(192,71,58,0.14)" },
+    green: { color:"var(--green)", background:"var(--green-tint)" },
   };
   return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-    padding:"3px 8px", borderRadius:4, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
+    padding:"3px 8px", borderRadius:6, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
 }
 function Btn({ children, onClick, kind="primary", disabled, style }) {
   const kinds = {
@@ -145,31 +150,35 @@ function Btn({ children, onClick, kind="primary", disabled, style }) {
     flame:   { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink)" },
     ghost:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
     dark:    { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
-    danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(188,75,60,0.55)" },
+    danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(192,71,58,0.55)" },
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:700,
-      letterSpacing:"0.04em", fontSize:13.5, textTransform:"uppercase", padding:"12px 16px", borderRadius:11, minHeight:44,
+      letterSpacing:"0.04em", fontSize:14, textTransform:"uppercase", padding:"12px 16px", borderRadius:10, minHeight:44,
       cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
       transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
   );
 }
 function Sheet({ title, onClose, children, wide }) {
   return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(42,33,25,0.45)",
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
       <div onClick={e=>e.stopPropagation()} className="si-sheet" style={{ width:"100%", maxWidth: wide ? 780 : 540,
-        overflowY:"auto", background:"var(--paper)", borderRadius:"18px 18px 0 0",
+        overflowY:"auto", background:"var(--paper)", borderRadius:"16px 16px 0 0",
         border:"1.5px solid var(--ink)", borderBottom:"none",
-        padding:"18px 18px calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14,
-          borderBottom:"1.5px solid var(--ink)", paddingBottom:10 }}>
+        padding:"0 0 calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
+        {/* night title band ties every sheet to the chrome */}
+        <div style={{ position:"sticky", top:0, zIndex:5, display:"flex", alignItems:"center",
+          justifyContent:"space-between", background:"var(--night)", padding:"13px 18px 11px",
+          borderBottom:"1px solid var(--bone-line)", marginBottom:14 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
-            textTransform:"uppercase", color:"var(--ink)" }}>{title}</div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"var(--paper2)", border:"1.5px solid rgba(42,33,25,0.4)",
-            color:"var(--ink)", width:36, height:36, borderRadius:9, fontSize:14, cursor:"pointer" }}>✕</button>
+            textTransform:"uppercase", color:"var(--bone)" }}>{title}</div>
+          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)",
+            color:"var(--bone)", width:36, height:36, borderRadius:10, fontSize:14, cursor:"pointer" }}>✕</button>
         </div>
-        {children}
+        <div style={{ padding:"0 18px" }}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -177,11 +186,11 @@ function Sheet({ title, onClose, children, wide }) {
 function PlayerChip({ name, selected, disabled, onClick, small }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:600,
-      fontSize: small ? 13 : 14, padding: small ? "9px 8px" : "11px 10px", borderRadius:9,
+      fontSize: small ? 13 : 14, padding: small ? "9px 8px" : "11px 10px", borderRadius:10,
       cursor: disabled ? "default" : "pointer",
       background: selected ? GOLD_GRAD : "var(--paper)",
-      color: selected ? "var(--ink)" : disabled ? "#AE9C80" : "var(--cream)",
-      border: selected ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+      color: selected ? "var(--ink)" : disabled ? "var(--disabled)" : "var(--ink)",
+      border: selected ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
       opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s" }}>{name}</button>
   );
 }
@@ -691,9 +700,9 @@ export default function App() {
 
   return (
     <Shell>
-      {/* header */}
-      <div style={{ position:"sticky", top:0, zIndex:40, background:"rgba(244,237,223,0.93)",
-        backdropFilter:"blur(14px)", borderBottom:"1px solid var(--line)",
+      {/* header: night chrome framing the paper below */}
+      <div style={{ position:"sticky", top:0, zIndex:40, background:"var(--chrome)",
+        backdropFilter:"blur(14px)", borderBottom:"1px solid var(--chrome-line)",
         paddingTop:"env(safe-area-inset-top)" }}>
         <div style={{ padding:"10px 16px 9px", display:"flex", alignItems:"center", gap:10 }}>
           <button onClick={() => setModal({type:"profile"})} aria-label="Your profile"
@@ -701,42 +710,44 @@ export default function App() {
             {me ? <Avatar state={state} p={me} size={38} /> : null}
           </button>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:9 }}>
-            <FDMark size={30} />
+            <FDMark size={30} variant="night" />
             <div style={{ lineHeight:1 }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, letterSpacing:"0.015em",
-                textTransform:"uppercase", color:"var(--ink)" }}>Field Day</div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:9, letterSpacing:"0.14em",
-                color:"var(--muted)", marginTop:2 }}>SCOTTSDALE · 2026</div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.015em",
+                textTransform:"uppercase", color:"var(--bone)" }}>Field Day</div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10, letterSpacing:"0.14em",
+                color:"var(--night-text)", marginTop:2 }}>SCOTTSDALE · 2026</div>
             </div>
           </div>
           <button onClick={() => setTv(true)} title="TV mode" aria-label="TV mode"
-            style={{ background:"var(--paper)", border:"1.5px solid rgba(42,33,25,0.4)", borderRadius:9,
-              width:38, height:38, cursor:"pointer", color:"var(--ink)",
+            style={{ background:"transparent", border:"1.5px solid rgba(251,243,228,0.28)", borderRadius:10,
+              width:38, height:38, cursor:"pointer", color:"var(--bone)",
               display:"flex", alignItems:"center", justifyContent:"center" }}><IconTV /></button>
           <button onClick={() => gm ? setModal({type:"gmMenu"}) : setModal({type:"pin"})} aria-label="Commissioner"
-            style={{ background: gmView ? "var(--sun)" : "var(--paper)",
-              border:"1.5px solid " + (gmView ? "var(--ink)" : "rgba(42,33,25,0.4)"), borderRadius:9,
-              width:38, height:38, cursor:"pointer", color:"var(--ink)",
+            style={{ background: gmView ? "var(--sun)" : "transparent",
+              border:"1.5px solid " + (gmView ? "var(--sun)" : "rgba(251,243,228,0.28)"), borderRadius:10,
+              width:38, height:38, cursor:"pointer", color: gmView ? "var(--ink)" : "var(--bone)",
               display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gmView} /></button>
         </div>
         {!connected && loaded && (
           <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
-            padding:"7px 13px", borderRadius:11, background:"rgba(188,75,60,0.1)",
-            border:"1px solid rgba(188,75,60,0.4)" }}>
+            padding:"7px 13px", borderRadius:10, background:"rgba(192,71,58,0.2)",
+            border:"1px solid rgba(192,71,58,0.5)" }}>
             <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.2s infinite" }} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.12em",
-              color:"var(--clay)", textTransform:"uppercase" }}>Reconnecting</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.12em",
+              color:"var(--bone)", textTransform:"uppercase" }}>Reconnecting</span>
           </div>
         )}
         {onDeckEv && (
           <button onClick={() => setTab("bets")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"calc(100% - 32px)", margin:"0 16px 10px",
-            padding:"9px 13px", borderRadius:13, border:"1px solid rgba(188,75,60,0.4)",
-            background:"linear-gradient(90deg, rgba(188,75,60,0.14), rgba(188,75,60,0.04))", cursor:"pointer", textAlign:"left" }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.6s infinite" }} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--live2)" }}>ON DECK</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)", flex:1 }}>{onDeckEv.name}</span>
-            <Tag tone="gold">Betting open</Tag>
+            padding:"9px 13px", borderRadius:14, border:"1px solid rgba(240,176,47,0.4)",
+            background:"rgba(240,176,47,0.14)", cursor:"pointer", textAlign:"left" }}>
+            <span style={{ width:7, height:7, borderRadius:99, background:"var(--sun)", animation:"si-pulse 1.6s infinite" }} />
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--sun)" }}>ON DECK</span>
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>{onDeckEv.name}</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+              textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
+              color:"var(--ink)", background:"var(--sun)" }}>Betting open</span>
           </button>
         )}
       </div>
@@ -779,10 +790,10 @@ export default function App() {
       {gmNext && !modal && (
         <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
           bottom:`calc(${gm && qa && !qaMin && !qaTop ? 224 : 74}px + env(safe-area-inset-bottom))`,
-          display:"flex", alignItems:"center", gap:8, background:"var(--ink)", color:BONE,
-          border:"none", borderRadius:99, padding:"11px 18px", cursor:"pointer",
-          boxShadow:"0 6px 20px rgba(42,33,25,0.35)", maxWidth:"78vw" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15.5, letterSpacing:"0.04em",
+          display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
+          border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
+          boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.04em",
             textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {gmNext.label}</span>
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
@@ -796,18 +807,18 @@ export default function App() {
         onSimBets={runSim(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
         onFastForward={runSim(simFastForward, true)} />}
 
-      {/* tab bar */}
+      {/* tab bar: night chrome, sun pill marks the active tab */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
-        <div style={{ width:"100%", maxWidth:540, display:"flex", background:"rgba(244,237,223,0.95)",
-          backdropFilter:"blur(16px)", borderTop:"1px solid var(--line)",
+        <div style={{ width:"100%", maxWidth:540, display:"flex", background:"var(--chrome)",
+          backdropFilter:"blur(16px)", borderTop:"1px solid var(--chrome-line)",
           padding:"8px 10px calc(12px + env(safe-area-inset-bottom))" }}>
           {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
             <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none",
               cursor:"pointer", padding:"7px 0" }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
                 textTransform:"uppercase",
-                color: tab===id ? BONE : "var(--muted)",
-                background: tab===id ? "var(--ink)" : "transparent",
+                color: tab===id ? "var(--ink)" : "var(--night-text)",
+                background: tab===id ? "var(--sun)" : "transparent",
                 borderRadius:99, padding:"8px 14px", display:"inline-block" }}>{lb}</div>
             </button>
           ))}
@@ -892,13 +903,13 @@ export default function App() {
       {toast && (
         <div style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
           display:"flex", alignItems:"center", gap:12,
-          background: toast.tone === "gold" ? "linear-gradient(180deg, rgba(192,91,51,0.16), rgba(192,91,51,0.05)), var(--panel2)" : "var(--panel2)",
-          border:"1px solid " + (toast.tone === "gold" ? "rgba(156,69,38,0.6)" : "var(--line)"), borderRadius:12,
-          color: toast.tone === "gold" ? "var(--accent2)" : "var(--cream)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:13.5,
-          whiteSpace:"nowrap", boxShadow:"0 10px 34px rgba(0,0,0,0.55)", animation:"si-up .2s ease-out" }}>
+          background:"var(--night2)",
+          border:"1px solid " + (toast.tone === "gold" ? "rgba(240,176,47,0.45)" : "var(--bone-line)"), borderRadius:14,
+          color: toast.tone === "gold" ? "var(--sun)" : "var(--bone)", padding:"10px 16px", fontFamily:SANS, fontWeight:600, fontSize:14,
+          whiteSpace:"nowrap", boxShadow:"var(--shadow-3)", animation:"si-up .2s ease-out" }}>
           {toast.msg}
           {toast.action && <button onClick={toast.action.fn} style={{ background:"none", border:"none",
-            color:"var(--accent2)", fontFamily:SANS, fontWeight:700, fontSize:13.5, cursor:"pointer",
+            color:"var(--sun)", fontFamily:SANS, fontWeight:700, fontSize:14, cursor:"pointer",
             textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
         </div>
       )}
@@ -917,18 +928,28 @@ function Shell({ children, tv }) {
   return (
     <div className="si-vh" style={{ background:"var(--bg)", display:"flex", justifyContent:"center" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,700&family=Archivo:wght@400;500;600;700&display=swap');
         :root {
           /* Field Day tokens. Canvas and paper are warm bone; ink is brown-black. */
           --bg:#F2E9D8; --paper:#FBF5E9; --paper2:#EADFC8; --line:#DACDB4;
-          --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49;
+          --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49; --disabled:var(--disabled);
           /* phase + signal palette: pool (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale) */
           --accent:#C25832; --accent2:#9C4526; --sun:#F0B02F; --pool:#4694A8;
-          --olive:#77804C; --clay:#C0473A; --live2:#B23B2E;
-          --night:#251C14; --night2:#3A2C1E;
-          /* legacy aliases still used by not-yet-restyled surfaces */
-          --panel:#FBF5E9; --panel2:#EDE2CB; --cream:#2A2119; --dust:#8A7A63;
-          --gold:#C05B33; --flame:#BC4B3C; --green:#4E6E39;
+          --olive:#77804C; --clay:#C0473A; --live2:#B23B2E; --green:#4E6E39;
+          /* night family: chrome, reveals, champion, TV */
+          --night:#251C14; --night2:#3A2C1E; --night-deep:var(--night-deep);
+          --bone:var(--bone); --night-text:var(--night-text); --night-text2:var(--night-text2);
+          /* medals */
+          --silver:var(--silver); --bronze:var(--bronze);
+          /* alpha tints, recomputed from the canonical hexes above */
+          --sun-tint:var(--sun-tint); --clay-tint:var(--clay-tint);
+          --green-tint:var(--green-tint); --accent-tint:var(--accent-tint);
+          --ink-tint:var(--ink-tint); --bone-line:rgba(251,243,228,0.16);
+          /* warm shadow scale; never pure black */
+          --shadow-1:0 2px 10px rgba(42,33,25,0.10);
+          --shadow-2:0 6px 20px rgba(42,33,25,0.30);
+          --shadow-3:0 12px 38px rgba(42,33,25,0.50);
+          /* chrome: the night frame around the paper */
+          --chrome:rgba(30,23,16,0.94); --chrome-line:rgba(251,243,228,0.13);
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         body { margin:0; background:var(--bg); }
@@ -942,7 +963,7 @@ function Shell({ children, tv }) {
         @keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
         @keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
         @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(192,91,51,0.22);} 50% { box-shadow:0 0 50px rgba(188,75,60,0.32);} }
+        @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(194,88,50,0.22);} 50% { box-shadow:0 0 50px rgba(192,71,58,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
         @keyframes si-die-arc {
           0%   { transform: translate(0px,30px)   rotate(0deg); }
@@ -979,7 +1000,7 @@ function Shell({ children, tv }) {
       `}</style>
       <div className="si-vh" style={{ width:"100%", maxWidth: tv ? "100%" : 540, display:"flex",
         flexDirection:"column", position:"relative",
-        background:"radial-gradient(120% 50% at 50% -6%, rgba(233,180,65,0.14) 0%, transparent 60%), var(--bg)" }}>
+        background:"radial-gradient(120% 50% at 50% -6%, var(--sun-tint) 0%, transparent 60%), var(--bg)" }}>
         {!tv && <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"multiply" }} />}
         {children}
       </div>
@@ -995,12 +1016,12 @@ function InstallHint() {
       {[["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
         <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>{n}</span>
-          <span style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>{t}</span>
+          <span style={{ fontFamily:SANS, fontSize:16, color:"var(--ink)" }}>{t}</span>
         </div>
       ))}
     </div>
   );
-  return <div style={{ fontFamily:SANS, fontSize:15.5, color:"var(--cream)" }}>
+  return <div style={{ fontFamily:SANS, fontSize:16, color:"var(--ink)" }}>
     In your browser menu, choose Add to Home Screen.</div>;
 }
 
@@ -1034,11 +1055,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
+      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
         This runs best from your home screen. Add it once and it opens full screen, like any other app.
       </div>
       <InstallHint />
-      <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginTop:18, lineHeight:1.6 }}>
+      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
         Then open it from your home screen and check in there.
       </div>
       <div style={{ marginTop:"auto" }}>
@@ -1055,9 +1076,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"auto" }}>
         {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => pick(p)} />)}
       </div>
-      <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:15, padding:"15px" }}>Check in</Btn>
+      <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:16, padding:"15px" }}>Check in</Btn>
       {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
-        fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--accent2)", alignSelf:"center" }}>
+        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", alignSelf:"center" }}>
         TV mode</button>}
     </div>
   );
@@ -1065,14 +1086,14 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Your card</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 16px" }}>
         Set up your profile</div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
         num={num} setNum={setNum} size={size} setSize={setSize} />
       <div style={{ marginTop:"auto" }}>
         <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
             num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) }); next(); }}
-          style={{ width:"100%", fontSize:15, padding:"15px" }}>Continue</Btn>
+          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
   );
@@ -1082,8 +1103,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
         <div style={label}>Sealed scouting report</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
-        <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 6px" }}>Rate yourself</div>
+        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
           Nobody sees this. It only balances draws and heats.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
@@ -1095,13 +1116,13 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
             return (
               <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
                 borderBottom:"1px solid var(--line)" }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)", width:92 }}>{s.label}</div>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)", width:92 }}>{s.label}</div>
                 <div style={{ display:"flex", gap:7, flex:1 }}>
                   {RATINGS.map((r, i) => (
                     <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))} aria-label={r.label}
                       style={{ width:34, height:34, borderRadius:"50%", cursor:"pointer", padding:0,
                         background: idx >= 0 && i <= idx ? "var(--sun)" : "var(--paper)",
-                        border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                        border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
                         transition:"background .12s" }} />
                   ))}
                 </div>
@@ -1114,7 +1135,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
         <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
-          style={{ width:"100%", fontSize:15, padding:"15px" }}>Continue</Btn>
+          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
     );
   }
@@ -1123,7 +1144,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(56px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))" }} key={step}>
       <div style={{ marginBottom:16 }}>{c.art}</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--ink)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)" }}>{c.b}</div>
       {c.tabs && (
         <div style={{ marginTop:20 }}>
@@ -1145,7 +1166,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
               <div style={{ height:v*13, margin:"0 2px", borderRadius:"4px 4px 0 0",
                 background: v===6 ? EMBER_GRAD : GOLD_GRAD, opacity: v===6 ? 1 : 0.3 + v*0.13,
                 animation: v===6 ? "si-glow 2s infinite" : "none" }} />
-              <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--dust)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
+              <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--muted)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
               <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v}</div>
             </div>
           ))}
@@ -1153,9 +1174,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {[3,4,5,6].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
+          {[3,4,5,6].map(i => <div key={i} style={{ width:22, height:3, borderRadius:6, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
         </div>
-        <Btn onClick={step === 6 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
+        <Btn onClick={step === 6 ? done : next} style={{ fontSize:16, padding:"14px 28px" }}>
           {step === 6 ? "I'm in" : "Next"}
         </Btn>
       </div>
@@ -1193,7 +1214,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:18 }}>
         <button onClick={() => fileRef.current?.click()} style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative" }}>
           {current
-            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--gold)", boxShadow:"0 4px 18px rgba(192,91,51,0.3)" }} />
+            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)" }} />
             : me && <Avatar state={state} p={me} size={84} ring />}
           <div style={{ position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:"50%",
             background:"var(--sun)", border:"1.5px solid var(--ink)", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -1203,15 +1224,15 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       </div>
       <div style={{ ...label, marginBottom:6 }}>Display name</div>
       <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
-        style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"13px 14px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
+        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"13px 14px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
       <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
         <div style={{ ...label, flex:1 }}>Jersey number</div>
         <input value={num} inputMode="numeric" placeholder="00"
           onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-          style={{ width:96, background:"var(--panel2)", borderRadius:12, textAlign:"center",
+          style={{ width:96, background:"var(--paper2)", borderRadius:14, textAlign:"center",
             border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-            padding:"11px 8px", color:"var(--cream)", fontFamily:DISPLAY, fontWeight:700, fontSize:22, outline:"none" }} />
+            padding:"11px 8px", color:"var(--ink)", fontFamily:DISPLAY, fontWeight:700, fontSize:24, outline:"none" }} />
       </div>
       {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginTop:4, textAlign:"right" }}>
         {disp(state, takenBy[0])} has {Number(num)}</div>}
@@ -1221,7 +1242,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
           <button key={s} onClick={() => setSize(size === s ? null : s)}
             style={{ fontFamily:SANS, fontWeight:700, fontSize:14, padding:"13px 2px", borderRadius:10,
               cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
-              border: size === s ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{s}</button>
+              border: size === s ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{s}</button>
         ))}
       </div>
     </div>
@@ -1235,9 +1256,9 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onChallenge }) {
   return (
     <div style={{ padding:"0 16px" }}>
       <div style={{ display:"flex", alignItems:"baseline", marginBottom:10 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, textTransform:"uppercase",
           color:"var(--ink)", flex:1 }}>The roster</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--muted2)" }}>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--muted2)" }}>
           {inCount} of {ROSTER.length} in</div>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
@@ -1245,8 +1266,8 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onChallenge }) {
           const pr = profs[p];
           return (
             <button key={p} onClick={p === me ? onProfile : me ? () => onChallenge(p) : undefined}
-              style={{ background:"var(--paper)", borderRadius:13, padding:"12px 6px 10px", textAlign:"center",
-                border: p === me ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+              style={{ background:"var(--paper)", borderRadius:14, padding:"12px 6px 10px", textAlign:"center",
+                border: p === me ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
                 cursor: p === me || me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
                 animation:"si-in .25s both" }}>
               <div style={{ display:"flex", justifyContent:"center", marginBottom:9, position:"relative" }}>
@@ -1254,13 +1275,13 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onChallenge }) {
                   <Avatar state={state} p={p} size={54} ring={p === me} />
                   {pr?.num != null && (
                     <span style={{ position:"absolute", bottom:-6, left:"50%", transform:"translateX(-50%)",
-                      background:BONE, color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:5,
+                      background:BONE, color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:6,
                       fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, lineHeight:1,
                       padding:"2px 7px" }}>{pr.num}</span>
                   )}
                 </span>
               </div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</div>
             </button>
           );
@@ -1269,15 +1290,15 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onChallenge }) {
       {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
       {gm && (
         <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
-          borderRadius:13, padding:"12px 13px" }}>
+          borderRadius:14, padding:"12px 13px" }}>
           <div style={{ ...label, marginBottom:8 }}>Jersey sheet</div>
           {ROSTER.map(p => {
             const pr = profs[p];
             return (
               <div key={p} style={{ display:"flex", gap:10, alignItems:"center", padding:"5px 0",
-                borderBottom:"1px solid var(--line)", fontFamily:SANS, fontSize:13.5 }}>
+                borderBottom:"1px solid var(--line)", fontFamily:SANS, fontSize:14 }}>
                 <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, width:36,
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:36,
                   color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
                   {pr?.num != null ? `#${pr.num}` : "?"}</span>
                 <span style={{ width:36, fontWeight:700, color: pr?.size ? "var(--ink)" : "var(--line)" }}>
@@ -1301,13 +1322,13 @@ const NEED_CHIP = [
 ];
 function ScenarioCard({ state, scen, me }) {
   return (
-    <div style={{ marginBottom:12, borderRadius:12, overflow:"hidden", border:"1.5px solid var(--ink)",
-      background:"radial-gradient(120% 90% at 50% 0%, rgba(233,180,65,0.12) 0%, transparent 55%), var(--night)" }}>
+    <div style={{ marginBottom:12, borderRadius:14, overflow:"hidden", border:"1.5px solid var(--ink)",
+      background:"radial-gradient(120% 90% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 14px",
         borderBottom:"1px solid rgba(251,243,228,0.18)" }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, letterSpacing:"0.06em",
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.06em",
           textTransform:"uppercase", color:"var(--sun)", flex:1 }}>The Finale picture</span>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, color:"#C9B896" }}>
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"var(--night-text)" }}>
           {scen.alive.length} of {scen.total} can still win it</span>
       </div>
       <div style={{ padding:"4px 0 6px" }}>
@@ -1317,10 +1338,10 @@ function ScenarioCard({ state, scen, me }) {
             <Avatar state={state} p={a.player} size={26} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:BONE, flex:1,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> (you)</span>}</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"#C9B896", marginRight:2 }}>{a.pts}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
-              textTransform:"uppercase", padding:"3px 8px", borderRadius:4,
+              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11 }}> (you)</span>}</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--night-text)", marginRight:2 }}>{a.pts}</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+              textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
               background:NEED_CHIP[a.needIdx].bg, color:NEED_CHIP[a.needIdx].fg }}>{NEED_CHIP[a.needIdx].text}</span>
           </div>
         ))}
@@ -1343,10 +1364,10 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
       {latest && !champion && (
         <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 13px", marginBottom:10,
-          borderRadius:13, background:"rgba(95,122,69,0.06)", border:"1px solid rgba(95,122,69,0.25)" }}>
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
+          borderRadius:14, background:"rgba(78,110,57,0.06)", border:"1px solid rgba(78,110,57,0.25)" }}>
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
             color:"var(--green)", textTransform:"uppercase" }}>Latest</span>
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1,
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {latest.ev.name}: {teamLabel(state, { players: latest.res.slots[0] })}</span>
           <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={3} />
@@ -1359,42 +1380,42 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
         if (!next) return null;
         return (
           <button onClick={() => onOpen(next)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
-            padding:"9px 13px", marginBottom:10, borderRadius:13, cursor:"pointer", textAlign:"left",
-            background: live ? "linear-gradient(90deg, rgba(188,75,60,0.1), rgba(188,75,60,0.02)), var(--panel)" : "var(--panel)",
-            border: live ? "1px solid rgba(188,75,60,0.4)" : "1px solid var(--line)" }}>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.16em",
+            padding:"9px 13px", marginBottom:10, borderRadius:14, cursor:"pointer", textAlign:"left",
+            background: live ? "linear-gradient(90deg, rgba(192,71,58,0.1), rgba(192,71,58,0.02)), var(--paper)" : "var(--paper)",
+            border: live ? "1px solid rgba(192,71,58,0.4)" : "1px solid var(--line)" }}>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
               color: live ? "var(--live2)" : "var(--accent2)", textTransform:"uppercase" }}>{live ? "Live" : "Next"}</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1, minWidth:0,
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
-            <span style={{ fontFamily:SANS, color:"var(--dust)", fontSize:15 }}>›</span>
+            <span style={{ fontFamily:SANS, color:"var(--muted)", fontSize:16 }}>›</span>
           </button>
         );
       })()}
       {scen && <ScenarioCard state={state} scen={scen} me={me} />}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>All square at 5</div>
         </div>
       )}
       <div style={{ background:"var(--paper)", border:"1px solid rgba(42,33,25,0.3)", borderRadius:14,
-        overflow:"hidden", boxShadow:"0 4px 16px rgba(42,33,25,0.08)", animation:"si-in .25s both" }}>
+        overflow:"hidden", boxShadow:"var(--shadow-1)", animation:"si-in .25s both" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 12px",
           borderBottom:"1.5px solid var(--ink)", background:"var(--paper2)" }}>
-          <span style={{ ...label, fontSize:10.5, width:26, textAlign:"center" }}>Pos</span>
-          <span style={{ ...label, fontSize:10.5, flex:1 }}>Player</span>
-          <span style={{ ...label, fontSize:10.5 }}>Pts</span>
+          <span style={{ ...label, fontSize:11, width:26, textAlign:"center" }}>Pos</span>
+          <span style={{ ...label, fontSize:11, flex:1 }}>Player</span>
+          <span style={{ ...label, fontSize:11 }}>Pts</span>
         </div>
         {standings.map((r, i) => {
           const isMe = r.player === me;
           const first = r.rank === 1 && !allTied;
-          const medal = !allTied && r.rank === 2 ? "#75818C" : !allTied && r.rank === 3 ? "#AC6A3B" : null;
+          const medal = !allTied && r.rank === 2 ? "var(--silver)" : !allTied && r.rank === 3 ? "var(--bronze)" : null;
           return (
             <div key={r.player}
               onClick={gm ? () => onAdjust(r.player)
                 : me && !isMe && !state.frozen ? () => onChallenge(r.player) : undefined}
               style={{ display:"flex", alignItems:"center", gap:12, padding: first ? "11px 12px" : "8px 12px",
                 cursor: gm || (me && !isMe && !state.frozen) ? "pointer" : "default", position:"relative",
-                background: first ? "var(--sun)" : isMe ? "rgba(192,91,51,0.08)" : i % 2 ? "rgba(42,33,25,0.03)" : "transparent",
+                background: first ? "var(--sun)" : isMe ? "rgba(194,88,50,0.08)" : i % 2 ? "var(--ink-tint)" : "transparent",
                 borderTop: i > 0 ? "1px solid var(--line)" : "none",
                 boxShadow: isMe && !first ? "inset 3px 0 0 var(--accent)" : "none" }}>
               <div style={{ width:26, textAlign:"center", fontFamily:DISPLAY, fontWeight:700,
@@ -1404,9 +1425,9 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize: first ? 16 : 14.5, color:"var(--ink)",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> (you)</span>}
+                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12.5 }}> (you)</span>}
                 </div>
-                <div style={{ fontFamily:SANS, fontSize:11.5, color: first ? "rgba(42,33,25,0.65)" : "var(--muted)" }}>
+                <div style={{ fontFamily:SANS, fontSize:11, color: first ? "rgba(42,33,25,0.65)" : "var(--muted)" }}>
                   {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <>, wagers {r.betNet>0?"+":""}{r.betNet}</>}
                   {r.duelNet !== 0 && <>, duels {r.duelNet>0?"+":""}{r.duelNet}</>}
                   {isMe && myAtRisk > 0 && <>, <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
@@ -1437,8 +1458,8 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
 function ChampionCard({ state, champion, coChamps, big }) {
   return (
     <div style={{ padding: big ? "48px 30px" : "26px 18px", textAlign:"center", marginBottom:16,
-      position:"relative", overflow:"hidden", borderRadius:12,
-      background:"radial-gradient(110% 80% at 50% 0%, rgba(233,180,65,0.14) 0%, transparent 55%), var(--night)",
+      position:"relative", overflow:"hidden", borderRadius:14,
+      background:"radial-gradient(110% 80% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)",
       border:"1.5px solid var(--ink)" }}>
       <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14 }}>
         {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={big ? 110 : 64}
@@ -1446,15 +1467,15 @@ function ChampionCard({ state, champion, coChamps, big }) {
       </div>
       <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
         textTransform:"uppercase", background:"var(--sun)", color:"var(--night)",
-        fontSize: big ? 19 : 12.5, padding: big ? "5px 22px" : "3px 14px", borderRadius:4 }}>Champion</div>
+        fontSize: big ? 19 : 12.5, padding: big ? "5px 22px" : "3px 14px", borderRadius:6 }}>Champion</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", textTransform:"uppercase",
         fontSize: big ? 104 : 46, lineHeight:0.95, margin:"10px 0 6px", color:"var(--sun)" }}>
         {coChamps.map(c => disp(state, c.player)).join(" & ")}
       </div>
-      <div style={{ fontFamily:SANS, fontWeight:600, color:"#D8C6A6", fontSize: big ? 19 : 13 }}>
+      <div style={{ fontFamily:SANS, fontWeight:600, color:"var(--night-text)", fontSize: big ? 19 : 13 }}>
         {champion.pts} points
       </div>
-      {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"#E5967F", fontSize: big ? 17 : 13 }}>
+      {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"var(--night-text)", fontSize: big ? 16 : 12.5 }}>
         Tied. One pressure putt on the green decides it.</div>}
     </div>
   );
@@ -1492,8 +1513,8 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
   const arrow = (ev, dir, edge) => (
     <button disabled={edge} onClick={e => { e.stopPropagation(); move(ev, dir); }}
       style={{ width:34, height:34, borderRadius:10, cursor: edge ? "default" : "pointer",
-        background:"var(--panel2)", border:"1px solid var(--line)", color: edge ? "#A5947B" : "var(--accent2)",
-        fontSize:13, flexShrink:0 }}>{dir < 0 ? "▲" : "▼"}</button>
+        background:"var(--paper2)", border:"1px solid var(--line)", color: edge ? "var(--disabled)" : "var(--accent2)",
+        fontSize:12.5, flexShrink:0 }}>{dir < 0 ? "▲" : "▼"}</button>
   );
   const section = (evList, canMove) => evList.map((ev, i) => {
     const res = state.results[ev.id];
@@ -1504,13 +1525,13 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
     const ph = phaseOf(ev);
     return (
       <button key={ev.id} onClick={moving ? undefined : () => open(ev)} style={{ display:"block", width:"100%", textAlign:"left",
-        background: deck ? "rgba(188,75,60,0.09)" : "var(--paper)",
+        background: deck ? "rgba(192,71,58,0.09)" : "var(--paper)",
         border: deck ? "1.5px solid var(--clay)" : "1px solid var(--line)",
         boxShadow:`inset 4px 0 0 ${ph.bg}`,
-        borderRadius:12, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
+        borderRadius:14, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:600, fontSize:18.5, letterSpacing:"0.01em",
+            <div style={{ fontFamily:DISPLAY, fontWeight:600, fontSize:19, letterSpacing:"0.01em",
               textTransform:"uppercase", color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {res && <span style={{ color:"var(--green)" }}>✓ </span>}{ev.name}
               {ev.finale && <span style={{ color:"var(--accent)" }}> ★</span>}
@@ -1531,8 +1552,8 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
           <div style={{ marginTop:9, display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
             {res.slots[0].map(p => (
               <span key={p} style={{ display:"inline-flex", alignItems:"center", gap:6,
-                fontFamily:SANS, fontWeight:700, fontSize:12, padding:"3px 10px 3px 4px", borderRadius:99,
-                background:"rgba(192,91,51,0.14)", color:"var(--accent2)" }}>
+                fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"3px 10px 3px 4px", borderRadius:99,
+                background:"rgba(194,88,50,0.14)", color:"var(--accent2)" }}>
                 <Avatar state={state} p={p} size={20} />{disp(state, p)}
               </span>
             ))}
@@ -1550,8 +1571,8 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
         return (
           <div key={s.id} style={{ marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
-              borderRadius:7, background:ph.bg, color:ph.fg, border:"1.5px solid var(--ink)" }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.03em",
+              borderRadius:10, background:ph.bg, color:ph.fg, border:"1.5px solid var(--ink)" }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.03em",
                 textTransform:"uppercase", flex:1 }}>{s.label}</span>
               <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em" }}>{s.tag}</span>
             </div>
@@ -1562,8 +1583,8 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
       {extras.length > 0 && (
         <div style={{ marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
-            borderRadius:7, background:"var(--paper2)", color:"var(--ink)", border:"1.5px solid var(--ink)" }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.03em",
+            borderRadius:10, background:"var(--paper2)", color:"var(--ink)", border:"1.5px solid var(--ink)" }}>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.03em",
               textTransform:"uppercase", flex:1 }}>Extra</span>
           </div>
           {section(extras, true)}
@@ -1596,10 +1617,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
     lg: { av:36, f:19,   tf:17, pad:"11px 14px", gap:14, col:`repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` },
   }[size];
   const GroupCard = ({ title, entrants, through, gIdx, isFinal }) => (
-    <div style={{ background:"var(--panel2)", border:"1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
-      borderRadius:13, overflow:"hidden", boxShadow:"0 3px 12px rgba(0,0,0,0.3)" }}>
+    <div style={{ background:"var(--paper2)", border:"1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
+      borderRadius:14, overflow:"hidden", boxShadow:"var(--shadow-1)" }}>
       <div style={{ ...label, fontSize: size==="lg" ? 13 : 10.5, padding: size==="lg" ? "9px 14px 5px" : "7px 10px 3px",
-        color: isFinal ? "var(--accent2)" : "var(--dust)" }}>{title}</div>
+        color: isFinal ? "var(--accent2)" : "var(--muted)" }}>{title}</div>
       {entrants.map(key => {
         const v = stageEntrantView(state, st, key);
         const isThrough = isFinal ? st.finalWinner === key : (through || []).includes(key);
@@ -1613,12 +1634,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
             style={{ display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
               padding:dims.pad, border:"none", borderTop:"1px solid var(--line)",
               cursor: clickable ? "pointer" : "default",
-              background: isThrough ? "rgba(192,91,51,0.16)" : "transparent",
+              background: isThrough ? "rgba(194,88,50,0.16)" : "transparent",
               opacity: dimmed ? 0.38 : 1 }}>
             <AvatarStack state={state} players={v.players} size={dims.av} max={3} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f, flex:1,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              color: isThrough ? "var(--accent2)" : "var(--cream)" }}>{v.name}</span>
+              color: isThrough ? "var(--accent2)" : "var(--ink)" }}>{v.name}</span>
             {isThrough && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.tf, color:"var(--accent2)" }}>
               {isFinal ? "🏆" : "✓"}</span>}
           </button>
@@ -1688,11 +1709,11 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
       {ev.desc && <p style={{ ...pStyle, marginBottom: GAMES[ev.game] ? 8 : 14 }}>{ev.desc}</p>}
       {GAMES[ev.game] && (
         <button onClick={() => setHowTo(true)} style={{ background:"none", border:"none", cursor:"pointer",
-          fontFamily:SANS, fontWeight:700, fontSize:13, letterSpacing:"0.02em", color:"var(--accent2)",
+          fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.02em", color:"var(--accent2)",
           padding:"0 0 14px", display:"block" }}>How to play →</button>
       )}
       {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={() => setHowTo(false)} />}
-      <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
+      <p style={{ ...pStyle, color:"var(--muted)", fontSize:12.5 }}>
         Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(", ")}
       </p>
 
@@ -1712,8 +1733,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           ) : (
             <div style={{ display:"grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap:8 }}>
               {draw.teams.map((t,i) => (
-                <div key={i} style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12, padding:"10px 12px" }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
+                <div key={i} style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14, padding:"10px 12px" }}>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
                   <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
                   </div>
@@ -1736,9 +1757,9 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
       {res && res.slots && (
         <div style={{ marginBottom:14 }}>
           {res.slots.map((players, i) => players?.length > 0 && (
-            <div key={i} style={{ fontFamily:SANS, fontSize:14, color:"var(--cream)", marginBottom:4 }}>
+            <div key={i} style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
               <span style={{ color:SLOT_META[i].color, fontWeight:700 }}>{SLOT_META[i].label}:</span>{" "}
-              {players.map(p => disp(state,p)).join(", ")} <span style={{ color:"var(--dust)" }}>+{table[i]} each</span>
+              {players.map(p => disp(state,p)).join(", ")} <span style={{ color:"var(--muted)" }}>+{table[i]} each</span>
             </div>
           ))}
         </div>
@@ -1754,8 +1775,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ display:"flex", alignItems:"center", marginBottom:4 }}>
                 <div style={{ ...label, flex:1 }}>Draw teams</div>
                 <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
-                  fontFamily:SANS, fontWeight:700, fontSize:13, padding:"7px 12px", borderRadius:9,
-                  background: diff !== 0 ? "rgba(192,71,58,0.12)" : "var(--paper)",
+                  fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"7px 12px", borderRadius:10,
+                  background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
                   border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
                   color: diff !== 0 ? "var(--clay)" : "var(--ink)" }}>
                   {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
@@ -1771,7 +1792,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])} />)}
                 </div>
               )}
-              <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", lineHeight:1.5, marginBottom:10 }}>
+              <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
                 Teams balance themselves: sealed ratings blended with the live board and results, then refined until the sides are even.
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
@@ -1800,14 +1821,14 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               ? <Btn kind="dark" onClick={() => setStageCfgOpen(true)} style={{ width:"100%", marginBottom:10 }}>
                   {canHeats ? "Run heats" : "Set up pools"}</Btn>
               : (
-                <div style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:13,
+                <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
                   padding:"12px 13px", marginBottom:10 }}>
                   {canHeats && (
                     <>
                       <div style={{ display:"flex", alignItems:"center", marginBottom:8 }}>
                         <div style={{ ...label, flex:1 }}>Heats</div>
                         <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
-                          fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"6px 11px", borderRadius:9,
+                          fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"6px 11px", borderRadius:10,
                           background:"var(--paper)", border:"1px solid var(--line)", color:"var(--ink)" }}>
                           {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
                       </div>
@@ -1822,20 +1843,20 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                     <span style={{ ...label }}>{canHeats ? "Heats" : "Pools"}</span>
                     {[2,3,4].filter(n => n <= stageEntrantCount).map(n => (
-                      <button key={n} onClick={() => setNGroups(n)} style={{ width:44, height:44, borderRadius:9,
+                      <button key={n} onClick={() => setNGroups(n)} style={{ width:44, height:44, borderRadius:10,
                         cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:19,
                         background: groupsChoice===n ? GOLD_GRAD : "var(--paper)",
                         color:"var(--ink)",
-                        border: groupsChoice===n ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{n}</button>
+                        border: groupsChoice===n ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{n}</button>
                     ))}
                     <span style={{ flex:1 }} />
                     <span style={{ ...label }}>Through</span>
                     {[1,2].map(n => (
-                      <button key={n} onClick={() => setAdvance(n)} style={{ width:44, height:44, borderRadius:9,
+                      <button key={n} onClick={() => setAdvance(n)} style={{ width:44, height:44, borderRadius:10,
                         cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:19,
                         background: advance===n ? GOLD_GRAD : "var(--paper)",
                         color:"var(--ink)",
-                        border: advance===n ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{n}</button>
+                        border: advance===n ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{n}</button>
                     ))}
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
@@ -1865,35 +1886,35 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
             {res && confirmClear && <Btn kind="danger" onClick={clearRes}>Clear, sure</Btn>}
           </div>
           {editOpen ? (
-            <div style={{ background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:13,
+            <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
               padding:"12px 13px", marginTop:8 }}>
               <div style={{ ...label, marginBottom:6 }}>Name</div>
               <input value={eName} onChange={e => setEName(e.target.value)} maxLength={28}
-                style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line)", borderRadius:11,
-                  padding:"11px 12px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:15, marginBottom:12, outline:"none" }} />
+                style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
+                  padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:12, outline:"none" }} />
               <div style={{ ...label, marginBottom:6 }}>How it works</div>
               <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} maxLength={300} rows={3}
-                style={{ width:"100%", background:"var(--panel)", border:"1px solid var(--line)", borderRadius:11,
-                  padding:"11px 12px", color:"var(--cream)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
+                style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
+                  padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
                   marginBottom:12, outline:"none", resize:"vertical" }} />
               <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[1,2,3,4,...(ev.value === 6 ? [6] : [])].map(v => (
-                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:9, cursor:"pointer",
-                    fontFamily:DISPLAY, fontWeight:700, fontSize:17,
+                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
+                    fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                     background: eValue===v ? GOLD_GRAD : "var(--paper)",
                     color:"var(--ink)",
-                    border: eValue===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
+                    border: eValue===v ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{v}</button>
                 ))}
               </div>
               <div style={{ ...label, marginBottom:6 }}>When</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
                 {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
                   <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
-                    fontSize:12.5, padding:"10px 12px", borderRadius:9, cursor:"pointer",
+                    fontSize:12.5, padding:"10px 12px", borderRadius:10, cursor:"pointer",
                     background: eSession===id ? GOLD_GRAD : "var(--paper)",
-                    color: eSession===id ? "var(--ink)" : "var(--cream)",
-                    border: eSession===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
+                    color: eSession===id ? "var(--ink)" : "var(--ink)",
+                    border: eSession===id ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{lb}</button>
                 ))}
               </div>
               <div style={{ display:"flex", gap:8 }}>
@@ -1916,7 +1937,6 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           )}
         </div>
       )}
-      {!gm && br && !res && <Btn kind="dark" onClick={openBracket} style={{ width:"100%" }}>View bracket</Btn>}
     </Sheet>
   );
 }
@@ -1946,39 +1966,39 @@ function AddEventSheet({ state, onClose, save }) {
     <Sheet title="Add an event" onClose={onClose}>
       <div style={{ ...label, marginBottom:6 }}>Name</div>
       <input value={name} onChange={e => setName(e.target.value)} maxLength={28} placeholder="Bocce, poker, HORSE"
-        style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"12px 13px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:15, marginBottom:14, outline:"none" }} />
+        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:14, outline:"none" }} />
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {[1,2,3,4].map(v => (
-          <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:9, cursor:"pointer",
+          <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19,
             background: value===v ? GOLD_GRAD : "var(--paper)",
             color:"var(--ink)",
-            border: value===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
+            border: value===v ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{v}</button>
         ))}
       </div>
       <div style={{ ...label, marginBottom:6 }}>When</div>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
         {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
-          <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
-            padding:"10px 12px", borderRadius:9, cursor:"pointer",
+          <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5,
+            padding:"10px 12px", borderRadius:10, cursor:"pointer",
             background: sess===id ? GOLD_GRAD : "var(--paper)",
-            color: sess===id ? "var(--ink)" : "var(--cream)",
-            border: sess===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
+            color: sess===id ? "var(--ink)" : "var(--ink)",
+            border: sess===id ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{lb}</button>
         ))}
       </div>
       <div style={{ ...label, marginBottom:6 }}>Format</div>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
         {fmts.map(f => (
-          <button key={f.id} onClick={() => setFmt(f.id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:13,
-            padding:"10px 12px", borderRadius:9, cursor:"pointer",
+          <button key={f.id} onClick={() => setFmt(f.id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5,
+            padding:"10px 12px", borderRadius:10, cursor:"pointer",
             background: fmt===f.id ? GOLD_GRAD : "var(--paper)",
-            color: fmt===f.id ? "var(--ink)" : "var(--cream)",
-            border: fmt===f.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{f.label}</button>
+            color: fmt===f.id ? "var(--ink)" : "var(--ink)",
+            border: fmt===f.id ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{f.label}</button>
         ))}
       </div>
-      <Btn disabled={!name.trim()} onClick={() => save(build())} style={{ width:"100%", fontSize:15, padding:"14px" }}>
+      <Btn disabled={!name.trim()} onClick={() => save(build())} style={{ width:"100%", fontSize:16, padding:"14px" }}>
         Add to the slate</Btn>
     </Sheet>
   );
@@ -2004,8 +2024,8 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
           {round.map((match, m) => {
             const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
             return (
-              <div key={m} style={{ border:"1px solid var(--line)", borderRadius:13, overflow:"hidden",
-                background:"var(--panel2)", boxShadow:"0 3px 12px rgba(0,0,0,0.3)" }}>
+              <div key={m} style={{ border:"1px solid var(--line)", borderRadius:14, overflow:"hidden",
+                background:"var(--paper2)", boxShadow:"var(--shadow-1)" }}>
                 {[a,b].map((tIdx, side) => {
                   const t = tIdx !== null ? draw.teams[tIdx] : null;
                   const isWinner = match.winner !== null && match.winner === tIdx;
@@ -2017,11 +2037,11 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
                         padding:dims.pad,
                         cursor: gm && onPick && tIdx !== null ? "pointer" : "default", border:"none",
                         borderBottom: side === 0 ? "1px solid var(--line)" : "none",
-                        background: isWinner ? "rgba(192,91,51,0.16)" : "transparent",
+                        background: isWinner ? "rgba(194,88,50,0.16)" : "transparent",
                         opacity: isLoser ? 0.38 : 1 }}>
                       {t && <AvatarStack state={state} players={t.players} size={dims.av} max={3} />}
                       <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f,
-                        color: isWinner ? "var(--accent2)" : t ? "var(--cream)" : "#AE9C80" }}>
+                        color: isWinner ? "var(--accent2)" : t ? "var(--ink)" : "var(--disabled)" }}>
                         {t ? teamLabel(state, t) : "TBD"}{isWinner && " ✓"}
                       </div>
                     </button>
@@ -2044,7 +2064,7 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
     <Sheet title={`${ev.name} bracket`} onClose={onClose} wide>
       {champ !== null && (
         <div style={{ textAlign:"center", marginBottom:14, padding:"12px", borderRadius:14,
-          background:"rgba(192,91,51,0.1)", border:"1px solid rgba(192,91,51,0.4)" }}>
+          background:"rgba(194,88,50,0.1)", border:"1px solid rgba(194,88,50,0.4)" }}>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>
             {teamLabel(state, draw.teams[champ])} take it</span>
         </div>
@@ -2084,9 +2104,9 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
         <div style={{ display:"flex", gap:8, marginBottom:12 }}>
           {CAP_METHODS.map(([id,lb]) => (
             <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
-              borderRadius:11, fontFamily:SANS, fontWeight:700, fontSize:13,
+              borderRadius:10, fontFamily:SANS, fontWeight:700, fontSize:12.5,
               background: capMethod===id ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
-              border: capMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
+              border: capMethod===id ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{lb}</button>
           ))}
         </div>
         <div style={{ ...label, marginBottom:8 }}>Captains {captains.length}/{N}</div>
@@ -2113,10 +2133,10 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
   const round = Math.floor(d.picks.length / T) + 1;
   return (
     <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
-      <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:13,
-        background: poolEmpty ? "rgba(95,122,69,0.14)" : myTurn ? "rgba(233,180,65,0.35)" : "var(--panel2)",
+      <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:14,
+        background: poolEmpty ? "rgba(78,110,57,0.14)" : myTurn ? "rgba(240,176,47,0.35)" : "var(--paper2)",
         border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, textTransform:"uppercase", color:"var(--ink)" }}>
           {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `${disp(state, cur)} is on the clock`}</div>
         {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
           Round {round}, {d.pool.length} left</div>}
@@ -2124,14 +2144,14 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
 
       <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
         {d.teams.map((t, i) => (
-          <div key={i} style={{ background:"var(--paper)", borderRadius:12, padding:"9px 11px",
-            border: i === onClock ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
+          <div key={i} style={{ background:"var(--paper)", borderRadius:14, padding:"9px 11px",
+            border: i === onClock ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
               <Tag tone="gold">C</Tag>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--accent2)",
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
               <span style={{ flex:1 }} />
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"var(--muted)" }}>{t.players.length}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--muted)" }}>{t.players.length}</span>
             </div>
             <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
               {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
@@ -2214,11 +2234,11 @@ function ResultSheet({ ev, state, onClose, save }) {
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {slotIdxs.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
-            borderRadius:12, border:"1px solid " + (active===i ? "var(--gold)" : "var(--line)"),
-            background: active===i ? "rgba(192,91,51,0.1)" : "var(--panel2)" }}>
+            borderRadius:14, border:"1px solid " + (active===i ? "var(--accent)" : "var(--line)"),
+            background: active===i ? "rgba(194,88,50,0.1)" : "var(--paper2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each, {slots[i].length} in</div>
+            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>+{table[i]} each, {slots[i].length} in</div>
           </button>
         ))}
       </div>
@@ -2228,13 +2248,13 @@ function ResultSheet({ ev, state, onClose, save }) {
             const w = teamSlot(t);
             return (
               <button key={i} onClick={() => toggleTeam(t)} style={{ display:"flex", alignItems:"center", gap:8,
-                padding:"10px 11px", borderRadius:12, cursor:"pointer", textAlign:"left",
+                padding:"10px 11px", borderRadius:14, cursor:"pointer", textAlign:"left",
                 background: w === active ? GOLD_GRAD : "var(--paper)",
-                border: w === active ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
+                border: w === active ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>
                 <AvatarStack state={state} players={t.players} size={22} max={3} />
-                <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:13, minWidth:0,
+                <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:12.5, minWidth:0,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                  color: w === active ? "var(--ink)" : "var(--cream)" }}>{teamLabel(state, t)}</span>
+                  color: w === active ? "var(--ink)" : "var(--ink)" }}>{teamLabel(state, t)}</span>
                 {w >= 0 && w !== active && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                   color:SLOT_META[w].color, flexShrink:0 }}>{SLOT_META[w].label}</span>}
               </button>
@@ -2255,7 +2275,7 @@ function ResultSheet({ ev, state, onClose, save }) {
           fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"0 0 14px", display:"block" }}>
           {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
       )}
-      <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:15, padding:"14px", marginTop:4 }}>
+      <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
         Post result</Btn>
     </Sheet>
   );
@@ -2275,7 +2295,7 @@ const MARKS = {
   "8ball": s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--ink)"/>
     <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
-    <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="Archivo, sans-serif" fill="var(--ink)">8</text>
+    <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily={SANS} fill="var(--ink)">8</text>
   </>),
   basketball: s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
@@ -2378,7 +2398,7 @@ function PongHero() {
 function FlipHero() {
   return (
     <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="62" x2="172" y2="62" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
       <g style={{ animation:"si-flip-cup 2.2s ease-in-out 1 both", transformOrigin:"90px 46px" }}>
         <path d="M78 32h24l-3 28H81z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
         <ellipse cx="90" cy="32" rx="12" ry="3.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
@@ -2424,7 +2444,7 @@ function HowToSheet({ gameId, variant, onClose }) {
               fontSize:16, padding:"7px 18px", borderRadius:99, cursor:"pointer",
               background: i === vIdx ? "var(--ink)" : "var(--paper)",
               color: i === vIdx ? BONE : "var(--ink)",
-              border: i === vIdx ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v.label}</button>
+              border: i === vIdx ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>{v.label}</button>
           ))}
         </div>
       )}
@@ -2439,19 +2459,19 @@ function HowToSheet({ gameId, variant, onClose }) {
             borderBottom: i < steps.length-1 ? "1px solid var(--line)" : "none",
             visibility: i < shown ? "visible" : "hidden",
             animation: i < shown ? "si-in .32s ease-out both" : "none" }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, lineHeight:1, color:"var(--accent2)",
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, lineHeight:1, color:"var(--accent2)",
               minWidth:20, textAlign:"center" }}>{i+1}</span>
-            <span style={{ fontFamily:SANS, fontSize:14.5, lineHeight:1.5, color:"var(--muted2)" }}>{s}</span>
+            <span style={{ fontFamily:SANS, fontSize:14, lineHeight:1.5, color:"var(--muted2)" }}>{s}</span>
           </li>
         ))}
       </ol>
-      <div style={{ background:"var(--paper2)", border:"1.5px solid var(--ink)", borderRadius:12,
+      <div style={{ background:"var(--paper2)", border:"1.5px solid var(--ink)", borderRadius:14,
         padding:"11px 13px", marginBottom: h.house ? 10 : 0 }}>
         <div style={{ ...label, fontSize:11, marginBottom:4 }}>To win</div>
         <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.5, color:"var(--ink)" }}>{h.win}</div>
       </div>
       {h.house && (
-        <div style={{ fontFamily:SANS, fontSize:13, lineHeight:1.5, color:"var(--dust)" }}>
+        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.5, color:"var(--muted)" }}>
           <b style={{ color:"var(--accent2)" }}>House rule.</b> {h.house}
         </div>
       )}
@@ -2536,18 +2556,18 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     return (
       <button onClick={room < 1 ? undefined : onClick}
         style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
-          borderRadius:12, width:"100%",
-          background:"var(--panel2)",
-          border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
+          borderRadius:14, width:"100%",
+          background:"var(--paper2)",
+          border:"1px solid " + (mine > 0 ? "rgba(194,88,50,0.55)" : "var(--line)"),
           cursor: room < 1 ? "default" : "pointer",
           opacity: room < 1 && !mine ? 0.5 : 1, textAlign:"left" }}>
         <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
-        <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
+        <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--ink)",
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
         {chips.length > 0 && (
           <span onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
             {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -5 : 0 }}><BankChip p={p} size={16} /></span>)}
-            {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
+            {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
               color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
             {mine > 0 && (
               <span onClick={() => onRetract(mineBets[mineBets.length - 1].w.id)} role="button"
@@ -2571,18 +2591,18 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
         border:"1px solid " + (r.status === "pending" ? "var(--line)" : "var(--line)"), marginBottom:7 }}>
         <Avatar state={state} p={w.player} size={30} />
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)" }}>
+          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)" }}>
             <b>{disp(state, w.player)}</b> put {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
           </div>
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>{l.ctx}</div>
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>{l.ctx}</div>
         </div>
-        {r.status === "pending" && <span style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>to win +{win}</span>}
-        {r.status === "won" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--green)" }}>+{r.delta}</span>}
-        {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--clay)" }}>{r.delta}</span>}
+        {r.status === "pending" && <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>to win +{win}</span>}
+        {r.status === "won" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--green)" }}>+{r.delta}</span>}
+        {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--clay)" }}>{r.delta}</span>}
         {r.status === "void" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"var(--muted)" }}>VOID</span>}
         {gm && r.status === "pending" && (
-          <button onClick={() => onVoid(w.id)} style={{ background:"none", border:"1px solid rgba(188,75,60,0.4)",
-            borderRadius:8, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"4px 8px",
+          <button onClick={() => onVoid(w.id)} style={{ background:"none", border:"1px solid rgba(192,71,58,0.4)",
+            borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
             cursor:"pointer", textTransform:"uppercase" }}>Void</button>
         )}
       </div>
@@ -2593,9 +2613,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     <div style={{ padding:"0 16px" }}>
       {me && (
         <div style={{ display:"flex", alignItems:"center", gap:14, background:CARD_BG,
-          border:"1px solid var(--line)", borderRadius:15, padding:"12px 14px", marginBottom:12 }}>
+          border:"1px solid var(--line)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
           <Avatar state={state} p={me} size={34} />
-          <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)",
+          <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, me)}</div>
           <div style={{ textAlign:"center" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, height:26 }}>
@@ -2603,16 +2623,16 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                 {[0,1,2].map(i => <div key={i} style={{ position:"absolute", bottom:i*4, left:0 }}>
                   <BankChip p={me} size={18} /></div>)}
               </div>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1, color:"var(--ink)" }}>{myPts}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--ink)" }}>{myPts}</span>
             </div>
-            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>Stack</div>
+            <div style={{ ...label, fontSize:10, marginTop:3 }}>Stack</div>
           </div>
           <div style={{ width:1, alignSelf:"stretch", background:"var(--line)" }} />
           <div style={{ textAlign:"center" }}>
             <div style={{ display:"flex", gap:5, alignItems:"center", height:26 }}>
               {[1,2,3].map(i => <BankChip key={i} p={me} size={18} empty={i > myExp} />)}
             </div>
-            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>On the table</div>
+            <div style={{ ...label, fontSize:10, marginTop:3 }}>On the table</div>
           </div>
         </div>
       )}
@@ -2630,13 +2650,13 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
 
       {ev && (
         <div style={{ borderRadius:14, border:"1px solid rgba(42,33,25,0.3)", overflow:"hidden",
-          background:"var(--paper)", boxShadow:"0 4px 16px rgba(42,33,25,0.08)", marginBottom:16 }}>
+          background:"var(--paper)", boxShadow:"var(--shadow-1)", marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 13px",
             background:"var(--clay)", color:BONE }}>
             <span style={{ width:8, height:8, borderRadius:99, background:BONE, animation:"si-pulse 1.6s infinite" }} />
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.02em",
               textTransform:"uppercase", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ev.name}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.06em" }}>BETTING OPEN</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.06em" }}>BETTING OPEN</span>
           </div>
           <div style={{ padding:"12px 13px 8px" }}>
 
@@ -2656,7 +2676,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             <>
               <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
                 <span style={{ ...label }}>Winner</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>pays 2 to 1</span>
+                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays 2 to 1</span>
               </div>
               <div style={{ display: bigTeams ? "flex" : "grid", flexDirection:"column",
                 gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
@@ -2672,7 +2692,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             </>
           )}
           {ev.kind !== "solo" && !draw && (
-            <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginBottom:10 }}>
+            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginBottom:10 }}>
               Winner betting opens after the draw.
             </div>
           )}
@@ -2681,11 +2701,11 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             <>
               <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
                 <span style={{ ...label }}>Advancing</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>pays even</span>
+                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays even</span>
               </div>
               {stageGroups.map(g => (
                 <div key={g.gi} style={{ marginBottom:10 }}>
-                  <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--dust)", textTransform:"uppercase",
+                  <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", textTransform:"uppercase",
                     letterSpacing:"0.12em", marginBottom:4 }}>{g.name}</div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
                     {g.entrants.map(k => {
@@ -2707,7 +2727,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             <>
               <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
                 <span style={{ ...label }}>The Final</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>pays even</span>
+                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays even</span>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
                 {stageFinal.map(k => {
@@ -2725,11 +2745,11 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             <>
               <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
                 <span style={{ ...label }}>Matchups</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>pay even</span>
+                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pay even</span>
               </div>
               {matchups.map(mu => (
                 <div key={`${mu.r}-${mu.m}`} style={{ marginBottom:8 }}>
-                  <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--dust)", textTransform:"uppercase",
+                  <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", textTransform:"uppercase",
                     letterSpacing:"0.12em", marginBottom:4 }}>{mu.roundName}</div>
                   <div style={{ display:"flex", gap:6, alignItems:"stretch" }}>
                     {[mu.a, mu.b].map((tIdx, side) => {
@@ -2757,12 +2777,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
         </div>
       )}
 
-      {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
-        textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:5,
+      {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
+        textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:6,
         padding:"3px 10px", margin:"4px 0 8px" }}>{pending.length} open</div>}
       {pending.map(x => <Row key={x.w.id} x={x} />)}
-      {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
-        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:5,
+      {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
+        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:6,
         padding:"3px 10px", margin:"14px 0 8px", border:"1px solid var(--line)" }}>Settled</div>}
       {settled.map(x => <Row key={x.w.id} x={x} />)}
     </div>
@@ -2780,28 +2800,28 @@ function DuelsCard({ state, me, gm, onChallenge, onPlay, onDecline, onVoid }) {
   const active = enriched.filter(x => x.d.status === "open" && !x.r.settled);
   const recent = enriched.filter(x => x.r.settled).slice(0, 4);
   const rowStyle = hot => ({ display:"flex", alignItems:"center", gap:9, padding:"8px 12px",
-    borderTop:"1px solid var(--line)", background: hot ? "rgba(233,180,65,0.16)" : "transparent" });
-  const nameStyle = { fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--cream)", flex:1,
+    borderTop:"1px solid var(--line)", background: hot ? "var(--sun-tint)" : "transparent" });
+  const nameStyle = { fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
     minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" };
   const voidBtn = id => gm && (
-    <button onClick={() => onVoid(id)} style={{ background:"none", border:"1px solid rgba(188,75,60,0.4)",
-      borderRadius:8, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"4px 8px",
+    <button onClick={() => onVoid(id)} style={{ background:"none", border:"1px solid rgba(192,71,58,0.4)",
+      borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
       cursor:"pointer", textTransform:"uppercase", flexShrink:0 }}>Void</button>
   );
   return (
     <div style={{ margin:"14px 0 4px", background:"var(--paper)", border:"1px solid rgba(42,33,25,0.3)",
-      borderRadius:14, overflow:"hidden", boxShadow:"0 4px 16px rgba(42,33,25,0.08)" }}>
+      borderRadius:14, overflow:"hidden", boxShadow:"var(--shadow-1)" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px",
         borderBottom:"1.5px solid var(--ink)", background:"var(--paper2)" }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, letterSpacing:"0.04em",
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.04em",
           textTransform:"uppercase", color:"var(--ink)", flex:1 }}>Duels</span>
-        <button onClick={onChallenge} style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
+        <button onClick={onChallenge} style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
           letterSpacing:"0.05em", textTransform:"uppercase", background:"var(--sun)", color:"var(--ink)",
-          border:"1.5px solid var(--ink)", borderRadius:9, padding:"6px 12px", cursor:"pointer" }}>
+          border:"1.5px solid var(--ink)", borderRadius:10, padding:"6px 12px", cursor:"pointer" }}>
           Challenge</button>
       </div>
       {active.length === 0 && recent.length === 0 && (
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", padding:"9px 12px", lineHeight:1.5 }}>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", padding:"9px 12px", lineHeight:1.5 }}>
           Call anyone out to a Quick Draw, any time. You each ante 1 chip and play on your own phone. Fastest tap takes the pot.
         </div>
       )}
@@ -2820,13 +2840,13 @@ function DuelsCard({ state, me, gm, onChallenge, onPlay, onDecline, onVoid }) {
             </span>
             {myTurn && d.to === me && !Object.keys(d.runs || {}).length && (
               <button onClick={() => onDecline(d.id)} style={{ background:"none", border:"none",
-                color:"var(--muted)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
+                color:"var(--muted)", fontFamily:SANS, fontWeight:700, fontSize:11, cursor:"pointer",
                 textTransform:"uppercase", padding:"4px 6px", flexShrink:0 }}>Pass</button>
             )}
             {myTurn
-              ? <button onClick={() => onPlay(d.id)} style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
+              ? <button onClick={() => onPlay(d.id)} style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                   letterSpacing:"0.05em", textTransform:"uppercase", background:"var(--clay)", color:BONE,
-                  border:"1.5px solid var(--ink)", borderRadius:9, padding:"6px 14px", cursor:"pointer",
+                  border:"1.5px solid var(--ink)", borderRadius:10, padding:"6px 14px", cursor:"pointer",
                   flexShrink:0, animation:"si-pulse 2.4s infinite" }}>Draw</button>
               : !mine && <Tag tone="flame">Live</Tag>}
             {voidBtn(d.id)}
@@ -2863,7 +2883,7 @@ function DuelSendSheet({ state, me, to0, onClose, onSend }) {
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
         <BankChip p={me} size={17} />
         {to && <BankChip p={to} size={17} />}
-        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>
+        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>
           {DUEL_STAKE} chip each, winner takes both</span>
       </div>
       <div style={{ ...label, marginBottom:8 }}>Opponent</div>
@@ -2913,11 +2933,11 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
     </div>
   );
   if (phase === "armed") return (
-    <div onPointerDown={fire} style={{ position:"fixed", inset:0, zIndex:300, background:"#171009",
+    <div onPointerDown={fire} style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", touchAction:"none" }}>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:44, letterSpacing:"0.12em",
-        textTransform:"uppercase", color:"#5C4A33", animation:"si-pulse 2.2s infinite" }}>Steady</div>
-      <div style={{ fontFamily:SANS, fontSize:13.5, color:"#5C4A33", marginTop:10 }}>tap on the flash, not before</div>
+        textTransform:"uppercase", color:"var(--night-text2)", animation:"si-pulse 2.2s infinite" }}>Steady</div>
+      <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text2)", marginTop:10 }}>tap on the flash, not before</div>
     </div>
   );
   if (phase === "go") return (
@@ -2934,16 +2954,16 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
         lineHeight:0.95, margin:"6px 0 22px" }}>Quick Draw</div>
       <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:22 }}>
         <Avatar state={state} p={me} size={62} ring />
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:22, color:"var(--sun)" }}>VS</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:24, color:"var(--sun)" }}>VS</span>
         <Avatar state={state} p={opp} size={62} ring />
       </div>
-      <div style={{ fontFamily:SANS, fontSize:15, lineHeight:1.6, color:"#C9B896", textAlign:"center",
+      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--night-text)", textAlign:"center",
         maxWidth:340, marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
-      <div style={{ fontFamily:SANS, fontSize:13, color:"#8D7A5F", marginBottom:26 }}>
+      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text2)", marginBottom:26 }}>
         {DUEL_STAKE} chip each, winner takes the pot</div>
-      <Btn onClick={arm} style={{ fontSize:15, padding:"14px 40px" }}>Ready</Btn>
-      <button onClick={onClose} style={{ marginTop:18, background:"none", border:"none", color:"#8D7A5F",
-        fontFamily:SANS, fontSize:13, cursor:"pointer" }}>not now</button>
+      <Btn onClick={arm} style={{ fontSize:16, padding:"14px 40px" }}>Ready</Btn>
+      <button onClick={onClose} style={{ marginTop:18, background:"none", border:"none", color:"var(--night-text2)",
+        fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>not now</button>
     </>
   );
   /* done: my run is in; the verdict fills in live once the opponent draws */
@@ -2954,7 +2974,7 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: run.foul ? 56 : 76, color: run.foul ? "var(--live2)" : BONE,
         textTransform:"uppercase", lineHeight:1, margin:"8px 0 4px", animation:"si-flag .5s both" }}>
         {run.foul ? "Foul" : `${run.ms} ms`}</div>
-      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"#C9B896" }}>You jumped the gun</div>}
+      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)" }}>You jumped the gun</div>}
       <div style={{ margin:"26px 0", width:"100%", maxWidth:360 }}>
         {oppRun ? (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
@@ -2964,22 +2984,22 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
                 opacity: decided && res.loser === p ? 0.65 : 1, animation:"si-flag .5s both" }}>
                 <div style={{ display:"flex", justifyContent:"center", marginBottom:7 }}>
                   <Avatar state={state} p={p} size={38} /></div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, color:"var(--ink)" }}>
+                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--ink)" }}>
                   {duelTime(r2)}</div>
-                <div style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--muted2)" }}>
+                <div style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted2)" }}>
                   {disp(state, p)}</div>
               </div>
             ))}
           </div>
         ) : (
-          <div style={{ textAlign:"center", fontFamily:SANS, fontSize:14, color:"#C9B896", lineHeight:1.6 }}>
+          <div style={{ textAlign:"center", fontFamily:SANS, fontSize:14, color:"var(--night-text)", lineHeight:1.6 }}>
             Waiting on {disp(state, opp)}.<br/>The pot settles when they draw.
           </div>
         )}
       </div>
       {res.settled && (
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, textTransform:"uppercase",
-          color: res.push ? "#C9B896" : res.winner === me ? "var(--sun)" : "var(--live2)",
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, textTransform:"uppercase",
+          color: res.push ? "var(--night-text)" : res.winner === me ? "var(--sun)" : "var(--live2)",
           marginBottom:22, animation:"si-flag .5s .15s both" }}>
           {res.push ? "Dead heat, antes back"
             : res.winner === me ? `You take the pot, +${duel.stake}`
@@ -2987,11 +3007,11 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
         </div>
       )}
       {duel.status === "void" && (
-        <div style={{ fontFamily:SANS, fontSize:13.5, color:"#C9B896", marginBottom:20 }}>
+        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)", marginBottom:20 }}>
           Voided by the commissioner. No chips move.</div>
       )}
       <Btn kind={res.settled ? "primary" : "ghost"} onClick={onClose}
-        style={{ fontSize:15, padding:"13px 34px" }}>Close</Btn>
+        style={{ fontSize:16, padding:"13px 34px" }}>Close</Btn>
     </>
   );
 }
@@ -3001,13 +3021,13 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
   onSimBets, onPlayNext, onFastForward, minimized, onMin, top, onPos }) {
   const [confirm, setConfirm] = useState(false);
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
-    textTransform:"uppercase", padding:"6px 10px", borderRadius:9, cursor:"pointer", flexShrink:0 };
+    textTransform:"uppercase", padding:"6px 10px", borderRadius:10, cursor:"pointer", flexShrink:0 };
   if (minimized) return (
     <button onClick={onMin} style={{ position:"fixed", left:14, zIndex:55,
       bottom:"calc(74px + env(safe-area-inset-bottom))", display:"flex", alignItems:"center", gap:7,
       background:"var(--sun)", color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:99,
       padding:"9px 14px", cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:14,
-      letterSpacing:"0.06em", boxShadow:"0 6px 20px rgba(42,33,25,0.3)" }}>
+      letterSpacing:"0.06em", boxShadow:"var(--shadow-2)" }}>
       {sim && <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)",
         animation:"si-pulse 1s infinite" }} />}QA</button>
   );
@@ -3017,40 +3037,40 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
       ...(top ? { top:"calc(64px + env(safe-area-inset-top))" }
               : { bottom:"calc(66px + env(safe-area-inset-bottom))" }) }}>
       <div style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
-        background:"rgba(42,33,25,0.97)", border:"1px solid rgba(192,91,51,0.4)", borderRadius:14,
-        padding:"8px 10px", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
+        background:"rgba(42,33,25,0.97)", border:"1px solid rgba(194,88,50,0.4)", borderRadius:14,
+        padding:"8px 10px", boxShadow:"var(--shadow-3)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
           <span style={{ ...label, fontSize:10, color:"var(--sun)" }}>QA</span>
-          <span style={{ fontFamily:SANS, fontSize:12, color:"#C9B896", flex:1, minWidth:0,
+          <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1, minWidth:0,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            Acting as <b style={{ color:"#FBF3E4" }}>{me || "nobody"}</b></span>
+            Acting as <b style={{ color:"var(--bone)" }}>{me || "nobody"}</b></span>
           {confirm ? (
             <>
               <button onClick={() => { onReset(); setConfirm(false); }} style={{ ...small,
-                background:"#D64A20", border:"none", color:"#FFF4EC" }}>Confirm reset</button>
+                background:"var(--clay)", border:"none", color:"var(--bone)" }}>Confirm reset</button>
               <button onClick={() => setConfirm(false)} style={{ ...small,
-                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Keep</button>
+                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Keep</button>
             </>
           ) : (
             <>
               <button onClick={onRerun} style={{ ...small,
-                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--cream)" }}>Rerun intro</button>
+                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Rerun intro</button>
               <button onClick={() => setConfirm(true)} style={{ ...small,
-                background:"none", border:"1px solid rgba(188,75,60,0.4)", color:"var(--clay)" }}>Reset game</button>
+                background:"none", border:"1px solid rgba(192,71,58,0.4)", color:"var(--clay)" }}>Reset game</button>
             </>
           )}
           <button onClick={onPos} title="Dock top or bottom" style={{ background:"none", border:"1px solid rgba(251,243,228,0.3)",
-            color:"#FBF3E4", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
+            color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
           <button onClick={onMin} title="Minimize" style={{ background:"none", border:"1px solid rgba(251,243,228,0.3)",
-            color:"#FBF3E4", width:26, height:26, borderRadius:8, fontSize:13, cursor:"pointer", flexShrink:0 }}>–</button>
-          <button onClick={onExit} style={{ background:"var(--panel2)", border:"1px solid var(--line)",
-            color:"var(--ink)", width:26, height:26, borderRadius:8, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
+            color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:12.5, cursor:"pointer", flexShrink:0 }}>–</button>
+          <button onClick={onExit} style={{ background:"var(--paper2)", border:"1px solid var(--line)",
+            color:"var(--ink)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
         </div>
         <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:7 }}>
           {ROSTER.map(p => (
             <button key={p} onClick={() => onSwitch(p)} style={{ fontFamily:SANS, fontWeight:600,
-              fontSize:12, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
-              background: me === p ? "var(--sun)" : "var(--panel2)",
+              fontSize:12.5, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
+              background: me === p ? "var(--sun)" : "var(--paper2)",
               color:"var(--ink)",
               border: me === p ? "1px solid var(--ink)" : "1px solid var(--line)" }}>{p}</button>
           ))}
@@ -3059,20 +3079,20 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ width:7, height:7, borderRadius:99, background:"var(--sun)",
               animation:"si-pulse 1s infinite", flexShrink:0 }} />
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"#FBF3E4", flex:1, minWidth:0,
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--bone)", flex:1, minWidth:0,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sim}</span>
-            <button onClick={onStop} style={{ ...small, background:"#B23B2E", border:"none", color:"#FBF3E4" }}>Stop</button>
+            <button onClick={onStop} style={{ ...small, background:"#B23B2E", border:"none", color:"var(--bone)" }}>Stop</button>
           </div>
         ) : (
           <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
             {[["Sim bets", onSimBets], ["Play next event", onPlayNext], ["To the Finale", onFastForward]].map(([lb, fn]) => (
               <button key={lb} onClick={fn} style={{ ...small,
-                background:"var(--panel2)", border:"1px solid var(--line)", color:"var(--ink)" }}>{lb}</button>
+                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>{lb}</button>
             ))}
             <button onClick={onLens} style={{ ...small,
               background: guestLens ? "var(--sun)" : "transparent",
               border: guestLens ? "1px solid var(--ink)" : "1px solid rgba(251,243,228,0.35)",
-              color: guestLens ? "var(--ink)" : "#FBF3E4" }}>
+              color: guestLens ? "var(--ink)" : "var(--bone)" }}>
               {guestLens ? "Guest view on" : "Guest view"}</button>
           </div>
         )}
@@ -3088,16 +3108,16 @@ function AdjustSheet({ player, onClose, save }) {
   return (
     <Sheet title={`Ruling for ${player}`} onClose={onClose}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
-        <Btn kind="dark" onClick={() => setDelta(d => d - 1)} style={{ fontSize:20, width:54 }}>−</Btn>
-        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:46, width:84, textAlign:"center",
+        <Btn kind="dark" onClick={() => setDelta(d => d - 1)} style={{ fontSize:19, width:54 }}>−</Btn>
+        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:44, width:84, textAlign:"center",
           color: delta >= 0 ? "var(--green)" : "var(--clay)" }}>{delta>0?"+":""}{delta}</div>
-        <Btn kind="dark" onClick={() => setDelta(d => d + 1)} style={{ fontSize:20, width:54 }}>+</Btn>
+        <Btn kind="dark" onClick={() => setDelta(d => d + 1)} style={{ fontSize:19, width:54 }}>+</Btn>
       </div>
       <input value={reason} onChange={e => setReason(e.target.value)} maxLength={50}
         placeholder="Reason, e.g. pressure putt"
-        style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"12px 13px", color:"var(--cream)", fontFamily:SANS, fontSize:14, marginBottom:14, outline:"none" }} />
-      <Btn disabled={delta === 0} onClick={() => save(delta, reason.trim())} style={{ width:"100%", fontSize:15, padding:"14px" }}>Apply</Btn>
+        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, marginBottom:14, outline:"none" }} />
+      <Btn disabled={delta === 0} onClick={() => save(delta, reason.trim())} style={{ width:"100%", fontSize:16, padding:"14px" }}>Apply</Btn>
     </Sheet>
   );
 }
@@ -3108,10 +3128,10 @@ function PinSheet({ onClose, unlock }) {
       <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
         inputMode="numeric" placeholder="Passcode" autoFocus
         onKeyDown={e => e.key === "Enter" && unlock(pin)}
-        style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"13px 12px", color:"var(--cream)", fontFamily:DISPLAY, fontSize:26,
+        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"13px 12px", color:"var(--ink)", fontFamily:DISPLAY, fontSize:24,
           letterSpacing:"0.4em", textAlign:"center", marginBottom:12, outline:"none" }} />
-      <Btn disabled={pin.length !== 4} onClick={() => unlock(pin)} style={{ width:"100%", fontSize:15, padding:"14px" }}>Unlock</Btn>
+      <Btn disabled={pin.length !== 4} onClick={() => unlock(pin)} style={{ width:"100%", fontSize:16, padding:"14px" }}>Unlock</Btn>
     </Sheet>
   );
 }
@@ -3133,8 +3153,8 @@ function ProfileSheet({ state, me, onClose, save }) {
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
           <Avatar state={state} p={me} size={40} />
           <div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15, color:"var(--ink)" }}>{disp(state, me)}</div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>Scottsdale · 2026</div>
+            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:16, color:"var(--ink)" }}>{disp(state, me)}</div>
+            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>Scottsdale · 2026</div>
           </div>
         </div>
       </div>
@@ -3142,7 +3162,7 @@ function ProfileSheet({ state, me, onClose, save }) {
         num={num} setNum={setNum} size={size} setSize={setSize} />
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
           num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) })}
-        style={{ width:"100%", fontSize:15, padding:"14px", marginTop:16 }}>Save</Btn>
+        style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
 }
@@ -3184,15 +3204,15 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
           {reveal.groups.map((g, i) => (
             <div key={i} style={{ visibility: i < shown ? "visible" : "hidden",
               animation: i < shown ? "si-flag .55s both" : "none",
-              background:CARD_BG, border:"1px solid rgba(156,69,38,0.45)", borderRadius:16,
-              padding: big ? "18px 20px" : "14px 15px", boxShadow:"0 8px 30px rgba(0,0,0,0.4)" }}>
+              background:CARD_BG, border:"1px solid rgba(156,69,38,0.45)", borderRadius:14,
+              padding: big ? "18px 20px" : "14px 15px", boxShadow:"var(--shadow-2)" }}>
               <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 26 : 16,
                 color:"var(--accent2)", marginBottom:8 }}>{g.title}</div>
               {g.lines.map((ln, j) => (
                 <div key={j} style={{ display:"flex", alignItems:"center", gap:9, padding:"3px 0",
                   animation: i < shown ? `si-in .3s ${0.25 + j*0.15}s both` : "none" }}>
                   <AvatarStack state={state} players={ln.avatars} size={big ? 34 : 26} max={3} />
-                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize: big ? 20 : 14.5, color:"var(--cream)" }}>
+                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize: big ? 20 : 14.5, color:"var(--ink)" }}>
                     {ln.text}</span>
                 </div>
               ))}
@@ -3202,12 +3222,12 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
       )}
       {doneAll && !auto && (
         <div style={{ display:"flex", gap:10, marginTop: big ? 30 : 22, animation:"si-in .3s both" }}>
-          {onBets && <Btn onClick={onBets} style={{ fontSize:15, padding:"13px 28px" }}>To the bets</Btn>}
-          <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:15, padding:"13px 28px" }}>Close</Btn>
+          {onBets && <Btn onClick={onBets} style={{ fontSize:16, padding:"13px 28px" }}>To the bets</Btn>}
+          <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:16, padding:"13px 28px" }}>Close</Btn>
         </div>
       )}
       {!doneAll && !auto && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
-        border:"none", color:"#B7A386", fontFamily:SANS, fontSize:13, cursor:"pointer" }}>skip</button>}
+        border:"none", color:"var(--night-text)", fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>skip</button>}
     </div>
   );
 }
@@ -3255,7 +3275,7 @@ function BetsBoard({ state, events, ev, big, compact }) {
   });
   const list = [...cells.values()];
   if (!list.length) return compact ? null : (
-    <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"#C9B896",
+    <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"var(--night-text)",
       textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
   );
   const chip = compact ? 30 : 44;
@@ -3264,7 +3284,7 @@ function BetsBoard({ state, events, ev, big, compact }) {
       justifyContent: big ? "center" : "flex-start", alignItems:"flex-end" }}>
       {list.map((cell, i) => (
         <div key={i} style={{ background:CARD_BG, border: compact ? "1px solid var(--line)" : "1.5px solid var(--ink)",
-          borderRadius:12, padding: compact ? "7px 10px 9px" : "10px 14px 12px", minWidth: compact ? 96 : 150 }}>
+          borderRadius:14, padding: compact ? "7px 10px 9px" : "10px 14px 12px", minWidth: compact ? 96 : 150 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: compact ? 13.5 : big ? "clamp(16px,1.6vw,22px)" : 16,
             textTransform:"uppercase", color:"var(--ink)", marginBottom: compact ? 7 : 10, whiteSpace:"nowrap",
             overflow:"hidden", textOverflow:"ellipsis", maxWidth: compact ? 150 : 230 }}>{cell.name}</div>
@@ -3293,7 +3313,7 @@ function TVMiniBoard({ state, standings, allTied }) {
           <Avatar state={state} p={r.player} size={24} />
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)", flex:1,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--ink)" }}>{r.pts}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>{r.pts}</span>
         </div>
       ))}
     </div>
@@ -3322,17 +3342,17 @@ function TVDraft({ state, ev, d }) {
               <Avatar state={state} p={cur} size={84} ring />
             </span>
             <div>
-              <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896" }}>{ev.name} draft</div>
+              <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"var(--night-text)" }}>{ev.name} draft</div>
               <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)", lineHeight:1.05,
                 textTransform:"uppercase", color:BONE }}>{disp(state, cur)} is on the clock</div>
-              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.2vw,17px)", color:"#C9B896", marginTop:2 }}>
+              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.2vw,17px)", color:"var(--night-text)", marginTop:2 }}>
                 Round {round}, pick {d.picks.length + 1}</div>
             </div>
           </div>
         )}
         {last && (
           <div key={d.picks.length} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
-            background:CARD_BG, border:"2px solid var(--ink)", borderRadius:16, padding:"12px 20px",
+            background:CARD_BG, border:"2px solid var(--ink)", borderRadius:14, padding:"12px 20px",
             animation:"si-flag .55s ease-out both" }}>
             <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)" }}>Pick {d.picks.length}</span>
             <Avatar state={state} p={last.player} size={46} />
@@ -3347,7 +3367,7 @@ function TVDraft({ state, ev, d }) {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:`repeat(${T},1fr)`, gap:16, flex:1, minHeight:0 }}>
         {d.teams.map((t, i) => (
-          <div key={i} style={{ background:CARD_BG, borderRadius:16, padding:"13px 15px", overflowY:"auto",
+          <div key={i} style={{ background:CARD_BG, borderRadius:14, padding:"13px 15px", overflowY:"auto",
             border: i === onClock ? "2px solid var(--sun)" : "1px solid var(--line)",
             animation: i === onClock ? "si-glow 2s infinite" : "none" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:9, marginBottom:9,
@@ -3372,7 +3392,7 @@ function TVDraft({ state, ev, d }) {
       </div>
       {!poolEmpty && (
         <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
-          <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"#C9B896", flexShrink:0 }}>
+          <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)", flexShrink:0 }}>
             Still on the board</span>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {d.pool.map(p => <Avatar key={p} state={state} p={p} size={38} />)}
@@ -3445,7 +3465,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     return () => clearInterval(t);
   }, [scenes.length]);
   const scene = scenes[sceneIdx] || "board";
-  const sceneLabel = { ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896", marginBottom:6 };
+  const sceneLabel = { ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"var(--night-text)", marginBottom:6 };
   const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
     textTransform:"uppercase", color:BONE, marginBottom:24 };
 
@@ -3491,28 +3511,28 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
-      background:"radial-gradient(110% 60% at 50% -10%, rgba(233,180,65,0.10) 0%, transparent 60%), var(--night)" }}>
+      background:"radial-gradient(110% 60% at 50% -10%, rgba(240,176,47,0.10) 0%, transparent 60%), var(--night)" }}>
       <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
         background:"var(--paper)", border:"1.5px solid rgba(42,33,25,0.4)", color:"var(--ink)",
-        width:40, height:40, borderRadius:9, fontSize:15, cursor:"pointer" }}>✕</button>
+        width:40, height:40, borderRadius:10, fontSize:16, cursor:"pointer" }}>✕</button>
 
       {/* masthead */}
       <div style={{ display:"flex", alignItems:"center", gap:22,
         padding:"calc(26px + env(safe-area-inset-top)) 48px 14px" }}>
-        <FDMark size={46} />
+        <FDMark size={46} variant="night" />
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3.4vw,50px)", lineHeight:1,
           textTransform:"uppercase", letterSpacing:"0.015em", color:"var(--sun)" }}>
           Field Day</div>
-        <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"#C9B896" }}>Scottsdale · 2026</div>
-        <span style={{ width:10, height:10, borderRadius:99, background:"#E5967F", animation:"si-pulse 1.6s infinite" }} />
+        <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)" }}>Scottsdale · 2026</div>
+        <span style={{ width:10, height:10, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.6s infinite" }} />
         <div style={{ flex:1 }} />
         {onDeckEv && !champion && (
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 20px", borderRadius:14,
-            background:"linear-gradient(90deg, rgba(188,75,60,0.14), rgba(188,75,60,0.03))",
-            border:"1px solid rgba(188,75,60,0.45)", marginRight:56 }}>
+            background:"linear-gradient(90deg, rgba(192,71,58,0.14), rgba(192,71,58,0.03))",
+            border:"1px solid rgba(192,71,58,0.45)", marginRight:56 }}>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
               letterSpacing:"0.18em", color:"var(--live2)", textTransform:"uppercase" }}>On deck</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"#FBF3E4" }}>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"var(--bone)" }}>
               {onDeckEv.name}</span>
             <Tag tone="gold" style={{ fontSize:"clamp(10px,0.9vw,13px)" }}>Betting open</Tag>
           </div>
@@ -3552,16 +3572,16 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
         <div key="scene-join" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
           gap:"clamp(40px,6vw,110px)", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
           <div>
-            <FDMark size={120} />
+            <FDMark size={120} variant="night" />
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(64px,8vw,130px)", lineHeight:0.9,
               textTransform:"uppercase", color:"var(--sun)", margin:"26px 0 8px" }}>Field<br/>Day</div>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.5vw,22px)",
-              letterSpacing:"0.14em", color:"#C9B896" }}>SCOTTSDALE · 2026</div>
+              letterSpacing:"0.14em", color:"var(--night-text)" }}>SCOTTSDALE · 2026</div>
             <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.4vw,20px)", color:BONE, marginTop:22, lineHeight:1.5 }}>
               Scan to check in.
             </div>
           </div>
-          <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:16,
+          <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:14,
             padding:"clamp(14px,1.6vw,24px)", textAlign:"center" }}>
             <img src={qrUrl} alt="Scan to join" style={{ width:"clamp(220px,24vw,340px)", display:"block",
               imageRendering:"pixelated" }} />
@@ -3578,7 +3598,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             gap:"8px 40px", width:"100%", maxWidth:1100 }}>
             {scen.alive.map(a => (
               <div key={a.player} style={{ display:"flex", alignItems:"center", gap:16,
-                padding:"clamp(8px,1.3vh,14px) 20px", borderRadius:12, background:CARD_BG,
+                padding:"clamp(8px,1.3vh,14px) 20px", borderRadius:14, background:CARD_BG,
                 border:"1px solid var(--line)" }}>
                 <Avatar state={state} p={a.player} size={44} />
                 <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)",
@@ -3586,7 +3606,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(18px,2.4vh,28px)",
                   color:"var(--muted2)" }}>{a.pts}</span>
                 <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1.4vh,15px)",
-                  letterSpacing:"0.05em", textTransform:"uppercase", padding:"4px 12px", borderRadius:5,
+                  letterSpacing:"0.05em", textTransform:"uppercase", padding:"4px 12px", borderRadius:6,
                   background:NEED_CHIP[a.needIdx].bg, color:NEED_CHIP[a.needIdx].fg }}>
                   {NEED_CHIP[a.needIdx].text}</span>
               </div>
@@ -3598,13 +3618,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
           <div style={sceneLabel}>Next up</div>
           <div style={{ background:phaseOf(nextEv).bg, color:phaseOf(nextEv).fg, border:"2px solid var(--ink)",
-            borderRadius:18, padding:"clamp(26px,4vh,50px) clamp(40px,5vw,90px)", textAlign:"center", maxWidth:1000 }}>
+            borderRadius:16, padding:"clamp(26px,4vh,50px) clamp(40px,5vw,90px)", textAlign:"center", maxWidth:1000 }}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,100px)", lineHeight:0.95,
               textTransform:"uppercase" }}>{nextEv.name}</div>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.6vw,22px)", marginTop:14,
               letterSpacing:"0.06em" }}>WORTH {nextEv.value} PT{nextEv.value > 1 ? "S" : ""}</div>
           </div>
-          {nextEv.desc && <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.5vw,20px)", color:"#C9B896",
+          {nextEv.desc && <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.5vw,20px)", color:"var(--night-text)",
             marginTop:22, maxWidth:760, textAlign:"center", lineHeight:1.5 }}>{nextEv.desc}</div>}
         </div>
       ) : scene === "latest" && latest ? (
@@ -3612,7 +3632,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
           <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
             textTransform:"uppercase", background:"var(--olive)", color:BONE,
-            fontSize:"clamp(14px,1.5vw,20px)", padding:"4px 18px", borderRadius:5, marginBottom:14 }}>Final</div>
+            fontSize:"clamp(14px,1.5vw,20px)", padding:"4px 18px", borderRadius:6, marginBottom:14 }}>Final</div>
           <div style={sceneTitle}>{latest.ev.name}</div>
           <div style={{ display:"flex", justifyContent:"center", gap:14, marginBottom:18 }}>
             {latest.res.slots[0].map(p => <Avatar key={p} state={state} p={p} size={84} ring />)}
@@ -3620,7 +3640,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(36px,4.5vw,72px)",
             textTransform:"uppercase", color:"var(--sun)", lineHeight:1, textAlign:"center" }}>
             {teamLabel(state, { players: latest.res.slots[0] })}</div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"#C9B896", marginTop:12 }}>
+          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"var(--night-text)", marginTop:12 }}>
             +{AWARDS[latest.ev.value][0]} each</div>
         </div>
       ) : scene === "book" ? (
@@ -3634,7 +3654,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               const l = wagerPickLabel(state, x.w, events);
               return (
                 <div key={x.w.id} style={{ display:"flex", alignItems:"center", gap:12,
-                  padding:"clamp(8px,1.2vh,14px) 16px", borderRadius:12, background:CARD_BG,
+                  padding:"clamp(8px,1.2vh,14px) 16px", borderRadius:14, background:CARD_BG,
                   border:"1px solid var(--line)" }}>
                   <Avatar state={state} p={x.w.player} size={38} />
                   <div style={{ flex:1, minWidth:0 }}>
@@ -3655,8 +3675,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           padding:"6px 48px 16px", minHeight:0, animation:"si-fade .6s ease-out" }}>
           {leader && (
             <div style={{ display:"flex", alignItems:"center", gap:20, padding:"clamp(10px,1.6vh,20px) 26px",
-              marginBottom:12, borderRadius:16, position:"relative", overflow:"hidden",
-              background:GOLD_GRAD, border:"1px solid var(--accent2)", boxShadow:"0 8px 34px rgba(192,91,51,0.3)" }}>
+              marginBottom:12, borderRadius:14, position:"relative", overflow:"hidden",
+              background:GOLD_GRAD, border:"1px solid var(--accent2)", boxShadow:"var(--shadow-2)" }}>
               <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(24px,3.4vh,42px)", color:"var(--ink)", width:46, textAlign:"center" }}>1</div>
               <Avatar state={state} p={leader.player} size={56} />
               <div style={{ flex:1 }}>
@@ -3673,17 +3693,17 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               <div key={ci}>
                 {col.map(r => (
                   <div key={r.player} style={{ display:"flex", alignItems:"center", gap:14,
-                    padding:"clamp(5px,0.9vh,11px) 16px", marginBottom:7, borderRadius:13,
+                    padding:"clamp(5px,0.9vh,11px) 16px", marginBottom:7, borderRadius:14,
                     background:CARD_BG,
                     border:"1px solid " + (r.rank===2 && !allTied ? "rgba(189,178,160,0.5)" : r.rank===3 && !allTied ? "rgba(192,122,75,0.5)" : "var(--line)") }}>
                     <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)", width:36,
-                      color: !allTied && r.rank===2 ? "#75818C" : !allTied && r.rank===3 ? "#AC6A3B" : "var(--muted)",
+                      color: !allTied && r.rank===2 ? "var(--silver)" : !allTied && r.rank===3 ? "var(--bronze)" : "var(--muted)",
                       textAlign:"center" }}>{allTied ? "·" : r.rank}</div>
                     <Avatar state={state} p={r.player} size={36} />
                     <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,2vh,24px)", flex:1,
-                      color:"var(--cream)" }}>{disp(state, r.player)}</div>
+                      color:"var(--ink)" }}>{disp(state, r.player)}</div>
                     <div key={r.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
-                      color:"var(--cream)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
+                      color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{r.pts}</div>
                   </div>
                 ))}
               </div>
@@ -3695,11 +3715,11 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       {/* scene dots + ticker */}
       {scenes.length > 1 && !champion && !liveEv && (
         <div style={{ display:"flex", justifyContent:"center", gap:8, paddingBottom:8 }}>
-          {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:2,
+          {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:6,
             background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
         </div>
       )}
-      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
+      <div style={{ borderTop:"1px solid rgba(194,88,50,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
         <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
           animation:`si-tick ${Math.max(24, tickerItems.length * 9)}s linear infinite` }}>
           {[0,1].map(k => (
@@ -3707,7 +3727,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               {tickerItems.map((it, i) => (
                 <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:11, paddingRight:84 }}>
                   <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(12px,1.1vw,15px)",
-                    letterSpacing:"0.1em", textTransform:"uppercase", borderRadius:5, padding:"3px 10px",
+                    letterSpacing:"0.1em", textTransform:"uppercase", borderRadius:6, padding:"3px 10px",
                     background:it.tone, color: it.tone === "var(--sun)" ? "var(--ink)" : BONE }}>{it.tag}</span>
                   {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={27} />)}
                   <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
@@ -3728,8 +3748,8 @@ function Guide({ replay, events }) {
   const S = ({ n, t, children }) => (
     <div style={{ marginBottom:18 }}>
       <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:6 }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:13, color:"var(--dust)" }}>{n}</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--accent2)" }}>{t}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, color:"var(--muted)" }}>{n}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>{t}</span>
       </div>
       <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.62, color:"var(--muted2)" }}>{children}</div>
     </div>
@@ -3756,12 +3776,12 @@ function Guide({ replay, events }) {
           {Object.entries(GAMES).map(([id, g]) => (
             <button key={id} onClick={() => setHowToEv(id)} style={{ display:"flex", alignItems:"center",
               gap:12, textAlign:"left", cursor:"pointer", background:"var(--paper)",
-              border:"1px solid var(--line)", borderRadius:12, padding:"9px 11px" }}>
+              border:"1px solid var(--line)", borderRadius:14, padding:"9px 11px" }}>
               <GameMark id={id} size={30} />
               <span style={{ flex:1, minWidth:0 }}>
                 <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--ink)",
                   textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{g.name}</span>
-                <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", display:"block",
+                <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", display:"block",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {(g.howto || g.variants?.[0]?.howto)?.objective}</span>
               </span>
@@ -3784,8 +3804,8 @@ function Guide({ replay, events }) {
       <div style={{ display:"flex", justifyContent:"center", padding:"6px 0 18px" }}>
         <Btn kind="ghost" onClick={replay}>Replay the intro</Btn>
       </div>
-      <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
-        color:"#A5947B", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
+      <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:12.5, letterSpacing:"0.24em",
+        color:"var(--disabled)", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
       {howToEv && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
     </div>
   );

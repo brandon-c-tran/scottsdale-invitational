@@ -70,6 +70,15 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 - Real names in all commissioner controls. Fun is for reveals, not for admin.
 - The app should reduce mental load during the weekend, not add process.
 
+## Adding an event later
+
+Add a `BUILTIN_EVENTS` entry in `shared/core.js` (id, session, value, kind,
+sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs.
+Optionally give the `game` id a `GAMES` howto (core), a `MARKS` icon and a
+`GAME_HEROES` animation (App.jsx). Every surface (schedule, strips, sheets,
+betting band, event intro, TV) reads those registries; anything missing falls
+back to the GameMark, then the FD chip. Nothing else to wire.
+
 ## Backlog
 
 - [ ] Brandon's feature notes (pending, ask him)

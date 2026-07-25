@@ -1157,6 +1157,90 @@ function Shell({ children, tv }) {
           76%       { transform: translate(0,-4px) rotate(-180deg); }
           82%, 100% { transform: translate(0,0) rotate(-180deg); }
         }
+        @keyframes si-putt {
+          0%        { transform: translate(0,0); }
+          72%       { transform: translate(122px,0); }
+          84%       { transform: translate(126px,2px); }
+          92%, 100% { transform: translate(127px,12px); }
+        }
+        @keyframes si-cue {
+          0%, 12%   { transform: translate(0,0); }
+          42%, 100% { transform: translate(56px,0); }
+        }
+        @keyframes si-eight {
+          0%, 42%   { transform: translate(0,0); }
+          88%, 100% { transform: translate(64px,0); }
+        }
+        @keyframes si-bball {
+          0%, 10%   { transform: translate(0,0); }
+          48%       { transform: translate(66px,-42px); }
+          72%       { transform: translate(128px,-24px); }
+          84%       { transform: translate(133px,-6px); }
+          94%, 100% { transform: translate(134px,4px); }
+        }
+        @keyframes si-spike {
+          0%, 14%   { transform: translate(0,0); }
+          52%       { transform: translate(72px,38px); }
+          58%       { transform: translate(78px,34px); }
+          100%      { transform: translate(158px,-18px); }
+        }
+        @keyframes si-pingpong {
+          0%        { transform: translate(0,0); }
+          22%       { transform: translate(28px,-14px); }
+          46%       { transform: translate(56px,16px); }
+          64%       { transform: translate(84px,-16px); }
+          84%       { transform: translate(110px,14px); }
+          100%      { transform: translate(128px,-4px); }
+        }
+        @keyframes si-foosman {
+          0%, 30%   { transform: translate(0,0); }
+          40%       { transform: translate(0,-9px); }
+          48%, 100% { transform: translate(0,0); }
+        }
+        @keyframes si-foos {
+          0%, 46%   { transform: translate(0,0); }
+          72%, 100% { transform: translate(138px,0); }
+        }
+        @keyframes si-volley {
+          0%, 10%   { transform: translate(0,0); }
+          52%       { transform: translate(74px,-38px); }
+          82%       { transform: translate(134px,6px); }
+          90%       { transform: translate(142px,-2px); }
+          100%      { transform: translate(148px,6px); }
+        }
+        @keyframes si-pickle {
+          0%, 8%    { transform: translate(0,0); }
+          30%       { transform: translate(38px,6px); }
+          56%       { transform: translate(76px,-18px); }
+          82%       { transform: translate(110px,6px); }
+          100%      { transform: translate(126px,-2px); }
+        }
+        @keyframes si-kart {
+          0%        { transform: translate(-16px,0); }
+          30%       { transform: translate(38px,0); }
+          38%       { transform: translate(52px,-8px); }
+          46%       { transform: translate(66px,0); }
+          78%       { transform: translate(112px,0); }
+          100%      { transform: translate(148px,0); }
+        }
+        @keyframes si-rage {
+          0%        { transform: translate(0,0); }
+          38%       { transform: translate(48px,42px); }
+          52%       { transform: translate(56px,30px); }
+          72%       { transform: translate(72px,26px); }
+          88%, 100% { transform: translate(74px,32px); }
+        }
+        @keyframes si-gauntlet {
+          0%        { transform: translate(0,0); }
+          18%       { transform: translate(24px,-16px); }
+          30%       { transform: translate(40px,0); }
+          44%       { transform: translate(60px,-16px); }
+          54%       { transform: translate(78px,0); }
+          66%       { transform: translate(96px,-16px); }
+          76%       { transform: translate(112px,0); }
+          88%       { transform: translate(134px,-18px); }
+          100%      { transform: translate(152px,-2px); }
+        }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
@@ -1252,9 +1336,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Your card</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 16px" }}>
         Set up your profile</div>
-      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
-      <div style={{ marginTop:"auto" }}>
+      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
+        <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
+          num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
+      </div>
+      <div style={{ marginTop:12 }}>
         <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
             num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) }); next(); }}
           style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
@@ -1373,42 +1459,51 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
     };
     reader.readAsDataURL(f);
   };
+  /* one field system: same label, same surface, same height everywhere */
+  const FIELD_H = 48;
+  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
+    color:"var(--ink)", outline:"none", height:FIELD_H };
   return (
     <div>
-      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:18 }}>
-        <button onClick={() => fileRef.current?.click()} style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative" }}>
+      <div style={{ display:"flex", gap:14, alignItems:"flex-end", marginBottom:16 }}>
+        <button onClick={() => fileRef.current?.click()} style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
           {current
-            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)" }} />
+            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
             : me && <Avatar state={state} p={me} size={84} ring />}
           <div style={{ position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:"50%",
             background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
         </button>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ ...label, marginBottom:6 }}>Display name</div>
+          <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
+            style={{ ...field, width:"100%", padding:"0 13px", fontFamily:SANS, fontWeight:600, fontSize:16 }} />
+        </div>
       </div>
-      <div style={{ ...label, marginBottom:6 }}>Display name</div>
-      <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
-        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"13px 14px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
-        <div style={{ ...label, flex:1 }}>Jersey number</div>
-        <input value={num} inputMode="numeric" placeholder="00"
-          onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-          style={{ width:96, background:"var(--paper2)", borderRadius:14, textAlign:"center",
-            border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-            padding:"11px 8px", color:"var(--ink)", fontFamily:DISPLAY, fontWeight:700, fontSize:24, outline:"none" }} />
+      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+        <div style={{ width:92, flexShrink:0 }}>
+          <div style={{ ...label, marginBottom:6 }}>Number</div>
+          <input value={num} inputMode="numeric" placeholder="00"
+            onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+            style={{ ...field, width:"100%", textAlign:"center", padding:"0 8px",
+              border: takenBy ? "1.5px solid var(--clay)" : field.border,
+              fontFamily:DISPLAY, fontWeight:700, fontSize:24 }} />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ ...label, marginBottom:6 }}>Shirt</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+            {SIZES.map(s => (
+              <button key={s} onClick={() => setSize(size === s ? null : s)}
+                style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:FIELD_H, padding:0, borderRadius:10,
+                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)", color: size === s ? "var(--ink0)" : "var(--ink)",
+                  border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
+            ))}
+          </div>
+        </div>
       </div>
-      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginTop:4, textAlign:"right" }}>
+      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", margin:"-10px 0 12px" }}>
         {disp(state, takenBy[0])} has {Number(num)}</div>}
-      <div style={{ ...label, margin:"14px 0 6px" }}>Shirt size</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-        {SIZES.map(s => (
-          <button key={s} onClick={() => setSize(size === s ? null : s)}
-            style={{ fontFamily:SANS, fontWeight:700, fontSize:14, padding:"13px 2px", borderRadius:10,
-              cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color: size === s ? "var(--ink0)" : "var(--ink)",
-              border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
-        ))}
-      </div>
       {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} />}
     </div>
   );
@@ -1422,7 +1517,7 @@ function ChipPicker({ state, me, onChip }) {
   const locked = state.live;
   return (
     <div>
-      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"16px 0 6px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"0 0 6px" }}>
         <div style={{ ...label, flex:1 }}>Your chip</div>
         <BankChip p={me} size={30} />
       </div>
@@ -2631,7 +2726,187 @@ function FlipHero() {
     </svg>
   );
 }
-const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero };
+/* putt rolls the length of the green and drops at the flag */
+function PuttHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="132" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="146" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="139" y1="60" x2="139" y2="26" stroke="var(--ink)" strokeWidth="1.8"/>
+      <path d="M139 26h16l-5 5.5 5 5.5h-16z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
+      <g style={{ animation:"si-putt 2.4s ease-in-out 1 both" }}>
+        <circle cx="12" cy="54" r="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* cue ball breaks, the 8 rolls for the corner */
+function EightHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <g style={{ animation:"si-cue 2.4s ease-out 1 both" }}>
+        <circle cx="26" cy="52" r="7" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+      </g>
+      <g style={{ animation:"si-eight 2.4s ease-out 1 both" }}>
+        <circle cx="96" cy="52" r="7" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.6"/>
+        <circle cx="96" cy="52" r="3.2" fill="var(--paper)"/>
+        <text x="96" y="54.6" textAnchor="middle" fontSize="5" fontWeight="700" fontFamily={SANS} fill="var(--ink0)">8</text>
+      </g>
+    </svg>
+  );
+}
+/* the shot arcs in off the glass */
+function BballHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="158" y1="12" x2="158" y2="34" stroke="var(--ink)" strokeWidth="2.2"/>
+      <line x1="142" y1="32" x2="158" y2="32" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round"/>
+      <line x1="144" y1="32" x2="147" y2="43" stroke="var(--ink)" strokeWidth="1.2" opacity="0.6"/>
+      <line x1="155" y1="32" x2="153" y2="43" stroke="var(--ink)" strokeWidth="1.2" opacity="0.6"/>
+      <g style={{ animation:"si-bball 2.4s ease-in-out 1 both" }}>
+        <circle cx="16" cy="50" r="7" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
+        <path d="M9 50h14M16 43v14" stroke="var(--ink)" strokeWidth="1.1" opacity="0.7"/>
+      </g>
+    </svg>
+  );
+}
+/* serve down onto the net, pocket shot pops away */
+function SpikeHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <ellipse cx="90" cy="52" rx="22" ry="6" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.8"/>
+      <path d="M74 56l-5 4M106 56l5 4" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
+      <g style={{ animation:"si-spike 2.2s ease-in 1 both" }}>
+        <circle cx="14" cy="8" r="5.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* rally over the net, three touches across */
+function PingpongHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="90" y1="60" x2="90" y2="46" stroke="var(--ink)" strokeWidth="2"/>
+      <g transform="rotate(-30 22 48)">
+        <ellipse cx="22" cy="44" rx="8" ry="10" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
+        <rect x="20" y="54" width="4" height="9" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.2"/>
+      </g>
+      <g transform="rotate(30 158 48)">
+        <ellipse cx="158" cy="44" rx="8" ry="10" fill="var(--pool)" stroke="var(--ink)" strokeWidth="1.6"/>
+        <rect x="156" y="54" width="4" height="9" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.2"/>
+      </g>
+      <g style={{ animation:"si-pingpong 2.4s linear 1 both" }}>
+        <circle cx="34" cy="40" r="4" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4"/>
+      </g>
+    </svg>
+  );
+}
+/* the rod snaps and the shot beats the keeper */
+function FoosHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M160 38v22M172 38v22M160 38h12" fill="none" stroke="var(--ink)" strokeWidth="2"/>
+      <g style={{ animation:"si-foosman 2.4s ease-in-out 1 both" }}>
+        <line x1="96" y1="10" x2="96" y2="50" stroke="var(--ink)" strokeWidth="2.4"/>
+        <path d="M91 32h10l-1.6 14h-6.8z" fill="var(--clay)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
+      </g>
+      <g style={{ animation:"si-foos 2.4s ease-out 1 both" }}>
+        <circle cx="24" cy="54" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* high arc over the tall net, side out */
+function VolleyHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="90" y1="60" x2="90" y2="18" stroke="var(--ink)" strokeWidth="2.2"/>
+      <line x1="82" y1="18" x2="98" y2="18" stroke="var(--ink)" strokeWidth="2.6" strokeLinecap="round"/>
+      <path d="M84 24h12M84 30h12" stroke="var(--ink)" strokeWidth="1.1" opacity="0.55"/>
+      <g style={{ animation:"si-volley 2.4s ease-in-out 1 both" }}>
+        <circle cx="18" cy="46" r="6.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+        <path d="M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13" stroke="var(--ink)" strokeWidth="1.1" opacity="0.7"/>
+      </g>
+    </svg>
+  );
+}
+/* third shot drops soft over the kitchen */
+function PickleHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <line x1="90" y1="60" x2="90" y2="40" stroke="var(--ink)" strokeWidth="2"/>
+      <line x1="83" y1="40" x2="97" y2="40" stroke="var(--ink)" strokeWidth="2.4" strokeLinecap="round"/>
+      <line x1="64" y1="60" x2="64" y2="56" stroke="var(--ink)" strokeWidth="1.6" opacity="0.6"/>
+      <line x1="116" y1="60" x2="116" y2="56" stroke="var(--ink)" strokeWidth="1.6" opacity="0.6"/>
+      <g style={{ animation:"si-pickle 2.4s ease-in-out 1 both" }}>
+        <circle cx="18" cy="50" r="5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.5"/>
+      </g>
+    </svg>
+  );
+}
+/* the kart hops the finish line, beer stays upright */
+function KartHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M150 60v-22M150 38h6v4h-6M150 46h6v4h-6" stroke="var(--ink)" strokeWidth="1.8" fill="none"/>
+      <g style={{ animation:"si-kart 2.6s ease-in-out 1 both" }}>
+        <path d="M10 46h30l-4 8H16z" fill="var(--clay)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M20 40h12l2 6H18z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
+        <circle cx="17" cy="56" r="4.4" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.4"/>
+        <circle cx="35" cy="56" r="4.4" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.4"/>
+      </g>
+    </svg>
+  );
+}
+/* sink, stack, next cup in the ring */
+function RageHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      {[64, 90, 116].map(x => (
+        <g key={x}>
+          <path d={`M${x - 9} 36h18l-2.4 24h-13.2z`} fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
+          <ellipse cx={x} cy="36" rx="9" ry="2.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.2"/>
+        </g>
+      ))}
+      <g style={{ animation:"si-rage 2.2s ease-in 1 both" }}>
+        <circle cx="16" cy="10" r="4.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.4"/>
+      </g>
+    </svg>
+  );
+}
+/* five stations, one clean run */
+function GauntletHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      {[36, 68, 100, 132, 164].map((x, i) => (
+        <rect key={x} x={x - 7} y="50" width="14" height="10" rx="2"
+          fill={i === 4 ? "var(--accent)" : "var(--paper2)"} stroke="var(--ink)" strokeWidth="1.4"/>
+      ))}
+      <g style={{ animation:"si-gauntlet 2.8s ease-in-out 1 both" }}>
+        <circle cx="12" cy="44" r="5.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* One hero per GAMES id. HowToSheet, EventIntro, and the TV betting board all
+   read this registry; anything unregistered falls back to its GameMark, and
+   custom events fall back to the FD chip. Adding an event later:
+   BUILTIN_EVENTS entry in core (or the GM add-event flow), then optionally a
+   GAMES howto, a MARKS icon, and a hero here. Nothing else to wire. */
+const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
+  putting: PuttHero, "8ball": EightHero, basketball: BballHero, spikeball: SpikeHero,
+  pingpong: PingpongHero, foosball: FoosHero, volleyball: VolleyHero,
+  pickleball: PickleHero, beerio: KartHero, ragecage: RageHero, gauntlet: GauntletHero };
 /* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
 function HowToSheet({ gameId, variant, onClose }) {
   const game = GAMES[gameId];

@@ -185,7 +185,7 @@ const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
    your own phone, the pot settles itself. Both ante DUEL_STAKE. */
 const DUEL_STAKE = 1;
 const DUEL_GAMES = {
-  quickdraw: { name:"Quick Draw", desc:"Hold steady. Tap when the screen flashes. Jump early and you forfeit." },
+  quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
 };
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];

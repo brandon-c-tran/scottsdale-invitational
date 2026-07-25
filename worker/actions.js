@@ -6,6 +6,7 @@
 import {
   ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
+  DUEL_STAKE, DUEL_GAMES, resolveDuel,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -137,6 +138,68 @@ export const ACTIONS = {
     const w = state.wagers.find(x => x.id === id);
     if (!w) return err("No such wager");
     w.status = "void";
+    return ok();
+  },
+
+  /* ── duels (players) ──
+     A duel is a phone minigame between two players. Both ante DUEL_STAKE at
+     send time; each plays a run whenever they want; settlement is derived from
+     the two runs in computeStandings, never stored. */
+  sendDuel(state, { to, game }, ctx) {
+    const from = ctx.player;
+    if (!from) return err("Check in first");
+    if (state.frozen) return err("The board is frozen");
+    if (!ROSTER.includes(to)) return err("Unknown player");
+    if (to === from) return err("Pick someone else");
+    const g = game || "quickdraw";
+    if (!DUEL_GAMES[g]) return err("Unknown game");
+    state.duels = state.duels || [];
+    const live = state.duels.filter(d => d.status === "open" && !resolveDuel(d).settled);
+    if (live.find(d => (d.from === from && d.to === to) || (d.from === to && d.to === from)))
+      return err(`You already have a duel going with ${disp(state, to)}`);
+    const day = 24 * 60 * 60 * 1000;
+    if (state.duels.filter(d => d.from === from && d.status !== "declined" && d.ts > Date.now() - day).length >= 3)
+      return err("Three challenges a day, max");
+    /* both antes must be covered: points minus wager exposure minus live duel antes */
+    const events = allEventsOf(state);
+    const rows = computeStandings(state);
+    const spendable = p => (rows.find(r => r.player === p)?.pts ?? 0)
+      - atRisk(state, p, events)
+      - live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
+    if (spendable(from) < DUEL_STAKE) return err("Not enough points");
+    if (spendable(to) < DUEL_STAKE) return err(`${disp(state, to)} can't cover the ante`);
+    state.duels.unshift({ id: "du" + Date.now() + Math.floor(Math.random() * 9999), game: g,
+      from, to, stake: DUEL_STAKE, status: "open", runs: {}, ts: Date.now() });
+    return ok();
+  },
+  playDuel(state, { id, ms, foul }, ctx) {
+    const p = ctx.player;
+    if (!p) return err("Check in first");
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (d.status !== "open") return err("Duel is closed");
+    if (p !== d.from && p !== d.to) return err("Not your duel");
+    if (d.runs[p]) return err("You already drew");
+    const f = !!foul;
+    const m = Math.round(Number(ms));
+    if (!f && !(m >= 80 && m <= 5000)) return err("Bad time");
+    d.runs[p] = { ms: f ? null : m, foul: f, ts: Date.now() };
+    return ok();
+  },
+  declineDuel(state, { id }, ctx) {
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (d.status !== "open") return err("Already closed");
+    if (ctx.player !== d.to && !ctx.isGm) return err("Not your duel");
+    if (Object.keys(d.runs).length) return err("Already in play");
+    d.status = "declined";
+    return ok();
+  },
+  voidDuel(state, { id }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    d.status = "void";
     return ok();
   },
 

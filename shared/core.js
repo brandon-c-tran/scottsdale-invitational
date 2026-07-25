@@ -183,10 +183,17 @@ const DRAW_METHODS = [
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
+/* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
+   your own phone, the pot settles itself. Both ante DUEL_STAKE. */
+const DUEL_STAKE = 1;
+const DUEL_GAMES = {
+  quickdraw: { name:"Quick Draw", desc:"Hold steady. Tap when the screen flashes. Jump early and you forfeit." },
+};
+
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, drafts:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
+  stages:{}, drafts:{}, duels:[], profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
   eventEdits:{}, eventOrder:[], updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
@@ -286,9 +293,21 @@ function resolveWager(state, w, events) {
   return { status:"void", delta:0 };
 }
 
+/* duel outcome is DERIVED from the two stored runs, never written. A foul
+   loses to a clean draw; two fouls or identical times push, chips go back. */
+function resolveDuel(duel) {
+  if (duel.status !== "open") return { settled:false, status:duel.status };
+  const a = duel.runs?.[duel.from], b = duel.runs?.[duel.to];
+  if (!a || !b) return { settled:false, status:"open" };
+  const score = r => (r.foul ? Infinity : r.ms);
+  if (score(a) === score(b)) return { settled:true, push:true };
+  const winner = score(a) < score(b) ? duel.from : duel.to;
+  return { settled:true, push:false, winner, loser: winner === duel.from ? duel.to : duel.from };
+}
+
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {};
-  ROSTER.forEach(p => { pts[p] = 5; wins[p] = 0; betNet[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {};
+  ROSTER.forEach(p => { pts[p] = 5; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
@@ -305,8 +324,14 @@ function computeStandings(state) {
       if (pts[w.player] !== undefined) { pts[w.player] += r.delta; betNet[w.player] += r.delta; }
     }
   });
+  (state.duels || []).forEach(d => {
+    const r = resolveDuel(d);
+    if (!r.settled || r.push) return;
+    if (pts[r.winner] !== undefined) { pts[r.winner] += d.stake; duelNet[r.winner] += d.stake; }
+    if (pts[r.loser] !== undefined) { pts[r.loser] -= d.stake; duelNet[r.loser] -= d.stake; }
+  });
   (state.adjustments || []).forEach(a => { if (pts[a.player] !== undefined) pts[a.player] += a.delta; });
-  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p] }))
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p] }))
     .sort((x,y) => y.pts - x.pts || y.wins - x.wins || x.player.localeCompare(y.player));
   let rank = 0, prev = null;
   rows.forEach((r,i) => { if (r.pts !== prev) { rank = i+1; prev = r.pts; } r.rank = rank; });
@@ -419,8 +444,8 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
+  DRAW_METHODS, OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
+  resolveWager, resolveDuel, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

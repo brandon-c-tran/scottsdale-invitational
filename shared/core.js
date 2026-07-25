@@ -9,20 +9,29 @@ const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","R
 
 const AWARDS = { 1:[1,0,0], 2:[2,1,0], 3:[3,2,1], 4:[4,2,1], 6:[6,3,1] };
 
+/* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
-  { id:"bball",  label:"Basketball" },
-  { id:"volley", label:"Volleyball" },
-  { id:"spike",  label:"Spikeball" },
-  { id:"golf",   label:"Putting" },
-  { id:"pool",   label:"Pool" },
-  { id:"kart",   label:"Mario Kart" },
+  { id:"bball",      label:"Basketball",  group:"sport" },
+  { id:"volley",     label:"Volleyball",  group:"sport" },
+  { id:"spike",      label:"Spikeball",   group:"sport" },
+  { id:"golf",       label:"Putting",     group:"sport" },
+  { id:"pool",       label:"Pool",        group:"sport" },
+  { id:"pingpong",   label:"Ping Pong",   group:"sport" },
+  { id:"foosball",   label:"Foosball",    group:"sport" },
+  { id:"pickleball", label:"Pickleball",  group:"sport" },
+  { id:"kart",       label:"Mario Kart",  group:"drink" },
+  { id:"pong",       label:"Beer Pong",   group:"drink" },
+  { id:"die",        label:"Beer Die",    group:"drink" },
+  { id:"flip",       label:"Flip Cup",    group:"drink" },
+  { id:"cage",       label:"Rage Cage",   group:"drink" },
 ];
+/* worst first so meters fill left to right */
 const RATINGS = [
-  { v:4,   label:"Elite" },
-  { v:3,   label:"Solid" },
-  { v:2,   label:"Average" },
-  { v:1.5, label:"Rough" },
   { v:1,   label:"Never played" },
+  { v:1.5, label:"Rough" },
+  { v:2,   label:"Average" },
+  { v:3,   label:"Solid" },
+  { v:4,   label:"Elite" },
 ];
 
 const SESSIONS = [
@@ -30,118 +39,134 @@ const SESSIONS = [
   { id:"sam", label:"Saturday Morning",   tag:"2 PTS" },
   { id:"sap", label:"Saturday Afternoon", tag:"3 PTS" },
   { id:"san", label:"Saturday Night",     tag:"4 PTS" },
-  { id:"fin", label:"The Finale",         tag:"6 · 3 · 1" },
+  { id:"fin", label:"The Finale",         tag:"6 / 3 / 1" },
 ];
 
+/* events reference a GAMES entry by `game` for the how-to; `variant` picks the
+   tab inside a multi-variant game like basketball */
 const BUILTIN_EVENTS = [
   /* ── Friday night · 1 pt ── */
-  { id:"putt", n:1, session:"fri", value:1, name:"Long Putt", kind:"solo", sport:"golf",
-    desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death.",
-    howto:{ players:"Solo", gear:["Putter","One ball","One spot"],
-      objective:"Sink it, or park it closest to the pin.",
-      steps:["Set up at the marked spot.","Take three putts total.","Keep your best of the three.","Closest to the hole wins."],
-      win:"Closest ball wins. A made putt beats any miss.", house:"Ties go to sudden death, one putt each." } },
-  { id:"8ball", n:2, session:"fri", value:1, name:"8-Ball Doubles", kind:"pairs", sport:"pool",
+  { id:"putt", n:1, session:"fri", value:1, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
+    desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
+  { id:"8ball", n:2, session:"fri", value:1, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches.",
-    howto:{ players:"Pairs, single elim", gear:["Pool table","Full rack","Two cues"],
-      objective:"Clear your group, then sink the 8.",
-      steps:["Break, then split stripes and solids.","Partners alternate shots.","Clear your group of seven.","Call and sink the 8 to win."],
-      win:"First pair to legally pot the 8 takes the rack.", house:"A scratch hands ball in hand to the other pair." } },
-  { id:"pong", n:3, session:"fri", value:1, name:"Beer Pong Doubles", kind:"pairs",
+    desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
+  { id:"pong", n:3, session:"fri", value:1, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final.",
-    howto:{ players:"Pairs, single elim", gear:["Table","Ten cups","Two balls"],
-      objective:"Sink every cup on the far end first.",
-      steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted.","Clear their last cup to win."],
-      win:"First pair to sink all their cups wins.", house:"Redemption throw in the semis and final." } },
-  { id:"die", n:4, session:"fri", value:1, name:"Beer Die", kind:"pairs",
+    desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
+  { id:"die", n:4, session:"fri", value:1, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill.",
-    howto:{ players:"Pairs, single elim", gear:["Table","One die","Four cups","A pour"],
-      objective:"Land the die in their cup, or make them flub the catch.",
-      steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table, no darting it, no skying it.","They catch it one-handed off the bounce, or you score.","Sink it in a cup for the instant kill."],
-      win:"First pair to the set score wins. Sinking the die ends it on the spot.",
-      house:"Call your own height on the toss. A plunk means chug." } },
+    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
   /* ── Saturday morning · 2 pts ── */
-  { id:"bball", n:5, session:"sam", value:2, name:"3v3 Basketball", kind:"team", sport:"bball",
+  { id:"bball", n:5, session:"sam", value:2, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
     teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls.",
-    howto:{ players:"Teams of three", gear:["Half court","One ball"],
-      objective:"Outscore them to seven.",
-      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","First to seven, win by one."],
-      win:"First team to seven wins.", house:"Call your own fouls. No blood, no foul." } },
-  { id:"spike", n:6, session:"sam", value:2, name:"Spikeball Doubles", kind:"pairs", sport:"spike",
+    desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
+  { id:"spike", n:6, session:"sam", value:2, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
     teamCfg:{ teams:6, size:2 },
-    desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15.",
-    howto:{ players:"Pairs, two pools", gear:["Spikeball net","One ball"],
-      objective:"Force them to miss the net.",
-      steps:["Serve to the returner.","Three touches to hit the net back.","Move any direction after the serve.","A miss or bad hit ends the point."],
-      win:"To eleven, win by two, cap fifteen.", house:"Two pools, the winners meet in the final." } },
-  { id:"pingpong", n:7, session:"sam", value:2, name:"Ping Pong", kind:"solo",
-    desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two.",
-    howto:{ players:"Heats, then a final", gear:["Table","Paddles","One ball"],
-      objective:"Win points until eleven.",
-      steps:["Play through your heat.","Serve two, then hand it over.","Let it bounce once your side.","Top finishers reach the final."],
-      win:"Games to eleven, win by two. Best in the final takes it.", house:"Serve must clear the net and bounce once each side." } },
-  { id:"foosball", n:8, session:"sam", value:2, name:"Foosball", kind:"pairs",
+    desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
+  { id:"pingpong", n:7, session:"sam", value:2, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
+    desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
+  { id:"foosball", n:8, session:"sam", value:2, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals.",
-    howto:{ players:"Pairs, single elim", gear:["Foosball table","One ball"],
-      objective:"Score on their goal, defend yours.",
-      steps:["Split the rods with your partner.","Serve through the side hole.","Pass and shoot, no spinning the rods.","Ball in their goal scores."],
-      win:"First pair to ten goals wins.", house:"A full spin wipes the goal. Dead ball resets to serve." } },
+    desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
   /* ── Saturday afternoon · 3 pts ── */
-  { id:"volley", n:9, session:"sap", value:3, name:"Sand Volleyball", kind:"team", sport:"volley",
+  { id:"volley", n:9, session:"sap", value:3, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:2, size:6 },
-    desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers.",
-    howto:{ players:"Two teams of six", gear:["Sand court","Net","One ball"],
-      objective:"Ground the ball on their side.",
-      steps:["Serve from behind the line.","Three touches a side, max.","Rotate on every side-out.","Win the rally, win the point."],
-      win:"Best two of three sets to fifteen, win by two, cap seventeen.", house:"Open hands, clean contact only." } },
-  { id:"nine", n:10, session:"sap", value:3, name:"Nine-Hole Putting", kind:"solo", sport:"golf",
-    desc:"Nine holes, lowest total strokes. Max 5 per hole.",
-    howto:{ players:"Solo", gear:["Putter","One ball"],
-      objective:"Post the lowest total across nine holes.",
-      steps:["Play the nine holes in order.","Count every stroke.","Cap a blow-up hole at five.","Lowest total wins."],
-      win:"Fewest total strokes takes it.", house:"Max five per hole, then pick up." } },
-  { id:"pickleball", n:12, session:"sap", value:3, name:"Pickleball", kind:"pairs",
+    desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
+  { id:"nine", n:10, session:"sap", value:3, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
+    desc:"Nine holes, lowest total strokes. Max 5 per hole." },
+  { id:"bball1", n:11, session:"sap", value:3, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+    desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
+  { id:"pickleball", n:12, session:"sap", value:3, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2.",
-    howto:{ players:"Pairs, single elim", gear:["Court","Paddles","One ball"],
-      objective:"Win the rally without faulting in the kitchen.",
-      steps:["Serve underhand, cross court, past the kitchen.","Let it bounce once each side before volleying.","Stay out of the kitchen on volleys.","Only the serving side scores."],
-      win:"Games to eleven, win by two.", house:"Foot in the kitchen on a volley loses the rally." } },
+    desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
   /* ── Saturday night · 4 pts ── */
-  { id:"flip", n:13, session:"san", value:4, name:"Flip Cup", kind:"team",
+  { id:"flip", n:13, session:"san", value:4, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
     teamCfg:{ teams:2, size:6 },
-    desc:"Best of 3. Flip clean, next teammate goes.",
-    howto:{ players:"Two teams of six", gear:["Cups","A table","A pour each"],
-      objective:"Finish the line and flip clean before they do.",
-      steps:["Line up across the table.","Drink, then set the cup on the edge.","Flip it upright with one finger.","Land it, the next teammate goes."],
-      win:"First team down the line wins the round. Best of three.", house:"No flip until your cup is empty." } },
-  { id:"beerio", n:14, session:"san", value:4, name:"Beerio Kart", kind:"solo", sport:"kart",
-    desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins.",
-    howto:{ players:"Heats of four", gear:["Switch","Four controllers","A beer each"],
-      objective:"Win the race, but finish your beer to count.",
-      steps:["Draw into a heat of four.","Crack a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before you cross to count the finish."],
-      win:"Best finishes advance to the final. Highest total wins.", house:"Cross with beer left and you wait there until it is gone." } },
-  { id:"bball5", n:15, session:"san", value:4, name:"5v5 Full Court", kind:"team",
+    desc:"Best of 3. Flip clean, next teammate goes." },
+  { id:"beerio", n:14, session:"san", value:4, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+    desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
+  { id:"bball5", n:15, session:"san", value:4, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:5 },
-    desc:"Full court, five a side. Make it take it, first to the set score, win by 2. Call your own fouls.",
-    howto:{ players:"Two teams of five", gear:["Full court","One ball"],
-      objective:"Outscore them the length of the floor.",
-      steps:["Tip off to start.","Ones and twos, make it take it.","Clear past half on a turnover.","Play to the set score, win by two."],
-      win:"First team to the set score, win by two.", house:"Call your own fouls. Keep it clean, it is a long weekend." } },
+    desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
+  { id:"ragecage", n:16, session:"san", value:4, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+    desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
   /* ── The Finale · 6 / 3 / 1 ── */
-  { id:"ragecage", n:16, session:"fin", value:6, name:"Rage Cage", kind:"solo", finale:true,
-    desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins.",
-    howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
-      objective:"Never get caught holding a ball. Empty the ring before you.",
-      steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Last player standing wins the weekend."],
-      win:"Last one standing takes the crown. Elimination order sets 2nd and 3rd.",
-      house:"Sink the center cup to end the game. Miss it and you drink it." } },
+  { id:"gauntlet", n:17, session:"fin", value:6, name:"The Gauntlet", kind:"solo", finale:true, game:"gauntlet",
+    desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
 ];
+
+/* the games library: one how-to per game, shared across events */
+const GAMES = {
+  putting: { name:"Putting", howto:{ players:"Solo", gear:["Putter","One ball"],
+    objective:"Sink it, or finish closest to the pin.",
+    steps:["Set up at the marked spot.","Putt for the hole, distance counts.","Closest ball beats a miss, a make beats everything.","Lowest strokes or closest putt wins, by event."],
+    win:"Long Putt: closest of three attempts. Nine-Hole: fewest total strokes. Ties go to sudden death." } },
+  "8ball": { name:"8-Ball", howto:{ players:"Pairs", gear:["Pool table","Full rack","Two cues"],
+    objective:"Clear your group, then sink the 8.",
+    steps:["Break, then split stripes and solids.","Partners alternate shots.","Clear your group of seven. A scratch is ball in hand for them.","Call and sink the 8 to win."],
+    win:"First pair to legally pot the 8 takes the rack." } },
+  pong: { name:"Beer Pong", howto:{ players:"Pairs", gear:["Table","Ten cups","Two balls"],
+    objective:"Sink every cup on the far end first.",
+    steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted.","Clear their last cup to win."],
+    win:"First pair to sink all their cups wins.", house:"Redemption throw in the semis and final." } },
+  die: { name:"Beer Die", howto:{ players:"Pairs", gear:["Table","One die","Four cups","A pour"],
+    objective:"Land the die in their cup, or make them flub the catch.",
+    steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table, no darting it, no skying it.","They catch it one-handed off the bounce, or you score.","Sink it in a cup for the instant kill."],
+    win:"First pair to the set score wins. Sinking the die ends it on the spot.",
+    house:"Call your own height on the toss. A plunk means chug." } },
+  basketball: { name:"Basketball", variants:[
+    { id:"1v1", label:"1v1", howto:{ players:"Solo, heats then a final", gear:["Half court","One ball"],
+      objective:"Beat your man to five.",
+      steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls.","First to five, win by one."],
+      win:"First to five wins the game. Best record in your heat moves on." } },
+    { id:"3v3", label:"3v3", howto:{ players:"Teams of three", gear:["Half court","One ball"],
+      objective:"Outscore them to seven.",
+      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls.","First to seven, win by one."],
+      win:"First team to seven wins." } },
+    { id:"5v5", label:"5v5", howto:{ players:"Two teams of five", gear:["Full court","One ball","A clock"],
+      objective:"Be ahead when the horn sounds.",
+      steps:["Tip off to start.","Twos inside the arc, threes beyond it.","Clear past half on a change of possession.","Call your own fouls.","Two halves, running clock."],
+      win:"Ahead at the horn wins.", house:"No hard contact." } },
+  ]},
+  spikeball: { name:"Spikeball", howto:{ players:"Pairs", gear:["Spikeball net","One ball"],
+    objective:"Force them to miss the net.",
+    steps:["Serve to the returner.","Three touches to hit the net back.","Move any direction after the serve.","A miss or bad hit ends the point."],
+    win:"To eleven, win by two, cap fifteen." } },
+  pingpong: { name:"Ping Pong", howto:{ players:"Solo", gear:["Table","Paddles","One ball"],
+    objective:"Win points until eleven.",
+    steps:["Rally for serve, then serve two and hand it over.","Serve must clear the net and bounce once each side.","Let it bounce once on your side before returning.","Games to eleven, win by two."],
+    win:"Games to eleven, win by two. Best in the final takes it." } },
+  foosball: { name:"Foosball", howto:{ players:"Pairs", gear:["Foosball table","One ball"],
+    objective:"Score on their goal, defend yours.",
+    steps:["Split the rods with your partner.","Serve through the side hole.","Pass and shoot. A full spin wipes the goal.","Dead ball resets to the serve.","Ball in their goal scores."],
+    win:"First pair to ten goals wins." } },
+  volleyball: { name:"Volleyball", howto:{ players:"Two teams", gear:["Sand court","Net","One ball"],
+    objective:"Ground the ball on their side.",
+    steps:["Serve from behind the line.","Three touches a side, clean contact only.","Rotate on every side-out.","Win the rally, win the point."],
+    win:"Best two of three sets to fifteen, win by two, cap seventeen." } },
+  pickleball: { name:"Pickleball", howto:{ players:"Pairs", gear:["Court","Paddles","One ball"],
+    objective:"Win the rally without faulting in the kitchen.",
+    steps:["Serve underhand, cross court, past the kitchen.","Let it bounce once each side before volleying.","Stay out of the kitchen on volleys.","Only the serving side scores."],
+    win:"Games to eleven, win by two." } },
+  flipcup: { name:"Flip Cup", howto:{ players:"Two teams", gear:["Cups","A table","A pour each"],
+    objective:"Finish the line and flip clean before they do.",
+    steps:["Line up across the table.","Drink it all, then set the cup on the edge.","Flip it upright with one finger.","Land it, the next teammate goes."],
+    win:"First team down the line wins the round. Best of three." } },
+  beerio: { name:"Beerio Kart", howto:{ players:"Heats of four", gear:["Switch","Four controllers","A beer each"],
+    objective:"Win the race, but finish your beer to count.",
+    steps:["Draw into a heat of four.","Crack a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the line, or sit there until it is gone."],
+    win:"Best finishes advance to the final. Highest total wins." } },
+  ragecage: { name:"Rage Cage", howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
+    objective:"Never get caught holding a ball. Empty the ring before you.",
+    steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it. Last player standing wins."],
+    win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
+  gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
+    objective:"Clear five stations faster than everyone else.",
+    steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
+    win:"Fastest clean run takes 1st. The clock settles ties.",
+    house:"One runner at a time. The room keeps time." } },
+};
 
 const SLOT_META = [
   { label:"1st", team:"Winners",    color:"var(--gold)" },
@@ -158,7 +183,9 @@ const DRAW_METHODS = [
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
-const EMPTY_STATE = { v:5, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
+const SIZES = ["S", "M", "L", "XL", "XXL"];
+
+const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
   eventEdits:{}, eventOrder:[], updatedAt:0 };
 
@@ -182,7 +209,12 @@ const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--
 /* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
 const snakeTeam = (k, T) => { const r = Math.floor(k / T), p = k % T; return r % 2 === 0 ? p : T - 1 - p; };
 
+/* mascot bank for teams of 3+; assigned at draw time, stable for the event */
+const TEAM_NAMES = ["The Sidewinders","The Javelinas","The Roadrunners","The Coyotes","The Scorpions",
+  "The Gila Monsters","The Jackrabbits","The Rattlers","The Dust Devils","The Bobcats","The Vultures","The Quail"];
+
 function teamLabel(state, t) {
+  if (t.name) return t.name;
   const names = t.players.map(p => disp(state, p));
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} & ${names[1]}`;
@@ -341,7 +373,9 @@ function drawTeams(ev, method, seeds, players) {
       groups = groups.map(g => shuffle(g));
     }
   }
-  return { id:"d"+Date.now(), method, ts:Date.now(), teams: groups.map(players => ({ players })) };
+  const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+  return { id:"d"+Date.now(), method, ts:Date.now(),
+    teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
 }
 
 function splitIntoGroups(keys, nGroups, method, skillOf) {
@@ -385,7 +419,7 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE,
+  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,

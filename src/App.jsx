@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT,
+  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT, SIZES, GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
@@ -322,11 +322,11 @@ export default function App() {
           const ev = latest && events.find(e => e.id === latest.eid);
           const idx = latest ? latest.res.slots.findIndex(s => (s || []).includes(me)) : -1;
           const award = ev && idx >= 0 ? AWARDS[ev.value][idx] : 0;
-          if (award > 0) notify(`You took ${["1st","2nd","3rd"][idx]} · +${award}`, null, "gold");
+          if (award > 0) notify(`You took ${["1st","2nd","3rd"][idx]}, +${award}`, null, "gold");
         }
         if (lastAction === "adjust") {
           const a = state.adjustments?.[0];
-          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? " · " + a.reason : ""}`,
+          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? ", " + a.reason : ""}`,
             null, a.delta > 0 ? "gold" : undefined);
         }
       }
@@ -417,7 +417,7 @@ export default function App() {
       const key = `${eid}:${d.picks.length}`;
       if (draftNudge.current === key) return;
       draftNudge.current = key;
-      notify(`You're on the clock · ${events.find(e => e.id === eid)?.name || "draft"}`, null, "gold");
+      notify(`You're on the clock for ${events.find(e => e.id === eid)?.name || "the draft"}`, null, "gold");
       return;
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
@@ -430,9 +430,10 @@ export default function App() {
   });
 
   const saveProfile = (p, prof) => {
-    act("saveProfile", { player: p, display: prof.display });
+    act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
+  const setLive = on => act("setLive", { on });
   const saveSeeds = r => act("saveSeeds", { player: me, ratings: r });
   const saveResult = (ev, slots) => act("saveResult", { evId: ev.id, slots });
   const clearResult = ev => act("clearResult", { evId: ev.id });
@@ -464,7 +465,8 @@ export default function App() {
   const toggleThrough = (evId, g, key) => act("toggleThrough", { evId, g, key });
   const setFinalWinner = (evId, key) => act("setFinalWinner", { evId, key });
   const pickBracketWinner = (evId, r, m, teamIdx) => act("pickBracketWinner", { evId, r, m, teamIdx });
-  const placeWager = w => act("placeWager", { wager: w }, "Wager placed");
+  const placeWager = w => act("placeWager", { wager: w }, "Chip down");
+  const retractWager = id => act("retractWager", { id }, "Chip back");
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
@@ -610,14 +612,14 @@ export default function App() {
     if (ev.teamCfg && !state.draws[ev.id])
       return { label:`Draw ${ev.name}`, run:() => runDraw(ev, "random", ROSTER) };
     if (state.onDeck !== ev.id)
-      return { label:`Open betting · ${ev.name}`, run:() => setOnDeck(ev.id) };
+      return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
     const br = state.brackets[ev.id];
     if (br && bracketChampion(br) === null)
       return { label:`Advance the ${ev.name} bracket`, run:() => setModal({type:"bracket", ev}) };
     const st = state.stages[ev.id];
     if (st && (!stageFinalists(st) || st.finalWinner === null || st.finalWinner === undefined))
       return { label:`Advance the ${st.kind === "heats" ? "heats" : "pools"}`, run:() => setModal({type:"event", ev}) };
-    return { label:`Post result · ${ev.name}`, run:() => setModal({type:"result", ev}) };
+    return { label:`Post the ${ev.name} result`, run:() => setModal({type:"result", ev}) };
   })();
 
   if (tv) {
@@ -700,19 +702,23 @@ export default function App() {
 
       <div style={{ flex:1, overflowY:"auto", paddingTop:12,
         paddingBottom:`calc(${gm && qa ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
-        {tab === "board" && <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-          champion={champion} coChamps={coChamps} gm={gmView} events={events}
-          myAtRisk={me ? atRisk(state, me, events) : 0}
-          onOpen={ev => setModal({type:"event", ev})}
-          onAdjust={p => setModal({type:"adjust", player:p})}
-          onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
-          finaleDone={!!state.results[events.find(e => e.finale)?.id]} />}
+        {tab === "board" && (state.live
+          ? <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
+              champion={champion} coChamps={coChamps} gm={gmView} events={events}
+              myAtRisk={me ? atRisk(state, me, events) : 0}
+              onOpen={ev => setModal({type:"event", ev})}
+              onAdjust={p => setModal({type:"adjust", player:p})}
+              onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
+              finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
+          : <LockerRoom state={state} me={me} gm={gmView}
+              onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)} />)}
         {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
           onDeckEv={onDeckEv}
-          onPick={pick => setModal({type:"placeWager", pick})}
+          onPick={pick => placeWager({ ...pick, stake: 1 })}
+          onRetract={id => retractWager(id)}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} events={events} />}
       </div>
@@ -761,8 +767,13 @@ export default function App() {
         save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
-          <p style={pStyle}>Draws, heats, pools, and results run from Events. Opening betting puts an event on deck. Rulings from the Board. Commissioner controls show real names.</p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            {state.onDeck && (
+              <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
+                Close betting</Btn>
+            )}
+            <Btn kind="dark" onClick={() => { setLive(!state.live); setModal(null); }}>
+              {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
             <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
@@ -804,9 +815,6 @@ export default function App() {
         save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
       {modal?.type === "addEvent" && <AddEventSheet state={state} onClose={() => setModal(null)}
         save={ev => { addCustomEvent(ev); setModal(null); notify(`${ev.name} added`); }} />}
-      {modal?.type === "placeWager" && <PlaceWagerSheet state={state} me={me} standings={standings}
-        events={events} pick={modal.pick} onClose={() => setModal(null)}
-        place={w => { setModal(null); placeWager(w); }} />}
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
       {modal?.type === "freeze" && (
@@ -876,11 +884,31 @@ function Shell({ children, tv }) {
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(192,91,51,0.22);} 50% { box-shadow:0 0 50px rgba(188,75,60,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
         @keyframes si-die-arc {
-          0%   { transform: translate(4px,30px)   rotate(0deg); }
-          38%  { transform: translate(60px,-6px)  rotate(200deg); }
-          60%  { transform: translate(96px,30px)  rotate(320deg); }
-          72%  { transform: translate(112px,16px) rotate(370deg); }
-          100% { transform: translate(132px,30px) rotate(420deg); }
+          0%   { transform: translate(0px,30px)   rotate(0deg); }
+          12%  { transform: translate(18px,2px)   rotate(80deg); }
+          24%  { transform: translate(38px,-12px) rotate(160deg); }
+          36%  { transform: translate(58px,-6px)  rotate(240deg); }
+          48%  { transform: translate(78px,12px)  rotate(310deg); }
+          56%  { transform: translate(90px,30px)  rotate(350deg); }
+          64%  { transform: translate(102px,14px) rotate(380deg); }
+          74%  { transform: translate(114px,10px) rotate(400deg); }
+          84%  { transform: translate(126px,24px) rotate(415deg); }
+          90%, 100% { transform: translate(132px,30px) rotate(420deg); }
+        }
+        @keyframes si-pong-arc {
+          0%   { transform: translate(0px,26px);   opacity:1; }
+          30%  { transform: translate(50px,-12px); opacity:1; }
+          55%  { transform: translate(96px,0px);   opacity:1; }
+          70%  { transform: translate(116px,16px); opacity:1; }
+          80%, 100% { transform: translate(121px,30px); opacity:0; }
+        }
+        @keyframes si-flip-cup {
+          0%, 14%   { transform: translate(0,0) rotate(0deg); }
+          44%       { transform: translate(0,-26px) rotate(-120deg); }
+          62%       { transform: translate(0,-6px) rotate(-180deg); }
+          70%       { transform: translate(0,0) rotate(-180deg); }
+          76%       { transform: translate(0,-4px) rotate(-180deg); }
+          82%, 100% { transform: translate(0,0) rotate(-180deg); }
         }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
@@ -920,11 +948,25 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [ratings, setRatings] = useState({});
   const [display, setDisplay] = useState("");
   const [photo, setPhoto] = useState(null);
-  useEffect(() => { if (me) setDisplay(state.profiles?.[me]?.display || me); }, [me]); // eslint-disable-line
+  const [num, setNum] = useState("");
+  const [size, setSize] = useState(null);
+  useEffect(() => {
+    if (!me) return;
+    const pr = state.profiles?.[me];
+    setDisplay(pr?.display || me);
+    setNum(pr?.num != null ? String(pr.num) : "");
+    setSize(pr?.size ?? null);
+  }, [me]); // eslint-disable-line
   const cards = {
-    3: { art:<FDMark size={54} />, t:"One board", b:"13 players, one board, all weekend. Every event and every bet moves it. Everyone starts with 5.", meter:true },
-    4: { art:<ArtTicket />, t:"Bets", b:"When an event opens, back anyone to win it, even yourself. Winner pays 2 to 1. Stakes of 1 to 3. It settles itself." },
-    5: { art:<ArtStar />, t:"Saturday night", b:"The Finale pays big, then the champion is crowned. Glance for ten seconds, get back out there." },
+    3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 5 points. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
+    4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, stakes run 1 to 3, and everything settles automatically once the result posts." },
+    5: { art:<ArtStar />, t:"The Finale", b:"The Finale pays 6 / 3 / 1 to the top three finishers. Whoever leads the board after it takes the championship." },
+    6: { art:<FDMark size={54} />, t:"Four tabs", b:"Everything lives one tap away.", tabs:[
+      ["Board","Standings, live as results post."],
+      ["Events","The schedule. Draws, brackets, and results run here."],
+      ["Bets","Back anyone when betting opens."],
+      ["Rules","Scoring, wagers, and how to play every game."],
+    ]},
   };
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -932,7 +974,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, lineHeight:1.6, marginBottom:22 }}>
-        First move: put this on your home screen. Full screen, no browser bar, there all weekend.
+        This runs best from your home screen. Add it once and it opens full screen, like any other app.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginTop:18, lineHeight:1.6 }}>
@@ -947,10 +989,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · October 2026</div>
-      <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:15, marginBottom:28 }}>
-        13 players. One board. A champion Saturday night.
-      </div>
+      <div style={{ margin:"10px 0 28px" }}><Wordmark size={46} /></div>
       <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"auto" }}>
         {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => pick(p)} />)}
@@ -958,7 +997,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:15, padding:"15px" }}>Check in</Btn>
       {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
         fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--accent2)", alignSelf:"center" }}>
-        On the big screen? Open TV mode</button>}
+        TV mode</button>}
     </div>
   );
   if (step === 1) return (
@@ -967,9 +1006,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Your card</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 16px" }}>
         Set up your profile</div>
-      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
+      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
+        num={num} setNum={setNum} size={size} setSize={setSize} />
       <div style={{ marginTop:"auto" }}>
-        <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(), ...(photo ? {photo} : {}) }); next(); }}
+        <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
+            num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) }); next(); }}
           style={{ width:"100%", fontSize:15, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
@@ -979,29 +1020,36 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-        <div style={label}>Scouting report · sealed</div>
+        <div style={label}>Sealed scouting report</div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, color:"var(--cream)", margin:"6px 0 6px" }}>Rate yourself</div>
         <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
           Nobody sees this. It only balances draws and heats.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
-          {SPORTS.map(s => (
-            <div key={s.id} style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, letterSpacing:"0.06em",
-                color:"var(--cream)", marginBottom:6 }}>{s.label}</div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
-                {RATINGS.map(r => (
-                  <button key={r.label} onClick={() => setRatings(x => ({...x, [s.id]: r.v}))}
-                    style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"11px 2px", borderRadius:9,
-                      cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.02em",
-                      background: ratings[s.id] === r.v ? "var(--sun)" : "var(--paper)",
-                      color:"var(--ink)",
-                      border: ratings[s.id] === r.v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
-                    {r.label}
-                  </button>
-                ))}
+          {[["sport","Sports"],["drink","Drinking games"]].map(([gid, glabel]) => (
+          <div key={gid}>
+          <div style={{ ...label, margin: gid === "sport" ? "0 0 2px" : "16px 0 2px" }}>{glabel}</div>
+          {SPORTS.filter(s => s.group === gid).map(s => {
+            const idx = RATINGS.findIndex(r => r.v === ratings[s.id]);
+            return (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
+                borderBottom:"1px solid var(--line)" }}>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)", width:92 }}>{s.label}</div>
+                <div style={{ display:"flex", gap:7, flex:1 }}>
+                  {RATINGS.map((r, i) => (
+                    <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))} aria-label={r.label}
+                      style={{ width:34, height:34, borderRadius:"50%", cursor:"pointer", padding:0,
+                        background: idx >= 0 && i <= idx ? "var(--sun)" : "var(--paper)",
+                        border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                        transition:"background .12s" }} />
+                  ))}
+                </div>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, width:88, textAlign:"right",
+                  color: idx >= 0 ? "var(--accent2)" : "var(--muted)" }}>{idx >= 0 ? RATINGS[idx].label : ""}</div>
               </div>
-            </div>
+            );
+          })}
+          </div>
           ))}
         </div>
         <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
@@ -1016,6 +1064,19 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ marginBottom:16 }}>{c.art}</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--cream)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)" }}>{c.b}</div>
+      {c.tabs && (
+        <div style={{ marginTop:20 }}>
+          {c.tabs.map(([t, d]) => (
+            <div key={t} style={{ display:"flex", alignItems:"center", gap:14, padding:"10px 0",
+              borderBottom:"1px solid var(--line)" }}>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
+                textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:99,
+                padding:"7px 14px", flexShrink:0 }}>{t}</span>
+              <span style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)" }}>{d}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {c.meter && (
         <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
           {[["Fri",1],["Sat AM",2],["Sat PM",3],["Sat Nite",4],["Finale",6]].map(([lb,v]) => (
@@ -1031,20 +1092,22 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
-          {[3,4,5].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
+          {[3,4,5,6].map(i => <div key={i} style={{ width:22, height:3, borderRadius:2, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
         </div>
-        <Btn onClick={step === 5 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
-          {step === 5 ? "I'm in" : "Next"}
+        <Btn onClick={step === 6 ? done : next} style={{ fontSize:15, padding:"14px 28px" }}>
+          {step === 6 ? "I'm in" : "Next"}
         </Btn>
       </div>
     </div>
   );
 }
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize }) {
   const fileRef = useRef(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
+  const takenBy = num !== "" ? Object.entries(state.profiles || {})
+    .find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
   const onFile = e => {
     const f = e.target.files?.[0]; if (!f) return;
     const reader = new FileReader();
@@ -1075,15 +1138,95 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto }) {
             background:"var(--sun)", border:"1.5px solid var(--ink)", display:"flex", alignItems:"center", justifyContent:"center" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
         </button>
-        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", lineHeight:1.5 }}>
-          Photo is optional. It shows on the board, the bracket, and the TV.
-        </div>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
       </div>
       <div style={{ ...label, marginBottom:6 }}>Display name</div>
       <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
         style={{ width:"100%", background:"var(--panel2)", border:"1px solid var(--line)", borderRadius:12,
           padding:"13px 14px", color:"var(--cream)", fontFamily:SANS, fontWeight:600, fontSize:16, outline:"none" }} />
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
+        <div style={{ ...label, flex:1 }}>Jersey number</div>
+        <input value={num} inputMode="numeric" placeholder="00"
+          onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+          style={{ width:96, background:"var(--panel2)", borderRadius:12, textAlign:"center",
+            border: takenBy ? "1.5px solid var(--clay)" : "1px solid var(--line)",
+            padding:"11px 8px", color:"var(--cream)", fontFamily:DISPLAY, fontWeight:700, fontSize:22, outline:"none" }} />
+      </div>
+      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginTop:4, textAlign:"right" }}>
+        {disp(state, takenBy[0])} has {Number(num)}</div>}
+      <div style={{ ...label, margin:"14px 0 6px" }}>Shirt size</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+        {SIZES.map(s => (
+          <button key={s} onClick={() => setSize(size === s ? null : s)}
+            style={{ fontFamily:SANS, fontWeight:700, fontSize:14, padding:"13px 2px", borderRadius:10,
+              cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper)", color:"var(--ink)",
+              border: size === s ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{s}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
+function LockerRoom({ state, me, gm, onProfile, onStart }) {
+  const profs = state.profiles || {};
+  const inCount = ROSTER.filter(p => profs[p]).length;
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <div style={{ display:"flex", alignItems:"baseline", marginBottom:10 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
+          color:"var(--ink)", flex:1 }}>The roster</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--muted2)" }}>
+          {inCount} of {ROSTER.length} in</div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+        {ROSTER.map(p => {
+          const pr = profs[p];
+          return (
+            <button key={p} onClick={p === me ? onProfile : undefined}
+              style={{ background:"var(--paper)", borderRadius:13, padding:"12px 6px 10px", textAlign:"center",
+                border: p === me ? "1.5px solid var(--ink)" : "1px solid var(--line)",
+                cursor: p === me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
+                animation:"si-in .25s both" }}>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:9, position:"relative" }}>
+                <span style={{ position:"relative", display:"inline-block" }}>
+                  <Avatar state={state} p={p} size={54} ring={p === me} />
+                  {pr?.num != null && (
+                    <span style={{ position:"absolute", bottom:-6, left:"50%", transform:"translateX(-50%)",
+                      background:BONE, color:"var(--ink)", border:"1.5px solid var(--ink)", borderRadius:5,
+                      fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, lineHeight:1,
+                      padding:"2px 7px" }}>{pr.num}</span>
+                  )}
+                </span>
+              </div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</div>
+            </button>
+          );
+        })}
+      </div>
+      {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
+      {gm && (
+        <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
+          borderRadius:13, padding:"12px 13px" }}>
+          <div style={{ ...label, marginBottom:8 }}>Jersey sheet</div>
+          {ROSTER.map(p => {
+            const pr = profs[p];
+            return (
+              <div key={p} style={{ display:"flex", gap:10, alignItems:"center", padding:"5px 0",
+                borderBottom:"1px solid var(--line)", fontFamily:SANS, fontSize:13.5 }}>
+                <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, width:36,
+                  color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
+                  {pr?.num != null ? `#${pr.num}` : "?"}</span>
+                <span style={{ width:36, fontWeight:700, color: pr?.size ? "var(--ink)" : "var(--line)" }}>
+                  {pr?.size || "?"}</span>
+              </div>
+            );
+          })}
+          <Btn onClick={onStart} style={{ width:"100%", marginTop:12 }}>Start the weekend</Btn>
+        </div>
+      )}
     </div>
   );
 }
@@ -1113,7 +1256,7 @@ function ScenarioCard({ state, scen, me }) {
             <Avatar state={state} p={a.player} size={26} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:BONE, flex:1,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> · you</span>}</span>
+              {disp(state, a.player)}{a.player === me && <span style={{ opacity:0.6, fontSize:11.5 }}> (you)</span>}</span>
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, color:"#C9B896", marginRight:2 }}>{a.pts}</span>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
               textTransform:"uppercase", padding:"3px 8px", borderRadius:4,
@@ -1170,7 +1313,6 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--cream)" }}>All square at 5</div>
-          <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)" }}>The first result sets the board</div>
         </div>
       )}
       <div style={{ background:"var(--paper)", border:"1px solid rgba(42,33,25,0.3)", borderRadius:14,
@@ -1199,11 +1341,11 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize: first ? 16 : 14.5, color:"var(--ink)",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> · you</span>}
+                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12 }}> (you)</span>}
                 </div>
                 <div style={{ fontFamily:SANS, fontSize:11.5, color: first ? "rgba(42,33,25,0.65)" : "var(--muted)" }}>
-                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <> · wagers {r.betNet>0?"+":""}{r.betNet}</>}
-                  {isMe && myAtRisk > 0 && <> · <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
+                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <>, wagers {r.betNet>0?"+":""}{r.betNet}</>}
+                  {isMe && myAtRisk > 0 && <>, <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
                 </div>
               </div>
               {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:12.5,
@@ -1217,9 +1359,6 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
       </div>
       {gm && !champion && (
         <div style={{ padding:"14px 4px 8px", textAlign:"center" }}>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginBottom:10 }}>
-            Tap a player for a bonus or penalty
-          </div>
           <Btn kind={finaleDone ? "primary" : "ghost"} onClick={onFreeze}>Crown the champion</Btn>
         </div>
       )}
@@ -1249,7 +1388,7 @@ function ChampionCard({ state, champion, coChamps, big }) {
         {coChamps.map(c => disp(state, c.player)).join(" & ")}
       </div>
       <div style={{ fontFamily:SANS, fontWeight:600, color:"#D8C6A6", fontSize: big ? 19 : 13 }}>
-        {champion.pts} points · Field Day · Scottsdale 2026
+        {champion.pts} points
       </div>
       {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"#E5967F", fontSize: big ? 17 : 13 }}>
         Tied. One pressure putt on the green decides it.</div>}
@@ -1379,9 +1518,6 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
           {section(shelved, false)}
         </div>
       )}
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", textAlign:"center", padding:"4px 20px 16px", lineHeight:1.6 }}>
-        Order is loose. Events run whenever. Sunday is unscored: breakfast, cleanup, group photo, out by 11.
-      </div>
     </div>
   );
 }
@@ -1429,7 +1565,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
   return (
     <div style={{ display:"grid", gridTemplateColumns:dims.col, gap:dims.gap, alignItems:"start" }}>
       {st.groups.map((g, i) => (
-        <GroupCard key={i} title={`${g.name}${st.advance > 1 ? ` · top ${st.advance} through` : ""}`}
+        <GroupCard key={i} title={`${g.name}${st.advance > 1 ? `, top ${st.advance} through` : ""}`}
           entrants={g.entrants} through={g.through} gIdx={i} />
       ))}
       {finalists && (
@@ -1489,23 +1625,22 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
         {state.onDeck === ev.id && <Tag tone="flame">On deck</Tag>}
         {shelvedNow && <Tag>Shelved</Tag>}
       </div>
-      {ev.desc && <p style={{ ...pStyle, marginBottom: ev.howto ? 8 : 14 }}>{ev.desc}</p>}
-      {ev.howto && (
+      {ev.desc && <p style={{ ...pStyle, marginBottom: GAMES[ev.game] ? 8 : 14 }}>{ev.desc}</p>}
+      {GAMES[ev.game] && (
         <button onClick={() => setHowTo(true)} style={{ background:"none", border:"none", cursor:"pointer",
           fontFamily:SANS, fontWeight:700, fontSize:13, letterSpacing:"0.02em", color:"var(--accent2)",
           padding:"0 0 14px", display:"block" }}>How to play →</button>
       )}
-      {howTo && <HowToSheet ev={ev} onClose={() => setHowTo(false)} />}
+      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={() => setHowTo(false)} />}
       <p style={{ ...pStyle, color:"var(--dust)", fontSize:13 }}>
-        Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(" · ")}
-        {ev.kind !== "solo" && ". Team results pay every player the full amount."}
+        Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(", ")}
       </p>
 
       {draftLive && !draw && (
         <div style={{ marginBottom:14 }}>
           <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
           <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
-            Draft underway · open the board</Btn>
+            Open the draft board</Btn>
         </div>
       )}
 
@@ -1535,9 +1670,6 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           <div style={{ ...label, marginBottom:8 }}>{st.kind === "heats" ? "Heats" : "Pools"}</div>
           <StageGrid state={state} ev={ev} gm={gm && !state.frozen}
             onThrough={onThrough} onFinal={onFinal} />
-          {gm && !res && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)", marginTop:8 }}>
-            Tap who goes through in each {st.kind === "heats" ? "heat" : "pool"}, then tap the final winner. Wagers settle as you go.
-          </div>}
         </div>
       )}
 
@@ -1570,8 +1702,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               </div>
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
                 color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
-                Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size} · fits {fit}
-                {diff > 0 ? ` · ${diff} extra will double up` : diff < 0 ? ` · ${-diff} short` : " · even teams"}
+                Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size}, fits {fit}.
+                {diff > 0 ? ` ${diff} extra will double up.` : diff < 0 ? ` ${-diff} short.` : ""}
               </div>
               {showOuts && (
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:5, marginBottom:10 }}>
@@ -1585,8 +1717,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     cursor:"pointer", borderRadius:9,
                     background: method === m.id ? "rgba(233,180,65,0.35)" : "var(--paper)",
                     border: method === m.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
-                    <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</span>
-                    <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>  ·  {m.desc}</span>
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</div>
+                    <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:2 }}>{m.desc}</div>
                   </button>
                 ))}
               </div>
@@ -1876,8 +2008,6 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
       {gm && champ !== null && !state.results[ev.id] && (
         <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
       )}
-      {gm && champ === null && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:10 }}>
-        Tap the winner of each matchup to advance them. Matchup wagers settle as you go.</div>}
     </Sheet>
   );
 }
@@ -1905,8 +2035,7 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
       c.includes(p) ? c.filter(x => x !== p) : c.length < N ? [...c, p] : c);
     const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
     return (
-      <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
-        <p style={pStyle}>Choose {N} captain{N>1?"s":""}, then each captain drafts on their own phone in snake order. You can pick for anyone who is not on their phone.</p>
+      <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
         <div style={{ display:"flex", gap:8, marginBottom:12 }}>
           {CAP_METHODS.map(([id,lb]) => (
             <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -1915,11 +2044,11 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
               border: capMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
           ))}
         </div>
-        <div style={{ ...label, marginBottom:8 }}>Captains · {captains.length}/{N}</div>
+        <div style={{ ...label, marginBottom:8 }}>Captains {captains.length}/{N}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:14 }}>
           {(pool || []).map(p => {
             const i = captains.indexOf(p);
-            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} · C${i+1}` : disp(state,p)}
+            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} (C${i+1})` : disp(state,p)}
               selected={i >= 0} onClick={() => toggleCap(p)} />;
           })}
         </div>
@@ -1938,14 +2067,14 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
   const canPick = !poolEmpty && (gm || myTurn);
   const round = Math.floor(d.picks.length / T) + 1;
   return (
-    <Sheet title={`Draft · ${ev.name}`} onClose={onClose} wide>
+    <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
       <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:13,
         background: poolEmpty ? "rgba(95,122,69,0.14)" : myTurn ? "rgba(233,180,65,0.35)" : "var(--panel2)",
         border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase", color:"var(--ink)" }}>
-          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `On the clock · ${disp(state, cur)}`}</div>
+          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `${disp(state, cur)} is on the clock`}</div>
         {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
-          Round {round} · {d.pool.length} left{gm && !myTurn ? " · tap to pick for them" : ""}</div>}
+          Round {round}, {d.pool.length} left</div>}
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
@@ -2036,7 +2165,7 @@ function ResultSheet({ ev, state, onClose, save }) {
     return nx;
   });
   return (
-    <Sheet title={`Result · ${ev.name}`} onClose={onClose}>
+    <Sheet title={`${ev.name} result`} onClose={onClose}>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {slotIdxs.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -2044,7 +2173,7 @@ function ResultSheet({ ev, state, onClose, save }) {
             background: active===i ? "rgba(192,91,51,0.1)" : "var(--panel2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each · {slots[i].length} in</div>
+            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>+{table[i]} each, {slots[i].length} in</div>
           </button>
         ))}
       </div>
@@ -2071,7 +2200,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
           {ROSTER.map(p => {
             const w = taken(p);
-            return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} · ${SLOT_META[w].label}` : p}
+            return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} (${SLOT_META[w].label})` : p}
               selected={w===active} onClick={() => toggle(p)} small />;
           })}
         </div>
@@ -2093,34 +2222,35 @@ const svgMark = (s, kids) => (
   <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{kids}</svg>
 );
 const MARKS = {
-  golf: s => svgMark(s, <>
+  putting: s => svgMark(s, <>
     <path d="M11 27V6" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
     <path d="M11 6l10 3-10 3z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
     <ellipse cx="15" cy="27" rx="8" ry="2.2" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
   </>),
-  pool: s => svgMark(s, <>
+  "8ball": s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--ink)"/>
     <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
     <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="Archivo, sans-serif" fill="var(--ink)">8</text>
   </>),
-  bball: s => svgMark(s, <>
+  basketball: s => svgMark(s, <>
     <circle cx="16" cy="16" r="11" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M5 16h22M16 5v22M8.5 8c4.5 4 4.5 12 0 16M23.5 8c-4.5 4-4.5 12 0 16" stroke="var(--ink)" strokeWidth="1.3" fill="none"/>
   </>),
-  spike: s => svgMark(s, <>
+  spikeball: s => svgMark(s, <>
     <circle cx="16" cy="8.5" r="3.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.7"/>
     <ellipse cx="16" cy="22" rx="11" ry="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M9 22h14M16 17.5v9" stroke="var(--ink)" strokeWidth="1.1"/>
   </>),
-  volley: s => svgMark(s, <>
+  volleyball: s => svgMark(s, <>
     <circle cx="12" cy="16" r="8" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
     <path d="M12 8c3 4 3 12 0 16M5 13.5c5 1.5 12 1 15-3.5" stroke="var(--ink)" strokeWidth="1.1" fill="none"/>
     <path d="M25 5v22" stroke="var(--ink)" strokeWidth="1.5" strokeDasharray="2 2"/>
   </>),
-  kart: s => svgMark(s, <>
-    <circle cx="16" cy="16" r="10.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <circle cx="16" cy="16" r="3.4" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.4"/>
-    <path d="M16 6.5v6M8.5 21.5l5-3.5M23.5 21.5l-5-3.5" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round"/>
+  die: s => svgMark(s, <>
+    <rect x="6" y="6" width="20" height="20" rx="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
+    <circle cx="11.5" cy="11.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="11.5" r="1.8" fill="var(--ink)"/>
+    <circle cx="16" cy="16" r="1.8" fill="var(--ink)"/>
+    <circle cx="11.5" cy="20.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="20.5" r="1.8" fill="var(--ink)"/>
   </>),
   beerio: s => svgMark(s, <>
     <circle cx="13" cy="16" r="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
@@ -2150,7 +2280,7 @@ const MARKS = {
     <ellipse cx="16" cy="12" rx="6" ry="1.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
     <circle cx="16" cy="6" r="2.6" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.4"/>
   </>),
-  flip: s => svgMark(s, <>
+  flipcup: s => svgMark(s, <>
     <path d="M6 27a10 5 0 0 1 20 0" fill="none" stroke="var(--ink)" strokeWidth="1.1" strokeDasharray="2 2"/>
     <g transform="rotate(34 16 15)">
       <path d="M12 9h8l-1 11h-6z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
@@ -2165,8 +2295,8 @@ const MARKS = {
     })}
   </>),
 };
-function EventMark({ ev, size=54 }) {
-  const draw = MARKS[ev.id] || MARKS[ev.sport];
+function GameMark({ id, size=54 }) {
+  const draw = MARKS[id];
   return draw ? draw(size) : <FDMark size={size} />;
 }
 /* beer die flagship: a die that arcs and bounces off the far edge of the table */
@@ -2175,7 +2305,7 @@ function DieHero() {
     <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
       <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
       <line x1="8" y1="66" x2="172" y2="66" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round" opacity="0.4"/>
-      <g style={{ animation:"si-die-arc 2.4s cubic-bezier(.4,0,.5,1) infinite" }}>
+      <g style={{ animation:"si-die-arc 2.6s linear 1 both" }}>
         <rect x="0" y="0" width="20" height="20" rx="4.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
         <circle cx="5.5" cy="5.5" r="1.7" fill="var(--ink)"/>
         <circle cx="14.5" cy="5.5" r="1.7" fill="var(--ink)"/>
@@ -2186,24 +2316,73 @@ function DieHero() {
     </svg>
   );
 }
-/* optional, on-demand rules for one event. Purely client-side, nested over the sheet below. */
-function HowToSheet({ ev, onClose }) {
-  const h = ev.howto;
+/* pong ball arcs down the table and drops in the cup */
+function PongHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <path d="M112 30h20l-2.5 28h-15z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+      <ellipse cx="122" cy="30" rx="10" ry="3" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+      <g style={{ animation:"si-pong-arc 2s linear 1 both" }}>
+        <circle cx="8" cy="0" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
+      </g>
+    </svg>
+  );
+}
+/* flip cup: the cup hops, turns over, and sticks the landing */
+function FlipHero() {
+  return (
+    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <line x1="8" y1="62" x2="172" y2="62" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
+      <g style={{ animation:"si-flip-cup 2.2s ease-in-out 1 both", transformOrigin:"90px 46px" }}>
+        <path d="M78 32h24l-3 28H81z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
+        <ellipse cx="90" cy="32" rx="12" ry="3.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
+      </g>
+    </svg>
+  );
+}
+const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero };
+/* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
+function HowToSheet({ gameId, variant, onClose }) {
+  const game = GAMES[gameId];
+  const variants = game?.variants || null;
+  const [vIdx, setVIdx] = useState(() => {
+    const i = variants ? variants.findIndex(v => v.id === variant) : -1;
+    return i < 0 ? 0 : i;
+  });
+  const h = variants ? variants[vIdx]?.howto : game?.howto;
   const steps = h?.steps || [];
   const rm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const [shown, setShown] = useState(rm ? steps.length : 0);
+  const [heroKey, setHeroKey] = useState(0);
+  useEffect(() => { setShown(rm ? steps.length : 0); }, [vIdx]); // eslint-disable-line
   useEffect(() => {
     if (shown >= steps.length) return;
     const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 320 : 480);
     return () => clearTimeout(t);
   }, [shown, steps.length]);
   if (!h) return null;
+  const Hero = GAME_HEROES[gameId];
   return (
     <Sheet title="How to play" onClose={onClose}>
-      <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6 }}>
-        {ev.id === "die" ? <DieHero /> : <EventMark ev={ev} size={56} />}
+      <div onClick={() => Hero && setHeroKey(k => k + 1)}
+        style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6,
+          cursor: Hero ? "pointer" : "default" }}>
+        {Hero ? <span key={heroKey}><Hero /></span>
+          : <span style={{ animation:"si-pop .4s ease-out" }}><GameMark id={gameId} size={56} /></span>}
       </div>
-      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{ev.name}</div>
+      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{game.name}</div>
+      {variants && (
+        <div style={{ display:"flex", justifyContent:"center", gap:6, marginBottom:12 }}>
+          {variants.map((v, i) => (
+            <button key={v.id} onClick={() => setVIdx(i)} style={{ fontFamily:DISPLAY, fontWeight:700,
+              fontSize:16, padding:"7px 18px", borderRadius:99, cursor:"pointer",
+              background: i === vIdx ? "var(--ink)" : "var(--paper)",
+              color: i === vIdx ? BONE : "var(--ink)",
+              border: i === vIdx ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v.label}</button>
+          ))}
+        </div>
+      )}
       {h.objective && <p style={{ ...pStyle, textAlign:"center", marginBottom:12 }}>{h.objective}</p>}
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom:16 }}>
         {h.players && <Tag tone="gold">{h.players}</Tag>}
@@ -2243,12 +2422,12 @@ function wagerPickLabel(state, w, events) {
     ? teamLabel(state, { players: w.pickPlayers })
     : disp(state, w.pickPlayers ? w.pickPlayers[0] : w.pick);
   if (w.kind === "outright") return { pick: pickName, ctx: `to win ${evName}` };
-  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} · ${evName}` };
-  if (w.final) return { pick: pickName, ctx: `to win the Final · ${evName}` };
-  return { pick: pickName, ctx: `to advance from ${w.groupName} · ${evName}` };
+  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} in ${evName}` };
+  if (w.final) return { pick: pickName, ctx: `to win the Final in ${evName}` };
+  return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
 }
 
-function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) {
+function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
   const wagers = state.wagers || [];
   const resolved = wagers.map(w => ({ w, r: resolveWager(state, w, events) }));
   const pending = resolved.filter(x => x.r.status === "pending");
@@ -2301,27 +2480,41 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
     if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) stageFinal = finalists;
   }
 
-  /* my open stake per pick, so multiple picks per event read clearly */
-  const myStakeOn = pred => pending
-    .filter(x => x.w.player === me && pred(x.w))
-    .reduce((s,x) => s + x.w.stake, 0);
-
-  const PickRow = ({ players, name, onClick, wide, mine }) => (
-    <button disabled={room < 1} onClick={onClick}
-      style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
-        borderRadius:12, width:"100%",
-        background:"var(--panel2)",
-        border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
-        cursor: room < 1 ? "default" : "pointer",
-        opacity: room < 1 ? 0.5 : 1, textAlign:"left" }}>
-      <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
-      <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
-        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
-      {mine > 0 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.08em",
-        padding:"3px 7px", borderRadius:99, background:"rgba(192,91,51,0.16)", color:"var(--accent2)",
-        textTransform:"uppercase", flexShrink:0 }}>You: {mine}</span>}
-    </button>
-  );
+  /* the whiteboard row: one tap drops a chip, everyone's chips sit on the pick
+     in their own colors, and the x pulls your last one back */
+  const PickRow = ({ players, name, onClick, wide, pred }) => {
+    const bets = pred ? pending.filter(x => pred(x.w)) : [];
+    const mineBets = bets.filter(x => x.w.player === me);
+    const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
+    const chips = bets.flatMap(x => Array.from({ length: x.w.stake }, () => x.w.player));
+    const shownChips = chips.slice(0, 6);
+    return (
+      <button onClick={room < 1 ? undefined : onClick}
+        style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
+          borderRadius:12, width:"100%",
+          background:"var(--panel2)",
+          border:"1px solid " + (mine > 0 ? "rgba(192,91,51,0.55)" : "var(--line)"),
+          cursor: room < 1 ? "default" : "pointer",
+          opacity: room < 1 && !mine ? 0.5 : 1, textAlign:"left" }}>
+        <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
+        <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--cream)",
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
+        {chips.length > 0 && (
+          <span onClick={e => e.stopPropagation()} style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+            {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -5 : 0 }}><BankChip p={p} size={16} /></span>)}
+            {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
+              color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
+            {mine > 0 && (
+              <span onClick={() => onRetract(mineBets[mineBets.length - 1].w.id)} role="button"
+                style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
+                  justifyContent:"center", cursor:"pointer", marginLeft:4, fontSize:11,
+                  background:"rgba(42,33,25,0.08)", color:"var(--muted2)" }}>✕</span>
+            )}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const Row = ({ x }) => {
     const { w, r } = x;
@@ -2334,7 +2527,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
         <Avatar state={state} p={w.player} size={30} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--cream)" }}>
-            <b>{disp(state, w.player)}</b> · {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
+            <b>{disp(state, w.player)}</b> put {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
           </div>
           <div style={{ fontFamily:SANS, fontSize:12, color:"var(--dust)" }}>{l.ctx}</div>
         </div>
@@ -2354,16 +2547,27 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
   return (
     <div style={{ padding:"0 16px" }}>
       {me && (
-        <div style={{ display:"flex", alignItems:"center", gap:12, background:CARD_BG,
+        <div style={{ display:"flex", alignItems:"center", gap:14, background:CARD_BG,
           border:"1px solid var(--line)", borderRadius:15, padding:"12px 14px", marginBottom:12 }}>
           <Avatar state={state} p={me} size={34} />
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)" }}>{disp(state, me)}</div>
-            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>{myPts} banked · {myExp} of 3 at risk</div>
+          <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--cream)",
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, me)}</div>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, height:26 }}>
+              <div style={{ position:"relative", width:18, height:26, flexShrink:0 }}>
+                {[0,1,2].map(i => <div key={i} style={{ position:"absolute", bottom:i*4, left:0 }}>
+                  <BankChip p={me} size={18} /></div>)}
+              </div>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1, color:"var(--ink)" }}>{myPts}</span>
+            </div>
+            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>Stack</div>
           </div>
-          <div style={{ display:"flex", gap:5 }}>
-            {[1,2,3].map(i => <div key={i} style={{ width:12, height:20, borderRadius:4,
-              background: i<=myExp ? EMBER_GRAD : "var(--panel2)", border:"1px solid var(--line)" }} />)}
+          <div style={{ width:1, alignSelf:"stretch", background:"var(--line)" }} />
+          <div style={{ textAlign:"center" }}>
+            <div style={{ display:"flex", gap:5, alignItems:"center", height:26 }}>
+              {[1,2,3].map(i => <BankChip key={i} p={me} size={18} empty={i > myExp} />)}
+            </div>
+            <div style={{ ...label, fontSize:9.5, marginTop:3 }}>On the table</div>
           </div>
         </div>
       )}
@@ -2391,6 +2595,18 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
           </div>
           <div style={{ padding:"12px 13px 8px" }}>
 
+          {/* the whiteboard: live event state up top, chips ride on the picks below */}
+          {br && draw && (
+            <div style={{ marginBottom:14, overflowX:"auto" }}>
+              <BracketGrid state={state} ev={ev} gm={false} />
+            </div>
+          )}
+          {st && !br && (
+            <div style={{ marginBottom:14 }}>
+              <StageGrid state={state} ev={ev} gm={false} />
+            </div>
+          )}
+
           {outrights.length > 0 && (
             <>
               <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
@@ -2401,10 +2617,10 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                 gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
                 {outrights.map(o => (
                   <PickRow key={o.key} players={o.players} name={o.name} wide={bigTeams}
-                    mine={myStakeOn(w => w.kind === "outright" && w.eventId === ev.id &&
+                    pred={w => w.kind === "outright" && w.eventId === ev.id &&
                       (o.pick.pickTeam
                         ? w.pickTeam && w.drawId === o.pick.drawId && (w.pickPlayers||[]).join("|") === o.pick.pickPlayers.join("|")
-                        : !w.pickTeam && w.pick === o.key))}
+                        : !w.pickTeam && w.pick === o.key)}
                     onClick={() => onPick(o.pick)} />
                 ))}
               </div>
@@ -2430,8 +2646,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                     {g.entrants.map(k => {
                       const v = stageEntrantView(state, st, k);
                       return <PickRow key={String(k)} players={v.players} name={v.name}
-                        mine={myStakeOn(w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
-                          w.group === g.gi && w.pickKey === k)}
+                        pred={w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
+                          w.group === g.gi && w.pickKey === k}
                         onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
                           groupName:g.name, pickKey:k, pickPlayers:[...v.players],
                           pickTeam: st.entrantType === "team", evName:ev.name })} />;
@@ -2452,7 +2668,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                 {stageFinal.map(k => {
                   const v = stageEntrantView(state, st, k);
                   return <PickRow key={String(k)} players={v.players} name={v.name}
-                    mine={myStakeOn(w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k)}
+                    pred={w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k}
                     onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
                       pickKey:k, pickPlayers:[...v.players], pickTeam: st.entrantType === "team", evName:ev.name })} />;
                 })}
@@ -2476,9 +2692,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
                       return (
                         <div key={side} style={{ flex:1 }}>
                           <PickRow players={t.players} name={teamLabel(state, t)}
-                            mine={myStakeOn(w => w.kind === "match" && w.eventId === ev.id &&
+                            pred={w => w.kind === "match" && w.eventId === ev.id &&
                               w.drawId === draw.id && w.match?.[0] === mu.r && w.match?.[1] === mu.m &&
-                              w.teamIdx === tIdx)}
+                              w.teamIdx === tIdx}
                             onClick={() => onPick({ kind:"match", eventId:ev.id, teamIdx:tIdx,
                               pickPlayers:[...t.players], pickTeam:true, drawId:draw.id, match:[mu.r, mu.m],
                               matchName: mu.roundName, evName: ev.name })} />
@@ -2490,17 +2706,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
               ))}
             </>
           )}
-          {pending.some(x => x.w.eventId === ev.id) && (
-            <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, margin:"2px 0 8px" }}>
-                <span style={{ ...label }}>The board</span>
-                <span style={{ fontFamily:SANS, fontSize:11.5, color:"var(--dust)" }}>every chip is a point</span>
-              </div>
-              <div style={{ marginBottom:10 }}>
-                <BetsBoard state={state} events={events} ev={ev} compact />
-              </div>
-            </>
-          )}
           {me && room < 1 && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             You are maxed out until a wager settles.</div>}
           </div>
@@ -2509,7 +2714,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
 
       {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--ink)", color:BONE, borderRadius:5,
-        padding:"3px 10px", margin:"4px 0 8px" }}>Open · {pending.length}</div>}
+        padding:"3px 10px", margin:"4px 0 8px" }}>{pending.length} open</div>}
       {pending.map(x => <Row key={x.w.id} x={x} />)}
       {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:5,
@@ -2519,51 +2724,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid }) 
   );
 }
 
-function PlaceWagerSheet({ state, me, standings, events, pick, onClose, place }) {
-  const [stake, setStake] = useState(1);
-  const myPts = standings.find(r => r.player === me)?.pts ?? 0;
-  const myExp = atRisk(state, me, events);
-  const maxStake = Math.max(0, Math.min(3 - myExp, myPts - myExp, 3));
-  const mult = pick.kind === "outright" ? OUTRIGHT_MULT : 1;
-  const pickName = pick.pickPlayers.length > 1
-    ? teamLabel(state, { players: pick.pickPlayers }) : disp(state, pick.pickPlayers[0]);
-  const ctx = pick.kind === "outright" ? `to win ${pick.evName}`
-    : pick.kind === "match" ? `to win the ${pick.matchName} · ${pick.evName}`
-    : pick.final ? `to win the Final · ${pick.evName}`
-    : `to advance from ${pick.groupName} · ${pick.evName}`;
-  const self = pick.pickPlayers.includes(me);
-  return (
-    <Sheet title="Place a wager" onClose={onClose}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-        <AvatarStack state={state} players={pick.pickPlayers} size={40} max={4} />
-        <div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:16, color:"var(--cream)" }}>
-            {pickName}{self ? " (you)" : ""}</div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)" }}>{ctx}</div>
-        </div>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"16px 0 8px" }}>
-        <div style={label}>Stake</div>
-        {[1,2,3].map(v => (
-          <button key={v} onClick={() => setStake(v)} disabled={v > maxStake}
-            style={{ width:48, height:44, borderRadius:9, cursor: v > maxStake ? "default" : "pointer",
-            fontFamily:DISPLAY, fontWeight:700, fontSize:19, opacity: v > maxStake ? 0.35 : 1,
-            background: stake===v ? GOLD_GRAD : "var(--paper)",
-            color:"var(--ink)",
-            border: stake===v ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{v}</button>
-        ))}
-        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--dust)", marginLeft:"auto" }}>
-          wins <b style={{ color:"var(--green)" }}>+{mult*stake}</b> · loses <b style={{ color:"var(--clay)" }}>−{stake}</b>
-        </div>
-      </div>
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginBottom:14 }}>
-        Settles automatically off the official result. {maxStake < 1 ? "You are maxed out." : ""}
-      </div>
-      <Btn disabled={maxStake < 1 || stake > maxStake} onClick={() => place({ ...pick, stake, status:"open" })}
-        style={{ width:"100%", fontSize:15, padding:"14px" }}>Place it</Btn>
-    </Sheet>
-  );
-}
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
 function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens, onLens,
@@ -2655,7 +2815,7 @@ function AdjustSheet({ player, onClose, save }) {
   const [delta, setDelta] = useState(1);
   const [reason, setReason] = useState("");
   return (
-    <Sheet title={`Ruling · ${player}`} onClose={onClose}>
+    <Sheet title={`Ruling for ${player}`} onClose={onClose}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
         <Btn kind="dark" onClick={() => setDelta(d => d - 1)} style={{ fontSize:20, width:54 }}>−</Btn>
         <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:46, width:84, textAlign:"center",
@@ -2687,6 +2847,8 @@ function PinSheet({ onClose, unlock }) {
 function ProfileSheet({ state, me, onClose, save }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
+  const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
+  const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
@@ -2694,8 +2856,8 @@ function ProfileSheet({ state, me, onClose, save }) {
         <div style={{ display:"flex", alignItems:"center", gap:8, background:playerColor(me), color:BONE,
           padding:"7px 12px" }}>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.05em",
-            textTransform:"uppercase", flex:1 }}>Field Day · Player credential</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(playerNo(me)).padStart(2,"0")}</span>
+            textTransform:"uppercase", flex:1 }}>Player credential</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(state.profiles?.[me]?.num ?? playerNo(me)).padStart(2,"0")}</span>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
           <Avatar state={state} p={me} size={40} />
@@ -2705,8 +2867,10 @@ function ProfileSheet({ state, me, onClose, save }) {
           </div>
         </div>
       </div>
-      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto} />
-      <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(), ...(photo ? {photo} : {}) })}
+      <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
+        num={num} setNum={setNum} size={size} setSize={setSize} />
+      <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
+          num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:15, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
@@ -2778,6 +2942,14 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 }
 
 /* ─────────── TV mode ─────────── */
+/* one point as a poker chip; empty renders the open table spot it could fill */
+function BankChip({ p, size=18, empty }) {
+  if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
+    border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
+  return <div style={{ width:size, height:size, borderRadius:"50%", background:playerColor(p),
+    border:"1.5px solid var(--ink)", flexShrink:0,
+    boxShadow:`inset 0 0 0 ${Math.max(2.5, size*0.09)}px rgba(251,243,228,0.5)` }} />;
+}
 /* poker-chip stack for one bet: colored chips to the stake height, bettor on top */
 function ChipStack({ state, player, stake, size=44 }) {
   const c = playerColor(player);
@@ -2857,6 +3029,89 @@ function TVMiniBoard({ state, standings, allTied }) {
   );
 }
 
+/* the draft, broadcast style: on-the-clock captain up top, pick stamps slam in,
+   team columns fill live, the remaining pool waits at the bottom */
+function TVDraft({ state, ev, d }) {
+  const T = d.teams.length;
+  const poolEmpty = d.pool.length === 0;
+  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
+  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
+  const last = d.picks[d.picks.length - 1];
+  const round = Math.floor(d.picks.length / T) + 1;
+  return (
+    <div key="scene-draft" style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
+      padding:"6px 48px 16px", animation:"si-fade .6s ease-out" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:26, marginBottom:16 }}>
+        {poolEmpty ? (
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)",
+            textTransform:"uppercase", color:"var(--sun)" }}>Draft complete</div>
+        ) : (
+          <div style={{ display:"flex", alignItems:"center", gap:18 }}>
+            <span style={{ borderRadius:"50%", animation:"si-glow 2s infinite" }}>
+              <Avatar state={state} p={cur} size={84} ring />
+            </span>
+            <div>
+              <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"#C9B896" }}>{ev.name} draft</div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)", lineHeight:1.05,
+                textTransform:"uppercase", color:BONE }}>{disp(state, cur)} is on the clock</div>
+              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.2vw,17px)", color:"#C9B896", marginTop:2 }}>
+                Round {round}, pick {d.picks.length + 1}</div>
+            </div>
+          </div>
+        )}
+        {last && (
+          <div key={d.picks.length} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
+            background:CARD_BG, border:"2px solid var(--ink)", borderRadius:16, padding:"12px 20px",
+            animation:"si-flag .55s ease-out both" }}>
+            <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)" }}>Pick {d.picks.length}</span>
+            <Avatar state={state} p={last.player} size={46} />
+            <div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(19px,1.9vw,28px)", lineHeight:1,
+                textTransform:"uppercase", color:"var(--ink)" }}>{disp(state, last.player)}</div>
+              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(12px,1.1vw,15px)", color:"var(--muted2)" }}>
+                to {disp(state, d.teams[last.team].captain)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${T},1fr)`, gap:16, flex:1, minHeight:0 }}>
+        {d.teams.map((t, i) => (
+          <div key={i} style={{ background:CARD_BG, borderRadius:16, padding:"13px 15px", overflowY:"auto",
+            border: i === onClock ? "2px solid var(--sun)" : "1px solid var(--line)",
+            animation: i === onClock ? "si-glow 2s infinite" : "none" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:9, marginBottom:9,
+              borderBottom:"1.5px solid var(--ink)" }}>
+              <Avatar state={state} p={t.captain} size={34} />
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,1.6vw,24px)",
+                textTransform:"uppercase", color:"var(--ink)", flex:1, overflow:"hidden",
+                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
+                color:"var(--muted)" }}>{t.players.length}</span>
+            </div>
+            {t.players.map(p => (
+              <div key={p} style={{ display:"flex", alignItems:"center", gap:10, padding:"5px 0",
+                animation:"si-in .3s ease-out both" }}>
+                <Avatar state={state} p={p} size={30} />
+                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.3vw,18px)",
+                  color:"var(--ink)" }}>{disp(state, p)}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {!poolEmpty && (
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
+          <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"#C9B896", flexShrink:0 }}>
+            Still on the board</span>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {d.pool.map(p => <Avatar key={p} state={state} p={p} size={38} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, onExit }) {
   const liveBracketEv = useMemo(() => {
     const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
@@ -2868,6 +3123,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
     return c[0] || null;
   }, [events, state, onDeckEv]);
+  const draftLive = useMemo(() => {
+    for (const [eid, d] of Object.entries(state.drafts || {})) {
+      const ev = events.find(e => e.id === eid);
+      if (ev && d) return { ev, d };
+    }
+    return null;
+  }, [state.drafts, events]);
   /* ambient broadcast data: the channel cycles through whatever is alive right now */
   let latest = null;
   Object.entries(state.results || {}).forEach(([eid, res]) => {
@@ -2916,21 +3178,34 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
     textTransform:"uppercase", color:BONE, marginBottom:24 };
 
-  const results = Object.entries(state.results || {}).map(([eid, r]) => {
-    const ev = events.find(e => e.id === eid);
-    return ev && r.slots?.[0]?.length ? `${ev.name}: ${r.slots[0].map(p => disp(state,p)).join(" + ")}` : null;
-  }).filter(Boolean);
+  /* ticker: a handful of labeled, high-signal segments instead of a name dump */
   const allW = (state.wagers||[]).map(w => ({ w, r: resolveWager(state, w, events) }));
-  const tickerWagers = allW.filter(x => x.r.status === "pending").slice(0,8).map(x => {
-    const l = wagerPickLabel(state, x.w, events);
-    return `${disp(state, x.w.player)}: ${x.w.stake} on ${l.pick}`;
-  });
-  const cashes = allW.filter(x => x.r.status === "won").slice(0,5)
-    .map(x => `${disp(state, x.w.player)} cashed +${x.r.delta}`);
-  const rulings = (state.adjustments||[]).slice(0,4).map(a => `Ruling: ${disp(state,a.player)} ${a.delta>0?"+":""}${a.delta}${a.reason ? " · " + a.reason : ""}`);
-  let ticker = [...tickerWagers, ...results, ...cashes, ...rulings];
-  if (ticker.length === 0) ticker = ["Field Day", "13 players · one board", "Champion crowned Saturday night"];
-  const tickerStr = ticker.join("   ✦   ");
+  const tickerItems = [];
+  if (draftLive && draftLive.d.pool.length) {
+    const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
+    if (cur) tickerItems.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
+      text:`${disp(state, cur)} is on the clock` });
+  }
+  if (latest) tickerItems.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0,4),
+    text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
+  if (onDeckEv) {
+    const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
+    const chipsIn = riding.reduce((n, x) => n + x.w.stake, 0);
+    if (chipsIn > 0) tickerItems.push({ tag:"The book", tone:"var(--accent2)",
+      players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
+      text:`${chipsIn} chip${chipsIn > 1 ? "s" : ""} riding on ${onDeckEv.name}` });
+  }
+  allW.filter(x => x.r.status === "won").slice(0,2).forEach(x =>
+    tickerItems.push({ tag:"Cashed", tone:"var(--green)", players:[x.w.player],
+      text:`${disp(state, x.w.player)} +${x.r.delta}` }));
+  const lastRuling = (state.adjustments||[])[0];
+  if (lastRuling) tickerItems.push({ tag:"Ruling", tone:"var(--clay)", players:[lastRuling.player],
+    text:`${disp(state, lastRuling.player)} ${lastRuling.delta > 0 ? "+" : ""}${lastRuling.delta}${lastRuling.reason ? ", " + lastRuling.reason : ""}` });
+  if (!allTied && standings[0]) tickerItems.push({ tag:"Leader", tone:"var(--sun)", players:[standings[0].player],
+    text:`${disp(state, standings[0].player)}, ${standings[0].pts} points` });
+  if (nextEv) tickerItems.push({ tag:"Next", tone:"var(--pool)",
+    text:`${nextEv.name}, ${nextEv.value} pt${nextEv.value > 1 ? "s" : ""}` });
+  if (!tickerItems.length) tickerItems.push({ tag:"Field Day", tone:"var(--accent)", text:"Scottsdale 2026" });
 
   const leader = !allTied ? standings[0] : null;
   const rest = leader ? standings.slice(1) : standings;
@@ -2972,6 +3247,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <ChampionCard state={state} champion={champion} coChamps={coChamps} big />
           </div>
         </div>
+      ) : draftLive ? (
+        <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />
       ) : liveEv ? (
         <div key="scene-live" style={{ flex:1, display:"flex", gap:26, padding:"6px 44px 16px",
           minHeight:0, animation:"si-fade .6s ease-out" }}>
@@ -3003,7 +3280,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.5vw,22px)",
               letterSpacing:"0.14em", color:"#C9B896" }}>SCOTTSDALE · 2026</div>
             <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.4vw,20px)", color:BONE, marginTop:22, lineHeight:1.5 }}>
-              Scan to check in.<br/>13 players. One board.
+              Scan to check in.
             </div>
           </div>
           <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:16,
@@ -3084,7 +3361,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                   <Avatar state={state} p={x.w.player} size={38} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.7vh,19px)", color:"var(--ink)" }}>
-                      {disp(state, x.w.player)} · {x.w.stake} on {l.pick}</div>
+                      {disp(state, x.w.player)} put {x.w.stake} on {l.pick}</div>
                     <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.4vh,15px)", color:"var(--muted)",
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
                   </div>
@@ -3108,7 +3385,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(20px,3vh,34px)", color:"var(--ink)", lineHeight:1.1 }}>
                   {disp(state, leader.player)}</div>
                 <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.5vh,15px)", color:"rgba(30,22,8,0.6)" }}>
-                  {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? ` · wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
+                  {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? `, wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
               </div>
               <div key={leader.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{leader.pts}</div>
             </div>
@@ -3144,12 +3421,22 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
         </div>
       )}
-      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"11px 0" }}>
+      <div style={{ borderTop:"1px solid rgba(192,91,51,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
         <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
-          animation:`si-tick ${Math.max(30, tickerStr.length/3)}s linear infinite` }}>
+          animation:`si-tick ${Math.max(24, tickerItems.length * 9)}s linear infinite` }}>
           {[0,1].map(k => (
-            <span key={k} style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
-              letterSpacing:"0.06em", color:"var(--accent2)", paddingRight:60 }}>{tickerStr}   ✦   </span>
+            <span key={k} style={{ display:"inline-flex", alignItems:"center" }}>
+              {tickerItems.map((it, i) => (
+                <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:11, paddingRight:84 }}>
+                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(12px,1.1vw,15px)",
+                    letterSpacing:"0.1em", textTransform:"uppercase", borderRadius:5, padding:"3px 10px",
+                    background:it.tone, color: it.tone === "var(--sun)" ? "var(--ink)" : BONE }}>{it.tag}</span>
+                  {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={27} />)}
+                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
+                    color:"var(--ink)" }}>{it.text}</span>
+                </span>
+              ))}
+            </span>
           ))}
         </div>
       </div>
@@ -3184,18 +3471,18 @@ function Guide({ replay, events }) {
         Brandon runs each draw and it reveals on every phone. Blind Draw is chance. Balanced Draw uses sealed self-ratings. Buddy System pairs top and bottom seeds. Ratings are never shown. Brackets, heats, and pools track live in the app and on the TV as they progress.
       </S>
       <S n="05" t="Learn the games">
-        <div style={{ marginBottom:10 }}>New to any of these? Tap for a ten second rundown.</div>
         <div style={{ display:"grid", gap:8 }}>
-          {(events || []).filter(e => e.howto).map(e => (
-            <button key={e.id} onClick={() => setHowToEv(e)} style={{ display:"flex", alignItems:"center",
+          {Object.entries(GAMES).map(([id, g]) => (
+            <button key={id} onClick={() => setHowToEv(id)} style={{ display:"flex", alignItems:"center",
               gap:12, textAlign:"left", cursor:"pointer", background:"var(--paper)",
               border:"1px solid var(--line)", borderRadius:12, padding:"9px 11px" }}>
-              <EventMark ev={e} size={30} />
+              <GameMark id={id} size={30} />
               <span style={{ flex:1, minWidth:0 }}>
                 <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--ink)",
-                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{e.name}</span>
+                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{g.name}</span>
                 <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", display:"block",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.howto.objective}</span>
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {(g.howto || g.variants?.[0]?.howto)?.objective}</span>
               </span>
               <span style={{ color:"var(--accent2)", fontFamily:SANS, fontWeight:700, flexShrink:0 }}>→</span>
             </button>
@@ -3203,14 +3490,13 @@ function Guide({ replay, events }) {
         </div>
       </S>
       <S n="06" t="Saturday night awards">
-        The Championship · Fraud of the Weekend · Sharpshooter · Degenerate of the Weekend · Media MVP · Teammate of the Weekend.
+        The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
       </S>
       <S n="07" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.
       </S>
       {!isStandalone() && (
         <S n="08" t="The app">
-          <div style={{ marginBottom:8 }}>Best from your home screen. Full screen, one tap away.</div>
           <InstallHint />
         </S>
       )}
@@ -3219,7 +3505,7 @@ function Guide({ replay, events }) {
       </div>
       <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:13, letterSpacing:"0.24em",
         color:"#A5947B", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
-      {howToEv && <HowToSheet ev={howToEv} onClose={() => setHowToEv(null)} />}
+      {howToEv && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
     </div>
   );
 }

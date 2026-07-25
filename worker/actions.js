@@ -4,8 +4,8 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, allEventsOf, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, snakeTeam, OUTRIGHT_MULT,
+  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -14,11 +14,27 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display }, ctx) {
+  saveProfile(state, { player, display, num, size }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
-    state.profiles[player] = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    if (num !== undefined) {
+      if (num === null) delete prof.num;
+      else {
+        const n = Math.floor(Number(num));
+        if (!Number.isFinite(n) || n < 0 || n > 99) return err("Numbers run 0 to 99");
+        const taken = Object.entries(state.profiles).find(([p, pr]) => p !== player && pr?.num === n);
+        if (taken) return err(`${disp(state, taken[0])} already has ${n}`);
+        prof.num = n;
+      }
+    }
+    if (size !== undefined) {
+      if (size === null) delete prof.size;
+      else if (!SIZES.includes(size)) return err("Bad size");
+      else prof.size = size;
+    }
+    state.profiles[player] = prof;
     return ok();
   },
   saveSeeds(state, { player, ratings }, ctx) {
@@ -57,6 +73,28 @@ export const ACTIONS = {
       if (!m) return err("No such matchup");
       if (m.winner !== null && m.winner !== undefined) return err("Matchup already decided");
     }
+    /* back anyone, but never the side facing your own team */
+    const drawG = state.draws[ev.id];
+    const myTeamIdx = drawG ? drawG.teams.findIndex(t => t.players.includes(player)) : -1;
+    if (myTeamIdx >= 0) {
+      const AGAINST = "You can't bet against your own team";
+      if (wager.kind === "outright" && wager.pickTeam && drawG.teams.length === 2
+          && !(wager.pickPlayers || []).includes(player))
+        return err(AGAINST);
+      if (wager.kind === "match" && wager.teamIdx !== myTeamIdx) {
+        const br = state.brackets[ev.id];
+        const mu = br?.rounds?.[wager.match?.[0]]?.[wager.match?.[1]];
+        if (mu && (resolveSlot(br, mu.a) === myTeamIdx || resolveSlot(br, mu.b) === myTeamIdx))
+          return err(AGAINST);
+      }
+      if (wager.kind === "stage" && state.stages[ev.id]?.entrantType === "team" && wager.pickKey !== myTeamIdx) {
+        const st = state.stages[ev.id];
+        const inPlay = wager.final
+          ? (stageFinalists(st) || []).includes(myTeamIdx)
+          : (st.groups?.[wager.group]?.entrants || []).includes(myTeamIdx);
+        if (inPlay) return err(AGAINST);
+      }
+    }
     if (wager.kind === "stage") {
       const st = state.stages[ev.id];
       if (!st || st.id !== wager.stagesId) return err("Stage changed, re-pick");
@@ -80,6 +118,18 @@ export const ACTIONS = {
       id: "w" + Date.now() + Math.floor(Math.random() * 9999), ts: Date.now(),
     };
     state.wagers.unshift(w);
+    return ok();
+  },
+  /* pull your own chip back while the market is still open */
+  retractWager(state, { id }, ctx) {
+    const w = state.wagers.find(x => x.id === id);
+    if (!w) return err("No such wager");
+    if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
+    if (state.frozen) return err("The board is frozen");
+    if (state.onDeck !== w.eventId) return err("Betting is closed");
+    const r = resolveWager(state, w, allEventsOf(state));
+    if (r.status !== "pending") return err("Already settled");
+    state.wagers = state.wagers.filter(x => x.id !== id);
     return ok();
   },
   voidWager(state, { id }, ctx) {
@@ -297,8 +347,9 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(e => e.id === evId);
     const d = state.drafts?.[evId]; if (!ev || !d) return err("No draft running");
     if (d.pool.length) return err("Pool not empty yet");
+    const mascots = (ev.teamCfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
     state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(),
-      teams: d.teams.map(t => ({ players: t.players })) };
+      teams: d.teams.map((t, i) => mascots ? { players: t.players, name: mascots[i % mascots.length] } : { players: t.players }) };
     delete state.stages[evId];
     if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)
       state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
@@ -329,9 +380,19 @@ export const ACTIONS = {
     state.onboardEpoch = (state.onboardEpoch || 0) + 1;
     return ok();
   },
+  setLive(state, { on }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    state.live = !!on;
+    return ok();
+  },
+  /* resets wipe the game, never the people: profiles (names, photos, numbers,
+     sizes) and sealed seeds survive so nobody re-registers between test runs */
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    const profiles = state.profiles, seeds = state.seeds;
     Object.assign(state, structuredClone(EMPTY_STATE));
+    state.profiles = profiles;
+    state.seeds = seeds;
     return ok();
   },
 };

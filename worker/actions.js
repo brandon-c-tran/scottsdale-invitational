@@ -4,9 +4,9 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, MAX_RISK, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
-  DUEL_STAKE, DUEL_GAMES, resolveDuel,
+  DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, pokerLevels,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -75,17 +75,19 @@ export const ACTIONS = {
     const player = ctx.player;
     if (!player) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("Points are on the table");
     const events = allEventsOf(state);
     const ev = events.find(e => e.id === wager.eventId);
     if (!ev) return err("No such event");
     if (state.onDeck !== ev.id) return err("Betting is closed for this event");
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
-    if (!(stake >= 1 && stake <= 3)) return err("Stake must be 1 to 3");
+    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT && stake <= MAX_RISK))
+      return err("Stakes are 20, 40, or 60");
     /* exposure + balance, computed server side */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
-    if (exp + stake > 3) return err("Max 3 at risk");
+    if (exp + stake > MAX_RISK) return err("Max 60 at risk");
     if (stake > pts - exp) return err("Not enough points");
     /* referenced structures must be current */
     if (wager.kind === "outright" && wager.pickTeam) {
@@ -152,6 +154,7 @@ export const ACTIONS = {
     if (!w) return err("No such wager");
     if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
     if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("Points are on the table");
     if (state.onDeck !== w.eventId) return err("Betting is closed");
     const r = resolveWager(state, w, allEventsOf(state));
     if (r.status !== "pending") return err("Already settled");
@@ -174,6 +177,7 @@ export const ACTIONS = {
     const from = ctx.player;
     if (!from) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("Points are on the table");
     if (!ROSTER.includes(to)) return err("Unknown player");
     if (to === from) return err("Pick someone else");
     const g = game || "quickdraw";
@@ -200,6 +204,7 @@ export const ACTIONS = {
   playDuel(state, { id, ms, foul }, ctx) {
     const p = ctx.player;
     if (!p) return err("Check in first");
+    if (pokerLive(state)) return err("Points are on the table");
     const d = (state.duels || []).find(x => x.id === id);
     if (!d) return err("No such duel");
     if (d.status !== "open") return err("Duel is closed");
@@ -233,6 +238,7 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
+    if (ev.game === "poker" && ev.finale) return err("Enter chip counts instead");
     if (!Array.isArray(slots) || !slots[0]?.length) return err("Winners required");
     state.results[evId] = { slots, ts: Date.now() };
     if (state.onDeck === evId) state.onDeck = null;
@@ -247,6 +253,8 @@ export const ACTIONS = {
   /* ── GM: slate ── */
   setOnDeck(state, { id }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (id && allEventsOf(state).find(e => e.id === id)?.game === "poker")
+      return err("No betting on the finale");
     state.onDeck = id || null;
     return ok();
   },
@@ -455,10 +463,94 @@ export const ACTIONS = {
     return ok();
   },
 
+  /* ── the poker finale: the app runs the table, the cards stay physical ── */
+  pokerSetup(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.finale && e.game === "poker");
+    if (!ev) return err("No poker finale on the slate");
+    if (state.shelved[ev.id]) return err("The finale is shelved");
+    if (state.results[ev.id]) return err("Result already posted");
+    if (state.poker) return err("Table already set");
+    /* the buy-in snapshot must match the board exactly: nothing may still be
+       able to move points after stacks are dealt */
+    const events = allEventsOf(state);
+    if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
+      return err("Settle or void the open book first");
+    if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
+      return err("Settle or void the open duels first");
+    const rows = computeStandings(state);
+    if (rows.some(r => r.pts < 0)) return err("Negative stacks, fix rulings first");
+    state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
+      startedAt: null, levels: pokerLevels(), levelOffset: 0, outs: [], ts: Date.now() };
+    return ok();
+  },
+  pokerStart(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!state.poker) return err("Set up the table first");
+    if (state.poker.startedAt) return err("Cards are already live");
+    state.poker.startedAt = Date.now();
+    state.onDeck = null;
+    return ok();
+  },
+  pokerLevel(state, { delta }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Clock is not running");
+    const d = delta > 0 ? 1 : -1;
+    pk.levelOffset = Math.max(-(pk.levels.length - 1), Math.min(pk.levels.length - 1, (pk.levelOffset || 0) + d));
+    return ok();
+  },
+  pokerBust(state, { player }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (pk.outs.find(o => o.player === player)) return err("Already out");
+    pk.outs.push({ player, ts: Date.now() });
+    return ok();
+  },
+  pokerUnbust(state, { player }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    pk.outs = pk.outs.filter(o => o.player !== player);
+    return ok();
+  },
+  /* final chip counts BECOME the standings. Sum mismatches are allowed
+     (chips get miscounted); the client shows the discrepancy. */
+  pokerResult(state, { stacks }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    const clean = {};
+    for (const p of ROSTER) {
+      const c = Math.floor(Number(stacks?.[p] ?? 0));
+      if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
+      if (c % PT !== 0) return err("Counts move in 20s");
+      if (pk.outs.find(o => o.player === p) && c !== 0) return err(`${disp(state, p)} is out, count must be 0`);
+      clean[p] = c;
+    }
+    const max = Math.max(...Object.values(clean));
+    if (max <= 0) return err("Somebody has chips");
+    const leaders = ROSTER.filter(p => clean[p] === max);
+    state.results[pk.id] = { slots: [[...leaders], [], []], stacks: clean,
+      outs: pk.outs.map(o => o.player), ts: Date.now() };
+    return ok();
+  },
+  pokerCancel(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!state.poker) return err("No table set");
+    if (state.results[state.poker.id]) return err("Clear the result first");
+    state.poker = null;
+    return ok();
+  },
+
   /* ── GM: board ── */
   adjust(state, { player, delta, reason }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!ROSTER.includes(player) || !delta) return err("Bad ruling");
+    if (!Number.isInteger(delta) || delta % PT !== 0) return err("Rulings move in 20s");
+    if (pokerLive(state)) return err("Move chips on the table instead");
     state.adjustments.unshift({ id: "a" + Date.now(), player, delta, reason: reason || "", ts: Date.now() });
     return ok();
   },

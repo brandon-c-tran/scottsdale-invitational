@@ -28,14 +28,22 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    automatically corrects payouts. Stale drawId/stagesId references void bets.
 2. **Server-authoritative.** All validation lives in `worker/actions.js`. The
    client may pre-check for UX but the server decision is final.
-3. **Everyone starts with 5 points.** Standings = 5 + event awards + wager net
-   + rulings, computed fresh from state every time. No stored balances.
+3. **Everyone starts with 100 points; PT=20 is the chip quantum.** Every value
+   in the economy (awards, stakes, duel antes, rulings) is a multiple of PT and
+   one rendered BankChip = PT = one physical chip. Standings = 100 + event
+   awards + wager net + rulings, computed fresh from state every time. No
+   stored balances.
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
-   advancement, and stage finals pay even. Cap: max 3 at risk, stake <= balance
-   minus at-risk, stakes 1-3.
+   advancement, and stage finals pay even. Cap: max 60 at risk, stake <= balance
+   minus at-risk, stakes 20/40/60.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
+7. **The poker finale settles on stacks.** `pokerResult` chip counts BECOME the
+   standings verbatim (chip leader = champion, elimination order breaks 0-count
+   ties); the whole economy freezes while cards are live (`pokerLive`), and
+   `pokerSetup` requires a clean book so dealt stacks always match the board.
+   Derived and reversible: `clearResult` re-arms the table.
 
 ## Commands
 

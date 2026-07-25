@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, DRAW_METHODS, OUTRIGHT_MULT, SIZES, GAMES,
+  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
   DUEL_STAKE, DUEL_GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
@@ -490,7 +490,7 @@ export default function App() {
       }});
     });
   };
-  const runDraw = (ev, method, players) => act("runDraw", { evId: ev.id, method, players });
+  const runDraw = (ev, players) => act("runDraw", { evId: ev.id, players });
   const clearDraw = ev => act("clearDraw", { evId: ev.id });
   const startDraft = (evId, captains, players) => act("startDraft", { evId, captains, players });
   const pickDraftPlayer = (evId, player) => act("pickDraftPlayer", { evId, player });
@@ -578,7 +578,7 @@ export default function App() {
     if (!ev) throw new Error("Nothing left to play");
     const table = AWARDS[ev.value];
     if (ev.teamCfg && !stateRef.current.draws[ev.id]) {
-      await simDo("runDraw", { evId: ev.id, method: "random", players: ROSTER }, `Drawing ${ev.name}`);
+      await simDo("runDraw", { evId: ev.id, players: ROSTER }, `Drawing ${ev.name}`);
       await simWait(1300);
     }
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
@@ -651,7 +651,7 @@ export default function App() {
     const ev = events.find(e => !state.results[e.id] && !state.shelved[e.id]);
     if (!ev) return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
     if (ev.teamCfg && !state.draws[ev.id])
-      return { label:`Draw ${ev.name}`, run:() => runDraw(ev, "random", ROSTER) };
+      return { label:`Draw ${ev.name}`, run:() => runDraw(ev, ROSTER) };
     if (state.onDeck !== ev.id)
       return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
     const br = state.brackets[ev.id];
@@ -840,7 +840,7 @@ export default function App() {
         enterResult={() => setModal({type:"result", ev:modal.ev})}
         clearRes={() => { clearResult(modal.ev); setModal(null); notify("Result cleared, wagers reopened"); }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
-        onDraw={(m, players) => { runDraw(modal.ev, m, players); setModal(null); }}
+        onDraw={players => { runDraw(modal.ev, players); setModal(null); }}
         onClearDraw={() => clearDraw(modal.ev)}
         onStages={cfg => { runStages(modal.ev, cfg); setModal(null); }}
         onClearStages={() => clearStages(modal.ev)}
@@ -1665,16 +1665,12 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
     setESession(SESSIONS.find(s => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [method, setMethod] = useState(null);
   const [outs, setOuts] = useState([]);
   const [showOuts, setShowOuts] = useState(false);
   const [stageCfgOpen, setStageCfgOpen] = useState(false);
   const [nGroups, setNGroups] = useState(null);
   const [advance, setAdvance] = useState(1);
-  const [stageMethod, setStageMethod] = useState("random");
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
-  const methods = DRAW_METHODS.filter(m =>
-    (!m.needsSport || ev.sport) && (!m.pairsOnly || ev.teamCfg?.size === 2) && (!m.teamOnly || ev.kind === "team"));
   const canHeats = ev.kind === "solo" && !res;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
   const stageKind = canHeats ? "heats" : "pools";
@@ -1775,21 +1771,17 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])} />)}
                 </div>
               )}
-              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
-                {methods.map(m => (
-                  <button key={m.id} onClick={() => setMethod(m.id)} style={{ textAlign:"left", padding:"11px 13px",
-                    cursor:"pointer", borderRadius:9,
-                    background: method === m.id ? "rgba(233,180,65,0.35)" : "var(--paper)",
-                    border: method === m.id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>{m.name}</div>
-                    <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", marginTop:2 }}>{m.desc}</div>
-                  </button>
-                ))}
+              <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--dust)", lineHeight:1.5, marginBottom:10 }}>
+                Teams balance themselves: sealed ratings blended with the live board and results, then refined until the sides are even.
               </div>
-              <Btn disabled={!method || inPlayers.length < 2}
-                onClick={() => method === "draft" ? openDraft(inPlayers) : onDraw(method, inPlayers)}
-                style={{ width:"100%", marginBottom:10 }}>
-                {method === "draft" ? "Set up the draft" : "Run the draw"}</Btn>
+              <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                <Btn disabled={inPlayers.length < 2} onClick={() => onDraw(inPlayers)} style={{ flex:1 }}>
+                  Run the draw</Btn>
+                {ev.kind === "team" && (
+                  <Btn kind="dark" disabled={inPlayers.length < 2} onClick={() => openDraft(inPlayers)}>
+                    Captains draft</Btn>
+                )}
+              </div>
             </>
             );
           })()}
@@ -1846,20 +1838,9 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                         border: advance===n ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{n}</button>
                     ))}
                   </div>
-                  {canHeats && ev.sport && (
-                    <div style={{ display:"flex", gap:6, marginBottom:10 }}>
-                      {[["random","Blind"],["balanced","Balanced"]].map(([id,lb]) => (
-                        <button key={id} onClick={() => setStageMethod(id)} style={{ flex:1, padding:"10px 8px",
-                          borderRadius:9, cursor:"pointer", fontFamily:SANS, fontWeight:600, fontSize:12.5,
-                          background: stageMethod===id ? GOLD_GRAD : "var(--paper)",
-                          color:"var(--ink)",
-                          border: stageMethod===id ? "1.5px solid var(--ink)" : "1px solid var(--line)" }}>{lb}</button>
-                      ))}
-                    </div>
-                  )}
                   <div style={{ display:"flex", gap:8 }}>
                     <Btn onClick={() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
-                      method:stageMethod, players:inPlayers })} style={{ flex:1 }}>
+                      players:inPlayers })} style={{ flex:1 }}>
                       {canHeats ? "Draw heats" : "Draw pools"}</Btn>
                     <Btn kind="ghost" onClick={() => setStageCfgOpen(false)}>Cancel</Btn>
                   </div>
@@ -3768,7 +3749,7 @@ function Guide({ replay, events }) {
         Challenge anyone to a Quick Draw from the board, any time. You each ante 1 chip and play on your own phone: hold steady, tap when the screen flashes. Fastest tap takes the pot, jumping early forfeits. Identical draws or two fouls push the antes back. One open duel per pair, three challenges a day. Brandon can void any duel.
       </S>
       <S n="05" t="Draws, brackets, heats">
-        Brandon runs each draw and it reveals on every phone. Blind Draw is chance. Balanced Draw uses sealed self-ratings. Buddy System pairs top and bottom seeds. Ratings are never shown. Brackets, heats, and pools track live in the app and on the TV as they progress.
+        Brandon runs each draw and it reveals on every phone. Teams balance themselves: your sealed self-ratings blended with the live board, results, and wins, refined until the sides are even. The later the weekend, the more your actual play counts. Ratings are never shown. Or captains draft their squads live. Brackets, heats, and pools track live in the app and on the TV.
       </S>
       <S n="06" t="Learn the games">
         <div style={{ display:"grid", gap:8 }}>

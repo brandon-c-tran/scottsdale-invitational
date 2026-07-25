@@ -80,7 +80,7 @@ r = await b.dispatch("saveSeeds", { player: "Evan", ratings: { pool: 3 } });
 assert(r.ok, "B seals scouting report");
 
 /* ── GM unlock ── */
-r = await b.dispatch("runDraw", { evId: "8ball", method: "random", players: null });
+r = await b.dispatch("runDraw", { evId: "8ball", players: null });
 assert(!r.ok, "non-GM cannot run a draw (rejected: " + r.error + ")");
 r = await a.dispatch("gmUnlock", { pin: "9999" });
 assert(!r.ok, "wrong pin rejected");
@@ -96,7 +96,7 @@ await b.waitVersion(a.version);
 /* ── draw 8-Ball ── */
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
 /* Evan sits out the draw so his wagers are never against his own team */
-r = await a.dispatch("runDraw", { evId: "8ball", method: "random", players: ROSTER.filter(p => p !== "Evan") });
+r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER.filter(p => p !== "Evan") });
 assert(r.ok, "GM draws 8-Ball teams");
 await b.waitVersion(a.version);
 const draw = b.state.draws["8ball"];

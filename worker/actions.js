@@ -5,7 +5,7 @@
 
 import {
   ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
+  drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel,
 } from "../shared/core.js";
 
@@ -299,11 +299,14 @@ export const ACTIONS = {
   },
 
   /* ── GM: draws, brackets, stages ── */
-  runDraw(state, { evId, method, players }, ctx) {
+  /* one draw: balanced on live strength (sealed survey + board + results),
+     recursively refined server-side in drawTeams */
+  runDraw(state, { evId, players }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev?.teamCfg) return err("Not a team event");
-    const draw = drawTeams(ev, method, state.seeds || {}, players);
+    if (!Array.isArray(players) || players.length < 2) return err("Not enough players");
+    const draw = drawTeams(ev, state, players);
     if (!draw) return err("Draw failed");
     state.draws[evId] = draw;
     delete state.stages[evId];
@@ -328,7 +331,6 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
-    const skillOf = p => (state.seeds?.[p]?.[ev.sport] ?? 2) + (Math.random() * 0.6 - 0.3);
     let entrantType, keys, drawId = null;
     if (cfg.kind === "heats") {
       entrantType = "solo"; keys = cfg.players;
@@ -337,9 +339,11 @@ export const ACTIONS = {
       const draw = state.draws[evId]; if (!draw) return err("Draw teams first");
       entrantType = "team"; keys = draw.teams.map((_, i) => i); drawId = draw.id;
     }
-    const skill = entrantType === "solo" ? skillOf
-      : i => { const t = state.draws[evId].teams[i]; return t.players.reduce((s, p) => s + skillOf(p), 0) / t.players.length; };
-    const groups = splitIntoGroups(keys, cfg.nGroups, cfg.method, skill)
+    /* same live strength model as the team draw; teams average their players */
+    const solo = strengthMap(state, entrantType === "solo" ? keys : ROSTER, ev.sport);
+    const strength = entrantType === "solo" ? k => solo[k]
+      : i => { const t = state.draws[evId].teams[i]; return t.players.reduce((s, p) => s + (solo[p] ?? 0.5), 0) / t.players.length; };
+    const groups = splitIntoGroups(keys, cfg.nGroups, strength)
       .map((entrants, i) => ({ name: cfg.kind === "heats" ? `Heat ${i + 1}` : `Pool ${"ABCD"[i] || i + 1}`, entrants, through: [] }));
     state.stages[evId] = { id: "s" + Date.now(), eventId: evId, kind: cfg.kind, entrantType, drawId,
       advance: cfg.advance === 2 ? 2 : 1, groups, finalWinner: null, ts: Date.now() };

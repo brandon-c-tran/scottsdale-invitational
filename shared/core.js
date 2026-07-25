@@ -175,9 +175,7 @@ const SLOT_META = [
 ];
 
 const DRAW_METHODS = [
-  { id:"random",   name:"Blind Draw",    desc:"Names out of a hat." },
-  { id:"balanced", name:"Balanced Draw", desc:"Sealed seeds spread the talent.", needsSport:true },
-  { id:"seeded",   name:"Buddy System",  desc:"Top seeds paired with bottom seeds.", pairsOnly:true, needsSport:true },
+  { id:"balanced", name:"Balanced Draw",  desc:"Sealed ratings plus the live board, refined until the sides are even." },
   { id:"draft",    name:"Captains Draft", desc:"Captains pick in turn, live on every phone.", teamOnly:true },
 ];
 
@@ -306,8 +304,8 @@ function resolveDuel(duel) {
 }
 
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {}, duelNet = {};
-  ROSTER.forEach(p => { pts[p] = 5; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
+  ROSTER.forEach(p => { pts[p] = 5; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
@@ -315,6 +313,7 @@ function computeStandings(state) {
     (res.slots || []).forEach((players, i) => (players || []).forEach(p => {
       if (pts[p] === undefined) return;
       pts[p] += table[i] || 0;
+      awardPts[p] += table[i] || 0;
       if (i === 0) wins[p] += 1;
     }));
   });
@@ -331,7 +330,7 @@ function computeStandings(state) {
     if (pts[r.loser] !== undefined) { pts[r.loser] -= d.stake; duelNet[r.loser] -= d.stake; }
   });
   (state.adjustments || []).forEach(a => { if (pts[a.player] !== undefined) pts[a.player] += a.delta; });
-  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p] }))
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
     .sort((x,y) => y.pts - x.pts || y.wins - x.wins || x.player.localeCompare(y.player));
   let rank = 0, prev = null;
   rows.forEach((r,i) => { if (r.pts !== prev) { rank = i+1; prev = r.pts; } r.rank = rank; });
@@ -372,50 +371,74 @@ function atRisk(state, p, events) {
     .reduce((s,w) => s + w.stake, 0);
 }
 
-function drawTeams(ev, method, seeds, players) {
+/* ─────────── the balanced draw ───────────
+   The only way teams get made (captains draft aside). Live strength per
+   player: the sealed survey is the baseline and the actual weekend bends it,
+   so a Friday draw leans on the survey and a Sunday draw leans on results.
+   Every part is normalized to the current field, weights sum to 1:
+     0.35 sport survey + 0.15 overall survey + 0.35 event points + 0.15 wins */
+function playerStrength(state, p, sport, rows) {
+  rows = rows || computeStandings(state);
+  const norm = (x, lo, hi) => (hi > lo ? (x - lo) / (hi - lo) : 0.5);
+  const sv = state.seeds?.[p] || {};
+  const vals = Object.values(sv);
+  const overall = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 2;
+  const r = rows.find(x => x.player === p);
+  const aps = rows.map(x => x.awardPts), ws = rows.map(x => x.wins);
+  return 0.35 * norm(sv[sport] ?? 2, 1, 4)
+       + 0.15 * norm(overall, 1, 4)
+       + 0.35 * norm(r?.awardPts ?? 0, Math.min(...aps), Math.max(...aps))
+       + 0.15 * norm(r?.wins ?? 0, Math.min(...ws), Math.max(...ws));
+}
+/* strengths get a small jitter so back-to-back draws differ and nobody can
+   reverse-engineer their sealed rating off team composition */
+const JITTER = 0.05;
+function strengthMap(state, players, sport, rows) {
+  rows = rows || computeStandings(state);
+  const m = {};
+  players.forEach(p => { m[p] = playerStrength(state, p, sport, rows) + (Math.random() * 2 - 1) * JITTER; });
+  return m;
+}
+/* snake-seed, then recursively swap players across teams while any single
+   swap tightens the spread of team averages. First improving swap recurses;
+   no improving swap means a local optimum, done. Depth-capped for safety. */
+function refineTeams(groups, strengthOf, depth = 0) {
+  const avg = g => g.reduce((s, k) => s + strengthOf(k), 0) / g.length;
+  const spread = gs => { const a = gs.map(avg); return Math.max(...a) - Math.min(...a); };
+  if (depth > 60) return groups;
+  const best = spread(groups);
+  for (let i = 0; i < groups.length; i++)
+    for (let j = i + 1; j < groups.length; j++)
+      for (let a = 0; a < groups[i].length; a++)
+        for (let b = 0; b < groups[j].length; b++) {
+          const gi = [...groups[i]], gj = [...groups[j]];
+          [gi[a], gj[b]] = [gj[b], gi[a]];
+          const next = groups.map((g, k) => (k === i ? gi : k === j ? gj : g));
+          if (spread(next) + 1e-9 < best) return refineTeams(next, strengthOf, depth + 1);
+        }
+  return groups;
+}
+function seedSnake(keys, nGroups, strengthOf) {
+  const groups = Array.from({ length: nGroups }, () => []);
+  [...keys].sort((a, b) => strengthOf(b) - strengthOf(a)).forEach((k, i) => {
+    const round = Math.floor(i / nGroups);
+    groups[round % 2 === 0 ? i % nGroups : nGroups - 1 - (i % nGroups)].push(k);
+  });
+  return groups;
+}
+
+function drawTeams(ev, state, players) {
   const cfg = ev.teamCfg; if (!cfg) return null;
-  const skill = p => (seeds[p]?.[ev.sport] ?? 2) + (Math.random()*0.6 - 0.3);
-  let groups;
-  if (method === "seeded") {
-    const s = [...players].sort((a,b) => skill(b) - skill(a));
-    groups = [];
-    let lo = s.length - 1, hi = 0;
-    while (hi < lo) { groups.push([s[hi], s[lo]]); hi++; lo--; }
-    if (hi === lo && groups.length) groups[groups.length-1].push(s[hi]);
-    else if (hi === lo) groups.push([s[hi]]);
-  } else {
-    const nTeams = Math.min(cfg.teams, players.length);
-    groups = Array.from({length:nTeams}, () => []);
-    if (method === "random") {
-      shuffle(players).forEach((p,i) => groups[i % nTeams].push(p));
-    } else {
-      const s = [...players].sort((a,b) => skill(b) - skill(a));
-      s.forEach((p,i) => {
-        const round = Math.floor(i / nTeams);
-        const idx = round % 2 === 0 ? i % nTeams : nTeams - 1 - (i % nTeams);
-        groups[idx].push(p);
-      });
-      groups = groups.map(g => shuffle(g));
-    }
-  }
+  const s = strengthMap(state, players, ev.sport);
+  const nTeams = Math.min(cfg.teams, players.length);
+  const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
   const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-  return { id:"d"+Date.now(), method, ts:Date.now(),
+  return { id:"d"+Date.now(), method:"balanced", ts:Date.now(),
     teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
 }
 
-function splitIntoGroups(keys, nGroups, method, skillOf) {
-  const groups = Array.from({length:nGroups}, () => []);
-  if (method === "balanced" && skillOf) {
-    const s = [...keys].sort((a,b) => skillOf(b) - skillOf(a));
-    s.forEach((k,i) => {
-      const round = Math.floor(i / nGroups);
-      const idx = round % 2 === 0 ? i % nGroups : nGroups - 1 - (i % nGroups);
-      groups[idx].push(k);
-    });
-    return groups.map(g => shuffle(g));
-  }
-  shuffle(keys).forEach((k,i) => groups[i % nGroups].push(k));
-  return groups;
+function splitIntoGroups(keys, nGroups, strengthOf) {
+  return refineTeams(seedSnake(keys, nGroups, strengthOf), strengthOf).map(g => shuffle(g));
 }
 
 function makeBracket(n) {
@@ -447,5 +470,6 @@ export {
   DRAW_METHODS, OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
+  playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

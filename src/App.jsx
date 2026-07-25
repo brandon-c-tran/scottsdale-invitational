@@ -86,19 +86,6 @@ const ArtTicket = () => (
     <circle cx="16" cy="20" r="6.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="2"/>
   </svg>
 );
-const ArtDuel = () => (
-  <svg width="66" height="44" viewBox="0 0 66 44" aria-hidden="true">
-    <circle cx="19" cy="22" r="15.5" fill="var(--pool)" stroke="var(--ink0)" strokeWidth="2"/>
-    <circle cx="47" cy="22" r="15.5" fill="var(--clay)" stroke="var(--ink0)" strokeWidth="2"/>
-    {[19, 47].map(cx => [45, 135, 225, 315].map(deg => {
-      const a = deg * Math.PI / 180;
-      return <line key={cx + "-" + deg}
-        x1={cx + Math.cos(a) * 9.5} y1={22 + Math.sin(a) * 9.5}
-        x2={cx + Math.cos(a) * 13.6} y2={22 + Math.sin(a) * 13.6}
-        stroke="var(--bone)" strokeWidth="2.6" strokeLinecap="round"/>;
-    }))}
-  </svg>
-);
 const ArtStar = () => (
   <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 2.6 15 8.6l6.6.9-4.8 4.6 1.2 6.6L12 17.6l-6 3.1 1.2-6.6L2.4 9.5l6.6-.9z"
@@ -1289,12 +1276,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 5 points. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
     4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, stakes run 1 to 3, and everything settles automatically once the result posts." },
     5: { art:<ArtStar />, t:"The Finale", b:"The Finale pays 6 / 3 / 1 to the top three finishers. Whoever leads the board after it takes the championship." },
-    6: { art:<ArtDuel />, t:"Quick Draw", b:"A reaction game between two people, for 1 chip each. Challenge anyone from their card. You both play on your own phone, whenever: the screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul." },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
-  const cardSteps = [3,4,5,6];
-  const lastStep = 6;
+  const cardSteps = [3,4,5];
+  const lastStep = 5;
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>

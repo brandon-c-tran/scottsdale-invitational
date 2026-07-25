@@ -1053,7 +1053,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
         <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
-          style={{ width:"100%", fontSize:15, padding:"15px" }}>Seal it</Btn>
+          style={{ width:"100%", fontSize:15, padding:"15px" }}>Continue</Btn>
       </div>
     );
   }

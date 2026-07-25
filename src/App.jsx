@@ -494,6 +494,19 @@ export default function App() {
     prevDuelRes.current = map;
   }, [state.duels, me, ready, onboardStep, notify, state, modal]);
 
+  /* the blind clock announces itself; no one has to watch it */
+  const prevPokerLevel = useRef(null);
+  useEffect(() => {
+    if (!pokerLive(state)) { prevPokerLevel.current = null; return; }
+    const iv = setInterval(() => {
+      const clk = pokerClock(state.poker, Date.now());
+      if (prevPokerLevel.current !== null && clk.idx > prevPokerLevel.current && onboardStep >= 99)
+        notify(`Blinds up: ${clk.sb} / ${clk.bb}`, null, "gold");
+      prevPokerLevel.current = clk.idx;
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [state, notify, onboardStep]); // eslint-disable-line
+
   /* when betting opens on a new event, it announces itself everywhere */
   const prevOnDeck = useRef("UNSET");
   useEffect(() => {
@@ -552,7 +565,8 @@ export default function App() {
   const pokerLevelNudge = delta => act("pokerLevel", { delta });
   const pokerBust = player => act("pokerBust", { player });
   const pokerUnbust = player => act("pokerUnbust", { player });
-  const pokerResult = stacks => act("pokerResult", { stacks });
+  const pokerResult = () => act("pokerResult", {}, "Counts posted");
+  const pokerCount = (player, count) => act("pokerCount", { player, count });
   const pokerCancel = () => act("pokerCancel", {}, "Table cleared");
   const sendDuel = to => act("sendDuel", { to, game:"quickdraw" }, `Challenge sent`);
   const playDuelRun = (id, ms, foul) => act("playDuel", { id, ms, foul });
@@ -706,7 +720,7 @@ export default function App() {
     if (ev.game === "poker" && ev.finale) {
       if (!state.poker) return { label:"Set up the poker table", run:() => { pokerSetup(); setModal({type:"pokerBuyin"}); } };
       if (!state.poker.startedAt) return { label:"Shuffle up and deal", run:() => setModal({type:"pokerBuyin"}) };
-      return { label:"Enter final counts", run:() => setModal({type:"pokerResult"}) };
+      return { label:"Run the table", run:() => setModal({type:"pokerResult"}) };
     }
     if (ev.teamCfg && !state.draws[ev.id])
       return { label:`Draw ${ev.name}`, run:() => runDraw(ev, ROSTER) };
@@ -822,7 +836,7 @@ export default function App() {
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
                 onLevel={pokerLevelNudge} onBust={pokerBust} onUnbust={pokerUnbust}
-                onCounts={() => setModal({type:"pokerResult"})} />
+                onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />
             </div>
           )}
           {state.live
@@ -945,7 +959,8 @@ export default function App() {
       {modal?.type === "pokerBuyin" && <PokerBuyinSheet state={state} standings={standings} gm={gmView}
         onClose={() => setModal(null)} onStart={() => { pokerStart(); setModal(null); }} />}
       {modal?.type === "pokerResult" && <PokerResultSheet state={state} onClose={() => setModal(null)}
-        save={stacks => { pokerResult(stacks); setModal(null); }} />}
+        onCount={pokerCount} onBust={pokerBust} onUnbust={pokerUnbust}
+        onPost={() => { pokerResult(); setModal(null); }} />}
       {modal?.type === "player" && <PlayerSheet state={state} me={me} p={modal.p} standings={standings}
         onClose={() => setModal(null)}
         onDuel={() => { sendDuel(modal.p); setModal(null); }} />}
@@ -1699,36 +1714,44 @@ const mmss = ms => {
   const t = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
-function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onBust, onUnbust, onCounts }) {
+function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onBust, onUnbust, onCount, onReview }) {
   const pk = state.poker;
   const [now, setNow] = useState(Date.now());
+  const [confirmOut, setConfirmOut] = useState(false);
+  const [counting, setCounting] = useState(false);
   useEffect(() => {
     if (!pk?.startedAt) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [pk?.startedAt]);
+  useEffect(() => { if (!confirmOut) return; const t = setTimeout(() => setConfirmOut(false), 4000); return () => clearTimeout(t); }, [confirmOut]);
   if (!pk || state.results[pk.id]) return null;
-  const outSet = new Set(pk.outs.map(o => o.player));
-  const alive = ROSTER.length - outSet.size;
+  const outIdx = pk.outs.findIndex(o => o.player === me);
   const myRow = standings.find(r => r.player === me);
+  const card = { marginBottom:12, borderRadius:14, overflow:"hidden", border:"1.5px solid var(--ink)",
+    background:"radial-gradient(120% 90% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)" };
+
   if (!pk.startedAt) {
     const d = myRow ? pokerDenoms(myRow.pts) : null;
     return (
-      <div style={{ marginBottom:12, borderRadius:14, overflow:"hidden", border:"1.5px solid var(--ink)",
-        background:"radial-gradient(120% 90% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px" }}>
-          <GameMark id="poker" size={30} />
+      <div style={card}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
+          <GameMark id="poker" size={34} />
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, letterSpacing:"0.05em",
               textTransform:"uppercase", color:"var(--sun)" }}>Championship Poker</div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>
-              {pk.total} chips in play{myRow && d ? `. Your stack: ${myRow.pts}` : ""}
-              {myRow && d && (d.black || d.gold) ? ` (${[d.black && `${d.black} x 100`, d.gold && `${d.gold} x 20`].filter(Boolean).join(" + ")})` : ""}
-            </div>
+            {myRow && d ? (
+              <div style={{ fontFamily:SANS, fontSize:12.5, color:BONE, marginTop:2 }}>
+                Your buy-in: <b>{myRow.pts}</b>
+                {(d.black || d.gold) ? ` — take ${[d.black && `${d.black} black`, d.gold && `${d.gold} gold`].filter(Boolean).join(" + ")}` : ""}
+              </div>
+            ) : (
+              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{pk.total} chips in play</div>
+            )}
           </div>
           <button onClick={onBuyin} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-            textTransform:"uppercase", background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)",
-            borderRadius:10, padding:"6px 12px", cursor:"pointer", flexShrink:0 }}>Buy-in sheet</button>
+            textTransform:"uppercase", background:"transparent", color:BONE, border:"1.5px solid rgba(251,243,228,0.3)",
+            borderRadius:10, padding:"6px 12px", cursor:"pointer", flexShrink:0 }}>Everyone</button>
         </div>
         {gm && (
           <div style={{ display:"flex", gap:8, padding:"0 14px 12px" }}>
@@ -1739,10 +1762,17 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
       </div>
     );
   }
+
   const clk = pokerClock(pk, now);
+  const outSet = new Set(pk.outs.map(o => o.player));
+  const alive = ROSTER.length - outSet.size;
+  const counted = ROSTER.filter(p => !outSet.has(p) && pk.counts?.[p] !== undefined);
+  const countSum = counted.reduce((s, p) => s + pk.counts[p], 0);
+  const allIn = counted.length === alive;
+  const countPhase = counting || (clk.last && clk.msLeft === 0) || counted.length > 0;
+
   return (
-    <div style={{ marginBottom:12, borderRadius:14, overflow:"hidden", border:"1.5px solid var(--ink)",
-      background:"radial-gradient(120% 90% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)" }}>
+    <div style={card}>
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px" }}>
         <GameMark id="poker" size={30} />
         <div style={{ flex:1 }}>
@@ -1759,34 +1789,121 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
             {clk.last && clk.msLeft === 0 ? "count them down" : "to the next level"}</div>
         </div>
       </div>
-      {gm && (
-        <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"8px 14px 12px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-            <span style={{ ...label, fontSize:10.5, color:"var(--night-text2)" }}>Level</span>
-            <button onClick={() => onLevel(-1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
-              background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>−</button>
-            <button onClick={() => onLevel(1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
-              background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>+</button>
-            <span style={{ flex:1 }} />
-            <button onClick={onCounts} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-              textTransform:"uppercase", background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)",
-              borderRadius:10, padding:"6px 12px", cursor:"pointer" }}>Final counts</button>
-          </div>
-          <div style={{ ...label, fontSize:10.5, color:"var(--night-text2)", marginBottom:6 }}>Tap a bust</div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            {ROSTER.map(p => {
-              const out = outSet.has(p);
-              return (
-                <button key={p} onClick={() => out ? onUnbust(p) : onBust(p)} aria-label={`${p} ${out ? "back in" : "out"}`}
-                  style={{ background:"none", border:"none", padding:0, cursor:"pointer",
-                    opacity: out ? 0.3 : 1, filter: out ? "grayscale(1)" : "none" }}>
-                  <Avatar state={state} p={p} size={30} />
-                </button>
-              );
-            })}
-          </div>
+
+      {/* your seat: bust yourself, count yourself. The GM never types for you. */}
+      {me && outIdx < 0 && (
+        <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"9px 14px" }}>
+          {pk.counts?.[me] !== undefined && !counting ? (
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontFamily:SANS, fontSize:12.5, color:BONE, flex:1 }}>
+                Counted: <b>{pk.counts[me]}</b></span>
+              <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
+                color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
+                textTransform:"uppercase", padding:"4px 6px" }}>Recount</button>
+            </div>
+          ) : countPhase ? (
+            <ChipCounter start={pk.counts?.[me]} onDone={total => { onCount(me, total); setCounting(false); }} />
+          ) : (
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
+                Your stack: <b style={{ color:BONE }}>{myRow?.pts}</b> at the buy-in</span>
+              <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
+                color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
+                textTransform:"uppercase", padding:"4px 6px" }}>Count</button>
+              <button onClick={() => { if (confirmOut) { onBust(me); setConfirmOut(false); } else setConfirmOut(true); }}
+                style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+                  textTransform:"uppercase", borderRadius:10, padding:"6px 12px", cursor:"pointer",
+                  background: confirmOut ? "var(--clay)" : "transparent",
+                  color: confirmOut ? BONE : "var(--clay)",
+                  border:"1.5px solid rgba(192,71,58,0.6)" }}>
+                {confirmOut ? "Tap again, you are out" : "I busted"}</button>
+            </div>
+          )}
         </div>
       )}
+      {me && outIdx >= 0 && (
+        <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"9px 14px",
+          display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontFamily:SANS, fontSize:12.5, color:BONE, flex:1 }}>
+            Out. You finish {ROSTER.length - outIdx}th.</span>
+          <button onClick={() => onUnbust(me)} style={{ background:"none", border:"none",
+            color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
+            textTransform:"uppercase", padding:"4px 6px" }}>Wrong, back in</button>
+        </div>
+      )}
+
+      {/* counts land in parallel; the GM posts once when everyone is in */}
+      {counted.length > 0 && (
+        <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"8px 14px",
+          display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text)", flex:1 }}>
+            {counted.length} of {alive} counted{allIn ? `, ${countSum} of ${pk.total}` : ""}
+            {allIn && countSum !== pk.total && (
+              <span style={{ color:"var(--clay)" }}> ({countSum > pk.total ? `${countSum - pk.total} over` : `${pk.total - countSum} short`})</span>
+            )}
+          </span>
+          {gm && (
+            <button onClick={onReview} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+              textTransform:"uppercase", background: allIn ? "var(--sun)" : "transparent",
+              color: allIn ? "var(--ink0)" : BONE,
+              border:"1.5px solid " + (allIn ? "var(--ink0)" : "rgba(251,243,228,0.3)"),
+              borderRadius:10, padding:"6px 12px", cursor:"pointer" }}>
+              {allIn ? "Post the counts" : "Review"}</button>
+          )}
+        </div>
+      )}
+
+      {gm && (
+        <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"8px 14px 10px",
+          display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ ...label, fontSize:10.5, color:"var(--night-text2)" }}>Level</span>
+          <button onClick={() => onLevel(-1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
+            background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>−</button>
+          <button onClick={() => onLevel(1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
+            background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>+</button>
+          <span style={{ flex:1 }} />
+          {!counted.length && (
+            <button onClick={onReview} style={{ background:"none", border:"none", color:"var(--night-text)",
+              fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer", textTransform:"uppercase",
+              padding:"4px 0" }}>Table sheet</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* count your stack by denomination; the app does the math */
+function ChipCounter({ start, onDone }) {
+  const [black, setBlack] = useState(start ? Math.floor(start / 100) : 0);
+  const [gold, setGold] = useState(start ? Math.round((start % 100) / PT) : 0);
+  const total = black * 100 + gold * PT;
+  const Step = ({ v, set, lb, worth }) => (
+    <div style={{ flex:1, display:"flex", alignItems:"center", gap:7 }}>
+      <button onClick={() => set(x => Math.max(0, x - 1))} style={{ width:32, height:32, borderRadius:10,
+        cursor:"pointer", background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>−</button>
+      <div style={{ textAlign:"center", minWidth:44 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1, color:BONE }}>{v}</div>
+        <div style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.08em",
+          color:"var(--night-text2)", textTransform:"uppercase" }}>{lb} ({worth})</div>
+      </div>
+      <button onClick={() => set(x => x + 1)} style={{ width:32, height:32, borderRadius:10,
+        cursor:"pointer", background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>+</button>
+    </div>
+  );
+  return (
+    <div>
+      <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)", marginBottom:8 }}>
+        Count your stack by chip.</div>
+      <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+        <Step v={black} set={setBlack} lb="black" worth="100" />
+        <Step v={gold} set={setGold} lb="gold" worth="20" />
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--sun)" }}>{total}</div>
+        </div>
+      </div>
+      <Btn onClick={() => onDone(total)} style={{ width:"100%", marginTop:10, padding:"10px 12px", fontSize:12.5 }}>
+        That is my count</Btn>
     </div>
   );
 }
@@ -1796,7 +1913,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   if (!pk) return null;
   return (
     <Sheet title="Buy-in" onClose={onClose}>
-      <p style={pStyle}>Your points are your stack. Deal one chip per 20: blacks are 100, golds are 20.</p>
+      <p style={pStyle}>Everyone takes their own stack from the tray. Blacks are 100, golds are 20.</p>
       {standings.map(r => {
         const d = pokerDenoms(r.pts);
         return (
@@ -1821,53 +1938,75 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   );
 }
 
-function PokerResultSheet({ state, onClose, save }) {
+/* GM table sheet: live count status, tap a row to fix a count, one post */
+function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const outSet = new Set((pk?.outs || []).map(o => o.player));
-  const [counts, setCounts] = useState(() => {
-    const c = {};
-    ROSTER.forEach(p => { c[p] = outSet.has(p) ? "0" : ""; });
-    return c;
-  });
+  const [fixing, setFixing] = useState(null);
   if (!pk) return null;
-  const sum = ROSTER.reduce((s, p) => s + (Math.floor(Number(counts[p])) || 0), 0);
-  const diff = sum - pk.total;
-  const allFilled = ROSTER.every(p => counts[p] !== "" && Number.isFinite(Number(counts[p])));
+  const outSet = new Set(pk.outs.map(o => o.player));
+  const alive = ROSTER.filter(p => !outSet.has(p));
+  const counted = alive.filter(p => pk.counts?.[p] !== undefined);
+  const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
+  const allIn = counted.length === alive.length;
   return (
-    <Sheet title="Final counts" onClose={onClose}>
-      <p style={pStyle}>Count every stack. The counts become the final standings.</p>
-      {ROSTER.map(p => (
-        <div key={p} style={{ display:"flex", alignItems:"center", gap:10, padding:"5px 0" }}>
-          <Avatar state={state} p={p} size={26} />
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color: outSet.has(p) ? "var(--muted)" : "var(--ink)",
-            flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {disp(state, p)}{outSet.has(p) && <span style={{ fontSize:10.5, color:"var(--clay)", fontWeight:700 }}> OUT</span>}</span>
-          <input value={counts[p]} inputMode="numeric" placeholder="0" disabled={outSet.has(p)}
-            onChange={e => setCounts(c => ({ ...c, [p]: e.target.value.replace(/\D/g, "").slice(0, 5) }))}
-            style={{ width:88, background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
-              textAlign:"center", padding:"8px 6px", color:"var(--ink)", fontFamily:DISPLAY, fontWeight:700,
-              fontSize:19, outline:"none", opacity: outSet.has(p) ? 0.5 : 1 }} />
-        </div>
-      ))}
+    <Sheet title="The table" onClose={onClose}>
+      <p style={pStyle}>Everyone counts their own stack from their phone. Tap a row to fix one.</p>
+      {ROSTER.map(p => {
+        const out = outSet.has(p);
+        const c = pk.counts?.[p];
+        return (
+          <div key={p}>
+            <div onClick={() => !out && setFixing(f => f === p ? null : p)}
+              style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0",
+                borderBottom:"1px solid var(--line)", cursor: out ? "default" : "pointer",
+                opacity: out ? 0.55 : 1 }}>
+              <Avatar state={state} p={p} size={26} />
+              <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--ink)", flex:1,
+                minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {disp(state, p)}</span>
+              {out ? <Tag>Out</Tag>
+                : c !== undefined
+                  ? <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>{c}</span>
+                  : <span style={{ fontFamily:SANS, fontSize:11.5, fontWeight:600, color:"var(--muted)" }}>counting</span>}
+              {!out && (
+                <button onClick={e => { e.stopPropagation(); onBust(p); setFixing(null); }}
+                  style={{ background:"none", border:"1px solid rgba(192,71,58,0.4)", borderRadius:10,
+                    color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"3px 8px",
+                    cursor:"pointer", textTransform:"uppercase" }}>Bust</button>
+              )}
+              {out && (
+                <button onClick={e => { e.stopPropagation(); onUnbust(p); }}
+                  style={{ background:"none", border:"none", color:"var(--muted)", fontFamily:SANS,
+                    fontWeight:700, fontSize:10.5, padding:"3px 6px", cursor:"pointer",
+                    textTransform:"uppercase" }}>Back in</button>
+              )}
+            </div>
+            {fixing === p && !out && (
+              <div style={{ padding:"10px 0", borderBottom:"1px solid var(--line)", background:"var(--night)",
+                margin:"0 -18px", paddingLeft:18, paddingRight:18 }}>
+                <ChipCounter start={c} onDone={total => { onCount(p, total); setFixing(null); }} />
+              </div>
+            )}
+          </div>
+        );
+      })}
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 0 4px" }}>
         <span style={{ ...label, flex:1 }}>Counted</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
-          color: diff === 0 ? "var(--green)" : "var(--ink)" }}>{sum}</span>
+          color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)" }}>{sum}</span>
         <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {pk.total}</span>
       </div>
-      {diff !== 0 && allFilled && (
+      {allIn && sum !== pk.total && (
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
-          {diff > 0 ? `${diff} over` : `${-diff} short`}. Chips get miscounted, you can still post it.
+          {sum > pk.total ? `${sum - pk.total} over` : `${pk.total - sum} short`}. Chips get miscounted, you can still post.
         </div>
       )}
-      <Btn disabled={!allFilled} onClick={() => {
-        const stacks = {};
-        ROSTER.forEach(p => { stacks[p] = Math.floor(Number(counts[p])) || 0; });
-        save(stacks);
-      }} style={{ width:"100%", marginTop:8 }}>Post the counts</Btn>
+      <Btn disabled={!allIn} onClick={onPost} style={{ width:"100%", marginTop:8 }}>
+        {allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`}</Btn>
     </Sheet>
   );
 }
+
 
 /* what a result actually changed: rank moves, the lead, and the chips that
    settled on it. Derived by recomputing standings without that result. */

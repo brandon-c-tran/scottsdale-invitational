@@ -229,16 +229,17 @@ r = await a.dispatch("pokerBust", { player: "Evan" });
 assert(r.ok, "Evan busts");
 r = await a.dispatch("pokerBust", { player: "Evan" });
 assert(!r.ok, "double bust rejected");
-{
-  const stacks = {};
-  ROSTER.forEach(p => stacks[p] = 0);
-  stacks.Brandon = pokerTotal;
-  let bad = { ...stacks, Evan: 40 };
-  r = await a.dispatch("pokerResult", { stacks: bad });
-  assert(!r.ok, "busted player with chips rejected (rejected: " + r.error + ")");
-  r = await a.dispatch("pokerResult", { stacks });
-  assert(r.ok, "final counts posted");
+r = await b.dispatch("pokerCount", { player: "Evan", count: 100 });
+assert(!r.ok, "busted player cannot count (rejected: " + r.error + ")");
+r = await a.dispatch("pokerResult", {});
+assert(!r.ok, "post blocked before everyone counts (rejected: " + r.error + ")");
+for (const p of ROSTER) {
+  if (p === "Evan") continue;
+  r = await a.dispatch("pokerCount", { player: p, count: p === "Brandon" ? pokerTotal : 0 });
+  assert(r.ok, `count in for ${p}`);
 }
+r = await a.dispatch("pokerResult", {});
+assert(r.ok, "final counts posted");
 await b.waitVersion(a.version);
 for (const [label, win] of [["A", a], ["B", b]]) {
   const rows = computeStandings(win.state);

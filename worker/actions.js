@@ -481,7 +481,7 @@ export const ACTIONS = {
     const rows = computeStandings(state);
     if (rows.some(r => r.pts < 0)) return err("Negative stacks, fix rulings first");
     state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
-      startedAt: null, levels: pokerLevels(), levelOffset: 0, outs: [], ts: Date.now() };
+      startedAt: null, levels: pokerLevels(), levelOffset: 0, outs: [], counts: {}, ts: Date.now() };
     return ok();
   },
   pokerStart(state, {}, ctx) {
@@ -500,36 +500,51 @@ export const ACTIONS = {
     pk.levelOffset = Math.max(-(pk.levels.length - 1), Math.min(pk.levels.length - 1, (pk.levelOffset || 0) + d));
     return ok();
   },
+  /* busting is self-serve: you tap out on your own phone. GM can do anyone. */
   pokerBust(state, { player }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
     const pk = state.poker;
     if (!pk?.startedAt) return err("Cards are not live");
     if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Only you can bust yourself");
     if (pk.outs.find(o => o.player === player)) return err("Already out");
     pk.outs.push({ player, ts: Date.now() });
+    delete pk.counts?.[player];
     return ok();
   },
   pokerUnbust(state, { player }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
     const pk = state.poker;
     if (!pk?.startedAt) return err("Cards are not live");
+    if (player !== ctx.player && !ctx.isGm) return err("Not your seat");
     pk.outs = pk.outs.filter(o => o.player !== player);
     return ok();
   },
-  /* final chip counts BECOME the standings. Sum mismatches are allowed
-     (chips get miscounted); the client shows the discrepancy. */
-  pokerResult(state, { stacks }, ctx) {
+  /* counting is self-serve and parallel: everyone submits their own stack,
+     editable until the GM posts. GM can enter or fix anyone's. */
+  pokerCount(state, { player, count }, ctx) {
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    if (state.results[pk.id]) return err("Counts are posted");
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Count your own stack");
+    if (pk.outs.find(o => o.player === player)) return err("You are out, your count is 0");
+    const c = Math.floor(Number(count));
+    if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
+    if (c % PT !== 0) return err("Counts move in 20s");
+    pk.counts = pk.counts || {};
+    pk.counts[player] = c;
+    return ok();
+  },
+  /* posting reads the collected counts; outs are 0. Sum mismatches are
+     allowed (chips get miscounted); the client shows the discrepancy. */
+  pokerResult(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const pk = state.poker;
     if (!pk?.startedAt) return err("Cards are not live");
+    const outSet = new Set(pk.outs.map(o => o.player));
+    const missing = ROSTER.filter(p => !outSet.has(p) && pk.counts?.[p] === undefined);
+    if (missing.length) return err(`Waiting on ${missing.map(p => disp(state, p)).join(", ")}`);
     const clean = {};
-    for (const p of ROSTER) {
-      const c = Math.floor(Number(stacks?.[p] ?? 0));
-      if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
-      if (c % PT !== 0) return err("Counts move in 20s");
-      if (pk.outs.find(o => o.player === p) && c !== 0) return err(`${disp(state, p)} is out, count must be 0`);
-      clean[p] = c;
-    }
+    ROSTER.forEach(p => { clean[p] = outSet.has(p) ? 0 : pk.counts[p]; });
     const max = Math.max(...Object.values(clean));
     if (max <= 0) return err("Somebody has chips");
     const leaders = ROSTER.filter(p => clean[p] === max);

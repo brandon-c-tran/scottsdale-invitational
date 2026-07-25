@@ -597,14 +597,39 @@ export default function App() {
     if (!r.ok) throw new Error(r.error || type);
     return r;
   };
+  /* per-player nice-to-haves (bets, chips, duel runs) go through simTry:
+     one rejection skips that player, structural steps stay on simDo */
+  const simTry = async (type, payload, lbl) => {
+    if (simRef.current.cancel) throw new Error("stopped");
+    if (lbl) setSim(lbl);
+    return dispatch(type, payload);
+  };
   const simCheckIn = async () => {
     for (const p of ROSTER) {
       const s = stateRef.current;
-      if (s.profiles?.[p]?.display && s.seeds?.[p]) continue;
+      const prof = s.profiles?.[p] || {};
+      const needProfile = !prof.display || prof.num === undefined || !prof.size;
+      const needSeeds = !s.seeds?.[p];
+      const needChip = !prof.color;
+      if (!needProfile && !needSeeds && !needChip) continue;
       await simDo("claim", { player: p }, `${p} checks in`);
-      await simDo("saveProfile", { player: p, display: p });
-      const ratings = {}; SPORTS.forEach(sp => { ratings[sp.id] = rnd(RATINGS).v; });
-      await simDo("saveSeeds", { player: p, ratings });
+      if (needProfile) {
+        const taken = new Set(Object.entries(stateRef.current.profiles || {})
+          .filter(([q]) => q !== p).map(([, pr]) => pr?.num).filter(n => n !== undefined));
+        let num = prof.num !== undefined ? prof.num : ROSTER.indexOf(p) + 1;
+        while (taken.has(num)) num = Math.floor(Math.random() * 100);
+        await simDo("saveProfile", { player: p, display: prof.display || p,
+          num, size: prof.size || rnd(SIZES) });
+      }
+      if (needSeeds) {
+        const ratings = {}; SPORTS.forEach(sp => { ratings[sp.id] = rnd(RATINGS).v; });
+        await simDo("saveSeeds", { player: p, ratings });
+      }
+      if (needChip) {
+        const used = new Set(Object.values(stateRef.current.profiles || {}).map(pr => pr?.color));
+        const open = CHIP_COLORS.filter(c => !used.has(c.hex));
+        if (open.length) await simTry("pickChip", { player: p, color: rnd(open).hex, skin: rnd(CHIP_SKINS) });
+      }
       await simWait(120);
     }
   };
@@ -622,32 +647,100 @@ export default function App() {
       if (room < PT) continue;
       const stake = Math.min(Math.floor(room / PT) * PT, rnd([PT, PT, 2 * PT, 2 * PT, 3 * PT]));
       const draw = s.draws[evId];
+      const st = s.stages[evId];
+      const myIdx = draw ? draw.teams.findIndex(t => t.players.includes(p)) : -1;
       let wager = null;
-      if (ev.kind === "solo") {
+      if (st && Math.random() < 0.5) {
+        /* group bet on an undecided heat or pool; inside your own group you
+           back yourself, mirroring the server's against-your-team rule */
+        let gi = null, pickKey = null;
+        for (const i of shuffle(st.groups.map((_, x) => x))) {
+          const g = st.groups[i];
+          if ((g.through || []).length >= st.advance) continue;
+          const open = g.entrants.filter(k => !(g.through || []).includes(k));
+          if (!open.length) continue;
+          if (st.entrantType === "team" && g.entrants.includes(myIdx)) {
+            if (open.includes(myIdx)) { gi = i; pickKey = myIdx; break; }
+            continue;
+          }
+          gi = i; pickKey = st.entrantType === "solo" && open.includes(p) ? p : rnd(open);
+          break;
+        }
+        if (gi === null) continue;
+        const v = stageEntrantView(s, st, pickKey);
+        wager = { kind:"stage", eventId:evId, evName:ev.name, stagesId:st.id, group:gi,
+          groupName:st.groups[gi].name, pickKey, final:false, pickPlayers:[...v.players],
+          pickTeam: st.entrantType === "team", stake };
+      } else if (ev.kind === "solo") {
         const pick = rnd(ROSTER);
         wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake };
       } else if (draw) {
-        const t = rnd(draw.teams.map((x, i) => i));
+        /* in a 2-team draw the server forbids backing the other side */
+        const t = draw.teams.length === 2 && myIdx >= 0 ? myIdx : rnd(draw.teams.map((_, i) => i));
         wager = { kind:"outright", eventId:evId, evName:ev.name, pickTeam:true,
           pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake };
       } else continue;
       await simDo("claim", { player: p });
-      await simDo("placeWager", { wager },
-        `${p} puts ${stake} on ${wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
+      await simTry("placeWager", { wager },
+        `${p} puts ${stake} on ${wager.kind === "stage" ? stageEntrantView(s, st, wager.pickKey).name
+          : wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
       await simWait(700);
+    }
+  };
+  /* heats for a few solo events and pools for spike, so the stage machinery
+     gets exercised; everything else keeps its native format */
+  const SIM_HEAT_IDS = ["pingpong", "bball1", "beerio"];
+  const simEnsureFormat = async ev => {
+    const s = stateRef.current;
+    if (s.results[ev.id]) return;
+    if (ev.teamCfg && !s.draws[ev.id]) {
+      await simDo("runDraw", { evId: ev.id, players: ROSTER }, `Drawing ${ev.name}`);
+      await simWait(1300);
+    }
+    const s2 = stateRef.current;
+    if (s2.stages[ev.id]) return;
+    if (ev.kind === "solo" && SIM_HEAT_IDS.includes(ev.id)) {
+      await simDo("runStages", { evId: ev.id, cfg: { kind:"heats", nGroups:3, advance:1, players: ROSTER } },
+        `Splitting ${ev.name} into heats`);
+      await simWait(600);
+    } else if (ev.teamCfg && !ev.teamCfg.bracket && (s2.draws[ev.id]?.teams?.length ?? 0) >= 4) {
+      await simDo("runStages", { evId: ev.id, cfg: { kind:"pools", nGroups:2, advance:1 } },
+        `Splitting ${ev.name} into pools`);
+      await simWait(600);
+    }
+  };
+  const simAdvanceStages = async ev => {
+    const st0 = stateRef.current.stages[ev.id];
+    if (!st0) return;
+    /* all groups first: toggleThrough resets the final winner */
+    for (let gi = 0; gi < st0.groups.length; gi++) {
+      for (;;) {
+        const st = stateRef.current.stages[ev.id];
+        const g = st?.groups?.[gi];
+        if (!g || (g.through || []).length >= st.advance) break;
+        const open = g.entrants.filter(k => !(g.through || []).includes(k));
+        if (!open.length) break;
+        await simDo("toggleThrough", { evId: ev.id, g: gi, key: rnd(open) },
+          `Advancing ${g.name}`);
+        await simWait(500);
+      }
+    }
+    const st = stateRef.current.stages[ev.id];
+    const finalists = stageFinalists(st);
+    if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) {
+      await simDo("setFinalWinner", { evId: ev.id, key: rnd(finalists) }, `Deciding the ${ev.name} final`);
+      await simWait(500);
     }
   };
   const simPlayEvent = async () => {
     await simCheckIn();
+    if (!stateRef.current.live) await simDo("setLive", { on: true }, "The weekend goes live");
     const s0 = stateRef.current;
     const ev = allEventsOf(s0).find(e => !s0.results[e.id] && !s0.shelved[e.id]);
     if (!ev) throw new Error("Nothing left to play");
     if (ev.game === "poker" && ev.finale) throw new Error("The finale is poker, run it from the table");
-    const table = AWARDS[ev.value];
-    if (ev.teamCfg && !stateRef.current.draws[ev.id]) {
-      await simDo("runDraw", { evId: ev.id, players: ROSTER }, `Drawing ${ev.name}`);
-      await simWait(1300);
-    }
+    const table = AWARDS[ev.value] || [0, 0, 0];
+    await simEnsureFormat(ev);
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(600);
     await simBetsRound();
@@ -665,21 +758,40 @@ export default function App() {
         }
       }
     }
+    await simAdvanceStages(ev);
     const s1 = stateRef.current;
     const draw = s1.draws[ev.id];
+    const st = s1.stages[ev.id];
     br = s1.brackets[ev.id];
     let slots;
-    if (br && draw) {
+    if (st && stageFinalists(st) && st.finalWinner !== null && st.finalWinner !== undefined) {
+      /* podium from the stages: final winner, then the other finalists */
+      const podium = [st.finalWinner, ...shuffle(stageFinalists(st).filter(k => k !== st.finalWinner))];
+      slots = [0, 1, 2].map(i => table[i] > 0 && podium[i] !== undefined
+        ? [...stageEntrantView(s1, st, podium[i]).players] : []);
+      if (slots[0].length === 0) slots[0] = [...stageEntrantView(s1, st, podium[0]).players];
+    } else if (br && draw) {
       const champ = bracketChampion(br);
       const final = br.rounds[br.rounds.length - 1][0];
       const a = resolveSlot(br, final.a), b = resolveSlot(br, final.b);
       const runner = champ === a ? b : a;
+      /* third: a random semifinal loser when the table pays 3 deep */
+      let third = null;
+      if (table[2] > 0 && br.rounds.length >= 2) {
+        const losers = br.rounds[br.rounds.length - 2]
+          .map(mu => { const x = resolveSlot(br, mu.a), y = resolveSlot(br, mu.b);
+            return mu.winner === x ? y : mu.winner === y ? x : null; })
+          .filter(t => t !== null && t !== champ && t !== runner);
+        third = losers.length ? rnd(losers) : null;
+      }
       slots = [[...draw.teams[champ].players],
-        table[1] > 0 && runner !== null ? [...draw.teams[runner].players] : [], []];
+        table[1] > 0 && runner !== null ? [...draw.teams[runner].players] : [],
+        third !== null ? [...draw.teams[third].players] : []];
     } else if (draw) {
       const order = shuffle(draw.teams.map((_, i) => i));
       slots = [[...draw.teams[order[0]].players],
-        table[1] > 0 && order[1] !== undefined ? [...draw.teams[order[1]].players] : [], []];
+        table[1] > 0 && order[1] !== undefined ? [...draw.teams[order[1]].players] : [],
+        table[2] > 0 && order[2] !== undefined ? [...draw.teams[order[2]].players] : []];
     } else {
       const order = shuffle(ROSTER);
       slots = [[order[0]], table[1] > 0 ? [order[1]] : [], table[2] > 0 ? [order[2]] : []];
@@ -688,12 +800,147 @@ export default function App() {
     await simWait(800);
   };
   const simFastForward = async () => {
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 20; i++) {
       const s = stateRef.current;
       const nxt = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
       if (!nxt || nxt.finale) return;
       await simPlayEvent();
     }
+  };
+  /* duels between sim players; me never sends, so my 3-a-day stays free */
+  const simDuelPools = s => {
+    const events2 = allEventsOf(s);
+    const rows = computeStandings(s);
+    const live = (s.duels || []).filter(d => d.status === "open" && !resolveDuel(d).settled);
+    const day = 24 * 60 * 60 * 1000;
+    const spendable = p => (rows.find(r => r.player === p)?.pts ?? 0)
+      - atRisk(s, p, events2)
+      - live.filter(d => d.from === p || d.to === p).reduce((t, d) => t + d.stake, 0);
+    const canSend = p => p !== me && spendable(p) >= DUEL_STAKE
+      && (s.duels || []).filter(d => d.from === p && d.status !== "declined" && d.ts > Date.now() - day).length < 3;
+    const canFace = (a, b) => !live.find(d => (d.from === a && d.to === b) || (d.from === b && d.to === a));
+    return { spendable, canSend, canFace };
+  };
+  const simDuelRun = () => Math.random() < 0.1
+    ? { ms: 40, foul: true } : { ms: 160 + Math.floor(Math.random() * 300) };
+  const simDuels = async (n = 3) => {
+    for (let i = 0; i < n; i++) {
+      const s = stateRef.current;
+      if (pokerLive(s) || s.frozen) return;
+      const { spendable, canSend, canFace } = simDuelPools(s);
+      const senders = shuffle(ROSTER.filter(canSend));
+      let from = null, to = null;
+      for (const f of senders) {
+        const tos = ROSTER.filter(q => q !== f && q !== me && spendable(q) >= DUEL_STAKE && canFace(f, q));
+        if (tos.length) { from = f; to = rnd(tos); break; }
+      }
+      if (!from) return;
+      await simDo("claim", { player: from });
+      const r = await simTry("sendDuel", { to, game:"quickdraw" }, `${from} calls out ${to}`);
+      if (!r.ok) continue;
+      await simWait(400);
+      const duel = (stateRef.current.duels || []).find(d =>
+        d.from === from && d.to === to && d.status === "open" && !d.runs?.[from]);
+      if (!duel) continue;
+      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${from} draws`);
+      await simDo("claim", { player: to });
+      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${to} answers`);
+      await simWait(600);
+    }
+  };
+  const simDuelMe = async () => {
+    if (!me) throw new Error("Pick who you are first");
+    const s = stateRef.current;
+    if (pokerLive(s)) throw new Error("Points are on the table");
+    if (s.frozen) throw new Error("The board is frozen");
+    const { canSend, canFace } = simDuelPools(s);
+    const from = rnd(ROSTER.filter(p => canSend(p) && canFace(p, me)));
+    if (!from) throw new Error("Nobody can afford a challenge");
+    await simDo("claim", { player: from });
+    await simDo("sendDuel", { to: me, game:"quickdraw" }, `${from} calls you out`);
+    await simWait(300);
+    const duel = (stateRef.current.duels || []).find(d =>
+      d.from === from && d.to === me && d.status === "open" && !d.runs?.[from]);
+    if (duel) await simTry("playDuel", { id: duel.id, ...simDuelRun() });
+  };
+  /* clean book: void whatever is still pending so the poker gate opens */
+  const simSettleBook = async () => {
+    const s = stateRef.current;
+    const events2 = allEventsOf(s);
+    for (const w of s.wagers) {
+      if (resolveWager(s, w, events2).status === "pending")
+        await simDo("voidWager", { id: w.id }, "Settling the book");
+    }
+    for (const d of s.duels || []) {
+      if (d.status === "open" && !resolveDuel(d).settled)
+        await simDo("voidDuel", { id: d.id }, "Settling the book");
+    }
+    await simWait(300);
+    for (const row of computeStandings(stateRef.current)) {
+      if (row.pts < 0)
+        await simDo("adjust", { player: row.player, delta: Math.ceil(-row.pts / PT) * PT, reason: "QA" },
+          "Settling the book");
+    }
+  };
+  const simPokerAlive = () => ROSTER.filter(q =>
+    !(stateRef.current.poker?.outs || []).some(o => o.player === q));
+  const simPokerNight = async ({ through = "result" } = {}) => {
+    await simFastForward();
+    await simSettleBook();
+    if (!stateRef.current.poker) {
+      await simDo("pokerSetup", {}, "Setting the table");
+      await simWait(400);
+    }
+    if (through === "setup") return;
+    if (!stateRef.current.poker?.startedAt) {
+      await simDo("pokerStart", {}, "Shuffle up and deal");
+      await simWait(400);
+    }
+    for (let b = 0; b < 4 && simPokerAlive().length > 3; b++) {
+      const pool = simPokerAlive().filter(q => q !== me);
+      if (!pool.length) break;
+      await simDo("pokerBust", { player: rnd(pool) }, "A stack goes in");
+      await simWait(500);
+    }
+    const poker = stateRef.current.poker;
+    const done = poker.counts || {};
+    if (through === "live") {
+      for (const q of shuffle(simPokerAlive().filter(q => q !== me && done[q] === undefined)).slice(0, 2)) {
+        await simDo("pokerCount", { player: q, count: rnd([4, 6, 8, 10]) * PT }, `${q} counts down`);
+        await simWait(300);
+      }
+      return;
+    }
+    /* exact chip split of what the counted stacks have not claimed yet */
+    const todo = simPokerAlive().filter(q => done[q] === undefined);
+    if (todo.length) {
+      const counted = Object.values(done).reduce((a, b) => a + b, 0);
+      let left = Math.max(0, Math.floor((poker.total - counted) / PT));
+      const weights = todo.map(() => 0.2 + Math.random());
+      const wsum = weights.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < todo.length; i++) {
+        const share = i === todo.length - 1 ? left
+          : Math.min(left, Math.round(left * weights[i] / wsum));
+        left -= share;
+        await simDo("pokerCount", { player: todo[i], count: share * PT }, `${todo[i]} counts down`);
+        await simWait(250);
+      }
+    }
+    await simDo("pokerResult", {}, "Posting the counts");
+    await simWait(400);
+  };
+  const simCrown = async () => {
+    await simPokerNight({ through: "result" });
+    if (!stateRef.current.frozen) await simDo("setFrozen", { f: true }, "Crowning the champion");
+  };
+  const simOpenBetting = async () => {
+    const s = stateRef.current;
+    const ev = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
+    if (!ev || (ev.finale && ev.game === "poker")) return;
+    await simEnsureFormat(ev);
+    await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
+    await simWait(400);
+    await simBetsRound();
   };
   const runSim = (fn, fast = false) => () => {
     if (simRef.current.running) return;
@@ -705,6 +952,66 @@ export default function App() {
     })();
   };
   const stopSim = () => { simRef.current.cancel = true; };
+  /* checkpoints: where the board is on the weekend's arc, derived only */
+  const simRank = s => {
+    const evs = allEventsOf(s);
+    const finale = evs.find(e => e.finale && e.game === "poker");
+    const rest = evs.filter(e => !e.finale && !s.shelved[e.id]);
+    const early = rest.filter(e => e.session === "fri" || e.session === "sam");
+    if (s.frozen) return 7;
+    if (finale && s.results[finale.id]) return 6;
+    if (pokerLive(s)) return 5;
+    if (s.poker) return 4;
+    if (rest.length && rest.every(e => s.results[e.id])) return 3.5;
+    if (early.length && early.every(e => s.results[e.id])) return 3;
+    if (Object.keys(s.results).length || s.onDeck) return 2;
+    if (s.live) return 1;
+    return 0;
+  };
+  const QA_PRESETS = [
+    { key:"locker", name:"Locker room", rank:0, note:"All 13 checked in, chips claimed, not live",
+      run: simCheckIn },
+    { key:"betting", name:"Betting open", rank:2, note:"Live, first event on deck, bets down",
+      run: async () => {
+        await simCheckIn();
+        if (!stateRef.current.live) await simDo("setLive", { on:true }, "The weekend goes live");
+        await simOpenBetting();
+      } },
+    { key:"midsat", name:"Mid-Saturday", rank:3, note:"Friday and Sat AM played, duels settled",
+      run: async () => {
+        for (let i = 0; i < 12; i++) {
+          const s = stateRef.current;
+          const nxt = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
+          if (!nxt || nxt.finale || (nxt.session !== "fri" && nxt.session !== "sam")) break;
+          await simPlayEvent();
+        }
+        await simDuels(3);
+        await simOpenBetting();
+      } },
+    { key:"tableset", name:"Table set", rank:4, note:"Everything played, book clean, buy-ins posted",
+      run: () => simPokerNight({ through:"setup" }) },
+    { key:"pokerlive", name:"Poker live", rank:5, note:"Clock running, busts in, counts started",
+      run: () => simPokerNight({ through:"live" }) },
+    { key:"crowned", name:"Champion crowned", rank:7, note:"Stacks are the standings, board frozen",
+      run: simCrown },
+  ];
+  const jumpTo = pre => {
+    setModal(null);
+    runSim(async () => {
+      if (simRank(stateRef.current) > pre.rank) {
+        await simDo("resetTournament", {}, "Resetting the board");
+        await simWait(400);
+      }
+      await pre.run();
+    }, true)();
+  };
+  /* standalone helpers refuse to poke a table with cards in the air */
+  const qaGuard = fn => () => {
+    const s = stateRef.current;
+    if (pokerLive(s)) return notify("Points are on the table");
+    if (s.frozen) return notify("The board is frozen");
+    runSim(fn)();
+  };
   const unlockGm = pin => dispatch("gmUnlock", { pin }).then(r => {
     if (!r.ok) return notify(r.error || "Wrong passcode");
     setGmToken(r.extra?.gmToken); setGm(true); saveMine("si-gm", "yes");
@@ -820,8 +1127,9 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", paddingTop:12,
-        paddingBottom:`calc(${gm && qa ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
+      <div style={{ flex:1, overflowY:"auto",
+        paddingTop: gm && qa && qaTop && !qaMin ? 150 : 12,
+        paddingBottom:`calc(${gm && qa && !qaMin && !qaTop ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && (<>
           {me && !state.frozen && (
             <div style={{ padding:"0 16px" }}>
@@ -876,13 +1184,14 @@ export default function App() {
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
         </button>
       )}
-      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onRerun={rerunOnboard} onExit={toggleQa}
+      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa}
         minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
         top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}
         sim={sim} onStop={stopSim} guestLens={guestLens}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
-        onSimBets={runSim(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
-        onFastForward={runSim(simFastForward, true)} />}
+        onJump={() => setModal({ type:"qa" })}
+        onSimBets={qaGuard(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
+        onDuelMe={qaGuard(simDuelMe)} />}
 
       {/* tab bar: night chrome, sun pill marks the active tab */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
@@ -970,6 +1279,27 @@ export default function App() {
         onClose={() => setModal(null)} />}
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
+      {modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
+        onJump={jumpTo} pokerOn={pokerLive(state)}
+        onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
+        onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
+        onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
+        onBustOne={() => { const pool = simPokerAlive().filter(q => q !== me); if (pool.length) pokerBust(pool[Math.floor(Math.random() * pool.length)]); }}
+        onCountRest={async () => {
+          const p = state.poker; if (!p) return;
+          const done = p.counts || {};
+          const todo = simPokerAlive().filter(q => q !== me && done[q] === undefined);
+          if (!todo.length) return notify("Everyone else is counted");
+          const counted = Object.values(done).reduce((a, b) => a + b, 0);
+          const meIn = done[me] === undefined && simPokerAlive().includes(me) ? 1 : 0;
+          let left = Math.max(0, Math.floor((p.total - counted) / PT));
+          const per = Math.floor(left / (todo.length + meIn));
+          for (const q of todo) { await pokerCount(q, Math.min(left, per) * PT); left -= Math.min(left, per); }
+          notify(meIn ? "Counts in, yours is the last one" : "Counts in");
+        }}
+        onRerun={() => { rerunOnboard(); setModal(null); }}
+        onReset={() => { resetGame(); setModal(null); }}
+        onClose={() => setModal(null)} />}
       {modal?.type === "freeze" && (
         <Sheet title="Crown the champion" onClose={() => setModal(null)}>
           <p style={pStyle}>Freezes the board and crowns <b style={{color:"var(--accent2)"}}>{disp(state, standings[0]?.player)}</b> at {standings[0]?.pts} points. All betting closes.</p>
@@ -4026,8 +4356,8 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
 }
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
-function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens, onLens,
-  onSimBets, onPlayNext, onFastForward, minimized, onMin, top, onPos }) {
+function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
+  onJump, onSimBets, onPlayNext, onDuelMe, minimized, onMin, top, onPos }) {
   const [confirm, setConfirm] = useState(false);
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
     textTransform:"uppercase", padding:"6px 10px", borderRadius:10, cursor:"pointer", flexShrink:0 };
@@ -4061,12 +4391,8 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
                 background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Keep</button>
             </>
           ) : (
-            <>
-              <button onClick={onRerun} style={{ ...small,
-                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Rerun intro</button>
-              <button onClick={() => setConfirm(true)} style={{ ...small,
-                background:"none", border:"1px solid rgba(192,71,58,0.4)", color:"var(--clay)" }}>Reset game</button>
-            </>
+            <button onClick={() => setConfirm(true)} style={{ ...small,
+              background:"none", border:"1px solid rgba(192,71,58,0.4)", color:"var(--clay)" }}>Reset game</button>
           )}
           <button onClick={onPos} title="Dock top or bottom" style={{ background:"none", border:"1px solid rgba(251,243,228,0.3)",
             color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
@@ -4090,11 +4416,13 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
               animation:"si-pulse 1s infinite", flexShrink:0 }} />
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--bone)", flex:1, minWidth:0,
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sim}</span>
-            <button onClick={onStop} style={{ ...small, background:"#B23B2E", border:"none", color:"var(--bone)" }}>Stop</button>
+            <button onClick={onStop} style={{ ...small, background:"var(--clay)", border:"none", color:"var(--bone)" }}>Stop</button>
           </div>
         ) : (
           <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
-            {[["Sim bets", onSimBets], ["Play next event", onPlayNext], ["To the Finale", onFastForward]].map(([lb, fn]) => (
+            <button onClick={onJump} style={{ ...small,
+              background:"var(--sun)", border:"1px solid var(--ink0)", color:"var(--ink0)" }}>Jump to</button>
+            {[["Play next", onPlayNext], ["Sim bets", onSimBets], ["Duel me", onDuelMe]].map(([lb, fn]) => (
               <button key={lb} onClick={fn} style={{ ...small,
                 background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>{lb}</button>
             ))}
@@ -4107,6 +4435,58 @@ function QABar({ me, onSwitch, onReset, onRerun, onExit, sim, onStop, guestLens,
         )}
       </div>
     </div>
+  );
+}
+
+/* QA jump sheet: checkpoints land the board at a named point in the weekend,
+   helpers poke one feature at a time. Everything runs the sim driver; the
+   bar shows progress and holds the Stop. */
+function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBets,
+  onBustOne, onCountRest, onRerun, onReset, onClose }) {
+  const [confirm, setConfirm] = useState(false);
+  const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
+  return (
+    <Sheet title="QA" onClose={onClose}>
+      <div style={{ ...sect, marginTop:0 }}>Checkpoints</div>
+      {presets.map(pre => {
+        const reached = rank >= pre.rank;
+        const resets = rank > pre.rank;
+        return (
+          <button key={pre.key} disabled={busy} onClick={() => onJump(pre)}
+            style={{ width:"100%", display:"flex", alignItems:"center", gap:10, textAlign:"left",
+              background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
+              padding:"10px 12px", marginBottom:7, cursor:"pointer", opacity: busy ? 0.45 : 1 }}>
+            <span style={{ width:8, height:8, borderRadius:99, flexShrink:0,
+              background: reached ? "var(--sun)" : "transparent",
+              border:"1.5px solid " + (reached ? "var(--sun)" : "var(--muted)") }} />
+            <span style={{ flex:1, minWidth:0 }}>
+              <span style={{ display:"block", fontFamily:DISPLAY, fontWeight:700, fontSize:16.5,
+                letterSpacing:"0.03em", textTransform:"uppercase", color:"var(--ink)" }}>{pre.name}</span>
+              <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>{pre.note}</span>
+            </span>
+            {resets && <Tag>Resets first</Tag>}
+          </button>
+        );
+      })}
+      <div style={sect}>Helpers</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <Btn kind="ghost" disabled={busy} onClick={onDuelMe}>Duel me</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onDuels}>Duels round</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onBets}>Sim bets</Btn>
+        {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
+        {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onCountRest}>Count the rest</Btn>}
+      </div>
+      <div style={sect}>Board</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <Btn kind="ghost" onClick={onRerun}>Rerun intro</Btn>
+        {confirm ? (
+          <>
+            <Btn kind="flame" onClick={onReset}>Confirm reset</Btn>
+            <Btn kind="ghost" onClick={() => setConfirm(false)}>Keep</Btn>
+          </>
+        ) : <Btn kind="danger" onClick={() => setConfirm(true)}>Reset game</Btn>}
+      </div>
+    </Sheet>
   );
 }
 

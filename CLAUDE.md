@@ -49,6 +49,8 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 ## Copy and design taste (Brandon's rules)
 
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
+  No reassuring filler lines (Brandon hates "Yours all weekend once the board
+  goes live" and everything like it): copy states a fact or gets deleted.
 - Field Day look: sun-faded rec-tournament at night, championship seriousness.
   FULL DARK: warm near-black surfaces (bg/paper/paper2 night ramp), --ink is
   the primary TEXT color (bone), --ink0 is the absolute brown-black reserved

@@ -1220,7 +1220,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
-        Add this to your home screen first. It opens full screen like any other app, and your check-in sticks to it.
+        Add this to your home screen first. It opens full screen, like any other app.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
@@ -1426,11 +1426,12 @@ function ChipPicker({ state, me, onChip }) {
         <div style={{ ...label, flex:1 }}>Your chip</div>
         <BankChip p={me} size={30} />
       </div>
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:8 }}>
-        {locked ? "Chips are locked for the weekend."
-          : mine.color ? "Yours all weekend once the board goes live."
-          : "Everyone starts gray. Claim a color, first come first serve."}
-      </div>
+      {(locked || !mine.color) && (
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:8 }}>
+          {locked ? "Chips are locked for the weekend."
+            : "Everyone starts gray. Claim a color, first come first serve."}
+        </div>
+      )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:7, marginBottom:12 }}>
         {CHIP_COLORS.map(c => {
           const by = owner(c.hex);

@@ -1063,23 +1063,22 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       ["Bets","Back anyone when betting opens."],
       ["Rules","Scoring, wagers, and how to play every game."],
     ]},
-    7: { art:<FDMark size={54} />, t:"Put it on your home screen",
-      b:"Add it once and it opens full screen with the crest on your home screen, like any other app.", install:true },
   };
-  /* the install card only shows when the app isn't already installed */
-  const cardSteps = isStandalone() ? [3,4,5,6] : [3,4,5,6,7];
-  const lastStep = cardSteps[cardSteps.length - 1];
+  /* install lives at step -1, BEFORE check-in: the installed app gets its own
+     fresh storage, so anything set up in the browser first would be lost */
+  const cardSteps = [3,4,5,6];
+  const lastStep = 6;
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · October 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
-        This runs best from your home screen. Add it once and it opens full screen, like any other app.
+        Add this to your home screen first. It opens full screen like any other app, and your check-in sticks to it.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
-        Then open it from your home screen and check in there.
+        Then open it from your home screen and check in there. Checking in here in the browser won't carry over.
       </div>
       <div style={{ marginTop:"auto" }}>
         <Btn kind="ghost" onClick={next} style={{ width:"100%" }}>Skip, stay in the browser</Btn>
@@ -1178,7 +1177,6 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
       )}
-      {c.install && <div style={{ marginTop:22 }}><InstallHint /></div>}
       {c.meter && (
         <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
           {[["Fri",1],["Sat AM",2],["Sat PM",3],["Sat Nite",4],["Finale",6]].map(([lb,v]) => (

@@ -1667,48 +1667,149 @@ function ScenarioCard({ state, scen, me }) {
   );
 }
 
-function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onOpen, onAdjust, onChallenge, onFreeze, onUnfreeze, finaleDone }) {
+/* what a result actually changed: rank moves, the lead, and the chips that
+   settled on it. Derived by recomputing standings without that result. */
+function resultImpact(state, events, latest, standings) {
+  const prev = { ...state, results: { ...state.results } };
+  delete prev.results[latest.ev.id];
+  const before = computeStandings(prev);
+  const rank = rows => Object.fromEntries(rows.map(r => [r.player, r.rank]));
+  const rb = rank(before), ra = rank(standings);
+  const ord = n => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
+  const awarded = (latest.res.slots || []).flat();
+  let climb = null;
+  awarded.forEach(p => {
+    const d = (rb[p] ?? 99) - (ra[p] ?? 99);
+    if (d > 0 && (!climb || d > climb.d)) climb = { p, d };
+  });
+  const leadBefore = before.filter(r => r.rank === 1).map(r => r.player).join("+");
+  const leadAfter = standings.filter(r => r.rank === 1).map(r => r.player).join("+");
+  const settled = (state.wagers || []).filter(w => w.eventId === latest.ev.id)
+    .map(w => ({ w, r: resolveWager(state, w, events) })).filter(x => x.r.status === "won" || x.r.status === "lost");
+  const cashed = settled.filter(x => x.r.status === "won").reduce((s, x) => s + x.w.stake, 0);
+  const burned = settled.filter(x => x.r.status === "lost").reduce((s, x) => s + x.w.stake, 0);
+  const parts = [];
+  if (leadAfter !== leadBefore)
+    parts.push(`${standings.filter(r => r.rank === 1).map(r => disp(state, r.player)).join(" and ")} take${leadAfter.includes("+") ? "" : "s"} the lead`);
+  else if (climb) parts.push(`${disp(state, climb.p)} up ${climb.d} to ${ord(ra[climb.p])}`);
+  if (cashed || burned) parts.push([cashed && `${cashed} chip${cashed > 1 ? "s" : ""} cashed`,
+    burned && `${burned} burned`].filter(Boolean).join(", "));
+  return parts.join(". ");
+}
+
+/* the now zone: one slot above the standings. Live progress beats a fresh
+   result beats the next event; betting-open already lives in the header. */
+function NowCard({ state, standings, events, me, onOpen }) {
+  const openEv = e => !state.results[e.id] && !state.shelved[e.id] && e.id !== state.onDeck;
+  const liveEv = events.find(e => openEv(e) && (state.brackets[e.id] || state.stages[e.id]));
   let latest = null;
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = events.find(e => e.id === eid);
     if (ev && res?.slots?.[0]?.length && (!latest || res.ts > latest.res.ts)) latest = { ev, res };
   });
+  const card = { display:"block", width:"100%", textAlign:"left", cursor:"pointer", marginBottom:10,
+    background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14, padding:"10px 13px" };
+
+  if (liveEv) {
+    const br = state.brackets[liveEv.id];
+    const st = state.stages[liveEv.id];
+    let progress = "", matchup = null;
+    if (br) {
+      const all = br.rounds.flat();
+      const done = all.filter(m => m.winner !== null && m.winner !== undefined).length;
+      progress = `${done} of ${all.length} decided`;
+      outer: for (let r = 0; r < br.rounds.length; r++) for (const m of br.rounds[r]) {
+        if (m.winner === null || m.winner === undefined) {
+          const a = resolveSlot(br, m.a), b = resolveSlot(br, m.b);
+          if (a !== null && b !== null) { matchup = { a, b, name: (ROUND_NAMES[br.size] || [])[r] }; break outer; }
+        }
+      }
+    } else if (st) {
+      const done = st.groups.filter(g => (g.through || []).length >= st.advance).length;
+      progress = `${st.kind === "heats" ? "heats" : "pools"}: ${done} of ${st.groups.length} decided`;
+    }
+    const draw = state.draws[liveEv.id];
+    return (
+      <button onClick={() => onOpen(liveEv)} style={{ ...card, border:"1px solid rgba(192,71,58,0.45)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <GameMark id={liveEv.game} size={28} />
+          <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.4s infinite" }} />
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
+            color:"var(--live2)", textTransform:"uppercase" }}>Live</span>
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{liveEv.name}</span>
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--muted)" }}>{progress}</span>
+        </div>
+        {matchup && draw && (
+          <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8, paddingTop:8,
+            borderTop:"1px solid var(--line)" }}>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.1em",
+              color:"var(--muted)", textTransform:"uppercase", flexShrink:0 }}>{matchup.name || "Up now"}</span>
+            <AvatarStack state={state} players={draw.teams[matchup.a].players} size={20} max={3} />
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--ink)", minWidth:0,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+              {teamLabel(state, draw.teams[matchup.a])}
+              <span style={{ color:"var(--muted)", fontWeight:700 }}> vs </span>
+              {teamLabel(state, draw.teams[matchup.b])}</span>
+            <AvatarStack state={state} players={draw.teams[matchup.b].players} size={20} max={3} />
+          </div>
+        )}
+      </button>
+    );
+  }
+
+  if (latest) {
+    const award = AWARDS[latest.ev.value][0];
+    const impact = resultImpact(state, events, latest, standings);
+    return (
+      <button onClick={() => onOpen(latest.ev)} style={card}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <GameMark id={latest.ev.game} size={28} />
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
+            textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
+            background:"var(--olive)", color:BONE }}>Final</span>
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latest.ev.name}</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8, paddingTop:8,
+          borderTop:"1px solid var(--line)" }}>
+          <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={4} />
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {teamLabel(state, { players: latest.res.slots[0] })}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--green)" }}>+{award} each</span>
+        </div>
+        {impact && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)", marginTop:5 }}>{impact}</div>}
+      </button>
+    );
+  }
+
+  const next = events.find(openEv);
+  if (!next) return null;
+  const ph = phaseOf(next);
+  const sess = SESSIONS.find(s => s.id === next.session);
+  return (
+    <button onClick={() => onOpen(next)} style={{ ...card, display:"flex", alignItems:"center", gap:10,
+      boxShadow:`inset 4px 0 0 ${ph.bg}` }}>
+      <GameMark id={next.game} size={26} />
+      <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
+        color:"var(--accent2)", textTransform:"uppercase" }}>Next</span>
+      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
+        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
+      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--muted)" }}>
+        {sess ? `${sess.label}, ` : ""}{next.value} pt{next.value > 1 ? "s" : ""}</span>
+    </button>
+  );
+}
+
+function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onOpen, onAdjust, onChallenge, onFreeze, onUnfreeze, finaleDone }) {
   const upcoming = events.find(e => !state.results[e.id] && !state.shelved[e.id]);
   const scen = !champion && (state.onDeck && events.find(e => e.id === state.onDeck)?.finale || upcoming?.finale)
     ? computeScenarios(state) : null;
   return (
     <div style={{ padding:"0 16px" }}>
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
-      {latest && !champion && (
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 13px", marginBottom:10,
-          borderRadius:14, background:"rgba(78,110,57,0.06)", border:"1px solid rgba(78,110,57,0.25)" }}>
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
-            color:"var(--green)", textTransform:"uppercase" }}>Latest</span>
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {latest.ev.name}: {teamLabel(state, { players: latest.res.slots[0] })}</span>
-          <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={3} />
-        </div>
-      )}
-      {!champion && (() => {
-        const open = e => !state.results[e.id] && !state.shelved[e.id] && e.id !== state.onDeck;
-        const live = events.find(e => open(e) && (state.brackets[e.id] || state.stages[e.id]));
-        const next = live || events.find(open);
-        if (!next) return null;
-        return (
-          <button onClick={() => onOpen(next)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
-            padding:"9px 13px", marginBottom:10, borderRadius:14, cursor:"pointer", textAlign:"left",
-            background: live ? "linear-gradient(90deg, rgba(192,71,58,0.1), rgba(192,71,58,0.02)), var(--paper)" : "var(--paper)",
-            border: live ? "1px solid rgba(192,71,58,0.4)" : "1px solid var(--line)" }}>
-            <GameMark id={next.game} size={24} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
-              color: live ? "var(--live2)" : "var(--accent2)", textTransform:"uppercase" }}>{live ? "Live" : "Next"}</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
-            <span style={{ fontFamily:SANS, color:"var(--muted)", fontSize:16 }}>›</span>
-          </button>
-        );
-      })()}
+      {!champion && <NowCard state={state} standings={standings} events={events} me={me} onOpen={onOpen} />}
       {scen && <ScenarioCard state={state} scen={scen} me={me} />}
       {allTied && (
         <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
@@ -4278,6 +4379,11 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             {teamLabel(state, { players: latest.res.slots[0] })}</div>
           <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"var(--night-text)", marginTop:12 }}>
             +{AWARDS[latest.ev.value][0]} each</div>
+          {(() => {
+            const impact = resultImpact(state, events, latest, standings);
+            return impact ? <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.5vw,20px)",
+              color:"var(--sun)", marginTop:10 }}>{impact}</div> : null;
+          })()}
         </div>
       ) : scene === "book" ? (
         <div key="scene-book" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",

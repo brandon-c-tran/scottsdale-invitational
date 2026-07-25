@@ -23,10 +23,10 @@ const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|
 
 /* ─────────── visual system: FIELD DAY ───────────
    Sun-faded rec-tournament look. Barlow Condensed carries scores, ranks, and
-   event names; Archivo carries everything functional. Light bone paper by
+   event names; Inter carries everything functional. Light bone paper by
    default; warm night surfaces are reserved for reveals, finals, and TV. */
 const DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
-const SANS = "'Archivo',system-ui,sans-serif";
+const SANS = "'Inter',system-ui,sans-serif";
 const BONE = "var(--bone)";
 const GOLD_GRAD = "var(--sun)";
 const EMBER_GRAD = "var(--accent)";
@@ -931,19 +931,19 @@ function Shell({ children, tv }) {
         :root {
           /* Field Day tokens. Canvas and paper are warm bone; ink is brown-black. */
           --bg:#F2E9D8; --paper:#FBF5E9; --paper2:#EADFC8; --line:#DACDB4;
-          --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49; --disabled:var(--disabled);
+          --ink:#2A2119; --muted:#8A7A63; --muted2:#6E5E49; --disabled:#AE9C80;
           /* phase + signal palette: pool (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale) */
           --accent:#C25832; --accent2:#9C4526; --sun:#F0B02F; --pool:#4694A8;
           --olive:#77804C; --clay:#C0473A; --live2:#B23B2E; --green:#4E6E39;
           /* night family: chrome, reveals, champion, TV */
-          --night:#251C14; --night2:#3A2C1E; --night-deep:var(--night-deep);
-          --bone:var(--bone); --night-text:var(--night-text); --night-text2:var(--night-text2);
+          --night:#251C14; --night2:#3A2C1E; --night-deep:#171009;
+          --bone:#FBF3E4; --night-text:#C9B896; --night-text2:#8D7A5F;
           /* medals */
-          --silver:var(--silver); --bronze:var(--bronze);
+          --silver:#75818C; --bronze:#AC6A3B;
           /* alpha tints, recomputed from the canonical hexes above */
-          --sun-tint:var(--sun-tint); --clay-tint:var(--clay-tint);
-          --green-tint:var(--green-tint); --accent-tint:var(--accent-tint);
-          --ink-tint:var(--ink-tint); --bone-line:rgba(251,243,228,0.16);
+          --sun-tint:rgba(240,176,47,0.16); --clay-tint:rgba(192,71,58,0.12);
+          --green-tint:rgba(78,110,57,0.12); --accent-tint:rgba(194,88,50,0.12);
+          --ink-tint:rgba(42,33,25,0.05); --bone-line:rgba(251,243,228,0.16);
           /* warm shadow scale; never pure black */
           --shadow-1:0 2px 10px rgba(42,33,25,0.10);
           --shadow-2:0 6px 20px rgba(42,33,25,0.30);

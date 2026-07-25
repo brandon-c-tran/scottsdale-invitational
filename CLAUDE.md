@@ -50,7 +50,7 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
 - Field Day look: sun-faded rec-tournament, treated with championship seriousness.
-  Barlow Condensed display for scores/ranks/event names, Archivo for everything
+  Barlow Condensed display for scores/ranks/event names, Inter for everything
   functional, no serif (fonts load in index.html, never via CSS import). Light
   bone paper content framed by warm-night CHROME (header, tab bar, sheet title
   bands, toasts); night also carries reveals, champion, and TV. Semantic tokens

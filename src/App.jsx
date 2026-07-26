@@ -3135,7 +3135,7 @@ function AddEventSheet({ state, onClose, save }) {
 }
 
 /* ─────────── bracket ─────────── */
-function BracketGrid({ state, ev, gm, onPick, size="md" }) {
+function BracketGrid({ state, ev, gm, onPick, size="md", bet }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
   if (!br || !draw) return null;
@@ -3153,6 +3153,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
           <div style={{ ...label, fontSize:dims.lbl, textAlign:"center" }}>{names[r]}</div>
           {round.map((match, m) => {
             const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
+            const undecided = match.winner === null || match.winner === undefined;
             return (
               <div key={m} style={{ border:"1px solid var(--line)", borderRadius:14, overflow:"hidden",
                 background:"var(--paper2)", boxShadow:"var(--shadow-1)" }}>
@@ -3160,20 +3161,25 @@ function BracketGrid({ state, ev, gm, onPick, size="md" }) {
                   const t = tIdx !== null ? draw.teams[tIdx] : null;
                   const isWinner = match.winner !== null && match.winner === tIdx;
                   const isLoser = match.winner !== null && match.winner !== tIdx && tIdx !== null;
+                  /* bet mode: an open, fully-seated matchup takes a chip on tap */
+                  const canBet = !!bet && undecided && a !== null && b !== null && tIdx !== null;
+                  const tappable = gm ? (onPick && tIdx !== null && a !== null && b !== null) : canBet;
                   return (
-                    <button key={side} disabled={!gm || !onPick || tIdx === null || a === null || b === null}
-                      onClick={() => onPick && onPick(r, m, tIdx)}
+                    <button key={side} disabled={!tappable}
+                      onClick={() => gm ? onPick && onPick(r, m, tIdx) : bet.onBet(r, m, tIdx, names[r])}
                       style={{ display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
                         padding:dims.pad,
-                        cursor: gm && onPick && tIdx !== null ? "pointer" : "default", border:"none",
+                        cursor: tappable ? "pointer" : "default", border:"none",
                         borderBottom: side === 0 ? "1px solid var(--line)" : "none",
                         background: isWinner ? "var(--accent-tint)" : "transparent",
                         opacity: isLoser ? 0.38 : 1 }}>
                       {t && <AvatarStack state={state} players={t.players} size={dims.av} max={3} />}
-                      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f,
+                      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f, flex:1, minWidth:0,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                         color: isWinner ? "var(--accent2)" : t ? "var(--ink)" : "var(--disabled)" }}>
                         {t ? teamLabel(state, t) : "TBD"}{isWinner && " ✓"}
                       </div>
+                      {bet && tIdx !== null && bet.chips(r, m, tIdx)}
                     </button>
                   );
                 })}
@@ -3877,18 +3883,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   }
   const bigTeams = outrights.length > 0 && outrights[0].players.length >= 3;
 
-  /* open bracket matchups */
-  let matchups = [];
-  if (ev && br && draw) {
-    const names = ROUND_NAMES[br.size] || [];
-    br.rounds.forEach((round, r) => round.forEach((match, m) => {
-      const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
-      if (a !== null && b !== null && (match.winner === null || match.winner === undefined)) {
-        matchups.push({ r, m, a, b, roundName: names[r] });
-      }
-    }));
-  }
-
   /* open stage groups + final */
   let stageGroups = [], stageFinal = null;
   if (ev && st) {
@@ -3942,15 +3936,23 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
         {open && (
           <div style={{ margin:"4px 0 2px", padding:"7px 10px", borderRadius:10, background:"var(--paper)",
             border:"1px solid var(--line)", display:"flex", flexDirection:"column", gap:5, animation:"si-in .15s ease-out" }}>
-            {bets.map(x => (
-              <div key={x.w.id} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <BankChip p={x.w.player} size={16} />
-                <Avatar state={state} p={x.w.player} size={20} />
-                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, x.w.player)}</span>
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:14, color:"var(--muted2)" }}>{x.w.stake}</span>
-              </div>
-            ))}
+            {/* one row per bettor: their chip stack and total, never repeated */}
+            {[...bets.reduce((m2, x) => m2.set(x.w.player, (m2.get(x.w.player) || 0) + x.w.stake), new Map())]
+              .sort((x, y) => y[1] - x[1])
+              .map(([p, total]) => (
+                <div key={p} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <Avatar state={state} p={p} size={20} />
+                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
+                    minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</span>
+                  <span style={{ display:"flex" }}>
+                    {Array.from({ length: Math.min(total / PT, 3) }, (_, i) => (
+                      <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={p} size={16} /></span>
+                    ))}
+                  </span>
+                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:14, color:"var(--muted2)",
+                    minWidth:28, textAlign:"right" }}>{total}</span>
+                </div>
+              ))}
           </div>
         )}
       </div>
@@ -4048,10 +4050,42 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           </div>
           <div style={{ padding:"12px 13px 8px" }}>
 
-          {/* the whiteboard: live event state up top, chips ride on the picks below */}
+          {/* the whiteboard: chips ride directly on the bracket. Tap a side
+              of any open matchup to drop one; your ✕ pulls the last back. */}
           {br && draw && (
             <div style={{ marginBottom:14, overflowX:"auto" }}>
-              <BracketGrid state={state} ev={ev} gm={false} />
+              <BracketGrid state={state} ev={ev} gm={false} bet={{
+                onBet: (r2, m2, tIdx, roundName) => {
+                  if (room < PT) return;
+                  onPick({ kind:"match", eventId:ev.id, teamIdx:tIdx,
+                    pickPlayers:[...draw.teams[tIdx].players], pickTeam:true, drawId:draw.id,
+                    match:[r2, m2], matchName: roundName, evName: ev.name });
+                },
+                chips: (r2, m2, tIdx) => {
+                  const bets = pending.filter(x => x.w.kind === "match" && x.w.eventId === ev.id &&
+                    x.w.drawId === draw.id && x.w.match?.[0] === r2 && x.w.match?.[1] === m2 &&
+                    x.w.teamIdx === tIdx);
+                  if (!bets.length) return null;
+                  const chips = bets.flatMap(x => Array.from({ length: x.w.stake / PT }, () => x.w.player));
+                  const mineBets = bets.filter(x => x.w.player === me);
+                  return (
+                    <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+                      {chips.slice(0, 4).map((p, i) => <span key={i} style={{ marginLeft: i ? -7 : 0 }}>
+                        <BankChip p={p} size={20} /></span>)}
+                      {chips.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
+                        color:"var(--muted2)", marginLeft:2 }}>+{chips.length - 4}</span>}
+                      {mineBets.length > 0 && (
+                        <span onClick={e => { e.stopPropagation(); onRetract(mineBets[mineBets.length - 1].w.id); }}
+                          role="button" style={{ width:20, height:20, borderRadius:99, display:"flex",
+                            alignItems:"center", justifyContent:"center", cursor:"pointer", marginLeft:3,
+                            fontSize:10, background:"var(--ink-tint)", color:"var(--muted2)" }}>✕</span>
+                      )}
+                    </span>
+                  );
+                },
+              }} />
+              <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", marginTop:6 }}>
+                Matchups pay even. Tap a side to put a chip on it.</div>
             </div>
           )}
           {st && !br && (
@@ -4129,36 +4163,6 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             </>
           )}
 
-          {matchups.length > 0 && (
-            <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-                <span style={{ ...label }}>Matchups</span>
-                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pay even</span>
-              </div>
-              {matchups.map(mu => (
-                <div key={`${mu.r}-${mu.m}`} style={{ marginBottom:8 }}>
-                  <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", textTransform:"uppercase",
-                    letterSpacing:"0.12em", marginBottom:4 }}>{mu.roundName}</div>
-                  <div style={{ display:"flex", gap:6, alignItems:"stretch" }}>
-                    {[mu.a, mu.b].map((tIdx, side) => {
-                      const t = draw.teams[tIdx];
-                      return (
-                        <div key={side} style={{ flex:1 }}>
-                          <PickRow rowKey={`m:${mu.r}-${mu.m}-${tIdx}`} players={t.players} name={teamLabel(state, t)}
-                            pred={w => w.kind === "match" && w.eventId === ev.id &&
-                              w.drawId === draw.id && w.match?.[0] === mu.r && w.match?.[1] === mu.m &&
-                              w.teamIdx === tIdx}
-                            onClick={() => onPick({ kind:"match", eventId:ev.id, teamIdx:tIdx,
-                              pickPlayers:[...t.players], pickTeam:true, drawId:draw.id, match:[mu.r, mu.m],
-                              matchName: mu.roundName, evName: ev.name })} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
           {me && room < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             {myPts - myExp < PT ? "Not enough points until a wager settles." : "You are maxed out until a wager settles."}</div>}
           </div>

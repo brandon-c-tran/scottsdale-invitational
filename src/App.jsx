@@ -238,8 +238,14 @@ function TravelMap() {
           strokeLinecap="round" strokeDasharray="140" pathLength="140"
           style={{ "--len":140, animation:`si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }} />
       ))}
+      {/* the travelling chips. animateMotion translates from the element's own
+          position, so these must stay at the origin (any cx/cy would double up
+          and throw them off the map). Hidden until their leg begins, or all
+          seven stack up in the corner waiting. */}
       {TRAVEL_CITIES.map((c, i) => (
-        <circle key={"m" + c.n} r="1.7" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="0.5">
+        <circle key={"m" + c.n} r="1.7" fill="var(--sun)" stroke="var(--ink0)"
+          strokeWidth="0.5" opacity="0">
+          <set attributeName="opacity" to="1" begin={`${1.2 + i * 0.18}s`} />
           <animateMotion dur="3.6s" begin={`${1.2 + i * 0.18}s`} repeatCount="indefinite" path={arc(c)} />
         </circle>
       ))}

@@ -5,7 +5,7 @@ import {
   DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms, pokerChips,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, START,
+  resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
@@ -103,63 +103,78 @@ const ArtStar = () => (
 );
 
 /* ─────────── the prize ───────────
-   A real trophy, turned on a lathe out of flat art: one silhouette repeated as
-   blades around the Y axis, so a slow spin reads as a solid of revolution
-   without a single gradient or glow. Handles sit on the two profile blades. */
-const TROPHY_BLADES = [0, 30, 60, 90, 120, 150];
-function TrophyHero({ size = 150, plate = "FIELD DAY" }) {
+   An actually-turned trophy: every part is a real solid of revolution built
+   from a ring of facets (rotateY out to the radius, tilted to the profile's
+   slant), with back faces culled so you only ever see the near half. Flat
+   facet tones come from color-mix on the palette, no gradient, no glow. */
+function trophyRing({ key, topR, botR, h, yTop, n, hue, lo = 0.72 }) {
+  const slant = Math.hypot(h, topR - botR);
+  const tilt = Math.atan2(topR - botR, h) * 180 / Math.PI;
+  const wTop = 2 * topR * Math.tan(Math.PI / n) + 0.6;
+  const wBot = 2 * botR * Math.tan(Math.PI / n) + 0.6;
+  const w = Math.max(wTop, wBot);
+  const rMid = (topR + botR) / 2;
+  const inset = t => 50 - 50 * (t / w);
+  return Array.from({ length: n }, (_, i) => {
+    /* facets are shaded by their own angle: a fixed tone band around the ring
+       that sweeps as the piece turns, so the facet edges read as volume */
+    const mix = Math.round(100 - (100 - lo * 100) * (1 - Math.cos(i * 2 * Math.PI / n)) / 2);
+    return (
+      <div key={`${key}${i}`} style={{
+        position:"absolute", left:"50%", top:0, width:w, height:slant, marginLeft:-w / 2,
+        backgroundColor:`var(${hue})`,
+        background:`color-mix(in srgb, var(${hue}) ${mix}%, var(--ink0))`,
+        backfaceVisibility:"hidden",
+        clipPath:`polygon(${inset(wTop)}% 0%, ${100 - inset(wTop)}% 0%, ${100 - inset(wBot)}% 100%, ${inset(wBot)}% 100%)`,
+        transform:`translateY(${yTop + h / 2 - slant / 2}px) rotateY(${i * 360 / n}deg) `
+          + `translateZ(${rMid}px) rotateX(${-tilt}deg)`,
+      }} />
+    );
+  });
+}
+function TrophyHero({ size = 190, plate = "FIELD DAY" }) {
+  const S = size;
+  const cupTop = 0.27 * S, cupBot = 0.115 * S;
+  const parts = [
+    /* rim, bowl, neck, stem, collar, plinth, block */
+    { key:"rim",  topR:0.285 * S, botR:0.275 * S, h:0.045 * S, yTop:0.04 * S, n:20, hue:"--sun", lo:0.8 },
+    { key:"cup",  topR:cupTop,    botR:cupBot,    h:0.29 * S,  yTop:0.085 * S, n:20, hue:"--sun" },
+    { key:"neck", topR:cupBot,    botR:0.045 * S, h:0.045 * S, yTop:0.375 * S, n:16, hue:"--sun", lo:0.62 },
+    { key:"stem", topR:0.042 * S, botR:0.042 * S, h:0.115 * S, yTop:0.42 * S,  n:14, hue:"--sun", lo:0.6 },
+    { key:"coll", topR:0.05 * S,  botR:0.15 * S,  h:0.05 * S,  yTop:0.535 * S, n:18, hue:"--sun", lo:0.68 },
+    { key:"base", topR:0.16 * S,  botR:0.16 * S,  h:0.045 * S, yTop:0.585 * S, n:20, hue:"--sun", lo:0.7 },
+    { key:"blk",  topR:0.185 * S, botR:0.185 * S, h:0.1 * S,   yTop:0.63 * S,  n:22, hue:"--accent", lo:0.66 },
+  ];
   return (
-    <div style={{ width:size, height:size * 1.2, perspective:640, flexShrink:0 }} aria-hidden="true">
-      <div style={{ position:"relative", width:"100%", height:"100%", transformStyle:"preserve-3d",
-        transform:"rotateX(-7deg)", animation:"si-trophy 14s linear infinite" }}>
-        {TROPHY_BLADES.map((deg, i) => (
-          <svg key={deg} viewBox="0 0 100 120" width={size} height={size * 1.2}
-            style={{ position:"absolute", inset:0, transform:`rotateY(${deg}deg)`,
-              transformStyle:"preserve-3d", backfaceVisibility:"visible" }}>
-            {/* cup, stem, plinth: the profile that gets revolved */}
-            <path d="M30 12 H70 L66 40 Q50 58 34 40 Z" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
-              stroke="var(--ink0)" strokeWidth="1.6" strokeLinejoin="round"/>
-            <rect x="46" y="55" width="8" height="19" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
-              stroke="var(--ink0)" strokeWidth="1.4"/>
-            <rect x="33" y="74" width="34" height="8" rx="2" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
-              stroke="var(--ink0)" strokeWidth="1.4"/>
-            <rect x="25" y="83" width="50" height="13" rx="2.5" fill="var(--accent)" fillOpacity={i ? 0.4 : 1}
-              stroke="var(--ink0)" strokeWidth="1.6"/>
-            {/* handles ride the two profile blades only, so it reads ornate, not spiky */}
-            {(i === 0 || i === 3) && (
-              <>
-                <path d="M30 17 Q16 21 20 32 Q22 39 31 39" fill="none" stroke="var(--ink0)" strokeWidth="4.4"
-                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
-                <path d="M30 17 Q16 21 20 32 Q22 39 31 39" fill="none" stroke="var(--sun)" strokeWidth="2.4"
-                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
-                <path d="M70 17 Q84 21 80 32 Q78 39 69 39" fill="none" stroke="var(--ink0)" strokeWidth="4.4"
-                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
-                <path d="M70 17 Q84 21 80 32 Q78 39 69 39" fill="none" stroke="var(--sun)" strokeWidth="2.4"
-                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
-              </>
-            )}
-            {/* the FD sun is radially symmetric, so it reads from either side */}
-            {i === 0 && (
-              <>
-                <circle cx="50" cy="27" r="7.5" fill="none" stroke="var(--ink0)" strokeWidth="1.6"/>
-                {[0,45,90,135,180,225,270,315].map(a => (
-                  <line key={a} x1={50 + 4.4 * Math.cos(a * Math.PI / 180)} y1={27 + 4.4 * Math.sin(a * Math.PI / 180)}
-                    x2={50 + 7.2 * Math.cos(a * Math.PI / 180)} y2={27 + 7.2 * Math.sin(a * Math.PI / 180)}
-                    stroke="var(--ink0)" strokeWidth="1.5" strokeLinecap="round"/>
-                ))}
-              </>
-            )}
+    <div style={{ width:S, height:S * 0.82, perspective:5.5 * S, flexShrink:0 }} aria-hidden="true">
+      <div data-trophy style={{ position:"relative", width:"100%", height:"100%", transformStyle:"preserve-3d",
+        transform:"rotateX(-8deg)", animation:"si-trophy 16s linear infinite" }}>
+        {parts.map(p => trophyRing(p))}
+        {/* the mouth of the cup, so you look into it rather than through it.
+            transform-origin is the element centre, so translate by half its
+            own height to land the disc exactly on the rim */}
+        <div style={{ position:"absolute", left:"50%", top:0, width:0.55 * S, height:0.55 * S,
+          marginLeft:-0.275 * S, borderRadius:"50%", backgroundColor:"var(--ink0)",
+          transform:`translateY(${0.045 * S - 0.275 * S}px) rotateX(90deg)` }} />
+        {/* handles are flat ribbons in one plane, exactly like the real thing:
+            broad from the front, edge-on from the side */}
+        {[1, -1].map(dir => (
+          <svg key={dir} width={S} height={S * 0.82} viewBox="0 0 100 82"
+            style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
+              fill="none" stroke="var(--ink0)" strokeWidth="6.4" strokeLinecap="round"/>
+            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
+              fill="none" stroke="var(--sun)" strokeWidth="3.4" strokeLinecap="round"/>
           </svg>
         ))}
-        {/* the plate is engraved on BOTH faces, each hidden from behind, so the
-            name never turns up mirrored as the trophy comes around */}
+        {/* engraved on both faces so the name never comes around mirrored */}
         {[0, 180].map(deg => (
-          <svg key={deg} viewBox="0 0 100 120" width={size} height={size * 1.2}
-            style={{ position:"absolute", inset:0, transform:`rotateY(${deg}deg) translateZ(0.6px)`,
-              backfaceVisibility:"hidden" }}>
-            <text x="50" y="91.5" textAnchor="middle" dominantBaseline="central" fontFamily={DISPLAY}
-              fontWeight="700" fontSize="8" letterSpacing="0.5" fill="var(--bone)">{plate}</text>
-          </svg>
+          <div key={deg} style={{ position:"absolute", left:"50%", top:0, width:0.3 * S, height:0.1 * S,
+            marginLeft:-0.15 * S, display:"flex", alignItems:"center", justifyContent:"center",
+            backfaceVisibility:"hidden", fontFamily:DISPLAY, fontWeight:700, fontSize:0.052 * S,
+            letterSpacing:"0.06em", color:"var(--bone)", whiteSpace:"nowrap",
+            transform:`translateY(${0.63 * S}px) rotateY(${deg}deg) translateZ(${0.187 * S}px)` }}>
+            {plate}</div>
         ))}
       </div>
     </div>
@@ -169,22 +184,44 @@ function TrophyHero({ size = 150, plate = "FIELD DAY" }) {
 /* ─────────── everyone flies in ───────────
    Stylized US, positions from real longitude/latitude, every route drawing
    itself into Scottsdale and a chip running the line behind it. */
+/* everything is real geography, projected once: x = (lon+125)/55, y = (49-lat)/24.
+   The country is drawn as a dot field rather than a traced coastline, so it
+   reads as a map at a glance without a hand-drawn outline to get wrong. */
+const geo = (lon, lat) => [(lon + 125) / 55 * 100, (49 - lat) / 24 * 100];
+const US_LL = [
+  [-124.7,48.4],[-124.2,43.3],[-122.4,37.8],[-120.6,34.5],[-117.1,32.5],[-114.7,32.7],
+  [-111.0,31.3],[-108.2,31.3],[-106.5,31.8],[-104.5,29.7],[-103.0,29.0],[-99.1,26.4],
+  [-97.1,25.9],[-95.0,29.0],[-93.8,29.7],[-91.0,29.2],[-89.0,29.2],[-88.0,30.3],
+  [-85.0,29.7],[-84.0,30.0],[-82.8,27.9],[-82.0,26.5],[-80.4,25.2],[-80.1,27.0],
+  [-81.4,30.7],[-79.2,33.0],[-77.0,35.0],[-75.5,37.0],[-75.5,39.0],[-74.0,40.5],
+  [-71.5,41.3],[-70.0,42.0],[-70.7,43.5],[-67.0,44.8],[-71.5,45.0],[-76.0,44.0],
+  [-79.0,43.3],[-83.0,42.0],[-83.5,45.8],[-88.0,48.2],[-95.0,49.0],[-104.0,49.0],
+  [-117.0,49.0],
+].map(([lo, la]) => geo(lo, la));
+const inUS = (x, y) => {
+  let hit = false;
+  for (let i = 0, j = US_LL.length - 1; i < US_LL.length; j = i++) {
+    const [xi, yi] = US_LL[i], [xj, yj] = US_LL[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+};
+const US_DOTS = (() => {
+  const step = 2.6, out = [];
+  for (let y = 1; y < 100; y += step)
+    for (let x = 1; x < 100; x += step) if (inUS(x, y)) out.push([x, y]);
+  return out;
+})();
 const TRAVEL_CITIES = [
-  { n:"San Francisco", x:4.7,  y:46.7, dx:3.5,  dy:-4.2, a:"start" },
-  { n:"San Diego",     x:14.2, y:67.9, dx:-1,   dy:6.4,  a:"middle" },
-  { n:"Tulsa",         x:52.7, y:53.5, dx:0,    dy:-4.4, a:"middle" },
-  { n:"Dallas",        x:51.3, y:67.5, dx:3.8,  dy:1.2,  a:"start" },
-  { n:"Austin",        x:49.6, y:78,   dx:-3.8, dy:1.2,  a:"end" },
-  { n:"Baton Rouge",   x:61.5, y:77.3, dx:3.8,  dy:1.2,  a:"start" },
-  { n:"New York",      x:92.7, y:34.6, dx:-2.5, dy:-4.6, a:"end" },
-];
-const TRAVEL_DEST = { n:"Scottsdale", x:23.8, y:64.6 };
-/* the lower 48, traced coarsely from real coordinates on the same projection
-   as the cities: x = (lon+125)/55, y = (49-lat)/24, both to 100 */
-const US_OUTLINE = "M0.5 0 L0.5 2.5 L1.5 23.8 L4.7 46.7 L8.2 60.4 L14.4 68.8 L18.7 67.9 L25.5 73.8 "
-  + "L30.5 73.8 L33.6 71.7 L40 83.3 L47.1 94.2 L50.7 96.3 L54.5 83.3 L61.8 82.5 L67.3 77.9 "
-  + "L74.5 79.2 L78.2 93.8 L81.5 96.7 L80 75 L87.3 58.3 L90 41.7 L98.2 31.3 L100 25 L100 14.6 "
-  + "L76.4 10.4 L54.5 0 Z";
+  { n:"San Francisco", ll:[-122.4,37.8], dx:3.6,  dy:-4.2, a:"start" },
+  { n:"San Diego",     ll:[-117.2,32.7], dx:-1,   dy:6.6,  a:"middle" },
+  { n:"Tulsa",         ll:[-96.0,36.2],  dx:0,    dy:-4.6, a:"middle" },
+  { n:"Dallas",        ll:[-96.8,32.8],  dx:4,    dy:1.2,  a:"start" },
+  { n:"Austin",        ll:[-97.7,30.3],  dx:-4,   dy:1.2,  a:"end" },
+  { n:"Baton Rouge",   ll:[-91.2,30.5],  dx:4,    dy:1.2,  a:"start" },
+  { n:"New York",      ll:[-74.0,40.7],  dx:-4.5, dy:-4.6, a:"end" },
+].map(c => { const [x, y] = geo(...c.ll); return { ...c, x, y }; });
+const TRAVEL_DEST = (() => { const [x, y] = geo(-111.9, 33.5); return { x, y }; })();
 function TravelMap() {
   const arc = c => {
     const mx = (c.x + TRAVEL_DEST.x) / 2;
@@ -192,9 +229,10 @@ function TravelMap() {
     return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
   return (
-    <svg viewBox="-4 -4 108 108" width="100%" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <path d={US_OUTLINE} fill="var(--ink-tint)" stroke="var(--line)" strokeWidth="0.7"
-        strokeLinejoin="round" style={{ animation:"si-fade .6s ease-out both" }} />
+    <svg viewBox="-5 -3 110 104" width="100%" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <g style={{ animation:"si-fade .8s ease-out both" }}>
+        {US_DOTS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="0.62" fill="var(--muted)" opacity="0.45" />)}
+      </g>
       {TRAVEL_CITIES.map((c, i) => (
         <path key={"r" + c.n} d={arc(c)} fill="none" stroke="var(--accent2)" strokeWidth="0.8"
           strokeLinecap="round" strokeDasharray="140" pathLength="140"
@@ -2088,21 +2126,36 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           ))}
         </div>
       )}
+      {/* a worked example beats a bar chart here: the finale is not a fifth
+          session worth points, it is where the running total gets spent */}
       {c.meter && (
-        <>
-          <div style={{ ...label, fontSize:10, marginTop:26 }}>What one event pays</div>
-          <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:8, height:92 }}>
-            {[["Fri",40],["Sat AM",80],["Sat PM",120],["Sat Nite",160],["Finale",0]].map(([lb,v], i) => (
-              <div key={lb} style={{ flex:1, textAlign:"center" }}>
-                <div style={{ height: v ? 16 + v*0.3 : 70, margin:"0 2px", borderRadius:"4px 4px 0 0",
-                  background: v ? GOLD_GRAD : EMBER_GRAD, opacity: v ? 0.45 + i*0.18 : 1,
-                  animation: v ? "none" : "si-glow 2s infinite" }} />
-                <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--muted)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
-                <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v || "Stack"}</div>
-              </div>
-            ))}
+        <div style={{ marginTop:24, border:"1px solid var(--line)", borderRadius:14,
+          background:"var(--paper)", padding:"12px 14px" }}>
+          {[["Check in", "100", false], ["Win 5v5 Full Court", "+160", false],
+            ["Back the right team", "+40", false], ["Lose a duel", "‒10", false]].map(([lb, v], i) => (
+            <div key={lb} style={{ display:"flex", alignItems:"baseline", gap:10, padding:"5px 0",
+              animation:`si-in .35s ease-out ${0.15 + i * 0.12}s both` }}>
+              <span style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", flex:1 }}>{lb}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17,
+                color: v.startsWith("+") ? "var(--green)" : v.startsWith("‒") ? "var(--clay)" : "var(--ink)" }}>{v}</span>
+            </div>
+          ))}
+          <div style={{ height:1, background:"var(--line)", margin:"7px 0" }} />
+          <div style={{ display:"flex", alignItems:"baseline", gap:10,
+            animation:"si-in .35s ease-out .7s both" }}>
+            <span style={{ ...label, fontSize:11, flex:1 }}>At the table</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--sun)" }}>290</span>
           </div>
-        </>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8,
+            animation:"si-in .35s ease-out .85s both" }}>
+            <span style={{ display:"flex" }}>
+              {[0,1,2].map(i => <span key={i} style={{ marginLeft: i ? -8 : 0 }}>
+                <BankChip p={me} size={22} /></span>)}
+            </span>
+            <span style={{ fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>
+              becomes <b style={{ color:"var(--ink)", fontWeight:700 }}>2,900 in chips</b></span>
+          </div>
+        </div>
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>
@@ -2850,11 +2903,6 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
     <div style={{ padding:"0 16px" }}>
       {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
       {!champion && <NowCard state={state} standings={standings} events={events} me={me} onOpen={onOpen} />}
-      {allTied && (
-        <div style={{ textAlign:"center", padding:"6px 0 14px" }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>All square at {START}</div>
-        </div>
-      )}
       <div style={{ background:"var(--paper)", border:"1px solid rgba(251,243,228,0.2)", borderRadius:14,
         overflow:"hidden", boxShadow:"var(--shadow-1)", animation:"si-in .25s both" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 12px",

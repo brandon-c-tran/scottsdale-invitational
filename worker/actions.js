@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, maxRisk, CHIP_MIN, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
 } from "../shared/core.js";
@@ -101,9 +101,9 @@ export const ACTIONS = {
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
     if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
-      return err("Stakes move in 20s");
+      return err("Stakes move in 10s");
     /* exposure + balance, computed server side; the cap scales with the
-       stack (a quarter of your points, never under 60) so bets keep pace
+       stack (half your points, never capped under 50) so bets keep pace
        as the weekend inflates */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
@@ -531,9 +531,9 @@ export const ACTIONS = {
     /* nobody rails the finale: anyone under 60 is staked up to 60, logged
        as a ruling so the board shows where the chips came from. pokerCancel
        reverts these, so a cancel-and-reset never grants twice. */
-    rows.filter(r => r.pts < MAX_RISK).forEach(r => {
+    rows.filter(r => r.pts < BUYIN_FLOOR).forEach(r => {
       state.adjustments.unshift({ id: "a" + Date.now() + "-" + r.player, player: r.player,
-        delta: MAX_RISK - r.pts, reason: "Table stakes", ts: Date.now() });
+        delta: BUYIN_FLOOR - r.pts, reason: "Table stakes", ts: Date.now() });
     });
     rows = computeStandings(state);
     state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
@@ -626,11 +626,11 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     if (!ROSTER.includes(player) || !delta) return err("Bad ruling");
     if (!Number.isInteger(delta) || Math.abs(delta) > 100000) return err("Bad ruling");
-    /* the board moves in 20s all weekend; once the finale counts post the
+    /* the board moves in 10s all weekend; once the finale counts post the
        standings are chip stacks, so corrections move in 25s instead */
     if (stacksPosted(state)) {
       if (delta % CHIP_MIN !== 0) return err("Counts move in 25s");
-    } else if (delta % PT !== 0) return err("Rulings move in 20s");
+    } else if (delta % PT !== 0) return err("Rulings move in 10s");
     if (pokerLive(state)) return err("Move chips on the table instead");
     state.adjustments.unshift({ id: "a" + Date.now() + "-" + player, player, delta,
       reason: String(reason || "").slice(0, 80), ts: Date.now() });

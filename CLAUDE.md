@@ -28,7 +28,7 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    automatically corrects payouts. Stale drawId/stagesId references void bets.
 2. **Server-authoritative.** All validation lives in `worker/actions.js`. The
    client may pre-check for UX but the server decision is final.
-3. **Everyone starts with 100 points; PT=20 is the chip quantum.** Every value
+3. **Everyone starts with 100 points; PT=10 is the chip quantum.** Every value
    in the economy (awards, stakes, duel antes, rulings) is a multiple of PT and
    one rendered BankChip = PT = one physical chip. Standings = 100 + event
    awards + wager net + rulings, computed fresh from state every time. No
@@ -36,11 +36,13 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
    advancement, and stage finals pay even. Awards pay 40/80/120/160 by session
    (`AWARDS` keys ARE the legal event values) so winning games outweighs betting.
-   The at-risk cap SCALES: `maxRisk(pts)` = a quarter of your points floored to
-   20s, never under 60 (`MAX_RISK`). Stake <= balance minus at-risk, stakes move
-   in 20s. Betting UX is video roulette: a fixed rack (20/60/100 chips, App.jsx
-   `RACK_DENOMS`) selects the tap stake; tapping any pick or open bracket side
-   drops that chip, value stamped on its face, your ✕ pulls the last one back.
+   The at-risk cap is a rule people can SAY: half your stack can ride at once
+   (`maxRisk(pts)` = pts/2 floored to 10s, never capped under 50 `MAX_RISK`).
+   Stake <= balance minus at-risk, stakes move in 10s. Betting UX is video
+   roulette: a fixed rack (10/20/50/100 chips, App.jsx `RACK_DENOMS`) selects
+   the tap stake and carries the only economy readout (room + stack; there is
+   no separate exposure card); tapping any pick or open bracket side drops
+   that chip, value stamped on its face, your ✕ pulls the last one back.
    TV mode is the constant status: the live scene carries an UP NOW banner and
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
    also in the ticker and phone live strip), value chips ride the TV bracket

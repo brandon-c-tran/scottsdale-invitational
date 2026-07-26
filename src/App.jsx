@@ -1709,7 +1709,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   }, [me]); // eslint-disable-line
   const cards = {
     5: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. Wins, wagers, and duels move your total from there, and events pay more as the weekend goes on.", meter:true },
-    6: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. Pick a chip from your rack, 20, 60, or 100, and tap any name or matchup to put it down. The outright winner pays 2 to 1, everything else pays even, and you can risk up to a quarter of your points at a time. The book settles itself when results post." },
+    6: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. Pick a chip from your rack and tap any name or matchup to put it down. The outright winner pays 2 to 1, everything else pays even, and up to half your stack can ride at once. The book settles itself when results post." },
     7: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points add a zero and become your stack. Final chip counts are the final standings, and the chip leader takes the championship." },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
@@ -4020,9 +4020,9 @@ function wagerPickLabel(state, w, events) {
   return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
 }
 
-/* rack denominations: 20 is the chip quantum, 60 and 100 keep taps quick once
-   stacks and caps grow. Anything unaffordable sits gray in the rack */
-const RACK_DENOMS = [PT, 3 * PT, 5 * PT];
+/* rack denominations: 10 is the chip quantum, the bigger chips keep taps
+   quick as stacks grow. Anything unaffordable sits gray in the rack */
+const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
 function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
@@ -4165,45 +4165,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   };
 
   return (
-    <div style={{ padding:"0 16px", paddingBottom: me && ev && room >= PT ? 96 : 0 }}>
-      {me && (
-        <div style={{ display:"flex", alignItems:"center", gap:14, background:CARD_BG,
-          border:"1px solid var(--line)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
-          <Avatar state={state} p={me} size={34} />
-          <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, me)}</div>
-          <div style={{ textAlign:"center" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, height:26 }}>
-              <div style={{ position:"relative", width:18, height:26, flexShrink:0 }}>
-                {[0,1,2].map(i => <div key={i} style={{ position:"absolute", bottom:i*4, left:0 }}>
-                  <BankChip p={me} size={18} /></div>)}
-              </div>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--ink)" }}>{fmt(myPts)}</span>
-            </div>
-            <div style={{ ...label, fontSize:10, marginTop:3 }}>Stack</div>
-          </div>
-          <div style={{ width:1, alignSelf:"stretch", background:"var(--line)" }} />
-          <div style={{ textAlign:"center" }}>
-            {(() => {
-              /* the cap scales with the stack: one slot per 20 you may risk,
-                 capped at 8 rendered chips (post-finale caps are huge) */
-              const slots = Math.min(myCap / PT, 8);
-              const size = slots <= 4 ? 18 : slots <= 7 ? 14 : 12;
-              return (
-                <div style={{ display:"flex", gap: slots <= 4 ? 5 : 3, alignItems:"center", height:26 }}>
-                  {Array.from({ length: slots }, (_, i) => (
-                    <BankChip key={i} p={me} size={size} empty={i + 1 > myExp / PT} />
-                  ))}
-                  {myCap / PT > 8 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
-                    color:"var(--muted2)" }}>{fmt(myExp)}/{fmt(myCap)}</span>}
-                </div>
-              );
-            })()}
-            <div style={{ ...label, fontSize:10, marginTop:3 }}>On the table</div>
-          </div>
-        </div>
-      )}
-
+    <div style={{ padding:"0 16px", paddingBottom: me && ev && room >= PT ? 104 : 0 }}>
       {!ev && !state.frozen && (
         <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
           Betting is closed.<br/>When Brandon opens the next event, it shows up here.
@@ -4348,11 +4310,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
       )}
 
       {/* the rack: fixed above the tab bar the whole time betting is open.
-          Pick a chip, tap the board. Exactly video roulette */}
+          Pick a chip, tap the board. Exactly video roulette. The readout says
+          the rule in numbers: half your stack can ride at once */}
       {me && ev && room >= PT && (
-        <div style={{ position:"fixed", bottom:"calc(58px + env(safe-area-inset-bottom))", zIndex:48,
-          left:"50%", transform:"translateX(-50%)", width:"min(92vw, 420px)",
-          display:"flex", alignItems:"flex-end", gap:16, padding:"12px 16px 10px", borderRadius:16,
+        <div style={{ position:"fixed", bottom:"calc(72px + env(safe-area-inset-bottom))", zIndex:48,
+          left:"50%", transform:"translateX(-50%)", width:"min(92vw, 430px)",
+          display:"flex", alignItems:"flex-end", gap:13, padding:"13px 16px 11px", borderRadius:16,
           background:"var(--paper)", border:"1px solid var(--line)", boxShadow:"var(--shadow-3)" }}>
           {RACK_DENOMS.map(d => {
             const ok = d <= room;
@@ -4370,7 +4333,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           <div style={{ textAlign:"right" }}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1, color:"var(--ink)" }}>{room}</div>
             <div style={{ fontFamily:SANS, fontSize:10, color:"var(--muted)", textTransform:"uppercase",
-              letterSpacing:"0.12em", marginTop:2 }}>to bet</div>
+              letterSpacing:"0.1em", marginTop:2, whiteSpace:"nowrap" }}>to bet · stack {fmt(myPts)}</div>
           </div>
         </div>
       )}
@@ -5612,13 +5575,13 @@ function Guide({ replay, events, state }) {
         </div>
       )}
       <S n="01" t="Format">
-        Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and a chip is 20. The board freezes at the trophy ceremony after the poker finale.
+        Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and the smallest chip is 10. The board freezes at the trophy ceremony after the poker finale.
       </S>
       <S n="02" t="Scoring">
         Friday events pay 40. Saturday morning 80, afternoon 120, night 160. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and stays open until the result posts. Pick a chip from the rack, 20, 60, or 100, and tap a name or a bracket matchup to put it down. The outright winner pays 2 to 1; matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. You can risk up to a quarter of your points at once, never less than 60, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
+        Betting opens when an event goes on deck and stays open until the result posts. Pick a chip from the rack, 10 to 100, and tap a name or a bracket matchup to put it down. The outright winner pays 2 to 1; matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. Up to half your stack can ride at once, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

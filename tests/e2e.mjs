@@ -118,7 +118,7 @@ r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball"
 assert(r.ok, "Evan places outright wager (40 on team 0)");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 40 } });
-assert(!r.ok, "Evan's second 40 rejected, 60 cap at 100 points (rejected: " + r.error + ")");
+assert(!r.ok, "Evan's second 40 rejected, 50 cap at 100 points (rejected: " + r.error + ")");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: "stale-draw-id", stake: 20 } });
 assert(!r.ok, "stale drawId rejected (" + r.error + ")");
@@ -127,8 +127,8 @@ const m00 = br0.rounds[0][0];
 const aIdx = m00.a.t, bIdx = m00.b.t;
 r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
   teamIdx: aIdx, pickPlayers: [...draw.teams[aIdx].players], pickTeam: true, drawId: draw.id,
-  match: [0, 0], matchName: "Play-in", stake: 20 } });
-assert(r.ok, "Evan places matchup wager (20 on play-in)");
+  match: [0, 0], matchName: "Play-in", stake: 10 } });
+assert(r.ok, "Evan places matchup wager (10 on play-in)");
 await b.waitVersion(a.version);
 assert(b.state.wagers.length === 2, "both open wagers visible in window B");
 
@@ -140,7 +140,7 @@ await b.waitVersion(a.version);
   const events = allEventsOf(b.state);
   const mw = b.state.wagers.find(w => w.kind === "match");
   const res = resolveWager(b.state, mw, events);
-  assert(res.status === "won" && res.delta === 20, "the matchup wager settled WON +20 on window B immediately");
+  assert(res.status === "won" && res.delta === 10, "the matchup wager settled WON +10 on window B immediately");
   const resA = resolveWager(a.state, a.state.wagers.find(w => w.kind === "match"), allEventsOf(a.state));
   assert(resA.status === res.status, "both windows agree on matchup settlement");
 }
@@ -184,7 +184,7 @@ for (const [label, win] of [["A", a], ["B", b]]) {
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-assert(evanRow.pts === 200 && evanRow.betNet === 100, `Evan at 200 pts (100 start +80 outright +20 matchup), got ${evanRow.pts}`);
+assert(evanRow.pts === 190 && evanRow.betNet === 90, `Evan at 190 pts (100 start +80 outright +10 matchup), got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);
@@ -206,7 +206,7 @@ r = await a.dispatch("pokerSetup", {});
 assert(!r.ok, "pending wager blocks the table (rejected: " + r.error + ")");
 r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt").id });
 assert(r.ok, "Evan pulls the chip back");
-/* scaling cap: a fat stack may risk more than 60 */
+/* scaling cap: half the stack scales with the stack */
 r = await a.dispatch("adjust", { player: "Evan", delta: 300, reason: "cap test" });
 assert(r.ok, "GM ruling puts Evan deep in points");
 await b.waitVersion(a.version);
@@ -214,7 +214,7 @@ r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt",
   pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 80 } });
 assert(r.ok, "80 fits under Evan's scaled cap");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 60 } });
+  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 170 } });
 assert(!r.ok && /Max \d+ at risk/.test(r.error), "exposure past the scaled cap rejected (" + r.error + ")");
 r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.stake === 80).id });
 assert(r.ok, "Evan pulls the 80 back");
@@ -244,8 +244,8 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
   await b.waitVersion(a.version);
   const after = computeStandings(b.state);
   const pts1 = Object.fromEntries(after.map(x => [x.player, x.pts]));
-  assert(pts1["Evan"] === pts0["Evan"] + 20 && pts1["Khoa"] === pts0["Khoa"] - 20,
-    "quick draw settled 20 across, zero sum");
+  assert(pts1["Evan"] === pts0["Evan"] + 10 && pts1["Khoa"] === pts0["Khoa"] - 10,
+    "quick draw settled 10 across, zero sum");
 }
 
 /* the buy-in floor: a short stack is staked to 60 at setup */

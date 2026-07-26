@@ -9,12 +9,14 @@ const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","R
 /* the chip quantum: every point value in the economy is a multiple of PT and
    one rendered BankChip is worth PT points. At the poker finale points add
    a zero: 1 point buys CHIP_X tournament chips. */
-const PT = 20;
-const START = 5 * PT;      // everyone opens the weekend with 100
-const MAX_RISK = 3 * PT;   // wager exposure floor: nobody is capped below 60
-/* exposure scales with the stack so bets stay meaningful as points inflate:
-   risk up to a quarter of your points, never less than MAX_RISK, in 20s */
-const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 4 / PT) * PT);
+const PT = 10;
+const START = 10 * PT;     // everyone opens the weekend with 100
+const MAX_RISK = 5 * PT;   // wager exposure floor: nobody is capped below 50
+const BUYIN_FLOOR = 6 * PT; // poker table stakes: nobody sits down under 60
+/* exposure rule everyone can say out loud: up to HALF your stack on the
+   table at once, never capped below MAX_RISK, in 10s. At 100 points that is
+   exactly 50, so the number needs no footnote */
+const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
 const AWARDS = { 40:[40,0,0], 80:[80,40,0], 120:[120,80,40], 160:[160,80,40] };
 
@@ -538,7 +540,7 @@ const bracketChampion = br => {
 };
 
 export {
-  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,

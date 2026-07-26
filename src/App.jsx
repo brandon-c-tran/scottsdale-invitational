@@ -1205,7 +1205,7 @@ export default function App() {
           onDeckEv={onDeckEv}
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
-          onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
+          onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(5)} events={events} state={state} />}
       </div>
 
@@ -4023,6 +4023,28 @@ function wagerPickLabel(state, w, events) {
 /* rack denominations: 10 is the chip quantum, the bigger chips keep taps
    quick as stacks grow. Anything unaffordable sits gray in the rack */
 const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
+
+/* one line per bettor per pick: five taps on the same team read as one wager
+   with the total, never five rows. Identical picks settle identically, so
+   merging within a status is safe and the deltas just add. w.ids carries
+   every underlying wager id (void and retract act on all of them). */
+function mergeWagerLines(list) {
+  const key = ({ w, r }) => [w.player, r.status, w.kind, w.eventId,
+    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick)
+      : w.kind === "match" ? "m:" + w.drawId + ":" + (w.match || []).join("-") + ":" + w.teamIdx
+      : "s:" + w.stagesId + ":" + (w.final ? "F" : w.group) + ":" + w.pickKey].join("|");
+  const out = new Map();
+  for (const x of list) {
+    const k = key(x), cur = out.get(k);
+    if (!cur) out.set(k, { w: { ...x.w, ids: [x.w.id] }, r: { ...x.r } });
+    else {
+      cur.w.stake += x.w.stake;
+      cur.w.ids.push(x.w.id);
+      if (typeof x.r.delta === "number") cur.r.delta = (cur.r.delta || 0) + x.r.delta;
+    }
+  }
+  return [...out.values()];
+}
 function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
@@ -4030,7 +4052,10 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
     [state, events]);
   const pending = resolved.filter(x => x.r.status === "pending");
-  const settled = resolved.filter(x => x.r.status !== "pending").slice(0, 40);
+  /* the lists show merged lines; the raw pending set still drives the chips
+     riding each pick (one chip per tap is the point there) */
+  const pendingLines = mergeWagerLines(pending);
+  const settledLines = mergeWagerLines(resolved.filter(x => x.r.status !== "pending")).slice(0, 40);
   const myExp = me ? atRisk(state, me, events) : 0;
   const myPts = standings.find(r => r.player === me)?.pts ?? 0;
   const myCap = maxRisk(myPts);
@@ -4156,7 +4181,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
         {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--clay)" }}>{r.delta}</span>}
         {r.status === "void" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"var(--muted)" }}>VOID</span>}
         {gm && r.status === "pending" && (
-          <button onClick={() => onVoid(w.id)} style={{ background:"none", border:"1px solid var(--danger-line)",
+          <button onClick={() => onVoid(w.ids || [w.id])} style={{ background:"none", border:"1px solid var(--danger-line)",
             borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
             cursor:"pointer", textTransform:"uppercase" }}>Void</button>
         )}
@@ -4340,12 +4365,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
 
       {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--paper2)", color:"var(--ink)", borderRadius:6,
-        padding:"3px 10px", margin:"4px 0 8px" }}>{pending.length} open</div>}
-      {pending.map(x => <Row key={x.w.id} x={x} />)}
-      {settled.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
+        padding:"3px 10px", margin:"4px 0 8px" }}>{pendingLines.length} open</div>}
+      {pendingLines.map(x => <Row key={x.w.id} x={x} />)}
+      {settledLines.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:6,
         padding:"3px 10px", margin:"14px 0 8px", border:"1px solid var(--line)" }}>Settled</div>}
-      {settled.map(x => <Row key={x.w.id} x={x} />)}
+      {settledLines.map(x => <Row key={x.w.id} x={x} />)}
     </div>
   );
 }
@@ -5199,7 +5224,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== onDeckEv?.id);
   const allW = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
     [state, events]);
-  const openBook = allW.filter(x => x.r.status === "pending").slice(0, 9);
+  const openBook = mergeWagerLines(allW.filter(x => x.r.status === "pending")).slice(0, 9);
   /* the ticker shows live blinds; tick once a second while cards are live */
   const [, pokerTick] = useState(0);
   useEffect(() => {
@@ -5277,7 +5302,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
       text:`${fmt(ptsIn)} riding on ${onDeckEv.name}` });
   }
-  allW.filter(x => x.r.status === "won").slice(0,2).forEach(x =>
+  mergeWagerLines(allW.filter(x => x.r.status === "won")).slice(0,2).forEach(x =>
     tickerItems.push({ tag:"Cashed", tone:"var(--green)", players:[x.w.player],
       text:`${disp(state, x.w.player)} +${x.r.delta}` }));
   if (pokerLive(state)) {

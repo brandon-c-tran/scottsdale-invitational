@@ -3065,10 +3065,12 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                 Teams balance themselves: sealed ratings blended with the live board and results, then refined until the sides are even.
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                <Btn disabled={inPlayers.length < 2} onClick={() => onDraw(inPlayers)} style={{ flex:1 }}>
+                <Btn disabled={inPlayers.length < 2} onClick={() => onDraw(inPlayers)}
+                  style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
                   Run the draw</Btn>
                 {ev.kind === "team" && (
-                  <Btn kind="dark" disabled={inPlayers.length < 2} onClick={() => openDraft(inPlayers)}>
+                  <Btn kind="dark" disabled={inPlayers.length < 2} onClick={() => openDraft(inPlayers)}
+                    style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
                     Captains draft</Btn>
                 )}
               </div>
@@ -3149,10 +3151,12 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           )}
 
           <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-            {!isPoker && <Btn onClick={enterResult} style={{ flex:1 }}>{res ? "Edit result" : "Post result"}</Btn>}
-            {!res && !isPoker && <Btn kind="dark" onClick={onDeckToggle}>{state.onDeck === ev.id ? "Close betting" : "Open betting"}</Btn>}
-            {res && !confirmClear && <Btn kind="danger" onClick={() => setConfirmClear(true)}>Clear</Btn>}
-            {res && confirmClear && <Btn kind="danger" onClick={clearRes}>Clear, sure</Btn>}
+            {!isPoker && <Btn onClick={enterResult} style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
+              {res ? "Edit result" : "Post result"}</Btn>}
+            {!res && !isPoker && <Btn kind="dark" onClick={onDeckToggle} style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
+              {state.onDeck === ev.id ? "Close betting" : "Open betting"}</Btn>}
+            {res && !confirmClear && <Btn kind="danger" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</Btn>}
+            {res && confirmClear && <Btn kind="danger" onClick={clearRes} style={{ flex:1 }}>Clear, sure</Btn>}
           </div>
           {editOpen ? (
             <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,

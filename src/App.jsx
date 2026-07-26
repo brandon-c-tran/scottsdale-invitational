@@ -1181,7 +1181,7 @@ export default function App() {
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
           onDeckEv={onDeckEv}
-          onPick={pick => placeWager({ ...pick, stake: PT })}
+          onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide replay={() => setOnboardStep(3)} events={events} />}
@@ -1189,7 +1189,8 @@ export default function App() {
 
       {gmNext && !modal && (
         <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
-          bottom:`calc(${gm && qa && !qaMin && !qaTop ? 224 : 74}px + env(safe-area-inset-bottom))`,
+          bottom:`calc(${gm && qa && !qaMin && !qaTop ? 224
+            : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
           display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
           border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
           boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
@@ -2789,7 +2790,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [more, setMore] = useState(false);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
-  const [eValue, setEValue] = useState(40);
+  const [eValue, setEValue] = useState(80);
   const [eSession, setESession] = useState(null);
   const openEdit = () => {
     setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value ?? 40);
@@ -3015,7 +3016,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   marginBottom:12, outline:"none", resize:"vertical" }} />
               <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                {[20,40,60,80].map(v => (
+                {[40,80,120,160].map(v => (
                   <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
                     fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                     background: eValue===v ? GOLD_GRAD : "var(--paper)",
@@ -3060,7 +3061,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
 /* ─────────── add event ─────────── */
 function AddEventSheet({ state, onClose, save }) {
   const [name, setName] = useState("");
-  const [value, setValue] = useState(40);
+  const [value, setValue] = useState(80);
   const [fmt, setFmt] = useState("solo");
   const [sess, setSess] = useState(null);
   const [game, setGame] = useState(null);
@@ -3088,7 +3089,7 @@ function AddEventSheet({ state, onClose, save }) {
           padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:14, outline:"none" }} />
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        {[20,40,60,80].map(v => (
+        {[40,80,120,160].map(v => (
           <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19,
             background: value===v ? GOLD_GRAD : "var(--paper)",
@@ -3853,8 +3854,13 @@ function wagerPickLabel(state, w, events) {
   return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
 }
 
+/* rack denominations: 20 is the chip quantum, 60 and 100 keep taps quick once
+   stacks and caps grow. Anything unaffordable sits gray in the rack */
+const RACK_DENOMS = [PT, 3 * PT, 5 * PT];
 function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
+  /* the rack: pick a chip, then every tap on the board bets that chip */
+  const [denom, setDenom] = useState(PT);
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
     [state, events]);
   const pending = resolved.filter(x => x.r.status === "pending");
@@ -3863,6 +3869,15 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   const myPts = standings.find(r => r.player === me)?.pts ?? 0;
   const myCap = maxRisk(myPts);
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
+
+  /* a tap bets the selected chip, clamped down to what the cap leaves you;
+     when the room shrinks under the selected chip, snap to the biggest that fits */
+  useEffect(() => {
+    if (denom > PT && room >= PT && denom > room)
+      setDenom([...RACK_DENOMS].reverse().find(d => d <= room) || PT);
+  }, [room, denom]);
+  const tapStake = Math.max(PT, Math.min(denom, Math.floor(room / PT) * PT));
+  const bet = pick => onPick({ ...pick, stake: tapStake });
 
   const ev = onDeckEv;
   const draw = ev ? state.draws[ev.id] : null;
@@ -3903,7 +3918,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     const bets = pred ? pending.filter(x => pred(x.w)) : [];
     const mineBets = bets.filter(x => x.w.player === me);
     const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
-    const chips = bets.flatMap(x => Array.from({ length: x.w.stake / PT }, () => x.w.player));
+    const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
     const shownChips = chips.slice(0, 5);
     const open = whoOpen === rowKey && bets.length > 0;
     return (
@@ -3921,7 +3936,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           {chips.length > 0 && (
             <span onClick={e => { e.stopPropagation(); setWhoOpen(w => w === rowKey ? null : rowKey); }} role="button"
               style={{ display:"flex", alignItems:"center", flexShrink:0, cursor:"pointer", padding:"4px 0" }}>
-              {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={p} size={22} /></span>)}
+              {shownChips.map((c, i) => <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={c.p} size={22} val={c.val} /></span>)}
               {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                 color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
               {mine > 0 && (
@@ -3944,11 +3959,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                   <Avatar state={state} p={p} size={20} />
                   <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
                     minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</span>
-                  <span style={{ display:"flex" }}>
-                    {Array.from({ length: Math.min(total / PT, 3) }, (_, i) => (
-                      <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={p} size={16} /></span>
-                    ))}
-                  </span>
+                  <BankChip p={p} size={20} val={total} />
                   <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:14, color:"var(--muted2)",
                     minWidth:28, textAlign:"right" }}>{total}</span>
                 </div>
@@ -3988,7 +3999,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   };
 
   return (
-    <div style={{ padding:"0 16px" }}>
+    <div style={{ padding:"0 16px", paddingBottom: me && ev && room >= PT ? 96 : 0 }}>
       {me && (
         <div style={{ display:"flex", alignItems:"center", gap:14, background:CARD_BG,
           border:"1px solid var(--line)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
@@ -4057,7 +4068,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
               <BracketGrid state={state} ev={ev} gm={false} bet={{
                 onBet: (r2, m2, tIdx, roundName) => {
                   if (room < PT) return;
-                  onPick({ kind:"match", eventId:ev.id, teamIdx:tIdx,
+                  bet({ kind:"match", eventId:ev.id, teamIdx:tIdx,
                     pickPlayers:[...draw.teams[tIdx].players], pickTeam:true, drawId:draw.id,
                     match:[r2, m2], matchName: roundName, evName: ev.name });
                 },
@@ -4066,12 +4077,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                     x.w.drawId === draw.id && x.w.match?.[0] === r2 && x.w.match?.[1] === m2 &&
                     x.w.teamIdx === tIdx);
                   if (!bets.length) return null;
-                  const chips = bets.flatMap(x => Array.from({ length: x.w.stake / PT }, () => x.w.player));
+                  const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
                   const mineBets = bets.filter(x => x.w.player === me);
                   return (
                     <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
-                      {chips.slice(0, 4).map((p, i) => <span key={i} style={{ marginLeft: i ? -7 : 0 }}>
-                        <BankChip p={p} size={20} /></span>)}
+                      {chips.slice(0, 4).map((c, i) => <span key={i} style={{ marginLeft: i ? -7 : 0 }}>
+                        <BankChip p={c.p} size={20} val={c.val} /></span>)}
                       {chips.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
                         color:"var(--muted2)", marginLeft:2 }}>+{chips.length - 4}</span>}
                       {mineBets.length > 0 && (
@@ -4108,7 +4119,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                       (o.pick.pickTeam
                         ? w.pickTeam && w.drawId === o.pick.drawId && (w.pickPlayers||[]).join("|") === o.pick.pickPlayers.join("|")
                         : !w.pickTeam && w.pick === o.key)}
-                    onClick={() => onPick(o.pick)} />
+                    onClick={() => bet(o.pick)} />
                 ))}
               </div>
             </>
@@ -4135,7 +4146,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                       return <PickRow key={String(k)} rowKey={`s:${g.gi}:${k}`} players={v.players} name={v.name}
                         pred={w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
                           w.group === g.gi && w.pickKey === k}
-                        onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
+                        onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
                           groupName:g.name, pickKey:k, pickPlayers:[...v.players],
                           pickTeam: st.entrantType === "team", evName:ev.name })} />;
                     })}
@@ -4156,7 +4167,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                   const v = stageEntrantView(state, st, k);
                   return <PickRow key={String(k)} rowKey={`f:${k}`} players={v.players} name={v.name}
                     pred={w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k}
-                    onClick={() => onPick({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
+                    onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
                       pickKey:k, pickPlayers:[...v.players], pickTeam: st.entrantType === "team", evName:ev.name })} />;
                 })}
               </div>
@@ -4165,6 +4176,35 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
 
           {me && room < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
             {myPts - myExp < PT ? "Not enough points until a wager settles." : "You are maxed out until a wager settles."}</div>}
+
+          </div>
+        </div>
+      )}
+
+      {/* the rack: fixed above the tab bar the whole time betting is open.
+          Pick a chip, tap the board. Exactly video roulette */}
+      {me && ev && room >= PT && (
+        <div style={{ position:"fixed", bottom:"calc(58px + env(safe-area-inset-bottom))", zIndex:48,
+          left:"50%", transform:"translateX(-50%)", width:"min(92vw, 420px)",
+          display:"flex", alignItems:"flex-end", gap:16, padding:"12px 16px 10px", borderRadius:16,
+          background:"var(--paper)", border:"1px solid var(--line)", boxShadow:"var(--shadow-3)" }}>
+          {RACK_DENOMS.map(d => {
+            const ok = d <= room;
+            return (
+              <button key={d} disabled={!ok} onClick={() => setDenom(d)} aria-label={`Bet ${d} a tap`}
+                style={{ background:"none", border:"none", padding:0, cursor: ok ? "pointer" : "default",
+                  transform: denom === d ? "translateY(-7px) scale(1.14)" : "none",
+                  transition:"transform .16s ease", opacity: ok ? 1 : 0.28,
+                  filter: denom === d ? "drop-shadow(0 5px 7px rgba(23,16,9,0.5))" : "none" }}>
+                <BankChip p={me} size={42} val={d} />
+              </button>
+            );
+          })}
+          <div style={{ flex:1 }} />
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1, color:"var(--ink)" }}>{room}</div>
+            <div style={{ fontFamily:SANS, fontSize:10, color:"var(--muted)", textTransform:"uppercase",
+              letterSpacing:"0.12em", marginTop:2 }}>to bet</div>
           </div>
         </div>
       )}
@@ -4694,20 +4734,23 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
   });
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
-function BankChip({ p, size=18, empty }) {
+function BankChip({ p, size=18, empty, val }) {
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
     border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
-  /* the jersey number is stamped at center once the chip is big enough to
-     read it: every bet on the board says whose it is at a glance */
+  /* the center stamp: a bet chip carries its value like a casino chip, an
+     identity chip carries the jersey number. Color says whose it is either way */
   const num = CHIP_PROFILES[p]?.num ?? playerNo(p);
+  const stamp = val != null ? val : num;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
       <circle cx="16" cy="16" r="14.6" fill={playerColor(p)} stroke="var(--ink0)" strokeWidth="1.8"/>
       {chipMarks(playerSkin(p))}
-      {size >= 20 && num != null && (
+      {val != null && <circle cx="16" cy="16" r="9.6" fill="none" strokeWidth="1"
+        stroke={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"} opacity="0.55"/>}
+      {size >= 20 && stamp != null && (
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
-          fontFamily={DISPLAY} fontWeight="700" fontSize="12.5"
-          fill={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"}>{num}</text>
+          fontFamily={DISPLAY} fontWeight="700" fontSize={val != null && val >= 100 ? 9.5 : 12.5}
+          fill={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
       )}
     </svg>
   );
@@ -5347,7 +5390,7 @@ function Guide({ replay, events }) {
         Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and a chip is 20. The board freezes at the trophy ceremony after the poker finale.
       </S>
       <S n="02" t="Scoring">
-        Friday events pay 20. Saturday morning 40, afternoon 60, night 80. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
+        Friday events pay 40. Saturday morning 80, afternoon 120, night 160. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
         Betting opens when an event goes on deck and stays open until the result posts. Back anyone, including yourself, to win the event at 2 to 1. Bracket matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. A tap puts one 20 chip down. You can risk up to a quarter of your points at once, never less than 60, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.

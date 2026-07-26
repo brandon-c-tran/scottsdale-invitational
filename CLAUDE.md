@@ -34,9 +34,13 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    awards + wager net + rulings, computed fresh from state every time. No
    stored balances.
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
-   advancement, and stage finals pay even. The at-risk cap SCALES: `maxRisk(pts)`
-   = a quarter of your points floored to 20s, never under 60 (`MAX_RISK`).
-   Stake <= balance minus at-risk, stakes move in 20s.
+   advancement, and stage finals pay even. Awards pay 40/80/120/160 by session
+   (`AWARDS` keys ARE the legal event values) so winning games outweighs betting.
+   The at-risk cap SCALES: `maxRisk(pts)` = a quarter of your points floored to
+   20s, never under 60 (`MAX_RISK`). Stake <= balance minus at-risk, stakes move
+   in 20s. Betting UX is video roulette: a fixed rack (20/60/100 chips, App.jsx
+   `RACK_DENOMS`) selects the tap stake; tapping any pick or open bracket side
+   drops that chip, value stamped on its face, your ✕ pulls the last one back.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.

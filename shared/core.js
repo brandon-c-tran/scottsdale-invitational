@@ -16,7 +16,7 @@ const MAX_RISK = 3 * PT;   // wager exposure floor: nobody is capped below 60
    risk up to a quarter of your points, never less than MAX_RISK, in 20s */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 4 / PT) * PT);
 
-const AWARDS = { 20:[20,0,0], 40:[40,20,0], 60:[60,40,20], 80:[80,40,20] };
+const AWARDS = { 40:[40,0,0], 80:[80,40,0], 120:[120,80,40], 160:[160,80,40] };
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
@@ -44,63 +44,63 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"20 PTS" },
-  { id:"sam", label:"Saturday Morning",   tag:"40 PTS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"60 PTS" },
-  { id:"san", label:"Saturday Night",     tag:"80 PTS" },
+  { id:"fri", label:"Friday Night",       tag:"40 PTS" },
+  { id:"sam", label:"Saturday Morning",   tag:"80 PTS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"120 PTS" },
+  { id:"san", label:"Saturday Night",     tag:"160 PTS" },
   { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const BUILTIN_EVENTS = [
-  /* ── Friday night · 20 pts ── */
-  { id:"putt", n:1, session:"fri", value:20, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
+  /* ── Friday night · 40 pts ── */
+  { id:"putt", n:1, session:"fri", value:40, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"8ball", n:2, session:"fri", value:20, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"8ball", n:2, session:"fri", value:40, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:3, session:"fri", value:20, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:3, session:"fri", value:40, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  { id:"die", n:4, session:"fri", value:20, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
+  { id:"die", n:4, session:"fri", value:40, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
-  /* ── Saturday morning · 40 pts ── */
-  { id:"bball", n:5, session:"sam", value:40, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
+  /* ── Saturday morning · 80 pts ── */
+  { id:"bball", n:5, session:"sam", value:80, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
     teamCfg:{ teams:4, size:3, bracket:4 },
     desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
-  { id:"spike", n:6, session:"sam", value:40, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
+  { id:"spike", n:6, session:"sam", value:80, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
     teamCfg:{ teams:6, size:2 },
     desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
-  { id:"pingpong", n:7, session:"sam", value:40, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
+  { id:"pingpong", n:7, session:"sam", value:80, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
     desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
-  { id:"foosball", n:8, session:"sam", value:40, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
+  { id:"foosball", n:8, session:"sam", value:80, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
-  /* ── Saturday afternoon · 60 pts ── */
-  { id:"volley", n:9, session:"sap", value:60, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+  /* ── Saturday afternoon · 120 pts ── */
+  { id:"volley", n:9, session:"sap", value:120, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:2, size:6 },
     desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
-  { id:"nine", n:10, session:"sap", value:60, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
+  { id:"nine", n:10, session:"sap", value:120, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
     desc:"Nine holes, lowest total strokes. Max 5 per hole." },
-  { id:"bball1", n:11, session:"sap", value:60, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+  { id:"bball1", n:11, session:"sap", value:120, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
     desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
-  { id:"pickleball", n:12, session:"sap", value:60, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"pickleball", n:12, session:"sap", value:120, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
-  /* ── Saturday night · 80 pts ── */
-  { id:"flip", n:13, session:"san", value:80, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
+  /* ── Saturday night · 160 pts ── */
+  { id:"flip", n:13, session:"san", value:160, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
     teamCfg:{ teams:2, size:6 },
     desc:"Best of 3. Flip clean, next teammate goes." },
-  { id:"beerio", n:14, session:"san", value:80, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  { id:"beerio", n:14, session:"san", value:160, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
-  { id:"bball5", n:15, session:"san", value:80, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+  { id:"bball5", n:15, session:"san", value:160, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:5 },
     desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
-  { id:"ragecage", n:16, session:"san", value:80, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+  { id:"ragecage", n:16, session:"san", value:160, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
-  { id:"gauntlet", n:17, session:"san", value:80, name:"The Gauntlet", kind:"solo", game:"gauntlet",
+  { id:"gauntlet", n:17, session:"san", value:160, name:"The Gauntlet", kind:"solo", game:"gauntlet",
     desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */

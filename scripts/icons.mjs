@@ -43,6 +43,7 @@ const OUTPUTS = [
   { file: "public/icon-192.png", px: 192, markPx: 192, bg: null },
   /* maskable: mark inside the 80% safe zone on the night canvas */
   { file: "public/icon-maskable-512.png", px: 512, markPx: 400, bg: NIGHT, ring: BONE },
+  { file: "public/icon-maskable-192.png", px: 192, markPx: 150, bg: NIGHT, ring: BONE },
   /* iOS home screen: opaque night field */
   { file: "public/apple-touch-icon.png", px: 180, markPx: 148, bg: NIGHT, ring: BONE },
 ];

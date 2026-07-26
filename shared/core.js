@@ -3,7 +3,6 @@
    for display only. */
 
 const GM_PIN = "1016";
-const STATE_KEY = "si-state-v5";
 
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
 
@@ -192,11 +191,6 @@ const SLOT_META = [
   { label:"3rd", team:"3rd place",  color:"var(--bronze)" },
 ];
 
-const DRAW_METHODS = [
-  { id:"balanced", name:"Balanced Draw",  desc:"Sealed ratings plus the live board, refined until the sides are even." },
-  { id:"draft",    name:"Captains Draft", desc:"Captains pick in turn, live on every phone.", teamOnly:true },
-];
-
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
 /* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
@@ -334,12 +328,15 @@ const pokerLive = state => {
   const pk = state.poker;
   return !!(pk && pk.startedAt && !state.results[pk.id]);
 };
+/* once counts are posted the stacks ARE the standings; wagers and duels
+   placed after that would settle into nothing, so the book stays closed */
+const stacksPosted = state =>
+  Object.values(state.results || {}).some(r => r?.stacks);
 /* points add a zero at the buy-in: 220 points sits down with 2,200 in chips.
    Real tournament denominations, so any standard set works. */
 const CHIP_X = 10;
 const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
-const POKER_DENOMS = [1000, 500, 100, 25];
-/* blind schedule for a ~2 hour session; median stack sits down ~40 BB deep */
+/* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
 const POKER_LEVELS = [
   { sb:25, bb:50, mins:15 }, { sb:50, bb:100, mins:15 }, { sb:100, bb:200, mins:15 },
   { sb:150, bb:300, mins:15 }, { sb:250, bb:500, mins:15 }, { sb:400, bb:800, mins:15 },
@@ -440,37 +437,6 @@ function computeStandings(state) {
   rows.forEach((r,i) => { if (r.pts !== prev || (stacksRes && r.pts === 0)) { rank = i+1; prev = r.pts; } r.rank = rank; });
   return rows;
 }
-/* championship scenarios going into the finale: who is still mathematically
-   alive and the weakest finale finish that keeps them alive. Awards only;
-   open wagers are ignored (they cannot be bounded). Ties count as alive
-   because a championship tie goes to the pressure putt. */
-function computeScenarios(state) {
-  const evs = allEventsOf(state);
-  const finale = evs.find(e => e.finale && !state.shelved?.[e.id]);
-  if (!finale || state.results[finale.id] || state.frozen) return null;
-  /* poker finale: everyone with chips is alive, the podium math is moot */
-  if (finale.game === "poker") return null;
-  const table = AWARDS[finale.value] || [80, 40, 20];
-  const rows = computeStandings(state);
-  const options = [0, table[2] || 0, table[1] || 0, table[0] || 0];
-  const NEED = ["any finish", "3rd or better", "2nd or better", "the win"];
-  const alive = [];
-  rows.forEach(r => {
-    for (let i = 0; i < options.length; i++) {
-      const mine = r.pts + options[i];
-      const rem = table.filter(v => v > 0);
-      if (i > 0) rem.splice(rem.indexOf(options[i]), 1);
-      const remD = [...rem].sort((a, b) => b - a);
-      const others = rows.filter(x => x.player !== r.player).map(x => x.pts).sort((a, b) => a - b);
-      if (others.every((v, j) => v + (j < remD.length ? remD[j] : 0) <= mine)) {
-        alive.push({ player: r.player, pts: r.pts, needIdx: i, need: NEED[i] });
-        break;
-      }
-    }
-  });
-  return { finaleId: finale.id, finaleName: finale.name, alive, total: rows.length };
-}
-
 function atRisk(state, p, events) {
   return (state.wagers || [])
     .filter(w => w.player === p && resolveWager(state, w, events).status === "pending")
@@ -573,11 +539,11 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
+  OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, pokerLive, pokerLevels, pokerClock, pokerDenoms, pokerChips,
-  computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
+  resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms, pokerChips,
+  computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

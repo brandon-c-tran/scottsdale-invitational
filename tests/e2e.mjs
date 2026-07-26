@@ -4,7 +4,7 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, pokerChips }
+import { resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, pokerChips, CHIP_COLORS }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -115,10 +115,10 @@ assert(b.state.onDeck === "8ball", "window B sees betting open");
 const t0 = draw.teams[0];
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 40 } });
-assert(r.ok, "Evan places outright wager (2 on team 0)");
+assert(r.ok, "Evan places outright wager (40 on team 0)");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 40 } });
-assert(!r.ok, "Evan's second 2-stake rejected, max 3 at risk (rejected: " + r.error + ")");
+assert(!r.ok, "Evan's second 40 rejected, 60 cap at 100 points (rejected: " + r.error + ")");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: "stale-draw-id", stake: 20 } });
 assert(!r.ok, "stale drawId rejected (" + r.error + ")");
@@ -128,7 +128,7 @@ const aIdx = m00.a.t, bIdx = m00.b.t;
 r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
   teamIdx: aIdx, pickPlayers: [...draw.teams[aIdx].players], pickTeam: true, drawId: draw.id,
   match: [0, 0], matchName: "Play-in", stake: 20 } });
-assert(r.ok, "Evan places matchup wager (1 on play-in)");
+assert(r.ok, "Evan places matchup wager (20 on play-in)");
 await b.waitVersion(a.version);
 assert(b.state.wagers.length === 2, "both open wagers visible in window B");
 
@@ -206,10 +206,65 @@ r = await a.dispatch("pokerSetup", {});
 assert(!r.ok, "pending wager blocks the table (rejected: " + r.error + ")");
 r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt").id });
 assert(r.ok, "Evan pulls the chip back");
+/* scaling cap: a fat stack may risk more than 60 */
+r = await a.dispatch("adjust", { player: "Evan", delta: 300, reason: "cap test" });
+assert(r.ok, "GM ruling puts Evan deep in points");
+await b.waitVersion(a.version);
+r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
+  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 80 } });
+assert(r.ok, "80 fits under Evan's scaled cap");
+r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
+  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 60 } });
+assert(!r.ok && /Max \d+ at risk/.test(r.error), "exposure past the scaled cap rejected (" + r.error + ")");
+r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.stake === 80).id });
+assert(r.ok, "Evan pulls the 80 back");
+
+/* chip colors are first come first serve */
+r = await a.dispatch("pickChip", { player: "Brandon", color: CHIP_COLORS[0].hex, skin: "ticks" });
+assert(r.ok, "Brandon claims the first color");
+r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
+assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
+
+/* a duel settles into the standings, zero sum */
+{
+  const before = computeStandings(a.state);
+  const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
+  r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
+  assert(r.ok, "Evan calls out Khoa");
+  await b.waitVersion(a.version);
+  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
+  r = await b.dispatch("playDuel", { id: duel.id, ms: 150 });
+  assert(r.ok, "Evan draws in 150ms");
+  r = await a.dispatch("claim", { player: "Khoa" });
+  assert(r.ok, "window A speaks for Khoa");
+  r = await a.dispatch("playDuel", { id: duel.id, ms: 400 });
+  assert(r.ok, "Khoa answers in 400ms");
+  r = await a.dispatch("claim", { player: "Brandon" });
+  assert(r.ok, "window A back to Brandon");
+  await b.waitVersion(a.version);
+  const after = computeStandings(b.state);
+  const pts1 = Object.fromEntries(after.map(x => [x.player, x.pts]));
+  assert(pts1["Evan"] === pts0["Evan"] + 20 && pts1["Khoa"] === pts0["Khoa"] - 20,
+    "quick draw settled 20 across, zero sum");
+}
+
+/* the buy-in floor: a short stack is staked to 60 at setup */
+{
+  const chinh = computeStandings(a.state).find(x => x.player === "Chinh").pts;
+  r = await a.dispatch("adjust", { player: "Chinh", delta: 40 - chinh, reason: "floor test" });
+  assert(r.ok, "GM ruling drops Chinh to 40");
+}
+
 r = await a.dispatch("setOnDeck", { id: null });
 assert(r.ok, "betting closed");
 r = await a.dispatch("pokerSetup", {});
 assert(r.ok, "table set");
+await b.waitVersion(a.version);
+{
+  const stake = b.state.adjustments.find(x => x.reason === "Table stakes");
+  assert(stake?.player === "Chinh" && stake.delta === 20, "table stakes ruling staked Chinh to 60");
+  assert(computeStandings(b.state).find(x => x.player === "Chinh").pts === 60, "Chinh sits with 60");
+}
 await b.waitVersion(a.version);
 const pokerTotal = b.state.poker.total;
 assert(pokerTotal === computeStandings(b.state).reduce((s, x) => s + x.pts, 0),

@@ -47,9 +47,12 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    `pokerResult` counts BECOME the standings verbatim (chip leader = champion,
    elimination order breaks 0-count ties). `pokerSetup` stakes anyone under 60
    up to 60 (a "Table stakes" ruling) so nobody rails the finale, and requires
-   a clean book so dealt stacks always match the board. The whole economy
-   freezes while cards are live (`pokerLive`). Derived and reversible:
-   `clearResult` re-arms the table.
+   a clean book so dealt stacks always match the board (`pokerCancel` reverts
+   the Table stakes grants). The whole economy freezes while cards are live
+   (`pokerLive`) and the book stays CLOSED once counts post (`stacksPosted`):
+   no wagers, duels, or on-deck after the finale settles; rulings then move
+   in 25s (chip units). Derived and reversible: `clearResult` re-arms the
+   table.
 
 ## Commands
 
@@ -87,7 +90,8 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 ## Adding an event later
 
 Add a `BUILTIN_EVENTS` entry in `shared/core.js` (id, session, value, kind,
-sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs.
+sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs
+(its "Looks like" picker borrows a known game's mark, hero, and how-to).
 Optionally give the `game` id a `GAMES` howto (core), a `MARKS` icon and a
 `GAME_HEROES` animation (App.jsx). Every surface (schedule, strips, sheets,
 betting band, event intro, TV) reads those registries; anything missing falls
@@ -103,3 +107,4 @@ back to the GameMark, then the FD chip. Nothing else to wire.
 - [ ] Odds tuning option: payout scaling by field size
 - [ ] Photo optimization (resize server-side, R2 if state grows)
 - [ ] Web Push for betting-open and results (installed PWAs, iOS 16.4+)
+- [ ] Service worker offline shell (installed PWA currently needs network to boot)

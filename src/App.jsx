@@ -1806,7 +1806,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   );
 }
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
   const fileRef = useRef(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
@@ -1853,17 +1853,21 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
             style={{ ...field, width:"100%", padding:"0 13px", fontFamily:SANS, fontWeight:600, fontSize:16 }} />
         </div>
       </div>
-      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
-        <div style={{ width:92, flexShrink:0 }}>
-          <div style={{ ...label, marginBottom:6 }}>Number</div>
-          <input value={num} inputMode="numeric" placeholder="00"
-            onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-            style={{ ...field, width:"100%", textAlign:"center", padding:"0 8px",
-              border: takenBy ? "1.5px solid var(--clay)" : field.border,
-              fontFamily:DISPLAY, fontWeight:700, fontSize:24 }} />
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ ...label, marginBottom:6 }}>Shirt</div>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ ...label, marginBottom:6 }}>Jersey number</div>
+        <input value={num} inputMode="numeric" placeholder="00"
+          onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+          style={{ ...field, width:92, textAlign:"center", padding:"0 8px",
+            border: takenBy ? "1.5px solid var(--clay)" : field.border,
+            fontFamily:SANS, fontWeight:700, fontSize:16 }} />
+        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+          Stamped on your chip everywhere it lands.</div>
+      </div>
+      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", margin:"-10px 0 12px" }}>
+        {disp(state, takenBy[0])} has {Number(num)}</div>}
+      {showSize && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
             {SIZES.map(s => (
               <button key={s} onClick={() => setSize(size === s ? null : s)}
@@ -1872,10 +1876,10 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
                   border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
             ))}
           </div>
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+            Asked once, for the jersey order.</div>
         </div>
-      </div>
-      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", margin:"-10px 0 12px" }}>
-        {disp(state, takenBy[0])} has {Number(num)}</div>}
+      )}
       {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} />}
     </div>
   );
@@ -3893,7 +3897,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     const mineBets = bets.filter(x => x.w.player === me);
     const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
     const chips = bets.flatMap(x => Array.from({ length: x.w.stake / PT }, () => x.w.player));
-    const shownChips = chips.slice(0, 6);
+    const shownChips = chips.slice(0, 5);
     const open = whoOpen === rowKey && bets.length > 0;
     return (
       <div>
@@ -3910,7 +3914,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           {chips.length > 0 && (
             <span onClick={e => { e.stopPropagation(); setWhoOpen(w => w === rowKey ? null : rowKey); }} role="button"
               style={{ display:"flex", alignItems:"center", flexShrink:0, cursor:"pointer", padding:"4px 0" }}>
-              {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -5 : 0 }}><BankChip p={p} size={16} /></span>)}
+              {shownChips.map((p, i) => <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={p} size={22} /></span>)}
               {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                 color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
               {mine > 0 && (
@@ -4140,7 +4144,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             </>
           )}
           {me && room < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
-            You are maxed out until a wager settles.</div>}
+            {myPts - myExp < PT ? "Not enough points until a wager settles." : "You are maxed out until a wager settles."}</div>}
           </div>
         </div>
       )}
@@ -4553,7 +4557,6 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
-  const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
@@ -4573,9 +4576,9 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
         </div>
       </div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
+        num={num} setNum={setNum} showSize={false} onChip={onChip} />
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) })}
+          num: num === "" ? null : Number(num), ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
@@ -4674,10 +4677,18 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
 function BankChip({ p, size=18, empty }) {
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
     border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
+  /* the jersey number is stamped at center once the chip is big enough to
+     read it: every bet on the board says whose it is at a glance */
+  const num = CHIP_PROFILES[p]?.num ?? playerNo(p);
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
       <circle cx="16" cy="16" r="14.6" fill={playerColor(p)} stroke="var(--ink0)" strokeWidth="1.8"/>
       {chipMarks(playerSkin(p))}
+      {size >= 20 && num != null && (
+        <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
+          fontFamily={DISPLAY} fontWeight="700" fontSize="12.5"
+          fill={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"}>{num}</text>
+      )}
     </svg>
   );
 }

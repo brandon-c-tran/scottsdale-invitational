@@ -89,9 +89,11 @@ export const ACTIONS = {
        as the weekend inflates */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
+    /* balance first: an empty stack should hear "not enough points", not
+       a cap message */
+    if (stake > pts - exp) return err("Not enough points");
     const cap = maxRisk(pts);
     if (exp + stake > cap) return err(`Max ${cap} at risk`);
-    if (stake > pts - exp) return err("Not enough points");
     /* referenced structures must be current */
     if (wager.kind === "outright" && wager.pickTeam) {
       const d = state.draws[ev.id];

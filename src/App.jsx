@@ -5,7 +5,7 @@ import {
   DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms, pokerChips,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
+  resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
@@ -1914,7 +1914,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · October 2026</div>
+      <div style={label}>Scottsdale · {EDITION.short}, 2026</div>
       <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
         Add this to your home screen first. It opens full screen, like any other app.
@@ -1931,7 +1931,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === 0) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · October 2026</div>
+      <div style={label}>Scottsdale · {EDITION.short}, 2026</div>
       <div style={{ margin:"10px 0 28px" }}><Wordmark size={46} /></div>
       <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"auto" }}>
@@ -1948,7 +1948,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === 1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>October 16 to 18, 2026</div>
+      <div style={label}>{EDITION.long}</div>
       <div style={{ margin:"10px 0 14px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:18 }}>
         The bachelor party is a tournament. Thirteen players, sixteen events,
@@ -2006,21 +2006,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 14px" }}>
         Getting there</div>
       <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
-        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"13px 14px", marginBottom:12 }}>
-          <div style={{ ...label, marginBottom:5 }}>The house</div>
-          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, color: lg.venue ? "var(--ink)" : "var(--muted)",
-            lineHeight:1.5, userSelect:"text" }}>{lg.venue || "Address drops soon."}</div>
-          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
-            lineHeight:1.5 }}>{lg.venueNote}</div>}
-        </div>
-        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"13px 14px", marginBottom:12 }}>
-          <div style={{ ...label, marginBottom:5 }}>Brandon flies</div>
-          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, lineHeight:1.55,
-            color: lg.hostTravel ? "var(--ink)" : "var(--muted)" }}>
-            {lg.hostTravel || "Flights posting soon."}</div>
-        </div>
+        <VenueCard lg={lg} />
         <div style={{ marginBottom:16 }}>
           <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
@@ -2267,9 +2253,78 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   );
 }
 
+/* the house, the window you have to book inside, and what is waiting there.
+   Read-only: the GM writes it once from the locker room. */
+function VenueCard({ lg, compact }) {
+  const onSite = (lg.onSite || "").split(",").map(s => s.trim()).filter(Boolean);
+  const mapUrl = lg.venue
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lg.venue)}` : null;
+  const card = { background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+    padding:"13px 14px", marginBottom:12 };
+  return (
+    <div>
+      <div style={card}>
+        <div style={{ ...label, marginBottom:5 }}>The house</div>
+        <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, lineHeight:1.5, userSelect:"text",
+          color: lg.venue ? "var(--ink)" : "var(--muted)" }}>{lg.venue || "Address drops soon."}</div>
+        {lg.venueName && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
+          lineHeight:1.5 }}>{lg.venueName}</div>}
+        {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
+          lineHeight:1.5 }}>{lg.venueNote}</div>}
+        {mapUrl && (
+          <a href={mapUrl} target="_blank" rel="noreferrer"
+            style={{ display:"inline-block", marginTop:9, fontFamily:SANS, fontWeight:700, fontSize:12.5,
+              letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--accent2)",
+              textDecoration:"none" }}>Open in maps ›</a>
+        )}
+      </div>
+      {(lg.checkIn || lg.checkOut) && (
+        <div style={{ ...card, display:"flex", gap:12, padding:0, overflow:"hidden" }}>
+          {[["Check in", lg.checkIn], ["Checkout", lg.checkOut]].map(([lb, v], i) => (
+            <div key={lb} style={{ flex:1, padding:"12px 14px",
+              borderLeft: i ? "1px solid var(--line)" : "none" }}>
+              <div style={{ ...label, fontSize:10, marginBottom:4 }}>{lb}</div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
+                lineHeight:1.35 }}>{v || "TBD"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!compact && onSite.length > 0 && (
+        <div style={card}>
+          <div style={{ ...label, marginBottom:8 }}>On site</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            {onSite.map(a => (
+              <span key={a} style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)",
+                background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:99,
+                padding:"6px 11px" }}>{a}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {(lg.hostIn || lg.hostOut || lg.hostTravel) && (
+        <div style={card}>
+          <div style={{ ...label, marginBottom:7 }}>Brandon flies</div>
+          {(lg.hostIn || lg.hostOut) ? [["In", lg.hostIn], ["Out", lg.hostOut]].map(([lb, v]) => v ? (
+            <div key={lb} style={{ display:"flex", gap:10, alignItems:"baseline", padding:"2px 0" }}>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.1em",
+                textTransform:"uppercase", color:"var(--muted)", width:26 }}>{lb}</span>
+              <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--ink)",
+                lineHeight:1.5, flex:1 }}>{v}</span>
+            </div>
+          ) : null) : (
+            <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--ink)",
+              lineHeight:1.5 }}>{lg.hostTravel}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* travel entry, shared by onboarding and the profile sheet: two free-text
    lines that read back to the host. Airline, number, time, whatever works */
-function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
+function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut, lg }) {
   const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
     color:"var(--ink)", outline:"none", height:48, width:"100%", padding:"0 13px",
     fontFamily:SANS, fontWeight:600, fontSize:15 };
@@ -2281,7 +2336,7 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
       <div style={{ ...label, marginBottom:6 }}>Flight out</div>
       <input value={flightOut} onChange={e => setFlightOut(e.target.value)} maxLength={90}
         placeholder="WN 887, leaves Sun 11:30a" style={field} />
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6, lineHeight:1.5 }}>
         Goes to Brandon for pickups and headcounts. Add it when booked.</div>
     </div>
   );
@@ -2347,12 +2402,21 @@ function ChipPicker({ state, me, onChip }) {
 /* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
 /* GM's weekend sheet: the address and host flights everyone reads during
    onboarding and in the guide. Saved as one action */
+const LOGI_FIELDS = [
+  { k:"venue",     ph:"House address" },
+  { k:"venueName", ph:"Listing name" },
+  { k:"venueNote", ph:"Door code, parking, anything they need" },
+  { k:"checkIn",   ph:"Check in, e.g. Fri Oct 30, 4:00 PM", half:true },
+  { k:"checkOut",  ph:"Checkout, e.g. Sun Nov 1, 10:00 AM", half:true },
+  { k:"onSite",    ph:"On site, comma separated" },
+  { k:"hostIn",    ph:"Your flight in" },
+  { k:"hostOut",   ph:"Your flight out" },
+];
 function LogisticsEditor({ state, onSave }) {
   const lg = state.logistics || {};
-  const [venue, setVenue] = useState(lg.venue || "");
-  const [venueNote, setVenueNote] = useState(lg.venueNote || "");
-  const [hostTravel, setHostTravel] = useState(lg.hostTravel || "");
-  const dirty = venue !== (lg.venue || "") || venueNote !== (lg.venueNote || "") || hostTravel !== (lg.hostTravel || "");
+  const [form, setForm] = useState(() =>
+    Object.fromEntries(LOGI_FIELDS.map(f => [f.k, lg[f.k] || ""])));
+  const dirty = LOGI_FIELDS.some(f => form[f.k] !== (lg[f.k] || ""));
   const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
     color:"var(--ink)", outline:"none", width:"100%", padding:"12px 13px",
     fontFamily:SANS, fontWeight:600, fontSize:14 };
@@ -2360,14 +2424,14 @@ function LogisticsEditor({ state, onSave }) {
     <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
       borderRadius:14, padding:"12px 13px" }}>
       <div style={{ ...label, marginBottom:8 }}>The weekend sheet</div>
-      <input value={venue} onChange={e => setVenue(e.target.value)} maxLength={140}
-        placeholder="House address" style={{ ...field, marginBottom:8 }} />
-      <input value={venueNote} onChange={e => setVenueNote(e.target.value)} maxLength={240}
-        placeholder="Door code, parking, whatever they need" style={{ ...field, marginBottom:8 }} />
-      <input value={hostTravel} onChange={e => setHostTravel(e.target.value)} maxLength={240}
-        placeholder="Your flights, shown to everyone" style={field} />
-      <Btn disabled={!dirty} onClick={() => onSave({ venue, venueNote, hostTravel })}
-        style={{ width:"100%", marginTop:10 }}>Save</Btn>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+        {LOGI_FIELDS.map(f => (
+          <input key={f.k} value={form[f.k]} placeholder={f.ph} maxLength={240}
+            onChange={e => setForm(x => ({ ...x, [f.k]: e.target.value }))}
+            style={{ ...field, flex: f.half ? "1 1 45%" : "1 1 100%", minWidth:0 }} />
+        ))}
+      </div>
+      <Btn disabled={!dirty} onClick={() => onSave(form)} style={{ width:"100%", marginTop:10 }}>Save</Btn>
     </div>
   );
 }
@@ -5837,18 +5901,12 @@ function Guide({ replay, events, state }) {
   );
   return (
     <div style={{ padding:"0 18px 10px" }}>
-      {(lg.venue || lg.hostTravel) && (
-        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"13px 14px", marginBottom:18 }}>
-          <div style={{ ...label, marginBottom:6 }}>October 16 to 18 · Scottsdale</div>
-          {lg.venue && <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14.5, color:"var(--ink)",
-            lineHeight:1.5, userSelect:"text" }}>{lg.venue}</div>}
-          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
-            lineHeight:1.5 }}>{lg.venueNote}</div>}
-          {lg.hostTravel && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:6,
-            lineHeight:1.5 }}>Brandon flies {lg.hostTravel}</div>}
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
-            Your flights live in your profile.</div>
+      {(lg.venue || lg.checkIn) && (
+        <div style={{ marginBottom:8 }}>
+          <div style={{ ...label, marginBottom:8 }}>{EDITION.short} · Scottsdale</div>
+          <VenueCard lg={lg} />
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", margin:"-4px 0 14px" }}>
+            Your own flights live in your profile.</div>
         </div>
       )}
       <S n="01" t="Format">

@@ -220,9 +220,27 @@ const CHIP_COLORS = [
 ];
 const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring"];
 
+/* this edition's hard dates, in one place: every surface reads these instead
+   of spelling the weekend out again and getting it wrong */
+const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
+
+/* the weekend sheet ships with the real booking already in it, so nobody has
+   to type it and the invite is correct the moment it goes out. GM can edit
+   every line from the locker room. */
+const LOGISTICS = {
+  venueName: "2 Homes in 1 · Pickleball Court + Hidden Speakeasy",
+  venue: "10848 North Aberdeen Road, Scottsdale, AZ",
+  venueNote: "",
+  checkIn: "Fri Oct 30, 4:00 PM",
+  checkOut: "Sun Nov 1, 10:00 AM",
+  onSite: "Full basketball court, Pickleball court, Sand volleyball, Putting green, Pool and spa, Speakeasy",
+  hostIn: "WN 4663, SFO 6:45a to PHX 8:40a, Friday",
+  hostOut: "UA 1885, PHX 8:37p to SFO 9:46p, Sunday",
+};
+
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
-  onboardEpoch:0, eventEdits:{}, eventOrder:[], logistics:{ venue:"", venueNote:"", hostTravel:"" }, updatedAt:0 };
+  onboardEpoch:0, eventEdits:{}, eventOrder:[], logistics:{ ...LOGISTICS }, updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and
@@ -541,7 +559,7 @@ const bracketChampion = br => {
 
 export {
   GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
+  OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms, pokerChips,

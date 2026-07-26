@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, LOGISTICS, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
 } from "../shared/core.js";
@@ -678,10 +678,13 @@ export const ACTIONS = {
   },
   /* the weekend sheet: where we sleep and how the host flies. GM writes it
      once, onboarding and the guide read it on every phone */
-  saveLogistics(state, { venue, venueNote, hostTravel }, ctx) {
+  saveLogistics(state, patch, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const clean = { ...(state.logistics || { venue:"", venueNote:"", hostTravel:"" }) };
-    for (const [k, v, max] of [["venue", venue, 140], ["venueNote", venueNote, 240], ["hostTravel", hostTravel, 240]]) {
+    const clean = { ...LOGISTICS, ...(state.logistics || {}) };
+    const FIELDS = [["venueName", 90], ["venue", 140], ["venueNote", 240], ["checkIn", 40],
+      ["checkOut", 40], ["onSite", 240], ["hostIn", 120], ["hostOut", 120]];
+    for (const [k, max] of FIELDS) {
+      const v = patch?.[k];
       if (v === undefined) continue;
       if (typeof v !== "string") return err("Bad text");
       clean[k] = v.trim().slice(0, max);

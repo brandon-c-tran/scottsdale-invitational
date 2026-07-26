@@ -17,6 +17,12 @@ export class Tournament {
     this.env = env;
     ctx.blockConcurrencyWhile(async () => {
       this.state = (await ctx.storage.get("state")) || structuredClone(EMPTY_STATE);
+      /* state stored before a field existed would never see it: fill in any
+         missing top-level keys, and any missing weekend-sheet line, without
+         touching a single value the GM has already written */
+      for (const [k, v] of Object.entries(EMPTY_STATE))
+        if (this.state[k] === undefined) this.state[k] = structuredClone(v);
+      this.state.logistics = { ...EMPTY_STATE.logistics, ...(this.state.logistics || {}) };
       this.version = (await ctx.storage.get("version")) || 0;
       this.gmToken = (await ctx.storage.get("gmToken")) || null;
       this.claims = (await ctx.storage.get("claims")) || {}; // deviceId -> player

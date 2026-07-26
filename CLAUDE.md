@@ -1,9 +1,10 @@
 # Field Day (Scottsdale · 2026)
 
-Companion app for a 13-player bachelor party game weekend (Oct 16-18, 2026).
+Companion app for a 13-player bachelor party game weekend (Oct 30 to Nov 1, 2026).
 One leaderboard, live wagers, GM-run draws/brackets/heats, TV mode. Built to be
 glanced at for ten seconds, not stared at. "Field Day" is the enduring event
-identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
+identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc). The
+weekend's dates live once in `EDITION` in core, never spelled out in a view.
 
 ## Architecture
 
@@ -52,9 +53,11 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
    Onboarding doubles as the invite, sent months out: install, check in, the
    announcement (sessions show "N events · V each", never a block total), the
-   travel map (`TravelMap`, real lon/lat on a traced lower-48), then logistics
-   reading `state.logistics` (venue + host travel, GM-written via
-   `saveLogistics`, placeholdered until set) and writing shirt size +
+   travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
+   logistics reading `state.logistics` via `VenueCard` (address + maps link,
+   check-in/checkout, what is on site, host flights; the real booking ships as
+   `LOGISTICS` in core and the DO backfills missing keys on load, so a GM edit
+   is never clobbered) and writing shirt size +
    `flightIn`/`flightOut`, profile, seeds, and three closing cards that land
    one story: your number IS your poker stack, and the champion takes home a
    real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate

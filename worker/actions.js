@@ -657,9 +657,13 @@ export const ACTIONS = {
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const profiles = state.profiles, seeds = state.seeds, logistics = state.logistics;
+    /* the epoch only ever climbs: devices store the epoch they finished at,
+       so a reset that zeroed it would make every future rerun invisible */
+    const onboardEpoch = state.onboardEpoch || 0;
     Object.assign(state, structuredClone(EMPTY_STATE));
     state.profiles = profiles;
     state.seeds = seeds;
+    state.onboardEpoch = onboardEpoch;
     if (logistics) state.logistics = logistics;
     return ok();
   },

@@ -345,11 +345,18 @@ export default function App() {
     prevWagerRes.current = map;
   }, [state, events, me, ready, onboardStep, notify, version]);
 
-  /* GM can rerun onboarding for everyone; each device compares the epoch it finished */
+  /* GM can rerun onboarding for everyone; each device compares the epoch it
+     finished. A device that finished before it ever stored one adopts the
+     current epoch instead of replaying: only a NEW rerun pushes anyone back */
   useEffect(() => {
     if (!ready || onboardStep < 99) return;
-    if ((state.onboardEpoch || 0) > Number(localGet("si-onboard-epoch") || 0)) setOnboardStep(0);
-  }, [ready, state.onboardEpoch, onboardStep]);
+    const seen = localGet("si-onboard-epoch");
+    if (seen === null || seen === undefined || seen === "") {
+      saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
+      return;
+    }
+    if ((state.onboardEpoch || 0) > Number(seen)) setOnboardStep(0);
+  }, [ready, state.onboardEpoch, onboardStep]); // eslint-disable-line
 
   /* celebrate on broadcasts so every phone pops, not just the GM's;
      tell people plainly when their own points moved and why */
@@ -612,6 +619,16 @@ export default function App() {
   const setFrozen = f => act("setFrozen", { f });
   const resetGame = () => act("resetTournament", {}, "Board reset");
   const rerunOnboard = () => act("rerunOnboarding", {}, "Intro replays on every phone");
+  /* replay the whole flow on THIS device, from the install gate. Clears the
+     local finished flags so a reload keeps replaying instead of snapping to
+     the board: the epoch handshake is for the group, this is for one phone */
+  const replayOnboardHere = () => {
+    saveMine("si-onboard-v5", "");
+    saveMine("si-onboard-epoch", "0");
+    saveMine("si-tour-done", "");
+    setModal(null);
+    setOnboardStep(-1);
+  };
   const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
 
   /* ── QA simulation driver ──
@@ -1206,7 +1223,7 @@ export default function App() {
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
           onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
-        {tab === "guide" && <Guide replay={() => setOnboardStep(5)} events={events} state={state} />}
+        {tab === "guide" && <Guide replay={() => setOnboardStep(1)} events={events} state={state} />}
       </div>
 
       {gmNext && !modal && (
@@ -1336,6 +1353,7 @@ export default function App() {
           notify(meIn ? "Counts in, yours is the last one" : "Counts in");
         }}
         onRerun={() => { rerunOnboard(); setModal(null); }}
+        onReplayMine={() => { replayOnboardHere(); setModal(null); }}
         onReset={() => { resetGame(); setModal(null); }}
         onClose={() => setModal(null)} />}
       {modal?.type === "freeze" && (
@@ -1706,6 +1724,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     setSize(pr?.size ?? null);
     setFlightIn(pr?.flightIn || "");
     setFlightOut(pr?.flightOut || "");
+    /* a replay must not make anyone re-rate themselves from scratch: seed the
+       form with whatever they already sealed */
+    setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
   }, [me]); // eslint-disable-line
   const cards = {
     5: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. Wins, wagers, and duels move your total from there, and events pay more as the weekend goes on.", meter:true },
@@ -1958,34 +1979,47 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
     color:"var(--ink)", outline:"none", height:FIELD_H };
   return (
     <div>
-      <div style={{ display:"flex", gap:14, alignItems:"flex-end", marginBottom:16 }}>
-        <button onClick={() => fileRef.current?.click()} style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
-          {current
-            ? <img src={current} alt="" style={{ width:84, height:84, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
-            : me && <Avatar state={state} p={me} size={84} ring />}
-          <div style={{ position:"absolute", bottom:0, right:0, width:28, height:28, borderRadius:"50%",
-            background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ ...label, marginBottom:6 }}>Display name</div>
-          <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
-            style={{ ...field, width:"100%", padding:"0 13px", fontFamily:SANS, fontWeight:600, fontSize:16 }} />
+      {/* the credential IS the editor: one card holding the photo, the name,
+          and the number, so nothing is previewed twice */}
+      <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
+          background: me ? playerColor(me) : "var(--paper2)", color: me && playerIsLight(me) ? "var(--ink0)" : BONE }}>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.05em",
+            textTransform:"uppercase", flex:1 }}>Player credential</span>
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.12em",
+            textTransform:"uppercase", opacity:0.8 }}>Scottsdale · 2026</span>
+        </div>
+        <div style={{ display:"flex", gap:12, alignItems:"flex-end", padding:"12px", background:"var(--paper2)" }}>
+          <button onClick={() => fileRef.current?.click()} aria-label="Change your photo"
+            style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
+            {current
+              ? <img src={current} alt="" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
+              : me && <Avatar state={state} p={me} size={64} ring />}
+            <div style={{ position:"absolute", bottom:-2, right:-2, width:26, height:26, borderRadius:"50%",
+              background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ ...label, fontSize:10, marginBottom:5 }}>Display name</div>
+            <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
+              style={{ ...field, width:"100%", padding:"0 12px", fontFamily:SANS, fontWeight:600, fontSize:16,
+                background:"var(--paper)" }} />
+          </div>
+          <div style={{ width:62, flexShrink:0 }}>
+            <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>No.</div>
+            <input value={num} inputMode="numeric" placeholder="00"
+              onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+              style={{ ...field, width:"100%", textAlign:"center", padding:0, background:"var(--paper)",
+                border: takenBy ? "1.5px solid var(--clay)" : field.border,
+                fontFamily:DISPLAY, fontWeight:700, fontSize:22 }} />
+          </div>
         </div>
       </div>
-      <div style={{ marginBottom:16 }}>
-        <div style={{ ...label, marginBottom:6 }}>Jersey number</div>
-        <input value={num} inputMode="numeric" placeholder="00"
-          onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-          style={{ ...field, width:92, textAlign:"center", padding:"0 8px",
-            border: takenBy ? "1.5px solid var(--clay)" : field.border,
-            fontFamily:SANS, fontWeight:700, fontSize:16 }} />
-        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
-          Stamped on your chip everywhere it lands.</div>
-      </div>
-      {takenBy && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", margin:"-10px 0 12px" }}>
-        {disp(state, takenBy[0])} has {Number(num)}</div>}
+      <div style={{ fontFamily:SANS, fontSize:12, color: takenBy ? "var(--clay)" : "var(--muted)",
+        lineHeight:1.5, marginBottom:16 }}>
+        {takenBy ? `${disp(state, takenBy[0])} already has ${Number(num)}.`
+          : "Your number is stamped on your chip everywhere it lands."}</div>
       {showSize && (
         <div style={{ marginBottom:16 }}>
           <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
@@ -4689,7 +4723,7 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
    helpers poke one feature at a time. Everything runs the sim driver; the
    bar shows progress and holds the Stop. */
 function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBets,
-  onBustOne, onCountRest, onRerun, onReset, onClose }) {
+  onBustOne, onCountRest, onRerun, onReplayMine, onReset, onClose }) {
   const [confirm, setConfirm] = useState(false);
   const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
   return (
@@ -4723,9 +4757,15 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onCountRest}>Count the rest</Btn>}
       </div>
+      <div style={sect}>Onboarding</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <Btn kind="ghost" onClick={onReplayMine}>Replay on this phone</Btn>
+        <Btn kind="ghost" onClick={onRerun}>Rerun for everyone</Btn>
+      </div>
+      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
+        This phone replays from the install gate. Everyone else replays the next time their app has focus.</div>
       <div style={sect}>Board</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        <Btn kind="ghost" onClick={onRerun}>Rerun intro</Btn>
         {confirm ? (
           <>
             <Btn kind="flame" onClick={onReset}>Confirm reset</Btn>
@@ -4777,31 +4817,17 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
   const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || "");
   const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || "");
+  const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
-      <div style={{ border:"1.5px solid var(--ink)", borderRadius:10, overflow:"hidden", marginBottom:16 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, background:playerColor(me), color:BONE,
-          padding:"7px 12px" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.05em",
-            textTransform:"uppercase", flex:1 }}>Player credential</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16 }}>NO. {String(state.profiles?.[me]?.num ?? playerNo(me)).padStart(2,"0")}</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", background:"var(--paper2)" }}>
-          <Avatar state={state} p={me} size={40} />
-          <div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:16, color:"var(--ink)" }}>{disp(state, me)}</div>
-            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>Scottsdale · 2026</div>
-          </div>
-        </div>
-      </div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} showSize={false} onChip={onChip} />
+        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
       <div style={{ marginTop:16 }}>
         <TravelFields flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
       </div>
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), flightIn, flightOut, ...(photo ? {photo} : {}) })}
+          num: num === "" ? null : Number(num), size, flightIn, flightOut, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );

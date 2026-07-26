@@ -51,10 +51,17 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
    Onboarding doubles as the invite, sent months out: install, check in, the
-   announcement, then a logistics step that reads `state.logistics` (venue +
-   host travel, GM-written once via `saveLogistics`) and writes shirt size and
-   `flightIn`/`flightOut` to the profile. The GM travel board lives in the
-   locker room; resets preserve profiles, seeds, AND logistics.
+   announcement (sessions show "N events · V each", never a block total), the
+   travel map (`TravelMap`, real lon/lat on a traced lower-48), then logistics
+   reading `state.logistics` (venue + host travel, GM-written via
+   `saveLogistics`, placeholdered until set) and writing shirt size +
+   `flightIn`/`flightOut`, profile, seeds, and three closing cards that land
+   one story: your number IS your poker stack, and the champion takes home a
+   real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
+   engraved on both faces). `rerunOnboarding` re-opens the chip race by
+   clearing every claimed color/skin, but never once `state.live`. The GM
+   travel board lives in the locker room; resets preserve profiles, seeds,
+   logistics, AND the onboarding epoch (zeroing it would kill every rerun).
 7. **The poker finale settles on stacks.** At the buy-in points ADD A ZERO:
    `pokerChips(pts)` = pts x CHIP_X(10), dealt in real denominations
    25/100/500/1000 (`pokerDenoms`, blind pack of eight 25s), blinds 25/50 to

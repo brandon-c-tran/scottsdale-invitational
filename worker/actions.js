@@ -641,9 +641,18 @@ export const ACTIONS = {
     state.frozen = !!f;
     return ok();
   },
+  /* replaying the intro re-opens the chip race: colors go back on the board so
+     the claim is first come first serve again. Never mid-weekend, when the
+     board has already taught everyone whose color is whose. */
   rerunOnboarding(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     state.onboardEpoch = (state.onboardEpoch || 0) + 1;
+    if (!state.live) {
+      for (const p of Object.keys(state.profiles || {})) {
+        delete state.profiles[p].color;
+        delete state.profiles[p].skin;
+      }
+    }
     return ok();
   },
   setLive(state, { on }, ctx) {

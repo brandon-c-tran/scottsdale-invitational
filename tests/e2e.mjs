@@ -219,9 +219,13 @@ assert(!r.ok && /Max \d+ at risk/.test(r.error), "exposure past the scaled cap r
 r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.stake === 80).id });
 assert(r.ok, "Evan pulls the 80 back");
 
-/* chip colors are first come first serve */
+/* chip colors are first come first serve. Profiles deliberately survive resets,
+   so release the color first: this run must not depend on who held it last */
+for (const [p, pr] of Object.entries(a.state.profiles || {}))
+  if (pr?.color === CHIP_COLORS[0].hex && p !== "Brandon")
+    await a.dispatch("pickChip", { player: p, color: null });
 r = await a.dispatch("pickChip", { player: "Brandon", color: CHIP_COLORS[0].hex, skin: "ticks" });
-assert(r.ok, "Brandon claims the first color");
+assert(r.ok, "Brandon claims the first color (" + (r.error || "ok") + ")");
 r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
 assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 

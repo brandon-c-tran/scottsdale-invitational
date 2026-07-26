@@ -101,6 +101,125 @@ const ArtStar = () => (
       fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
   </svg>
 );
+
+/* ─────────── the prize ───────────
+   A real trophy, turned on a lathe out of flat art: one silhouette repeated as
+   blades around the Y axis, so a slow spin reads as a solid of revolution
+   without a single gradient or glow. Handles sit on the two profile blades. */
+const TROPHY_BLADES = [0, 30, 60, 90, 120, 150];
+function TrophyHero({ size = 150, plate = "FIELD DAY" }) {
+  return (
+    <div style={{ width:size, height:size * 1.2, perspective:640, flexShrink:0 }} aria-hidden="true">
+      <div style={{ position:"relative", width:"100%", height:"100%", transformStyle:"preserve-3d",
+        transform:"rotateX(-7deg)", animation:"si-trophy 14s linear infinite" }}>
+        {TROPHY_BLADES.map((deg, i) => (
+          <svg key={deg} viewBox="0 0 100 120" width={size} height={size * 1.2}
+            style={{ position:"absolute", inset:0, transform:`rotateY(${deg}deg)`,
+              transformStyle:"preserve-3d", backfaceVisibility:"visible" }}>
+            {/* cup, stem, plinth: the profile that gets revolved */}
+            <path d="M30 12 H70 L66 40 Q50 58 34 40 Z" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
+              stroke="var(--ink0)" strokeWidth="1.6" strokeLinejoin="round"/>
+            <rect x="46" y="55" width="8" height="19" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
+              stroke="var(--ink0)" strokeWidth="1.4"/>
+            <rect x="33" y="74" width="34" height="8" rx="2" fill="var(--sun)" fillOpacity={i ? 0.34 : 0.92}
+              stroke="var(--ink0)" strokeWidth="1.4"/>
+            <rect x="25" y="83" width="50" height="13" rx="2.5" fill="var(--accent)" fillOpacity={i ? 0.4 : 1}
+              stroke="var(--ink0)" strokeWidth="1.6"/>
+            {/* handles ride the two profile blades only, so it reads ornate, not spiky */}
+            {(i === 0 || i === 3) && (
+              <>
+                <path d="M30 17 Q16 21 20 32 Q22 39 31 39" fill="none" stroke="var(--ink0)" strokeWidth="4.4"
+                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
+                <path d="M30 17 Q16 21 20 32 Q22 39 31 39" fill="none" stroke="var(--sun)" strokeWidth="2.4"
+                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
+                <path d="M70 17 Q84 21 80 32 Q78 39 69 39" fill="none" stroke="var(--ink0)" strokeWidth="4.4"
+                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
+                <path d="M70 17 Q84 21 80 32 Q78 39 69 39" fill="none" stroke="var(--sun)" strokeWidth="2.4"
+                  strokeLinecap="round" opacity={i ? 0.4 : 1}/>
+              </>
+            )}
+            {/* the FD sun is radially symmetric, so it reads from either side */}
+            {i === 0 && (
+              <>
+                <circle cx="50" cy="27" r="7.5" fill="none" stroke="var(--ink0)" strokeWidth="1.6"/>
+                {[0,45,90,135,180,225,270,315].map(a => (
+                  <line key={a} x1={50 + 4.4 * Math.cos(a * Math.PI / 180)} y1={27 + 4.4 * Math.sin(a * Math.PI / 180)}
+                    x2={50 + 7.2 * Math.cos(a * Math.PI / 180)} y2={27 + 7.2 * Math.sin(a * Math.PI / 180)}
+                    stroke="var(--ink0)" strokeWidth="1.5" strokeLinecap="round"/>
+                ))}
+              </>
+            )}
+          </svg>
+        ))}
+        {/* the plate is engraved on BOTH faces, each hidden from behind, so the
+            name never turns up mirrored as the trophy comes around */}
+        {[0, 180].map(deg => (
+          <svg key={deg} viewBox="0 0 100 120" width={size} height={size * 1.2}
+            style={{ position:"absolute", inset:0, transform:`rotateY(${deg}deg) translateZ(0.6px)`,
+              backfaceVisibility:"hidden" }}>
+            <text x="50" y="91.5" textAnchor="middle" dominantBaseline="central" fontFamily={DISPLAY}
+              fontWeight="700" fontSize="8" letterSpacing="0.5" fill="var(--bone)">{plate}</text>
+          </svg>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── everyone flies in ───────────
+   Stylized US, positions from real longitude/latitude, every route drawing
+   itself into Scottsdale and a chip running the line behind it. */
+const TRAVEL_CITIES = [
+  { n:"San Francisco", x:4.7,  y:46.7, dx:3.5,  dy:-4.2, a:"start" },
+  { n:"San Diego",     x:14.2, y:67.9, dx:-1,   dy:6.4,  a:"middle" },
+  { n:"Tulsa",         x:52.7, y:53.5, dx:0,    dy:-4.4, a:"middle" },
+  { n:"Dallas",        x:51.3, y:67.5, dx:3.8,  dy:1.2,  a:"start" },
+  { n:"Austin",        x:49.6, y:78,   dx:-3.8, dy:1.2,  a:"end" },
+  { n:"Baton Rouge",   x:61.5, y:77.3, dx:3.8,  dy:1.2,  a:"start" },
+  { n:"New York",      x:92.7, y:34.6, dx:-2.5, dy:-4.6, a:"end" },
+];
+const TRAVEL_DEST = { n:"Scottsdale", x:23.8, y:64.6 };
+/* the lower 48, traced coarsely from real coordinates on the same projection
+   as the cities: x = (lon+125)/55, y = (49-lat)/24, both to 100 */
+const US_OUTLINE = "M0.5 0 L0.5 2.5 L1.5 23.8 L4.7 46.7 L8.2 60.4 L14.4 68.8 L18.7 67.9 L25.5 73.8 "
+  + "L30.5 73.8 L33.6 71.7 L40 83.3 L47.1 94.2 L50.7 96.3 L54.5 83.3 L61.8 82.5 L67.3 77.9 "
+  + "L74.5 79.2 L78.2 93.8 L81.5 96.7 L80 75 L87.3 58.3 L90 41.7 L98.2 31.3 L100 25 L100 14.6 "
+  + "L76.4 10.4 L54.5 0 Z";
+function TravelMap() {
+  const arc = c => {
+    const mx = (c.x + TRAVEL_DEST.x) / 2;
+    const lift = 9 + Math.abs(c.x - TRAVEL_DEST.x) * 0.3;
+    return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
+  };
+  return (
+    <svg viewBox="-4 -4 108 108" width="100%" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+      <path d={US_OUTLINE} fill="var(--ink-tint)" stroke="var(--line)" strokeWidth="0.7"
+        strokeLinejoin="round" style={{ animation:"si-fade .6s ease-out both" }} />
+      {TRAVEL_CITIES.map((c, i) => (
+        <path key={"r" + c.n} d={arc(c)} fill="none" stroke="var(--accent2)" strokeWidth="0.8"
+          strokeLinecap="round" strokeDasharray="140" pathLength="140"
+          style={{ "--len":140, animation:`si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }} />
+      ))}
+      {TRAVEL_CITIES.map((c, i) => (
+        <circle key={"m" + c.n} r="1.7" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="0.5">
+          <animateMotion dur="3.6s" begin={`${1.2 + i * 0.18}s`} repeatCount="indefinite" path={arc(c)} />
+        </circle>
+      ))}
+      {TRAVEL_CITIES.map((c, i) => (
+        <g key={c.n} style={{ animation:`si-in .4s ease-out ${i * 0.18}s both` }}>
+          <circle cx={c.x} cy={c.y} r="1.9" fill="var(--paper)" stroke="var(--bone)" strokeWidth="0.9"/>
+          <text x={c.x + c.dx} y={c.y + c.dy} textAnchor={c.a} fontFamily={SANS} fontWeight="700"
+            fontSize="3.4" fill="var(--muted2)" letterSpacing="0.15">{c.n.toUpperCase()}</text>
+        </g>
+      ))}
+      <circle cx={TRAVEL_DEST.x} cy={TRAVEL_DEST.y} r="4.6" fill="none" stroke="var(--sun)" strokeWidth="0.9"
+        style={{ animation:"si-land 2.2s ease-in-out infinite" }} />
+      <circle cx={TRAVEL_DEST.x} cy={TRAVEL_DEST.y} r="2.8" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="0.8"/>
+      <text x={TRAVEL_DEST.x} y={TRAVEL_DEST.y - 8} textAnchor="middle" fontFamily={DISPLAY} fontWeight="700"
+        fontSize="6" fill="var(--sun)" letterSpacing="0.3">SCOTTSDALE</text>
+    </svg>
+  );
+}
 const IconGM = ({ filled }) => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor"
     strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
@@ -626,6 +745,8 @@ export default function App() {
     saveMine("si-onboard-v5", "");
     saveMine("si-onboard-epoch", "0");
     saveMine("si-tour-done", "");
+    /* hand your color back so the re-pick is a real claim again */
+    if (me && !state.live) act("pickChip", { player: me, color: null, skin: null });
     setModal(null);
     setOnboardStep(-1);
   };
@@ -1672,6 +1793,11 @@ function Shell({ children, tv }) {
           88%       { transform: translate(134px,-18px); }
           100%      { transform: translate(152px,-2px); }
         }
+        /* the prize: flat blades rotated around one axis read as a solid */
+        @keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+        /* routes draw themselves in, then a chip runs the line */
+        @keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+        @keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
@@ -1728,16 +1854,19 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
        form with whatever they already sealed */
     setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
   }, [me]); // eslint-disable-line
+  /* the three closing cards tell one story: the number you carry all weekend
+     IS the stack you sit down with, and the stack decides who takes the trophy */
   const cards = {
-    5: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. Wins, wagers, and duels move your total from there, and events pay more as the weekend goes on.", meter:true },
-    6: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. Pick a chip from your rack and tap any name or matchup to put it down. The outright winner pays 2 to 1, everything else pays even, and up to half your stack can ride at once. The book settles itself when results post." },
-    7: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points add a zero and become your stack. Final chip counts are the final standings, and the chip leader takes the championship." },
+    6: { art:<FDMark size={54} />, t:"One number", b:"Everyone starts at 100 points. Sixteen events pay the podium, wagers and duels move the same total, and nothing resets between days. It is not a score. It is the stack you sit down with at the end.", meter:true },
+    7: { art:<ArtTicket />, t:"The book", b:"When an event goes on deck, betting opens. Take a chip off the rack and tap a name or a matchup. Outright winners pay 2 to 1, everything else pays even, and up to half your stack can ride at once. Everything settles itself off the official result.", stack:true },
+    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"It ends at a poker table. Your points add a zero and become your chips, so every event you win and every bet you land is you buying position at that table. Come in short on points and you sit down short on chips. Final counts are the final standings, and the champion takes the trophy home.", tall:true },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
-  const cardSteps = [5,6,7];
-  const lastStep = 7;
+  const cardSteps = [6,7,8];
+  const lastStep = 8;
   const lg = state.logistics || {};
+  const evAll = allEventsOf(state);
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
@@ -1777,27 +1906,56 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       padding:"calc(48px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>October 16 to 18, 2026</div>
       <div style={{ margin:"10px 0 14px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:20 }}>
+      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:18 }}>
         The bachelor party is a tournament. Thirteen players, sixteen events,
-        one board. It ends at a poker table and somebody flies home a champion.
+        one board. Every event pays more than the last, and it all ends at a
+        poker table.
       </div>
       <div style={{ flex:1, overflowY:"auto" }}>
-        {SESSIONS.map(s => (
-          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 2px",
-            borderBottom:"1px solid var(--line)" }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, color:"var(--ink)",
-              textTransform:"uppercase", letterSpacing:"0.03em", flex:1 }}>{s.label}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.1em",
-              color: s.id === "fin" ? "var(--accent2)" : "var(--muted2)" }}>{s.tag}</span>
-          </div>
-        ))}
+        {SESSIONS.map(s => {
+          const n = evAll.filter(e => e.session === s.id && !state.shelved?.[e.id] && !e.finale).length;
+          const val = evAll.find(e => e.session === s.id && !e.finale)?.value;
+          return (
+            <div key={s.id} style={{ display:"flex", alignItems:"baseline", gap:12, padding:"11px 2px",
+              borderBottom:"1px solid var(--line)" }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, color:"var(--ink)",
+                textTransform:"uppercase", letterSpacing:"0.03em", flex:1 }}>{s.label}</span>
+              {s.id === "fin" ? (
+                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.08em",
+                  color:"var(--accent2)" }}>POKER · YOUR STACK</span>
+              ) : (
+                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted)" }}>
+                  {n} event{n === 1 ? "" : "s"} · <b style={{ color:"var(--sun)", fontWeight:700 }}>{val} each</b>
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
+      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, margin:"12px 0 0" }}>
+        Win an event and every player on the winning side takes the full amount.</div>
       <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:14 }}>Next</Btn>
     </div>
   );
-  /* step 2, logistics: the address and flights live here. Size and travel
-     go straight to the roster so the host stops chasing texts */
+  /* step 2, the field: everybody is getting on a plane for this. Say thanks */
   if (step === 2) return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <div style={label}>The field</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:34, color:"var(--ink)", margin:"6px 0 10px",
+        lineHeight:1.05 }}>Everyone is flying in</div>
+      <div style={{ fontFamily:SANS, fontSize:15.5, lineHeight:1.6, color:"var(--muted2)" }}>
+        Seven cities, thirteen players, one weekend. Thank you for making the trip.
+      </div>
+      <div style={{ flex:1, display:"flex", alignItems:"center", margin:"10px -6px 0", minHeight:0 }}>
+        <TravelMap />
+      </div>
+      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Next</Btn>
+    </div>
+  );
+  /* step 3, logistics: the address and flights live here. Size and travel
+     go straight to the roster so the host stops chasing texts */
+  if (step === 3) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>The details</div>
@@ -1812,14 +1970,13 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
             lineHeight:1.5 }}>{lg.venueNote}</div>}
         </div>
-        {lg.hostTravel && (
-          <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-            padding:"13px 14px", marginBottom:12 }}>
-            <div style={{ ...label, marginBottom:5 }}>Brandon flies</div>
-            <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", lineHeight:1.55 }}>
-              {lg.hostTravel}</div>
-          </div>
-        )}
+        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"13px 14px", marginBottom:12 }}>
+          <div style={{ ...label, marginBottom:5 }}>Brandon flies</div>
+          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, lineHeight:1.55,
+            color: lg.hostTravel ? "var(--ink)" : "var(--muted)" }}>
+            {lg.hostTravel || "Flights posting soon."}</div>
+        </div>
         <div style={{ marginBottom:16 }}>
           <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
@@ -1844,7 +2001,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       </div>
     </div>
   );
-  if (step === 3) return (
+  if (step === 4) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Your card</div>
@@ -1861,7 +2018,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       </div>
     </div>
   );
-  if (step === 4) {
+  if (step === 5) {
     const complete = SPORTS.every(s => ratings[s.id] !== undefined);
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -1906,10 +2063,18 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const c = cards[step];
   return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(56px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))" }} key={step}>
-      <div style={{ marginBottom:16 }}>{c.art}</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:40, color:"var(--ink)", lineHeight:1.02, marginBottom:12 }}>{c.t}</div>
-      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)" }}>{c.b}</div>
+      justifyContent: c.tall ? "center" : "flex-start",
+      padding:`calc(${c.tall ? 30 : 56}px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))` }} key={step}>
+      <div style={{ marginBottom:16, display:"flex", justifyContent: c.tall ? "center" : "flex-start" }}>{c.art}</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: c.tall ? 36 : 40, color:"var(--ink)",
+        lineHeight:1.02, marginBottom:12, textAlign: c.tall ? "center" : "left" }}>{c.t}</div>
+      <div style={{ fontFamily:SANS, fontSize: c.tall ? 15.5 : 16, lineHeight:1.6, color:"var(--muted2)",
+        textAlign: c.tall ? "center" : "left" }}>{c.b}</div>
+      {c.stack && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginTop:26 }}>
+          {RACK_DENOMS.map(d => <BankChip key={d} p={me} size={46} val={d} />)}
+        </div>
+      )}
       {c.tabs && (
         <div style={{ marginTop:20 }}>
           {c.tabs.map(([t, d]) => (
@@ -1924,17 +2089,20 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         </div>
       )}
       {c.meter && (
-        <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
-          {[["Fri",40],["Sat AM",80],["Sat PM",120],["Sat Nite",160],["Finale",0]].map(([lb,v]) => (
-            <div key={lb} style={{ flex:1, textAlign:"center" }}>
-              <div style={{ height: v ? 14 + v*0.33 : 78, margin:"0 2px", borderRadius:"4px 4px 0 0",
-                background: v ? GOLD_GRAD : EMBER_GRAD, opacity: v ? Math.min(0.3 + (v/PT)*0.09, 1) : 1,
-                animation: v ? "none" : "si-glow 2s infinite" }} />
-              <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--muted)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
-              <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v || "Stack"}</div>
-            </div>
-          ))}
-        </div>
+        <>
+          <div style={{ ...label, fontSize:10, marginTop:26 }}>What one event pays</div>
+          <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:8, height:92 }}>
+            {[["Fri",40],["Sat AM",80],["Sat PM",120],["Sat Nite",160],["Finale",0]].map(([lb,v], i) => (
+              <div key={lb} style={{ flex:1, textAlign:"center" }}>
+                <div style={{ height: v ? 16 + v*0.3 : 70, margin:"0 2px", borderRadius:"4px 4px 0 0",
+                  background: v ? GOLD_GRAD : EMBER_GRAD, opacity: v ? 0.45 + i*0.18 : 1,
+                  animation: v ? "none" : "si-glow 2s infinite" }} />
+                <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--muted)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
+                <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v || "Stack"}</div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
       <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
         <div style={{ display:"flex", gap:6, flex:1 }}>

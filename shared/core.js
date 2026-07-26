@@ -220,7 +220,7 @@ const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring"];
 
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
-  onboardEpoch:0, eventEdits:{}, eventOrder:[], updatedAt:0 };
+  onboardEpoch:0, eventEdits:{}, eventOrder:[], logistics:{ venue:"", venueNote:"", hostTravel:"" }, updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and

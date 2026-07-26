@@ -419,9 +419,29 @@ export default function App() {
       if (draw && !seenReveals.includes(draw.id)) {
         const ev = events.find(e => e.id === eid);
         if (!ev) continue;
-        const groups = draw.teams.length === 2
-          ? null
-          : draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
+        /* a bracket draw announces the matchups, not just the teams: each
+           first-round pairing is its own card, byes get named for what they skip */
+        const br = state.brackets[eid];
+        let groups = null;
+        if (draw.teams.length !== 2 && br) {
+          const names = ROUND_NAMES[br.size] || [];
+          const teamLine = t => ({ avatars: [...draw.teams[t].players], text: teamLabel(state, draw.teams[t]) });
+          const seated = new Set();
+          groups = [];
+          br.rounds[0].forEach((match, m) => {
+            const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
+            if (a === null || b === null) return;
+            seated.add(a); seated.add(b);
+            groups.push({ title: `${names[0] || "Round 1"}${br.rounds[0].length > 1 ? ` ${m + 1}` : ""}`,
+              vs: true, lines: [teamLine(a), teamLine(b)] });
+          });
+          const byes = draw.teams.map((_, i) => i).filter(i => !seated.has(i));
+          if (byes.length) groups.push({
+            title: names[1] ? `Straight to the ${names[1].toLowerCase()}` : "Bye",
+            lines: byes.map(teamLine) });
+        } else if (draw.teams.length !== 2) {
+          groups = draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
+        }
         setReveal({ id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups, versus: draw.teams.length === 2 ? draw.teams : null });
         return;
       }
@@ -536,7 +556,8 @@ export default function App() {
   });
 
   const saveProfile = (p, prof) => {
-    act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size });
+    act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
+      flightIn: prof.flightIn, flightOut: prof.flightOut });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
   const setLive = on => act("setLive", { on });
@@ -1172,6 +1193,7 @@ export default function App() {
                 finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
             : <LockerRoom state={state} me={me} gm={gmView}
                 onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)}
+                onLogistics={vals => act("saveLogistics", vals, "Weekend sheet saved")}
                 onSize={(p, sz) => act("saveProfile", { player: p, display: state.profiles?.[p]?.display || p, size: sz })}
                 onChallenge={p => setModal({type:"player", p})} />}
 
@@ -1184,7 +1206,7 @@ export default function App() {
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
           onVoid={id => { voidWager(id); notify("Wager voided"); }} />}
-        {tab === "guide" && <Guide replay={() => setOnboardStep(3)} events={events} />}
+        {tab === "guide" && <Guide replay={() => setOnboardStep(5)} events={events} state={state} />}
       </div>
 
       {gmNext && !modal && (
@@ -1674,22 +1696,27 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState("");
   const [size, setSize] = useState(null);
+  const [flightIn, setFlightIn] = useState("");
+  const [flightOut, setFlightOut] = useState("");
   useEffect(() => {
     if (!me) return;
     const pr = state.profiles?.[me];
     setDisplay(pr?.display || me);
     setNum(pr?.num != null ? String(pr.num) : "");
     setSize(pr?.size ?? null);
+    setFlightIn(pr?.flightIn || "");
+    setFlightOut(pr?.flightOut || "");
   }, [me]); // eslint-disable-line
   const cards = {
-    3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. A chip is 20. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
-    4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, a tap puts one 20 chip down, and you can risk up to a quarter of your points, never less than 60. Everything settles automatically once the result posts." },
-    5: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points add a zero and become your stack. Final chip counts are the final standings, and the chip leader takes the championship." },
+    5: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. Wins, wagers, and duels move your total from there, and events pay more as the weekend goes on.", meter:true },
+    6: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. Pick a chip from your rack, 20, 60, or 100, and tap any name or matchup to put it down. The outright winner pays 2 to 1, everything else pays even, and you can risk up to a quarter of your points at a time. The book settles itself when results post." },
+    7: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points add a zero and become your stack. Final chip counts are the final standings, and the chip leader takes the championship." },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
-  const cardSteps = [3,4,5];
-  const lastStep = 5;
+  const cardSteps = [5,6,7];
+  const lastStep = 7;
+  const lg = state.logistics || {};
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
@@ -1722,7 +1749,81 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         TV mode</button>}
     </div>
   );
+  /* step 1, the announcement: this screen is how the group finds out what
+     the weekend actually is, months before anyone lands */
   if (step === 1) return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(48px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))" }}>
+      <div style={label}>October 16 to 18, 2026</div>
+      <div style={{ margin:"10px 0 14px" }}><Wordmark size={46} /></div>
+      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:20 }}>
+        The bachelor party is a tournament. Thirteen players, sixteen events,
+        one board. It ends at a poker table and somebody flies home a champion.
+      </div>
+      <div style={{ flex:1, overflowY:"auto" }}>
+        {SESSIONS.map(s => (
+          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 2px",
+            borderBottom:"1px solid var(--line)" }}>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, color:"var(--ink)",
+              textTransform:"uppercase", letterSpacing:"0.03em", flex:1 }}>{s.label}</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.1em",
+              color: s.id === "fin" ? "var(--accent2)" : "var(--muted2)" }}>{s.tag}</span>
+          </div>
+        ))}
+      </div>
+      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:14 }}>Next</Btn>
+    </div>
+  );
+  /* step 2, logistics: the address and flights live here. Size and travel
+     go straight to the roster so the host stops chasing texts */
+  if (step === 2) return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
+      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <div style={label}>The details</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 14px" }}>
+        Getting there</div>
+      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
+        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"13px 14px", marginBottom:12 }}>
+          <div style={{ ...label, marginBottom:5 }}>The house</div>
+          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, color: lg.venue ? "var(--ink)" : "var(--muted)",
+            lineHeight:1.5, userSelect:"text" }}>{lg.venue || "Address drops soon."}</div>
+          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
+            lineHeight:1.5 }}>{lg.venueNote}</div>}
+        </div>
+        {lg.hostTravel && (
+          <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+            padding:"13px 14px", marginBottom:12 }}>
+            <div style={{ ...label, marginBottom:5 }}>Brandon flies</div>
+            <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", lineHeight:1.55 }}>
+              {lg.hostTravel}</div>
+          </div>
+        )}
+        <div style={{ marginBottom:16 }}>
+          <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
+            flightOut={flightOut} setFlightOut={setFlightOut} />
+        </div>
+        <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+          {SIZES.map(s => (
+            <button key={s} onClick={() => setSize(s)}
+              style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
+                cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)",
+                color: size === s ? "var(--ink0)" : "var(--ink)",
+                border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
+          ))}
+        </div>
+        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+          For the jersey order.</div>
+      </div>
+      <div style={{ marginTop:12 }}>
+        <Btn disabled={!size} onClick={() => { saveProfile({ display: (display || me).trim() || me,
+            size, flightIn, flightOut }); next(); }}
+          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
+      </div>
+    </div>
+  );
+  if (step === 3) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Your card</div>
@@ -1730,16 +1831,16 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         Set up your profile</div>
       <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
         <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-          num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
+          num={num} setNum={setNum} showSize={false} onChip={onChip} />
       </div>
       <div style={{ marginTop:12 }}>
         <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
-            num: num === "" ? null : Number(num), size, ...(photo ? {photo} : {}) }); next(); }}
+            num: num === "" ? null : Number(num), ...(photo ? {photo} : {}) }); next(); }}
           style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
   );
-  if (step === 2) {
+  if (step === 4) {
     const complete = SPORTS.every(s => ratings[s.id] !== undefined);
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
@@ -1803,10 +1904,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       )}
       {c.meter && (
         <div style={{ display:"flex", gap:6, alignItems:"flex-end", marginTop:28, height:96 }}>
-          {[["Fri",20],["Sat AM",40],["Sat PM",60],["Sat Nite",80],["Finale",0]].map(([lb,v]) => (
+          {[["Fri",40],["Sat AM",80],["Sat PM",120],["Sat Nite",160],["Finale",0]].map(([lb,v]) => (
             <div key={lb} style={{ flex:1, textAlign:"center" }}>
-              <div style={{ height: v ? v*0.65 : 78, margin:"0 2px", borderRadius:"4px 4px 0 0",
-                background: v ? GOLD_GRAD : EMBER_GRAD, opacity: v ? 0.3 + (v/PT)*0.13 : 1,
+              <div style={{ height: v ? 14 + v*0.33 : 78, margin:"0 2px", borderRadius:"4px 4px 0 0",
+                background: v ? GOLD_GRAD : EMBER_GRAD, opacity: v ? Math.min(0.3 + (v/PT)*0.09, 1) : 1,
                 animation: v ? "none" : "si-glow 2s infinite" }} />
               <div style={{ fontFamily:SANS, fontSize:10, letterSpacing:"0.1em", color:"var(--muted)", marginTop:6, fontWeight:700, textTransform:"uppercase" }}>{lb}</div>
               <div style={{ fontFamily:DISPLAY, fontSize:16, color:"var(--accent2)", fontWeight:700 }}>{v || "Stack"}</div>
@@ -1905,6 +2006,26 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   );
 }
 
+/* travel entry, shared by onboarding and the profile sheet: two free-text
+   lines that read back to the host. Airline, number, time, whatever works */
+function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
+  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
+    color:"var(--ink)", outline:"none", height:48, width:"100%", padding:"0 13px",
+    fontFamily:SANS, fontWeight:600, fontSize:15 };
+  return (
+    <div>
+      <div style={{ ...label, marginBottom:6 }}>Flight in</div>
+      <input value={flightIn} onChange={e => setFlightIn(e.target.value)} maxLength={90}
+        placeholder="WN 1204, lands PHX Fri 2:10p" style={{ ...field, marginBottom:12 }} />
+      <div style={{ ...label, marginBottom:6 }}>Flight out</div>
+      <input value={flightOut} onChange={e => setFlightOut(e.target.value)} maxLength={90}
+        placeholder="WN 887, leaves Sun 11:30a" style={field} />
+      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+        Goes to Brandon for pickups and headcounts. Add it when booked.</div>
+    </div>
+  );
+}
+
 /* chip claim: colors are first come first serve, live on the server the
    moment you tap. Skins repeat freely. Locked once the weekend starts. */
 function ChipPicker({ state, me, onChip }) {
@@ -1963,7 +2084,33 @@ function ChipPicker({ state, me, onChip }) {
 }
 
 /* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
-function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge }) {
+/* GM's weekend sheet: the address and host flights everyone reads during
+   onboarding and in the guide. Saved as one action */
+function LogisticsEditor({ state, onSave }) {
+  const lg = state.logistics || {};
+  const [venue, setVenue] = useState(lg.venue || "");
+  const [venueNote, setVenueNote] = useState(lg.venueNote || "");
+  const [hostTravel, setHostTravel] = useState(lg.hostTravel || "");
+  const dirty = venue !== (lg.venue || "") || venueNote !== (lg.venueNote || "") || hostTravel !== (lg.hostTravel || "");
+  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
+    color:"var(--ink)", outline:"none", width:"100%", padding:"12px 13px",
+    fontFamily:SANS, fontWeight:600, fontSize:14 };
+  return (
+    <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
+      borderRadius:14, padding:"12px 13px" }}>
+      <div style={{ ...label, marginBottom:8 }}>The weekend sheet</div>
+      <input value={venue} onChange={e => setVenue(e.target.value)} maxLength={140}
+        placeholder="House address" style={{ ...field, marginBottom:8 }} />
+      <input value={venueNote} onChange={e => setVenueNote(e.target.value)} maxLength={240}
+        placeholder="Door code, parking, whatever they need" style={{ ...field, marginBottom:8 }} />
+      <input value={hostTravel} onChange={e => setHostTravel(e.target.value)} maxLength={240}
+        placeholder="Your flights, shown to everyone" style={field} />
+      <Btn disabled={!dirty} onClick={() => onSave({ venue, venueNote, hostTravel })}
+        style={{ width:"100%", marginTop:10 }}>Save</Btn>
+    </div>
+  );
+}
+function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, onLogistics }) {
   const profs = state.profiles || {};
   const inCount = ROSTER.filter(p => profs[p]).length;
   return (
@@ -2002,29 +2149,38 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge }) 
       </div>
       {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
       {gm && (
-        <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
-          borderRadius:14, padding:"12px 13px" }}>
-          <div style={{ ...label, marginBottom:8 }}>Jersey sheet</div>
-          {ROSTER.map(p => {
-            const pr = profs[p];
-            return (
-              <div key={p} style={{ display:"flex", gap:10, alignItems:"center", padding:"5px 0",
-                borderBottom:"1px solid var(--line)", fontFamily:SANS, fontSize:14 }}>
-                <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:36,
-                  color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
-                  {pr?.num != null ? `#${pr.num}` : "?"}</span>
-                <button onClick={() => onSize(p, SIZES[(SIZES.indexOf(pr?.size) + 1) % SIZES.length])}
-                  title="Tap to cycle the size"
-                  style={{ width:44, fontFamily:SANS, fontWeight:700, fontSize:14, textAlign:"right",
-                    background:"none", border:"none", cursor:"pointer", padding:0,
-                    color: pr?.size ? "var(--ink)" : "var(--clay)" }}>
-                  {pr?.size || "?"}</button>
-              </div>
-            );
-          })}
-          <Btn onClick={onStart} style={{ width:"100%", marginTop:12 }}>Start the weekend</Btn>
-        </div>
+        <>
+          <LogisticsEditor state={state} onSave={onLogistics} />
+          <div style={{ marginTop:12, background:"var(--paper)", border:"1px solid var(--line)",
+            borderRadius:14, padding:"12px 13px" }}>
+            <div style={{ ...label, marginBottom:8 }}>Travel and jersey sheet</div>
+            {ROSTER.map(p => {
+              const pr = profs[p];
+              const legs = [pr?.flightIn && `in ${pr.flightIn}`, pr?.flightOut && `out ${pr.flightOut}`]
+                .filter(Boolean).join(" · ");
+              return (
+                <div key={p} style={{ padding:"6px 0", borderBottom:"1px solid var(--line)" }}>
+                  <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:SANS, fontSize:14 }}>
+                    <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
+                    <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:36,
+                      color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
+                      {pr?.num != null ? `#${pr.num}` : "?"}</span>
+                    <button onClick={() => onSize(p, SIZES[(SIZES.indexOf(pr?.size) + 1) % SIZES.length])}
+                      title="Tap to cycle the size"
+                      style={{ width:44, fontFamily:SANS, fontWeight:700, fontSize:14, textAlign:"right",
+                        background:"none", border:"none", cursor:"pointer", padding:0,
+                        color: pr?.size ? "var(--ink)" : "var(--clay)" }}>
+                      {pr?.size || "?"}</button>
+                  </div>
+                  <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.4, marginTop:1,
+                    color: legs ? "var(--muted2)" : "var(--clay)" }}>
+                    {legs || "no flights yet"}</div>
+                </div>
+              );
+            })}
+            <Btn onClick={onStart} style={{ width:"100%", marginTop:12 }}>Start the weekend</Btn>
+          </div>
+        </>
       )}
     </div>
   );
@@ -2403,12 +2559,8 @@ function NowCard({ state, standings, events, me, onOpen }) {
       const all = br.rounds.flat();
       const done = all.filter(m => m.winner !== null && m.winner !== undefined).length;
       progress = `${done} of ${all.length} decided`;
-      outer: for (let r = 0; r < br.rounds.length; r++) for (const m of br.rounds[r]) {
-        if (m.winner === null || m.winner === undefined) {
-          const a = resolveSlot(br, m.a), b = resolveSlot(br, m.b);
-          if (a !== null && b !== null) { matchup = { a, b, name: (ROUND_NAMES[br.size] || [])[r] }; break outer; }
-        }
-      }
+      const nm = nextOpenMatch(br);
+      if (nm) matchup = { a: nm.a, b: nm.b, name: nm.roundName };
     } else if (st) {
       const done = st.groups.filter(g => (g.through || []).length >= st.advance).length;
       progress = `${st.kind === "heats" ? "heats" : "pools"}: ${done} of ${st.groups.length} decided`;
@@ -3136,7 +3288,19 @@ function AddEventSheet({ state, onClose, save }) {
 }
 
 /* ─────────── bracket ─────────── */
-function BracketGrid({ state, ev, gm, onPick, size="md", bet }) {
+/* the next fully-seated, undecided matchup in bracket order: what plays now */
+function nextOpenMatch(br) {
+  if (!br) return null;
+  const names = ROUND_NAMES[br.size] || [];
+  for (let r = 0; r < br.rounds.length; r++) for (let m = 0; m < br.rounds[r].length; m++) {
+    const match = br.rounds[r][m];
+    if (match.winner !== null && match.winner !== undefined) continue;
+    const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
+    if (a !== null && b !== null) return { r, m, a, b, roundName: names[r] || "Match" };
+  }
+  return null;
+}
+function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
   if (!br || !draw) return null;
@@ -3155,15 +3319,17 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet }) {
           {round.map((match, m) => {
             const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
             const undecided = match.winner === null || match.winner === undefined;
+            const isHot = hot && hot[0] === r && hot[1] === m;
             return (
-              <div key={m} style={{ border:"1px solid var(--line)", borderRadius:14, overflow:"hidden",
-                background:"var(--paper2)", boxShadow:"var(--shadow-1)" }}>
+              <div key={m} style={{ borderRadius:14, overflow:"hidden",
+                border: isHot ? "1.5px solid var(--sun)" : "1px solid var(--line)",
+                background:"var(--paper2)", boxShadow: isHot ? "var(--shadow-2)" : "var(--shadow-1)" }}>
                 {[a,b].map((tIdx, side) => {
                   const t = tIdx !== null ? draw.teams[tIdx] : null;
                   const isWinner = match.winner !== null && match.winner === tIdx;
                   const isLoser = match.winner !== null && match.winner !== tIdx && tIdx !== null;
                   /* bet mode: an open, fully-seated matchup takes a chip on tap */
-                  const canBet = !!bet && undecided && a !== null && b !== null && tIdx !== null;
+                  const canBet = !!bet?.onBet && undecided && a !== null && b !== null && tIdx !== null;
                   const tappable = gm ? (onPick && tIdx !== null && a !== null && b !== null) : canBet;
                   return (
                     <button key={side} disabled={!tappable}
@@ -4617,6 +4783,8 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
+  const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || "");
+  const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || "");
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
@@ -4637,8 +4805,11 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
       </div>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
         num={num} setNum={setNum} showSize={false} onChip={onChip} />
+      <div style={{ marginTop:16 }}>
+        <TravelFields flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
+      </div>
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), ...(photo ? {photo} : {}) })}
+          num: num === "" ? null : Number(num), flightIn, flightOut, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
@@ -4686,12 +4857,19 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
               <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 26 : 16,
                 color:"var(--accent2)", marginBottom:8 }}>{g.title}</div>
               {g.lines.map((ln, j) => (
-                <div key={j} style={{ display:"flex", alignItems:"center", gap:9, padding:"3px 0",
-                  animation: i < shown ? `si-in .3s ${0.25 + j*0.15}s both` : "none" }}>
-                  <AvatarStack state={state} players={ln.avatars} size={big ? 34 : 26} max={3} />
-                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize: big ? 20 : 14.5, color:"var(--ink)" }}>
-                    {ln.text}</span>
-                </div>
+                <React.Fragment key={j}>
+                  {g.vs && j > 0 && (
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize: big ? 14 : 11,
+                      letterSpacing:"0.18em", color:"var(--muted)", textTransform:"uppercase",
+                      padding:"1px 0 1px 4px", animation: i < shown ? "si-in .3s .3s both" : "none" }}>vs</div>
+                  )}
+                  <div style={{ display:"flex", alignItems:"center", gap:9, padding:"3px 0",
+                    animation: i < shown ? `si-in .3s ${0.25 + j*0.15}s both` : "none" }}>
+                    <AvatarStack state={state} players={ln.avatars} size={big ? 34 : 26} max={3} />
+                    <span style={{ fontFamily:SANS, fontWeight:600, fontSize: big ? 20 : 14.5, color:"var(--ink)" }}>
+                      {ln.text}</span>
+                  </div>
+                </React.Fragment>
               ))}
             </div>
           ))}
@@ -4755,24 +4933,8 @@ function BankChip({ p, size=18, empty, val }) {
     </svg>
   );
 }
-/* poker-chip stack for one bet: colored chips to the stake height, bettor on top */
-function ChipStack({ state, player, stake, size=44 }) {
-  const n = Math.max(1, Math.round(stake / PT));
-  const lift = Math.round(size * 0.2);
-  return (
-    <div style={{ position:"relative", width:size, height:size + (n - 1) * lift, flexShrink:0 }}>
-      {Array.from({ length: n }).map((_, i) => (
-        <div key={i} style={{ position:"absolute", bottom:i * lift, left:0 }}>
-          {i === n - 1
-            ? <Avatar state={state} p={player} size={size} />
-            : <BankChip p={player} size={size} />}
-        </div>
-      ))}
-    </div>
-  );
-}
 /* TV betting scene: the open board. Every live pick is a felt cell and the
-   chips physically sit on it; before any chips land, the game's hero plays. */
+   value chips sit on it; before any chips land, the game's hero plays. */
 function TVBettingBoard({ state, events, ev }) {
   const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
     .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
@@ -4795,7 +4957,7 @@ function TVBettingBoard({ state, events, ev }) {
       <div style={{ display:"flex", alignItems:"center", gap:12, paddingTop:12 }}>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
           textTransform:"uppercase", color:"var(--sun)" }}>
-          {chipsIn} chip{chipsIn > 1 ? "s" : ""} on the table</span>
+          {fmt(chipsIn * PT)} on the table</span>
         <span style={{ fontFamily:SANS, fontSize:"clamp(12px,1.2vw,16px)", color:"var(--night-text)" }}>
           winner pays 2 to 1, everything else even</span>
       </div>
@@ -4823,21 +4985,30 @@ function BetsBoard({ state, events, ev, big }) {
     <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"var(--night-text)",
       textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
   );
-  const chip = 44;
+  const chip = big ? 46 : 40;
   return (
     <div style={{ display:"flex", flexWrap:"wrap", gap:14,
       justifyContent: big ? "center" : "flex-start", alignItems:"flex-end" }}>
-      {list.map((cell, i) => (
-        <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)",
-          borderRadius:14, padding:"10px 14px 12px", minWidth:150 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
-            textTransform:"uppercase", color:"var(--ink)", marginBottom:10, whiteSpace:"nowrap",
-            overflow:"hidden", textOverflow:"ellipsis", maxWidth:230 }}>{cell.name}</div>
-          <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap" }}>
-            {cell.bets.map((b, j) => <ChipStack key={j} state={state} player={b.player} stake={b.stake} size={chip} />)}
+      {list.map((cell, i) => {
+        const total = cell.bets.reduce((s, b) => s + b.stake, 0);
+        return (
+          <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)",
+            borderRadius:14, padding:"10px 14px 12px", minWidth:150 }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:12, marginBottom:10 }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
+                textTransform:"uppercase", color:"var(--ink)", whiteSpace:"nowrap",
+                overflow:"hidden", textOverflow:"ellipsis", maxWidth:230 }}>{cell.name}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(15px,1.5vw,20px)" : 15,
+                color:"var(--sun)", marginLeft:"auto" }}>{fmt(total)}</span>
+            </div>
+            {/* one value-stamped chip per bet, the bettor's color says whose */}
+            <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap" }}>
+              {cell.bets.map((b, j) => <span key={j} style={{ marginLeft: j ? -Math.round(chip * 0.22) : 0 }}>
+                <BankChip p={b.player} size={chip} val={b.stake} /></span>)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -5084,6 +5255,25 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   }, []);
 
   const liveEv = onDeckEv || liveBracketEv || liveStageEv;
+  /* who steps up next: the first open, fully-seated matchup in the live bracket */
+  const upNext = useMemo(() => liveBracketEv ? nextOpenMatch(state.brackets[liveBracketEv.id]) : null,
+    [liveBracketEv, state]);
+  const upNextDraw = liveBracketEv ? state.draws[liveBracketEv.id] : null;
+  /* chips riding a TV bracket cell, value stamped, read-only */
+  const tvBracketChips = (r, m, tIdx) => {
+    const bets = allW.filter(x => x.r.status === "pending" && x.w.kind === "match" &&
+      x.w.eventId === liveBracketEv.id && x.w.drawId === upNextDraw?.id &&
+      x.w.match?.[0] === r && x.w.match?.[1] === m && x.w.teamIdx === tIdx);
+    if (!bets.length) return null;
+    return (
+      <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+        {bets.slice(0, 4).map((x, i) => <span key={i} style={{ marginLeft: i ? -8 : 0 }}>
+          <BankChip p={x.w.player} size={26} val={x.w.stake} /></span>)}
+        {bets.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13,
+          color:"var(--muted2)", marginLeft:3 }}>+{bets.length - 4}</span>}
+      </span>
+    );
+  };
   const scenes = useMemo(() => {
     const s = ["board"];
     if (champion) return s;
@@ -5114,12 +5304,15 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   }
   if (latest) tickerItems.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0,4),
     text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
+  if (upNext && upNextDraw) tickerItems.push({ tag:"Up now", tone:"var(--sun)",
+    players:[...upNextDraw.teams[upNext.a].players, ...upNextDraw.teams[upNext.b].players].slice(0,4),
+    text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });
   if (onDeckEv) {
     const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
-    const chipsIn = riding.reduce((n, x) => n + x.w.stake, 0) / PT;
-    if (chipsIn > 0) tickerItems.push({ tag:"The book", tone:"var(--accent2)",
+    const ptsIn = riding.reduce((n, x) => n + x.w.stake, 0);
+    if (ptsIn > 0) tickerItems.push({ tag:"The book", tone:"var(--accent2)",
       players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
-      text:`${chipsIn} chip${chipsIn > 1 ? "s" : ""} riding on ${onDeckEv.name}` });
+      text:`${fmt(ptsIn)} riding on ${onDeckEv.name}` });
   }
   allW.filter(x => x.r.status === "won").slice(0,2).forEach(x =>
     tickerItems.push({ tag:"Cashed", tone:"var(--green)", players:[x.w.player],
@@ -5203,9 +5396,26 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     : state.stages[liveStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
                 <div style={{ ...sceneTitle, marginBottom:0, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
               </div>
+              {/* the call to the table: who plays next, straight off the bracket */}
+              {upNext && upNextDraw && (
+                <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
+                  padding:"12px 22px", borderRadius:14, background:"var(--sun-tint)",
+                  border:"1.5px solid var(--sun)", animation:"si-in .5s ease-out" }}>
+                  <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
+                    letterSpacing:"0.18em", color:"var(--sun)", textTransform:"uppercase" }}>
+                    Up now · {upNext.roundName}</span>
+                  <AvatarStack state={state} players={upNextDraw.teams[upNext.a].players} size={30} max={3} />
+                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,1.6vw,24px)", color:BONE }}>
+                    {teamLabel(state, upNextDraw.teams[upNext.a])}
+                    <span style={{ color:"var(--night-text)", padding:"0 8px" }}>vs</span>
+                    {teamLabel(state, upNextDraw.teams[upNext.b])}</span>
+                  <AvatarStack state={state} players={upNextDraw.teams[upNext.b].players} size={30} max={3} />
+                </div>
+              )}
             </div>
             <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
-              {liveBracketEv ? <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg" />
+              {liveBracketEv ? <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg"
+                  bet={{ chips: tvBracketChips }} hot={upNext ? [upNext.r, upNext.m] : null} />
                 : liveStageEv ? <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
                 : <TVBettingBoard state={state} events={events} ev={onDeckEv} />}
             </div>
@@ -5373,8 +5583,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 }
 
 /* ─────────── rules ─────────── */
-function Guide({ replay, events }) {
+function Guide({ replay, events, state }) {
   const [howToEv, setHowToEv] = useState(null);
+  const lg = state?.logistics || {};
   const S = ({ n, t, children }) => (
     <div style={{ marginBottom:18 }}>
       <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:6 }}>
@@ -5386,6 +5597,20 @@ function Guide({ replay, events }) {
   );
   return (
     <div style={{ padding:"0 18px 10px" }}>
+      {(lg.venue || lg.hostTravel) && (
+        <div style={{ background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+          padding:"13px 14px", marginBottom:18 }}>
+          <div style={{ ...label, marginBottom:6 }}>October 16 to 18 · Scottsdale</div>
+          {lg.venue && <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14.5, color:"var(--ink)",
+            lineHeight:1.5, userSelect:"text" }}>{lg.venue}</div>}
+          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
+            lineHeight:1.5 }}>{lg.venueNote}</div>}
+          {lg.hostTravel && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:6,
+            lineHeight:1.5 }}>Brandon flies {lg.hostTravel}</div>}
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
+            Your flights live in your profile.</div>
+        </div>
+      )}
       <S n="01" t="Format">
         Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and a chip is 20. The board freezes at the trophy ceremony after the poker finale.
       </S>
@@ -5393,7 +5618,7 @@ function Guide({ replay, events }) {
         Friday events pay 40. Saturday morning 80, afternoon 120, night 160. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and stays open until the result posts. Back anyone, including yourself, to win the event at 2 to 1. Bracket matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. A tap puts one 20 chip down. You can risk up to a quarter of your points at once, never less than 60, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
+        Betting opens when an event goes on deck and stays open until the result posts. Pick a chip from the rack, 20, 60, or 100, and tap a name or a bracket matchup to put it down. The outright winner pays 2 to 1; matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. You can risk up to a quarter of your points at once, never less than 60, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

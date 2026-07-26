@@ -41,9 +41,18 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    in 20s. Betting UX is video roulette: a fixed rack (20/60/100 chips, App.jsx
    `RACK_DENOMS`) selects the tap stake; tapping any pick or open bracket side
    drops that chip, value stamped on its face, your ✕ pulls the last one back.
+   TV mode is the constant status: the live scene carries an UP NOW banner and
+   gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
+   also in the ticker and phone live strip), value chips ride the TV bracket
+   and board cells, and bracket draw reveals announce first-round matchups.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
+   Onboarding doubles as the invite, sent months out: install, check in, the
+   announcement, then a logistics step that reads `state.logistics` (venue +
+   host travel, GM-written once via `saveLogistics`) and writes shirt size and
+   `flightIn`/`flightOut` to the profile. The GM travel board lives in the
+   locker room; resets preserve profiles, seeds, AND logistics.
 7. **The poker finale settles on stacks.** At the buy-in points ADD A ZERO:
    `pokerChips(pts)` = pts x CHIP_X(10), dealt in real denominations
    25/100/500/1000 (`pokerDenoms`, blind pack of eight 25s), blinds 25/50 to

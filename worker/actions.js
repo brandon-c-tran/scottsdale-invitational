@@ -15,11 +15,18 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display, num, size }, ctx) {
+  saveProfile(state, { player, display, num, size, flightIn, flightOut }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
     const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    /* travel is free text: airline, number, time, whatever reads back to the host */
+    for (const [k, v] of [["flightIn", flightIn], ["flightOut", flightOut]]) {
+      if (v === undefined) continue;
+      if (v === null || (typeof v === "string" && !v.trim())) delete prof[k];
+      else if (typeof v !== "string") return err("Bad flight");
+      else prof[k] = v.trim().slice(0, 90);
+    }
     if (num !== undefined) {
       if (num === null) delete prof.num;
       else {
@@ -645,13 +652,28 @@ export const ACTIONS = {
     return ok();
   },
   /* resets wipe the game, never the people: profiles (names, photos, numbers,
-     sizes) and sealed seeds survive so nobody re-registers between test runs */
+     sizes, flights), sealed seeds, and weekend logistics survive so nobody
+     re-registers between test runs */
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const profiles = state.profiles, seeds = state.seeds;
+    const profiles = state.profiles, seeds = state.seeds, logistics = state.logistics;
     Object.assign(state, structuredClone(EMPTY_STATE));
     state.profiles = profiles;
     state.seeds = seeds;
+    if (logistics) state.logistics = logistics;
+    return ok();
+  },
+  /* the weekend sheet: where we sleep and how the host flies. GM writes it
+     once, onboarding and the guide read it on every phone */
+  saveLogistics(state, { venue, venueNote, hostTravel }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const clean = { ...(state.logistics || { venue:"", venueNote:"", hostTravel:"" }) };
+    for (const [k, v, max] of [["venue", venue, 140], ["venueNote", venueNote, 240], ["hostTravel", hostTravel, 240]]) {
+      if (v === undefined) continue;
+      if (typeof v !== "string") return err("Bad text");
+      clean[k] = v.trim().slice(0, max);
+    }
+    state.logistics = clean;
     return ok();
   },
 };

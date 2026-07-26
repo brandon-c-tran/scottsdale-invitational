@@ -4,7 +4,7 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion }
+import { resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, pokerChips }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -235,7 +235,7 @@ r = await a.dispatch("pokerResult", {});
 assert(!r.ok, "post blocked before everyone counts (rejected: " + r.error + ")");
 for (const p of ROSTER) {
   if (p === "Evan") continue;
-  r = await a.dispatch("pokerCount", { player: p, count: p === "Brandon" ? pokerTotal : 0 });
+  r = await a.dispatch("pokerCount", { player: p, count: p === "Brandon" ? pokerChips(pokerTotal) : 0 });
   assert(r.ok, `count in for ${p}`);
 }
 r = await a.dispatch("pokerResult", {});
@@ -243,14 +243,14 @@ assert(r.ok, "final counts posted");
 await b.waitVersion(a.version);
 for (const [label, win] of [["A", a], ["B", b]]) {
   const rows = computeStandings(win.state);
-  assert(rows[0].player === "Brandon" && rows[0].pts === pokerTotal,
-    `window ${label}: chip leader tops the board with the whole ${pokerTotal}`);
+  assert(rows[0].player === "Brandon" && rows[0].pts === pokerChips(pokerTotal),
+    `window ${label}: chip leader tops the board with the whole ${pokerChips(pokerTotal)}`);
   assert(rows.find(x => x.player === "Evan").pts === 0, `window ${label}: busted Evan at 0`);
 }
 r = await a.dispatch("clearResult", { evId: "poker" });
 assert(r.ok, "clearResult re-arms the table");
 await b.waitVersion(a.version);
-assert(computeStandings(b.state)[0].pts !== pokerTotal, "board restored pre-poker");
+assert(computeStandings(b.state)[0].pts !== pokerChips(pokerTotal), "board restored pre-poker");
 
 /* reconnect check: fresh hello returns claim identity */
 {

@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, maxRisk, CHIP_MIN, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, pokerLevels,
 } from "../shared/core.js";
@@ -82,12 +82,15 @@ export const ACTIONS = {
     if (state.onDeck !== ev.id) return err("Betting is closed for this event");
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
-    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT && stake <= MAX_RISK))
-      return err("Stakes are 20, 40, or 60");
-    /* exposure + balance, computed server side */
+    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
+      return err("Stakes move in 20s");
+    /* exposure + balance, computed server side; the cap scales with the
+       stack (a quarter of your points, never under 60) so bets keep pace
+       as the weekend inflates */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
-    if (exp + stake > MAX_RISK) return err("Max 60 at risk");
+    const cap = maxRisk(pts);
+    if (exp + stake > cap) return err(`Max ${cap} at risk`);
     if (stake > pts - exp) return err("Not enough points");
     /* referenced structures must be current */
     if (wager.kind === "outright" && wager.pickTeam) {
@@ -478,8 +481,16 @@ export const ACTIONS = {
       return err("Settle or void the open book first");
     if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
       return err("Settle or void the open duels first");
-    const rows = computeStandings(state);
+    let rows = computeStandings(state);
     if (rows.some(r => r.pts < 0)) return err("Negative stacks, fix rulings first");
+    /* nobody rails the finale: anyone under 60 is staked up to 60, logged
+       as a ruling so the board shows where the chips came from */
+    const floor = 3 * PT;
+    rows.filter(r => r.pts < floor).forEach(r => {
+      state.adjustments.unshift({ id: "a" + Date.now() + r.player, player: r.player,
+        delta: floor - r.pts, reason: "Table stakes", ts: Date.now() });
+    });
+    rows = computeStandings(state);
     state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
       startedAt: null, levels: pokerLevels(), levelOffset: 0, outs: [], counts: {}, ts: Date.now() };
     return ok();
@@ -529,7 +540,7 @@ export const ACTIONS = {
     if (pk.outs.find(o => o.player === player)) return err("You are out, your count is 0");
     const c = Math.floor(Number(count));
     if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
-    if (c % PT !== 0) return err("Counts move in 20s");
+    if (c % CHIP_MIN !== 0) return err("Counts move in 25s");
     pk.counts = pk.counts || {};
     pk.counts[player] = c;
     return ok();

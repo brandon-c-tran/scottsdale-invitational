@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
-  DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, MAX_RISK, pokerLive, pokerClock, pokerDenoms,
+  DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
+  pokerLive, pokerClock, pokerDenoms, pokerChips,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, computeScenarios, atRisk, ROUND_NAMES, resolveSlot, bracketChampion,
 } from "../shared/core.js";
@@ -27,6 +28,7 @@ const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|
    default; warm night surfaces are reserved for reveals, finals, and TV. */
 const DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
 const SANS = "'Inter',system-ui,sans-serif";
+const fmt = n => (n ?? 0).toLocaleString("en-US");
 const BONE = "var(--bone)";
 const GOLD_GRAD = "var(--sun)";
 const EMBER_GRAD = "var(--accent)";
@@ -643,9 +645,9 @@ export default function App() {
       if (!ev || s.results[evId] || s.onDeck !== evId) break;
       const pts = computeStandings(s).find(r => r.player === p)?.pts ?? 0;
       const exp = atRisk(s, p, events2);
-      const room = Math.min(MAX_RISK - exp, pts - exp);
+      const room = Math.min(maxRisk(pts) - exp, pts - exp);
       if (room < PT) continue;
-      const stake = Math.min(Math.floor(room / PT) * PT, rnd([PT, PT, 2 * PT, 2 * PT, 3 * PT]));
+      const stake = Math.min(Math.floor(room / PT) * PT, rnd([PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]));
       const draw = s.draws[evId];
       const st = s.stages[evId];
       const myIdx = draw ? draw.teams.findIndex(t => t.players.includes(p)) : -1;
@@ -906,7 +908,7 @@ export default function App() {
     const done = poker.counts || {};
     if (through === "live") {
       for (const q of shuffle(simPokerAlive().filter(q => q !== me && done[q] === undefined)).slice(0, 2)) {
-        await simDo("pokerCount", { player: q, count: rnd([4, 6, 8, 10]) * PT }, `${q} counts down`);
+        await simDo("pokerCount", { player: q, count: rnd([40, 60, 80, 100]) * CHIP_MIN }, `${q} counts down`);
         await simWait(300);
       }
       return;
@@ -915,14 +917,14 @@ export default function App() {
     const todo = simPokerAlive().filter(q => done[q] === undefined);
     if (todo.length) {
       const counted = Object.values(done).reduce((a, b) => a + b, 0);
-      let left = Math.max(0, Math.floor((poker.total - counted) / PT));
+      let left = Math.max(0, Math.floor((pokerChips(poker.total) - counted) / CHIP_MIN));
       const weights = todo.map(() => 0.2 + Math.random());
       const wsum = weights.reduce((a, b) => a + b, 0);
       for (let i = 0; i < todo.length; i++) {
         const share = i === todo.length - 1 ? left
           : Math.min(left, Math.round(left * weights[i] / wsum));
         left -= share;
-        await simDo("pokerCount", { player: todo[i], count: share * PT }, `${todo[i]} counts down`);
+        await simDo("pokerCount", { player: todo[i], count: share * CHIP_MIN }, `${todo[i]} counts down`);
         await simWait(250);
       }
     }
@@ -1292,9 +1294,9 @@ export default function App() {
           if (!todo.length) return notify("Everyone else is counted");
           const counted = Object.values(done).reduce((a, b) => a + b, 0);
           const meIn = done[me] === undefined && simPokerAlive().includes(me) ? 1 : 0;
-          let left = Math.max(0, Math.floor((p.total - counted) / PT));
+          let left = Math.max(0, Math.floor((pokerChips(p.total) - counted) / CHIP_MIN));
           const per = Math.floor(left / (todo.length + meIn));
-          for (const q of todo) { await pokerCount(q, Math.min(left, per) * PT); left -= Math.min(left, per); }
+          for (const q of todo) { await pokerCount(q, Math.min(left, per) * CHIP_MIN); left -= Math.min(left, per); }
           notify(meIn ? "Counts in, yours is the last one" : "Counts in");
         }}
         onRerun={() => { rerunOnboard(); setModal(null); }}
@@ -1661,8 +1663,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   }, [me]); // eslint-disable-line
   const cards = {
     3: { art:<FDMark size={54} />, t:"One board", b:"Everyone starts the weekend with 100 points. A chip is 20. Event results and wagers move your total from there, and the events are worth more as the weekend goes on.", meter:true },
-    4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, a tap puts one 20 chip down, max 60 at risk, and everything settles automatically once the result posts." },
-    5: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points are your stack, one physical chip per 20. Final chip counts are the final standings, and the chip leader takes the championship." },
+    4: { art:<ArtTicket />, t:"Bets", b:"Betting opens whenever an event goes on deck. You can back anyone to win it, including yourself. The winner pays 2 to 1, a tap puts one 20 chip down, and you can risk up to a quarter of your points, never less than 60. Everything settles automatically once the result posts." },
+    5: { art:<ArtStar />, t:"The Finale", b:"Championship Poker closes the weekend. Your points add a zero and become your stack. Final chip counts are the final standings, and the chip leader takes the championship." },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
@@ -2072,11 +2074,11 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
               textTransform:"uppercase", color:"var(--sun)" }}>Championship Poker</div>
             {myRow && d ? (
               <div style={{ fontFamily:SANS, fontSize:12.5, color:BONE, marginTop:2 }}>
-                Your buy-in: <b>{myRow.pts}</b>
-                {(d.black || d.gold) ? ` — take ${[d.black && `${d.black} black`, d.gold && `${d.gold} gold`].filter(Boolean).join(" + ")}` : ""}
+                Your buy-in: <b>{fmt(pokerChips(myRow.pts))}</b>
+                {d.length ? `, take ${d.map(x => `${x.n} x ${x.v}`).join(" + ")}` : ""}
               </div>
             ) : (
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{pk.total} chips in play</div>
+              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pokerChips(pk.total))} chips in play</div>
             )}
           </div>
           <button onClick={onBuyin} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
@@ -2107,7 +2109,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         <GameMark id="poker" size={30} />
         <div style={{ flex:1 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1, color:BONE }}>
-            {clk.sb} / {clk.bb}</div>
+            {fmt(clk.sb)} / {fmt(clk.bb)}</div>
           <div style={{ fontFamily:SANS, fontSize:11, color:"var(--night-text)", marginTop:3 }}>
             Blinds, level {clk.idx + 1} of {pk.levels.length}. {alive} still in.</div>
         </div>
@@ -2126,7 +2128,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
           {pk.counts?.[me] !== undefined && !counting ? (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:BONE, flex:1 }}>
-                Counted: <b>{pk.counts[me]}</b></span>
+                Counted: <b>{fmt(pk.counts[me])}</b></span>
               <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
                 color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
                 textTransform:"uppercase", padding:"4px 6px" }}>Recount</button>
@@ -2136,7 +2138,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
           ) : (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
-                Your stack: <b style={{ color:BONE }}>{myRow?.pts}</b> at the buy-in</span>
+                Your stack: <b style={{ color:BONE }}>{fmt(pokerChips(myRow?.pts ?? 0))}</b> at the buy-in</span>
               <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
                 color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
                 textTransform:"uppercase", padding:"4px 6px" }}>Count</button>
@@ -2167,9 +2169,10 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         <div style={{ borderTop:"1px solid rgba(251,243,228,0.12)", padding:"8px 14px",
           display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text)", flex:1 }}>
-            {counted.length} of {alive} counted{allIn ? `, ${countSum} of ${pk.total}` : ""}
-            {allIn && countSum !== pk.total && (
-              <span style={{ color:"var(--clay)" }}> ({countSum > pk.total ? `${countSum - pk.total} over` : `${pk.total - countSum} short`})</span>
+            {counted.length} of {alive} counted{allIn ? `, ${fmt(countSum)} of ${fmt(pokerChips(pk.total))}` : ""}
+            {allIn && countSum !== pokerChips(pk.total) && (
+              <span style={{ color:"var(--clay)" }}> ({countSum > pokerChips(pk.total)
+                ? `${fmt(countSum - pokerChips(pk.total))} over` : `${fmt(pokerChips(pk.total) - countSum)} short`})</span>
             )}
           </span>
           {gm && (
@@ -2203,21 +2206,29 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   );
 }
 
-/* count your stack by denomination; the app does the math */
+/* count your stack by denomination; the app does the math. Values in chips. */
 function ChipCounter({ start, onDone }) {
-  const [black, setBlack] = useState(start ? Math.floor(start / 100) : 0);
-  const [gold, setGold] = useState(start ? Math.round((start % 100) / PT) : 0);
-  const total = black * 100 + gold * PT;
-  const Step = ({ v, set, lb, worth }) => (
-    <div style={{ flex:1, display:"flex", alignItems:"center", gap:7 }}>
-      <button onClick={() => set(x => Math.max(0, x - 1))} style={{ width:32, height:32, borderRadius:10,
+  const seed = v => {
+    let left = start || 0;
+    const out = {};
+    for (const d of [1000, 500, 100, 25]) { out[d] = Math.floor(left / d); left -= out[d] * d; }
+    return out[v];
+  };
+  const [n1000, set1000] = useState(() => seed(1000));
+  const [n500, set500] = useState(() => seed(500));
+  const [n100, set100] = useState(() => seed(100));
+  const [n25, set25] = useState(() => seed(25));
+  const total = n1000 * 1000 + n500 * 500 + n100 * 100 + n25 * 25;
+  const Step = ({ v, set, worth }) => (
+    <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
+      <button onClick={() => set(x => Math.max(0, x - 1))} style={{ width:30, height:30, borderRadius:10,
         cursor:"pointer", background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>−</button>
-      <div style={{ textAlign:"center", minWidth:44 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1, color:BONE }}>{v}</div>
-        <div style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.08em",
-          color:"var(--night-text2)", textTransform:"uppercase" }}>{lb} ({worth})</div>
+      <div style={{ textAlign:"center", minWidth:40 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:21, lineHeight:1, color:BONE }}>{v}</div>
+        <div style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.06em",
+          color:"var(--night-text2)" }}>x {worth}</div>
       </div>
-      <button onClick={() => set(x => x + 1)} style={{ width:32, height:32, borderRadius:10,
+      <button onClick={() => set(x => x + 1)} style={{ width:30, height:30, borderRadius:10,
         cursor:"pointer", background:"transparent", border:"1.5px solid rgba(251,243,228,0.3)", color:BONE }}>+</button>
     </div>
   );
@@ -2225,11 +2236,15 @@ function ChipCounter({ start, onDone }) {
     <div>
       <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)", marginBottom:8 }}>
         Count your stack by chip.</div>
-      <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-        <Step v={black} set={setBlack} lb="black" worth="100" />
-        <Step v={gold} set={setGold} lb="gold" worth="20" />
-        <div style={{ textAlign:"right" }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--sun)" }}>{total}</div>
+      <div style={{ display:"flex", gap:10, marginBottom:8 }}>
+        <Step v={n1000} set={set1000} worth="1000" />
+        <Step v={n500} set={set500} worth="500" />
+      </div>
+      <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <Step v={n100} set={set100} worth="100" />
+        <Step v={n25} set={set25} worth="25" />
+        <div style={{ textAlign:"right", minWidth:60 }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--sun)" }}>{fmt(total)}</div>
         </div>
       </div>
       <Btn onClick={() => onDone(total)} style={{ width:"100%", marginTop:10, padding:"10px 12px", fontSize:12.5 }}>
@@ -2243,7 +2258,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   if (!pk) return null;
   return (
     <Sheet title="Buy-in" onClose={onClose}>
-      <p style={pStyle}>Everyone takes their own stack from the tray. Blacks are 100, golds are 20.</p>
+      <p style={pStyle}>Points add a zero and become chips. Everyone takes their own stack from the tray.</p>
       {standings.map(r => {
         const d = pokerDenoms(r.pts);
         return (
@@ -2253,15 +2268,15 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", flex:1,
               minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
             <span style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
-              {[d.black && `${d.black} x 100`, d.gold && `${d.gold} x 20`].filter(Boolean).join(" + ") || "0"}</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:44,
-              textAlign:"right" }}>{r.pts}</span>
+              {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
+              textAlign:"right" }}>{fmt(pokerChips(r.pts))}</span>
           </div>
         );
       })}
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 14px" }}>
         <span style={{ ...label, flex:1 }}>Chips in play</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{pk.total}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{fmt(pokerChips(pk.total))}</span>
       </div>
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Shuffle up and deal</Btn>}
     </Sheet>
@@ -2296,7 +2311,7 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
                 {disp(state, p)}</span>
               {out ? <Tag>Out</Tag>
                 : c !== undefined
-                  ? <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>{c}</span>
+                  ? <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>{fmt(c)}</span>
                   : <span style={{ fontFamily:SANS, fontSize:11.5, fontWeight:600, color:"var(--muted)" }}>counting</span>}
               {!out && (
                 <button onClick={e => { e.stopPropagation(); onBust(p); setFixing(null); }}
@@ -2323,12 +2338,12 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 0 4px" }}>
         <span style={{ ...label, flex:1 }}>Counted</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
-          color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)" }}>{sum}</span>
-        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {pk.total}</span>
+          color: allIn && sum === pokerChips(pk.total) ? "var(--green)" : "var(--ink)" }}>{fmt(sum)}</span>
+        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {fmt(pokerChips(pk.total))}</span>
       </div>
-      {allIn && sum !== pk.total && (
+      {allIn && sum !== pokerChips(pk.total) && (
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
-          {sum > pk.total ? `${sum - pk.total} over` : `${pk.total - sum} short`}. Chips get miscounted, you can still post.
+          {sum > pokerChips(pk.total) ? `${fmt(sum - pokerChips(pk.total))} over` : `${fmt(pokerChips(pk.total) - sum)} short`}. Chips get miscounted, you can still post.
         </div>
       )}
       <Btn disabled={!allIn} onClick={onPost} style={{ width:"100%", marginTop:8 }}>
@@ -2453,7 +2468,7 @@ function NowCard({ state, standings, events, me, onOpen }) {
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {teamLabel(state, { players: latest.res.slots[0] })}</span>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--green)" }}>
-            {isStacks ? `${latest.res.stacks[latest.res.slots[0][0]] ?? 0} chips` : `+${award} each`}</span>
+            {isStacks ? `${fmt(latest.res.stacks[latest.res.slots[0][0]] ?? 0)} chips` : `+${award} each`}</span>
         </div>
         {impact && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)", marginTop:5 }}>{impact}</div>}
       </button>
@@ -3823,7 +3838,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   const settled = resolved.filter(x => x.r.status !== "pending").slice(0, 40);
   const myExp = me ? atRisk(state, me, events) : 0;
   const myPts = standings.find(r => r.player === me)?.pts ?? 0;
-  const room = me ? Math.max(0, Math.min(MAX_RISK - myExp, myPts - myExp)) : 0;
+  const myCap = maxRisk(myPts);
+  const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
 
   const ev = onDeckEv;
   const draw = ev ? state.draws[ev.id] : null;
@@ -3972,9 +3988,18 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           </div>
           <div style={{ width:1, alignSelf:"stretch", background:"var(--line)" }} />
           <div style={{ textAlign:"center" }}>
-            <div style={{ display:"flex", gap:5, alignItems:"center", height:26 }}>
-              {[1,2,3].map(i => <BankChip key={i} p={me} size={18} empty={i > myExp / PT} />)}
-            </div>
+            {(() => {
+              /* the cap scales with the stack: one slot per 20 you may risk */
+              const slots = myCap / PT;
+              const size = slots <= 4 ? 18 : slots <= 7 ? 14 : 11;
+              return (
+                <div style={{ display:"flex", gap: slots <= 4 ? 5 : 3, alignItems:"center", height:26 }}>
+                  {Array.from({ length: slots }, (_, i) => (
+                    <BankChip key={i} p={me} size={size} empty={i + 1 > myExp / PT} />
+                  ))}
+                </div>
+              );
+            })()}
             <div style={{ ...label, fontSize:10, marginTop:3 }}>On the table</div>
           </div>
         </div>
@@ -4789,10 +4814,10 @@ function TVPoker({ state, standings }) {
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(12px,1.1vw,16px)", letterSpacing:"0.07em",
               color:"var(--night-text)", textTransform:"uppercase" }}>Championship Poker · buy-in</div>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-              textTransform:"uppercase", color:BONE }}>Cash out your points. One chip per 20.</div>
+              textTransform:"uppercase", color:BONE }}>Your points add a zero.</div>
           </div>
           <div style={{ marginLeft:"auto", textAlign:"right" }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,3vw,48px)", color:"var(--sun)" }}>{pk.total}</div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,3vw,48px)", color:"var(--sun)" }}>{fmt(pokerChips(pk.total))}</div>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1vw,14px)", letterSpacing:"0.1em",
               color:"var(--night-text2)", textTransform:"uppercase" }}>chips in play</div>
           </div>
@@ -4809,9 +4834,9 @@ function TVPoker({ state, standings }) {
                   <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.4vw,19px)", color:"var(--ink)",
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</div>
                   <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.1vw,14px)", color:"var(--muted)" }}>
-                    {[d.black && `${d.black} x 100`, d.gold && `${d.gold} x 20`].filter(Boolean).join(" + ") || "0"}</div>
+                    {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</div>
                 </div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)", color:"var(--sun)" }}>{r.pts}</div>
+                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)", color:"var(--sun)" }}>{fmt(pokerChips(r.pts))}</div>
               </div>
             );
           })}
@@ -4832,7 +4857,7 @@ function TVPoker({ state, standings }) {
             color:"var(--night-text)", textTransform:"uppercase" }}>Level {clk.idx + 1} of {pk.levels.length}</span>
         </div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(80px,10vw,170px)", lineHeight:0.95,
-          color:BONE }}>{clk.sb} / {clk.bb}</div>
+          color:BONE }}>{fmt(clk.sb)} / {fmt(clk.bb)}</div>
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.2vw,17px)", letterSpacing:"0.16em",
           color:"var(--night-text2)", textTransform:"uppercase" }}>Blinds</div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,96px)", lineHeight:1,
@@ -5191,7 +5216,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             {teamLabel(state, { players: latest.res.slots[0] })}</div>
           <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"var(--night-text)", marginTop:12 }}>
             {latest.res.stacks
-              ? `${latest.res.stacks[latest.res.slots[0][0]] ?? 0} chips`
+              ? `${fmt(latest.res.stacks[latest.res.slots[0][0]] ?? 0)} chips`
               : `+${AWARDS[latest.ev.value]?.[0] ?? 0} each`}</div>
           {(() => {
             const impact = resultImpact(state, events, latest, standings);
@@ -5316,10 +5341,10 @@ function Guide({ replay, events }) {
         Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and a chip is 20. The board freezes at the trophy ceremony after the poker finale.
       </S>
       <S n="02" t="Scoring">
-        Friday events pay 20. Saturday morning 40, afternoon 60, night 80. The Finale is Championship Poker: your points are your stack and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
+        Friday events pay 20. Saturday morning 40, afternoon 60, night 80. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and stays open until the result posts. Back anyone, including yourself, to win the event at 2 to 1. Bracket matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. A tap puts one 20 chip down, stakes of 20, 40, or 60, max 60 at risk per player, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
+        Betting opens when an event goes on deck and stays open until the result posts. Back anyone, including yourself, to win the event at 2 to 1. Bracket matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. A tap puts one 20 chip down. You can risk up to a quarter of your points at once, never less than 60, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone, whenever: the screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

@@ -8,11 +8,14 @@ const STATE_KEY = "si-state-v5";
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
 
 /* the chip quantum: every point value in the economy is a multiple of PT and
-   one rendered BankChip (and one physical gold chip) is worth PT points.
-   Stacks at the poker finale are points 1:1. */
+   one rendered BankChip is worth PT points. At the poker finale points add
+   a zero: 1 point buys CHIP_X tournament chips. */
 const PT = 20;
 const START = 5 * PT;      // everyone opens the weekend with 100
-const MAX_RISK = 3 * PT;   // wager exposure cap
+const MAX_RISK = 3 * PT;   // wager exposure floor: nobody is capped below 60
+/* exposure scales with the stack so bets stay meaningful as points inflate:
+   risk up to a quarter of your points, never less than MAX_RISK, in 20s */
+const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 4 / PT) * PT);
 
 const AWARDS = { 20:[20,0,0], 40:[40,20,0], 60:[60,40,20], 80:[80,40,20] };
 
@@ -103,7 +106,7 @@ const BUILTIN_EVENTS = [
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
   { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
-    desc:"Your points are your stack, one physical chip per 20. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
+    desc:"Your points add a zero and become your stack. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
 /* the games library: one how-to per game, shared across events */
@@ -173,7 +176,7 @@ const GAMES = {
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack. Your points buy you in.",
-    steps:["Cash out your points: one physical chip per 20, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, the TV keeps time.","Bust and you are out. The board tracks it.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    steps:["Your points add a zero: 220 points sits down with 2,200 in chips, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, the TV keeps time.","Bust and you are out. The board tracks it.","When the last level ends, count your stack.","Final chip counts are the final standings."],
     win:"Chip leader takes the championship. Elimination order settles the busts.",
     house:"Points are on the table: no wagers, no duels, no rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
@@ -331,11 +334,16 @@ const pokerLive = state => {
   const pk = state.poker;
   return !!(pk && pk.startedAt && !state.results[pk.id]);
 };
-/* default blind schedule for a ~90 minute session; all values PT multiples
-   so physical 20s always make change */
+/* points add a zero at the buy-in: 220 points sits down with 2,200 in chips.
+   Real tournament denominations, so any standard set works. */
+const CHIP_X = 10;
+const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
+const POKER_DENOMS = [1000, 500, 100, 25];
+/* blind schedule for a ~2 hour session; median stack sits down ~40 BB deep */
 const POKER_LEVELS = [
-  { sb:20, bb:40, mins:15 }, { sb:40, bb:80, mins:15 }, { sb:80, bb:160, mins:15 },
-  { sb:120, bb:240, mins:15 }, { sb:200, bb:400, mins:15 }, { sb:300, bb:600, mins:15 },
+  { sb:25, bb:50, mins:15 }, { sb:50, bb:100, mins:15 }, { sb:100, bb:200, mins:15 },
+  { sb:150, bb:300, mins:15 }, { sb:250, bb:500, mins:15 }, { sb:400, bb:800, mins:15 },
+  { sb:600, bb:1200, mins:15 },
 ];
 const pokerLevels = () => POKER_LEVELS.map(l => ({ ...l }));
 /* pure clock walk; clients tick a 1s interval and re-derive */
@@ -351,8 +359,21 @@ function pokerClock(poker, now) {
   const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
   return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
 }
-/* physical dealing breakdown; exact because the economy is PT-quantized */
-const pokerDenoms = pts => ({ black: Math.floor(pts / 100), gold: Math.round((pts % 100) / PT) });
+/* physical dealing breakdown for a buy-in of pts points: a blind pack of
+   eight 25s for posting, the rest greedy in 1000/500/100. Exact because
+   points are 20-multiples, so chips are 200-multiples. */
+const pokerChips = pts => pts * CHIP_X;
+function pokerDenoms(pts) {
+  let chips = pokerChips(pts);
+  const stack = [];
+  if (chips >= 400) { stack.push({ v: 25, n: 8 }); chips -= 200; }
+  else if (chips > 0) { stack.push({ v: 25, n: chips / 25 }); chips = 0; }
+  for (const v of [1000, 500, 100]) {
+    const n = Math.floor(chips / v);
+    if (n) { stack.push({ v, n }); chips -= n * v; }
+  }
+  return stack.sort((a, b) => b.v - a.v);
+}
 
 /* duel outcome is DERIVED from the two stored runs, never written. A foul
    loses to a clean draw; two fouls or identical times push, chips go back. */
@@ -551,11 +572,11 @@ const bracketChampion = br => {
 };
 
 export {
-  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   DRAW_METHODS, OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
-  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, pokerLive, pokerLevels, pokerClock, pokerDenoms,
+  resolveWager, resolveDuel, pokerLive, pokerLevels, pokerClock, pokerDenoms, pokerChips,
   computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,

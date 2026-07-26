@@ -34,16 +34,22 @@ identity; "Scottsdale · 2026" is this edition (future: Tahoe · 2027, etc).
    awards + wager net + rulings, computed fresh from state every time. No
    stored balances.
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
-   advancement, and stage finals pay even. Cap: max 60 at risk, stake <= balance
-   minus at-risk, stakes 20/40/60.
+   advancement, and stage finals pay even. The at-risk cap SCALES: `maxRisk(pts)`
+   = a quarter of your points floored to 20s, never under 60 (`MAX_RISK`).
+   Stake <= balance minus at-risk, stakes move in 20s.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
-7. **The poker finale settles on stacks.** `pokerResult` chip counts BECOME the
-   standings verbatim (chip leader = champion, elimination order breaks 0-count
-   ties); the whole economy freezes while cards are live (`pokerLive`), and
-   `pokerSetup` requires a clean book so dealt stacks always match the board.
-   Derived and reversible: `clearResult` re-arms the table.
+7. **The poker finale settles on stacks.** At the buy-in points ADD A ZERO:
+   `pokerChips(pts)` = pts x CHIP_X(10), dealt in real denominations
+   25/100/500/1000 (`pokerDenoms`, blind pack of eight 25s), blinds 25/50 to
+   600/1200. Counts are entered in chips (multiples of CHIP_MIN=25) and
+   `pokerResult` counts BECOME the standings verbatim (chip leader = champion,
+   elimination order breaks 0-count ties). `pokerSetup` stakes anyone under 60
+   up to 60 (a "Table stakes" ruling) so nobody rails the finale, and requires
+   a clean book so dealt stacks always match the board. The whole economy
+   freezes while cards are live (`pokerLive`). Derived and reversible:
+   `clearResult` re-arms the table.
 
 ## Commands
 

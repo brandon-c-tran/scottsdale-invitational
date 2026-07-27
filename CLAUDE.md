@@ -172,6 +172,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   report". Label things with numbers or with what they are. The real NAMES of
   real things stay (blinds, bust, stack, chips, draw, heats, on deck): those
   are what the objects are called, not flavor.
+- Every chip skin is an EDGE treatment and the stamp in the middle is drawn
+  last, over a halo of the chip's own colour, so no design can eat the jersey
+  number. The skin rack previews the number being typed, not the saved one.
 - Where a number came from is drawn, not narrated: standings rows carry
   `StatPills` (cup for wins, chip for the book, bolt for duels, plus your live
   exposure), and only nonzero pills render so a fresh board is names and

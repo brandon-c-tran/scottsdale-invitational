@@ -2317,7 +2317,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
           <SizeRow lb="Jersey size" value={jersey} onPick={setJersey} allowClear />
         </>
       )}
-      {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} />}
+      {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} num={num} />}
     </div>
   );
 }
@@ -2608,8 +2608,11 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
 
 /* chip claim: colors are first come first serve, live on the server the
    moment you tap. Skins repeat freely. Locked once the weekend starts. */
-function ChipPicker({ state, me, onChip }) {
+function ChipPicker({ state, me, onChip, num }) {
   const mine = state.profiles?.[me] || {};
+  /* the preview has to follow the number field, not the saved profile, or
+     picking a skin while changing your number shows you the old one */
+  const stamp = num !== undefined && num !== "" && num !== null ? Number(num) : mine.num;
   const owner = hex => Object.entries(state.profiles || {}).find(([p, pr]) => pr?.color === hex)?.[0];
   const locked = state.live;
   return (
@@ -2652,9 +2655,15 @@ function ChipPicker({ state, me, onChip }) {
             style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:"7px 0",
               borderRadius:10, cursor: locked ? "default" : "pointer", background:"var(--paper2)",
               border: playerSkin(me) === sk ? "1.5px solid var(--sun)" : "1.5px solid var(--line)" }}>
-            <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
               <circle cx="16" cy="16" r="14.6" fill={playerColor(me)} stroke="var(--ink0)" strokeWidth="1.8"/>
               {chipMarks(sk)}
+              {stamp != null && (
+                <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
+                  fontFamily={DISPLAY} fontWeight="700" fontSize="12.5"
+                  stroke={playerColor(me)} strokeWidth="2.6" strokeLinejoin="round" paintOrder="stroke"
+                  fill={playerIsLight(me) ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
+              )}
             </svg>
           </button>
         ))}
@@ -5168,6 +5177,16 @@ function PlayerSheet({ state, me, p, standings, events, onClose, onDuel }) {
   const busy = (state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled &&
     ((d.from === me && d.to === p) || (d.from === p && d.to === me)));
   const canDuel = me && p !== me && !state.frozen && state.live;
+  const legIn = cleanLeg(prof.flightIn), legOut = cleanLeg(prof.flightOut);
+  /* capitalised after the join, not before: with only a return leg the line
+     starts at "leaves Sun" and would open lowercase */
+  const travel = (() => {
+    const t = [
+      legIn && (legIn.note || (legTime(legIn.time) && `lands Fri ${legTime(legIn.time)}`)),
+      legOut && (legOut.note || (legTime(legOut.time) && `leaves Sun ${legTime(legOut.time)}`)),
+    ].filter(Boolean).join(", ");
+    return t && t[0].toUpperCase() + t.slice(1);
+  })();
   /* the ante is bounded by whichever of the two can cover less, mirroring
      sendDuel so the rack never offers a chip the server will refuse */
   const spendable = q => {
@@ -5190,12 +5209,17 @@ function PlayerSheet({ state, me, p, standings, events, onClose, onDuel }) {
             {prof.num != null && <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
               fontSize:19, color:"var(--muted2)" }}>#{prof.num}</span>}
           </div>
-          {row && (
-            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
-              {ord(row.rank)} on the board, {fmt(row.pts)} pts, {row.wins} win{row.wins === 1 ? "" : "s"}
-              {(dw > 0 || dl > 0) && <>, duels {dw} and {dl}</>}
-            </div>
-          )}
+          {/* before the weekend every row is 1st on 1,000 with no wins, which
+              says nothing about anyone. Until the board means something, use
+              the line for the thing people actually want off each other
+              months out: when you land and when you go. */}
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
+            {state.live
+              ? <>{ord(row?.rank ?? 1)} on the board, {fmt(row?.pts ?? 0)} pts,{" "}
+                  {row?.wins ?? 0} win{(row?.wins ?? 0) === 1 ? "" : "s"}
+                  {(dw > 0 || dl > 0) && <>, duels {dw} and {dl}</>}</>
+              : travel || <span style={{ color:"var(--muted)" }}>No flights in yet</span>}
+          </div>
         </div>
       </div>
       {canDuel && (
@@ -5692,10 +5716,12 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
     return <path d={d.join(" ")} fill="none" stroke="var(--chip-mark)" strokeWidth="1.5" />;
   }
   /* the one asymmetric skin, and the only one that has to be read as an
-     object rather than a pattern, so it is filled and big */
+     object rather than a pattern, so it is filled. It rides the top edge:
+     every skin has to leave the middle of the chip clear, because the stamp
+     in there is the whole point of the chip. */
   if (skin === "crown") return (
-    <path d="M-7.6 4.6 -6.2-4.8-2.6-1.2 0-6.6 2.6-1.2 6.2-4.8 7.6 4.6Z"
-      fill="var(--chip-mark)" transform={`translate(${cx} ${cx - 5.2})`} />
+    <path d="M-6.2 3.4 -5-3.6-2.1-0.9 0-5.2 2.1-0.9 5-3.6 6.2 3.4Z"
+      fill="var(--chip-mark)" transform={`translate(${cx} ${cx - 8.3})`} />
   );
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
@@ -5713,8 +5739,11 @@ function BankChip({ p, size=18, empty, val }) {
       {val != null && <circle cx="16" cy="16" r="9.6" fill="none" strokeWidth="1"
         stroke={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"} opacity="0.55"/>}
       {size >= 20 && stamp != null && (
+        /* last, so it is never behind a skin, and carrying the chip colour as
+           a halo so a loud skin cannot swallow the digits either */
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
           fontFamily={DISPLAY} fontWeight="700" fontSize={val != null && val >= 100 ? 9.5 : 12.5}
+          stroke={playerColor(p)} strokeWidth="2.6" strokeLinejoin="round" paintOrder="stroke"
           fill={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
       )}
     </svg>

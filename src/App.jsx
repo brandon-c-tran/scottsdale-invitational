@@ -1948,7 +1948,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
-        Then open it from your home screen and check in there. Checking in here in the browser won't carry over.
+        Then open it from your home screen and check in there.
       </div>
       <div style={{ marginTop:"auto" }}>
         <Btn kind="ghost" onClick={next} style={{ width:"100%" }}>Skip, stay in the browser</Btn>

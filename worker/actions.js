@@ -73,10 +73,10 @@ export const ACTIONS = {
   },
   saveSeeds(state, { player, ratings }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
-    if (player !== ctx.player && !ctx.isGm) return err("Not your report");
+    if (player !== ctx.player && !ctx.isGm) return err("Not your ratings");
     /* only known sports, only known rating values: junk here would silently
        poison every balanced draw via NaN strengths */
-    if (typeof ratings !== "object" || ratings === null) return err("Bad report");
+    if (typeof ratings !== "object" || ratings === null) return err("Bad ratings");
     const clean = {};
     for (const sp of SPORTS) {
       if (ratings[sp.id] === undefined) continue;
@@ -606,7 +606,7 @@ export const ACTIONS = {
     const clean = {};
     ROSTER.forEach(p => { clean[p] = outSet.has(p) ? 0 : pk.counts[p]; });
     const max = Math.max(...Object.values(clean));
-    if (max <= 0) return err("Somebody has chips");
+    if (max <= 0) return err("Every count is 0");
     const leaders = ROSTER.filter(p => clean[p] === max);
     state.results[pk.id] = { slots: [[...leaders], [], []], stacks: clean,
       outs: pk.outs.map(o => o.player), ts: Date.now() };

@@ -13,10 +13,9 @@ const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","R
 const PT = 100;
 const START = 10 * PT;      // everyone opens the weekend with 1,000
 const MAX_RISK = 5 * PT;    // wager exposure floor: nobody is capped below 500
-const BUYIN_FLOOR = 6 * PT; // poker table stakes: nobody sits down under 600
-/* exposure rule everyone can say out loud: up to HALF your stack on the
-   table at once, never capped below MAX_RISK, in 100s. At 1,000 points that
-   is exactly 500, so the number needs no footnote */
+const BUYIN_FLOOR = 6 * PT; // finale minimum: nobody sits down under 600
+/* at most HALF your stack may be at risk at once, floored to 100s and never
+   below MAX_RISK. The rack meter draws this rather than stating it */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
 const AWARDS = { 400:[400,0,0], 800:[800,400,0], 1200:[1200,800,400], 1600:[1600,800,400] };
@@ -178,14 +177,14 @@ const GAMES = {
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack. Your points buy you in.",
-    steps:["Your points are your chips: 2,200 on the board sits down with 2,200 in front of you, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, the TV keeps time.","Bust and you are out. The board tracks it.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    steps:["Your points are your chips: 2,200 on the board sits down with 2,200 in front of you, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
     win:"Chip leader takes the championship. Elimination order settles the busts.",
-    house:"Points are on the table: no wagers, no duels, no rulings while cards are live." } },
+    house:"No wagers, duels, or rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
     objective:"Clear five stations faster than everyone else.",
     steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
     win:"Fastest clean run takes 1st. The clock settles ties.",
-    house:"One runner at a time. The room keeps time." } },
+    house:"One runner at a time. Someone times each run." } },
 };
 
 const SLOT_META = [

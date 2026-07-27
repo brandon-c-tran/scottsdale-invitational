@@ -1057,7 +1057,7 @@ export default function App() {
       }
       if (!from) return;
       await simDo("claim", { player: from });
-      const r = await simTry("sendDuel", { to, game:"quickdraw" }, `${from} calls out ${to}`);
+      const r = await simTry("sendDuel", { to, game:"quickdraw" }, `${from} challenges ${to}`);
       if (!r.ok) continue;
       await simWait(400);
       const duel = (stateRef.current.duels || []).find(d =>
@@ -1065,7 +1065,7 @@ export default function App() {
       if (!duel) continue;
       await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${from} draws`);
       await simDo("claim", { player: to });
-      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${to} answers`);
+      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${to} plays`);
       await simWait(600);
     }
   };
@@ -1078,7 +1078,7 @@ export default function App() {
     const from = rnd(ROSTER.filter(p => canSend(p) && canFace(p, me)));
     if (!from) throw new Error("Nobody can afford a challenge");
     await simDo("claim", { player: from });
-    await simDo("sendDuel", { to: me, game:"quickdraw" }, `${from} calls you out`);
+    await simDo("sendDuel", { to: me, game:"quickdraw" }, `${from} challenges you`);
     await simWait(300);
     const duel = (stateRef.current.duels || []).find(d =>
       d.from === from && d.to === me && d.status === "open" && !d.runs?.[from]);
@@ -1090,17 +1090,17 @@ export default function App() {
     const events2 = allEventsOf(s);
     for (const w of s.wagers) {
       if (resolveWager(s, w, events2).status === "pending")
-        await simDo("voidWager", { id: w.id }, "Settling the book");
+        await simDo("voidWager", { id: w.id }, "Voiding open wagers");
     }
     for (const d of s.duels || []) {
       if (d.status === "open" && !resolveDuel(d).settled)
-        await simDo("voidDuel", { id: d.id }, "Settling the book");
+        await simDo("voidDuel", { id: d.id }, "Voiding open duels");
     }
     await simWait(300);
     for (const row of computeStandings(stateRef.current)) {
       if (row.pts < 0)
         await simDo("adjust", { player: row.player, delta: Math.ceil(-row.pts / PT) * PT, reason: "QA" },
-          "Settling the book");
+          "Clearing negative stacks");
     }
   };
   const simPokerAlive = () => ROSTER.filter(q =>
@@ -1120,7 +1120,7 @@ export default function App() {
     for (let b = 0; b < 4 && simPokerAlive().length > 3; b++) {
       const pool = simPokerAlive().filter(q => q !== me);
       if (!pool.length) break;
-      await simDo("pokerBust", { player: rnd(pool) }, "A stack goes in");
+      await simDo("pokerBust", { player: rnd(pool) }, "Busting a player");
       await simWait(500);
     }
     const poker = stateRef.current.poker;
@@ -1209,7 +1209,7 @@ export default function App() {
         await simDuels(3);
         await simOpenBetting();
       } },
-    { key:"tableset", name:"Table set", rank:4, note:"Everything played, book clean, buy-ins posted",
+    { key:"tableset", name:"Table set", rank:4, note:"Everything played, no open wagers, buy-ins posted",
       run: () => simPokerNight({ through:"setup" }) },
     { key:"pokerlive", name:"Poker live", rank:5, note:"Clock running, busts in, counts started",
       run: () => simPokerNight({ through:"live" }) },
@@ -5714,7 +5714,7 @@ function TVDraft({ state, ev, d }) {
       {!poolEmpty && (
         <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
           <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)", flexShrink:0 }}>
-            Still on the board</span>
+            Still available</span>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {d.pool.map(p => <Avatar key={p} state={state} p={p} size={38} />)}
           </div>

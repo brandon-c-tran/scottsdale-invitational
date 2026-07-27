@@ -758,6 +758,7 @@ export default function App() {
 
   const saveProfile = (p, prof) => {
     act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
+      jersey: prof.jersey,
       flightIn: prof.flightIn, flightOut: prof.flightOut });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
@@ -871,7 +872,7 @@ export default function App() {
          and filling a blank field with a plausible fake is worse than leaving
          it blank: nothing downstream can tell the two apart. A player is
          fair game only while every field is still empty. */
-      const touched = prof.display || prof.num !== undefined || prof.size || prof.color
+      const touched = prof.display || prof.num !== undefined || prof.size || prof.jersey || prof.color
         || prof.skin || prof.flightIn || prof.flightOut || s.seeds?.[p];
       if (touched) continue;
       const needProfile = true, needSeeds = true, needChip = true;
@@ -882,7 +883,7 @@ export default function App() {
         let num = prof.num !== undefined ? prof.num : ROSTER.indexOf(p) + 1;
         while (taken.has(num)) num = Math.floor(Math.random() * 100);
         await simDo("saveProfile", { player: p, display: prof.display || p,
-          num, size: prof.size || rnd(SIZES) });
+          num, size: prof.size || rnd(SIZES), jersey: prof.jersey || rnd(SIZES) });
       }
       if (needSeeds) {
         const ratings = {}; SPORTS.forEach(sp => { ratings[sp.id] = rnd(RATINGS).v; });
@@ -1431,6 +1432,7 @@ export default function App() {
                 onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)}
                 onLogistics={vals => act("saveLogistics", vals, "Weekend sheet saved")}
                 onSize={(p, sz) => act("saveProfile", { player: p, display: state.profiles?.[p]?.display || p, size: sz })}
+                onNotify={notify}
                 onChallenge={p => setModal({type:"player", p})} />}
 
         </>)}
@@ -1938,6 +1940,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState("");
   const [size, setSize] = useState(null);
+  const [jersey, setJersey] = useState(null);
   const [flightIn, setFlightIn] = useState(null);
   const [flightOut, setFlightOut] = useState(null);
   useEffect(() => {
@@ -1946,6 +1949,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     setDisplay(pr?.display || me);
     setNum(pr?.num != null ? String(pr.num) : "");
     setSize(pr?.size ?? null);
+    setJersey(pr?.jersey ?? null);
     setFlightIn(pr?.flightIn || null);
     setFlightOut(pr?.flightOut || null);
     /* a replay must not make anyone re-rate themselves from scratch: seed the
@@ -2082,25 +2086,18 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
             you telling him. One panel, its own edge, so the switch is obvious */}
         <div style={{ border:"1.5px solid var(--bone-line)", borderRadius:16, padding:"14px 14px 16px",
           background:"var(--paper)", marginTop:4 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--ink)",
-            lineHeight:1.05, marginBottom:3 }}>What Brandon needs</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
+            textTransform:"uppercase", color:"var(--ink)", lineHeight:1.05, marginBottom:12 }}>
+            What Brandon needs</div>
           <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
-          <div style={{ ...label, margin:"4px 0 6px" }}>Shirt size</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-            {SIZES.map(s => (
-              <button key={s} onClick={() => setSize(s)}
-                style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
-                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)",
-                  color: size === s ? "var(--ink0)" : "var(--ink)",
-                  border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
-            ))}
-          </div>
+          <SizeRow lb="Shirt size" value={size} onPick={setSize} />
+          <SizeRow lb="Jersey size" value={jersey} onPick={setJersey} />
         </div>
       </div>
       <div style={{ marginTop:12 }}>
-        <Btn disabled={!size} onClick={() => { saveProfile({ display: (display || me).trim() || me,
-            size, flightIn, flightOut }); next(); }}
+        <Btn disabled={!size || !jersey} onClick={() => { saveProfile({ display: (display || me).trim() || me,
+            size, jersey, flightIn, flightOut }); next(); }}
           style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
@@ -2242,7 +2239,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   );
 }
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, jersey, setJersey, onChip, showSize = true }) {
   const fileRef = useRef(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
@@ -2315,17 +2312,10 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
         {takenBy ? `${disp(state, takenBy[0])} already has ${Number(num)}.`
           : "Your jersey number and chip design are used throughout the weekend."}</div>
       {showSize && (
-        <div style={{ marginBottom:16 }}>
-          <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-            {SIZES.map(s => (
-              <button key={s} onClick={() => setSize(size === s ? null : s)}
-                style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:FIELD_H, padding:0, borderRadius:10,
-                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)", color: size === s ? "var(--ink0)" : "var(--ink)",
-                  border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
-            ))}
-          </div>
-        </div>
+        <>
+          <SizeRow lb="Shirt size" value={size} onPick={setSize} allowClear />
+          <SizeRow lb="Jersey size" value={jersey} onPick={setJersey} allowClear />
+        </>
       )}
       {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} />}
     </div>
@@ -2558,6 +2548,25 @@ function TravelLists() {
   return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
 }
 
+/* one row of sizes. Two garments now, and a jersey does not run like a tee,
+   so each is asked separately rather than one answer standing in for both */
+function SizeRow({ lb, value, onPick, allowClear }) {
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ ...label, marginBottom:6 }}>{lb}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+        {SIZES.map(sz => (
+          <button key={sz} onClick={() => onPick(allowClear && value === sz ? null : sz)}
+            style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
+              cursor:"pointer", background: value === sz ? GOLD_GRAD : "var(--paper2)",
+              color: value === sz ? "var(--ink0)" : "var(--ink)",
+              border: value === sz ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{sz}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* travel entry, shared by onboarding and the profile sheet. Ask the question
    outright and give it two equal answers: a quiet link next to a form reads
    as decoration, and whoever has not booked cannot tell it is meant for them.
@@ -2571,7 +2580,9 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
   return (
     <div>
       <TravelLists />
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, color:"var(--ink)",
+      {/* a field prompt, not a second headline: the panel title above is the
+          display face, so the questions inside it are set in the body face */}
+      <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, color:"var(--ink)",
         marginBottom:8 }}>Booked your flights?</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:14 }}>
         <button onClick={() => setBooked(true)} style={opt(booked === true)}>Yes</button>
@@ -2688,6 +2699,26 @@ function StatPills({ row, atRisk = 0, onSun }) {
   );
 }
 
+/* everything Brandon orders and plans from, as tab-separated text: it pastes
+   straight into a spreadsheet or a supplier form. Blanks stay blank, because
+   a guessed size is worse than a missing one. */
+function sheetText(state) {
+  const head = ["Player", "Name", "No", "Shirt", "Jersey", "Chip", "Skin", "Lands Fri", "Leaves Sun"];
+  const rows = ROSTER.map(p => {
+    const pr = state.profiles?.[p] || {};
+    /* the column already says which leg it is, so the cell is just the flight */
+    const t = leg => {
+      const l = cleanLeg(leg);
+      if (!l) return "";
+      if (l.note) return l.note;
+      return [[l.air, l.num].filter(Boolean).join(" "), legTime(l.time)].filter(Boolean).join(" ");
+    };
+    return [p, pr.display && pr.display !== p ? pr.display : "", pr.num ?? "", pr.size || "",
+      pr.jersey || "", pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut)];
+  });
+  return [head, ...rows].map(r => r.join("\t")).join("\n");
+}
+
 /* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
 /* GM's weekend sheet: the address and host flights everyone reads during
    onboarding and in the guide. Saved as one action */
@@ -2730,7 +2761,15 @@ function LogisticsEditor({ state, onSave }) {
     </div>
   );
 }
-function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, onLogistics }) {
+function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, onLogistics, onNotify }) {
+  const copySheet = st => {
+    const txt = sheetText(st);
+    navigator.clipboard?.writeText(txt)
+      .then(() => onNotify?.("Sheet copied"))
+      /* clipboard is blocked outside https and in some in-app browsers, so
+         fall back to something you can still select by hand */
+      .catch(() => { try { window.prompt("Copy the sheet", txt); } catch { onNotify?.("Could not copy"); } });
+  };
   const profs = state.profiles || {};
   const inCount = ROSTER.filter(p => profs[p]).length;
   return (
@@ -2773,7 +2812,15 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
           <LogisticsEditor state={state} onSave={onLogistics} />
           <div style={{ marginTop:12, background:"var(--paper)", border:"1px solid var(--line)",
             borderRadius:14, padding:"12px 13px" }}>
-            <div style={{ ...label, marginBottom:8 }}>Travel and jersey sheet</div>
+            <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
+              <span style={label}>Travel and jersey sheet</span>
+              {/* the sheet you actually order from lives in a supplier form or
+                  a spreadsheet, not on a phone, so it has to be able to leave */}
+              <button onClick={() => copySheet(state)} style={{ marginLeft:"auto", background:"none",
+                border:"none", padding:0, cursor:"pointer", fontFamily:SANS, fontWeight:700,
+                fontSize:11, letterSpacing:"0.1em", textTransform:"uppercase",
+                color:"var(--accent2)" }}>Copy sheet</button>
+            </div>
             {ROSTER.map(p => {
               const pr = profs[p];
               const legs = [pr?.flightIn && `in ${legText(pr.flightIn, "in")}`,
@@ -5500,16 +5547,17 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || null);
   const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || null);
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
+  const [jersey, setJersey] = useState(state.profiles?.[me]?.jersey ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} />
+        num={num} setNum={setNum} size={size} setSize={setSize} jersey={jersey} setJersey={setJersey} onChip={onChip} />
       <div style={{ marginTop:16 }}>
         <TravelFields flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
       </div>
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), size, flightIn, flightOut, ...(photo ? {photo} : {}) })}
+          num: num === "" ? null : Number(num), size, jersey, flightIn, flightOut, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );

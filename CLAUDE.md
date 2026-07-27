@@ -81,7 +81,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    is replaced whole, and at the current edition blanks fall back to what
    shipped and retired keys are dropped, so a GM edit is never clobbered but a
    stale one can never outlive the real address either. Bump `v` when the
-   booking actually changes) and writing shirt size + flights. Everyone lands Friday and
+   booking actually changes) and writing BOTH garment sizes + flights: a jersey
+   does not run like a tee, and the boxes waiting on arrival need each. Everyone lands Friday and
    leaves Sunday and the flight code already implies the airport, so a leg is
    only `{air,num,time}` (24h off the native picker), validated by `cleanLeg`
    on BOTH sides. `FlightPass` prints a saved leg as a boarding pass;
@@ -195,6 +196,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   artwork, no gradients, no glows, no luxury conventions.
 - Real names in all commissioner controls. Fun is for reveals, not for admin.
 - The app should reduce mental load during the weekend, not add process.
+
+## What the guests give you
+
+Onboarding collects exactly what a per-player box needs: display name, jersey
+number, shirt size, jersey size, chip color and skin, photo, and both flight
+legs. `sheetText` turns all of it into tab-separated text behind "Copy sheet"
+on the GM travel board, because ordering happens in a spreadsheet or a
+supplier form, not on a phone. Blanks stay blank there on purpose.
 
 ## Sending the invite
 

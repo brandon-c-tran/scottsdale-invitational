@@ -15,7 +15,7 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display, num, size, flightIn, flightOut }, ctx) {
+  saveProfile(state, { player, display, num, size, jersey, flightIn, flightOut }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
@@ -38,10 +38,13 @@ export const ACTIONS = {
         prof.num = n;
       }
     }
-    if (size !== undefined) {
-      if (size === null) delete prof.size;
-      else if (!SIZES.includes(size)) return err("Bad size");
-      else prof.size = size;
+    /* two garments, two sizes: a jersey does not run like a tee, so "L" on one
+       is not an answer for the other */
+    for (const [k, v] of [["size", size], ["jersey", jersey]]) {
+      if (v === undefined) continue;
+      if (v === null) delete prof[k];
+      else if (!SIZES.includes(v)) return err("Bad size");
+      else prof[k] = v;
     }
     state.profiles[player] = prof;
     return ok();

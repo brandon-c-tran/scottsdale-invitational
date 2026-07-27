@@ -710,14 +710,30 @@ export default function App() {
     return () => clearInterval(iv);
   }, [state.poker?.startedAt, notify, onboardStep]); // eslint-disable-line
 
-  /* when betting opens on a new event, it announces itself everywhere */
+  /* when betting opens on a new event, it announces itself everywhere. Going
+     on deck only queues it: the intro is the last thing you see before you
+     bet, so it waits for the teams to exist and for the draw to finish
+     revealing them. Announcing a team event before the draw shows a matchup
+     nobody can read yet, and buries the draw under it. */
+  const introQ = useRef(null);
   const prevOnDeck = useRef("UNSET");
   useEffect(() => {
     if (!ready) return;
     if (prevOnDeck.current !== "UNSET" && state.onDeck && state.onDeck !== prevOnDeck.current
-        && !simRef.current.fast) setIntro(state.onDeck);
+        && !simRef.current.fast) introQ.current = state.onDeck;
     prevOnDeck.current = state.onDeck;
   }, [state.onDeck, ready]); // eslint-disable-line
+  useEffect(() => {
+    const id = introQ.current;
+    if (!id || reveal || intro) return;
+    const ev = events.find(e => e.id === id);
+    /* a team event with no draw yet is not ready to announce; it will be the
+       moment the draw lands, and this effect runs again then */
+    if (!ev || state.onDeck !== id) { introQ.current = null; return; }
+    if (ev.teamCfg && !state.draws[id]) return;
+    introQ.current = null;
+    setIntro(id);
+  }, [reveal, intro, state.draws, state.onDeck, events]);
 
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
@@ -1904,9 +1920,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   /* the three closing cards tell one story: the number you carry all weekend
      IS the stack you sit down with, and the stack decides who takes the trophy */
   const cards = {
-    6: { art:<FDMark size={54} />, t:"One number", b:"Everyone starts at 100 points. Sixteen events pay the podium, wagers and duels move the same total, and nothing resets between days. It is not a score. It is the stack you sit down with at the end.", meter:true },
-    7: { art:<ArtTicket />, t:"The book", b:"When an event goes on deck, betting opens. Take a chip off the rack and tap a name or a matchup. Outright winners pay 2 to 1, everything else pays even, and up to half your stack can ride at once. Everything settles itself off the official result.", stack:true },
-    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"It ends at a poker table. Your points add a zero and become your chips, so every event you win and every bet you land is you buying position at that table. Come in short on points and you sit down short on chips. Final counts are the final standings, and the champion takes the trophy home.", tall:true },
+    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 100. Win events and land bets to add to it, and nothing resets between days. Whatever you have on Sunday is how many chips you get at the poker table.", meter:true },
+    7: { art:<ArtTicket />, t:"The book", b:"Betting opens when an event goes on deck. Pick a chip off the rack and tap who you like. The outright winner pays 2 to 1, everything else pays even. Half your stack can ride at once.", stack:true },
+    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"Most chips at the end of the poker table wins Field Day and takes this home.", tall:true },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
@@ -1955,8 +1971,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ margin:"10px 0 14px" }}><Wordmark size={46} /></div>
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:18 }}>
         The bachelor party is a tournament. Thirteen players, sixteen events,
-        one board. Every event pays more than the last, and it all ends at a
-        poker table.
+        one board. Win events and land bets to collect points all weekend, then
+        your points become your chips at the poker finale.
       </div>
       <div style={{ flex:1, overflowY:"auto" }}>
         {SESSIONS.map(s => {
@@ -2099,6 +2115,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       justifyContent: c.tall ? "center" : "flex-start",
       padding:`calc(${c.tall ? 30 : 56}px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))` }} key={step}>
+      {/* the footer's auto margin eats every bit of slack, so justify-content
+          alone never centers a tall card: claim half of it back up here */}
+      {c.tall && <div style={{ marginTop:"auto" }} />}
       <div style={{ marginBottom:16, display:"flex", justifyContent: c.tall ? "center" : "flex-start" }}>{c.art}</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: c.tall ? 36 : 40, color:"var(--ink)",
         lineHeight:1.02, marginBottom:12, textAlign: c.tall ? "center" : "left" }}>{c.t}</div>
@@ -2224,7 +2243,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
                 background:"var(--paper)" }} />
           </div>
           <div style={{ width:62, flexShrink:0 }}>
-            <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>No.</div>
+            <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>Jersey</div>
             <input value={num} inputMode="numeric" placeholder="00"
               onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
               style={{ ...field, width:"100%", textAlign:"center", padding:0, background:"var(--paper)",
@@ -2236,7 +2255,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       <div style={{ fontFamily:SANS, fontSize:12, color: takenBy ? "var(--clay)" : "var(--muted)",
         lineHeight:1.5, marginBottom:16 }}>
         {takenBy ? `${disp(state, takenBy[0])} already has ${Number(num)}.`
-          : "Your number is stamped on your chip everywhere it lands."}</div>
+          : "Your jersey number, stamped on your chip everywhere it lands."}</div>
       {showSize && (
         <div style={{ marginBottom:16 }}>
           <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
@@ -2436,13 +2455,35 @@ function TravelLists() {
   return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
 }
 
-/* travel entry, shared by onboarding and the profile sheet */
+/* travel entry, shared by onboarding and the profile sheet. Two labelled boxes
+   never read as a request, so the heading does the asking, and nobody who has
+   not booked yet should have to stare at a form they cannot fill */
 function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
+  const [later, setLater] = useState(false);
+  const link = { background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:SANS,
+    fontWeight:700, fontSize:11.5, letterSpacing:"0.1em", textTransform:"uppercase",
+    color:"var(--accent2)", marginLeft:"auto" };
   return (
     <div>
       <TravelLists />
-      <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
-      <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
+      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:10 }}>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, color:"var(--ink)" }}>
+          Add your flights</span>
+        <button onClick={() => { setLater(!later); if (!later) { setFlightIn(null); setFlightOut(null); } }}
+          style={link}>{later ? "Add now" : "Not booked yet"}</button>
+      </div>
+      {later ? (
+        <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55,
+          background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:12,
+          padding:"12px 14px", marginBottom:12 }}>
+          Add them from your profile once you book.
+        </div>
+      ) : (
+        <>
+          <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
+          <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
+        </>
+      )}
     </div>
   );
 }
@@ -2956,14 +2997,17 @@ function resultImpact(state, events, latest, standings) {
   const leadAfter = standings.filter(r => r.rank === 1).map(r => r.player).join("+");
   const settled = (state.wagers || []).filter(w => w.eventId === latest.ev.id)
     .map(w => ({ w, r: resolveWager(state, w, events) })).filter(x => x.r.status === "won" || x.r.status === "lost");
-  const cashed = settled.filter(x => x.r.status === "won").reduce((s, x) => s + x.w.stake, 0);
-  const burned = settled.filter(x => x.r.status === "lost").reduce((s, x) => s + x.w.stake, 0);
+  /* what the book actually moved, in board points. Chip counts read as a
+     second currency here, and a bare "14 burned" names neither */
+  const paid = settled.reduce((s, x) => s + Math.max(0, x.r.delta || 0), 0);
+  const lost = -settled.reduce((s, x) => s + Math.min(0, x.r.delta || 0), 0);
   const parts = [];
   if (leadAfter !== leadBefore)
     parts.push(`${standings.filter(r => r.rank === 1).map(r => disp(state, r.player)).join(" and ")} take${leadAfter.includes("+") ? "" : "s"} the lead`);
   else if (climb) parts.push(`${disp(state, climb.p)} up ${climb.d} to ${ord(ra[climb.p])}`);
-  if (cashed || burned) parts.push([cashed && `${cashed / PT} chip${cashed > PT ? "s" : ""} cashed`,
-    burned && `${burned / PT} burned`].filter(Boolean).join(", "));
+  if (paid && lost) parts.push(`Bets paid ${fmt(paid)} and lost ${fmt(lost)}`);
+  else if (paid) parts.push(`Bets paid ${fmt(paid)}`);
+  else if (lost) parts.push(`Bets lost ${fmt(lost)}`);
   return parts.join(". ");
 }
 
@@ -4490,7 +4534,21 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   /* the lists show merged lines; the raw pending set still drives the chips
      riding each pick (one chip per tap is the point there) */
   const pendingLines = mergeWagerLines(pending);
-  const settledLines = mergeWagerLines(resolved.filter(x => x.r.status !== "pending")).slice(0, 40);
+  const settledLines = mergeWagerLines(resolved.filter(x => x.r.status !== "pending"));
+  /* thirteen people betting several picks each turns the settled list into a
+     wall of near-identical cards. One line per bettor carrying their net, and
+     the picks behind it are one tap away. Nothing is dropped: the net is over
+     every settled bet, so the line always agrees with the board. */
+  const settledByPlayer = useMemo(() => {
+    const m = new Map();
+    for (const x of settledLines) {
+      const g = m.get(x.w.player) || { player:x.w.player, lines:[], net:0 };
+      g.lines.push(x);
+      g.net += x.r.delta || 0;
+      m.set(x.w.player, g);
+    }
+    return [...m.values()].sort((a, b) => b.net - a.net || a.player.localeCompare(b.player));
+  }, [settledLines]); // eslint-disable-line
   const myExp = me ? atRisk(state, me, events) : 0;
   const myPts = standings.find(r => r.player === me)?.pts ?? 0;
   const myCap = maxRisk(myPts);
@@ -4620,6 +4678,30 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
             cursor:"pointer", textTransform:"uppercase" }}>Void</button>
         )}
+      </div>
+    );
+  };
+
+  /* one bettor, one line: name, how many bets are behind it, and the net */
+  const SettledRow = ({ g }) => {
+    const key = "st:" + g.player, open = whoOpen === key;
+    return (
+      <div style={{ marginBottom:7 }}>
+        <button onClick={() => setWhoOpen(w => w === key ? null : key)}
+          style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 13px",
+            borderRadius:14, background:"var(--paper2)", border:"1px solid var(--line)",
+            cursor:"pointer", textAlign:"left" }}>
+          <Avatar state={state} p={g.player} size={26} />
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", flex:1,
+            minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {disp(state, g.player)}</span>
+          <span style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
+            {g.lines.length} bet{g.lines.length === 1 ? "" : "s"}</span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, minWidth:46, textAlign:"right",
+            color: g.net > 0 ? "var(--green)" : g.net < 0 ? "var(--clay)" : "var(--muted)" }}>
+            {g.net > 0 ? "+" : ""}{fmt(g.net)}</span>
+        </button>
+        {open && <div style={{ marginTop:6 }}>{g.lines.map(x => <Row key={x.w.id} x={x} />)}</div>}
       </div>
     );
   };
@@ -4805,7 +4887,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
       {settledLines.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
         textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:6,
         padding:"3px 10px", margin:"14px 0 8px", border:"1px solid var(--line)" }}>Settled</div>}
-      {settledLines.map(x => <Row key={x.w.id} x={x} />)}
+      {settledByPlayer.map(g => <SettledRow key={g.player} g={g} />)}
     </div>
   );
 }
@@ -6027,7 +6109,7 @@ function Guide({ replay, events, state }) {
         Friday events pay 40. Saturday morning 80, afternoon 120, night 160. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and stays open until the result posts. Pick a chip from the rack, 10 to 100, and tap a name or a bracket matchup to put it down. The outright winner pays 2 to 1; matchups, heat and pool advancement, and stage finals pay even and settle as the event progresses. Up to half your stack can ride at once, no negative balances. Everything settles automatically off the official result. Brandon can void any wager.
+        Betting opens when an event goes on deck and closes when the result posts. Pick a chip off the rack, 10 to 100, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. Half your stack can ride at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

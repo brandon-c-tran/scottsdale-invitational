@@ -228,7 +228,7 @@ function cleanLeg(v) {
 function legTime(t) {
   if (!t) return "";
   const [h, m] = t.split(":").map(Number);
-  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? "a" : "p"}`;
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 /* the plain-text rendering, for anywhere a strip will not fit */
 function legText(leg, dir) {

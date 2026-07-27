@@ -2007,8 +2007,6 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           );
         })}
       </div>
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, margin:"12px 0 0" }}>
-        Win an event and every player on the winning side takes the full amount.</div>
       <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:14 }}>Next</Btn>
     </div>
   );

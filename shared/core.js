@@ -3,11 +3,22 @@
    for display only. */
 
 const GM_PIN = "1016";
-const STATE_KEY = "si-state-v5";
 
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
 
-const AWARDS = { 1:[1,0,0], 2:[2,1,0], 3:[3,2,1], 4:[4,2,1], 6:[6,3,1] };
+/* the chip quantum: every point value in the economy is a multiple of PT and
+   one rendered BankChip is worth PT points. The board is denominated in
+   TOURNAMENT CHIPS from check-in, so the poker finale needs no conversion:
+   the number you carried all weekend is the stack you are dealt. */
+const PT = 100;
+const START = 10 * PT;      // everyone opens the weekend with 1,000
+const MAX_RISK = 5 * PT;    // wager exposure floor: nobody is capped below 500
+const BUYIN_FLOOR = 6 * PT; // finale minimum: nobody sits down under 600
+/* at most HALF your stack may be at risk at once, floored to 100s and never
+   below MAX_RISK. The rack meter draws this rather than stating it */
+const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
+
+const AWARDS = { 400:[400,0,0], 800:[800,400,0], 1200:[1200,800,400], 1600:[1600,800,400] };
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
@@ -35,65 +46,68 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"1 PT" },
-  { id:"sam", label:"Saturday Morning",   tag:"2 PTS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"3 PTS" },
-  { id:"san", label:"Saturday Night",     tag:"4 PTS" },
-  { id:"fin", label:"The Finale",         tag:"6 / 3 / 1" },
+  { id:"fri", label:"Friday Night",       tag:"400 PTS" },
+  { id:"sam", label:"Saturday Morning",   tag:"800 PTS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"1200 PTS" },
+  { id:"san", label:"Saturday Night",     tag:"1600 PTS" },
+  { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const BUILTIN_EVENTS = [
-  /* ── Friday night · 1 pt ── */
-  { id:"putt", n:1, session:"fri", value:1, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
+  /* ── Friday night · 400 pts ── */
+  { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"8ball", n:2, session:"fri", value:1, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"8ball", n:2, session:"fri", value:400, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:3, session:"fri", value:1, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:3, session:"fri", value:400, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  { id:"die", n:4, session:"fri", value:1, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
+  { id:"die", n:4, session:"fri", value:400, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
-  /* ── Saturday morning · 2 pts ── */
-  { id:"bball", n:5, session:"sam", value:2, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
+  /* ── Saturday morning · 800 pts ── */
+  { id:"bball", n:5, session:"sam", value:800, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
     teamCfg:{ teams:4, size:3, bracket:4 },
     desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
-  { id:"spike", n:6, session:"sam", value:2, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
+  { id:"spike", n:6, session:"sam", value:800, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
     teamCfg:{ teams:6, size:2 },
     desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
-  { id:"pingpong", n:7, session:"sam", value:2, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
+  { id:"pingpong", n:7, session:"sam", value:800, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
     desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
-  { id:"foosball", n:8, session:"sam", value:2, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
+  { id:"foosball", n:8, session:"sam", value:800, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
-  /* ── Saturday afternoon · 3 pts ── */
-  { id:"volley", n:9, session:"sap", value:3, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+  /* ── Saturday afternoon · 1200 pts ── */
+  { id:"volley", n:9, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:2, size:6 },
     desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
-  { id:"nine", n:10, session:"sap", value:3, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
+  { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
     desc:"Nine holes, lowest total strokes. Max 5 per hole." },
-  { id:"bball1", n:11, session:"sap", value:3, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+  { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
     desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
-  { id:"pickleball", n:12, session:"sap", value:3, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
-  /* ── Saturday night · 4 pts ── */
-  { id:"flip", n:13, session:"san", value:4, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
+  /* ── Saturday night · 1600 pts ── */
+  { id:"flip", n:13, session:"san", value:1600, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
     teamCfg:{ teams:2, size:6 },
     desc:"Best of 3. Flip clean, next teammate goes." },
-  { id:"beerio", n:14, session:"san", value:4, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  { id:"beerio", n:14, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
-  { id:"bball5", n:15, session:"san", value:4, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+  { id:"bball5", n:15, session:"san", value:1600, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:5 },
     desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
-  { id:"ragecage", n:16, session:"san", value:4, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+  { id:"ragecage", n:16, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
-  /* ── The Finale · 6 / 3 / 1 ── */
-  { id:"gauntlet", n:17, session:"fin", value:6, name:"The Gauntlet", kind:"solo", finale:true, game:"gauntlet",
+  { id:"gauntlet", n:17, session:"san", value:1600, name:"The Gauntlet", kind:"solo", game:"gauntlet",
     desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
+  /* ── The Finale · poker. No value: the result carries chip stacks that
+     BECOME the standings, it never pays awards. ── */
+  { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
+    desc:"Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
 /* the games library: one how-to per game, shared across events */
@@ -161,33 +175,135 @@ const GAMES = {
     objective:"Never get caught holding a ball. Empty the ring before you.",
     steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it. Last player standing wins."],
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
+  poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
+    objective:"Finish with the biggest stack. Your points buy you in.",
+    steps:["Your points are your chips, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    win:"Chip leader takes the championship. Elimination order settles the busts.",
+    house:"No wagers, duels, or rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
     objective:"Clear five stations faster than everyone else.",
     steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
     win:"Fastest clean run takes 1st. The clock settles ties.",
-    house:"One runner at a time. The room keeps time." } },
+    house:"One runner at a time. Someone times each run." } },
 };
 
 const SLOT_META = [
-  { label:"1st", team:"Winners",    color:"var(--gold)" },
-  { label:"2nd", team:"Runners-up", color:"#BDB2A0" },
-  { label:"3rd", team:"3rd place",  color:"#C07A4B" },
-];
-
-const DRAW_METHODS = [
-  { id:"random",   name:"Blind Draw",    desc:"Names out of a hat." },
-  { id:"balanced", name:"Balanced Draw", desc:"Sealed seeds spread the talent.", needsSport:true },
-  { id:"seeded",   name:"Buddy System",  desc:"Top seeds paired with bottom seeds.", pairsOnly:true, needsSport:true },
-  { id:"draft",    name:"Captains Draft", desc:"Captains pick in turn, live on every phone.", teamOnly:true },
+  { label:"1st", team:"Winners",    color:"var(--accent)" },
+  { label:"2nd", team:"Runners-up", color:"var(--silver)" },
+  { label:"3rd", team:"3rd place",  color:"var(--bronze)" },
 ];
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
+/* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
+   your own phone, the pot settles itself. The challenger names the ante
+   and both sides put up the same; DUEL_STAKE is only the default. */
+const DUEL_STAKE = PT;
+const DUEL_GAMES = {
+  quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
+};
+
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
+/* ─────────── travel ───────────
+   Everyone lands Friday and leaves Sunday, and the flight code already says
+   where you came from, so a leg is only { air, num, time }: carrier, number,
+   and 24h "HH:MM" off the native picker. Legacy free text survives as { note }. */
+const AIRLINES = ["WN", "AA", "UA", "DL", "AS", "B6", "NK", "F9"];
+/* one validator, used by the server on save and the client for display */
+function cleanLeg(v) {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "string") return v.trim() ? { note: v.trim().slice(0, 90) } : null;
+  if (typeof v !== "object") return undefined;          // undefined = reject
+  const out = {};
+  const air = String(v.air || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
+  const num = String(v.num ?? "").replace(/\D/g, "").slice(0, 4);
+  if (air) out.air = air;
+  if (num) out.num = num;
+  if (typeof v.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)) out.time = v.time;
+  if (typeof v.note === "string" && v.note.trim()) out.note = v.note.trim().slice(0, 90);
+  return Object.keys(out).length ? out : null;
+}
+/* 24h "20:37" reads back as "8:37p": nobody wants to parse a clock */
+function legTime(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+/* the plain-text rendering, for anywhere a strip will not fit */
+function legText(leg, dir) {
+  if (!leg) return "";
+  if (leg.note) return leg.note;
+  const code = [leg.air, leg.num].filter(Boolean).join(" ");
+  const t = legTime(leg.time);
+  return [code, t && `${dir === "out" ? "leaves Sun" : "lands Fri"} ${t}`].filter(Boolean).join(", ");
+}
+
+/* chip identity: everyone starts gray; colors are claimed first come first
+   serve and lock when the weekend goes live. Skins repeat freely; the color
+   is the unique claim. light:true colors take ink initials/text. */
+const CHIP_GRAY = "#6B6558";
+const CHIP_COLORS = [
+  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B", light:true }, { hex:"#D89C2F", light:true },
+  { hex:"#C9B25A", light:true }, { hex:"#A8A03F", light:true }, { hex:"#77804C" }, { hex:"#4E6E39" },
+  { hex:"#6E9450" }, { hex:"#3F7D5C" }, { hex:"#557B72" }, { hex:"#2F7E83" },
+  { hex:"#4F93A3" }, { hex:"#3B6E9C" }, { hex:"#5E7291" }, { hex:"#6D6FA8" },
+  { hex:"#7C5CA6" }, { hex:"#8A4F62" }, { hex:"#A6527C" }, { hex:"#B23B5E" },
+  { hex:"#B23B2E" }, { hex:"#8E3B2F" }, { hex:"#7A5C43" }, { hex:"#A9663F" },
+  { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
+  { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
+];
+const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
+  "saw", "flame", "star", "bolt", "wave", "crown"];
+
+/* this edition's hard dates, in one place: every surface reads these instead
+   of spelling the weekend out again and getting it wrong */
+const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
+
+/* the weekend sheet ships with the real booking already in it, so nobody has
+   to type it and the invite is correct the moment it goes out. GM can edit
+   every line from the locker room. */
+const LOGISTICS = {
+  v: 2,
+  venue: "10848 North Aberdeen Road, Scottsdale, AZ",
+  venueNote: "",
+  airport: "PHX",
+  airportName: "Phoenix Sky Harbor",
+  checkIn: "Fri Oct 30, 4:00 PM",
+  checkOut: "Sun Nov 1, 10:00 AM",
+  hostIn: { air:"WN", num:"4663", time:"08:40" },
+  hostOut: { air:"UA", num:"1885", time:"20:37" },
+};
+
+/* stored logistics shadows the booking above, so a line written before the
+   real one shipped, or blanked by a stray save, would outlive every reset and
+   every deploy. Applied on load AND on save: a sheet stamped with an older
+   edition than `v` was written against a booking we no longer have, so it is
+   replaced whole, once; at the current edition a blank falls back to what
+   shipped (except venueNote, which ships blank and so can be cleared), a key
+   that no longer exists is dropped, and a leg is whatever cleanLeg says it is.
+   The GM can change any line; they just cannot leave us with no address. Bump
+   `v` when the real booking changes, never for a wording tweak */
+function cleanLogistics(stored) {
+  const out = { ...LOGISTICS };
+  if (stored?.v === LOGISTICS.v)
+    for (const k of Object.keys(LOGISTICS)) {
+      const v = stored[k];
+      if (v !== undefined && v !== null) out[k] = v;
+    }
+  for (const k of ["hostIn", "hostOut"]) {
+    const leg = cleanLeg(out[k]);
+    if (leg) out[k] = leg; else delete out[k];
+  }
+  for (const k of Object.keys(out))
+    if (typeof out[k] === "string") out[k] = out[k].trim() || LOGISTICS[k];
+  out.v = LOGISTICS.v;
+  return out;
+}
+
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, drafts:{}, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false, onboardEpoch:0,
-  eventEdits:{}, eventOrder:[], updatedAt:0 };
+  stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
+  onboardEpoch:0, eventEdits:{}, eventOrder:[], logistics:{ ...LOGISTICS }, updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and
@@ -286,16 +402,83 @@ function resolveWager(state, w, events) {
   return { status:"void", delta:0 };
 }
 
+/* ─────────── the poker finale ───────────
+   Physical cards and chips; the app runs the table. state.poker is the
+   table (buy-in snapshot, blind schedule, eliminations). The clock is
+   DERIVED from startedAt, no server ticks. The result carries final chip
+   stacks that become the standings verbatim. */
+const pokerLive = state => {
+  const pk = state.poker;
+  return !!(pk && pk.startedAt && !state.results[pk.id]);
+};
+/* once counts are posted the stacks ARE the standings; wagers and duels
+   placed after that would settle into nothing, so the book stays closed */
+const stacksPosted = state =>
+  Object.values(state.results || {}).some(r => r?.stacks);
+/* the board is already denominated in chips, so the buy-in is not a
+   conversion: 2,200 points is 2,200 in front of you. Real tournament
+   denominations, so any standard set works. */
+const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
+/* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
+const POKER_LEVELS = [
+  { sb:25, bb:50, mins:15 }, { sb:50, bb:100, mins:15 }, { sb:100, bb:200, mins:15 },
+  { sb:150, bb:300, mins:15 }, { sb:250, bb:500, mins:15 }, { sb:400, bb:800, mins:15 },
+  { sb:600, bb:1200, mins:15 },
+];
+const pokerLevels = () => POKER_LEVELS.map(l => ({ ...l }));
+/* pure clock walk; clients tick a 1s interval and re-derive */
+function pokerClock(poker, now) {
+  const levels = poker.levels || POKER_LEVELS;
+  if (!poker.startedAt) return { idx:0, ...levels[0], msLeft:levels[0].mins * 60000, running:false };
+  let elapsed = now - poker.startedAt;
+  let idx = 0;
+  while (idx < levels.length - 1 && elapsed >= levels[idx].mins * 60000) {
+    elapsed -= levels[idx].mins * 60000; idx++;
+  }
+  idx = Math.max(0, Math.min(levels.length - 1, idx + (poker.levelOffset || 0)));
+  const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
+  return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
+}
+/* physical dealing breakdown for a buy-in of pts: a blind pack of eight 25s
+   for posting, the rest greedy in 1000/500/100. Exact because every board
+   value is a PT multiple and PT is 100. */
+function pokerDenoms(pts) {
+  let chips = pts;
+  const stack = [];
+  if (chips >= 400) { stack.push({ v: 25, n: 8 }); chips -= 200; }
+  else if (chips > 0) { stack.push({ v: 25, n: chips / 25 }); chips = 0; }
+  for (const v of [1000, 500, 100]) {
+    const n = Math.floor(chips / v);
+    if (n) { stack.push({ v, n }); chips -= n * v; }
+  }
+  return stack.sort((a, b) => b.v - a.v);
+}
+
+/* duel outcome is DERIVED from the two stored runs, never written. A foul
+   loses to a clean draw; two fouls or identical times push, chips go back. */
+function resolveDuel(duel) {
+  if (duel.status !== "open") return { settled:false, status:duel.status };
+  const a = duel.runs?.[duel.from], b = duel.runs?.[duel.to];
+  if (!a || !b) return { settled:false, status:"open" };
+  const score = r => (r.foul ? Infinity : r.ms);
+  if (score(a) === score(b)) return { settled:true, push:true };
+  const winner = score(a) < score(b) ? duel.from : duel.to;
+  return { settled:true, push:false, winner, loser: winner === duel.from ? duel.to : duel.from };
+}
+
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {};
-  ROSTER.forEach(p => { pts[p] = 5; wins[p] = 0; betNet[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
+  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
-    const table = AWARDS[ev.value];
+    /* value-less events (the poker finale) award nothing here; slots[0] still
+       counts as a win so the chip leader carries one */
+    const table = AWARDS[ev.value] || [0, 0, 0];
     (res.slots || []).forEach((players, i) => (players || []).forEach(p => {
       if (pts[p] === undefined) return;
       pts[p] += table[i] || 0;
+      awardPts[p] += table[i] || 0;
       if (i === 0) wins[p] += 1;
     }));
   });
@@ -305,92 +488,111 @@ function computeStandings(state) {
       if (pts[w.player] !== undefined) { pts[w.player] += r.delta; betNet[w.player] += r.delta; }
     }
   });
+  (state.duels || []).forEach(d => {
+    const r = resolveDuel(d);
+    if (!r.settled || r.push) return;
+    if (pts[r.winner] !== undefined) { pts[r.winner] += d.stake; duelNet[r.winner] += d.stake; }
+    if (pts[r.loser] !== undefined) { pts[r.loser] -= d.stake; duelNet[r.loser] -= d.stake; }
+  });
   (state.adjustments || []).forEach(a => { if (pts[a.player] !== undefined) pts[a.player] += a.delta; });
-  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p] }))
-    .sort((x,y) => y.pts - x.pts || y.wins - x.wins || x.player.localeCompare(y.player));
+  /* poker finale override: final chip stacks BECOME the totals. Only rulings
+     made after the count applies on top; everything earlier is already in
+     the physical chips. Elimination order (embedded in the result) breaks
+     ties among busted players: later bust ranks higher. */
+  let stacksRes = null;
+  Object.values(state.results || {}).forEach(res => { if (res?.stacks) stacksRes = res; });
+  if (stacksRes) {
+    ROSTER.forEach(p => { pts[p] = stacksRes.stacks[p] ?? 0; });
+    (state.adjustments || []).forEach(a => {
+      if (a.ts > stacksRes.ts && pts[a.player] !== undefined) pts[a.player] += a.delta;
+    });
+  }
+  const outRank = p => {
+    const i = (stacksRes?.outs || []).indexOf(p);
+    return i < 0 ? Infinity : i;
+  };
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
+    .sort((x,y) => y.pts - x.pts
+      || (stacksRes ? outRank(y.player) - outRank(x.player) : 0)
+      || y.wins - x.wins || x.player.localeCompare(y.player));
   let rank = 0, prev = null;
-  rows.forEach((r,i) => { if (r.pts !== prev) { rank = i+1; prev = r.pts; } r.rank = rank; });
+  rows.forEach((r,i) => { if (r.pts !== prev || (stacksRes && r.pts === 0)) { rank = i+1; prev = r.pts; } r.rank = rank; });
   return rows;
 }
-/* championship scenarios going into the finale: who is still mathematically
-   alive and the weakest finale finish that keeps them alive. Awards only;
-   open wagers are ignored (they cannot be bounded). Ties count as alive
-   because a championship tie goes to the pressure putt. */
-function computeScenarios(state) {
-  const evs = allEventsOf(state);
-  const finale = evs.find(e => e.finale && !state.shelved?.[e.id]);
-  if (!finale || state.results[finale.id] || state.frozen) return null;
-  const table = AWARDS[finale.value] || [6, 3, 1];
-  const rows = computeStandings(state);
-  const options = [0, table[2] || 0, table[1] || 0, table[0] || 0];
-  const NEED = ["any finish", "3rd or better", "2nd or better", "the win"];
-  const alive = [];
-  rows.forEach(r => {
-    for (let i = 0; i < options.length; i++) {
-      const mine = r.pts + options[i];
-      const rem = table.filter(v => v > 0);
-      if (i > 0) rem.splice(rem.indexOf(options[i]), 1);
-      const remD = [...rem].sort((a, b) => b - a);
-      const others = rows.filter(x => x.player !== r.player).map(x => x.pts).sort((a, b) => a - b);
-      if (others.every((v, j) => v + (j < remD.length ? remD[j] : 0) <= mine)) {
-        alive.push({ player: r.player, pts: r.pts, needIdx: i, need: NEED[i] });
-        break;
-      }
-    }
-  });
-  return { finaleId: finale.id, finaleName: finale.name, alive, total: rows.length };
-}
-
 function atRisk(state, p, events) {
   return (state.wagers || [])
     .filter(w => w.player === p && resolveWager(state, w, events).status === "pending")
     .reduce((s,w) => s + w.stake, 0);
 }
 
-function drawTeams(ev, method, seeds, players) {
+/* ─────────── the balanced draw ───────────
+   The only way teams get made (captains draft aside). Live strength per
+   player: the sealed survey is the baseline and the actual weekend bends it,
+   so a Friday draw leans on the survey and a Sunday draw leans on results.
+   Every part is normalized to the current field, weights sum to 1:
+     0.35 sport survey + 0.15 overall survey + 0.35 event points + 0.15 wins */
+function playerStrength(state, p, sport, rows) {
+  rows = rows || computeStandings(state);
+  const norm = (x, lo, hi) => (hi > lo ? (x - lo) / (hi - lo) : 0.5);
+  const sv = state.seeds?.[p] || {};
+  const vals = Object.values(sv);
+  const overall = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 2;
+  const r = rows.find(x => x.player === p);
+  const aps = rows.map(x => x.awardPts), ws = rows.map(x => x.wins);
+  return 0.35 * norm(sv[sport] ?? 2, 1, 4)
+       + 0.15 * norm(overall, 1, 4)
+       + 0.35 * norm(r?.awardPts ?? 0, Math.min(...aps), Math.max(...aps))
+       + 0.15 * norm(r?.wins ?? 0, Math.min(...ws), Math.max(...ws));
+}
+/* strengths get a small jitter so back-to-back draws differ and nobody can
+   reverse-engineer their sealed rating off team composition */
+const JITTER = 0.05;
+function strengthMap(state, players, sport, rows) {
+  rows = rows || computeStandings(state);
+  const m = {};
+  players.forEach(p => { m[p] = playerStrength(state, p, sport, rows) + (Math.random() * 2 - 1) * JITTER; });
+  return m;
+}
+/* snake-seed, then recursively swap players across teams while any single
+   swap tightens the spread of team averages. First improving swap recurses;
+   no improving swap means a local optimum, done. Depth-capped for safety. */
+function refineTeams(groups, strengthOf, depth = 0) {
+  const avg = g => g.reduce((s, k) => s + strengthOf(k), 0) / g.length;
+  const spread = gs => { const a = gs.map(avg); return Math.max(...a) - Math.min(...a); };
+  if (depth > 60) return groups;
+  const best = spread(groups);
+  for (let i = 0; i < groups.length; i++)
+    for (let j = i + 1; j < groups.length; j++)
+      for (let a = 0; a < groups[i].length; a++)
+        for (let b = 0; b < groups[j].length; b++) {
+          const gi = [...groups[i]], gj = [...groups[j]];
+          [gi[a], gj[b]] = [gj[b], gi[a]];
+          const next = groups.map((g, k) => (k === i ? gi : k === j ? gj : g));
+          if (spread(next) + 1e-9 < best) return refineTeams(next, strengthOf, depth + 1);
+        }
+  return groups;
+}
+function seedSnake(keys, nGroups, strengthOf) {
+  const groups = Array.from({ length: nGroups }, () => []);
+  [...keys].sort((a, b) => strengthOf(b) - strengthOf(a)).forEach((k, i) => {
+    const round = Math.floor(i / nGroups);
+    groups[round % 2 === 0 ? i % nGroups : nGroups - 1 - (i % nGroups)].push(k);
+  });
+  return groups;
+}
+
+function drawTeams(ev, state, players) {
   const cfg = ev.teamCfg; if (!cfg) return null;
-  const skill = p => (seeds[p]?.[ev.sport] ?? 2) + (Math.random()*0.6 - 0.3);
-  let groups;
-  if (method === "seeded") {
-    const s = [...players].sort((a,b) => skill(b) - skill(a));
-    groups = [];
-    let lo = s.length - 1, hi = 0;
-    while (hi < lo) { groups.push([s[hi], s[lo]]); hi++; lo--; }
-    if (hi === lo && groups.length) groups[groups.length-1].push(s[hi]);
-    else if (hi === lo) groups.push([s[hi]]);
-  } else {
-    const nTeams = Math.min(cfg.teams, players.length);
-    groups = Array.from({length:nTeams}, () => []);
-    if (method === "random") {
-      shuffle(players).forEach((p,i) => groups[i % nTeams].push(p));
-    } else {
-      const s = [...players].sort((a,b) => skill(b) - skill(a));
-      s.forEach((p,i) => {
-        const round = Math.floor(i / nTeams);
-        const idx = round % 2 === 0 ? i % nTeams : nTeams - 1 - (i % nTeams);
-        groups[idx].push(p);
-      });
-      groups = groups.map(g => shuffle(g));
-    }
-  }
+  const s = strengthMap(state, players, ev.sport);
+  const nTeams = Math.min(cfg.teams, players.length);
+  const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
   const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-  return { id:"d"+Date.now(), method, ts:Date.now(),
+  return { id:"d"+Date.now(), method:"balanced", ts:Date.now(),
     teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
 }
 
-function splitIntoGroups(keys, nGroups, method, skillOf) {
-  const groups = Array.from({length:nGroups}, () => []);
-  if (method === "balanced" && skillOf) {
-    const s = [...keys].sort((a,b) => skillOf(b) - skillOf(a));
-    s.forEach((k,i) => {
-      const round = Math.floor(i / nGroups);
-      const idx = round % 2 === 0 ? i % nGroups : nGroups - 1 - (i % nGroups);
-      groups[idx].push(k);
-    });
-    return groups.map(g => shuffle(g));
-  }
-  shuffle(keys).forEach((k,i) => groups[i % nGroups].push(k));
-  return groups;
+function splitIntoGroups(keys, nGroups, strengthOf) {
+  return refineTeams(seedSnake(keys, nGroups, strengthOf), strengthOf).map(g => shuffle(g));
 }
 
 function makeBracket(n) {
@@ -418,9 +620,13 @@ const bracketChampion = br => {
 };
 
 export {
-  GM_PIN, ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
-  DRAW_METHODS, OUTRIGHT_MULT, EMPTY_STATE, SIZES, TEAM_NAMES, GAMES,
+  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
+  AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, computeStandings, computeScenarios, atRisk, drawTeams, splitIntoGroups,
+  resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
+  computeStandings, atRisk, drawTeams, splitIntoGroups,
+  playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
 };

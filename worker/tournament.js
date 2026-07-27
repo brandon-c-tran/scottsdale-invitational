@@ -8,7 +8,7 @@
    - WebSocket hibernation keeps connections cheap; on any reconnect the
      client immediately receives the full authoritative state. */
 
-import { EMPTY_STATE, GM_PIN } from "../shared/core.js";
+import { EMPTY_STATE, GM_PIN, ROSTER, cleanLeg, cleanLogistics } from "../shared/core.js";
 import { applyAction } from "./actions.js";
 
 export class Tournament {
@@ -17,6 +17,21 @@ export class Tournament {
     this.env = env;
     ctx.blockConcurrencyWhile(async () => {
       this.state = (await ctx.storage.get("state")) || structuredClone(EMPTY_STATE);
+      /* state stored before a field existed would never see it: fill in any
+         missing top-level keys, and any missing weekend-sheet line, without
+         touching a single value the GM has already written */
+      for (const [k, v] of Object.entries(EMPTY_STATE))
+        if (this.state[k] === undefined) this.state[k] = structuredClone(v);
+      /* backfills the booking, drops retired keys, and normalises legs written
+         as free text, so a stored blank can never outrank what shipped */
+      this.state.logistics = cleanLogistics(this.state.logistics);
+      for (const prof of Object.values(this.state.profiles || {})) {
+        for (const k of ["flightIn", "flightOut"]) {
+          if (prof[k] === undefined) continue;
+          const leg = cleanLeg(prof[k]);
+          if (leg) prof[k] = leg; else delete prof[k];
+        }
+      }
       this.version = (await ctx.storage.get("version")) || 0;
       this.gmToken = (await ctx.storage.get("gmToken")) || null;
       this.claims = (await ctx.storage.get("claims")) || {}; // deviceId -> player
@@ -36,6 +51,7 @@ export class Tournament {
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
+      if (!ROSTER.includes(player)) return new Response("Not found", { status: 404 });
       if (req.method === "GET") {
         const dataUrl = await this.ctx.storage.get("photo:" + player);
         if (!dataUrl) return new Response("Not found", { status: 404 });
@@ -48,7 +64,9 @@ export class Tournament {
         }});
       }
       if (req.method === "POST") {
-        const { dataUrl, deviceId, gmToken } = await req.json();
+        let body;
+        try { body = await req.json(); } catch { return Response.json({ ok: false, error: "Bad photo" }, { status: 400 }); }
+        const { dataUrl, deviceId, gmToken } = body || {};
         const isGm = !!this.gmToken && gmToken === this.gmToken;
         if (this.claims[deviceId] !== player && !isGm)
           return Response.json({ ok: false, error: "Not your profile" }, { status: 403 });
@@ -59,6 +77,7 @@ export class Tournament {
         await this.persistAndBroadcast();
         return Response.json({ ok: true });
       }
+      return new Response("Method not allowed", { status: 405 });
     }
 
     return new Response("Not found", { status: 404 });
@@ -71,9 +90,6 @@ export class Tournament {
     const reply = obj => { try { ws.send(JSON.stringify({ type: "ack", actionId, ...obj })); } catch {} };
 
     if (type === "hello") {
-      if (deviceId && this.claims[deviceId]) {
-        // no-op, claim already known
-      }
       try { ws.send(JSON.stringify({ type: "state", version: this.version, state: this.state,
         you: this.claims[deviceId] || null })); } catch {}
       return;
@@ -81,7 +97,16 @@ export class Tournament {
     if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong" })); } catch {} return; }
 
     if (type === "gmUnlock") {
-      if (payload?.pin !== GM_PIN) return reply({ ok: false, error: "Wrong passcode" });
+      /* a 4-digit pin needs a brake: ten misses lock the door for a minute */
+      const now = Date.now();
+      if (this.pinLockUntil && now < this.pinLockUntil)
+        return reply({ ok: false, error: "Too many tries, wait a minute" });
+      if (payload?.pin !== GM_PIN) {
+        this.pinFails = (this.pinFails || 0) + 1;
+        if (this.pinFails >= 10) { this.pinLockUntil = now + 60000; this.pinFails = 0; }
+        return reply({ ok: false, error: "Wrong passcode" });
+      }
+      this.pinFails = 0;
       if (!this.gmToken) {
         this.gmToken = crypto.randomUUID();
         await this.ctx.storage.put("gmToken", this.gmToken);
@@ -91,7 +116,7 @@ export class Tournament {
 
     if (type === "claim") {
       const player = payload?.player;
-      if (!player) return reply({ ok: false, error: "Pick a player" });
+      if (!ROSTER.includes(player)) return reply({ ok: false, error: "Pick a player" });
       this.claims[deviceId] = player;
       await this.ctx.storage.put("claims", this.claims);
       return reply({ ok: true });
@@ -107,8 +132,8 @@ export class Tournament {
   async persistAndBroadcast(lastAction) {
     this.version += 1;
     this.state.updatedAt = Date.now();
-    await this.ctx.storage.put("state", this.state);
-    await this.ctx.storage.put("version", this.version);
+    /* one put, both keys: state and version can never disagree in storage */
+    await this.ctx.storage.put({ state: this.state, version: this.version });
     const frame = JSON.stringify({ type: "state", version: this.version, state: this.state, lastAction });
     for (const ws of this.ctx.getWebSockets()) {
       try { ws.send(frame); } catch {}

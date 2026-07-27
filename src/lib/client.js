@@ -22,7 +22,7 @@ let cached = { ...snapshot };
 const listeners = new Set();
 const emit = () => { cached = { ...snapshot }; listeners.forEach(fn => fn()); };
 
-let ws = null, backoff = 500, pingTimer = null, aid = 0;
+let ws = null, backoff = 500, pingTimer = null, reconnectTimer = null, aid = 0;
 const pendingAcks = new Map();
 
 function wsUrl() {
@@ -31,10 +31,17 @@ function wsUrl() {
 }
 
 function connect() {
-  try { ws?.close(); } catch {}
+  /* one socket, ever: silence the old one so its close handler cannot
+     schedule a second reconnect, and never stack reconnect timers */
+  if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+  clearTimeout(reconnectTimer);
+  if (ws) { ws.onclose = null; ws.onerror = null; try { ws.close(); } catch {} }
   ws = new WebSocket(wsUrl());
   ws.onopen = () => {
     backoff = 500;
+    /* fresh socket, fresh baseline: if the server was ever reset, its
+       version restarts and a stale high-water mark would wedge us */
+    snapshot.version = 0;
     snapshot.connected = true; emit();
     send({ type: "hello" });
     clearInterval(pingTimer);
@@ -56,7 +63,8 @@ function connect() {
   ws.onclose = () => {
     snapshot.connected = false; emit();
     clearInterval(pingTimer);
-    setTimeout(connect, backoff);
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, backoff);
     backoff = Math.min(backoff * 2, 8000);
   };
   ws.onerror = () => { try { ws.close(); } catch {} };

@@ -4,21 +4,30 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, SESSIONS, EMPTY_STATE, SIZES, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
+  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
+  DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
-const err = error => ({ ok: false, error });
+const err = (error, extra) => ({ ok: false, error, extra });
 const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display, num, size }, ctx) {
+  saveProfile(state, { player, display, num, size, jersey, flightIn, flightOut }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
     const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    /* travel legs are structured and validated by the same helper the client
+       renders from, so a leg can never be half-parsed on one side only */
+    for (const [k, v] of [["flightIn", flightIn], ["flightOut", flightOut]]) {
+      if (v === undefined) continue;
+      const leg = cleanLeg(v);
+      if (leg === undefined) return err("Bad flight");
+      if (leg === null) delete prof[k]; else prof[k] = leg;
+    }
     if (num !== undefined) {
       if (num === null) delete prof.num;
       else {
@@ -29,18 +38,56 @@ export const ACTIONS = {
         prof.num = n;
       }
     }
-    if (size !== undefined) {
-      if (size === null) delete prof.size;
-      else if (!SIZES.includes(size)) return err("Bad size");
-      else prof.size = size;
+    /* two garments, two sizes: a jersey does not run like a tee, so "L" on one
+       is not an answer for the other */
+    for (const [k, v] of [["size", size], ["jersey", jersey]]) {
+      if (v === undefined) continue;
+      if (v === null) delete prof[k];
+      else if (!SIZES.includes(v)) return err("Bad size");
+      else prof[k] = v;
+    }
+    state.profiles[player] = prof;
+    return ok();
+  },
+  /* chip identity: color is a first-come-first-serve claim, skin repeats
+     freely. Both lock when the weekend goes live so the board stays learnable. */
+  pickChip(state, { player, color, skin }, ctx) {
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Not your chip");
+    const prof = { ...(state.profiles[player] || {}) };
+    if (color !== undefined) {
+      if (state.live && !ctx.isGm && color !== prof.color) return err("Chips locked for the weekend");
+      if (color === null) delete prof.color;
+      else {
+        if (!CHIP_COLORS.find(c => c.hex === color)) return err("Bad color");
+        const taken = Object.entries(state.profiles).find(([p, pr]) => p !== player && pr?.color === color);
+        if (taken) return err(`${disp(state, taken[0])} already has that color`);
+        prof.color = color;
+      }
+    }
+    if (skin !== undefined) {
+      if (state.live && !ctx.isGm && skin !== prof.skin) return err("Chips locked for the weekend");
+      if (skin === null) delete prof.skin;
+      else if (!CHIP_SKINS.includes(skin)) return err("Bad skin");
+      else prof.skin = skin;
     }
     state.profiles[player] = prof;
     return ok();
   },
   saveSeeds(state, { player, ratings }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
-    if (player !== ctx.player && !ctx.isGm) return err("Not your report");
-    state.seeds[player] = ratings;
+    if (player !== ctx.player && !ctx.isGm) return err("Not your ratings");
+    /* only known sports, only known rating values: junk here would silently
+       poison every balanced draw via NaN strengths */
+    if (typeof ratings !== "object" || ratings === null) return err("Bad ratings");
+    const clean = {};
+    for (const sp of SPORTS) {
+      if (ratings[sp.id] === undefined) continue;
+      const v = Number(ratings[sp.id]);
+      if (!RATINGS.some(r => r.v === v)) return err("Bad rating");
+      clean[sp.id] = v;
+    }
+    state.seeds[player] = clean;
     return ok();
   },
 
@@ -49,18 +96,30 @@ export const ACTIONS = {
     const player = ctx.player;
     if (!player) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("The finale is live");
+    if (stacksPosted(state)) return err("The finale is settled");
     const events = allEventsOf(state);
     const ev = events.find(e => e.id === wager.eventId);
     if (!ev) return err("No such event");
     if (state.onDeck !== ev.id) return err("Betting is closed for this event");
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
-    if (!(stake >= 1 && stake <= 3)) return err("Stake must be 1 to 3");
-    /* exposure + balance, computed server side */
+    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
+      return err("Stakes move in 100s");
+    /* exposure + balance, computed server side; the cap scales with the
+       stack (half your points, never capped under 500) so bets keep pace
+       as the weekend inflates */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
-    if (exp + stake > 3) return err("Max 3 at risk");
-    if (stake > pts - exp) return err("Not enough points");
+    /* balance first: an empty stack should hear "not enough points", not a
+       cap message. Live duel antes count against the balance too, same as
+       sendDuel counts wager exposure. */
+    const antes = (state.duels || [])
+      .filter(d => d.status === "open" && !resolveDuel(d).settled && (d.from === player || d.to === player))
+      .reduce((s, d) => s + d.stake, 0);
+    if (stake > pts - exp - antes) return err("Not enough points");
+    const cap = maxRisk(pts);
+    if (exp + stake > cap) return err(`Max ${cap} at risk`);
     /* referenced structures must be current */
     if (wager.kind === "outright" && wager.pickTeam) {
       const d = state.draws[ev.id];
@@ -126,6 +185,7 @@ export const ACTIONS = {
     if (!w) return err("No such wager");
     if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
     if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("The finale is live");
     if (state.onDeck !== w.eventId) return err("Betting is closed");
     const r = resolveWager(state, w, allEventsOf(state));
     if (r.status !== "pending") return err("Already settled");
@@ -140,13 +200,95 @@ export const ACTIONS = {
     return ok();
   },
 
+  /* ── duels (players) ──
+     A duel is a phone minigame between two players. Both ante DUEL_STAKE at
+     send time; each plays a run whenever they want; settlement is derived from
+     the two runs in computeStandings, never stored. */
+  sendDuel(state, { to, game, stake: want }, ctx) {
+    const from = ctx.player;
+    if (!from) return err("Check in first");
+    if (state.frozen) return err("The board is frozen");
+    /* no duels before the weekend: everyone is on 1,000 until Friday, which is
+       what the invite promises, and the locker room shows no points for a
+       result to land on */
+    if (!state.live) return err("Duels open when the weekend starts");
+    if (pokerLive(state)) return err("The finale is live");
+    if (stacksPosted(state)) return err("The finale is settled");
+    if (!ROSTER.includes(to)) return err("Unknown player");
+    if (to === from) return err("Pick someone else");
+    const g = game || "quickdraw";
+    if (!DUEL_GAMES[g]) return err("Unknown game");
+    state.duels = state.duels || [];
+    const live = state.duels.filter(d => d.status === "open" && !resolveDuel(d).settled);
+    if (live.find(d => (d.from === from && d.to === to) || (d.from === to && d.to === from)))
+      return err(`You already have a duel going with ${disp(state, to)}`);
+    const day = 24 * 60 * 60 * 1000;
+    if (state.duels.filter(d => d.from === from && d.status !== "declined" && d.ts > Date.now() - day).length >= 3)
+      return err("Three challenges a day, max");
+    /* the challenger names the ante; both sides put up the same amount, so it
+       is bounded by whichever of the two can cover less */
+    const stake = want === undefined ? DUEL_STAKE : Math.floor(Number(want));
+    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
+      return err("Antes move in 100s");
+    /* both antes must be covered: points minus wager exposure minus live duel antes */
+    const events = allEventsOf(state);
+    const rows = computeStandings(state);
+    const ptsOf = p => rows.find(r => r.player === p)?.pts ?? 0;
+    const spendable = p => ptsOf(p) - atRisk(state, p, events)
+      - live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
+    /* the wager cap covers duels too, or a duel would be a way around it */
+    if (stake > maxRisk(ptsOf(from))) return err(`Max ${maxRisk(ptsOf(from))} at risk`);
+    if (stake > maxRisk(ptsOf(to))) return err(`${disp(state, to)} can't cover that ante`);
+    if (spendable(from) < stake) return err("Not enough points");
+    if (spendable(to) < stake) return err(`${disp(state, to)} can't cover that ante`);
+    state.duels.unshift({ id: "du" + Date.now() + Math.floor(Math.random() * 9999), game: g,
+      from, to, stake, status: "open", runs: {}, ts: Date.now() });
+    return ok();
+  },
+  playDuel(state, { id, ms, foul }, ctx) {
+    const p = ctx.player;
+    if (!p) return err("Check in first");
+    if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("The finale is live");
+    if (stacksPosted(state)) return err("The finale is settled");
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (d.status !== "open") return err("Duel is closed");
+    if (p !== d.from && p !== d.to) return err("Not your duel");
+    if (d.runs[p]) return err("You already drew");
+    const f = !!foul;
+    const m = Math.round(Number(ms));
+    if (!f && !(m >= 80 && m <= 5000)) return err("Bad time");
+    d.runs[p] = { ms: f ? null : m, foul: f, ts: Date.now() };
+    return ok();
+  },
+  declineDuel(state, { id }, ctx) {
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (d.status !== "open") return err("Already closed");
+    if (ctx.player !== d.to && !ctx.isGm) return err("Not your duel");
+    if (Object.keys(d.runs).length) return err("Already in play");
+    d.status = "declined";
+    return ok();
+  },
+  voidDuel(state, { id }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    d.status = "void";
+    return ok();
+  },
+
   /* ── GM: results ── */
   saveResult(state, { evId, slots }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
+    if (ev.game === "poker" && ev.finale) return err("Enter chip counts instead");
     if (!Array.isArray(slots) || !slots[0]?.length) return err("Winners required");
-    state.results[evId] = { slots, ts: Date.now() };
+    if (slots.length > 3 || !slots.every(s => Array.isArray(s) && s.every(p => ROSTER.includes(p))))
+      return err("Bad slots");
+    state.results[evId] = { slots: slots.map(s => [...s]), ts: Date.now() };
     if (state.onDeck === evId) state.onDeck = null;
     return ok();
   },
@@ -159,6 +301,9 @@ export const ACTIONS = {
   /* ── GM: slate ── */
   setOnDeck(state, { id }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (id && allEventsOf(state).find(e => e.id === id)?.game === "poker")
+      return err("No betting on the finale");
+    if (id && stacksPosted(state)) return err("The finale is settled");
     state.onDeck = id || null;
     return ok();
   },
@@ -171,7 +316,10 @@ export const ACTIONS = {
   addEvent(state, { ev }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!ev?.name?.trim()) return err("Name required");
-    state.customEvents.push({ ...ev, custom: true });
+    if (typeof ev.id !== "string" || !ev.id) return err("Bad event");
+    if (allEventsOf(state).find(e => e.id === ev.id)) return err("Event id taken");
+    if (!AWARDS[ev.value]) return err("Bad value");
+    state.customEvents.push({ ...ev, name: String(ev.name).trim().slice(0, 28), custom: true });
     return ok();
   },
   removeEvent(state, { id }, ctx) {
@@ -225,22 +373,30 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const u = snapshot; if (!u?.ev?.id) return err("Nothing to restore");
     if (state.customEvents.find(e => e.id === u.ev.id)) return err("Already restored");
+    /* the snapshot round-trips through the client: never let it smuggle a
+       stacks result (which would override the whole board) or junk wagers */
+    if (u.result?.stacks) return err("Bad snapshot");
     state.customEvents.push(u.ev);
     if (u.result) state.results[u.ev.id] = u.result;
     if (u.draw) state.draws[u.ev.id] = u.draw;
     if (u.bracket) state.brackets[u.ev.id] = u.bracket;
     if (u.stages) state.stages[u.ev.id] = u.stages;
     if (u.shelved) state.shelved[u.ev.id] = true;
-    state.wagers = [...(u.wagers || []), ...state.wagers];
+    state.wagers = [...(Array.isArray(u.wagers) ? u.wagers : []), ...state.wagers];
     return ok();
   },
 
   /* ── GM: draws, brackets, stages ── */
-  runDraw(state, { evId, method, players }, ctx) {
+  /* one draw: balanced on live strength (sealed survey + board + results),
+     recursively refined server-side in drawTeams */
+  runDraw(state, { evId, players }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev?.teamCfg) return err("Not a team event");
-    const draw = drawTeams(ev, method, state.seeds || {}, players);
+    if (!Array.isArray(players)) return err("Not enough players");
+    players = [...new Set(players.filter(p => ROSTER.includes(p)))];
+    if (players.length < 2) return err("Not enough players");
+    const draw = drawTeams(ev, state, players);
     if (!draw) return err("Draw failed");
     state.draws[evId] = draw;
     delete state.stages[evId];
@@ -257,6 +413,9 @@ export const ACTIONS = {
   pickBracketWinner(state, { evId, r, m, teamIdx }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const br = state.brackets[evId]; if (!br?.rounds?.[r]?.[m]) return err("No such matchup");
+    const match = br.rounds[r][m];
+    const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
+    if (teamIdx !== a && teamIdx !== b) return err("Not in this matchup");
     br.rounds[r][m].winner = teamIdx;
     for (let rr = r + 1; rr < br.rounds.length; rr++) br.rounds[rr].forEach(match => { match.winner = null; });
     return ok();
@@ -265,18 +424,21 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
-    const skillOf = p => (state.seeds?.[p]?.[ev.sport] ?? 2) + (Math.random() * 0.6 - 0.3);
+    if (!cfg || !Number.isInteger(cfg.nGroups) || cfg.nGroups < 2 || cfg.nGroups > 4)
+      return err("Bad stage setup");
     let entrantType, keys, drawId = null;
     if (cfg.kind === "heats") {
-      entrantType = "solo"; keys = cfg.players;
-      if (!Array.isArray(keys) || keys.length < 2) return err("Not enough players");
+      entrantType = "solo"; keys = [...new Set((cfg.players || []).filter(p => ROSTER.includes(p)))];
+      if (keys.length < 2) return err("Not enough players");
     } else {
       const draw = state.draws[evId]; if (!draw) return err("Draw teams first");
       entrantType = "team"; keys = draw.teams.map((_, i) => i); drawId = draw.id;
     }
-    const skill = entrantType === "solo" ? skillOf
-      : i => { const t = state.draws[evId].teams[i]; return t.players.reduce((s, p) => s + skillOf(p), 0) / t.players.length; };
-    const groups = splitIntoGroups(keys, cfg.nGroups, cfg.method, skill)
+    /* same live strength model as the team draw; teams average their players */
+    const solo = strengthMap(state, entrantType === "solo" ? keys : ROSTER, ev.sport);
+    const strength = entrantType === "solo" ? k => solo[k]
+      : i => { const t = state.draws[evId].teams[i]; return t.players.reduce((s, p) => s + (solo[p] ?? 0.5), 0) / t.players.length; };
+    const groups = splitIntoGroups(keys, cfg.nGroups, strength)
       .map((entrants, i) => ({ name: cfg.kind === "heats" ? `Heat ${i + 1}` : `Pool ${"ABCD"[i] || i + 1}`, entrants, through: [] }));
     state.stages[evId] = { id: "s" + Date.now(), eventId: evId, kind: cfg.kind, entrantType, drawId,
       advance: cfg.advance === 2 ? 2 : 1, groups, finalWinner: null, ts: Date.now() };
@@ -291,6 +453,7 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const st = state.stages[evId]; const grp = st?.groups?.[gi];
     if (!grp) return err("No such group");
+    if (!grp.entrants.includes(key)) return err("Not in this group");
     grp.through = grp.through || [];
     if (grp.through.includes(key)) grp.through = grp.through.filter(k => k !== key);
     else if (grp.through.length < st.advance) grp.through.push(key);
@@ -300,6 +463,7 @@ export const ACTIONS = {
   setFinalWinner(state, { evId, key }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const st = state.stages[evId]; if (!st) return err("No stages");
+    if (!(stageFinalists(st) || []).includes(key)) return err("Not a finalist");
     st.finalWinner = st.finalWinner === key ? null : key;
     return ok();
   },
@@ -363,11 +527,129 @@ export const ACTIONS = {
     return ok();
   },
 
+  /* ── the poker finale: the app runs the table, the cards stay physical ── */
+  pokerSetup(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.finale && e.game === "poker");
+    if (!ev) return err("No poker finale on the slate");
+    if (state.shelved[ev.id]) return err("The finale is shelved");
+    if (state.results[ev.id]) return err("Result already posted");
+    if (state.poker) return err("Table already set");
+    /* the buy-in snapshot must match the board exactly: nothing may still be
+       able to move points after stacks are dealt */
+    const events = allEventsOf(state);
+    if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
+      return err("Settle or void the open wagers first");
+    if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
+      return err("Settle or void the open duels first");
+    let rows = computeStandings(state);
+    if (rows.some(r => r.pts < 0)) return err("Negative stacks, fix rulings first");
+    /* nobody rails the finale: anyone under 60 is staked up to 60, logged
+       as a ruling so the board shows where the chips came from. pokerCancel
+       reverts these, so a cancel-and-reset never grants twice. */
+    rows.filter(r => r.pts < BUYIN_FLOOR).forEach(r => {
+      state.adjustments.unshift({ id: "a" + Date.now() + "-" + r.player, player: r.player,
+        delta: BUYIN_FLOOR - r.pts, reason: "Minimum stack", ts: Date.now() });
+    });
+    rows = computeStandings(state);
+    state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
+      startedAt: null, levels: pokerLevels(), levelOffset: 0, outs: [], counts: {}, ts: Date.now() };
+    return ok();
+  },
+  pokerStart(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!state.poker) return err("Set up the table first");
+    if (state.poker.startedAt) return err("Cards are already live");
+    state.poker.startedAt = Date.now();
+    state.onDeck = null;
+    return ok();
+  },
+  pokerLevel(state, { delta }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Clock is not running");
+    const d = delta > 0 ? 1 : -1;
+    pk.levelOffset = Math.max(-(pk.levels.length - 1), Math.min(pk.levels.length - 1, (pk.levelOffset || 0) + d));
+    return ok();
+  },
+  /* busting is self-serve: you tap out on your own phone. GM can do anyone. */
+  pokerBust(state, { player }, ctx) {
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    if (state.results[pk.id]) return err("Counts are posted");
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Only you can bust yourself");
+    if (pk.outs.find(o => o.player === player)) return err("Already out");
+    pk.outs.push({ player, ts: Date.now() });
+    delete pk.counts?.[player];
+    return ok();
+  },
+  pokerUnbust(state, { player }, ctx) {
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    if (state.results[pk.id]) return err("Counts are posted");
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Not your seat");
+    pk.outs = pk.outs.filter(o => o.player !== player);
+    return ok();
+  },
+  /* counting is self-serve and parallel: everyone submits their own stack,
+     editable until the GM posts. GM can enter or fix anyone's. */
+  pokerCount(state, { player, count }, ctx) {
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    if (state.results[pk.id]) return err("Counts are posted");
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (player !== ctx.player && !ctx.isGm) return err("Count your own stack");
+    if (pk.outs.find(o => o.player === player)) return err("You are out, your count is 0");
+    const c = Math.floor(Number(count));
+    if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
+    if (c % CHIP_MIN !== 0) return err("Counts move in 25s");
+    pk.counts = pk.counts || {};
+    pk.counts[player] = c;
+    return ok();
+  },
+  /* posting reads the collected counts; outs are 0. Sum mismatches are
+     allowed (chips get miscounted); the client shows the discrepancy. */
+  pokerResult(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Cards are not live");
+    const outSet = new Set(pk.outs.map(o => o.player));
+    const missing = ROSTER.filter(p => !outSet.has(p) && pk.counts?.[p] === undefined);
+    if (missing.length) return err(`Waiting on ${missing.map(p => disp(state, p)).join(", ")}`);
+    const clean = {};
+    ROSTER.forEach(p => { clean[p] = outSet.has(p) ? 0 : pk.counts[p]; });
+    const max = Math.max(...Object.values(clean));
+    if (max <= 0) return err("Every count is 0");
+    const leaders = ROSTER.filter(p => clean[p] === max);
+    state.results[pk.id] = { slots: [[...leaders], [], []], stacks: clean,
+      outs: pk.outs.map(o => o.player), ts: Date.now() };
+    return ok();
+  },
+  pokerCancel(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!state.poker) return err("No table set");
+    if (state.results[state.poker.id]) return err("Clear the result first");
+    /* the table stakes grants belonged to this table */
+    state.adjustments = state.adjustments.filter(a => a.reason !== "Minimum stack");
+    state.poker = null;
+    return ok();
+  },
+
   /* ── GM: board ── */
   adjust(state, { player, delta, reason }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!ROSTER.includes(player) || !delta) return err("Bad ruling");
-    state.adjustments.unshift({ id: "a" + Date.now(), player, delta, reason: reason || "", ts: Date.now() });
+    if (!Number.isInteger(delta) || Math.abs(delta) > 100000) return err("Bad ruling");
+    /* the board moves in 100s all weekend; once the finale counts post the
+       standings are exact chip counts, so corrections move in 25s instead */
+    if (stacksPosted(state)) {
+      if (delta % CHIP_MIN !== 0) return err("Counts move in 25s");
+    } else if (delta % PT !== 0) return err("Rulings move in 100s");
+    if (pokerLive(state)) return err("The finale is live, correct it after the count");
+    state.adjustments.unshift({ id: "a" + Date.now() + "-" + player, player, delta,
+      reason: String(reason || "").slice(0, 80), ts: Date.now() });
     return ok();
   },
   setFrozen(state, { f }, ctx) {
@@ -375,10 +657,31 @@ export const ACTIONS = {
     state.frozen = !!f;
     return ok();
   },
-  rerunOnboarding(state, {}, ctx) {
+  /* replaying the intro re-opens the chip race: colors go back on the board so
+     the claim is first come first serve again. Never mid-weekend, when the
+     board has already taught everyone whose color is whose. */
+  /* Reruns re-open the chip race, which is the ONLY thing in the app that
+     throws away something a guest chose. Once the invite is out and real
+     people have checked in, that has to be deliberate: the server refuses
+     without an explicit force, so a stray call or a fat finger cannot do it.
+     `signedUp` is also handed back so the GM sees who it costs. */
+  rerunOnboarding(state, { force }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    const signedUp = ROSTER.filter(p => {
+      const pr = state.profiles?.[p];
+      return !!(pr && (pr.size || pr.flightIn || pr.flightOut || pr.color || pr.skin
+        || pr.photoV || state.seeds?.[p]));
+    });
+    if (signedUp.length && !force)
+      return err(`${signedUp.length} checked in already`, { signedUp });
     state.onboardEpoch = (state.onboardEpoch || 0) + 1;
-    return ok();
+    if (!state.live) {
+      for (const p of Object.keys(state.profiles || {})) {
+        delete state.profiles[p].color;
+        delete state.profiles[p].skin;
+      }
+    }
+    return ok({ signedUp });
   },
   setLive(state, { on }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -386,19 +689,49 @@ export const ACTIONS = {
     return ok();
   },
   /* resets wipe the game, never the people: profiles (names, photos, numbers,
-     sizes) and sealed seeds survive so nobody re-registers between test runs */
+     sizes, flights), sealed seeds, and weekend logistics survive so nobody
+     re-registers between test runs */
   resetTournament(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const profiles = state.profiles, seeds = state.seeds;
+    const profiles = state.profiles, seeds = state.seeds, logistics = state.logistics;
+    /* the epoch only ever climbs: devices store the epoch they finished at,
+       so a reset that zeroed it would make every future rerun invisible */
+    const onboardEpoch = state.onboardEpoch || 0;
     Object.assign(state, structuredClone(EMPTY_STATE));
     state.profiles = profiles;
     state.seeds = seeds;
+    state.onboardEpoch = onboardEpoch;
+    if (logistics) state.logistics = logistics;
+    return ok();
+  },
+  /* the weekend sheet: where we sleep and how the host flies. GM writes it
+     once, onboarding and the guide read it on every phone */
+  saveLogistics(state, patch, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const clean = cleanLogistics(state.logistics);
+    const FIELDS = [["venue", 140], ["venueNote", 240], ["airport", 8], ["airportName", 60],
+      ["checkIn", 40], ["checkOut", 40]];
+    for (const [k, max] of FIELDS) {
+      const v = patch?.[k];
+      if (v === undefined) continue;
+      if (typeof v !== "string") return err("Bad text");
+      clean[k] = v.trim().slice(0, max);
+    }
+    for (const k of ["hostIn", "hostOut"]) {
+      if (patch?.[k] === undefined) continue;
+      const leg = cleanLeg(patch[k]);
+      if (leg === undefined) return err("Bad flight");
+      if (leg === null) delete clean[k]; else clean[k] = leg;
+    }
+    /* a save is edited through the same rules it was loaded through, so a
+       cleared address comes back rather than leaving the invite with none */
+    state.logistics = cleanLogistics(clean);
     return ok();
   },
 };
 
 export function applyAction(state, type, payload, ctx) {
-  const handler = ACTIONS[type];
+  const handler = Object.hasOwn(ACTIONS, type) ? ACTIONS[type] : null;
   if (!handler) return { ok: false, error: `Unknown action: ${type}` };
   try { return handler(state, payload || {}, ctx); }
   catch (e) { return { ok: false, error: "Action failed: " + (e?.message || e) }; }

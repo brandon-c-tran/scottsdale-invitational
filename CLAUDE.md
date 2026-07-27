@@ -58,7 +58,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
-   Onboarding doubles as the invite, sent months out: install, check in, the
+   Onboarding doubles as the invite, sent months out. `firstOnboardStep()` is
+   the ONLY place that decides where it opens, because the install gate (step
+   -1) is skipped for standalone and desktop and every entry point (first run,
+   GM rerun, local replay) has to agree, or the gate quietly vanishes for
+   everyone re-onboarded. The order: install, check in, the
    announcement (sessions show "N events · V each", never a block total), the
    travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
    logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the

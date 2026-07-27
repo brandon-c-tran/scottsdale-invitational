@@ -28,6 +28,13 @@ const isStandalone = () => typeof window !== "undefined" &&
   (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+/* where onboarding opens. The install gate is step -1 and has to come BEFORE
+   check-in, because the installed app gets its own storage and anything done
+   in the browser first would be lost. Skip it only when there is nothing to
+   install: already standalone, or not a phone. Every entry point (first run,
+   a GM rerun, a local replay) must use this, or the gate silently disappears
+   for everyone who was re-onboarded. */
+const firstOnboardStep = () => (isStandalone() || !isMobile() ? 0 : -1);
 
 /* ─────────── visual system: FIELD DAY ───────────
    Sun-faded rec-tournament at night. Barlow Condensed carries scores, ranks,
@@ -441,7 +448,7 @@ export default function App() {
   syncChips(state.profiles);
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
-    : isStandalone() || !isMobile() ? 0 : -1);
+    : firstOnboardStep());
   const [tab, setTab] = useState("board");
   const [gm, setGm] = useState(() => localGet("si-gm") === "yes" && hasGmToken());
   const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
@@ -519,7 +526,7 @@ export default function App() {
       saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
       return;
     }
-    if ((state.onboardEpoch || 0) > Number(seen)) setOnboardStep(0);
+    if ((state.onboardEpoch || 0) > Number(seen)) setOnboardStep(firstOnboardStep());
   }, [ready, state.onboardEpoch, onboardStep]); // eslint-disable-line
 
   /* celebrate on broadcasts so every phone pops, not just the GM's;
@@ -798,7 +805,7 @@ export default function App() {
     /* hand your color back so the re-pick is a real claim again */
     if (me && !state.live) act("pickChip", { player: me, color: null, skin: null });
     setModal(null);
-    setOnboardStep(-1);
+    setOnboardStep(firstOnboardStep());
   };
   const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
 

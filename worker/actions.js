@@ -102,9 +102,9 @@ export const ACTIONS = {
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
     if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
-      return err("Stakes move in 10s");
+      return err("Stakes move in 100s");
     /* exposure + balance, computed server side; the cap scales with the
-       stack (half your points, never capped under 50) so bets keep pace
+       stack (half your points, never capped under 500) so bets keep pace
        as the weekend inflates */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
@@ -627,11 +627,11 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     if (!ROSTER.includes(player) || !delta) return err("Bad ruling");
     if (!Number.isInteger(delta) || Math.abs(delta) > 100000) return err("Bad ruling");
-    /* the board moves in 10s all weekend; once the finale counts post the
-       standings are chip stacks, so corrections move in 25s instead */
+    /* the board moves in 100s all weekend; once the finale counts post the
+       standings are exact chip counts, so corrections move in 25s instead */
     if (stacksPosted(state)) {
       if (delta % CHIP_MIN !== 0) return err("Counts move in 25s");
-    } else if (delta % PT !== 0) return err("Rulings move in 10s");
+    } else if (delta % PT !== 0) return err("Rulings move in 100s");
     if (pokerLive(state)) return err("Move chips on the table instead");
     state.adjustments.unshift({ id: "a" + Date.now() + "-" + player, player, delta,
       reason: String(reason || "").slice(0, 80), ts: Date.now() });

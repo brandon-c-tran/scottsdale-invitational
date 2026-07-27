@@ -3,7 +3,7 @@ import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
   DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
-  pokerLive, pokerClock, pokerDenoms, pokerChips,
+  pokerLive, pokerClock, pokerDenoms,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText,
@@ -575,7 +575,9 @@ export default function App() {
 
   /* reveal detection: team draws and stage draws reveal on every phone */
   useEffect(() => {
-    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready) return;
+    /* the intro announces the game first: hold any draw reveal until it is
+       off screen, so the teams land second instead of on top of it */
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || intro || !ready) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -632,7 +634,7 @@ export default function App() {
         return;
       }
     }
-  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, events, ready]); // eslint-disable-line
+  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready]); // eslint-disable-line
   const closeReveal = () => {
     if (reveal) {
       const next = [...(seenReveals||[]), reveal.id].slice(-60);
@@ -710,30 +712,17 @@ export default function App() {
     return () => clearInterval(iv);
   }, [state.poker?.startedAt, notify, onboardStep]); // eslint-disable-line
 
-  /* when betting opens on a new event, it announces itself everywhere. Going
-     on deck only queues it: the intro is the last thing you see before you
-     bet, so it waits for the teams to exist and for the draw to finish
-     revealing them. Announcing a team event before the draw shows a matchup
-     nobody can read yet, and buries the draw under it. */
-  const introQ = useRef(null);
+  /* when betting opens on a new event, it announces itself everywhere. The
+     broadcast order is the game, then the teams, then the book: the intro
+     fires the moment the event goes on deck, and the draw reveal below waits
+     for it to close rather than landing on top of it. */
   const prevOnDeck = useRef("UNSET");
   useEffect(() => {
     if (!ready) return;
     if (prevOnDeck.current !== "UNSET" && state.onDeck && state.onDeck !== prevOnDeck.current
-        && !simRef.current.fast) introQ.current = state.onDeck;
+        && !simRef.current.fast) setIntro(state.onDeck);
     prevOnDeck.current = state.onDeck;
   }, [state.onDeck, ready]); // eslint-disable-line
-  useEffect(() => {
-    const id = introQ.current;
-    if (!id || reveal || intro) return;
-    const ev = events.find(e => e.id === id);
-    /* a team event with no draw yet is not ready to announce; it will be the
-       moment the draw lands, and this effect runs again then */
-    if (!ev || state.onDeck !== id) { introQ.current = null; return; }
-    if (ev.teamCfg && !state.draws[id]) return;
-    introQ.current = null;
-    setIntro(id);
-  }, [reveal, intro, state.draws, state.onDeck, events]);
 
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
@@ -1147,7 +1136,7 @@ export default function App() {
     const todo = simPokerAlive().filter(q => done[q] === undefined);
     if (todo.length) {
       const counted = Object.values(done).reduce((a, b) => a + b, 0);
-      let left = Math.max(0, Math.floor((pokerChips(poker.total) - counted) / CHIP_MIN));
+      let left = Math.max(0, Math.floor((poker.total - counted) / CHIP_MIN));
       const weights = todo.map(() => 0.2 + Math.random());
       const wsum = weights.reduce((a, b) => a + b, 0);
       for (let i = 0; i < todo.length; i++) {
@@ -1529,7 +1518,7 @@ export default function App() {
           if (!todo.length) return notify("Everyone else is counted");
           const counted = Object.values(done).reduce((a, b) => a + b, 0);
           const meIn = done[me] === undefined && simPokerAlive().includes(me) ? 1 : 0;
-          let left = Math.max(0, Math.floor((pokerChips(p.total) - counted) / CHIP_MIN));
+          let left = Math.max(0, Math.floor((p.total - counted) / CHIP_MIN));
           const per = Math.floor(left / (todo.length + meIn));
           for (const q of todo) { await pokerCount(q, Math.min(left, per) * CHIP_MIN); left -= Math.min(left, per); }
           notify(meIn ? "Counts in, yours is the last one" : "Counts in");
@@ -1920,7 +1909,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   /* the three closing cards tell one story: the number you carry all weekend
      IS the stack you sit down with, and the stack decides who takes the trophy */
   const cards = {
-    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 100. Win events and land bets to add to it, and nothing resets between days. Whatever you have on Sunday is how many chips you get at the poker table.", meter:true },
+    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets to add to it, and nothing resets between days. Whatever you have on Sunday is the stack you are dealt at the poker table.", meter:true },
     7: { art:<ArtTicket />, t:"The book", b:"Betting opens when an event goes on deck. Pick a chip off the rack and tap who you like. The outright winner pays 2 to 1, everything else pays even. Half your stack can ride at once.", stack:true },
     8: { art:<TrophyHero size={196} />, t:"The trophy", b:"Most chips at the end of the poker table wins Field Day and takes this home.", tall:true },
   };
@@ -2146,8 +2135,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       {c.meter && (
         <div style={{ marginTop:24, border:"1px solid var(--line)", borderRadius:14,
           background:"var(--paper)", padding:"12px 14px" }}>
-          {[["Check in", "100", false], ["Win 5v5 Full Court", "+160", false],
-            ["Back the right team", "+40", false], ["Lose a duel", "‒10", false]].map(([lb, v], i) => (
+          {[["Check in", "1,000", false], ["Win 5v5 Full Court", "+1,600", false],
+            ["Back the right team", "+400", false], ["Lose a duel", "‒100", false]].map(([lb, v], i) => (
             <div key={lb} style={{ display:"flex", alignItems:"baseline", gap:10, padding:"5px 0",
               animation:`si-in .35s ease-out ${0.15 + i * 0.12}s both` }}>
               <span style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", flex:1 }}>{lb}</span>
@@ -2159,8 +2148,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           <div style={{ display:"flex", alignItems:"baseline", gap:10,
             animation:"si-in .35s ease-out .7s both" }}>
             <span style={{ ...label, fontSize:11, flex:1 }}>At the table</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--sun)" }}>290</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--sun)" }}>2,900</span>
           </div>
+          {/* no conversion line: the board is denominated in chips, so this
+              total IS what gets counted out in front of you */}
           <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8,
             animation:"si-in .35s ease-out .85s both" }}>
             <span style={{ display:"flex" }}>
@@ -2168,7 +2159,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
                 <BankChip p={me} size={22} /></span>)}
             </span>
             <span style={{ fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>
-              becomes <b style={{ color:"var(--ink)", fontWeight:700 }}>2,900 in chips</b></span>
+              dealt to you <b style={{ color:"var(--ink)", fontWeight:700 }}>in chips</b></span>
           </div>
         </div>
       )}
@@ -2699,11 +2690,11 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
               textTransform:"uppercase", color:"var(--sun)" }}>Championship Poker</div>
             {myRow && d ? (
               <div style={{ fontFamily:SANS, fontSize:12.5, color:BONE, marginTop:2 }}>
-                Your buy-in: <b>{fmt(pokerChips(myRow.pts))}</b>
+                Your buy-in: <b>{fmt(myRow.pts)}</b>
                 {d.length ? `, take ${d.map(x => `${x.n} x ${x.v}`).join(" + ")}` : ""}
               </div>
             ) : (
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pokerChips(pk.total))} chips in play</div>
+              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pk.total)} chips in play</div>
             )}
           </div>
           <button onClick={onBuyin} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
@@ -2763,7 +2754,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
           ) : (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
-                Your stack: <b style={{ color:BONE }}>{fmt(pokerChips(myRow?.pts ?? 0))}</b> at the buy-in</span>
+                Your stack: <b style={{ color:BONE }}>{fmt(myRow?.pts ?? 0)}</b> at the buy-in</span>
               <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
                 color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
                 textTransform:"uppercase", padding:"4px 6px" }}>Count</button>
@@ -2794,10 +2785,10 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         <div style={{ borderTop:"1px solid var(--night-line)", padding:"8px 14px",
           display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text)", flex:1 }}>
-            {counted.length} of {alive} counted{allIn ? `, ${fmt(countSum)} of ${fmt(pokerChips(pk.total))}` : ""}
-            {allIn && countSum !== pokerChips(pk.total) && (
-              <span style={{ color:"var(--clay)" }}> ({countSum > pokerChips(pk.total)
-                ? `${fmt(countSum - pokerChips(pk.total))} over` : `${fmt(pokerChips(pk.total) - countSum)} short`})</span>
+            {counted.length} of {alive} counted{allIn ? `, ${fmt(countSum)} of ${fmt(pk.total)}` : ""}
+            {allIn && countSum !== pk.total && (
+              <span style={{ color:"var(--clay)" }}> ({countSum > pk.total
+                ? `${fmt(countSum - pk.total)} over` : `${fmt(pk.total - countSum)} short`})</span>
             )}
           </span>
           {gm && (
@@ -2883,7 +2874,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   if (!pk) return null;
   return (
     <Sheet title="Buy-in" onClose={onClose}>
-      <p style={pStyle}>Points add a zero and become chips. Everyone takes their own stack from the tray.</p>
+      <p style={pStyle}>Your points are your chips. Everyone takes their own stack from the tray.</p>
       {standings.map(r => {
         const d = pokerDenoms(r.pts);
         return (
@@ -2895,13 +2886,13 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
             <span style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
               {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</span>
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
-              textAlign:"right" }}>{fmt(pokerChips(r.pts))}</span>
+              textAlign:"right" }}>{fmt(r.pts)}</span>
           </div>
         );
       })}
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 14px" }}>
         <span style={{ ...label, flex:1 }}>Chips in play</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{fmt(pokerChips(pk.total))}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{fmt(pk.total)}</span>
       </div>
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Shuffle up and deal</Btn>}
     </Sheet>
@@ -2963,12 +2954,12 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 0 4px" }}>
         <span style={{ ...label, flex:1 }}>Counted</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
-          color: allIn && sum === pokerChips(pk.total) ? "var(--green)" : "var(--ink)" }}>{fmt(sum)}</span>
-        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {fmt(pokerChips(pk.total))}</span>
+          color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)" }}>{fmt(sum)}</span>
+        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {fmt(pk.total)}</span>
       </div>
-      {allIn && sum !== pokerChips(pk.total) && (
+      {allIn && sum !== pk.total && (
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
-          {sum > pokerChips(pk.total) ? `${fmt(sum - pokerChips(pk.total))} over` : `${fmt(pokerChips(pk.total) - sum)} short`}. Chips get miscounted, you can still post.
+          {sum > pk.total ? `${fmt(sum - pk.total)} over` : `${fmt(pk.total - sum)} short`}. Chips get miscounted, you can still post.
         </div>
       )}
       <Btn disabled={!allIn} onClick={onPost} style={{ width:"100%", marginTop:8 }}>
@@ -3647,7 +3638,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   marginBottom:12, outline:"none", resize:"vertical" }} />
               <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                {[40,80,120,160].map(v => (
+                {[400,800,1200,1600].map(v => (
                   <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
                     fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                     background: eValue===v ? GOLD_GRAD : "var(--paper)",
@@ -3720,7 +3711,7 @@ function AddEventSheet({ state, onClose, save }) {
           padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:14, outline:"none" }} />
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        {[40,80,120,160].map(v => (
+        {[400,800,1200,1600].map(v => (
           <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19,
             background: value===v ? GOLD_GRAD : "var(--paper)",
@@ -5556,10 +5547,10 @@ function TVPoker({ state, standings }) {
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(12px,1.1vw,16px)", letterSpacing:"0.07em",
               color:"var(--night-text)", textTransform:"uppercase" }}>Championship Poker · buy-in</div>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-              textTransform:"uppercase", color:BONE }}>Your points add a zero.</div>
+              textTransform:"uppercase", color:BONE }}>Your points are your chips.</div>
           </div>
           <div style={{ marginLeft:"auto", textAlign:"right" }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,3vw,48px)", color:"var(--sun)" }}>{fmt(pokerChips(pk.total))}</div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,3vw,48px)", color:"var(--sun)" }}>{fmt(pk.total)}</div>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1vw,14px)", letterSpacing:"0.1em",
               color:"var(--night-text2)", textTransform:"uppercase" }}>chips in play</div>
           </div>
@@ -5578,7 +5569,7 @@ function TVPoker({ state, standings }) {
                   <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.1vw,14px)", color:"var(--muted)" }}>
                     {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</div>
                 </div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)", color:"var(--sun)" }}>{fmt(pokerChips(r.pts))}</div>
+                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)", color:"var(--sun)" }}>{fmt(r.pts)}</div>
               </div>
             );
           })}
@@ -6103,13 +6094,13 @@ function Guide({ replay, events, state }) {
         </div>
       )}
       <S n="01" t="Format">
-        Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 100, and the smallest chip is 10. The board freezes at the trophy ceremony after the poker finale.
+        Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 1,000, and the smallest chip is 100. The board freezes at the trophy ceremony after the poker finale.
       </S>
       <S n="02" t="Scoring">
-        Friday events pay 40. Saturday morning 80, afternoon 120, night 160. The Finale is Championship Poker: your points add a zero and become your stack, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
+        Friday events pay 400. Saturday morning 800, afternoon 1,200, night 1,600. The Finale is Championship Poker: the board is already in chips, so your points are the stack you get dealt, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and closes when the result posts. Pick a chip off the rack, 10 to 100, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. Half your stack can ride at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
+        Betting opens when an event goes on deck and closes when the result posts. Pick a chip off the rack, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. Half your stack can ride at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

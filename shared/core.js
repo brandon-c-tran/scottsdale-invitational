@@ -7,18 +7,19 @@ const GM_PIN = "1016";
 const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
 
 /* the chip quantum: every point value in the economy is a multiple of PT and
-   one rendered BankChip is worth PT points. At the poker finale points add
-   a zero: 1 point buys CHIP_X tournament chips. */
-const PT = 10;
-const START = 10 * PT;     // everyone opens the weekend with 100
-const MAX_RISK = 5 * PT;   // wager exposure floor: nobody is capped below 50
-const BUYIN_FLOOR = 6 * PT; // poker table stakes: nobody sits down under 60
+   one rendered BankChip is worth PT points. The board is denominated in
+   TOURNAMENT CHIPS from check-in, so the poker finale needs no conversion:
+   the number you carried all weekend is the stack you are dealt. */
+const PT = 100;
+const START = 10 * PT;      // everyone opens the weekend with 1,000
+const MAX_RISK = 5 * PT;    // wager exposure floor: nobody is capped below 500
+const BUYIN_FLOOR = 6 * PT; // poker table stakes: nobody sits down under 600
 /* exposure rule everyone can say out loud: up to HALF your stack on the
-   table at once, never capped below MAX_RISK, in 10s. At 100 points that is
-   exactly 50, so the number needs no footnote */
+   table at once, never capped below MAX_RISK, in 100s. At 1,000 points that
+   is exactly 500, so the number needs no footnote */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
-const AWARDS = { 40:[40,0,0], 80:[80,40,0], 120:[120,80,40], 160:[160,80,40] };
+const AWARDS = { 400:[400,0,0], 800:[800,400,0], 1200:[1200,800,400], 1600:[1600,800,400] };
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
@@ -46,68 +47,68 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"40 PTS" },
-  { id:"sam", label:"Saturday Morning",   tag:"80 PTS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"120 PTS" },
-  { id:"san", label:"Saturday Night",     tag:"160 PTS" },
+  { id:"fri", label:"Friday Night",       tag:"400 PTS" },
+  { id:"sam", label:"Saturday Morning",   tag:"800 PTS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"1200 PTS" },
+  { id:"san", label:"Saturday Night",     tag:"1600 PTS" },
   { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const BUILTIN_EVENTS = [
-  /* ── Friday night · 40 pts ── */
-  { id:"putt", n:1, session:"fri", value:40, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
+  /* ── Friday night · 400 pts ── */
+  { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"8ball", n:2, session:"fri", value:40, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"8ball", n:2, session:"fri", value:400, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:3, session:"fri", value:40, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:3, session:"fri", value:400, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  { id:"die", n:4, session:"fri", value:40, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
+  { id:"die", n:4, session:"fri", value:400, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
-  /* ── Saturday morning · 80 pts ── */
-  { id:"bball", n:5, session:"sam", value:80, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
+  /* ── Saturday morning · 800 pts ── */
+  { id:"bball", n:5, session:"sam", value:800, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
     teamCfg:{ teams:4, size:3, bracket:4 },
     desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
-  { id:"spike", n:6, session:"sam", value:80, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
+  { id:"spike", n:6, session:"sam", value:800, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
     teamCfg:{ teams:6, size:2 },
     desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
-  { id:"pingpong", n:7, session:"sam", value:80, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
+  { id:"pingpong", n:7, session:"sam", value:800, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
     desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
-  { id:"foosball", n:8, session:"sam", value:80, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
+  { id:"foosball", n:8, session:"sam", value:800, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
-  /* ── Saturday afternoon · 120 pts ── */
-  { id:"volley", n:9, session:"sap", value:120, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+  /* ── Saturday afternoon · 1200 pts ── */
+  { id:"volley", n:9, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:2, size:6 },
     desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
-  { id:"nine", n:10, session:"sap", value:120, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
+  { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
     desc:"Nine holes, lowest total strokes. Max 5 per hole." },
-  { id:"bball1", n:11, session:"sap", value:120, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+  { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
     desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
-  { id:"pickleball", n:12, session:"sap", value:120, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
-  /* ── Saturday night · 160 pts ── */
-  { id:"flip", n:13, session:"san", value:160, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
+  /* ── Saturday night · 1600 pts ── */
+  { id:"flip", n:13, session:"san", value:1600, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
     teamCfg:{ teams:2, size:6 },
     desc:"Best of 3. Flip clean, next teammate goes." },
-  { id:"beerio", n:14, session:"san", value:160, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  { id:"beerio", n:14, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
-  { id:"bball5", n:15, session:"san", value:160, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+  { id:"bball5", n:15, session:"san", value:1600, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:5 },
     desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
-  { id:"ragecage", n:16, session:"san", value:160, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+  { id:"ragecage", n:16, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
-  { id:"gauntlet", n:17, session:"san", value:160, name:"The Gauntlet", kind:"solo", game:"gauntlet",
+  { id:"gauntlet", n:17, session:"san", value:1600, name:"The Gauntlet", kind:"solo", game:"gauntlet",
     desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
   { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
-    desc:"Your points add a zero and become your stack. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
+    desc:"Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
 /* the games library: one how-to per game, shared across events */
@@ -177,7 +178,7 @@ const GAMES = {
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack. Your points buy you in.",
-    steps:["Your points add a zero: 220 points sits down with 2,200 in chips, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, the TV keeps time.","Bust and you are out. The board tracks it.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    steps:["Your points are your chips: 2,200 on the board sits down with 2,200 in front of you, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, the TV keeps time.","Bust and you are out. The board tracks it.","When the last level ends, count your stack.","Final chip counts are the final standings."],
     win:"Chip leader takes the championship. Elimination order settles the busts.",
     house:"Points are on the table: no wagers, no duels, no rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
@@ -411,9 +412,9 @@ const pokerLive = state => {
    placed after that would settle into nothing, so the book stays closed */
 const stacksPosted = state =>
   Object.values(state.results || {}).some(r => r?.stacks);
-/* points add a zero at the buy-in: 220 points sits down with 2,200 in chips.
-   Real tournament denominations, so any standard set works. */
-const CHIP_X = 10;
+/* the board is already denominated in chips, so the buy-in is not a
+   conversion: 2,200 points is 2,200 in front of you. Real tournament
+   denominations, so any standard set works. */
 const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
 /* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
 const POKER_LEVELS = [
@@ -435,12 +436,11 @@ function pokerClock(poker, now) {
   const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
   return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
 }
-/* physical dealing breakdown for a buy-in of pts points: a blind pack of
-   eight 25s for posting, the rest greedy in 1000/500/100. Exact because
-   points are 20-multiples, so chips are 200-multiples. */
-const pokerChips = pts => pts * CHIP_X;
+/* physical dealing breakdown for a buy-in of pts: a blind pack of eight 25s
+   for posting, the rest greedy in 1000/500/100. Exact because every board
+   value is a PT multiple and PT is 100. */
 function pokerDenoms(pts) {
-  let chips = pokerChips(pts);
+  let chips = pts;
   const stack = [];
   if (chips >= 400) { stack.push({ v: 25, n: 8 }); chips -= 200; }
   else if (chips > 0) { stack.push({ v: 25, n: chips / 25 }); chips = 0; }
@@ -620,9 +620,9 @@ export {
   GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
-  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms, pokerChips,
+  resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,

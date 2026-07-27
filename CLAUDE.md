@@ -29,18 +29,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    automatically corrects payouts. Stale drawId/stagesId references void bets.
 2. **Server-authoritative.** All validation lives in `worker/actions.js`. The
    client may pre-check for UX but the server decision is final.
-3. **Everyone starts with 100 points; PT=10 is the chip quantum.** Every value
-   in the economy (awards, stakes, duel antes, rulings) is a multiple of PT and
-   one rendered BankChip = PT = one physical chip. Standings = 100 + event
-   awards + wager net + rulings, computed fresh from state every time. No
-   stored balances.
+3. **Everyone starts with 1,000; PT=100 is the chip quantum.** The board is
+   denominated in TOURNAMENT CHIPS from check-in, so the poker finale needs no
+   conversion and the app never asks anyone to do arithmetic: the number you
+   carried all weekend is the stack you are dealt. Every value in the economy
+   (awards, stakes, duel antes, rulings) is a multiple of PT and one rendered
+   BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
+   wager net + rulings, computed fresh from state every time. No stored
+   balances.
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
-   advancement, and stage finals pay even. Awards pay 40/80/120/160 by session
-   (`AWARDS` keys ARE the legal event values) so winning games outweighs betting.
-   The at-risk cap is a rule people can SAY: half your stack can ride at once
-   (`maxRisk(pts)` = pts/2 floored to 10s, never capped under 50 `MAX_RISK`).
-   Stake <= balance minus at-risk, stakes move in 10s. Betting UX is video
-   roulette: a fixed rack (10/20/50/100 chips, App.jsx `RACK_DENOMS`) selects
+   advancement, and stage finals pay even. Awards pay 400/800/1200/1600 by
+   session (`AWARDS` keys ARE the legal event values) so winning games outweighs
+   betting. The at-risk cap is a rule people can SAY: half your stack can ride
+   at once (`maxRisk(pts)` = pts/2 floored to 100s, never capped under 500
+   `MAX_RISK`). Stake <= balance minus at-risk, stakes move in 100s. Betting UX
+   is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`) selects
    the tap stake and carries the only economy readout (room + stack; there is
    no separate exposure card); tapping any pick or open bracket side drops
    that chip, value stamped on its face, your ✕ pulls the last one back.
@@ -69,20 +72,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    inputs exactly where the values print, so there is no form-then-preview
    (`LegField` only adds the label and Clear). Legacy free text survives as
    `{note}` and the DO normalises stored legs on load. Then profile, seeds, and three closing cards that land
-   one story: your number IS your poker stack, and the champion takes home a
-   real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
+   one story: your number IS your poker stack (literally, not converted), and
+   the champion takes home a real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
    engraved on both faces). `rerunOnboarding` re-opens the chip race by
    clearing every claimed color/skin, but never once `state.live`. The GM
    travel board lives in the locker room; resets preserve profiles, seeds,
    logistics, AND the onboarding epoch (zeroing it would kill every rerun).
-7. **The poker finale settles on stacks.** At the buy-in points ADD A ZERO:
-   `pokerChips(pts)` = pts x CHIP_X(10), dealt in real denominations
-   25/100/500/1000 (`pokerDenoms`, blind pack of eight 25s), blinds 25/50 to
-   600/1200. Counts are entered in chips (multiples of CHIP_MIN=25) and
-   `pokerResult` counts BECOME the standings verbatim (chip leader = champion,
-   elimination order breaks 0-count ties). `pokerSetup` stakes anyone under 60
-   up to 60 (a "Table stakes" ruling) so nobody rails the finale, and requires
-   a clean book so dealt stacks always match the board (`pokerCancel` reverts
+7. **The poker finale settles on stacks.** There is NO buy-in conversion: the
+   board is already in chips, so a stack of 2,900 sits down with 2,900 in front
+   of it, dealt in real denominations 25/100/500/1000 (`pokerDenoms`, blind
+   pack of eight 25s), blinds 25/50 to 600/1200. Counts are entered in chips
+   (multiples of CHIP_MIN=25) and `pokerResult` counts BECOME the standings
+   verbatim (chip leader = champion, elimination order breaks 0-count ties).
+   `pokerSetup` stakes anyone under 600 up to 600 (a "Table stakes" ruling) so
+   nobody rails the finale, and requires a clean book so dealt stacks always
+   match the board (`pokerCancel` reverts
    the Table stakes grants). The whole economy freezes while cards are live
    (`pokerLive`) and the book stays CLOSED once counts post (`stacksPosted`):
    no wagers, duels, or on-deck after the finale settles; rulings then move

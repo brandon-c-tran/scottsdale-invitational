@@ -57,12 +57,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    logistics reading `state.logistics` via `VenueCard` (address + maps link,
    check-in/checkout, what is on site, host flights; the real booking ships as
    `LOGISTICS` in core and the DO backfills missing keys on load, so a GM edit
-   is never clobbered) and writing shirt size + flights. A flight leg is
-   structured (`{air,num,apt,day,time}`, `apt` is always the non-PHX end,
-   `time` is 24h off the native picker), validated by `cleanLeg` on BOTH
-   sides, rendered as a boarding pass by `FlightStrip` and entered by tapping
-   via `LegEditor`; legacy free text survives as `{note}` and the DO
-   normalises stored legs on load. Then profile, seeds, and three closing cards that land
+   is never clobbered) and writing shirt size + flights. Everyone lands Friday
+   and leaves Sunday and the flight code already implies the airport, so a leg
+   is only `{air,num,time}` (24h off the native picker), validated by
+   `cleanLeg` on BOTH sides, drawn by `FlightStrip` and entered via
+   `LegEditor`; legacy free text survives as `{note}` and the DO normalises
+   stored legs on load. Then profile, seeds, and three closing cards that land
    one story: your number IS your poker stack, and the champion takes home a
    real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
    engraved on both faces). `rerunOnboarding` re-opens the chip race by

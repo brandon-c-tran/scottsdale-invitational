@@ -205,27 +205,20 @@ const DUEL_GAMES = {
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
 /* ─────────── travel ───────────
-   A flight leg is structured so it can be rendered as a boarding pass and
-   entered by tapping: { air, num, apt, day, time }. `apt` is always the end
-   that is not Phoenix, `time` is 24h "HH:MM" straight off a native picker.
-   Legacy free-text legs survive as { note }. */
-const HUB = "PHX";
-const TRAVEL_DAYS = ["Thu", "Fri", "Sat", "Sun", "Mon"];
+   Everyone lands Friday and leaves Sunday, and the flight code already says
+   where you came from, so a leg is only { air, num, time }: carrier, number,
+   and 24h "HH:MM" off the native picker. Legacy free text survives as { note }. */
 const AIRLINES = ["WN", "AA", "UA", "DL", "AS", "B6", "NK", "F9"];
-const HOME_AIRPORTS = ["SFO", "SAN", "TUL", "DFW", "AUS", "BTR", "JFK"];
-const up = (v, n) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, n);
 /* one validator, used by the server on save and the client for display */
 function cleanLeg(v) {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "string") return v.trim() ? { note: v.trim().slice(0, 90) } : null;
   if (typeof v !== "object") return undefined;          // undefined = reject
   const out = {};
-  const air = up(v.air, 3), apt = up(v.apt, 3);
+  const air = String(v.air || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
   const num = String(v.num ?? "").replace(/\D/g, "").slice(0, 4);
   if (air) out.air = air;
   if (num) out.num = num;
-  if (apt) out.apt = apt;
-  if (TRAVEL_DAYS.includes(v.day)) out.day = v.day;
   if (typeof v.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.time)) out.time = v.time;
   if (typeof v.note === "string" && v.note.trim()) out.note = v.note.trim().slice(0, 90);
   return Object.keys(out).length ? out : null;
@@ -241,9 +234,8 @@ function legText(leg, dir) {
   if (!leg) return "";
   if (leg.note) return leg.note;
   const code = [leg.air, leg.num].filter(Boolean).join(" ");
-  const route = leg.apt ? (dir === "out" ? `${HUB} to ${leg.apt}` : `${leg.apt} to ${HUB}`) : "";
-  const when = [leg.day, legTime(leg.time)].filter(Boolean).join(" ");
-  return [code, route, when].filter(Boolean).join(", ");
+  const t = legTime(leg.time);
+  return [code, t && `${dir === "out" ? "leaves Sun" : "lands Fri"} ${t}`].filter(Boolean).join(", ");
 }
 
 /* chip identity: everyone starts gray; colors are claimed first come first
@@ -276,8 +268,8 @@ const LOGISTICS = {
   checkIn: "Fri Oct 30, 4:00 PM",
   checkOut: "Sun Nov 1, 10:00 AM",
   onSite: "Full basketball court, Pickleball court, Sand volleyball, Putting green, Pool and spa, Speakeasy",
-  hostIn: { air:"WN", num:"4663", apt:"SFO", day:"Fri", time:"08:40" },
-  hostOut: { air:"UA", num:"1885", apt:"SFO", day:"Sun", time:"20:37" },
+  hostIn: { air:"WN", num:"4663", time:"08:40" },
+  hostOut: { air:"UA", num:"1885", time:"20:37" },
 };
 
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
@@ -602,7 +594,7 @@ const bracketChampion = br => {
 export {
   GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
-  HUB, TRAVEL_DAYS, AIRLINES, HOME_AIRPORTS, cleanLeg, legTime, legText,
+  AIRLINES, cleanLeg, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms, pokerChips,

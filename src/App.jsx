@@ -6,7 +6,7 @@ import {
   pokerLive, pokerClock, pokerDenoms, pokerChips,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
-  HUB, TRAVEL_DAYS, AIRLINES, HOME_AIRPORTS, cleanLeg, legTime, legText,
+  AIRLINES, cleanLeg, legTime, legText,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
@@ -2328,43 +2328,35 @@ function FlightStrip({ leg: raw, dir, small }) {
     <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
       color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
   );
-  const from = dir === "out" ? HUB : (leg.apt || "\u00b7\u00b7\u00b7");
-  const to = dir === "out" ? (leg.apt || "\u00b7\u00b7\u00b7") : HUB;
   const t = legTime(leg.time);
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: small ? 9 : 11,
+    <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 12,
       background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-      padding: small ? "7px 9px" : "9px 11px" }}>
-      <div style={{ textAlign:"center", flexShrink:0, borderRight:"1px dashed var(--line)",
-        paddingRight: small ? 9 : 11 }}>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 10 : 11,
-          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 15 : 18,
-          lineHeight:1.05, color:"var(--ink)" }}>{leg.num || "\u2014"}</div>
+      padding: small ? "8px 11px" : "10px 13px" }}>
+      <svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 24 24" fill="var(--muted)"
+        aria-hidden="true" style={{ flexShrink:0 }}>
+        <path d="M2 4 22 12 2 20l4.6-8z"/>
+      </svg>
+      <div style={{ display:"flex", alignItems:"baseline", gap:7, flex:1, minWidth:0 }}>
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
+          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 19 : 22,
+          color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
       </div>
-      <div style={{ display:"flex", alignItems:"center", gap:7, flex:1, minWidth:0 }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19,
-          color:"var(--ink)" }}>{from}</span>
-        <svg width={small ? 13 : 15} height={small ? 13 : 15} viewBox="0 0 24 24" fill="var(--muted)"
-          aria-hidden="true" style={{ flexShrink:0 }}>
-          <path d="M2 4 22 12 2 20l4.6-8z"/>
-        </svg>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19,
-          color:"var(--ink)" }}>{to}</span>
-      </div>
-      <div style={{ textAlign:"right", flexShrink:0 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 15 : 18, lineHeight:1.05,
+      <div style={{ textAlign:"right", flexShrink:0, borderLeft:"1px dashed var(--line)",
+        paddingLeft: small ? 10 : 12 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
           color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
           letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)" }}>
-          {leg.day || ""} {dir === "out" ? "out" : "in"}</div>
+          {dir === "out" ? "Leaves Sun" : "Lands Fri"}</div>
       </div>
     </div>
   );
 }
 
-/* entering a leg is taps, not typing: three short codes on one row, then the
-   day as chips and the time from the phone's own clock picker */
+/* a leg is three things now: everyone lands Friday and leaves Sunday, and the
+   flight code already says which airport you came from */
 function LegEditor({ lb, dir, leg, setLeg }) {
   const v = leg || {};
   const set = patch => setLeg({ ...v, ...patch });
@@ -2372,7 +2364,7 @@ function LegEditor({ lb, dir, leg, setLeg }) {
     color:"var(--ink)", outline:"none", height:46, width:"100%", padding:"0 8px", textAlign:"center",
     fontFamily:SANS, fontWeight:700, fontSize:15, minWidth:0 };
   const cap = { ...label, fontSize:9.5, marginBottom:4, textAlign:"center" };
-  const filled = v.air || v.num || v.apt || v.time || v.day;
+  const filled = v.air || v.num || v.time;
   return (
     <div style={{ marginBottom:14 }}>
       <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:7 }}>
@@ -2383,8 +2375,8 @@ function LegEditor({ lb, dir, leg, setLeg }) {
             letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--muted)" }}>Clear</button>
         )}
       </div>
-      <div style={{ display:"flex", gap:7, marginBottom:8 }}>
-        <div style={{ width:72 }}>
+      <div style={{ display:"flex", gap:7 }}>
+        <div style={{ width:76 }}>
           <div style={cap}>Airline</div>
           <input value={v.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
             onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
@@ -2395,35 +2387,12 @@ function LegEditor({ lb, dir, leg, setLeg }) {
           <input value={v.num || ""} inputMode="numeric" placeholder="1885"
             onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })} style={cell} />
         </div>
-        <div style={{ width:76 }}>
-          <div style={cap}>{dir === "out" ? "To" : "From"}</div>
-          <input value={v.apt || ""} list="fd-airports" placeholder="SFO" autoCapitalize="characters"
-            onChange={e => set({ apt: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) })}
-            style={cell} />
-        </div>
-      </div>
-      <div style={{ display:"flex", gap:7, alignItems:"flex-end" }}>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ ...cap, textAlign:"left" }}>Day</div>
-          <div style={{ display:"flex", gap:4 }}>
-            {TRAVEL_DAYS.map(d => (
-              <button key={d} onClick={() => set({ day: v.day === d ? undefined : d })}
-                style={{ flex:1, height:46, padding:0, borderRadius:10, cursor:"pointer",
-                  fontFamily:SANS, fontWeight:700, fontSize:12.5, minWidth:0,
-                  background: v.day === d ? GOLD_GRAD : "var(--paper2)",
-                  color: v.day === d ? "var(--ink0)" : "var(--ink)",
-                  border: v.day === d ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{d}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{ width:108 }}>
-          <div style={{ ...cap, textAlign:"left" }}>{dir === "out" ? "Departs" : "Lands"}</div>
+        <div style={{ width:112 }}>
+          <div style={cap}>{dir === "out" ? "Leaves" : "Lands"}</div>
           <input type="time" value={v.time || ""} onChange={e => set({ time: e.target.value })}
             style={{ ...cell, textAlign:"left" }} />
         </div>
       </div>
-      {/* the pass you are making, so the clock and the route read back before
-          anyone else sees them */}
       {filled && (
         <div style={{ marginTop:8, animation:"si-in .2s ease-out" }}>
           <FlightStrip leg={v} dir={dir} small />
@@ -2433,14 +2402,9 @@ function LegEditor({ lb, dir, leg, setLeg }) {
   );
 }
 
-/* the datalists both editors share: the seven cities everyone flies from */
+/* the carrier list both editors share */
 function TravelLists() {
-  return (
-    <>
-      <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>
-      <datalist id="fd-airports">{HOME_AIRPORTS.map(a => <option key={a} value={a} />)}</datalist>
-    </>
-  );
+  return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
 }
 
 /* travel entry, shared by onboarding and the profile sheet */
@@ -2448,8 +2412,8 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
   return (
     <div>
       <TravelLists />
-      <LegEditor lb="Flight in" dir="in" leg={flightIn} setLeg={setFlightIn} />
-      <LegEditor lb="Flight out" dir="out" leg={flightOut} setLeg={setFlightOut} />
+      <LegEditor lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
+      <LegEditor lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:-4, lineHeight:1.5 }}>
         Goes to Brandon for pickups and headcounts. Add it when booked.</div>
     </div>
@@ -2549,8 +2513,8 @@ function LogisticsEditor({ state, onSave }) {
       </div>
       <div style={{ marginTop:14 }}>
         <TravelLists />
-        <LegEditor lb="Your flight in" dir="in" leg={hostIn} setLeg={setHostIn} />
-        <LegEditor lb="Your flight out" dir="out" leg={hostOut} setLeg={setHostOut} />
+        <LegEditor lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
+        <LegEditor lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
       </div>
       <Btn disabled={!dirty} onClick={() => onSave({ ...form, hostIn, hostOut })}
         style={{ width:"100%", marginTop:4 }}>Save</Btn>

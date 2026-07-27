@@ -502,7 +502,7 @@ export default function App() {
           (r.status === "won" || r.status === "lost")) { any = true; delta += r.delta; }
     });
     if (any && onboardStep >= 99) {
-      notify(delta > 0 ? `Cashed +${delta}` : delta < 0 ? `Wager lost ${delta}` : "Wagers settled even",
+      notify(delta > 0 ? `Won +${delta}` : delta < 0 ? `Lost ${delta}` : "Wagers settled even",
         null, delta > 0 ? "gold" : undefined, me);
       settleToastV.current = version;
     }
@@ -1072,7 +1072,7 @@ export default function App() {
   const simDuelMe = async () => {
     if (!me) throw new Error("Pick who you are first");
     const s = stateRef.current;
-    if (pokerLive(s)) throw new Error("Points are on the table");
+    if (pokerLive(s)) throw new Error("The finale is live");
     if (s.frozen) throw new Error("The board is frozen");
     const { canSend, canFace } = simDuelPools(s);
     const from = rnd(ROSTER.filter(p => canSend(p) && canFace(p, me)));
@@ -1114,7 +1114,7 @@ export default function App() {
     }
     if (through === "setup") return;
     if (!stateRef.current.poker?.startedAt) {
-      await simDo("pokerStart", {}, "Shuffle up and deal");
+      await simDo("pokerStart", {}, "Start the table");
       await simWait(400);
     }
     for (let b = 0; b < 4 && simPokerAlive().length > 3; b++) {
@@ -1229,7 +1229,7 @@ export default function App() {
   /* standalone helpers refuse to poke a table with cards in the air */
   const qaGuard = fn => () => {
     const s = stateRef.current;
-    if (pokerLive(s)) return notify("Points are on the table");
+    if (pokerLive(s)) return notify("The finale is live");
     if (s.frozen) return notify("The board is frozen");
     runSim(fn)();
   };
@@ -1247,7 +1247,7 @@ export default function App() {
     if (!ev) return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
     if (ev.game === "poker" && ev.finale) {
       if (!state.poker) return { label:"Set up the poker table", run:() => { pokerSetup(); setModal({type:"pokerBuyin"}); } };
-      if (!state.poker.startedAt) return { label:"Shuffle up and deal", run:() => setModal({type:"pokerBuyin"}) };
+      if (!state.poker.startedAt) return { label:"Start the table", run:() => setModal({type:"pokerBuyin"}) };
       return { label:"Run the table", run:() => setModal({type:"pokerResult"}) };
     }
     if (ev.teamCfg && !state.draws[ev.id])
@@ -1634,7 +1634,7 @@ function EventIntro({ state, ev, big, auto, onClose, onBets }) {
 const TOUR = [
   { tab:"board", title:"Board", desc:"The standings. Live, the moment results post.", caret:true },
   { tab:"sched", title:"Events", desc:"The schedule. Draws, brackets, and results run here.", caret:true },
-  { tab:"bets", title:"Bets", desc:"The whiteboard. One tap drops a chip when betting opens.", caret:true },
+  { tab:"bets", title:"Bets", desc:"Place your bets here. One tap drops a chip when betting opens.", caret:true },
   { tab:"guide", title:"Rules", desc:"Scoring, wagers, and how to play every game.", caret:true },
   { tab:"board", title:"Quick Draw", desc:"Tap anyone on the board to challenge them: a reaction game for 1 chip each, played on your own phones. Fastest tap wins." },
 ];
@@ -1910,8 +1910,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
      IS the stack you sit down with, and the stack decides who takes the trophy */
   const cards = {
     6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets to add to it, and nothing resets between days. Whatever you have on Sunday is the stack you are dealt at the poker table.", meter:true },
-    7: { art:<ArtTicket />, t:"The book", b:"Betting opens when an event goes on deck. Pick a chip off the rack and tap who you like. The outright winner pays 2 to 1, everything else pays even. Half your stack can ride at once.", stack:true },
-    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"Most chips at the end of the poker table wins Field Day and takes this home.", tall:true },
+    7: { art:<ArtTicket />, t:"Betting", b:"Betting opens when an event goes on deck. Pick a chip and tap who you like. The outright winner pays 2 to 1, everything else pays even. At most half your stack can be at risk at once.", stack:true },
+    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"Most chips when the finale ends wins Field Day and takes this home.", tall:true },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
@@ -2062,7 +2062,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-        <div style={label}>Sealed scouting report</div>
+        <div style={label}>Private</div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 6px" }}>Rate yourself</div>
         <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
           Nobody sees this. It only balances draws and heats.
@@ -2707,7 +2707,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         </div>
         {gm && (
           <div style={{ display:"flex", gap:8, padding:"0 14px 12px" }}>
-            <Btn onClick={onStart} style={{ flex:1, padding:"10px 12px", fontSize:12.5 }}>Shuffle up and deal</Btn>
+            <Btn onClick={onStart} style={{ flex:1, padding:"10px 12px", fontSize:12.5 }}>Start the table</Btn>
             <Btn kind="danger" onClick={onCancel} style={{ padding:"10px 12px", fontSize:12.5 }}>Cancel</Btn>
           </div>
         )}
@@ -2898,7 +2898,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
         <span style={{ ...label, flex:1 }}>Chips in play</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{fmt(pk.total)}</span>
       </div>
-      {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Shuffle up and deal</Btn>}
+      {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Start the table</Btn>}
     </Sheet>
   );
 }
@@ -4861,7 +4861,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
           background:"var(--paper)", border:"1px solid var(--line)", boxShadow:"var(--shadow-3)" }}>
           <div>
             <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:5 }}>
-              <span style={{ ...label, fontSize:9.5 }}>Half your stack can ride</span>
+              <span style={{ ...label, fontSize:9.5 }}>At risk</span>
               <span style={{ marginLeft:"auto", fontFamily:DISPLAY, fontWeight:700, fontSize:17,
                 lineHeight:1, color: room >= PT ? "var(--ink)" : "var(--clay)" }}>{fmt(room)}</span>
               <span style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.1em",
@@ -4879,8 +4879,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
                 background:"var(--ink)", left:`${myPts ? Math.min(100, (myCap / myPts) * 100) : 100}%` }} />
             </div>
             <div style={{ display:"flex", marginTop:4, fontFamily:SANS, fontSize:10, color:"var(--muted)" }}>
-              <span>{fmt(myExp)} riding</span>
-              <span style={{ marginLeft:"auto" }}>max {fmt(myCap)} of {fmt(myPts)}</span>
+              <span>{fmt(myExp)} of {fmt(myCap)} max</span>
+              <span style={{ marginLeft:"auto" }}>stack {fmt(myPts)}</span>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:13 }}>
@@ -5463,7 +5463,7 @@ function TVBettingBoard({ state, events, ev }) {
       {Hero ? <div style={{ transform:"scale(1.9)", margin:"20px 0 30px" }}><Hero /></div>
         : <GameMark id={ev.game} size={150} />}
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)",
-        textTransform:"uppercase", color:"var(--night-text)" }}>The book is open. No chips in yet.</div>
+        textTransform:"uppercase", color:"var(--night-text)" }}>Betting is open. No chips in yet.</div>
     </div>
   );
   return (
@@ -5474,7 +5474,7 @@ function TVBettingBoard({ state, events, ev }) {
       <div style={{ display:"flex", alignItems:"center", gap:12, paddingTop:12 }}>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
           textTransform:"uppercase", color:"var(--sun)" }}>
-          {fmt(chipsIn * PT)} on the table</span>
+          {fmt(chipsIn * PT)} in play</span>
         <span style={{ fontFamily:SANS, fontSize:"clamp(12px,1.2vw,16px)", color:"var(--night-text)" }}>
           winner pays 2 to 1, everything else even</span>
       </div>
@@ -5827,12 +5827,12 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   if (onDeckEv) {
     const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
     const ptsIn = riding.reduce((n, x) => n + x.w.stake, 0);
-    if (ptsIn > 0) tickerItems.push({ tag:"The book", tone:"var(--accent2)",
+    if (ptsIn > 0) tickerItems.push({ tag:"Betting", tone:"var(--accent2)",
       players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
-      text:`${fmt(ptsIn)} riding on ${onDeckEv.name}` });
+      text:`${fmt(ptsIn)} on ${onDeckEv.name}` });
   }
   mergeWagerLines(allW.filter(x => x.r.status === "won")).slice(0,2).forEach(x =>
-    tickerItems.push({ tag:"Cashed", tone:"var(--green)", players:[x.w.player],
+    tickerItems.push({ tag:"Won", tone:"var(--green)", players:[x.w.player],
       text:`${disp(state, x.w.player)} +${x.r.delta}` }));
   if (pokerLive(state)) {
     const clk = pokerClock(state.poker, Date.now());
@@ -6003,7 +6003,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       ) : scene === "book" ? (
         <div key="scene-book" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
           justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={sceneLabel}>The book</div>
+          <div style={sceneLabel}>Betting</div>
           <div style={sceneTitle}>{openBook.length} open wager{openBook.length === 1 ? "" : "s"}</div>
           <div style={{ display:"grid", gridTemplateColumns: openBook.length > 4 ? "1fr 1fr 1fr" : "1fr",
             gap:"10px 24px", width:"100%", maxWidth:1300 }}>
@@ -6129,7 +6129,7 @@ function Guide({ replay, events, state }) {
         Friday events pay 400. Saturday morning 800, afternoon 1,200, night 1,600. The Finale is Championship Poker: the board is already in chips, so your points are the stack you get dealt, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
       </S>
       <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and closes when the result posts. Pick a chip off the rack, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. Half your stack can ride at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
+        Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. At most half your stack can be at risk at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
       </S>
       <S n="04" t="Duels">
         A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.

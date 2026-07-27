@@ -93,7 +93,7 @@ export const ACTIONS = {
     const player = ctx.player;
     if (!player) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("Points are on the table");
+    if (pokerLive(state)) return err("The finale is live");
     if (stacksPosted(state)) return err("The finale is settled");
     const events = allEventsOf(state);
     const ev = events.find(e => e.id === wager.eventId);
@@ -182,7 +182,7 @@ export const ACTIONS = {
     if (!w) return err("No such wager");
     if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
     if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("Points are on the table");
+    if (pokerLive(state)) return err("The finale is live");
     if (state.onDeck !== w.eventId) return err("Betting is closed");
     const r = resolveWager(state, w, allEventsOf(state));
     if (r.status !== "pending") return err("Already settled");
@@ -205,7 +205,7 @@ export const ACTIONS = {
     const from = ctx.player;
     if (!from) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("Points are on the table");
+    if (pokerLive(state)) return err("The finale is live");
     if (stacksPosted(state)) return err("The finale is settled");
     if (!ROSTER.includes(to)) return err("Unknown player");
     if (to === from) return err("Pick someone else");
@@ -234,7 +234,7 @@ export const ACTIONS = {
     const p = ctx.player;
     if (!p) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("Points are on the table");
+    if (pokerLive(state)) return err("The finale is live");
     if (stacksPosted(state)) return err("The finale is settled");
     const d = (state.duels || []).find(x => x.id === id);
     if (!d) return err("No such duel");
@@ -524,7 +524,7 @@ export const ACTIONS = {
        able to move points after stacks are dealt */
     const events = allEventsOf(state);
     if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
-      return err("Settle or void the open book first");
+      return err("Settle or void the open wagers first");
     if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
       return err("Settle or void the open duels first");
     let rows = computeStandings(state);
@@ -534,7 +534,7 @@ export const ACTIONS = {
        reverts these, so a cancel-and-reset never grants twice. */
     rows.filter(r => r.pts < BUYIN_FLOOR).forEach(r => {
       state.adjustments.unshift({ id: "a" + Date.now() + "-" + r.player, player: r.player,
-        delta: BUYIN_FLOOR - r.pts, reason: "Table stakes", ts: Date.now() });
+        delta: BUYIN_FLOOR - r.pts, reason: "Minimum stack", ts: Date.now() });
     });
     rows = computeStandings(state);
     state.poker = { id: ev.id, total: rows.reduce((s, r) => s + r.pts, 0),
@@ -617,7 +617,7 @@ export const ACTIONS = {
     if (!state.poker) return err("No table set");
     if (state.results[state.poker.id]) return err("Clear the result first");
     /* the table stakes grants belonged to this table */
-    state.adjustments = state.adjustments.filter(a => a.reason !== "Table stakes");
+    state.adjustments = state.adjustments.filter(a => a.reason !== "Minimum stack");
     state.poker = null;
     return ok();
   },
@@ -632,7 +632,7 @@ export const ACTIONS = {
     if (stacksPosted(state)) {
       if (delta % CHIP_MIN !== 0) return err("Counts move in 25s");
     } else if (delta % PT !== 0) return err("Rulings move in 100s");
-    if (pokerLive(state)) return err("Move chips on the table instead");
+    if (pokerLive(state)) return err("The finale is live, correct it after the count");
     state.adjustments.unshift({ id: "a" + Date.now() + "-" + player, player, delta,
       reason: String(reason || "").slice(0, 80), ts: Date.now() });
     return ok();

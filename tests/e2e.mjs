@@ -265,8 +265,8 @@ r = await a.dispatch("pokerSetup", {});
 assert(r.ok, "table set");
 await b.waitVersion(a.version);
 {
-  const stake = b.state.adjustments.find(x => x.reason === "Table stakes");
-  assert(stake?.player === "Chinh" && stake.delta === 200, "table stakes ruling staked Chinh to 600");
+  const stake = b.state.adjustments.find(x => x.reason === "Minimum stack");
+  assert(stake?.player === "Chinh" && stake.delta === 200, "minimum-stack ruling brought Chinh to 600");
   assert(computeStandings(b.state).find(x => x.player === "Chinh").pts === 600, "Chinh sits with 600");
 }
 await b.waitVersion(a.version);

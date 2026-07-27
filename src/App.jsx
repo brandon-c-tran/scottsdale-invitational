@@ -5364,6 +5364,7 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
 function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBets,
   onBustOne, onCountRest, onRerun, onReplayMine, onReset, onClose }) {
   const [confirm, setConfirm] = useState(false);
+  const [confirmRerun, setConfirmRerun] = useState(false);
   const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
   return (
     <Sheet title="QA" onClose={onClose}>
@@ -5399,10 +5400,16 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
       <div style={sect}>Onboarding</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         <Btn kind="ghost" onClick={onReplayMine}>Replay on this phone</Btn>
-        <Btn kind="ghost" onClick={onRerun}>Rerun for everyone</Btn>
+        {/* the only QA control that throws away something a guest chose, so it
+            asks twice and says what it costs. Reset game keeps every claim. */}
+        {confirmRerun
+          ? <Btn kind="flame" onClick={() => { setConfirmRerun(false); onRerun(); }}>
+              Confirm, drops every chip</Btn>
+          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Rerun for everyone</Btn>}
       </div>
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
-        This phone replays now. Everyone else replays the next time their app has focus.</div>
+        This phone replays now. Everyone else replays the next time their app has focus.
+        A rerun reopens the chip race, so every claimed color is released.</div>
       <div style={sect}>Board</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         {confirm ? (

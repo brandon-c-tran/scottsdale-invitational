@@ -6230,22 +6230,22 @@ function Guide({ replay, events, state }) {
         </div>
       )}
       <S n="01" t="The weekend">
-        Thirteen players, sixteen events, one board. Teams reshuffle every event, so you are never stuck with the same side. Everyone starts at 1,000 points and nothing is scored separately: results, bets, and duels all move the same number.
+        Thirteen players, sixteen events, one board. Teams reshuffle every event. Everyone starts at 1,000, and results, bets, and duels all move that same number.
       </S>
       <S n="02" t="Points are chips">
-        Whatever you have when the events end is the stack you sit down with at Championship Poker. There is no conversion: 2,900 on the board is 2,900 in front of you. Whoever wins that table is the Field Day champion and the board freezes at the trophy.
+        Whatever you have when the events end is the stack you are dealt at Championship Poker. No conversion: 2,900 on the board is 2,900 in front of you. The winner of that table is the Field Day champion, and the board freezes on the final counts.
       </S>
       <S n="03" t="What events pay">
-        Friday 400. Saturday morning 800, afternoon 1,200, night 1,600. Solo events pay the podium; team events pay every player on the placing team the full amount. Ties get a quick tiebreaker, and a championship tie is one pressure putt.
+        Friday 400. Saturday morning 800, afternoon 1,200, night 1,600. Solo events pay the podium. Team events pay every player on the placing team the full amount. Ties are settled on the spot, and a championship tie is one pressure putt.
       </S>
       <S n="04" t="Betting">
-        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1; matchups, getting out of a heat or pool, and stage finals pay even. Only half your points can be at risk at a time. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
+        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one bad decision, only half your points can be at risk at a time. Bets settle off the official result, so correcting a result corrects the payouts. Brandon can void any wager.
       </S>
       <S n="05" t="Duels">
-        Short on points, challenge someone. Tap anyone on the board, name the ante, and you both put up the same. You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips. One open challenge per pair, three a day.
+        Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same. You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips. One open challenge per pair, three a day.
       </S>
       <S n="06" t="Draws and brackets">
-        Brandon runs each draw and it reveals on every phone. Teams balance themselves from your ratings and how you are actually playing, refined until the sides are even. The later the weekend, the more your real results count. Ratings are never shown. Some events are captains drafting instead. Brackets, heats, and pools track live here and on the TV.
+        Brandon runs each draw and it reveals on every phone at once. Teams balance from your ratings and your results so far, and the later the weekend, the more the results count. Ratings are never shown. Some events are captains drafting instead. Brackets, heats, and pools update here and on the TV as they are played.
       </S>
       <S n="07" t="Learn the games">
         <div style={{ display:"grid", gap:8 }}>
@@ -6267,7 +6267,7 @@ function Guide({ replay, events, state }) {
         </div>
       </S>
       <S n="08" t="Saturday night awards">
-        The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
+        Voted Saturday night: The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
       </S>
       <S n="09" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.

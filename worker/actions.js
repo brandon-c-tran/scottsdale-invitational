@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, LOGISTICS, cleanLeg, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
 } from "../shared/core.js";
@@ -681,7 +681,7 @@ export const ACTIONS = {
      once, onboarding and the guide read it on every phone */
   saveLogistics(state, patch, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const clean = { ...LOGISTICS, ...(state.logistics || {}) };
+    const clean = cleanLogistics(state.logistics);
     const FIELDS = [["venue", 140], ["venueNote", 240], ["checkIn", 40], ["checkOut", 40]];
     for (const [k, max] of FIELDS) {
       const v = patch?.[k];
@@ -695,7 +695,9 @@ export const ACTIONS = {
       if (leg === undefined) return err("Bad flight");
       if (leg === null) delete clean[k]; else clean[k] = leg;
     }
-    state.logistics = clean;
+    /* a save is edited through the same rules it was loaded through, so a
+       cleared address comes back rather than leaving the invite with none */
+    state.logistics = cleanLogistics(clean);
     return ok();
   },
 };

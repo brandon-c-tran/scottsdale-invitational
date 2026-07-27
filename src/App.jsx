@@ -2310,8 +2310,10 @@ function VenueCard({ lg }) {
         <HouseArt />
         <div style={{ padding:"12px 14px", borderTop:"1px solid var(--line)" }}>
           <div style={{ ...label, marginBottom:5 }}>The house</div>
-          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15.5, lineHeight:1.45, userSelect:"text",
-            color: lg.venue ? "var(--ink)" : "var(--muted)" }}>{lg.venue || "Address drops soon."}</div>
+          {/* the address ships in core, so there is no honest empty state to
+              write copy for: if it is somehow blank, say nothing */}
+          {lg.venue && <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15.5, lineHeight:1.45,
+            userSelect:"text", color:"var(--ink)" }}>{lg.venue}</div>}
           {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
             lineHeight:1.5 }}>{lg.venueNote}</div>}
           {mapUrl && (

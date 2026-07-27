@@ -57,8 +57,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the
    address + a maps link, check-in/checkout, host flights; no listing name and
    no amenity list, people already know. The real booking ships as `LOGISTICS`
-   in core and the DO backfills missing keys on load, so a GM edit is never
-   clobbered) and writing shirt size + flights. Everyone lands Friday and
+   in core and every read and write runs `cleanLogistics`: a sheet stamped with
+   an older `LOGISTICS.v` was written against a booking we no longer have and
+   is replaced whole, and at the current edition blanks fall back to what
+   shipped and retired keys are dropped, so a GM edit is never clobbered but a
+   stale one can never outlive the real address either. Bump `v` when the
+   booking actually changes) and writing shirt size + flights. Everyone lands Friday and
    leaves Sunday and the flight code already implies the airport, so a leg is
    only `{air,num,time}` (24h off the native picker), validated by `cleanLeg`
    on BOTH sides. One component reads AND writes a leg: `FlightPass` puts the

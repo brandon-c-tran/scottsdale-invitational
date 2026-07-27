@@ -262,6 +262,7 @@ const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1"
    to type it and the invite is correct the moment it goes out. GM can edit
    every line from the locker room. */
 const LOGISTICS = {
+  v: 2,
   venue: "10848 North Aberdeen Road, Scottsdale, AZ",
   venueNote: "",
   checkIn: "Fri Oct 30, 4:00 PM",
@@ -269,6 +270,32 @@ const LOGISTICS = {
   hostIn: { air:"WN", num:"4663", time:"08:40" },
   hostOut: { air:"UA", num:"1885", time:"20:37" },
 };
+
+/* stored logistics shadows the booking above, so a line written before the
+   real one shipped, or blanked by a stray save, would outlive every reset and
+   every deploy. Applied on load AND on save: a sheet stamped with an older
+   edition than `v` was written against a booking we no longer have, so it is
+   replaced whole, once; at the current edition a blank falls back to what
+   shipped (except venueNote, which ships blank and so can be cleared), a key
+   that no longer exists is dropped, and a leg is whatever cleanLeg says it is.
+   The GM can change any line; they just cannot leave us with no address. Bump
+   `v` when the real booking changes, never for a wording tweak */
+function cleanLogistics(stored) {
+  const out = { ...LOGISTICS };
+  if (stored?.v === LOGISTICS.v)
+    for (const k of Object.keys(LOGISTICS)) {
+      const v = stored[k];
+      if (v !== undefined && v !== null) out[k] = v;
+    }
+  for (const k of ["hostIn", "hostOut"]) {
+    const leg = cleanLeg(out[k]);
+    if (leg) out[k] = leg; else delete out[k];
+  }
+  for (const k of Object.keys(out))
+    if (typeof out[k] === "string") out[k] = out[k].trim() || LOGISTICS[k];
+  out.v = LOGISTICS.v;
+  return out;
+}
 
 const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
@@ -592,7 +619,7 @@ const bracketChampion = br => {
 export {
   GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
-  AIRLINES, cleanLeg, legTime, legText,
+  AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_X, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms, pokerChips,

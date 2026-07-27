@@ -40,17 +40,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
    advancement, and stage finals pay even. Awards pay 400/800/1200/1600 by
    session (`AWARDS` keys ARE the legal event values) so winning games outweighs
-   betting. The at-risk cap is a rule people can SAY: half your stack can ride
-   at once (`maxRisk(pts)` = pts/2 floored to 100s, never capped under 500
-   `MAX_RISK`). Stake <= balance minus at-risk, stakes move in 100s. Betting UX
+   betting. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
+   capped under 500 (`MAX_RISK`). Stake <= balance minus at-risk, stakes move in 100s. Betting UX
    is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`)
    selects the tap stake and carries the only economy readout, a meter that
-   DRAWS the rule instead of narrating it: the bar is your whole stack, the
+   DRAWS the cap instead of narrating it: the bar is your whole stack, the
    notch is `maxRisk`, the gold is your exposure, and the gap between them is
    what is left to bet. It stays up when you are maxed out, since that is when
-   it explains the most. Label it with numbers, never with a phrase: Brandon
-   cut "half your stack can ride" as corny, and gambling idiom in general
-   ("cashed", "the book", "shuffle up and deal", "table stakes") is out. Tapping any pick or open bracket side drops
+   it explains the most, and it is labelled with numbers, never a phrase.
+   Tapping any pick or open bracket side drops
    that chip, value stamped on its face, your ✕ pulls the last one back.
    TV mode is the constant status: the live scene carries an UP NOW banner and
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
@@ -89,11 +87,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    pack of eight 25s), blinds 25/50 to 600/1200. Counts are entered in chips
    (multiples of CHIP_MIN=25) and `pokerResult` counts BECOME the standings
    verbatim (chip leader = champion, elimination order breaks 0-count ties).
-   `pokerSetup` stakes anyone under 600 up to 600 (a "Table stakes" ruling) so
-   nobody rails the finale, and requires a clean book so dealt stacks always
-   match the board (`pokerCancel` reverts
-   the Table stakes grants). The whole economy freezes while cards are live
-   (`pokerLive`) and the book stays CLOSED once counts post (`stacksPosted`):
+   `pokerSetup` tops anyone under 600 up to 600 (a "Minimum stack" ruling) so
+   nobody sits out the finale, and requires every wager and duel settled or
+   voided first so dealt stacks always match the board (`pokerCancel` reverts
+   the Minimum stack grants). The whole economy freezes while cards are live
+   (`pokerLive`) and betting stays CLOSED once counts post (`stacksPosted`):
    no wagers, duels, or on-deck after the finale settles; rulings then move
    in 25s (chip units). Derived and reversible: `clearResult` re-arms the
    table.
@@ -112,6 +110,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
   No reassuring filler lines (Brandon hates "Yours all weekend once the board
   goes live" and everything like it): copy states a fact or gets deleted.
+- NO borrowed casino/sports idiom. Brandon cut "half your stack can ride" as
+  corny, and the same pass removed "cashed", "the book", "shuffle up and deal",
+  "table stakes", "the whiteboard", "points are on the table", "sealed scouting
+  report". Label things with numbers or with what they are. The real NAMES of
+  real things stay (blinds, bust, stack, chips, draw, heats, on deck): those
+  are what the objects are called, not flavor.
 - Field Day look: sun-faded rec-tournament at night, championship seriousness.
   FULL DARK: warm near-black surfaces (bg/paper/paper2 night ramp), --ink is
   the primary TEXT color (bone), --ink0 is the absolute brown-black reserved

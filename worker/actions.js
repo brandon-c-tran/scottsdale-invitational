@@ -10,7 +10,7 @@ import {
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
-const err = error => ({ ok: false, error });
+const err = (error, extra) => ({ ok: false, error, extra });
 const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
@@ -657,8 +657,20 @@ export const ACTIONS = {
   /* replaying the intro re-opens the chip race: colors go back on the board so
      the claim is first come first serve again. Never mid-weekend, when the
      board has already taught everyone whose color is whose. */
-  rerunOnboarding(state, {}, ctx) {
+  /* Reruns re-open the chip race, which is the ONLY thing in the app that
+     throws away something a guest chose. Once the invite is out and real
+     people have checked in, that has to be deliberate: the server refuses
+     without an explicit force, so a stray call or a fat finger cannot do it.
+     `signedUp` is also handed back so the GM sees who it costs. */
+  rerunOnboarding(state, { force }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    const signedUp = ROSTER.filter(p => {
+      const pr = state.profiles?.[p];
+      return !!(pr && (pr.size || pr.flightIn || pr.flightOut || pr.color || pr.skin
+        || pr.photoV || state.seeds?.[p]));
+    });
+    if (signedUp.length && !force)
+      return err(`${signedUp.length} checked in already`, { signedUp });
     state.onboardEpoch = (state.onboardEpoch || 0) + 1;
     if (!state.live) {
       for (const p of Object.keys(state.profiles || {})) {
@@ -666,7 +678,7 @@ export const ACTIONS = {
         delete state.profiles[p].skin;
       }
     }
-    return ok();
+    return ok({ signedUp });
   },
   setLive(state, { on }, ctx) {
     const g = gmOnly(ctx); if (g) return g;

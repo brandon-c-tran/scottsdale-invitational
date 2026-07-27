@@ -38,6 +38,22 @@ const page_ = (body, px, bg) => `<!doctype html><html><head>
   <style>html,body{margin:0}#f{width:${px}px;height:${px}px;display:flex;align-items:center;justify-content:center;${bg ? `background:${bg}` : ""}}</style>
   </head><body><div id="f">${body}</div></body></html>`;
 
+/* the link card: what the invite looks like pasted into a group chat. Same
+   mark, same night field, the words set in the display face so a bare URL is
+   never what people see first. */
+const share = () => `<div style="width:1200px;height:630px;background:${NIGHT};display:flex;
+  align-items:center;justify-content:center;gap:64px;font-family:'Barlow Condensed',sans-serif">
+  ${mark(300, BONE)}
+  <div style="color:${BONE}">
+    <div style="font-size:44px;font-weight:700;letter-spacing:0.22em;color:${SUN};
+      text-transform:uppercase">Scottsdale &middot; 2026</div>
+    <div style="font-size:150px;font-weight:700;line-height:0.92;letter-spacing:-0.01em;
+      text-transform:uppercase">Field Day</div>
+    <div style="font-size:40px;font-weight:500;letter-spacing:0.04em;color:#B9A88E;
+      margin-top:14px">Oct 30 to Nov 1 &middot; 13 players &middot; 16 events</div>
+  </div>
+</div>`;
+
 const OUTPUTS = [
   { file: "public/icon-512.png", px: 512, markPx: 512, bg: null },
   { file: "public/icon-192.png", px: 192, markPx: 192, bg: null },
@@ -50,6 +66,16 @@ const OUTPUTS = [
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+/* the share card needs the real display face, so load fonts first */
+await page.setViewportSize({ width: 1200, height: 630 });
+await page.setContent(`<!doctype html><html><head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+  <style>html,body{margin:0}</style></head><body>${share()}</body></html>`);
+await page.waitForTimeout(1800);
+writeFileSync("public/share.png", await page.screenshot());
+console.log("wrote public/share.png");
+
 for (const o of OUTPUTS) {
   await page.setViewportSize({ width: o.px, height: o.px });
   await page.setContent(page_(mark(o.markPx, o.ring), o.px, o.bg));

@@ -794,7 +794,19 @@ export default function App() {
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
   const resetGame = () => act("resetTournament", {}, "Board reset");
-  const rerunOnboard = () => act("rerunOnboarding", {}, "Intro replays on every phone");
+  /* two taps AND an explicit force, because this is the only control that
+     discards guest input. The dry run tells us how many people it costs. */
+  const rerunOnboard = async () => {
+    const probe = await dispatch("rerunOnboarding", {});
+    const n = probe.extra?.signedUp?.length || 0;
+    if (probe.ok) return notify("Intro replays on every phone");
+    if (!n) return notify(probe.error || "Rejected");
+    const who = probe.extra.signedUp.map(p => disp(state, p)).join(", ");
+    if (!window.confirm(`${n} ${n === 1 ? "person has" : "people have"} checked in:\n${who}\n\n`
+      + "Rerunning reopens the chip race and releases every claimed color.\nTheir names, numbers, sizes and flights are kept.\n\nRerun anyway?"))
+      return notify("Left alone");
+    act("rerunOnboarding", { force: true }, "Intro replays on every phone");
+  };
   /* replay the whole flow on THIS device, from the install gate. Clears the
      local finished flags so a reload keeps replaying instead of snapping to
      the board: the epoch handshake is for the group, this is for one phone */

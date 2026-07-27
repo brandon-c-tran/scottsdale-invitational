@@ -201,7 +201,7 @@ export const ACTIONS = {
      A duel is a phone minigame between two players. Both ante DUEL_STAKE at
      send time; each plays a run whenever they want; settlement is derived from
      the two runs in computeStandings, never stored. */
-  sendDuel(state, { to, game }, ctx) {
+  sendDuel(state, { to, game, stake: want }, ctx) {
     const from = ctx.player;
     if (!from) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
@@ -218,16 +218,24 @@ export const ACTIONS = {
     const day = 24 * 60 * 60 * 1000;
     if (state.duels.filter(d => d.from === from && d.status !== "declined" && d.ts > Date.now() - day).length >= 3)
       return err("Three challenges a day, max");
+    /* the challenger names the ante; both sides put up the same amount, so it
+       is bounded by whichever of the two can cover less */
+    const stake = want === undefined ? DUEL_STAKE : Math.floor(Number(want));
+    if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
+      return err("Antes move in 100s");
     /* both antes must be covered: points minus wager exposure minus live duel antes */
     const events = allEventsOf(state);
     const rows = computeStandings(state);
-    const spendable = p => (rows.find(r => r.player === p)?.pts ?? 0)
-      - atRisk(state, p, events)
+    const ptsOf = p => rows.find(r => r.player === p)?.pts ?? 0;
+    const spendable = p => ptsOf(p) - atRisk(state, p, events)
       - live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
-    if (spendable(from) < DUEL_STAKE) return err("Not enough points");
-    if (spendable(to) < DUEL_STAKE) return err(`${disp(state, to)} can't cover the ante`);
+    /* the wager cap covers duels too, or a duel would be a way around it */
+    if (stake > maxRisk(ptsOf(from))) return err(`Max ${maxRisk(ptsOf(from))} at risk`);
+    if (stake > maxRisk(ptsOf(to))) return err(`${disp(state, to)} can't cover that ante`);
+    if (spendable(from) < stake) return err("Not enough points");
+    if (spendable(to) < stake) return err(`${disp(state, to)} can't cover that ante`);
     state.duels.unshift({ id: "du" + Date.now() + Math.floor(Math.random() * 9999), game: g,
-      from, to, stake: DUEL_STAKE, status: "open", runs: {}, ts: Date.now() });
+      from, to, stake, status: "open", runs: {}, ts: Date.now() });
     return ok();
   },
   playDuel(state, { id, ms, foul }, ctx) {
@@ -682,7 +690,8 @@ export const ACTIONS = {
   saveLogistics(state, patch, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const clean = cleanLogistics(state.logistics);
-    const FIELDS = [["venue", 140], ["venueNote", 240], ["checkIn", 40], ["checkOut", 40]];
+    const FIELDS = [["venue", 140], ["venueNote", 240], ["airport", 8], ["airportName", 60],
+      ["checkIn", 40], ["checkOut", 40]];
     for (const [k, max] of FIELDS) {
       const v = patch?.[k];
       if (v === undefined) continue;

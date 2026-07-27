@@ -252,6 +252,33 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
     "quick draw settled 100 across, zero sum");
 }
 
+/* the challenger names the ante, and it is bounded by the same cap as wagers */
+{
+  let r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw", stake: 250 });
+  assert(!r.ok && /100s/.test(r.error), "off-quantum ante rejected (" + r.error + ")");
+  r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw", stake: 99900 });
+  assert(!r.ok && /at risk|cover/.test(r.error), "ante past the cap rejected (" + r.error + ")");
+  const before = computeStandings(b.state);
+  const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
+  r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw", stake: 300 });
+  assert(r.ok, "Evan challenges Khoa for 300");
+  await a.waitVersion(b.version);
+  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
+  assert(duel.stake === 300, "the duel carries the chosen ante");
+  r = await b.dispatch("playDuel", { id: duel.id, ms: 200 });
+  assert(r.ok, "Evan runs 200ms");
+  r = await a.dispatch("claim", { player: "Khoa" });
+  r = await a.dispatch("playDuel", { id: duel.id, ms: 500 });
+  assert(r.ok, "Khoa runs 500ms");
+  await b.waitVersion(a.version);
+  const pts1 = Object.fromEntries(computeStandings(b.state).map(x => [x.player, x.pts]));
+  assert(pts1["Evan"] === pts0["Evan"] + 300 && pts1["Khoa"] === pts0["Khoa"] - 300,
+    "the 300 ante settled 300 across, zero sum");
+  r = await a.dispatch("claim", { player: "Brandon" });
+  assert(r.ok, "window A back to Brandon");
+  await b.waitVersion(a.version);
+}
+
 /* the buy-in floor: a short stack is staked to 600 at setup */
 {
   const chinh = computeStandings(a.state).find(x => x.player === "Chinh").pts;

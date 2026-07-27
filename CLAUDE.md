@@ -41,7 +41,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    advancement, and stage finals pay even. Awards pay 400/800/1200/1600 by
    session (`AWARDS` keys ARE the legal event values) so winning games outweighs
    betting. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
-   capped under 500 (`MAX_RISK`). Stake <= balance minus at-risk, stakes move in 100s. Betting UX
+   capped under 500 (`MAX_RISK`), and it bounds duel antes too or a duel would
+   be a way around it. Stake <= balance minus at-risk, stakes move in 100s. Betting UX
    is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`)
    selects the tap stake and carries the only economy readout, a meter that
    DRAWS the cap instead of narrating it: the bar is your whole stack, the
@@ -61,8 +62,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    announcement (sessions show "N events · V each", never a block total), the
    travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
    logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the
-   address + a maps link, check-in/checkout, host flights; no listing name and
-   no amenity list, people already know. The real booking ships as `LOGISTICS`
+   address + a maps link, the PHX `AirportCard` because everyone has to act on
+   it before booking, check-in/checkout, and Brandon's own flights collapsed to
+   one muted line since only his times matter to anyone else; no listing name
+   and no amenity list, people already know. The real booking ships as `LOGISTICS`
    in core and every read and write runs `cleanLogistics`: a sheet stamped with
    an older `LOGISTICS.v` was written against a booking we no longer have and
    is replaced whole, and at the current edition blanks fall back to what
@@ -71,13 +74,17 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    booking actually changes) and writing shirt size + flights. Everyone lands Friday and
    leaves Sunday and the flight code already implies the airport, so a leg is
    only `{air,num,time}` (24h off the native picker), validated by `cleanLeg`
-   on BOTH sides. One component reads AND writes a leg: `FlightPass` puts the
-   inputs exactly where the values print, so there is no form-then-preview
-   (`LegField` only adds the label and Clear). Legacy free text survives as
-   `{note}` and the DO normalises stored legs on load. Then profile, seeds, and three closing cards that land
-   one story: your number IS your poker stack (literally, not converted), and
-   the champion takes home a real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
-   engraved on both faces). `rerunOnboarding` re-opens the chip race by
+   on BOTH sides. `FlightPass` prints a saved leg as a boarding pass;
+   `FlightEntry` collects one as three captioned boxes, because pass chrome on
+   an empty form reads as already filled in. Legacy free text survives as
+   `{note}` and the DO normalises stored legs on load. Everything the GUEST owes
+   (the Booked-your-flights question, both legs, shirt size) sits inside one
+   bordered "What Brandon needs" panel, so the switch from being told things to
+   giving things is visible. Then profile, seeds, and four closing cards under a
+   "How the tournament works" label that land one story: collect points, points
+   ARE your chips (literally, not converted), duels are how you catch up, and
+   the poker winner is champion and takes home a real trophy (`TrophyHero`,
+   flat blades revolved on the Y axis, plate engraved on both faces). `rerunOnboarding` re-opens the chip race by
    clearing every claimed color/skin, but never once `state.live`. The GM
    travel board lives in the locker room; resets preserve profiles, seeds,
    logistics, AND the onboarding epoch (zeroing it would kill every rerun).
@@ -110,6 +117,26 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 - Terse, direct copy. No corny names, no exclamation-mark energy, NEVER em dashes.
   No reassuring filler lines (Brandon hates "Yours all weekend once the board
   goes live" and everything like it): copy states a fact or gets deleted.
+- HOW BRANDON EDITS COPY, learned from every pass so far. Apply these before
+  he has to ask again:
+  - Say the mechanic, not a description of it. "Whatever you have Saturday
+    night is the stack you start the finale with" beats "your number is the
+    stack you sit down with".
+  - Cut anything self-evident. He deleted "nothing resets between days" and
+    "Everyone starts gray" because a reader already knows.
+  - Cut reassurance and atmosphere tails: "The board tracks it", "The room
+    keeps time", "Nobody sees this".
+  - One idea per line. When a sentence carries a rule AND a rationale, keep
+    the rule and drop the rationale, unless the rationale is the joke.
+  - A dry aside is welcome where a rule sounds arbitrary ("to limit the damage
+    of one bad decision, only half your points can be at risk"). Dry, never
+    zany.
+  - Name the section a screen belongs to when the flow changes gears ("How the
+    tournament works" over the closing cards).
+  - Ask questions outright with equal answers instead of hiding the alternative
+    in a link ("Booked your flights? Yes / Not yet").
+  - Headings carry the message, bodies carry the detail ("Thank you for flying
+    in for this", then the cities).
 - NO borrowed casino/sports idiom. Brandon cut "half your stack can ride" as
   corny, and the same pass removed "cashed", "the book", "shuffle up and deal",
   "table stakes", "the whiteboard", "points are on the table", "sealed scouting

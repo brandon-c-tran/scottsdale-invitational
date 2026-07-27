@@ -777,7 +777,7 @@ export default function App() {
   const pokerResult = () => act("pokerResult", {}, "Counts posted");
   const pokerCount = (player, count) => act("pokerCount", { player, count });
   const pokerCancel = () => act("pokerCancel", {}, "Table cleared");
-  const sendDuel = to => act("sendDuel", { to, game:"quickdraw" }, `Challenge sent`);
+  const sendDuel = (to, stake) => act("sendDuel", { to, game:"quickdraw", stake }, "Challenge sent");
   const playDuelRun = (id, ms, foul) => act("playDuel", { id, ms, foul });
   const declineDuel = id => act("declineDuel", { id }, "Declined");
   const voidDuel = id => act("voidDuel", { id }, "Duel voided");
@@ -1496,9 +1496,9 @@ export default function App() {
       {modal?.type === "pokerResult" && <PokerResultSheet state={state} onClose={() => setModal(null)}
         onCount={pokerCount} onBust={pokerBust} onUnbust={pokerUnbust}
         onPost={() => { pokerResult(); setModal(null); }} />}
-      {modal?.type === "player" && <PlayerSheet state={state} me={me} p={modal.p} standings={standings}
+      {modal?.type === "player" && <PlayerSheet state={state} me={me} p={modal.p} standings={standings} events={events}
         onClose={() => setModal(null)}
-        onDuel={() => { sendDuel(modal.p); setModal(null); }} />}
+        onDuel={stake => { sendDuel(modal.p, stake); setModal(null); }} />}
       {modal?.type === "duelPlay" && <QuickDrawGame state={state} me={me}
         duel={(state.duels || []).find(d => d.id === modal.id)}
         onSubmit={playDuelRun}
@@ -1636,7 +1636,7 @@ const TOUR = [
   { tab:"sched", title:"Events", desc:"The schedule. Draws, brackets, and results run here.", caret:true },
   { tab:"bets", title:"Bets", desc:"Place your bets here. One tap drops a chip when betting opens.", caret:true },
   { tab:"guide", title:"Rules", desc:"Scoring, wagers, and how to play every game.", caret:true },
-  { tab:"board", title:"Quick Draw", desc:"Tap anyone on the board to challenge them: a reaction game for 1 chip each, played on your own phones. Fastest tap wins." },
+  { tab:"board", title:"Quick Draw", desc:"Tap anyone on the board to challenge them. You name the ante, you both play on your own phones, fastest tap takes the pot." },
 ];
 function TabTour({ step, onNext, onSkip }) {
   const { title, desc, caret } = TOUR[step];
@@ -1906,17 +1906,31 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
        form with whatever they already sealed */
     setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
   }, [me]); // eslint-disable-line
-  /* the three closing cards tell one story: the number you carry all weekend
-     IS the stack you sit down with, and the stack decides who takes the trophy */
+  /* the closing cards tell one story: the number you carry all weekend IS the
+     stack you sit down with, and the stack decides who takes the trophy. They
+     are labelled as a section so arriving here off the ratings step reads as
+     a new chapter rather than more forms */
   const cards = {
-    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets to add to it, and nothing resets between days. Whatever you have on Sunday is the stack you are dealt at the poker table.", meter:true },
-    7: { art:<ArtTicket />, t:"Betting", b:"Betting opens when an event goes on deck. Pick a chip and tap who you like. The outright winner pays 2 to 1, everything else pays even. At most half your stack can be at risk at once.", stack:true },
-    8: { art:<TrophyHero size={196} />, t:"The trophy", b:"Most chips when the finale ends wins Field Day and takes this home.", tall:true },
+    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets all weekend to add to it. Whatever you have Saturday night is the stack you start the poker finale with.", meter:true },
+    7: { art:<ArtTicket />, t:"Betting", b:"Every event can be bet on, so play the whole weekend for points. To limit the damage of one bad decision, only half your points can be at risk at a time.", stack:true },
+    8: { art:(
+      /* two chips and the flash between them: the app's own objects, so the
+         card is recognisable before the words are read */
+      <span style={{ display:"flex", alignItems:"center", gap:4 }}>
+        <BankChip p={me} size={46} />
+        <svg width="22" height="34" viewBox="0 0 22 34" aria-hidden="true">
+          <path d="M13 2 5 18h5l-1 14 9-18h-5z" fill="var(--sun)" stroke="var(--ink0)"
+            strokeWidth="1.3" strokeLinejoin="round"/>
+        </svg>
+        <BankChip size={46} />
+      </span>
+    ), t:"Duels", b:"Short on points? Challenge anyone to Quick Draw, a reaction game you both play on your own phones. You name the ante and the fastest tap takes the pot." },
+    9: { art:<TrophyHero size={196} />, t:"The trophy", b:"The winner of the poker finale is the Field Day champion and takes home the Scottsdale 2026 trophy.", tall:true },
   };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
-  const cardSteps = [6,7,8];
-  const lastStep = 8;
+  const cardSteps = [6,7,8,9];
+  const lastStep = 9;
   const lg = state.logistics || {};
   const evAll = allEventsOf(state);
   if (step === -1) return (
@@ -1961,7 +1975,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:18 }}>
         The bachelor party is a tournament. Thirteen players, sixteen events,
         one board. Win events and land bets to collect points all weekend, then
-        your points become your chips at the poker finale.
+        your points become your chips at the poker finale. Whoever wins the
+        poker table is the Field Day champion.
       </div>
       <div style={{ flex:1, overflowY:"auto" }}>
         {SESSIONS.map(s => {
@@ -1998,9 +2013,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>The field</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:34, color:"var(--ink)", margin:"6px 0 10px",
-        lineHeight:1.05 }}>Everyone is flying in</div>
+        lineHeight:1.05 }}>Thank you for flying in for this</div>
       <div style={{ fontFamily:SANS, fontSize:15.5, lineHeight:1.6, color:"var(--muted2)" }}>
-        Seven cities, thirteen players, one weekend. Thank you for making the trip.
+        Thirteen of us, from {TRAVEL_CITIES.length} cities: {TRAVEL_CITIES.map(c => c.n).slice(0, -1).join(", ")},
+        and {TRAVEL_CITIES[TRAVEL_CITIES.length - 1].n}.
       </div>
       <div style={{ flex:1, display:"flex", alignItems:"center", margin:"10px -6px 0", minHeight:0 }}>
         <TravelMap />
@@ -2018,19 +2034,26 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         Getting there</div>
       <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
         <VenueCard lg={lg} />
-        <div style={{ marginBottom:16 }}>
+        {/* everything above is Brandon telling you things; everything below is
+            you telling him. One panel, its own edge, so the switch is obvious */}
+        <div style={{ border:"1.5px solid var(--bone-line)", borderRadius:16, padding:"14px 14px 16px",
+          background:"var(--paper)", marginTop:4 }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--ink)",
+            lineHeight:1.05, marginBottom:3 }}>What Brandon needs</div>
+          <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted)", marginBottom:14 }}>
+            Your flights and your shirt size.</div>
           <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
-        </div>
-        <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-          {SIZES.map(s => (
-            <button key={s} onClick={() => setSize(s)}
-              style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
-                cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)",
-                color: size === s ? "var(--ink0)" : "var(--ink)",
-                border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
-          ))}
+          <div style={{ ...label, margin:"4px 0 6px" }}>Shirt size</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+            {SIZES.map(s => (
+              <button key={s} onClick={() => setSize(s)}
+                style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
+                  cursor:"pointer", background: size === s ? GOLD_GRAD : "var(--paper2)",
+                  color: size === s ? "var(--ink0)" : "var(--ink)",
+                  border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
+            ))}
+          </div>
         </div>
       </div>
       <div style={{ marginTop:12 }}>
@@ -2062,10 +2085,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-        <div style={label}>Private</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 6px" }}>Rate yourself</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"0 0 6px" }}>Rate yourself</div>
         <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
-          Nobody sees this. It only balances draws and heats.
+          This is used to balance the draws.
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
           {[["sport","Sports"],["drink","Drinking games"]].map(([gid, glabel]) => (
@@ -2107,6 +2129,9 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       {/* the footer's auto margin eats every bit of slack, so justify-content
           alone never centers a tall card: claim half of it back up here */}
       {c.tall && <div style={{ marginTop:"auto" }} />}
+      {/* names the chapter, so arriving off the ratings form is not a jump cut */}
+      <div style={{ ...label, marginBottom:14, textAlign: c.tall ? "center" : "left" }}>
+        How the tournament works</div>
       <div style={{ marginBottom:16, display:"flex", justifyContent: c.tall ? "center" : "flex-start" }}>{c.art}</div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: c.tall ? 36 : 40, color:"var(--ink)",
         lineHeight:1.02, marginBottom:12, textAlign: c.tall ? "center" : "left" }}>{c.t}</div>
@@ -2246,7 +2271,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       <div style={{ fontFamily:SANS, fontSize:12, color: takenBy ? "var(--clay)" : "var(--muted)",
         lineHeight:1.5, marginBottom:16 }}>
         {takenBy ? `${disp(state, takenBy[0])} already has ${Number(num)}.`
-          : "Your jersey number, stamped on your chip everywhere it lands."}</div>
+          : "Your jersey number and chip design are used throughout the weekend."}</div>
       {showSize && (
         <div style={{ marginBottom:16 }}>
           <div style={{ ...label, marginBottom:6 }}>Shirt size</div>
@@ -2334,6 +2359,7 @@ function VenueCard({ lg }) {
           )}
         </div>
       </div>
+      <AirportCard lg={lg} />
       {(lg.checkIn || lg.checkOut) && (
         <div style={{ ...card, display:"flex", gap:12, padding:0, overflow:"hidden" }}>
           {[["Check in", lg.checkIn], ["Checkout", lg.checkOut]].map(([lb, v], i) => (
@@ -2346,33 +2372,95 @@ function VenueCard({ lg }) {
           ))}
         </div>
       )}
-      {(lg.hostIn || lg.hostOut) && (
-        <div style={card}>
-          <div style={{ ...label, marginBottom:8 }}>Brandon flies</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            <FlightPass leg={lg.hostIn} dir="in" />
-            <FlightPass leg={lg.hostOut} dir="out" />
-          </div>
-        </div>
-      )}
+      {(lg.hostIn || lg.hostOut) && (() => {
+        /* Brandon's flight codes matter to nobody else: the only useful part
+           is when he is there, so it collapses to one muted line */
+        const inL = cleanLeg(lg.hostIn), outL = cleanLeg(lg.hostOut);
+        const bits = [
+          inL && (inL.note || (legTime(inL.time) && `lands Fri ${legTime(inL.time)}`)),
+          outL && (outL.note || (legTime(outL.time) && `leaves Sun ${legTime(outL.time)}`)),
+        ].filter(Boolean);
+        if (!bits.length) return null;
+        return (
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5,
+            margin:"-4px 0 12px" }}>Brandon {bits.join(", ")}</div>
+        );
+      })()}
     </div>
   );
 }
 
-/* One boarding pass, read-only or editable. The fields sit exactly where the
-   values will read, so there is no form and no separate preview: you fill in
-   the pass itself. */
+/* the airport is the one travel fact everyone has to act on before they book */
+function AirportCard({ lg }) {
+  if (!lg.airport) return null;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:14, background:"var(--paper)",
+      border:"1px solid var(--line)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent2)" aria-hidden="true"
+        style={{ flexShrink:0 }}><path d="M2 4 22 12 2 20l4.6-8z"/></svg>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ ...label, fontSize:10, marginBottom:3 }}>Fly into</div>
+        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>{lg.airportName}</div>
+      </div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, letterSpacing:"0.06em",
+        color:"var(--sun)", lineHeight:1 }}>{lg.airport}</div>
+    </div>
+  );
+}
+
+/* The editable flight. Dressed as a boarding pass this read as something
+   already filled in, so entry gets real bordered fields with captions under
+   them: three boxes on a page of cards say "type here" without a word. */
+function FlightEntry({ leg: raw, dir, setLeg }) {
+  const leg = raw || {};
+  const set = patch => setLeg({ ...leg, ...patch });
+  const box = { background:"var(--paper)", border:"1.5px solid var(--line)", borderRadius:10,
+    height:46, display:"flex", alignItems:"center", padding:"0 10px", boxSizing:"border-box" };
+  const bare = { background:"none", border:"none", outline:"none", padding:0, minWidth:0,
+    width:"100%", boxSizing:"border-box", color:"var(--ink)" };
+  const cap = { ...label, fontSize:9, marginTop:5, color:"var(--muted)" };
+  return (
+    <div style={{ display:"flex", gap:8 }}>
+      <div style={{ width:74, flexShrink:0 }}>
+        <div style={box}>
+          <input value={leg.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
+            aria-label="Airline"
+            onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
+            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15, letterSpacing:"0.1em" }} />
+        </div>
+        <div style={cap}>Airline</div>
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={box}>
+          <input value={leg.num || ""} inputMode="numeric" placeholder="1885" aria-label="Flight number"
+            onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15 }} />
+        </div>
+        <div style={cap}>Flight no.</div>
+      </div>
+      <div style={{ width:112, flexShrink:0 }}>
+        <div style={box}>
+          <input type="time" value={leg.time || ""} onChange={e => set({ time: e.target.value })}
+            aria-label={dir === "out" ? "Departure time" : "Landing time"}
+            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15,
+              color: leg.time ? "var(--ink)" : "var(--muted)" }} />
+        </div>
+        <div style={cap}>{dir === "out" ? "Takes off" : "Lands"}</div>
+      </div>
+    </div>
+  );
+}
+
+/* One boarding pass, read only: this is how a saved leg prints back */
 function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
-  const leg = edit ? (raw || {}) : cleanLeg(raw);
+  if (edit) return <FlightEntry leg={raw} dir={dir} setLeg={setLeg} />;
+  const leg = cleanLeg(raw);
   if (!leg) return null;
-  if (!edit && leg.note) return (
+  if (leg.note) return (
     <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
       color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
   );
-  const set = patch => setLeg({ ...(raw || {}), ...patch });
   const t = legTime(leg.time);
-  const bare = { background:"none", border:"none", outline:"none", padding:0, minWidth:0,
-    boxSizing:"border-box", maxWidth:"100%" };
   const numSize = small ? 19 : 22;
   return (
     <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 11,
@@ -2383,38 +2471,15 @@ function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
         <path d="M2 4 22 12 2 20l4.6-8z"/>
       </svg>
       <div style={{ display:"flex", alignItems:"baseline", gap:7, flex:1, minWidth:0 }}>
-        {edit ? (
-          <>
-            <input value={leg.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
-              aria-label="Airline"
-              onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
-              style={{ ...bare, width:36, flexShrink:0, fontFamily:SANS, fontWeight:700, fontSize:12,
-                letterSpacing:"0.14em", color:"var(--accent2)" }} />
-            <input value={leg.num || ""} inputMode="numeric" placeholder="1885" aria-label="Flight number"
-              onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-              style={{ ...bare, flex:1, fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
-                color:"var(--ink)" }} />
-          </>
-        ) : (
-          <>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
-              letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
-              color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
-          </>
-        )}
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
+          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
+          color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
       </div>
       <div style={{ flexShrink:0, borderLeft:"1px dashed var(--line)", paddingLeft: small ? 10 : 12,
-        textAlign:"right", width: edit ? 116 : "auto" }}>
-        {edit ? (
-          <input type="time" value={leg.time || ""} onChange={e => set({ time: e.target.value })}
-            aria-label={dir === "out" ? "Departure time" : "Landing time"}
-            style={{ ...bare, width:"100%", fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 18,
-              color: leg.time ? "var(--sun)" : "var(--muted)", textAlign:"right" }} />
-        ) : (
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
-            color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
-        )}
+        textAlign:"right" }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
+          color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
           letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)", marginTop:2 }}>
           {dir === "out" ? "Leaves Sun" : "Lands Fri"}</div>
@@ -2498,7 +2563,7 @@ function ChipPicker({ state, me, onChip }) {
       {(locked || !mine.color) && (
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:8 }}>
           {locked ? "Chips are locked for the weekend."
-            : "Everyone starts gray. Claim a color, first come first serve."}
+            : "Claim a color. First come first serve."}
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:7, marginBottom:12 }}>
@@ -4968,7 +5033,7 @@ function DuelStrip({ state, me, gm, onPlay, onDecline, onVoid }) {
 
 /* tapping any player opens their card first: who they are, how their weekend
    is going, and only then the call-out. No surprise Quick Draw. */
-function PlayerSheet({ state, me, p, standings, onClose, onDuel }) {
+function PlayerSheet({ state, me, p, standings, events, onClose, onDuel }) {
   const prof = state.profiles?.[p] || {};
   const row = standings.find(r => r.player === p);
   const duels = (state.duels || []).map(d => ({ d, r: resolveDuel(d) })).filter(x => x.r.settled && !x.r.push);
@@ -4977,6 +5042,18 @@ function PlayerSheet({ state, me, p, standings, onClose, onDuel }) {
   const busy = (state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled &&
     ((d.from === me && d.to === p) || (d.from === p && d.to === me)));
   const canDuel = me && p !== me && !state.frozen;
+  /* the ante is bounded by whichever of the two can cover less, mirroring
+     sendDuel so the rack never offers a chip the server will refuse */
+  const spendable = q => {
+    const pts = standings.find(r => r.player === q)?.pts ?? 0;
+    const antes = (state.duels || [])
+      .filter(d => d.status === "open" && !resolveDuel(d).settled && (d.from === q || d.to === q))
+      .reduce((n, d) => n + d.stake, 0);
+    return Math.min(maxRisk(pts), pts - atRisk(state, q, events || []) - antes);
+  };
+  const anteMax = canDuel ? Math.min(spendable(me), spendable(p)) : 0;
+  const [ante, setAnte] = useState(PT);
+  useEffect(() => { if (ante > anteMax) setAnte(Math.max(PT, Math.floor(anteMax / PT) * PT)); }, [anteMax]); // eslint-disable-line
   return (
     <Sheet title={disp(state, p)} onClose={onClose}>
       <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:14 }}>
@@ -5004,13 +5081,33 @@ function PlayerSheet({ state, me, p, standings, onClose, onDuel }) {
             <BankChip p={me} size={16} /><BankChip p={p} size={16} />
           </div>
           <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:10 }}>
-            A reaction game, one chip each. You both play on your own phone whenever you want.
-            The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul.
+            You both play on your own phone whenever you want. The screen flashes after a random
+            wait, tap it. Fastest tap wins the pot. Tapping early is a foul.
           </div>
           {busy
             ? <div style={{ fontFamily:SANS, fontSize:12.5, fontWeight:600, color:"var(--muted)" }}>
                 A challenge between you two is already open.</div>
-            : <Btn onClick={onDuel} style={{ width:"100%" }}>Challenge {disp(state, p)}</Btn>}
+            : (
+              <>
+                {/* you name the ante, capped by whichever of you can cover less */}
+                <div style={{ ...label, fontSize:10, marginBottom:6 }}>Ante, each</div>
+                <div style={{ display:"flex", alignItems:"flex-end", gap:11, marginBottom:11 }}>
+                  {RACK_DENOMS.map(d => {
+                    const okd = d <= anteMax;
+                    return (
+                      <button key={d} disabled={!okd} onClick={() => setAnte(d)} aria-label={`Ante ${d}`}
+                        style={{ background:"none", border:"none", padding:0, cursor: okd ? "pointer" : "default",
+                          transform: ante === d && okd ? "translateY(-6px) scale(1.12)" : "none",
+                          transition:"transform .16s ease", opacity: okd ? 1 : 0.28 }}>
+                        <BankChip p={me} size={38} val={d} />
+                      </button>
+                    );
+                  })}
+                </div>
+                <Btn onClick={() => onDuel(ante)} style={{ width:"100%" }}>
+                  Challenge {disp(state, p)} for {fmt(ante)}</Btn>
+              </>
+            )}
         </div>
       )}
     </Sheet>
@@ -6122,22 +6219,25 @@ function Guide({ replay, events, state }) {
             Your own flights live in your profile.</div>
         </div>
       )}
-      <S n="01" t="Format">
-        Individual championship, team and solo events, teams reshuffle every event. Every result and every wager moves one board. Everyone starts with 1,000, and the smallest chip is 100. The board freezes at the trophy ceremony after the poker finale.
+      <S n="01" t="The weekend">
+        Thirteen players, sixteen events, one board. Teams reshuffle every event, so you are never stuck with the same side. Everyone starts at 1,000 points and nothing is scored separately: results, bets, and duels all move the same number.
       </S>
-      <S n="02" t="Scoring">
-        Friday events pay 400. Saturday morning 800, afternoon 1,200, night 1,600. The Finale is Championship Poker: the board is already in chips, so your points are the stack you get dealt, and the final chip counts are the final standings. Solo events pay the podium; team events pay every player on the placing team the full value. Ties get a quick tiebreaker. A championship tie is one pressure putt.
+      <S n="02" t="Points are chips">
+        Whatever you have when the events end is the stack you sit down with at Championship Poker. There is no conversion: 2,900 on the board is 2,900 in front of you. Whoever wins that table is the Field Day champion and the board freezes at the trophy.
       </S>
-      <S n="03" t="Wagers">
-        Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Everything else pays even: matchups, getting out of a heat or pool, and stage finals. At most half your stack can be at risk at once. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
+      <S n="03" t="What events pay">
+        Friday 400. Saturday morning 800, afternoon 1,200, night 1,600. Solo events pay the podium; team events pay every player on the placing team the full amount. Ties get a quick tiebreaker, and a championship tie is one pressure putt.
       </S>
-      <S n="04" t="Duels">
-        A reaction game between two people, for 1 chip each. Tap anyone on the board to challenge them. Both play on your own phone whenever you want. The screen flashes after a random wait, tap it. Fastest tap wins both chips. Tapping early is a foul. Identical times or two fouls return the chips. One open challenge per pair, three a day. Brandon can void any of it.
+      <S n="04" t="Betting">
+        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1; matchups, getting out of a heat or pool, and stage finals pay even. Only half your points can be at risk at a time. Bets settle off the official result, so a correction fixes the payouts too. Brandon can void any wager.
       </S>
-      <S n="05" t="Draws, brackets, heats">
-        Brandon runs each draw and it reveals on every phone. Teams balance themselves: your sealed self-ratings blended with the live board, results, and wins, refined until the sides are even. The later the weekend, the more your actual play counts. Ratings are never shown. Or captains draft their squads live. Brackets, heats, and pools track live in the app and on the TV.
+      <S n="05" t="Duels">
+        Short on points, challenge someone. Tap anyone on the board, name the ante, and you both put up the same. You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips. One open challenge per pair, three a day.
       </S>
-      <S n="06" t="Learn the games">
+      <S n="06" t="Draws and brackets">
+        Brandon runs each draw and it reveals on every phone. Teams balance themselves from your ratings and how you are actually playing, refined until the sides are even. The later the weekend, the more your real results count. Ratings are never shown. Some events are captains drafting instead. Brackets, heats, and pools track live here and on the TV.
+      </S>
+      <S n="07" t="Learn the games">
         <div style={{ display:"grid", gap:8 }}>
           {Object.entries(GAMES).map(([id, g]) => (
             <button key={id} onClick={() => setHowToEv(id)} style={{ display:"flex", alignItems:"center",
@@ -6156,14 +6256,14 @@ function Guide({ replay, events, state }) {
           ))}
         </div>
       </S>
-      <S n="07" t="Saturday night awards">
+      <S n="08" t="Saturday night awards">
         The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
       </S>
-      <S n="08" t="House rules">
+      <S n="09" t="House rules">
         Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.
       </S>
       {!isStandalone() && (
-        <S n="09" t="The app">
+        <S n="10" t="The app">
           <InstallHint />
         </S>
       )}

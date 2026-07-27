@@ -196,7 +196,8 @@ const SLOT_META = [
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
 /* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
-   your own phone, the pot settles itself. Both ante DUEL_STAKE. */
+   your own phone, the pot settles itself. The challenger names the ante
+   and both sides put up the same; DUEL_STAKE is only the default. */
 const DUEL_STAKE = PT;
 const DUEL_GAMES = {
   quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
@@ -265,6 +266,8 @@ const LOGISTICS = {
   v: 2,
   venue: "10848 North Aberdeen Road, Scottsdale, AZ",
   venueNote: "",
+  airport: "PHX",
+  airportName: "Phoenix Sky Harbor",
   checkIn: "Fri Oct 30, 4:00 PM",
   checkOut: "Sun Nov 1, 10:00 AM",
   hostIn: { air:"WN", num:"4663", time:"08:40" },

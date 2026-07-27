@@ -1849,8 +1849,6 @@ function Shell({ children, tv }) {
         @keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
         @keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
-        input[type=time]::-webkit-calendar-picker-indicator { display:none; }
-        input[type=time] { -webkit-appearance:none; appearance:none; }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
         .si-vh { min-height:100vh; min-height:100dvh; }
@@ -2373,17 +2371,28 @@ function VenueCard({ lg }) {
         </div>
       )}
       {(lg.hostIn || lg.hostOut) && (() => {
-        /* Brandon's flight codes matter to nobody else: the only useful part
-           is when he is there, so it collapses to one muted line */
+        /* the flight codes matter to nobody but Brandon, so this is one line
+           rather than two passes. It is still a card: the times are how people
+           work out who they are sharing a ride with */
         const inL = cleanLeg(lg.hostIn), outL = cleanLeg(lg.hostOut);
-        const bits = [
-          inL && (inL.note || (legTime(inL.time) && `lands Fri ${legTime(inL.time)}`)),
-          outL && (outL.note || (legTime(outL.time) && `leaves Sun ${legTime(outL.time)}`)),
-        ].filter(Boolean);
-        if (!bits.length) return null;
+        const legs = [
+          inL && ["Lands Fri", inL.note || legTime(inL.time)],
+          outL && ["Leaves Sun", outL.note || legTime(outL.time)],
+        ].filter(x => x && x[1]);
+        if (!legs.length) return null;
         return (
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5,
-            margin:"-4px 0 12px" }}>Brandon {bits.join(", ")}</div>
+          <div style={{ ...card, display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ ...label, fontSize:10, whiteSpace:"nowrap" }}>Brandon</span>
+            {legs.map(([lb, v], i) => (
+              <span key={lb} style={{ display:"flex", alignItems:"baseline", gap:6,
+                marginLeft: i ? "auto" : 0, whiteSpace:"nowrap" }}>
+                <span style={{ fontFamily:SANS, fontSize:10, fontWeight:700, letterSpacing:"0.06em",
+                  textTransform:"uppercase", color:"var(--muted)" }}>{lb}</span>
+                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, lineHeight:1,
+                  color:"var(--ink)" }}>{v}</span>
+              </span>
+            ))}
+          </div>
         );
       })()}
     </div>
@@ -2438,11 +2447,11 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
         </div>
         <div style={cap}>Flight no.</div>
       </div>
-      <div style={{ width:112, flexShrink:0 }}>
+      <div style={{ width:138, flexShrink:0 }}>
         <div style={box}>
           <input type="time" value={leg.time || ""} onChange={e => set({ time: e.target.value })}
             aria-label={dir === "out" ? "Departure time" : "Landing time"}
-            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15,
+            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:14,
               color: leg.time ? "var(--ink)" : "var(--muted)" }} />
         </div>
         <div style={cap}>{dir === "out" ? "Takes off" : "Lands"}</div>

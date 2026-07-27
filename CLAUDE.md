@@ -43,9 +43,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    betting. The at-risk cap is a rule people can SAY: half your stack can ride
    at once (`maxRisk(pts)` = pts/2 floored to 100s, never capped under 500
    `MAX_RISK`). Stake <= balance minus at-risk, stakes move in 100s. Betting UX
-   is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`) selects
-   the tap stake and carries the only economy readout (room + stack; there is
-   no separate exposure card); tapping any pick or open bracket side drops
+   is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`)
+   selects the tap stake and carries the only economy readout, a meter that
+   DRAWS the rule instead of naming it: the bar is your whole stack, the notch
+   is `maxRisk`, the gold is what is riding, and the gap between them is what
+   is left to bet. It stays up when you are maxed out, since that is when it
+   explains the most. Tapping any pick or open bracket side drops
    that chip, value stamped on its face, your ✕ pulls the last one back.
    TV mode is the constant status: the live scene carries an UP NOW banner and
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,

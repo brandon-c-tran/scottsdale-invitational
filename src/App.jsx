@@ -4702,7 +4702,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   };
 
   return (
-    <div style={{ padding:"0 16px", paddingBottom: me && ev && room >= PT ? 104 : 0 }}>
+    <div style={{ padding:"0 16px", paddingBottom: me && ev ? 152 : 0 }}>
       {!ev && !state.frozen && (
         <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
           Betting is closed.<br/>When Brandon opens the next event, it shows up here.
@@ -4839,38 +4839,63 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
             </>
           )}
 
-          {me && room < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
-            {myPts - myExp < PT ? "Not enough points until a wager settles." : "You are maxed out until a wager settles."}</div>}
+          {/* the cap case needs no sentence, the meter below is showing it */}
+          {me && myPts - myExp < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
+            Not enough points until a wager settles.</div>}
 
           </div>
         </div>
       )}
 
       {/* the rack: fixed above the tab bar the whole time betting is open.
-          Pick a chip, tap the board. Exactly video roulette. The readout says
-          the rule in numbers: half your stack can ride at once */}
-      {me && ev && room >= PT && (
+          Pick a chip, tap the board. Exactly video roulette.
+          Above the chips, the rule as a picture instead of two loose words:
+          the bar is your WHOLE stack, the notch is how much of it may ride,
+          the gold is what is riding now. The gap between gold and notch is
+          what you have left, and you can see it can never cross. Shown even
+          when you are maxed out, because that is when it explains the most. */}
+      {me && ev && (
         <div style={{ position:"fixed", bottom:"calc(72px + env(safe-area-inset-bottom))", zIndex:48,
           left:"50%", transform:"translateX(-50%)", width:"min(92vw, 430px)",
-          display:"flex", alignItems:"flex-end", gap:13, padding:"13px 16px 11px", borderRadius:16,
+          display:"flex", flexDirection:"column", gap:10, padding:"11px 16px 12px", borderRadius:16,
           background:"var(--paper)", border:"1px solid var(--line)", boxShadow:"var(--shadow-3)" }}>
-          {RACK_DENOMS.map(d => {
-            const ok = d <= room;
-            return (
-              <button key={d} disabled={!ok} onClick={() => setDenom(d)} aria-label={`Bet ${d} a tap`}
-                style={{ background:"none", border:"none", padding:0, cursor: ok ? "pointer" : "default",
-                  transform: denom === d ? "translateY(-7px) scale(1.14)" : "none",
-                  transition:"transform .16s ease", opacity: ok ? 1 : 0.28,
-                  filter: denom === d ? "drop-shadow(0 5px 7px rgba(23,16,9,0.5))" : "none" }}>
-                <BankChip p={me} size={42} val={d} />
-              </button>
-            );
-          })}
-          <div style={{ flex:1 }} />
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1, color:"var(--ink)" }}>{room}</div>
-            <div style={{ fontFamily:SANS, fontSize:10, color:"var(--muted)", textTransform:"uppercase",
-              letterSpacing:"0.1em", marginTop:2, whiteSpace:"nowrap" }}>to bet · stack {fmt(myPts)}</div>
+          <div>
+            <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:5 }}>
+              <span style={{ ...label, fontSize:9.5 }}>Half your stack can ride</span>
+              <span style={{ marginLeft:"auto", fontFamily:DISPLAY, fontWeight:700, fontSize:17,
+                lineHeight:1, color: room >= PT ? "var(--ink)" : "var(--clay)" }}>{fmt(room)}</span>
+              <span style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.1em",
+                textTransform:"uppercase", color:"var(--muted)" }}>to bet</span>
+            </div>
+            <div style={{ position:"relative", height:9, borderRadius:99, background:"var(--paper2)",
+              border:"1px solid var(--line)" }}>
+              <div style={{ height:"100%", borderRadius:99, background:GOLD_GRAD,
+                width:`${myPts ? Math.min(100, (myExp / myPts) * 100) : 0}%`, transition:"width .2s ease" }} />
+              {/* the cap, standing on the stack it is half of */}
+              {/* below 1,000 the MAX_RISK floor gives you MORE than half, so
+                  the notch sits past the middle. Generous either way, and the
+                  exact numbers are on the line below */}
+              <div style={{ position:"absolute", top:-4, bottom:-4, width:2, borderRadius:2,
+                background:"var(--ink)", left:`${myPts ? Math.min(100, (myCap / myPts) * 100) : 100}%` }} />
+            </div>
+            <div style={{ display:"flex", marginTop:4, fontFamily:SANS, fontSize:10, color:"var(--muted)" }}>
+              <span>{fmt(myExp)} riding</span>
+              <span style={{ marginLeft:"auto" }}>max {fmt(myCap)} of {fmt(myPts)}</span>
+            </div>
+          </div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:13 }}>
+            {RACK_DENOMS.map(d => {
+              const ok = d <= room;
+              return (
+                <button key={d} disabled={!ok} onClick={() => setDenom(d)} aria-label={`Bet ${d} a tap`}
+                  style={{ background:"none", border:"none", padding:0, cursor: ok ? "pointer" : "default",
+                    transform: denom === d && ok ? "translateY(-7px) scale(1.14)" : "none",
+                    transition:"transform .16s ease", opacity: ok ? 1 : 0.28,
+                    filter: denom === d && ok ? "drop-shadow(0 5px 7px rgba(23,16,9,0.5))" : "none" }}>
+                  <BankChip p={me} size={42} val={d} />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

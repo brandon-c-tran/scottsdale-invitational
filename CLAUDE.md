@@ -55,6 +55,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
    also in the ticker and phone live strip), value chips ride the TV bracket
    and board cells, and bracket draw reveals announce first-round matchups.
+   A team event is ONE GM tap ("Announce and draw"): on deck goes out, the
+   draw follows, and the phone plays the intro then hands over to the reveal
+   by itself after `INTRO_HOLD`. Drawing before the announcement put matchups
+   on screen before anyone knew the game, and a manual close made the GM tap
+   twice.
 5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
    server-held token; GM actions require it.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.

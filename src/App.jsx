@@ -580,11 +580,15 @@ export default function App() {
     prevRanks.current = map;
   }, [standings, allTied, ready, state, me, notify]);
 
-  /* reveal detection: team draws and stage draws reveal on every phone */
+  /* reveal detection: team draws and stage draws reveal on every phone.
+     The intro announces the game first and the reveal comes second, but the
+     handover is automatic: one GM tap plays both scenes in order, so nobody
+     has to close a card to make the draw appear. */
+  const INTRO_HOLD = 4200;
+  const introAt = useRef(0);
+  useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
   useEffect(() => {
-    /* the intro announces the game first: hold any draw reveal until it is
-       off screen, so the teams land second instead of on top of it */
-    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || intro || !ready) return;
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -595,6 +599,9 @@ export default function App() {
       }
       return;
     }
+    /* built first and shown second: the intro can only be handed over once we
+       know something is actually waiting behind it */
+    const build = () => {
     for (const [eid, draw] of Object.entries(state.draws || {})) {
       if (draw && !seenReveals.includes(draw.id)) {
         const ev = events.find(e => e.id === eid);
@@ -622,8 +629,8 @@ export default function App() {
         } else if (draw.teams.length !== 2) {
           groups = draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
         }
-        setReveal({ id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups, versus: draw.teams.length === 2 ? draw.teams : null });
-        return;
+        return { id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups,
+          versus: draw.teams.length === 2 ? draw.teams : null };
       }
     }
     for (const [eid, st] of Object.entries(state.stages || {})) {
@@ -637,10 +644,21 @@ export default function App() {
             return { avatars: v.players, text: v.name };
           }),
         }));
-        setReveal({ id:st.id, evId:ev.id, title: st.kind === "heats" ? "The heats" : "The pools", subtitle:ev.name, groups, versus:null });
-        return;
+        return { id:st.id, evId:ev.id, title: st.kind === "heats" ? "The heats" : "The pools",
+          subtitle:ev.name, groups, versus:null };
       }
     }
+    return null;
+    };
+    const next = build();
+    if (!next) return;
+    if (intro) {
+      /* let the announcement have its beat, then step aside for the teams */
+      const t = setTimeout(() => setIntro(null),
+        Math.max(0, INTRO_HOLD - (Date.now() - introAt.current)));
+      return () => clearTimeout(t);
+    }
+    setReveal(next);
   }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready]); // eslint-disable-line
   const closeReveal = () => {
     if (reveal) {
@@ -1274,8 +1292,14 @@ export default function App() {
       if (!state.poker.startedAt) return { label:"Start the table", run:() => setModal({type:"pokerBuyin"}) };
       return { label:"Run the table", run:() => setModal({type:"pokerResult"}) };
     }
+    /* one tap, two scenes, in the order a broadcast would run them: the event
+       announces itself, then the teams drop out of it. Drawing first put the
+       matchups on screen before anyone knew what the game was. */
     if (ev.teamCfg && !state.draws[ev.id])
-      return { label:`Draw ${ev.name}`, run:() => runDraw(ev, ROSTER) };
+      return { label:`Announce and draw ${ev.name}`, run: async () => {
+        if (state.onDeck !== ev.id) await setOnDeck(ev.id);
+        runDraw(ev, ROSTER);
+      } };
     if (state.onDeck !== ev.id)
       return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
     const br = state.brackets[ev.id];

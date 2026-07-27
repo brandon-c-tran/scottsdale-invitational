@@ -229,12 +229,21 @@ assert(r.ok, "Brandon claims the first color (" + (r.error || "ok") + ")");
 r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
 assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 
+/* duels are a weekend thing: everyone sits on 1,000 until the board goes live */
+{
+  let r0 = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
+  assert(!r0.ok, "no duels before the weekend starts (rejected: " + r0.error + ")");
+  r0 = await a.dispatch("setLive", { on: true });
+  assert(r0.ok, "GM starts the weekend");
+  await b.waitVersion(a.version);
+}
+
 /* a duel settles into the standings, zero sum */
 {
   const before = computeStandings(a.state);
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
   r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
-  assert(r.ok, "Evan calls out Khoa");
+  assert(r.ok, "Evan challenges Khoa");
   await b.waitVersion(a.version);
   const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
   r = await b.dispatch("playDuel", { id: duel.id, ms: 150 });

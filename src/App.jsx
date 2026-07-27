@@ -836,10 +836,15 @@ export default function App() {
     for (const p of ROSTER) {
       const s = stateRef.current;
       const prof = s.profiles?.[p] || {};
-      const needProfile = !prof.display || prof.num === undefined || !prof.size;
-      const needSeeds = !s.seeds?.[p];
-      const needChip = !prof.color;
-      if (!needProfile && !needSeeds && !needChip) continue;
+      /* NEVER write over a real person. Once the invite is out, these slots
+         hold answers Brandon is going to order shirts and plan pickups from,
+         and filling a blank field with a plausible fake is worse than leaving
+         it blank: nothing downstream can tell the two apart. A player is
+         fair game only while every field is still empty. */
+      const touched = prof.display || prof.num !== undefined || prof.size || prof.color
+        || prof.skin || prof.flightIn || prof.flightOut || s.seeds?.[p];
+      if (touched) continue;
+      const needProfile = true, needSeeds = true, needChip = true;
       await simDo("claim", { player: p }, `${p} checks in`);
       if (needProfile) {
         const taken = new Set(Object.entries(stateRef.current.profiles || {})
@@ -5079,7 +5084,7 @@ function PlayerSheet({ state, me, p, standings, events, onClose, onDuel }) {
   const dl = duels.filter(x => x.r.loser === p).length;
   const busy = (state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled &&
     ((d.from === me && d.to === p) || (d.from === p && d.to === me)));
-  const canDuel = me && p !== me && !state.frozen;
+  const canDuel = me && p !== me && !state.frozen && state.live;
   /* the ante is bounded by whichever of the two can cover less, mirroring
      sendDuel so the rack never offers a chip the server will refuse */
   const spendable = q => {

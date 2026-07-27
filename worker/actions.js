@@ -205,6 +205,10 @@ export const ACTIONS = {
     const from = ctx.player;
     if (!from) return err("Check in first");
     if (state.frozen) return err("The board is frozen");
+    /* no duels before the weekend: everyone is on 1,000 until Friday, which is
+       what the invite promises, and the locker room shows no points for a
+       result to land on */
+    if (!state.live) return err("Duels open when the weekend starts");
     if (pokerLive(state)) return err("The finale is live");
     if (stacksPosted(state)) return err("The finale is settled");
     if (!ROSTER.includes(to)) return err("Unknown player");

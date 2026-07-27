@@ -93,7 +93,17 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    clearing every claimed color/skin, but never once `state.live`. The GM
    travel board lives in the locker room; resets preserve profiles, seeds,
    logistics, AND the onboarding epoch (zeroing it would kill every rerun).
-7. **The poker finale settles on stacks.** There is NO buy-in conversion: the
+   Once the invite is out those profiles are real answers Brandon orders
+   shirts and plans pickups from, so the QA driver (`simCheckIn`) skips any
+   player with a single field set and only fills wholly empty slots. Filling
+   one blank with a plausible fake is worse than leaving it blank: nothing
+   downstream can tell them apart. `rerunOnboarding` is the one action that
+   DOES discard guest input (every chip claim), which is its job.
+7. **Duels are a weekend thing.** `sendDuel` is refused until `state.live`:
+   everyone sits on exactly 1,000 until Friday, which is what the invite
+   promises, and the pre-weekend locker room shows no points for a result to
+   land on. Play is unrestricted once live.
+8. **The poker finale settles on stacks.** There is NO buy-in conversion: the
    board is already in chips, so a stack of 2,900 sits down with 2,900 in front
    of it, dealt in real denominations 25/100/500/1000 (`pokerDenoms`, blind
    pack of eight 25s), blinds 25/50 to 600/1200. Counts are entered in chips

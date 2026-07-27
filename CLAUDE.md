@@ -127,8 +127,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   - Say the mechanic, not a description of it. "Whatever you have Saturday
     night is the stack you start the finale with" beats "your number is the
     stack you sit down with".
-  - Cut anything self-evident. He deleted "nothing resets between days" and
-    "Everyone starts gray" because a reader already knows.
+  - Cut anything self-evident. He deleted "nothing resets between days",
+    "Everyone starts gray", and "so play the whole weekend for points" because
+    a reader already knows. Watch for the shape: a clause starting "so ..."
+    that only restates the point of the sentence before it.
   - Never restate a mechanic with a worked example. "Your points are the stack
     you are dealt" does not need "No conversion: 2,900 on the board is 2,900 in
     front of you" after it. Say it once.
@@ -151,6 +153,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   report". Label things with numbers or with what they are. The real NAMES of
   real things stay (blinds, bust, stack, chips, draw, heats, on deck): those
   are what the objects are called, not flavor.
+- Where a number came from is drawn, not narrated: standings rows carry
+  `StatPills` (cup for wins, chip for the book, bolt for duels, plus your live
+  exposure), and only nonzero pills render so a fresh board is names and
+  numbers. Chip identity is 30 colors, first come first serve, times 12 edge
+  skins; half of those are deliberately loud (saw, flame, star, bolt, wave,
+  crown) but all stay flat, one ink, and clear of the number in the middle.
 - Field Day look: sun-faded rec-tournament at night, championship seriousness.
   FULL DARK: warm near-black surfaces (bg/paper/paper2 night ramp), --ink is
   the primary TEXT color (bone), --ink0 is the absolute brown-black reserved

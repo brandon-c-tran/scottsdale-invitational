@@ -253,7 +253,8 @@ const CHIP_COLORS = [
   { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
   { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
 ];
-const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring"];
+const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
+  "saw", "flame", "star", "bolt", "wave", "crown"];
 
 /* this edition's hard dates, in one place: every surface reads these instead
    of spelling the weekend out again and getting it wrong */

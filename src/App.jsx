@@ -1916,8 +1916,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
      are labelled as a section so arriving here off the ratings step reads as
      a new chapter rather than more forms */
   const cards = {
-    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets all weekend to add to it. Whatever you have Saturday night is the stack you start the poker finale with.", meter:true },
-    7: { art:<ArtTicket />, t:"Betting", b:"Every event can be bet on, so play the whole weekend for points. To limit the damage of one bad decision, only half your points can be at risk at a time.", stack:true },
+    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets all weekend. Whatever you have Saturday night is the stack you start the poker finale with.", meter:true },
+    7: { art:<ArtTicket />, t:"Betting", b:"Every event can be bet on. To limit the damage of one bad decision, only half your points can be at risk at a time.", stack:true },
     8: { art:(
       /* two chips and the flash between them: the app's own objects, so the
          card is recognisable before the words are read */
@@ -2043,8 +2043,6 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           background:"var(--paper)", marginTop:4 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--ink)",
             lineHeight:1.05, marginBottom:3 }}>What Brandon needs</div>
-          <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted)", marginBottom:14 }}>
-            Your flights and your shirt size.</div>
           <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
           <div style={{ ...label, margin:"4px 0 6px" }}>Shirt size</div>
@@ -2595,11 +2593,11 @@ function ChipPicker({ state, me, onChip }) {
           );
         })}
       </div>
-      <div style={{ display:"flex", gap:7 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(6, 1fr)", gap:7 }}>
         {CHIP_SKINS.map(sk => (
           <button key={sk} disabled={locked} onClick={() => onChip(undefined, sk)}
             aria-label={`Skin ${sk}`}
-            style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"7px 0",
+            style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:"7px 0",
               borderRadius:10, cursor: locked ? "default" : "pointer", background:"var(--paper2)",
               border: playerSkin(me) === sk ? "1.5px solid var(--sun)" : "1.5px solid var(--line)" }}>
             <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
@@ -2609,6 +2607,42 @@ function ChipPicker({ state, me, onChip }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* where a standings number came from, as marks rather than a run-on sentence:
+   a cup for events won, a chip for the book, a bolt for duels, and your own
+   exposure while it is live. Only what is nonzero shows, so a fresh board is
+   just names and numbers. */
+const PILL_ART = {
+  win:  <path d="M4 2h8v3.2a4 4 0 0 1-8 0z M2.6 2.6v1.2a2 2 0 0 0 1.7 2 M13.4 2.6v1.2a2 2 0 0 1-1.7 2 M8 9.2V12 M5.4 13.4h5.2" />,
+  bet:  <><circle cx="8" cy="7.6" r="5" /><path d="M8 2.6v1.6 M8 11v1.6 M3 7.6h1.6 M11.4 7.6H13" /></>,
+  duel: <path d="M9.4 2 4.6 8.2h3L6.6 13.4 11.4 7h-3z" />,
+};
+function StatPills({ row, atRisk = 0, onSun }) {
+  const bits = [
+    row.wins > 0 && { k:"win", v: row.wins, tone: onSun ? "var(--ink0)" : "var(--sun)" },
+    row.betNet !== 0 && { k:"bet", v: `${row.betNet > 0 ? "+" : ""}${fmt(row.betNet)}`,
+      tone: onSun ? "var(--ink0)" : row.betNet > 0 ? "var(--green)" : "var(--clay)" },
+    row.duelNet !== 0 && { k:"duel", v: `${row.duelNet > 0 ? "+" : ""}${fmt(row.duelNet)}`,
+      tone: onSun ? "var(--ink0)" : row.duelNet > 0 ? "var(--green)" : "var(--clay)" },
+    atRisk > 0 && { k:"bet", v: `${fmt(atRisk)} at risk`, tone:"var(--live2)" },
+  ].filter(Boolean);
+  if (!bits.length) return null;
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:3 }}>
+      {bits.map((b, i) => (
+        <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:3.5, borderRadius:99,
+          padding:"1.5px 7px 1.5px 5px", background: onSun ? "rgba(42,33,25,0.13)" : "var(--ink-tint)",
+          border:`1px solid ${onSun ? "rgba(42,33,25,0.18)" : "var(--line)"}` }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke={b.tone}
+            strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"
+            style={{ flexShrink:0 }}>{PILL_ART[b.k]}</svg>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, lineHeight:1.15,
+            color:b.tone }}>{b.v}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -3232,11 +3266,7 @@ function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, 
                       background:"var(--clay-tint)", color:"var(--clay)" }}>OUT</span>
                   )}
                 </div>
-                <div style={{ fontFamily:SANS, fontSize:11, color: first ? "rgba(42,33,25,0.7)" : "var(--muted)" }}>
-                  {r.wins} win{r.wins===1?"":"s"}{r.betNet !== 0 && <>, wagers {r.betNet>0?"+":""}{r.betNet}</>}
-                  {r.duelNet !== 0 && <>, duels {r.duelNet>0?"+":""}{r.duelNet}</>}
-                  {isMe && myAtRisk > 0 && <>, <span style={{ color:"var(--live2)" }}>{myAtRisk} at risk</span></>}
-                </div>
+                <StatPills row={r} atRisk={isMe ? myAtRisk : 0} onSun={first} />
               </div>
               {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:12.5,
                 color: deltas[r.player] > 0 ? "var(--green)" : "var(--clay)" }}>
@@ -3281,7 +3311,7 @@ function ChampionCard({ state, champion, coChamps, big }) {
         {fmt(champion.pts)} points
       </div>
       {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"var(--night-text)", fontSize: big ? 16 : 12.5 }}>
-        Tied. One pressure putt on the green decides it.</div>}
+        Tied. One pressure putt decides it.</div>}
     </div>
   );
 }
@@ -3605,7 +3635,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                 </div>
               )}
               <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
-                Teams balance themselves: sealed ratings blended with the live board and results, then refined until the sides are even.
+                Teams balance from your ratings and your results so far.
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                 <Btn disabled={inPlayers.length < 2} onClick={() => onDraw(inPlayers)}
@@ -4778,12 +4808,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     <div style={{ padding:"0 16px", paddingBottom: me && ev ? 152 : 0 }}>
       {!ev && !state.frozen && (
         <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
-          Betting is closed.<br/>When Brandon opens the next event, it shows up here.
+          Betting is closed.
         </div>
       )}
       {state.frozen && (
         <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14 }}>
-          The board is frozen. All wagers are settled.
+          The board is frozen.
         </div>
       )}
 
@@ -5184,7 +5214,7 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
       <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--night-text)", textAlign:"center",
         maxWidth:340, marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text2)", marginBottom:26 }}>
-        One chip each, winner takes both</div>
+        {fmt(duel.stake)} each, winner takes the pot</div>
       <Btn onClick={arm} style={{ fontSize:16, padding:"14px 40px" }}>Ready</Btn>
       <button onClick={onClose} style={{ marginTop:18, background:"none", border:"none", color:"var(--night-text2)",
         fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>Not now</button>
@@ -5367,7 +5397,7 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
         <Btn kind="ghost" onClick={onRerun}>Rerun for everyone</Btn>
       </div>
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
-        This phone replays from the install gate. Everyone else replays the next time their app has focus.</div>
+        This phone replays now. Everyone else replays the next time their app has focus.</div>
       <div style={sect}>Board</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         {confirm ? (
@@ -5532,6 +5562,45 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
     const [x, y] = pt(edge - 1.8, i * 45 + 22.5);
     return <circle key={i} cx={x} cy={y} r="1.7" fill="var(--chip-mark)" />;
   });
+  /* the loud half of the rack. Still flat, still one ink, still an edge
+     treatment so the number in the middle stays readable at 18px */
+  const around = (n, d, r, spin = 0) => Array.from({ length: n }, (_, i) => {
+    const a = i * (360 / n) + spin, [x, y] = pt(r, a);
+    return <path key={i} d={d} fill="var(--chip-mark)"
+      transform={`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${a + 90})`} />;
+  });
+  if (skin === "saw") {
+    const n = 11, p2 = [];
+    for (let i = 0; i < n * 2; i++) {
+      const [x, y] = pt(i % 2 ? edge - 3.6 : edge + 0.5, i * (180 / n) - 90);
+      p2.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+    }
+    return <polygon points={p2.join(" ")} fill="none" stroke="var(--chip-mark)"
+      strokeWidth="1.5" strokeLinejoin="round" />;
+  }
+  /* symmetric teardrop: the earlier version had an inner curl that read as a
+     comma once it was 3px on a phone */
+  if (skin === "flame") return around(6,
+    "M0 -4.8C2.4 -1.9 2.9 -0.7 2.9 0.7 2.9 2.6 1.6 3.7 0 3.7S-2.9 2.6 -2.9 0.7C-2.9 -0.7 -2.4 -1.9 0 -4.8Z",
+    edge - 2.8);
+  if (skin === "star") return around(6,
+    "M0 -3.4C0.4 -1 0.6 -0.8 3 -0.4 0.6 0 0.4 0.2 0 2.6c-0.4-2.4-0.6-2.6-3-3 2.4-0.4 2.6-0.6 3-3Z",
+    edge - 2.4);
+  if (skin === "bolt") return around(5, "M1.3 -4 -1.9 0.5h2L0 4 3 -0.7h-2z", edge - 2.4);
+  if (skin === "wave") {
+    const n = 60, d = [];
+    for (let i = 0; i <= n; i++) {
+      const [x, y] = pt(edge - 1.9 + Math.sin(i / n * Math.PI * 14) * 1.5, i * (360 / n));
+      d.push(`${i ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`);
+    }
+    return <path d={d.join(" ")} fill="none" stroke="var(--chip-mark)" strokeWidth="1.5" />;
+  }
+  /* the one asymmetric skin, and the only one that has to be read as an
+     object rather than a pattern, so it is filled and big */
+  if (skin === "crown") return (
+    <path d="M-7.6 4.6 -6.2-4.8-2.6-1.2 0-6.6 2.6-1.2 6.2-4.8 7.6 4.6Z"
+      fill="var(--chip-mark)" transform={`translate(${cx} ${cx - 5.2})`} />
+  );
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
 function BankChip({ p, size=18, empty, val }) {

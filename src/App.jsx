@@ -6,6 +6,7 @@ import {
   pokerLive, pokerClock, pokerDenoms, pokerChips,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
+  HUB, TRAVEL_DAYS, AIRLINES, HOME_AIRPORTS, cleanLeg, legTime, legText,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
@@ -1884,16 +1885,16 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState("");
   const [size, setSize] = useState(null);
-  const [flightIn, setFlightIn] = useState("");
-  const [flightOut, setFlightOut] = useState("");
+  const [flightIn, setFlightIn] = useState(null);
+  const [flightOut, setFlightOut] = useState(null);
   useEffect(() => {
     if (!me) return;
     const pr = state.profiles?.[me];
     setDisplay(pr?.display || me);
     setNum(pr?.num != null ? String(pr.num) : "");
     setSize(pr?.size ?? null);
-    setFlightIn(pr?.flightIn || "");
-    setFlightOut(pr?.flightOut || "");
+    setFlightIn(pr?.flightIn || null);
+    setFlightOut(pr?.flightOut || null);
     /* a replay must not make anyone re-rate themselves from scratch: seed the
        form with whatever they already sealed */
     setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
@@ -2302,20 +2303,13 @@ function VenueCard({ lg, compact }) {
           </div>
         </div>
       )}
-      {(lg.hostIn || lg.hostOut || lg.hostTravel) && (
+      {(lg.hostIn || lg.hostOut) && (
         <div style={card}>
-          <div style={{ ...label, marginBottom:7 }}>Brandon flies</div>
-          {(lg.hostIn || lg.hostOut) ? [["In", lg.hostIn], ["Out", lg.hostOut]].map(([lb, v]) => v ? (
-            <div key={lb} style={{ display:"flex", gap:10, alignItems:"baseline", padding:"2px 0" }}>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.1em",
-                textTransform:"uppercase", color:"var(--muted)", width:26 }}>{lb}</span>
-              <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--ink)",
-                lineHeight:1.5, flex:1 }}>{v}</span>
-            </div>
-          ) : null) : (
-            <div style={{ fontFamily:SANS, fontWeight:600, fontSize:13.5, color:"var(--ink)",
-              lineHeight:1.5 }}>{lg.hostTravel}</div>
-          )}
+          <div style={{ ...label, marginBottom:8 }}>Brandon flies</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            <FlightStrip leg={lg.hostIn} dir="in" />
+            <FlightStrip leg={lg.hostOut} dir="out" />
+          </div>
         </div>
       )}
     </div>
@@ -2324,19 +2318,139 @@ function VenueCard({ lg, compact }) {
 
 /* travel entry, shared by onboarding and the profile sheet: two free-text
    lines that read back to the host. Airline, number, time, whatever works */
-function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut, lg }) {
-  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
-    color:"var(--ink)", outline:"none", height:48, width:"100%", padding:"0 13px",
-    fontFamily:SANS, fontWeight:600, fontSize:15 };
+/* a leg as a boarding pass: carrier and number on the stub, the route with a
+   plane between, and the time that actually matters big on the right */
+function FlightStrip({ leg: raw, dir, small }) {
+  /* accepts a structured leg or a legacy free-text one, same as the server */
+  const leg = cleanLeg(raw);
+  if (!leg) return null;
+  if (leg.note) return (
+    <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
+      color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
+  );
+  const from = dir === "out" ? HUB : (leg.apt || "\u00b7\u00b7\u00b7");
+  const to = dir === "out" ? (leg.apt || "\u00b7\u00b7\u00b7") : HUB;
+  const t = legTime(leg.time);
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap: small ? 9 : 11,
+      background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
+      padding: small ? "7px 9px" : "9px 11px" }}>
+      <div style={{ textAlign:"center", flexShrink:0, borderRight:"1px dashed var(--line)",
+        paddingRight: small ? 9 : 11 }}>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 10 : 11,
+          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 15 : 18,
+          lineHeight:1.05, color:"var(--ink)" }}>{leg.num || "\u2014"}</div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:7, flex:1, minWidth:0 }}>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19,
+          color:"var(--ink)" }}>{from}</span>
+        <svg width={small ? 13 : 15} height={small ? 13 : 15} viewBox="0 0 24 24" fill="var(--muted)"
+          aria-hidden="true" style={{ flexShrink:0 }}>
+          <path d="M2 4 22 12 2 20l4.6-8z"/>
+        </svg>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19,
+          color:"var(--ink)" }}>{to}</span>
+      </div>
+      <div style={{ textAlign:"right", flexShrink:0 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 15 : 18, lineHeight:1.05,
+          color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
+          letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)" }}>
+          {leg.day || ""} {dir === "out" ? "out" : "in"}</div>
+      </div>
+    </div>
+  );
+}
+
+/* entering a leg is taps, not typing: three short codes on one row, then the
+   day as chips and the time from the phone's own clock picker */
+function LegEditor({ lb, dir, leg, setLeg }) {
+  const v = leg || {};
+  const set = patch => setLeg({ ...v, ...patch });
+  const cell = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
+    color:"var(--ink)", outline:"none", height:46, width:"100%", padding:"0 8px", textAlign:"center",
+    fontFamily:SANS, fontWeight:700, fontSize:15, minWidth:0 };
+  const cap = { ...label, fontSize:9.5, marginBottom:4, textAlign:"center" };
+  const filled = v.air || v.num || v.apt || v.time || v.day;
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:7 }}>
+        <span style={label}>{lb}</span>
+        {filled && (
+          <button onClick={() => setLeg(null)} style={{ marginLeft:"auto", background:"none",
+            border:"none", cursor:"pointer", padding:0, fontFamily:SANS, fontWeight:700, fontSize:11,
+            letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--muted)" }}>Clear</button>
+        )}
+      </div>
+      <div style={{ display:"flex", gap:7, marginBottom:8 }}>
+        <div style={{ width:72 }}>
+          <div style={cap}>Airline</div>
+          <input value={v.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
+            onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
+            style={cell} />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={cap}>Flight no.</div>
+          <input value={v.num || ""} inputMode="numeric" placeholder="1885"
+            onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })} style={cell} />
+        </div>
+        <div style={{ width:76 }}>
+          <div style={cap}>{dir === "out" ? "To" : "From"}</div>
+          <input value={v.apt || ""} list="fd-airports" placeholder="SFO" autoCapitalize="characters"
+            onChange={e => set({ apt: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) })}
+            style={cell} />
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:7, alignItems:"flex-end" }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ ...cap, textAlign:"left" }}>Day</div>
+          <div style={{ display:"flex", gap:4 }}>
+            {TRAVEL_DAYS.map(d => (
+              <button key={d} onClick={() => set({ day: v.day === d ? undefined : d })}
+                style={{ flex:1, height:46, padding:0, borderRadius:10, cursor:"pointer",
+                  fontFamily:SANS, fontWeight:700, fontSize:12.5, minWidth:0,
+                  background: v.day === d ? GOLD_GRAD : "var(--paper2)",
+                  color: v.day === d ? "var(--ink0)" : "var(--ink)",
+                  border: v.day === d ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{d}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ width:108 }}>
+          <div style={{ ...cap, textAlign:"left" }}>{dir === "out" ? "Departs" : "Lands"}</div>
+          <input type="time" value={v.time || ""} onChange={e => set({ time: e.target.value })}
+            style={{ ...cell, textAlign:"left" }} />
+        </div>
+      </div>
+      {/* the pass you are making, so the clock and the route read back before
+          anyone else sees them */}
+      {filled && (
+        <div style={{ marginTop:8, animation:"si-in .2s ease-out" }}>
+          <FlightStrip leg={v} dir={dir} small />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* the datalists both editors share: the seven cities everyone flies from */
+function TravelLists() {
+  return (
+    <>
+      <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>
+      <datalist id="fd-airports">{HOME_AIRPORTS.map(a => <option key={a} value={a} />)}</datalist>
+    </>
+  );
+}
+
+/* travel entry, shared by onboarding and the profile sheet */
+function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
   return (
     <div>
-      <div style={{ ...label, marginBottom:6 }}>Flight in</div>
-      <input value={flightIn} onChange={e => setFlightIn(e.target.value)} maxLength={90}
-        placeholder="WN 1204, lands PHX Fri 2:10p" style={{ ...field, marginBottom:12 }} />
-      <div style={{ ...label, marginBottom:6 }}>Flight out</div>
-      <input value={flightOut} onChange={e => setFlightOut(e.target.value)} maxLength={90}
-        placeholder="WN 887, leaves Sun 11:30a" style={field} />
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6, lineHeight:1.5 }}>
+      <TravelLists />
+      <LegEditor lb="Flight in" dir="in" leg={flightIn} setLeg={setFlightIn} />
+      <LegEditor lb="Flight out" dir="out" leg={flightOut} setLeg={setFlightOut} />
+      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:-4, lineHeight:1.5 }}>
         Goes to Brandon for pickups and headcounts. Add it when booked.</div>
     </div>
   );
@@ -2409,14 +2523,16 @@ const LOGI_FIELDS = [
   { k:"checkIn",   ph:"Check in, e.g. Fri Oct 30, 4:00 PM", half:true },
   { k:"checkOut",  ph:"Checkout, e.g. Sun Nov 1, 10:00 AM", half:true },
   { k:"onSite",    ph:"On site, comma separated" },
-  { k:"hostIn",    ph:"Your flight in" },
-  { k:"hostOut",   ph:"Your flight out" },
 ];
 function LogisticsEditor({ state, onSave }) {
   const lg = state.logistics || {};
   const [form, setForm] = useState(() =>
     Object.fromEntries(LOGI_FIELDS.map(f => [f.k, lg[f.k] || ""])));
-  const dirty = LOGI_FIELDS.some(f => form[f.k] !== (lg[f.k] || ""));
+  const [hostIn, setHostIn] = useState(lg.hostIn || null);
+  const [hostOut, setHostOut] = useState(lg.hostOut || null);
+  const same = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  const dirty = LOGI_FIELDS.some(f => form[f.k] !== (lg[f.k] || ""))
+    || !same(hostIn, lg.hostIn) || !same(hostOut, lg.hostOut);
   const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
     color:"var(--ink)", outline:"none", width:"100%", padding:"12px 13px",
     fontFamily:SANS, fontWeight:600, fontSize:14 };
@@ -2431,7 +2547,13 @@ function LogisticsEditor({ state, onSave }) {
             style={{ ...field, flex: f.half ? "1 1 45%" : "1 1 100%", minWidth:0 }} />
         ))}
       </div>
-      <Btn disabled={!dirty} onClick={() => onSave(form)} style={{ width:"100%", marginTop:10 }}>Save</Btn>
+      <div style={{ marginTop:14 }}>
+        <TravelLists />
+        <LegEditor lb="Your flight in" dir="in" leg={hostIn} setLeg={setHostIn} />
+        <LegEditor lb="Your flight out" dir="out" leg={hostOut} setLeg={setHostOut} />
+      </div>
+      <Btn disabled={!dirty} onClick={() => onSave({ ...form, hostIn, hostOut })}
+        style={{ width:"100%", marginTop:4 }}>Save</Btn>
     </div>
   );
 }
@@ -2481,8 +2603,8 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
             <div style={{ ...label, marginBottom:8 }}>Travel and jersey sheet</div>
             {ROSTER.map(p => {
               const pr = profs[p];
-              const legs = [pr?.flightIn && `in ${pr.flightIn}`, pr?.flightOut && `out ${pr.flightOut}`]
-                .filter(Boolean).join(" · ");
+              const legs = [pr?.flightIn && `in ${legText(pr.flightIn, "in")}`,
+                pr?.flightOut && `out ${legText(pr.flightOut, "out")}`].filter(Boolean).join(" · ");
               return (
                 <div key={p} style={{ padding:"6px 0", borderBottom:"1px solid var(--line)" }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:SANS, fontSize:14 }}>
@@ -5101,8 +5223,8 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
-  const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || "");
-  const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || "");
+  const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || null);
+  const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || null);
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   if (!me) return null;
   return (

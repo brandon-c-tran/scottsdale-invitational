@@ -4,7 +4,7 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, LOGISTICS, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, LOGISTICS, cleanLeg, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
 } from "../shared/core.js";
@@ -20,12 +20,13 @@ export const ACTIONS = {
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
     const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
-    /* travel is free text: airline, number, time, whatever reads back to the host */
+    /* travel legs are structured and validated by the same helper the client
+       renders from, so a leg can never be half-parsed on one side only */
     for (const [k, v] of [["flightIn", flightIn], ["flightOut", flightOut]]) {
       if (v === undefined) continue;
-      if (v === null || (typeof v === "string" && !v.trim())) delete prof[k];
-      else if (typeof v !== "string") return err("Bad flight");
-      else prof[k] = v.trim().slice(0, 90);
+      const leg = cleanLeg(v);
+      if (leg === undefined) return err("Bad flight");
+      if (leg === null) delete prof[k]; else prof[k] = leg;
     }
     if (num !== undefined) {
       if (num === null) delete prof.num;
@@ -682,12 +683,18 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const clean = { ...LOGISTICS, ...(state.logistics || {}) };
     const FIELDS = [["venueName", 90], ["venue", 140], ["venueNote", 240], ["checkIn", 40],
-      ["checkOut", 40], ["onSite", 240], ["hostIn", 120], ["hostOut", 120]];
+      ["checkOut", 40], ["onSite", 240]];
     for (const [k, max] of FIELDS) {
       const v = patch?.[k];
       if (v === undefined) continue;
       if (typeof v !== "string") return err("Bad text");
       clean[k] = v.trim().slice(0, max);
+    }
+    for (const k of ["hostIn", "hostOut"]) {
+      if (patch?.[k] === undefined) continue;
+      const leg = cleanLeg(patch[k]);
+      if (leg === undefined) return err("Bad flight");
+      if (leg === null) delete clean[k]; else clean[k] = leg;
     }
     state.logistics = clean;
     return ok();

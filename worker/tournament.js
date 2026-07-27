@@ -8,7 +8,7 @@
    - WebSocket hibernation keeps connections cheap; on any reconnect the
      client immediately receives the full authoritative state. */
 
-import { EMPTY_STATE, GM_PIN, ROSTER } from "../shared/core.js";
+import { EMPTY_STATE, GM_PIN, ROSTER, cleanLeg } from "../shared/core.js";
 import { applyAction } from "./actions.js";
 
 export class Tournament {
@@ -23,6 +23,19 @@ export class Tournament {
       for (const [k, v] of Object.entries(EMPTY_STATE))
         if (this.state[k] === undefined) this.state[k] = structuredClone(v);
       this.state.logistics = { ...EMPTY_STATE.logistics, ...(this.state.logistics || {}) };
+      /* flight legs became structured: normalise anything written as free text
+         so every reader gets the same shape */
+      for (const k of ["hostIn", "hostOut"]) {
+        const leg = cleanLeg(this.state.logistics[k]);
+        if (leg) this.state.logistics[k] = leg; else delete this.state.logistics[k];
+      }
+      for (const prof of Object.values(this.state.profiles || {})) {
+        for (const k of ["flightIn", "flightOut"]) {
+          if (prof[k] === undefined) continue;
+          const leg = cleanLeg(prof[k]);
+          if (leg) prof[k] = leg; else delete prof[k];
+        }
+      }
       this.version = (await ctx.storage.get("version")) || 0;
       this.gmToken = (await ctx.storage.get("gmToken")) || null;
       this.claims = (await ctx.storage.get("claims")) || {}; // deviceId -> player

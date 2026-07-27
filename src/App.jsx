@@ -2446,34 +2446,38 @@ function TravelLists() {
   return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
 }
 
-/* travel entry, shared by onboarding and the profile sheet. Two labelled boxes
-   never read as a request, so the heading does the asking, and nobody who has
-   not booked yet should have to stare at a form they cannot fill */
+/* travel entry, shared by onboarding and the profile sheet. Ask the question
+   outright and give it two equal answers: a quiet link next to a form reads
+   as decoration, and whoever has not booked cannot tell it is meant for them.
+   Nothing shows until you answer, so the question IS the instruction. */
 function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
-  const [later, setLater] = useState(false);
-  const link = { background:"none", border:"none", padding:0, cursor:"pointer", fontFamily:SANS,
-    fontWeight:700, fontSize:11.5, letterSpacing:"0.1em", textTransform:"uppercase",
-    color:"var(--accent2)", marginLeft:"auto" };
+  const [booked, setBooked] = useState(() => (flightIn || flightOut ? true : null));
+  const opt = on => ({ fontFamily:SANS, fontWeight:700, fontSize:14, height:48, padding:0,
+    borderRadius:10, cursor:"pointer",
+    background: on ? GOLD_GRAD : "var(--paper2)", color: on ? "var(--ink0)" : "var(--ink)",
+    border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" });
   return (
     <div>
       <TravelLists />
-      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:10 }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, color:"var(--ink)" }}>
-          Add your flights</span>
-        <button onClick={() => { setLater(!later); if (!later) { setFlightIn(null); setFlightOut(null); } }}
-          style={link}>{later ? "Add now" : "Not booked yet"}</button>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, color:"var(--ink)",
+        marginBottom:8 }}>Booked your flights?</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:14 }}>
+        <button onClick={() => setBooked(true)} style={opt(booked === true)}>Yes</button>
+        <button onClick={() => { setBooked(false); setFlightIn(null); setFlightOut(null); }}
+          style={opt(booked === false)}>Not yet</button>
       </div>
-      {later ? (
+      {booked === true && (
+        <>
+          <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
+          <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
+        </>
+      )}
+      {booked === false && (
         <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55,
           background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:12,
           padding:"12px 14px", marginBottom:12 }}>
           Add them from your profile once you book.
         </div>
-      ) : (
-        <>
-          <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
-          <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
-        </>
       )}
     </div>
   );

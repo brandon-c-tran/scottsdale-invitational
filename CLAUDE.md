@@ -66,10 +66,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    announcement (sessions show "N events · V each", never a block total), the
    travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
    logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the
-   address + a maps link, the PHX `AirportCard` because everyone has to act on
-   it before booking, check-in/checkout, and Brandon's own flights collapsed to
-   one muted line since only his times matter to anyone else; no listing name
-   and no amenity list, people already know. The real booking ships as `LOGISTICS`
+   address + a maps link, and the check-in window INSIDE the same card so those
+   times can only be read as the house's; then one travel card pairing the PHX
+   row with Brandon's own arrival and departure, since both answer the same
+   question. His flight codes stay out: only the times matter to anyone else.
+   No listing name and no amenity list, people already know. The real booking ships as `LOGISTICS`
    in core and every read and write runs `cleanLogistics`: a sheet stamped with
    an older `LOGISTICS.v` was written against a booking we no longer have and
    is replaced whole, and at the current edition blanks fall back to what

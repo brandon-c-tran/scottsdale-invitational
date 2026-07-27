@@ -2337,16 +2337,34 @@ function HouseArt() {
   );
 }
 
-/* the house and the window you have to book inside. Read-only: the GM writes
-   it once from the locker room. */
+/* Two cards, each one subject. The house owns its own check-in window, so
+   nobody has to work out what those times belong to; travel owns the airport
+   and the host's flights, since both are about getting there. */
+const CARD = { background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
+  marginBottom:12, overflow:"hidden" };
+/* the label-over-value pair, used by both split rows */
+function InfoCell({ lb, v, first }) {
+  return (
+    <div style={{ flex:1, minWidth:0, padding:"11px 14px",
+      borderLeft: first ? "none" : "1px solid var(--line)" }}>
+      <div style={{ ...label, fontSize:10, marginBottom:4 }}>{lb}</div>
+      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
+        lineHeight:1.35 }}>{v}</div>
+    </div>
+  );
+}
+
 function VenueCard({ lg }) {
   const mapUrl = lg.venue
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lg.venue)}` : null;
-  const card = { background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-    padding:"13px 14px", marginBottom:12 };
+  const inL = cleanLeg(lg.hostIn), outL = cleanLeg(lg.hostOut);
+  const hostLegs = [
+    inL && ["Lands", inL.note || (legTime(inL.time) && `Fri ${legTime(inL.time)}`)],
+    outL && ["Leaves", outL.note || (legTime(outL.time) && `Sun ${legTime(outL.time)}`)],
+  ].filter(x => x && x[1]);
   return (
     <div>
-      <div style={{ ...card, padding:0, overflow:"hidden" }}>
+      <div style={CARD}>
         <HouseArt />
         <div style={{ padding:"12px 14px", borderTop:"1px solid var(--line)" }}>
           <div style={{ ...label, marginBottom:5 }}>The house</div>
@@ -2363,63 +2381,39 @@ function VenueCard({ lg }) {
                 textDecoration:"none" }}>Open in maps ›</a>
           )}
         </div>
+        {(lg.checkIn || lg.checkOut) && (
+          <div style={{ display:"flex", borderTop:"1px solid var(--line)" }}>
+            <InfoCell lb="Check in" v={lg.checkIn || "TBD"} first />
+            <InfoCell lb="Checkout" v={lg.checkOut || "TBD"} />
+          </div>
+        )}
       </div>
-      <AirportCard lg={lg} />
-      {(lg.checkIn || lg.checkOut) && (
-        <div style={{ ...card, display:"flex", gap:12, padding:0, overflow:"hidden" }}>
-          {[["Check in", lg.checkIn], ["Checkout", lg.checkOut]].map(([lb, v], i) => (
-            <div key={lb} style={{ flex:1, padding:"12px 14px",
-              borderLeft: i ? "1px solid var(--line)" : "none" }}>
-              <div style={{ ...label, fontSize:10, marginBottom:4 }}>{lb}</div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
-                lineHeight:1.35 }}>{v || "TBD"}</div>
+      {(lg.airport || hostLegs.length > 0) && (
+        <div style={CARD}>
+          {lg.airport && (
+            <div style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 14px" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent2)" aria-hidden="true"
+                style={{ flexShrink:0 }}><path d="M2 4 22 12 2 20l4.6-8z"/></svg>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ ...label, fontSize:10, marginBottom:3 }}>Fly into</div>
+                <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>{lg.airportName}</div>
+              </div>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, letterSpacing:"0.06em",
+                color:"var(--sun)", lineHeight:1 }}>{lg.airport}</div>
             </div>
-          ))}
+          )}
+          {hostLegs.length > 0 && (
+            /* the flight codes matter to nobody but Brandon; the times are how
+               people work out who they are sharing a ride with */
+            <div style={{ borderTop: lg.airport ? "1px solid var(--line)" : "none" }}>
+              <div style={{ ...label, fontSize:10, padding:"10px 14px 0" }}>Brandon's flights</div>
+              <div style={{ display:"flex" }}>
+                {hostLegs.map(([lb, v], i) => <InfoCell key={lb} lb={lb} v={v} first={i === 0} />)}
+              </div>
+            </div>
+          )}
         </div>
       )}
-      {(lg.hostIn || lg.hostOut) && (() => {
-        /* the flight codes matter to nobody but Brandon, so this is one line
-           rather than two passes. It is still a card: the times are how people
-           work out who they are sharing a ride with */
-        const inL = cleanLeg(lg.hostIn), outL = cleanLeg(lg.hostOut);
-        const legs = [
-          inL && ["Lands Fri", inL.note || legTime(inL.time)],
-          outL && ["Leaves Sun", outL.note || legTime(outL.time)],
-        ].filter(x => x && x[1]);
-        if (!legs.length) return null;
-        return (
-          <div style={{ ...card, display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ ...label, fontSize:10, whiteSpace:"nowrap" }}>Brandon</span>
-            {legs.map(([lb, v], i) => (
-              <span key={lb} style={{ display:"flex", alignItems:"baseline", gap:6,
-                marginLeft: i ? "auto" : 0, whiteSpace:"nowrap" }}>
-                <span style={{ fontFamily:SANS, fontSize:10, fontWeight:700, letterSpacing:"0.06em",
-                  textTransform:"uppercase", color:"var(--muted)" }}>{lb}</span>
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, lineHeight:1,
-                  color:"var(--ink)" }}>{v}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })()}
-    </div>
-  );
-}
-
-/* the airport is the one travel fact everyone has to act on before they book */
-function AirportCard({ lg }) {
-  if (!lg.airport) return null;
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:14, background:"var(--paper)",
-      border:"1px solid var(--line)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent2)" aria-hidden="true"
-        style={{ flexShrink:0 }}><path d="M2 4 22 12 2 20l4.6-8z"/></svg>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ ...label, fontSize:10, marginBottom:3 }}>Fly into</div>
-        <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>{lg.airportName}</div>
-      </div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, letterSpacing:"0.06em",
-        color:"var(--sun)", lineHeight:1 }}>{lg.airport}</div>
     </div>
   );
 }

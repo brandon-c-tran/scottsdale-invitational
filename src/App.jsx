@@ -6233,7 +6233,7 @@ function Guide({ replay, events, state }) {
         Thirteen players, sixteen events, one board. Teams reshuffle every event. Everyone starts at 1,000, and results, bets, and duels all move that same number.
       </S>
       <S n="02" t="Points are chips">
-        Whatever you have when the events end is the stack you are dealt at Championship Poker. No conversion: 2,900 on the board is 2,900 in front of you. The winner of that table is the Field Day champion, and the board freezes on the final counts.
+        Whatever you have when the events end is the stack you are dealt at Championship Poker. The winner of that table is the Field Day champion.
       </S>
       <S n="03" t="What events pay">
         Friday 400. Saturday morning 800, afternoon 1,200, night 1,600. Solo events pay the podium. Team events pay every player on the placing team the full amount. Ties are settled on the spot, and a championship tie is one pressure putt.

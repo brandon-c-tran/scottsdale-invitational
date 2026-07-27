@@ -129,6 +129,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
     stack you sit down with".
   - Cut anything self-evident. He deleted "nothing resets between days" and
     "Everyone starts gray" because a reader already knows.
+  - Never restate a mechanic with a worked example. "Your points are the stack
+    you are dealt" does not need "No conversion: 2,900 on the board is 2,900 in
+    front of you" after it. Say it once.
   - Cut reassurance and atmosphere tails: "The board tracks it", "The room
     keeps time", "Nobody sees this".
   - One idea per line. When a sentence carries a rule AND a rationale, keep

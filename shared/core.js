@@ -177,7 +177,7 @@ const GAMES = {
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack. Your points buy you in.",
-    steps:["Your points are your chips: 2,200 on the board sits down with 2,200 in front of you, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    steps:["Your points are your chips, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
     win:"Chip leader takes the championship. Elimination order settles the busts.",
     house:"No wagers, duels, or rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],

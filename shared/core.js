@@ -262,12 +262,10 @@ const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1"
    to type it and the invite is correct the moment it goes out. GM can edit
    every line from the locker room. */
 const LOGISTICS = {
-  venueName: "2 Homes in 1 · Pickleball Court + Hidden Speakeasy",
   venue: "10848 North Aberdeen Road, Scottsdale, AZ",
   venueNote: "",
   checkIn: "Fri Oct 30, 4:00 PM",
   checkOut: "Sun Nov 1, 10:00 AM",
-  onSite: "Full basketball court, Pickleball court, Sand volleyball, Putting green, Pool and spa, Speakeasy",
   hostIn: { air:"WN", num:"4663", time:"08:40" },
   hostOut: { air:"UA", num:"1885", time:"20:37" },
 };

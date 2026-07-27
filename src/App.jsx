@@ -1844,6 +1844,8 @@ function Shell({ children, tv }) {
         @keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
         @keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
         @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+        input[type=time]::-webkit-calendar-picker-indicator { display:none; }
+        input[type=time] { -webkit-appearance:none; appearance:none; }
         ::-webkit-scrollbar { width:0; height:0; }
         /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
         .si-vh { min-height:100vh; min-height:100dvh; }
@@ -1966,8 +1968,11 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
               <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, color:"var(--ink)",
                 textTransform:"uppercase", letterSpacing:"0.03em", flex:1 }}>{s.label}</span>
               {s.id === "fin" ? (
-                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.08em",
-                  color:"var(--accent2)" }}>POKER · YOUR STACK</span>
+                /* the finale is not worth points, it spends them: say the
+                   mechanic here, where "your stack" would mean nothing yet */
+                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted)" }}>
+                  Your points become <b style={{ color:"var(--accent2)", fontWeight:700 }}>chips</b>
+                </span>
               ) : (
                 <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted)" }}>
                   {n} event{n === 1 ? "" : "s"} · <b style={{ color:"var(--sun)", fontWeight:700 }}>{val} each</b>
@@ -2022,8 +2027,6 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
                 border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
           ))}
         </div>
-        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
-          For the jersey order.</div>
       </div>
       <div style={{ marginTop:12 }}>
         <Btn disabled={!size} onClick={() => { saveProfile({ display: (display || me).trim() || me,
@@ -2245,8 +2248,6 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
                   border: size === s ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{s}</button>
             ))}
           </div>
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:6 }}>
-            Asked once, for the jersey order.</div>
         </div>
       )}
       {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} />}
@@ -2254,30 +2255,72 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   );
 }
 
-/* the house, the window you have to book inside, and what is waiting there.
-   Read-only: the GM writes it once from the locker room. */
-function VenueCard({ lg, compact }) {
-  const onSite = (lg.onSite || "").split(",").map(s => s.trim()).filter(Boolean);
+/* the house, flat and at night: a low tile roof over the main block, a wing
+   off the side, lit windows, and the pool out front. Desert, not postcard.
+   No fixed height: the viewBox sets the ratio so it scales with the card */
+function HouseArt() {
+  const tile = "var(--clay)", stucco = "var(--paper2)";
+  return (
+    <svg viewBox="0 0 300 118" width="100%" aria-hidden="true" style={{ display:"block" }}>
+      {/* saguaro standing off the corner */}
+      <g stroke="var(--olive)" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.55">
+        <path d="M276 92 V44"/><path d="M276 66 h-11 v-12"/><path d="M276 58 h12 v-14"/>
+      </g>
+      {/* main block */}
+      <path d="M84 56 L112 33 L214 33 L242 56 Z" fill={tile} opacity="0.9"/>
+      <path d="M84 56 L112 33 L214 33 L242 56 Z" fill="none" stroke="var(--ink0)"
+        strokeWidth="1.6" strokeLinejoin="round"/>
+      {[40, 47].map(y => (
+        <path key={y} d={`M${84 + (56 - y) * 1.2} ${y} H${242 - (56 - y) * 1.2}`}
+          stroke="var(--ink0)" strokeWidth="1" opacity="0.3"/>
+      ))}
+      <rect x="92" y="55" width="142" height="41" fill={stucco} stroke="var(--line)" strokeWidth="1.2"/>
+      {[104, 140, 176].map(x => (
+        <rect key={x} x={x} y="63" width="24" height="24" rx="1.5" fill="var(--sun)" opacity="0.82"/>
+      ))}
+      {/* the door, open to the deck */}
+      <rect x="208" y="66" width="18" height="30" rx="1.5" fill="var(--sun)" opacity="0.5"/>
+      {/* side wing, one step lower */}
+      <path d="M32 72 L58 56 L92 56 L92 72 Z" fill={tile} opacity="0.78"/>
+      <path d="M32 72 L58 56 L92 56 L92 72 Z" fill="none" stroke="var(--ink0)"
+        strokeWidth="1.4" strokeLinejoin="round"/>
+      <rect x="40" y="71" width="52" height="25" fill={stucco} stroke="var(--line)" strokeWidth="1.2"/>
+      <rect x="52" y="77" width="22" height="15" rx="1.5" fill="var(--sun)" opacity="0.6"/>
+      {/* deck, then the pool with its float lights */}
+      <path d="M18 96 H282" stroke="var(--line)" strokeWidth="1.4"/>
+      <rect x="46" y="100" width="176" height="14" rx="7" fill="var(--pool)" opacity="0.55"
+        stroke="var(--ink0)" strokeWidth="1.2"/>
+      {[80, 122, 164, 200].map((x, i) => (
+        <circle key={x} cx={x} cy={107} r={4.5 - (i % 2)} fill="var(--bone)" opacity="0.8"/>
+      ))}
+    </svg>
+  );
+}
+
+/* the house and the window you have to book inside. Read-only: the GM writes
+   it once from the locker room. */
+function VenueCard({ lg }) {
   const mapUrl = lg.venue
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lg.venue)}` : null;
   const card = { background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
     padding:"13px 14px", marginBottom:12 };
   return (
     <div>
-      <div style={card}>
-        <div style={{ ...label, marginBottom:5 }}>The house</div>
-        <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, lineHeight:1.5, userSelect:"text",
-          color: lg.venue ? "var(--ink)" : "var(--muted)" }}>{lg.venue || "Address drops soon."}</div>
-        {lg.venueName && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
-          lineHeight:1.5 }}>{lg.venueName}</div>}
-        {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:4,
-          lineHeight:1.5 }}>{lg.venueNote}</div>}
-        {mapUrl && (
-          <a href={mapUrl} target="_blank" rel="noreferrer"
-            style={{ display:"inline-block", marginTop:9, fontFamily:SANS, fontWeight:700, fontSize:12.5,
-              letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--accent2)",
-              textDecoration:"none" }}>Open in maps ›</a>
-        )}
+      <div style={{ ...card, padding:0, overflow:"hidden" }}>
+        <HouseArt />
+        <div style={{ padding:"12px 14px", borderTop:"1px solid var(--line)" }}>
+          <div style={{ ...label, marginBottom:5 }}>The house</div>
+          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15.5, lineHeight:1.45, userSelect:"text",
+            color: lg.venue ? "var(--ink)" : "var(--muted)" }}>{lg.venue || "Address drops soon."}</div>
+          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
+            lineHeight:1.5 }}>{lg.venueNote}</div>}
+          {mapUrl && (
+            <a href={mapUrl} target="_blank" rel="noreferrer"
+              style={{ display:"inline-block", marginTop:10, fontFamily:SANS, fontWeight:700, fontSize:12.5,
+                letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--accent2)",
+                textDecoration:"none" }}>Open in maps ›</a>
+          )}
+        </div>
       </div>
       {(lg.checkIn || lg.checkOut) && (
         <div style={{ ...card, display:"flex", gap:12, padding:0, overflow:"hidden" }}>
@@ -2291,24 +2334,12 @@ function VenueCard({ lg, compact }) {
           ))}
         </div>
       )}
-      {!compact && onSite.length > 0 && (
-        <div style={card}>
-          <div style={{ ...label, marginBottom:8 }}>On site</div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-            {onSite.map(a => (
-              <span key={a} style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)",
-                background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:99,
-                padding:"6px 11px" }}>{a}</span>
-            ))}
-          </div>
-        </div>
-      )}
       {(lg.hostIn || lg.hostOut) && (
         <div style={card}>
           <div style={{ ...label, marginBottom:8 }}>Brandon flies</div>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            <FlightStrip leg={lg.hostIn} dir="in" />
-            <FlightStrip leg={lg.hostOut} dir="out" />
+            <FlightPass leg={lg.hostIn} dir="in" />
+            <FlightPass leg={lg.hostOut} dir="out" />
           </div>
         </div>
       )}
@@ -2316,58 +2347,76 @@ function VenueCard({ lg, compact }) {
   );
 }
 
-/* travel entry, shared by onboarding and the profile sheet: two free-text
-   lines that read back to the host. Airline, number, time, whatever works */
-/* a leg as a boarding pass: carrier and number on the stub, the route with a
-   plane between, and the time that actually matters big on the right */
-function FlightStrip({ leg: raw, dir, small }) {
-  /* accepts a structured leg or a legacy free-text one, same as the server */
-  const leg = cleanLeg(raw);
+/* One boarding pass, read-only or editable. The fields sit exactly where the
+   values will read, so there is no form and no separate preview: you fill in
+   the pass itself. */
+function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
+  const leg = edit ? (raw || {}) : cleanLeg(raw);
   if (!leg) return null;
-  if (leg.note) return (
+  if (!edit && leg.note) return (
     <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
       color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
   );
+  const set = patch => setLeg({ ...(raw || {}), ...patch });
   const t = legTime(leg.time);
+  const bare = { background:"none", border:"none", outline:"none", padding:0, minWidth:0,
+    boxSizing:"border-box", maxWidth:"100%" };
+  const numSize = small ? 19 : 22;
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 12,
+    <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 11,
       background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-      padding: small ? "8px 11px" : "10px 13px" }}>
+      padding: small ? "9px 11px" : "11px 13px" }}>
       <svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 24 24" fill="var(--muted)"
         aria-hidden="true" style={{ flexShrink:0 }}>
         <path d="M2 4 22 12 2 20l4.6-8z"/>
       </svg>
       <div style={{ display:"flex", alignItems:"baseline", gap:7, flex:1, minWidth:0 }}>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
-          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 19 : 22,
-          color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
+        {edit ? (
+          <>
+            <input value={leg.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
+              aria-label="Airline"
+              onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
+              style={{ ...bare, width:36, flexShrink:0, fontFamily:SANS, fontWeight:700, fontSize:12,
+                letterSpacing:"0.14em", color:"var(--accent2)" }} />
+            <input value={leg.num || ""} inputMode="numeric" placeholder="1885" aria-label="Flight number"
+              onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+              style={{ ...bare, flex:1, fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
+                color:"var(--ink)" }} />
+          </>
+        ) : (
+          <>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
+              letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
+            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
+              color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
+          </>
+        )}
       </div>
-      <div style={{ textAlign:"right", flexShrink:0, borderLeft:"1px dashed var(--line)",
-        paddingLeft: small ? 10 : 12 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
-          color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
+      <div style={{ flexShrink:0, borderLeft:"1px dashed var(--line)", paddingLeft: small ? 10 : 12,
+        textAlign:"right", width: edit ? 116 : "auto" }}>
+        {edit ? (
+          <input type="time" value={leg.time || ""} onChange={e => set({ time: e.target.value })}
+            aria-label={dir === "out" ? "Departure time" : "Landing time"}
+            style={{ ...bare, width:"100%", fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 18,
+              color: leg.time ? "var(--sun)" : "var(--muted)", textAlign:"right" }} />
+        ) : (
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
+            color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
+        )}
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
-          letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)" }}>
+          letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)", marginTop:2 }}>
           {dir === "out" ? "Leaves Sun" : "Lands Fri"}</div>
       </div>
     </div>
   );
 }
 
-/* a leg is three things now: everyone lands Friday and leaves Sunday, and the
-   flight code already says which airport you came from */
-function LegEditor({ lb, dir, leg, setLeg }) {
-  const v = leg || {};
-  const set = patch => setLeg({ ...v, ...patch });
-  const cell = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
-    color:"var(--ink)", outline:"none", height:46, width:"100%", padding:"0 8px", textAlign:"center",
-    fontFamily:SANS, fontWeight:700, fontSize:15, minWidth:0 };
-  const cap = { ...label, fontSize:9.5, marginBottom:4, textAlign:"center" };
-  const filled = v.air || v.num || v.time;
+/* label, a way out, and the pass */
+function LegField({ lb, dir, leg, setLeg }) {
+  const filled = leg && (leg.air || leg.num || leg.time);
   return (
-    <div style={{ marginBottom:14 }}>
-      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:7 }}>
+    <div style={{ marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:6 }}>
         <span style={label}>{lb}</span>
         {filled && (
           <button onClick={() => setLeg(null)} style={{ marginLeft:"auto", background:"none",
@@ -2375,29 +2424,7 @@ function LegEditor({ lb, dir, leg, setLeg }) {
             letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--muted)" }}>Clear</button>
         )}
       </div>
-      <div style={{ display:"flex", gap:7 }}>
-        <div style={{ width:76 }}>
-          <div style={cap}>Airline</div>
-          <input value={v.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
-            onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
-            style={cell} />
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={cap}>Flight no.</div>
-          <input value={v.num || ""} inputMode="numeric" placeholder="1885"
-            onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })} style={cell} />
-        </div>
-        <div style={{ width:112 }}>
-          <div style={cap}>{dir === "out" ? "Leaves" : "Lands"}</div>
-          <input type="time" value={v.time || ""} onChange={e => set({ time: e.target.value })}
-            style={{ ...cell, textAlign:"left" }} />
-        </div>
-      </div>
-      {filled && (
-        <div style={{ marginTop:8, animation:"si-in .2s ease-out" }}>
-          <FlightStrip leg={v} dir={dir} small />
-        </div>
-      )}
+      <FlightPass leg={leg} dir={dir} edit setLeg={setLeg} />
     </div>
   );
 }
@@ -2412,10 +2439,8 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
   return (
     <div>
       <TravelLists />
-      <LegEditor lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
-      <LegEditor lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", marginTop:-4, lineHeight:1.5 }}>
-        Goes to Brandon for pickups and headcounts. Add it when booked.</div>
+      <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
+      <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
     </div>
   );
 }
@@ -2482,11 +2507,9 @@ function ChipPicker({ state, me, onChip }) {
    onboarding and in the guide. Saved as one action */
 const LOGI_FIELDS = [
   { k:"venue",     ph:"House address" },
-  { k:"venueName", ph:"Listing name" },
   { k:"venueNote", ph:"Door code, parking, anything they need" },
   { k:"checkIn",   ph:"Check in, e.g. Fri Oct 30, 4:00 PM", half:true },
   { k:"checkOut",  ph:"Checkout, e.g. Sun Nov 1, 10:00 AM", half:true },
-  { k:"onSite",    ph:"On site, comma separated" },
 ];
 function LogisticsEditor({ state, onSave }) {
   const lg = state.logistics || {};
@@ -2513,8 +2536,8 @@ function LogisticsEditor({ state, onSave }) {
       </div>
       <div style={{ marginTop:14 }}>
         <TravelLists />
-        <LegEditor lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
-        <LegEditor lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
+        <LegField lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
+        <LegField lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
       </div>
       <Btn disabled={!dirty} onClick={() => onSave({ ...form, hostIn, hostOut })}
         style={{ width:"100%", marginTop:4 }}>Save</Btn>

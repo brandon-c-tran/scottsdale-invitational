@@ -682,8 +682,7 @@ export const ACTIONS = {
   saveLogistics(state, patch, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const clean = { ...LOGISTICS, ...(state.logistics || {}) };
-    const FIELDS = [["venueName", 90], ["venue", 140], ["venueNote", 240], ["checkIn", 40],
-      ["checkOut", 40], ["onSite", 240]];
+    const FIELDS = [["venue", 140], ["venueNote", 240], ["checkIn", 40], ["checkOut", 40]];
     for (const [k, max] of FIELDS) {
       const v = patch?.[k];
       if (v === undefined) continue;

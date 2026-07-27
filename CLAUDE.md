@@ -54,15 +54,17 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    Onboarding doubles as the invite, sent months out: install, check in, the
    announcement (sessions show "N events · V each", never a block total), the
    travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
-   logistics reading `state.logistics` via `VenueCard` (address + maps link,
-   check-in/checkout, what is on site, host flights; the real booking ships as
-   `LOGISTICS` in core and the DO backfills missing keys on load, so a GM edit
-   is never clobbered) and writing shirt size + flights. Everyone lands Friday
-   and leaves Sunday and the flight code already implies the airport, so a leg
-   is only `{air,num,time}` (24h off the native picker), validated by
-   `cleanLeg` on BOTH sides, drawn by `FlightStrip` and entered via
-   `LegEditor`; legacy free text survives as `{note}` and the DO normalises
-   stored legs on load. Then profile, seeds, and three closing cards that land
+   logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the
+   address + a maps link, check-in/checkout, host flights; no listing name and
+   no amenity list, people already know. The real booking ships as `LOGISTICS`
+   in core and the DO backfills missing keys on load, so a GM edit is never
+   clobbered) and writing shirt size + flights. Everyone lands Friday and
+   leaves Sunday and the flight code already implies the airport, so a leg is
+   only `{air,num,time}` (24h off the native picker), validated by `cleanLeg`
+   on BOTH sides. One component reads AND writes a leg: `FlightPass` puts the
+   inputs exactly where the values print, so there is no form-then-preview
+   (`LegField` only adds the label and Clear). Legacy free text survives as
+   `{note}` and the DO normalises stored legs on load. Then profile, seeds, and three closing cards that land
    one story: your number IS your poker stack, and the champion takes home a
    real trophy (`TrophyHero`, flat blades revolved on the Y axis, plate
    engraved on both faces). `rerunOnboarding` re-opens the chip race by

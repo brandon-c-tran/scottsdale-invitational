@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from "react";
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
@@ -11,6 +11,7 @@ import {
 import {
   useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
 } from "./lib/client.js";
+import PhotoCropper from "./PhotoCropper.jsx";
 
 
 /* PWA install: stash the browser's install prompt when offered. iOS never
@@ -28,6 +29,8 @@ const isStandalone = () => typeof window !== "undefined" &&
   (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
 const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+const prefersReducedMotion = () => typeof window !== "undefined" &&
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 /* where onboarding opens. The install gate is step -1 and has to come BEFORE
    check-in, because the installed app gets its own storage and anything done
    in the browser first would be lost. Skip it only when there is nothing to
@@ -62,6 +65,11 @@ const playerColor = p => {
 const playerIsLight = p => !!CHIP_COLORS.find(x => x.hex === CHIP_PROFILES[p]?.color)?.light;
 const playerSkin = p => CHIP_SKINS.includes(CHIP_PROFILES[p]?.skin) ? CHIP_PROFILES[p].skin : "ticks";
 const playerNo = p => { const i = ROSTER.indexOf(p); return i < 0 ? null : i + 1; };
+const CHIP_SKIN_META = {
+  ticks: "Classic", plain: "Clean", dash: "Split", quad: "Four block",
+  dots: "Pips", ring: "Double ring", saw: "Zigzag", flame: "Petal",
+  star: "Starburst", bolt: "Chevron", wave: "Ripple", crown: "Crown",
+};
 
 /* the Field Day mark: a betting chip carrying the sun. Sun-gold chip, bone
    edge ticks like the BankChips on the board, geometric sun at dead center.
@@ -76,17 +84,19 @@ function FDMark({ size=28, variant }) {
              x2: 32 + Math.cos(a) * 28.2, y2: 32 + Math.sin(a) * 28.2 };
   });
   const rays = Array.from({ length: 8 }, (_, i) => {
-    const a = i * 45 * Math.PI / 180;
-    return { x1: 32 + Math.cos(a) * 13.4, y1: 32 + Math.sin(a) * 13.4,
-             x2: 32 + Math.cos(a) * 17.6, y2: 32 + Math.sin(a) * 17.6 };
+    const a = i * 45, pt = (r, deg) => {
+      const v = deg * Math.PI / 180;
+      return `${(32 + Math.cos(v) * r).toFixed(2)},${(32 + Math.sin(v) * r).toFixed(2)}`;
+    };
+    return `${pt(10.7, a - 8)} ${pt(17.8, a)} ${pt(10.7, a + 8)}`;
   });
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
       <circle cx="32" cy="32" r="29.5" fill="var(--sun)" stroke={ring} strokeWidth="3.5"/>
-      {ticks.map((t, i) => <line key={i} {...t} stroke="var(--bone)" strokeWidth="3.4" strokeLinecap="round"/>)}
+      {ticks.map((t, i) => <line key={i} {...t} stroke="var(--bone)" strokeWidth="3.8" strokeLinecap="round"/>)}
       <circle cx="32" cy="32" r="20.6" fill="none" stroke="var(--ink0)" strokeWidth="1.5" opacity="0.6"/>
-      <circle cx="32" cy="32" r="8.6" fill="var(--ink0)"/>
-      {rays.map((r, i) => <line key={i} {...r} stroke="var(--ink0)" strokeWidth="3.1" strokeLinecap="round"/>)}
+      {rays.map((points, i) => <polygon key={i} points={points} fill="var(--ink0)"/>)}
+      <circle cx="32" cy="32" r="8.4" fill="var(--ink0)"/>
     </svg>
   );
 }
@@ -237,7 +247,8 @@ function TravelMap() {
     return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
   return (
-    <svg viewBox="-5 -3 110 104" width="100%" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
+    <svg viewBox="-5 -3 110 104" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true" style={{ display:"block", overflow:"hidden", maxWidth:"100%", maxHeight:"100%" }}>
       <g style={{ animation:"si-fade .8s ease-out both" }}>
         {US_DOTS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="0.62" fill="var(--muted)" opacity="0.45" />)}
       </g>
@@ -343,7 +354,7 @@ function Tag({ children, tone="dim", style }) {
   return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
     padding:"3px 8px", borderRadius:6, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
 }
-function Btn({ children, onClick, kind="primary", disabled, style }) {
+function Btn({ children, onClick, kind="primary", disabled, style, ...props }) {
   const kinds = {
     primary: { background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)" },
     flame:   { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
@@ -352,7 +363,7 @@ function Btn({ children, onClick, kind="primary", disabled, style }) {
     danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(192,71,58,0.55)" },
   };
   return (
-    <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:700,
+    <button onClick={onClick} disabled={disabled} {...props} style={{ fontFamily:SANS, fontWeight:700,
       letterSpacing:"0.04em", fontSize:14, textTransform:"uppercase", padding:"12px 16px", borderRadius:10, minHeight:44,
       cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
       transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
@@ -362,7 +373,8 @@ function Sheet({ title, onClose, children, wide }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div onClick={e=>e.stopPropagation()} className="si-sheet" style={{ width:"100%", maxWidth: wide ? 780 : 540,
+      <div onClick={e=>e.stopPropagation()} className="si-sheet" role="dialog" aria-modal="true"
+        aria-label={title} style={{ width:"100%", maxWidth: wide ? 780 : 540,
         overflowY:"auto", background:"var(--paper)", borderRadius:"16px 16px 0 0",
         border:"1.5px solid var(--ink)", borderBottom:"none",
         padding:"0 0 calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
@@ -382,15 +394,24 @@ function Sheet({ title, onClose, children, wide }) {
     </div>
   );
 }
-function PlayerChip({ name, selected, disabled, onClick, small }) {
+/* A one-item final row should read as the end of a deliberate roster, not as
+   a grid bug. Three-column player racks center it; two-column racks give it
+   half width and center it across the row. */
+const centeredGridCell = (i, count, columns = 3, gap = 6) => {
+  if (i !== count - 1 || count % columns !== 1) return {};
+  if (columns % 2) return { gridColumn:String(Math.ceil(columns / 2)) };
+  return { gridColumn:"1 / -1", width:`calc(${100 / columns}% - ${gap / 2}px)`, justifySelf:"center" };
+};
+function PlayerChip({ name, selected, disabled, onClick, small, style }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ fontFamily:SANS, fontWeight:600,
-      fontSize: small ? 13 : 14, padding: small ? "9px 8px" : "11px 10px", borderRadius:10,
+    <button onClick={onClick} disabled={disabled} aria-pressed={selected} style={{ fontFamily:SANS, fontWeight:600,
+      fontSize: small ? 13 : 14, padding: small ? "9px 8px" : "11px 10px", borderRadius:10, width:"100%",
       cursor: disabled ? "default" : "pointer",
       background: selected ? GOLD_GRAD : "var(--paper)",
       color: selected ? "var(--ink0)" : disabled ? "var(--disabled)" : "var(--ink)",
       border: selected ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
-      opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s" }}>{name}</button>
+      opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s",
+      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", ...style }}>{name}</button>
   );
 }
 const pStyle = { fontFamily:SANS, fontSize:14, lineHeight:1.6, color:"var(--muted2)", marginBottom:14 };
@@ -460,7 +481,6 @@ export default function App() {
   const [tv, setTv] = useState(() => typeof window !== "undefined" &&
     (window.location.pathname === "/tv" || new URLSearchParams(window.location.search).has("tv")));
   const [modal, setModal] = useState(null);
-  const [tour, setTour] = useState(null);
   const [intro, setIntro] = useState(null);
   const [burst, setBurst] = useState(0);
   const [toast, setToast] = useState(null);
@@ -482,6 +502,10 @@ export default function App() {
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
+  const introHasQueuedReveal = !!intro && (
+    (state.draws?.[intro] && !seenReveals.includes(state.draws[intro].id)) ||
+    (state.stages?.[intro] && !seenReveals.includes(state.stages[intro].id))
+  );
 
   /* chip: a roster name puts that player's claimed chip and number on the
      toast; without one the FD mark carries it. Kills the inbox-notif look. */
@@ -584,7 +608,7 @@ export default function App() {
      The intro announces the game first and the reveal comes second, but the
      handover is automatic: one GM tap plays both scenes in order, so nobody
      has to close a card to make the draw appear. */
-  const INTRO_HOLD = 4200;
+  const INTRO_HOLD = prefersReducedMotion() ? 650 : 4200;
   const introAt = useRef(0);
   useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
   useEffect(() => {
@@ -602,7 +626,9 @@ export default function App() {
     /* built first and shown second: the intro can only be handed over once we
        know something is actually waiting behind it */
     const build = () => {
-    for (const [eid, draw] of Object.entries(state.draws || {})) {
+    const ordered = map => Object.entries(map || {}).sort(([a], [b]) =>
+      a === intro ? -1 : b === intro ? 1 : 0);
+    for (const [eid, draw] of ordered(state.draws)) {
       if (draw && !seenReveals.includes(draw.id)) {
         const ev = events.find(e => e.id === eid);
         if (!ev) continue;
@@ -633,7 +659,7 @@ export default function App() {
           versus: draw.teams.length === 2 ? draw.teams : null };
       }
     }
-    for (const [eid, st] of Object.entries(state.stages || {})) {
+    for (const [eid, st] of ordered(state.stages)) {
       if (st && !seenReveals.includes(st.id)) {
         const ev = events.find(e => e.id === eid);
         if (!ev) continue;
@@ -653,6 +679,9 @@ export default function App() {
     const next = build();
     if (!next) return;
     if (intro) {
+      /* A solo announcement owns the screen until it closes. Only a reveal
+         for that same event is allowed to continue this ceremony. */
+      if (next.evId !== intro) return;
       /* let the announcement have its beat, then step aside for the teams */
       const t = setTimeout(() => setIntro(null),
         Math.max(0, INTRO_HOLD - (Date.now() - introAt.current)));
@@ -660,13 +689,27 @@ export default function App() {
     }
     setReveal(next);
   }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready]); // eslint-disable-line
-  const closeReveal = () => {
-    if (reveal) {
-      const next = [...(seenReveals||[]), reveal.id].slice(-60);
-      setSeenReveals(next); localSet("si-seen-v5", JSON.stringify(next));
-    }
+  const rememberReveal = useCallback(id => {
+    if (!id) return;
+    setSeenReveals(prev => {
+      if (prev?.includes(id)) return prev;
+      const next = [...(prev || []), id].slice(-60);
+      localSet("si-seen-v5", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+  const closeReveal = useCallback(() => {
+    if (reveal) rememberReveal(reveal.id);
     setReveal(null);
-  };
+  }, [reveal, rememberReveal]);
+  /* Clearing or redrawing an event retires the visual for the old draw
+     immediately; a replacement ID can then begin a fresh ceremony. */
+  useEffect(() => {
+    if (!reveal) return;
+    const alive = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
+      .some(x => x?.id === reveal.id);
+    if (!alive) setReveal(null);
+  }, [state.draws, state.stages, reveal]);
 
   /* nudge a captain when the draft comes around to them, once per pick */
   const draftNudge = useRef("");
@@ -745,9 +788,19 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     if (prevOnDeck.current !== "UNSET" && state.onDeck && state.onDeck !== prevOnDeck.current
-        && !simRef.current.fast) setIntro(state.onDeck);
+        && !simRef.current.fast) {
+      /* A newer GM announcement supersedes any ceremony still hanging around
+         for the previous event. Retire it so it cannot surface again later. */
+      if (reveal && reveal.evId !== state.onDeck) {
+        rememberReveal(reveal.id);
+        setReveal(null);
+      }
+      setIntro(state.onDeck);
+    } else if (!state.onDeck) {
+      setIntro(null);
+    }
     prevOnDeck.current = state.onDeck;
-  }, [state.onDeck, ready]); // eslint-disable-line
+  }, [state.onDeck, ready, reveal, rememberReveal]);
 
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
@@ -758,8 +811,7 @@ export default function App() {
 
   const saveProfile = (p, prof) => {
     act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
-      jersey: prof.jersey,
-      flightIn: prof.flightIn, flightOut: prof.flightOut });
+      flightsBooked: prof.flightsBooked, flightIn: prof.flightIn, flightOut: prof.flightOut });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
   const setLive = on => act("setLive", { on });
@@ -818,13 +870,13 @@ export default function App() {
   const rerunOnboard = async () => {
     const probe = await dispatch("rerunOnboarding", {});
     const n = probe.extra?.signedUp?.length || 0;
-    if (probe.ok) return notify("Intro replays on every phone");
+    if (probe.ok) return notify("Check-in reopens on every phone");
     if (!n) return notify(probe.error || "Rejected");
     const who = probe.extra.signedUp.map(p => disp(state, p)).join(", ");
     if (!window.confirm(`${n} ${n === 1 ? "person has" : "people have"} checked in:\n${who}\n\n`
       + "Rerunning reopens the chip race and releases every claimed color.\nTheir names, numbers, sizes and flights are kept.\n\nRerun anyway?"))
       return notify("Left alone");
-    act("rerunOnboarding", { force: true }, "Intro replays on every phone");
+    act("rerunOnboarding", { force: true }, "Check-in reopens on every phone");
   };
   /* replay the whole flow on THIS device, from the install gate. Clears the
      local finished flags so a reload keeps replaying instead of snapping to
@@ -832,7 +884,6 @@ export default function App() {
   const replayOnboardHere = () => {
     saveMine("si-onboard-v5", "");
     saveMine("si-onboard-epoch", "0");
-    saveMine("si-tour-done", "");
     /* hand your color back so the re-pick is a real claim again */
     if (me && !state.live) act("pickChip", { player: me, color: null, skin: null });
     setModal(null);
@@ -872,8 +923,8 @@ export default function App() {
          and filling a blank field with a plausible fake is worse than leaving
          it blank: nothing downstream can tell the two apart. A player is
          fair game only while every field is still empty. */
-      const touched = prof.display || prof.num !== undefined || prof.size || prof.jersey || prof.color
-        || prof.skin || prof.flightIn || prof.flightOut || s.seeds?.[p];
+      const touched = prof.display || prof.num !== undefined || prof.size || prof.color
+        || prof.skin || prof.flightsBooked !== undefined || prof.flightIn || prof.flightOut || s.seeds?.[p];
       if (touched) continue;
       const needProfile = true, needSeeds = true, needChip = true;
       await simDo("claim", { player: p }, `${p} checks in`);
@@ -883,7 +934,7 @@ export default function App() {
         let num = prof.num !== undefined ? prof.num : ROSTER.indexOf(p) + 1;
         while (taken.has(num)) num = Math.floor(Math.random() * 100);
         await simDo("saveProfile", { player: p, display: prof.display || p,
-          num, size: prof.size || rnd(SIZES), jersey: prof.jersey || rnd(SIZES) });
+          num, size: prof.size || rnd(SIZES), flightsBooked:false });
       }
       if (needSeeds) {
         const ratings = {}; SPORTS.forEach(sp => { ratings[sp.id] = rnd(RATINGS).v; });
@@ -1320,9 +1371,10 @@ export default function App() {
         {intro && (() => {
           const iev = events.find(e => e.id === intro);
           return iev && !state.results[iev.id]
-            ? <EventIntro state={state} ev={iev} big auto onClose={() => setIntro(null)} /> : null;
+            ? <EventIntro state={state} ev={iev} big auto handoff={introHasQueuedReveal}
+                onClose={() => setIntro(null)} /> : null;
         })()}
-        {reveal && <Reveal state={state} reveal={reveal} big auto onClose={closeReveal} />}
+        {reveal && <Reveal key={reveal.id} state={state} reveal={reveal} big auto onClose={closeReveal} />}
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1337,8 +1389,8 @@ export default function App() {
           submitSeeds={saveSeeds}
           next={() => setOnboardStep(s => s + 1)}
           done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
-            saveMine("si-onboard-epoch", String(state.onboardEpoch || 0)); setTab("board");
-            if (localGet("si-tour-done") !== "yes") setTour(0); }} />
+            saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
+            setTab("board"); setBurst(b => b + 1); }} />
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1376,7 +1428,7 @@ export default function App() {
               display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gmView} /></button>
         </div>
         {!connected && loaded && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
+          <div role="status" aria-live="polite" style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
             padding:"7px 13px", borderRadius:10, background:"rgba(192,71,58,0.2)",
             border:"1px solid rgba(192,71,58,0.5)" }}>
             <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.2s infinite" }} />
@@ -1430,7 +1482,7 @@ export default function App() {
                 finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
             : <LockerRoom state={state} me={me} gm={gmView}
                 onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)}
-                onLogistics={vals => act("saveLogistics", vals, "Weekend sheet saved")}
+                onLogistics={vals => act("saveLogistics", vals, "Trip details saved")}
                 onSize={(p, sz) => act("saveProfile", { player: p, display: state.profiles?.[p]?.display || p, size: sz })}
                 onNotify={notify}
                 onChallenge={p => setModal({type:"player", p})} />}
@@ -1441,10 +1493,11 @@ export default function App() {
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
           onDeckEv={onDeckEv}
+          onEvents={() => setTab("sched")}
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
           onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
-        {tab === "guide" && <Guide replay={() => setOnboardStep(1)} events={events} state={state} />}
+        {tab === "guide" && <Guide events={events} state={state} />}
       </div>
 
       {gmNext && !modal && (
@@ -1475,7 +1528,8 @@ export default function App() {
           backdropFilter:"blur(16px)", borderTop:"1px solid var(--chrome-line)",
           padding:"8px 10px calc(12px + env(safe-area-inset-bottom))" }}>
           {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
-            <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none",
+            <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}
+              style={{ flex:1, background:"none", border:"none",
               cursor:"pointer", padding:"7px 0" }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
                 textTransform:"uppercase",
@@ -1589,7 +1643,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
+        <div role="status" aria-live="polite" style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
           display:"flex", alignItems:"center", gap:10,
           background:"var(--night2)",
           border:"1px solid " + (toast.tone === "gold" ? "rgba(240,176,47,0.45)" : "var(--bone-line)"), borderRadius:99,
@@ -1610,111 +1664,77 @@ export default function App() {
             textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
         </div>
       )}
-      {tour !== null && !modal && (
-        <TabTour step={tour}
-          onNext={() => {
-            const n = tour + 1;
-            if (n >= TOUR.length) { setTour(null); setTab("board"); setBurst(b => b + 1); saveMine("si-tour-done", "yes"); }
-            else { setTour(n); setTab(TOUR[n].tab); }
-          }}
-          onSkip={() => { setTour(null); setTab("board"); saveMine("si-tour-done", "yes"); }} />
-      )}
       {intro && onboardStep >= 99 && (() => {
         const iev = events.find(e => e.id === intro);
         return iev && !state.results[iev.id] ? (
-          <EventIntro state={state} ev={iev} onClose={() => setIntro(null)}
-            onBets={state.onDeck === iev.id ? () => { setIntro(null); setTab("bets"); } : null} />
+          <EventIntro state={state} ev={iev} handoff={introHasQueuedReveal} onClose={() => setIntro(null)}
+            onBets={!introHasQueuedReveal && state.onDeck === iev.id
+              ? () => { setIntro(null); setTab("bets"); } : null} />
         ) : null;
       })()}
-      {reveal && <Reveal state={state} reveal={reveal} onClose={closeReveal}
+      {reveal && <Reveal key={reveal.id} state={state} reveal={reveal} onClose={closeReveal}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setTab("bets"); } : null} />}
       <Confetti burst={burst} />
-      {!loaded && <div style={{ position:"fixed", inset:0, background:"var(--bg)", zIndex:500,
-        display:"flex", alignItems:"center", justifyContent:"center" }}><Wordmark size={30} /></div>}
+      {!loaded && <LoadingScreen />}
     </Shell>
   );
 }
 
 /* event intro: when betting opens, the event announces itself on every phone
    and the TV: phase band, game mark, name, and the game's hero animation. */
-function EventIntro({ state, ev, big, auto, onClose, onBets }) {
-  const Hero = GAME_HEROES[ev.game];
+function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
   const ph = phaseOf(ev);
+  const session = SESSIONS.find(s => s.id === ev.session);
+  const format = ev.finale ? "Finale" : ev.kind === "solo" ? "Individual"
+    : ev.kind === "pairs" ? "Pairs" : "Team event";
   const closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(() => {
     if (!auto) return;
-    const t = setTimeout(() => closeRef.current(), 7000);
+    const t = setTimeout(() => closeRef.current(), prefersReducedMotion() ? 2200 : 7000);
     return () => clearTimeout(t);
   }, [auto]);
   return (
-    <div onClick={auto ? undefined : onClose} style={{ position:"fixed", inset:0, zIndex:290,
-      background:"rgba(23,16,9,0.97)", display:"flex", flexDirection:"column", alignItems:"center",
-      justifyContent:"center", padding:"30px 22px", overflowY:"auto" }}>
-      <div style={{ display:"inline-flex", alignItems:"center", gap:10, background:ph.bg, color:ph.fg,
-        borderRadius:6, padding:"4px 14px", border:"1.5px solid var(--ink0)", animation:"si-in .3s both" }}>
-        <span style={{ width:7, height:7, borderRadius:99, background:"currentColor", animation:"si-pulse 1.6s infinite" }} />
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: big ? 16 : 11, letterSpacing:"0.16em",
-          textTransform:"uppercase" }}>On deck · {ev.value ? `${ev.value} pts` : "the finale"}</span>
+    <div className="si-event-intro" onClick={auto ? undefined : onClose}
+      style={{ position:"fixed", inset:0, zIndex:290, background:"rgba(23,16,9,0.985)",
+        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+        padding:"calc(28px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom))",
+        overflowY:"auto" }}>
+      <div aria-hidden="true" style={{ position:"absolute", inset:"0 0 auto", height:5, background:ph.bg }} />
+      <div style={{ display:"inline-flex", alignItems:"center", gap:9, color:"var(--night-text)",
+        animation:"si-intro-copy .35s .08s both" }}>
+        <span style={{ width:7, height:7, borderRadius:99, background:ph.bg }} />
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:big ? 15 : 11,
+          letterSpacing:"0.16em", textTransform:"uppercase" }}>
+          On deck{session ? ` · ${session.label}` : ""}{ev.value ? ` · ${ev.value} pts` : ""}
+        </span>
       </div>
-      <div style={{ margin: big ? "30px 0 18px" : "22px 0 12px", animation:"si-flag .5s .1s both" }}>
-        <GameMark id={ev.game} size={big ? 130 : 84} />
+      <div style={{ margin:big ? "18px 0 2px" : "10px 0 0" }}>
+        <EventSpotlight gameId={ev.game} big={big} />
       </div>
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(56px,7vw,110px)" : 44,
-        lineHeight:0.95, textAlign:"center", textTransform:"uppercase", color:BONE,
-        animation:"si-flag .5s .2s both" }}>{ev.name}</div>
-      {Hero && <div style={{ marginTop: big ? 26 : 18, transform: big ? "scale(1.5)" : "none",
-        animation:"si-in .4s .5s both" }}><Hero /></div>}
-      {ev.desc && <div style={{ fontFamily:SANS, fontSize: big ? "clamp(15px,1.5vw,21px)" : 14, lineHeight:1.55,
-        color:"var(--night-text)", textAlign:"center", maxWidth: big ? 720 : 340,
-        marginTop: big ? 22 : 16, animation:"si-in .4s .65s both" }}>{ev.desc}</div>}
-      {!auto && (
-        <div style={{ display:"flex", gap:10, marginTop:24, animation:"si-in .3s .8s both" }}>
+        lineHeight:0.92, textAlign:"center", textTransform:"uppercase", color:BONE,
+        maxWidth:big ? 1050 : 430, animation:"si-intro-copy .45s .28s both" }}>{ev.name}</div>
+      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:big ? 15 : 11.5,
+        letterSpacing:"0.14em", textTransform:"uppercase", color:ph.bg, marginTop:big ? 15 : 10,
+        animation:"si-intro-copy .4s .4s both" }}>{format}</div>
+      {ev.desc && <div style={{ fontFamily:SANS, fontSize:big ? "clamp(15px,1.45vw,20px)" : 14,
+        lineHeight:1.55, color:"var(--night-text)", textAlign:"center", maxWidth:big ? 720 : 355,
+        marginTop:big ? 18 : 13, animation:"si-intro-copy .4s .52s both" }}>{ev.desc}</div>}
+      {handoff && <div style={{ display:"inline-flex", alignItems:"center", gap:8, fontFamily:SANS,
+        fontWeight:700, fontSize:big ? 14 : 11.5, letterSpacing:"0.14em", textTransform:"uppercase",
+        color:"var(--sun)", marginTop:big ? 26 : 20, animation:"si-intro-copy .3s .65s both" }}>
+        <span className="si-event-dot" /><span className="si-event-dot si-event-dot-2" />
+        <span className="si-event-dot si-event-dot-3" /> Drawing teams
+      </div>}
+      {!auto && !handoff && (
+        <div onClick={e => e.stopPropagation()}
+          style={{ display:"flex", gap:10, marginTop:24, animation:"si-intro-copy .3s .7s both" }}>
           {onBets && <Btn onClick={onBets} style={{ fontSize:16, padding:"13px 28px" }}>To the bets</Btn>}
           <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:16, padding:"13px 28px" }}>Close</Btn>
         </div>
       )}
     </div>
-  );
-}
-
-/* guided tour: runs over the REAL UI right after onboarding. The screen dims
-   below the tab bar, the live sun pill is the spotlight, the callout explains.
-   Tapping anywhere moves it along. */
-const TOUR = [
-  { tab:"board", title:"Board", desc:"The standings. Live, the moment results post.", caret:true },
-  { tab:"sched", title:"Events", desc:"The schedule. Draws, brackets, and results run here.", caret:true },
-  { tab:"bets", title:"Bets", desc:"Place your bets here. One tap drops a chip when betting opens.", caret:true },
-  { tab:"guide", title:"Rules", desc:"Scoring, wagers, and how to play every game.", caret:true },
-  { tab:"board", title:"Quick Draw", desc:"Tap anyone on the board to challenge them. You name the ante, you both play on your own phones, fastest tap takes the pot." },
-];
-function TabTour({ step, onNext, onSkip }) {
-  const { title, desc, caret } = TOUR[step];
-  return (
-    <>
-      <div onClick={onNext} style={{ position:"fixed", inset:0, zIndex:49,
-        background:"rgba(10,6,3,0.74)", animation:"si-fade .25s ease-out" }} />
-      <div style={{ position:"fixed", left:"50%", transform:"translateX(-50%)", zIndex:52,
-        bottom:"calc(96px + env(safe-area-inset-bottom))", width:"min(92vw, 380px)",
-        background:"var(--paper)", border:"1px solid var(--bone-line)", borderRadius:14,
-        padding:"14px 16px 12px", boxShadow:"var(--shadow-3)", animation:"si-up .25s ease-out" }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
-          textTransform:"uppercase", color:"var(--sun)", marginBottom:4 }}>{title}</div>
-        <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--ink)", marginBottom:12 }}>{desc}</div>
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          {TOUR.map((t, i) => <div key={i} style={{ width:18, height:3, borderRadius:6,
-            background: i <= step ? "var(--sun)" : "var(--line)" }} />)}
-          <span style={{ flex:1 }} />
-          <button onClick={onSkip} style={{ background:"none", border:"none", color:"var(--muted)",
-            fontFamily:SANS, fontWeight:600, fontSize:12.5, cursor:"pointer", padding:"6px 8px" }}>Skip</button>
-          <Btn onClick={onNext} style={{ padding:"9px 18px", fontSize:12.5 }}>
-            {step === TOUR.length - 1 ? "Got it" : "Next"}</Btn>
-        </div>
-      </div>
-      {caret && <div style={{ position:"fixed", left:"50%", zIndex:52, bottom:"calc(84px + env(safe-area-inset-bottom))",
-        transform:`translateX(calc(-50% + (${step - 1.5} * min(23vw, 124px))))`,
-        color:"var(--sun)", fontSize:16, pointerEvents:"none" }}>▾</div>}
-    </>
   );
 }
 
@@ -1724,6 +1744,7 @@ function Shell({ children, tv }) {
     <div className="si-vh" style={{ background:"var(--bg)", display:"flex", justifyContent:"center" }}>
       <style>{`
         :root {
+          color-scheme:dark;
           /* Field Day tokens, full night. Surfaces are warm near-black card
              stock; --ink is now the primary TEXT color (bone). --ink0 is the
              absolute brown-black for marks, chips, and anything on sun. */
@@ -1753,8 +1774,11 @@ function Shell({ children, tv }) {
           --chrome:rgba(16,11,7,0.93); --chrome-line:rgba(251,243,228,0.13);
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { margin:0; background:var(--bg); }
-        button:active { transform: scale(0.97); }
+        body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+        button:active:not(:disabled) { transform: scale(0.97); }
+        button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+          outline:3px solid var(--sun); outline-offset:3px;
+        }
         input::placeholder { color:var(--muted); }
         @keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
         @keyframes si-pulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
@@ -1766,6 +1790,46 @@ function Shell({ children, tv }) {
         @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(194,88,50,0.22);} 50% { box-shadow:0 0 50px rgba(192,71,58,0.32);} }
         @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
+        @keyframes si-intro-mark {
+          0% { opacity:0; transform:scale(0.78) rotate(-4deg); }
+          68% { opacity:1; transform:scale(1.025) rotate(0deg); }
+          100% { opacity:1; transform:scale(1); }
+        }
+        @keyframes si-intro-ring {
+          0% { opacity:0; transform:scale(0.66); }
+          28% { opacity:0.48; }
+          100% { opacity:0; transform:scale(1.45); }
+        }
+        @keyframes si-intro-rule {
+          from { opacity:0; transform:scaleX(0); }
+          to { opacity:0.62; transform:scaleX(1); }
+        }
+        @keyframes si-intro-copy {
+          from { opacity:0; transform:translateY(10px); }
+          to { opacity:1; transform:none; }
+        }
+        @keyframes si-event-dot {
+          0%, 58%, 100% { opacity:0.28; transform:translateY(0); }
+          28% { opacity:1; transform:translateY(-3px); }
+        }
+        .si-event-ring {
+          position:absolute; inset:19%; border:1px solid rgba(240,176,47,0.5);
+          border-radius:31%; animation:si-intro-ring 1.35s 0.08s ease-out both;
+        }
+        .si-event-ring-2 { inset:8%; animation-delay:0.22s; }
+        .si-event-rule {
+          position:absolute; top:50%; width:44px; height:1px; background:var(--sun);
+          animation:si-intro-rule 0.48s 0.32s ease-out both;
+        }
+        .si-event-rule-left { right:calc(50% + 66px); transform-origin:right; }
+        .si-event-rule-right { left:calc(50% + 66px); transform-origin:left; }
+        .si-event-mark { position:relative; z-index:1; animation:si-intro-mark 0.58s cubic-bezier(.2,.85,.28,1) both; }
+        .si-event-dot {
+          display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--sun);
+          animation:si-event-dot 1.05s ease-in-out infinite;
+        }
+        .si-event-dot-2 { animation-delay:0.13s; }
+        .si-event-dot-3 { animation-delay:0.26s; }
         @keyframes si-die-arc {
           0%   { transform: translate(0px,30px)   rotate(0deg); }
           12%  { transform: translate(18px,2px)   rotate(80deg); }
@@ -1934,13 +1998,131 @@ function InstallHint() {
 }
 
 /* ─────────── onboarding ─────────── */
+const ONBOARD_STEPS = 6;
+function InviteProgress({ step, kicker }) {
+  return (
+    <div style={{ marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ ...label, flex:1 }}>{kicker}</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.1em",
+          textTransform:"uppercase", color:"var(--muted)" }}>{step} of {ONBOARD_STEPS}</div>
+      </div>
+      <div style={{ display:"flex", gap:5, marginTop:7 }} aria-hidden="true">
+        {Array.from({ length:ONBOARD_STEPS }, (_, i) => i + 1).map(i => <div key={i} style={{ height:3, borderRadius:9, flex:1,
+          background:i <= step ? "var(--accent)" : "var(--line)" }} />)}
+      </div>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div role="status" aria-live="polite" style={{ position:"fixed", inset:0, background:"var(--bg)", zIndex:500,
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:18,
+      padding:24, textAlign:"center" }}>
+      <div style={{ animation:"si-pulse 1.6s ease-in-out infinite" }}><Wordmark size={34} /></div>
+      <div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.04em",
+          textTransform:"uppercase", color:"var(--ink)" }}>Opening the invitation</div>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:5 }}>
+          Loading the latest trip details…</div>
+      </div>
+    </div>
+  );
+}
+
+/* The mechanics are the invitation's trailer. Four cards tell one escalating
+   story without creating a second onboarding flow: play, bet, challenge, then
+   carry the whole score into the finale. The next card stays visible at the
+   edge so the horizontal rail explains itself. */
+function OnboardingMechanics({ me }) {
+  const rival = ROSTER.find(p => p !== me);
+  const cards = [
+    {
+      n:"01", title:"Collect points",
+      body:"Everyone starts at 1,000. Win events and land bets. Whatever you have Saturday night becomes your poker stack.",
+      art:(
+        <div style={{ display:"flex", alignItems:"center" }}>
+          {["putting","pong","basketball"].map((id, i) => (
+            <span key={id} style={{ marginLeft:i ? -11 : 0, transform:`rotate(${(i - 1) * 5}deg)` }}>
+              <GameMark id={id} size={66} />
+            </span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      n:"02", title:"Betting",
+      body:"Every event can be bet on. Only half your points can be at risk at one time.",
+      art:(
+        <div style={{ display:"flex", alignItems:"center" }}>
+          {[100,400,1000].map((v, i) => (
+            <span key={v} style={{ marginLeft:i ? -11 : 0, transform:`translateY(${i === 1 ? -9 : 0}px)` }}>
+              <BankChip p={me} size={62} val={v} />
+            </span>
+          ))}
+        </div>
+      ),
+    },
+    {
+      n:"03", title:"Duels",
+      body:"Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot.",
+      art:(
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <BankChip p={me} size={60} />
+          <svg width="34" height="53" viewBox="0 0 27 42" aria-hidden="true">
+            <path d="M16 2 5 23h7l-2 17 13-24h-8z" fill="var(--sun)"
+              stroke="var(--ink0)" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+          <BankChip p={rival} size={60} />
+        </div>
+      ),
+    },
+    {
+      n:"04", title:"The trophy",
+      body:"The winner of the poker finale is the Field Day champion and takes home the Scottsdale 2026 trophy.",
+      art:<TrophyHero size={170} plate="2026" />,
+    },
+  ];
+  return (
+    <div>
+      <div style={{ ...label, margin:"17px 2px 9px" }}>How it works</div>
+      <div role="list" aria-label="How Field Day works"
+        style={{ display:"flex", gap:9, overflowX:"auto", scrollSnapType:"x mandatory",
+          overscrollBehaviorX:"contain", scrollbarWidth:"none", margin:"0 -6px", padding:"0 6px 5px" }}>
+        {cards.map((c, i) => (
+          <div key={c.n} role="listitem" style={{ position:"relative", minWidth:"min(82vw, 294px)",
+            height:"clamp(240px, 35vh, 300px)", scrollSnapAlign:"start", overflow:"hidden", borderRadius:14,
+            padding:"13px 14px", background:i === 3
+              ? "radial-gradient(100% 100% at 85% 0%, var(--sun-tint), transparent 58%), var(--night)"
+              : "var(--paper)", border:i === 3 ? "1px solid rgba(240,176,47,.42)" : "1px solid var(--line)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:12, color:"var(--accent2)" }}>{c.n}</span>
+            </div>
+            <div style={{ position:"absolute", right:8, top:37, width:190, height:136,
+              display:"grid", placeItems:"center", transform:i === 3 ? "translateY(-3px)" : "none" }}>
+              {c.art}
+            </div>
+            <div style={{ position:"absolute", left:14, right:14, bottom:13 }}>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
+                textTransform:"uppercase", color:"var(--ink)", maxWidth:220 }}>{c.title}</div>
+              <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.42,
+                color:"var(--muted2)", marginTop:6, maxWidth:238 }}>{c.body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, done, onTv, onChip }) {
   const [ratings, setRatings] = useState({});
   const [display, setDisplay] = useState("");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState("");
   const [size, setSize] = useState(null);
-  const [jersey, setJersey] = useState(null);
+  const [flightsBooked, setFlightsBooked] = useState(null);
   const [flightIn, setFlightIn] = useState(null);
   const [flightOut, setFlightOut] = useState(null);
   useEffect(() => {
@@ -1949,51 +2131,31 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
     setDisplay(pr?.display || me);
     setNum(pr?.num != null ? String(pr.num) : "");
     setSize(pr?.size ?? null);
-    setJersey(pr?.jersey ?? null);
+    /* Check-in asks the question fresh, even on a replay. Keep saved legs so
+       choosing Yes reveals them, but do not pre-answer on the guest's behalf. */
+    setFlightsBooked(null);
     setFlightIn(pr?.flightIn || null);
     setFlightOut(pr?.flightOut || null);
     /* a replay must not make anyone re-rate themselves from scratch: seed the
        form with whatever they already sealed */
     setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
   }, [me]); // eslint-disable-line
-  /* the closing cards tell one story: the number you carry all weekend IS the
-     stack you sit down with, and the stack decides who takes the trophy. They
-     are labelled as a section so arriving here off the ratings step reads as
-     a new chapter rather than more forms */
-  const cards = {
-    6: { art:<FDMark size={54} />, t:"Collect points", b:"Everyone starts at 1,000. Win events and land bets all weekend. Whatever you have Saturday night is the stack you start the poker finale with.", meter:true },
-    7: { art:<ArtTicket />, t:"Betting", b:"Every event can be bet on. To limit the damage of one bad decision, only half your points can be at risk at a time.", stack:true },
-    8: { art:(
-      /* two chips and the flash between them: the app's own objects, so the
-         card is recognisable before the words are read */
-      <span style={{ display:"flex", alignItems:"center", gap:4 }}>
-        <BankChip p={me} size={46} />
-        <svg width="22" height="34" viewBox="0 0 22 34" aria-hidden="true">
-          <path d="M13 2 5 18h5l-1 14 9-18h-5z" fill="var(--sun)" stroke="var(--ink0)"
-            strokeWidth="1.3" strokeLinejoin="round"/>
-        </svg>
-        <BankChip size={46} />
-      </span>
-    ), t:"Duels", b:"Short on points? Challenge anyone to Quick Draw, a reaction game you both play on your own phones. You name the ante and the fastest tap takes the pot." },
-    9: { art:<TrophyHero size={196} />, t:"The trophy", b:"The winner of the poker finale is the Field Day champion and takes home the Scottsdale 2026 trophy.", tall:true },
-  };
   /* install lives at step -1, BEFORE check-in: the installed app gets its own
      fresh storage, so anything set up in the browser first would be lost */
-  const cardSteps = [6,7,8,9];
-  const lastStep = 9;
   const lg = state.logistics || {};
-  const evAll = allEventsOf(state);
   if (step === -1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
       <div style={label}>Scottsdale · {EDITION.short}, 2026</div>
-      <div style={{ margin:"10px 0 4px" }}><Wordmark size={46} /></div>
+      <div style={{ margin:"10px 0 26px" }}><Wordmark size={46} /></div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:34, lineHeight:1.05,
+        color:"var(--ink)", marginBottom:10 }}>Take Field Day with you</div>
       <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
-        Add this to your home screen first. It opens full screen, like any other app.
+        Add it to your home screen for live scores, draws, bets, and alerts all weekend.
       </div>
       <InstallHint />
       <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
-        Then open it from your home screen and check in there.
+        Open it from your home screen to finish your two-minute check-in.
       </div>
       <div style={{ marginTop:"auto" }}>
         <Btn kind="ghost" onClick={next} style={{ width:"100%" }}>Skip, stay in the browser</Btn>
@@ -2002,82 +2164,70 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   );
   if (step === 0) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · {EDITION.short}, 2026</div>
-      <div style={{ margin:"10px 0 28px" }}><Wordmark size={46} /></div>
-      <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"auto" }}>
-        {ROSTER.map(p => <PlayerChip key={p} name={p} selected={me===p} onClick={() => pick(p)} />)}
+      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <InviteProgress step={1} kicker="Your invitation" />
+      <div style={{ margin:"8px 0 18px" }}><Wordmark size={44} /></div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, lineHeight:1.05,
+        color:"var(--ink)", marginBottom:7 }}>Claim your spot</div>
+      <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:18 }}>
+        Pick your name to unlock the trip details and give me the additional information I’ll need for logistics. It’ll only take ~2 minutes.
       </div>
-      <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:16, padding:"15px" }}>Check in</Btn>
+      <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:"auto" }}>
+        {ROSTER.map((p, i) => <PlayerChip key={p} name={p} selected={me===p}
+          onClick={() => pick(p)} style={centeredGridCell(i, ROSTER.length)} />)}
+      </div>
+      <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:16, padding:"15px" }}>
+        {me ? `Continue as ${me}` : "Pick your name"}</Btn>
       {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
         fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", alignSelf:"center" }}>
         TV mode</button>}
     </div>
   );
-  /* step 1, the announcement: this screen is how the group finds out what
-     the weekend actually is, months before anyone lands */
+  /* The mechanics get a full beat of their own. The travel map follows on the
+     next screen so neither has to compete for attention. */
   if (step === 1) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(48px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>{EDITION.long}</div>
-      <div style={{ margin:"10px 0 14px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--muted2)", marginBottom:18 }}>
-        The bachelor party is a tournament. Thirteen players, sixteen events,
-        one board. Win events and land bets to collect points all weekend, then
-        your points become your chips at the poker finale. Whoever wins the
-        poker table is the Field Day champion.
+      height:"100dvh", minHeight:0, maxHeight:"100dvh",
+      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <InviteProgress step={2} kicker={EDITION.long} />
+      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 8px" }}>
+        <div style={{ margin:"6px 0 12px" }}><Wordmark size={39} /></div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:31, lineHeight:1.04,
+          color:"var(--ink)", marginBottom:8 }}>The bachelor party is a tournament</div>
+        <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
+          Thirteen players, sixteen events, one board. Win events and land bets to collect points all weekend,
+          then your points become your chips at the poker finale. Whoever wins the poker table is the Field Day champion.
+        </div>
+        <OnboardingMechanics me={me} />
       </div>
-      <div style={{ flex:1, overflowY:"auto" }}>
-        {SESSIONS.map(s => {
-          const n = evAll.filter(e => e.session === s.id && !state.shelved?.[e.id] && !e.finale).length;
-          const val = evAll.find(e => e.session === s.id && !e.finale)?.value;
-          return (
-            <div key={s.id} style={{ display:"flex", alignItems:"baseline", gap:12, padding:"11px 2px",
-              borderBottom:"1px solid var(--line)" }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, color:"var(--ink)",
-                textTransform:"uppercase", letterSpacing:"0.03em", flex:1 }}>{s.label}</span>
-              {s.id === "fin" ? (
-                /* the finale is not worth points, it spends them: say the
-                   mechanic here, where "your stack" would mean nothing yet */
-                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted)" }}>
-                  Your points become <b style={{ color:"var(--accent2)", fontWeight:700 }}>chips</b>
-                </span>
-              ) : (
-                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted)" }}>
-                  {n} event{n === 1 ? "" : "s"} · <b style={{ color:"var(--sun)", fontWeight:700 }}>{val} each</b>
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:14 }}>Next</Btn>
+      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Continue</Btn>
     </div>
   );
-  /* step 2, the field: everybody is getting on a plane for this. Say thanks */
   if (step === 2) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>The field</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:34, color:"var(--ink)", margin:"6px 0 10px",
-        lineHeight:1.05 }}>Thank you for flying in for this</div>
-      <div style={{ fontFamily:SANS, fontSize:15.5, lineHeight:1.6, color:"var(--muted2)" }}>
-        Thirteen of us, from {TRAVEL_CITIES.length} cities: {TRAVEL_CITIES.map(c => c.n).slice(0, -1).join(", ")},
-        and {TRAVEL_CITIES[TRAVEL_CITIES.length - 1].n}.
+      height:"100dvh", minHeight:0, maxHeight:"100dvh",
+      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
+      <InviteProgress step={3} kicker="The roster" />
+      <div style={{ margin:"8px 0 2px" }}><Wordmark size={39} /></div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, lineHeight:1.04,
+        color:"var(--ink)", margin:"12px 0 8px" }}>Thank you for flying in for this!</div>
+      <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
+        13 players coming in from {TRAVEL_CITIES.length} cities.
       </div>
-      <div style={{ flex:1, display:"flex", alignItems:"center", margin:"10px -6px 0", minHeight:0 }}>
+      <div style={{ flex:1, minHeight:0, minWidth:0, width:"100%", overflow:"hidden",
+        display:"flex", alignItems:"center", margin:"12px -6px 0", padding:"0 6px" }}>
         <TravelMap />
       </div>
-      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Next</Btn>
+      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Continue</Btn>
     </div>
   );
-  /* step 3, logistics: the address and flights live here. Size and travel
+  /* The address and flights live here. Size and travel
      go straight to the roster so the host stops chasing texts */
   if (step === 3) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>The details</div>
+      <InviteProgress step={4} kicker="The details" />
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 14px" }}>
         Getting there</div>
       <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
@@ -2088,16 +2238,16 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           background:"var(--paper)", marginTop:4 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
             textTransform:"uppercase", color:"var(--ink)", lineHeight:1.05, marginBottom:12 }}>
-            What Brandon needs</div>
-          <TravelFields flightIn={flightIn} setFlightIn={setFlightIn}
+            Information I need</div>
+          <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
+            flightIn={flightIn} setFlightIn={setFlightIn}
             flightOut={flightOut} setFlightOut={setFlightOut} />
-          <SizeRow lb="Shirt size" value={size} onPick={setSize} />
-          <SizeRow lb="Jersey size" value={jersey} onPick={setJersey} />
+          <SizeRow lb="T-shirt size" value={size} onPick={setSize} />
         </div>
       </div>
       <div style={{ marginTop:12 }}>
-        <Btn disabled={!size || !jersey} onClick={() => { saveProfile({ display: (display || me).trim() || me,
-            size, jersey, flightIn, flightOut }); next(); }}
+        <Btn disabled={!size || flightsBooked === null} onClick={() => { saveProfile({ display: (display || me).trim() || me,
+            size, flightsBooked, flightIn, flightOut }); next(); }}
           style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
     </div>
@@ -2105,7 +2255,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   if (step === 4) return (
     <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
       padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Your card</div>
+      <InviteProgress step={5} kicker="Your card" />
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 16px" }}>
         Set up your profile</div>
       <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
@@ -2113,7 +2263,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
           num={num} setNum={setNum} showSize={false} onChip={onChip} />
       </div>
       <div style={{ marginTop:12 }}>
-        <Btn disabled={!display.trim()} onClick={() => { saveProfile({ display: display.trim(),
+        <Btn disabled={!display.trim() || !state.profiles?.[me]?.color} onClick={() => { saveProfile({ display: display.trim(),
             num: num === "" ? null : Number(num), ...(photo ? {photo} : {}) }); next(); }}
           style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
       </div>
@@ -2121,126 +2271,76 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
   );
   if (step === 5) {
     const complete = SPORTS.every(s => ratings[s.id] !== undefined);
+    const rated = SPORTS.filter(s => ratings[s.id] !== undefined).length;
+    const fillAverage = () => setRatings(Object.fromEntries(SPORTS.map(s => [s.id, 2])));
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
         padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
+        <InviteProgress step={6} kicker="Private scouting report" />
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"0 0 6px" }}>Rate yourself</div>
-        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:16 }}>
-          This is used to balance the draws.
+        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:11 }}>
+          These stay private. They’re only used to make fair teams.
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <div role="status" aria-live="polite" style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5,
+            color:complete ? "var(--green)" : "var(--muted)", flex:1 }}>{rated} of {SPORTS.length} rated</div>
+          {!complete && <button onClick={fillAverage} style={{ background:"none", border:"none", padding:"4px 0",
+            cursor:"pointer", fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.04em",
+            color:"var(--accent2)" }}>Mark all Average</button>}
         </div>
         <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
           {[["sport","Sports"],["drink","Drinking games"]].map(([gid, glabel]) => (
           <div key={gid}>
-          <div style={{ ...label, margin: gid === "sport" ? "0 0 2px" : "16px 0 2px" }}>{glabel}</div>
+          <div style={{ ...label, margin: gid === "sport" ? "0 0 7px" : "18px 0 7px" }}>{glabel}</div>
+          <div aria-hidden="true" style={{ display:"grid", gridTemplateColumns:"88px minmax(0,1fr)", gap:10,
+            alignItems:"end", marginBottom:2 }}>
+            <span />
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+              {["Never","Rough","Avg","Solid","Elite"].map(x => <span key={x} style={{ fontFamily:SANS,
+                fontWeight:700, fontSize:8.5, letterSpacing:"0.02em", textAlign:"center",
+                color:"var(--muted)", whiteSpace:"nowrap" }}>{x}</span>)}
+            </div>
+          </div>
           {SPORTS.filter(s => s.group === gid).map(s => {
             const idx = RATINGS.findIndex(r => r.v === ratings[s.id]);
             return (
-              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
+              <div key={s.id} style={{ display:"grid", gridTemplateColumns:"88px minmax(0,1fr)", alignItems:"center",
+                gap:10, padding:"10px 0",
                 borderBottom:"1px solid var(--line)" }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)", width:92 }}>{s.label}</div>
-                <div style={{ display:"flex", gap:7, flex:1 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)",
+                    lineHeight:1.15 }}>{s.label}</div>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, marginTop:3,
+                    color:idx >= 0 ? "var(--accent2)" : "var(--muted)" }}>
+                    {idx >= 0 ? RATINGS[idx].label : "Not rated"}</div>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
                   {RATINGS.map((r, i) => (
-                    <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))} aria-label={r.label}
-                      style={{ width:34, height:34, borderRadius:"50%", cursor:"pointer", padding:0,
+                    <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))}
+                      aria-label={`${s.label}: ${r.label}`} aria-pressed={idx === i}
+                      style={{ width:"100%", aspectRatio:"1", minWidth:0, borderRadius:"50%", cursor:"pointer", padding:0,
                         background: idx >= 0 && i <= idx ? "var(--sun)" : "var(--paper)",
                         border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
                         transition:"background .12s" }} />
                   ))}
                 </div>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, width:88, textAlign:"right",
-                  color: idx >= 0 ? "var(--accent2)" : "var(--muted)" }}>{idx >= 0 ? RATINGS[idx].label : ""}</div>
               </div>
             );
           })}
           </div>
           ))}
         </div>
-        <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); next(); }}
-          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
+        <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); done(); }}
+          style={{ width:"100%", fontSize:16, padding:"15px" }}>Finish check-in</Btn>
       </div>
     );
   }
-  const c = cards[step];
-  return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      justifyContent: c.tall ? "center" : "flex-start",
-      padding:`calc(${c.tall ? 30 : 56}px + env(safe-area-inset-top)) 26px calc(24px + env(safe-area-inset-bottom))` }} key={step}>
-      {/* the footer's auto margin eats every bit of slack, so justify-content
-          alone never centers a tall card: claim half of it back up here */}
-      {c.tall && <div style={{ marginTop:"auto" }} />}
-      {/* names the chapter, so arriving off the ratings form is not a jump cut */}
-      <div style={{ ...label, marginBottom:14, textAlign: c.tall ? "center" : "left" }}>
-        How the tournament works</div>
-      <div style={{ marginBottom:16, display:"flex", justifyContent: c.tall ? "center" : "flex-start" }}>{c.art}</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: c.tall ? 36 : 40, color:"var(--ink)",
-        lineHeight:1.02, marginBottom:12, textAlign: c.tall ? "center" : "left" }}>{c.t}</div>
-      <div style={{ fontFamily:SANS, fontSize: c.tall ? 15.5 : 16, lineHeight:1.6, color:"var(--muted2)",
-        textAlign: c.tall ? "center" : "left" }}>{c.b}</div>
-      {c.stack && (
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginTop:26 }}>
-          {RACK_DENOMS.map(d => <BankChip key={d} p={me} size={46} val={d} />)}
-        </div>
-      )}
-      {c.tabs && (
-        <div style={{ marginTop:20 }}>
-          {c.tabs.map(([t, d]) => (
-            <div key={t} style={{ display:"flex", alignItems:"center", gap:14, padding:"10px 0",
-              borderBottom:"1px solid var(--line)" }}>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
-                textTransform:"uppercase", background:"var(--sun)", color:"var(--ink0)", borderRadius:99,
-                padding:"7px 14px", flexShrink:0 }}>{t}</span>
-              <span style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)" }}>{d}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {/* a worked example beats a bar chart here: the finale is not a fifth
-          session worth points, it is where the running total gets spent */}
-      {c.meter && (
-        <div style={{ marginTop:24, border:"1px solid var(--line)", borderRadius:14,
-          background:"var(--paper)", padding:"12px 14px" }}>
-          {[["Check in", "1,000", false], ["Win 5v5 Full Court", "+1,600", false],
-            ["Back the right team", "+400", false], ["Lose a duel", "‒100", false]].map(([lb, v], i) => (
-            <div key={lb} style={{ display:"flex", alignItems:"baseline", gap:10, padding:"5px 0",
-              animation:`si-in .35s ease-out ${0.15 + i * 0.12}s both` }}>
-              <span style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", flex:1 }}>{lb}</span>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17,
-                color: v.startsWith("+") ? "var(--green)" : v.startsWith("‒") ? "var(--clay)" : "var(--ink)" }}>{v}</span>
-            </div>
-          ))}
-          <div style={{ height:1, background:"var(--line)", margin:"7px 0" }} />
-          <div style={{ display:"flex", alignItems:"baseline", gap:10,
-            animation:"si-in .35s ease-out .7s both" }}>
-            <span style={{ ...label, fontSize:11, flex:1 }}>At the table</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--sun)" }}>2,900</span>
-          </div>
-          {/* no conversion line: the board is denominated in chips, so this
-              total IS what gets counted out in front of you */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8,
-            animation:"si-in .35s ease-out .85s both" }}>
-            <span style={{ display:"flex" }}>
-              {[0,1,2].map(i => <span key={i} style={{ marginLeft: i ? -8 : 0 }}>
-                <BankChip p={me} size={22} /></span>)}
-            </span>
-            <span style={{ fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>
-              dealt to you <b style={{ color:"var(--ink)", fontWeight:700 }}>in chips</b></span>
-          </div>
-        </div>
-      )}
-      <div style={{ marginTop:"auto", display:"flex", alignItems:"center", gap:14 }}>
-        <div style={{ display:"flex", gap:6, flex:1 }}>
-          {cardSteps.map(i => <div key={i} style={{ width:22, height:3, borderRadius:6, background: i<=step ? "var(--accent)" : "var(--line)" }} />)}
-        </div>
-        <Btn onClick={step === lastStep ? done : next} style={{ fontSize:16, padding:"14px 28px" }}>
-          {step === lastStep ? "I'm in" : "Next"}
-        </Btn>
-      </div>
-    </div>
-  );
+  return null;
 }
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, jersey, setJersey, onChip, showSize = true }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
   const fileRef = useRef(null);
+  const [cropSource, setCropSource] = useState(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
   const takenBy = num !== "" ? Object.entries(state.profiles || {})
@@ -2248,21 +2348,10 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   const onFile = e => {
     const f = e.target.files?.[0]; if (!f) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const c = document.createElement("canvas");
-          const s = 144; c.width = s; c.height = s;
-          const ctx = c.getContext("2d");
-          const m = Math.min(img.width, img.height);
-          ctx.drawImage(img, (img.width-m)/2, (img.height-m)/2, m, m, 0, 0, s, s);
-          setPhoto(c.toDataURL("image/jpeg", 0.72));
-        } catch {}
-      };
-      img.src = reader.result;
-    };
+    reader.onload = () => setCropSource(reader.result);
     reader.readAsDataURL(f);
+    /* Allow choosing the same file again after cancelling the crop. */
+    e.target.value = "";
   };
   /* one field system: same label, same surface, same height everywhere */
   const FIELD_H = 48;
@@ -2270,97 +2359,87 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
     color:"var(--ink)", outline:"none", height:FIELD_H };
   return (
     <div>
-      {/* the credential IS the editor: one card holding the photo, the name,
-          and the number, so nothing is previewed twice */}
-      <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden", marginBottom:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
-          background: me ? playerColor(me) : "var(--paper2)", color: me && playerIsLight(me) ? "var(--ink0)" : BONE }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:15, letterSpacing:"0.05em",
-            textTransform:"uppercase", flex:1 }}>Player credential</span>
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.12em",
-            textTransform:"uppercase", opacity:0.8 }}>Scottsdale · 2026</span>
-        </div>
-        <div style={{ display:"flex", gap:12, alignItems:"flex-end", padding:"12px", background:"var(--paper2)" }}>
-          <button onClick={() => fileRef.current?.click()} aria-label="Change your photo"
-            style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
-            {current
-              ? <img src={current} alt="" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2.5px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
-              : me && <Avatar state={state} p={me} size={64} ring />}
-            <div style={{ position:"absolute", bottom:-2, right:-2, width:26, height:26, borderRadius:"50%",
-              background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ ...label, fontSize:10, marginBottom:5 }}>Display name</div>
-            <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
-              style={{ ...field, width:"100%", padding:"0 12px", fontFamily:SANS, fontWeight:600, fontSize:16,
-                background:"var(--paper)" }} />
+      {/* Photo, name, number, and chip are one identity surface. The narrow
+          color rail carries the player's color without splitting the editor
+          into two competing image banners. */}
+      <div style={{ position:"relative", background:"var(--paper)", border:"1px solid var(--line)",
+        borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow-1)" }}>
+        <div aria-hidden="true" style={{ height:4,
+          background:me ? playerColor(me) : "var(--accent)" }} />
+        <div style={{ padding:"12px 12px 13px",
+          background:"linear-gradient(180deg, var(--paper2), var(--paper))" }}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:4 }}>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1,
+              textTransform:"uppercase", color:"var(--ink)", flex:1 }}>Player identity</div>
+            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:9.5, letterSpacing:"0.12em",
+              textTransform:"uppercase", color:"var(--muted)" }}>Scottsdale · 2026</div>
           </div>
-          <div style={{ width:62, flexShrink:0 }}>
-            <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>Jersey</div>
-            <input value={num} inputMode="numeric" placeholder="00"
-              onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-              style={{ ...field, width:"100%", textAlign:"center", padding:0, background:"var(--paper)",
-                border: takenBy ? "1.5px solid var(--clay)" : field.border,
-                fontFamily:DISPLAY, fontWeight:700, fontSize:22 }} />
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.45,
+            marginBottom:12 }}>How you’ll appear throughout Field Day.</div>
+          <div style={{ display:"flex", gap:12, alignItems:"flex-end" }}>
+            <button onClick={() => fileRef.current?.click()} aria-label="Change your photo"
+              style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
+              {current
+                ? <img src={current} alt="" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2px solid var(--paper)", outline:"2px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
+                : me && <Avatar state={state} p={me} size={64} ring />}
+              <div style={{ position:"absolute", bottom:-2, right:-2, width:26, height:26, borderRadius:"50%",
+                background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
+            {cropSource && (
+              <PhotoCropper src={cropSource} onCancel={() => setCropSource(null)}
+                onConfirm={cropped => { setPhoto(cropped); setCropSource(null); }} />
+            )}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ ...label, fontSize:10, marginBottom:5 }}>Display name</div>
+              <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16} aria-label="Display name"
+                style={{ ...field, width:"100%", padding:"0 12px", fontFamily:SANS, fontWeight:600, fontSize:16,
+                  background:"var(--paper)" }} />
+            </div>
+            <div style={{ width:62, flexShrink:0 }}>
+              <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>No.</div>
+              <input value={num} inputMode="numeric" placeholder="00" aria-label="Player number"
+                onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                style={{ ...field, width:"100%", textAlign:"center", padding:0, background:"var(--paper)",
+                  border: takenBy ? "1.5px solid var(--clay)" : field.border,
+                  fontFamily:DISPLAY, fontWeight:700, fontSize:22 }} />
+            </div>
           </div>
+          {takenBy && (
+            <div style={{ marginTop:10, padding:"8px 10px", border:"1px solid var(--danger-line)",
+              borderRadius:9, background:"var(--clay-tint)", fontFamily:SANS, fontWeight:600, fontSize:12,
+              color:"var(--clay)", lineHeight:1.4 }}>
+              {disp(state, takenBy[0])} already has {Number(num)}.
+            </div>
+          )}
         </div>
+        {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} num={num} embedded />}
       </div>
-      <div style={{ fontFamily:SANS, fontSize:12, color: takenBy ? "var(--clay)" : "var(--muted)",
-        lineHeight:1.5, marginBottom:16 }}>
-        {takenBy ? `${disp(state, takenBy[0])} already has ${Number(num)}.`
-          : "Your jersey number and chip design are used throughout the weekend."}</div>
       {showSize && (
         <>
-          <SizeRow lb="Shirt size" value={size} onPick={setSize} allowClear />
-          <SizeRow lb="Jersey size" value={jersey} onPick={setJersey} allowClear />
+          <div style={{ marginTop:18 }}>
+            <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
+          </div>
         </>
       )}
-      {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} num={num} />}
     </div>
   );
 }
 
-/* the house, flat and at night: a low tile roof over the main block, a wing
-   off the side, lit windows, and the pool out front. Desert, not postcard.
-   No fixed height: the viewBox sets the ratio so it scales with the card */
+/* The venue is a reveal, not a diagram. The real overhead shot communicates
+   the house, pool, pickleball, basketball, and volleyball in one clean frame. */
 function HouseArt() {
-  const tile = "var(--clay)", stucco = "var(--paper2)";
   return (
-    <svg viewBox="0 0 300 118" width="100%" aria-hidden="true" style={{ display:"block" }}>
-      {/* saguaro standing off the corner */}
-      <g stroke="var(--olive)" strokeWidth="7" strokeLinecap="round" fill="none" opacity="0.55">
-        <path d="M276 92 V44"/><path d="M276 66 h-11 v-12"/><path d="M276 58 h12 v-14"/>
-      </g>
-      {/* main block */}
-      <path d="M84 56 L112 33 L214 33 L242 56 Z" fill={tile} opacity="0.9"/>
-      <path d="M84 56 L112 33 L214 33 L242 56 Z" fill="none" stroke="var(--ink0)"
-        strokeWidth="1.6" strokeLinejoin="round"/>
-      {[40, 47].map(y => (
-        <path key={y} d={`M${84 + (56 - y) * 1.2} ${y} H${242 - (56 - y) * 1.2}`}
-          stroke="var(--ink0)" strokeWidth="1" opacity="0.3"/>
-      ))}
-      <rect x="92" y="55" width="142" height="41" fill={stucco} stroke="var(--line)" strokeWidth="1.2"/>
-      {[104, 140, 176].map(x => (
-        <rect key={x} x={x} y="63" width="24" height="24" rx="1.5" fill="var(--sun)" opacity="0.82"/>
-      ))}
-      {/* the door, open to the deck */}
-      <rect x="208" y="66" width="18" height="30" rx="1.5" fill="var(--sun)" opacity="0.5"/>
-      {/* side wing, one step lower */}
-      <path d="M32 72 L58 56 L92 56 L92 72 Z" fill={tile} opacity="0.78"/>
-      <path d="M32 72 L58 56 L92 56 L92 72 Z" fill="none" stroke="var(--ink0)"
-        strokeWidth="1.4" strokeLinejoin="round"/>
-      <rect x="40" y="71" width="52" height="25" fill={stucco} stroke="var(--line)" strokeWidth="1.2"/>
-      <rect x="52" y="77" width="22" height="15" rx="1.5" fill="var(--sun)" opacity="0.6"/>
-      {/* deck, then the pool with its float lights */}
-      <path d="M18 96 H282" stroke="var(--line)" strokeWidth="1.4"/>
-      <rect x="46" y="100" width="176" height="14" rx="7" fill="var(--pool)" opacity="0.55"
-        stroke="var(--ink0)" strokeWidth="1.2"/>
-      {[80, 122, 164, 200].map((x, i) => (
-        <circle key={x} cx={x} cy={107} r={4.5 - (i % 2)} fill="var(--bone)" opacity="0.8"/>
-      ))}
-    </svg>
+    <div style={{ position:"relative", aspectRatio:"16 / 9", background:"var(--paper2)", overflow:"hidden" }}>
+      <img src="/airbnb-compound.webp" alt=""
+        width="960" height="540" loading="eager" decoding="async"
+        style={{ width:"100%", height:"100%", display:"block", objectFit:"cover",
+          filter:"saturate(.94) contrast(1.02)" }} />
+      <div aria-hidden="true" style={{ position:"absolute", inset:0,
+        background:"linear-gradient(180deg, rgba(23,16,9,0.02) 45%, rgba(23,16,9,0.38) 100%)",
+        boxShadow:"inset 0 0 0 1px rgba(251,243,228,0.08)" }} />
+    </div>
   );
 }
 
@@ -2433,7 +2512,7 @@ function VenueCard({ lg }) {
             /* the flight codes matter to nobody but Brandon; the times are how
                people work out who they are sharing a ride with */
             <div style={{ borderTop: lg.airport ? "1px solid var(--line)" : "none" }}>
-              <div style={{ ...label, fontSize:10, padding:"10px 14px 0" }}>Brandon's flights</div>
+              <div style={{ ...label, fontSize:10, padding:"10px 14px 0" }}>My flights</div>
               <div style={{ display:"flex" }}>
                 {hostLegs.map(([lb, v], i) => <InfoCell key={lb} lb={lb} v={v} first={i === 0} />)}
               </div>
@@ -2548,8 +2627,7 @@ function TravelLists() {
   return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
 }
 
-/* one row of sizes. Two garments now, and a jersey does not run like a tee,
-   so each is asked separately rather than one answer standing in for both */
+/* one apparel size. Brandon uses the T-shirt answer for the jersey too. */
 function SizeRow({ lb, value, onPick, allowClear }) {
   return (
     <div style={{ marginBottom:12 }}>
@@ -2557,6 +2635,7 @@ function SizeRow({ lb, value, onPick, allowClear }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
         {SIZES.map(sz => (
           <button key={sz} onClick={() => onPick(allowClear && value === sz ? null : sz)}
+            aria-label={`${lb}: ${sz}`} aria-pressed={value === sz}
             style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
               cursor:"pointer", background: value === sz ? GOLD_GRAD : "var(--paper2)",
               color: value === sz ? "var(--ink0)" : "var(--ink)",
@@ -2571,8 +2650,7 @@ function SizeRow({ lb, value, onPick, allowClear }) {
    outright and give it two equal answers: a quiet link next to a form reads
    as decoration, and whoever has not booked cannot tell it is meant for them.
    Nothing shows until you answer, so the question IS the instruction. */
-function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
-  const [booked, setBooked] = useState(() => (flightIn || flightOut ? true : null));
+function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, setFlightOut }) {
   const opt = on => ({ fontFamily:SANS, fontWeight:700, fontSize:14, height:48, padding:0,
     borderRadius:10, cursor:"pointer",
     background: on ? GOLD_GRAD : "var(--paper2)", color: on ? "var(--ink0)" : "var(--ink)",
@@ -2585,9 +2663,9 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
       <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, color:"var(--ink)",
         marginBottom:8 }}>Booked your flights?</div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:14 }}>
-        <button onClick={() => setBooked(true)} style={opt(booked === true)}>Yes</button>
+        <button onClick={() => setBooked(true)} aria-pressed={booked === true} style={opt(booked === true)}>Yes</button>
         <button onClick={() => { setBooked(false); setFlightIn(null); setFlightOut(null); }}
-          style={opt(booked === false)}>Not yet</button>
+          aria-pressed={booked === false} style={opt(booked === false)}>Not yet</button>
       </div>
       {booked === true && (
         <>
@@ -2599,7 +2677,7 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
         <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55,
           background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:12,
           padding:"12px 14px", marginBottom:12 }}>
-          Add them from your profile once you book.
+          No problem. Once you book, tap your player icon in the top-left to add your flights.
         </div>
       )}
     </div>
@@ -2608,26 +2686,50 @@ function TravelFields({ flightIn, setFlightIn, flightOut, setFlightOut }) {
 
 /* chip claim: colors are first come first serve, live on the server the
    moment you tap. Skins repeat freely. Locked once the weekend starts. */
-function ChipPicker({ state, me, onChip, num }) {
+function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const mine = state.profiles?.[me] || {};
   /* the preview has to follow the number field, not the saved profile, or
      picking a skin while changing your number shows you the old one */
   const stamp = num !== undefined && num !== "" && num !== null ? Number(num) : mine.num;
   const owner = hex => Object.entries(state.profiles || {}).find(([p, pr]) => pr?.color === hex)?.[0];
   const locked = state.live;
+  const skin = playerSkin(me);
   return (
-    <div>
-      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"0 0 6px" }}>
-        <div style={{ ...label, flex:1 }}>Your chip</div>
-        <BankChip p={me} size={30} />
+    <div style={{ background:"var(--paper)", border:embedded ? "none" : "1px solid var(--line)",
+      borderTop:embedded ? "1px solid var(--line)" : undefined,
+      borderRadius:embedded ? 0 : 14, padding:embedded ? "14px 12px 13px" : 12 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:15 }}>
+        <div style={{ position:"relative", width:80, height:80, flexShrink:0, display:"grid", placeItems:"center" }}>
+          <span aria-hidden="true" style={{ position:"absolute", inset:4, borderRadius:"50%",
+            background:"var(--sun-tint)", border:"1px solid var(--line)" }} />
+          <div style={{ position:"relative", filter:"drop-shadow(0 8px 10px rgba(42,33,25,.2))" }}>
+            <ChipFace p={me} size={70} stamp={stamp} />
+          </div>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10, letterSpacing:"0.16em",
+            textTransform:"uppercase", color:"var(--accent2)", marginBottom:4 }}>Chip design</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
+            textTransform:"uppercase", color:"var(--ink)" }}>Your chip</div>
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.45, marginTop:5 }}>
+            {mine.color ? `${CHIP_SKIN_META[skin] || "Classic"} pattern`
+              : "Choose your color and pattern below."}
+          </div>
+        </div>
       </div>
-      {(locked || !mine.color) && (
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:8 }}>
-          {locked ? "Chips are locked for the weekend."
-            : "Claim a color. First come first serve."}
+      {locked && (
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.5, marginBottom:10 }}>
+          Chips are locked for the weekend.
         </div>
       )}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:7, marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
+        marginBottom:8 }}>
+        <div style={{ ...label, fontSize:10 }}>Choose your color</div>
+        {!mine.color && <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)" }}>
+          First come, first served
+        </div>}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:6, marginBottom:18 }}>
         {CHIP_COLORS.map(c => {
           const by = owner(c.hex);
           const isMine = by === me;
@@ -2635,36 +2737,53 @@ function ChipPicker({ state, me, onChip, num }) {
           return (
             <button key={c.hex} disabled={taken || locked}
               onClick={() => onChip(isMine ? null : c.hex, undefined)}
-              aria-label={taken ? `Taken by ${disp(state, by)}` : "Claim color"}
-              style={{ position:"relative", width:"100%", aspectRatio:"1", borderRadius:"50%", padding:0,
-                cursor: taken || locked ? "default" : "pointer", background:c.hex,
-                border: isMine ? "2.5px solid var(--bone)" : "1.5px solid rgba(23,16,9,0.6)",
-                opacity: taken ? 0.35 : 1 }}>
-              {taken && <span style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-                justifyContent:"center", fontFamily:SANS, fontWeight:700, fontSize:9,
-                color: c.light ? "var(--ink0)" : "var(--bone)" }}>
-                {(disp(state, by) || "").slice(0, 2).toUpperCase()}</span>}
+              aria-label={taken ? `Color taken by ${disp(state, by)}`
+                : isMine ? "Release selected chip color" : `Claim chip color ${c.hex}`}
+              aria-pressed={isMine}
+              title={taken ? `Taken by ${disp(state, by)}` : undefined}
+              style={{ position:"relative", width:"100%", aspectRatio:"1", borderRadius:"50%", padding:3,
+                display:"grid", placeItems:"center", cursor: taken || locked ? "default" : "pointer",
+                background:isMine ? "var(--sun-tint)" : "transparent",
+                border: isMine ? "2px solid var(--sun)" : "1px solid transparent",
+                opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1 }}>
+              <span style={{ position:"relative", display:"grid", placeItems:"center", width:"100%",
+                aspectRatio:"1", maxWidth:34, borderRadius:"50%", background:c.hex,
+                border:"1.5px solid rgba(251,243,228,.28)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.18)" }}>
+                {taken && <span style={{ fontFamily:SANS, fontWeight:800, fontSize:8.5,
+                  color: c.light ? "var(--ink0)" : "var(--bone)" }}>
+                  {(disp(state, by) || "").slice(0, 2).toUpperCase()}</span>}
+                {isMine && (
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"
+                    stroke={c.light ? "var(--ink0)" : "var(--bone)"} strokeWidth="2.4"
+                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m3.2 8.3 3 3 6.6-6.6" />
+                  </svg>
+                )}
+              </span>
             </button>
           );
         })}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(6, 1fr)", gap:7 }}>
+      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
+        marginBottom:8 }}>
+        <div style={{ ...label, fontSize:10 }}>Choose your pattern</div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:7 }}>
         {CHIP_SKINS.map(sk => (
           <button key={sk} disabled={locked} onClick={() => onChip(undefined, sk)}
-            aria-label={`Skin ${sk}`}
-            style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:"7px 0",
-              borderRadius:10, cursor: locked ? "default" : "pointer", background:"var(--paper2)",
-              border: playerSkin(me) === sk ? "1.5px solid var(--sun)" : "1.5px solid var(--line)" }}>
-            <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-              <circle cx="16" cy="16" r="14.6" fill={playerColor(me)} stroke="var(--ink0)" strokeWidth="1.8"/>
-              {chipMarks(sk)}
-              {stamp != null && (
-                <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
-                  fontFamily={DISPLAY} fontWeight="700" fontSize="12.5"
-                  stroke={playerColor(me)} strokeWidth="2.6" strokeLinejoin="round" paintOrder="stroke"
-                  fill={playerIsLight(me) ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
-              )}
-            </svg>
+            aria-label={`Chip pattern ${CHIP_SKIN_META[sk] || sk}`} aria-pressed={skin === sk}
+            style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              gap:5, minHeight:72, padding:"7px 4px 6px",
+              borderRadius:10, cursor: locked ? "default" : "pointer",
+              background:skin === sk ? "var(--sun-tint)" : "var(--paper2)",
+              border: skin === sk ? "1.5px solid var(--sun)" : "1px solid var(--line)",
+              boxShadow:skin === sk ? "inset 0 -2px 0 var(--sun)" : "none",
+              opacity: locked && skin !== sk ? 0.55 : 1 }}>
+            <ChipFace p={me} size={42} skin={sk} stamp={stamp} />
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
+              color:skin === sk ? "var(--ink)" : "var(--muted2)", lineHeight:1.1 }}>
+              {CHIP_SKIN_META[sk] || sk}
+            </span>
           </button>
         ))}
       </div>
@@ -2712,7 +2831,7 @@ function StatPills({ row, atRisk = 0, onSun }) {
    straight into a spreadsheet or a supplier form. Blanks stay blank, because
    a guessed size is worse than a missing one. */
 function sheetText(state) {
-  const head = ["Player", "Name", "No", "Shirt", "Jersey", "Chip", "Skin", "Lands Fri", "Leaves Sun"];
+  const head = ["Player", "Name", "No", "T-shirt / Jersey", "Flights booked", "Chip", "Skin", "Lands Fri", "Leaves Sun"];
   const rows = ROSTER.map(p => {
     const pr = state.profiles?.[p] || {};
     /* the column already says which leg it is, so the cell is just the flight */
@@ -2723,7 +2842,8 @@ function sheetText(state) {
       return [[l.air, l.num].filter(Boolean).join(" "), legTime(l.time)].filter(Boolean).join(" ");
     };
     return [p, pr.display && pr.display !== p ? pr.display : "", pr.num ?? "", pr.size || "",
-      pr.jersey || "", pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut)];
+      pr.flightsBooked === true ? "Yes" : pr.flightsBooked === false ? "No" : "",
+      pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut)];
   });
   return [head, ...rows].map(r => r.join("\t")).join("\n");
 }
@@ -2752,10 +2872,13 @@ function LogisticsEditor({ state, onSave }) {
   return (
     <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
       borderRadius:14, padding:"12px 13px" }}>
-      <div style={{ ...label, marginBottom:8 }}>The weekend sheet</div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+        <div style={{ ...label, flex:1 }}>Trip details guests see</div>
+        <Tag>Onboarding + Rules</Tag>
+      </div>
       <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
         {LOGI_FIELDS.map(f => (
-          <input key={f.k} value={form[f.k]} placeholder={f.ph} maxLength={240}
+          <input key={f.k} value={form[f.k]} placeholder={f.ph} aria-label={f.ph} maxLength={240}
             onChange={e => setForm(x => ({ ...x, [f.k]: e.target.value }))}
             style={{ ...field, flex: f.half ? "1 1 45%" : "1 1 100%", minWidth:0 }} />
         ))}
@@ -2789,15 +2912,15 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--muted2)" }}>
           {inCount} of {ROSTER.length} in</div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-        {ROSTER.map(p => {
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
+        {ROSTER.map((p, i) => {
           const pr = profs[p];
           return (
             <button key={p} onClick={p === me ? onProfile : me ? () => onChallenge(p) : undefined}
               style={{ background:"var(--paper)", borderRadius:14, padding:"12px 6px 10px", textAlign:"center",
                 border: p === me ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
                 cursor: p === me || me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
-                animation:"si-in .25s both" }}>
+                animation:"si-in .25s both", ...centeredGridCell(i, ROSTER.length) }}>
               <div style={{ display:"flex", justifyContent:"center", marginBottom:9, position:"relative" }}>
                 <span style={{ position:"relative", display:"inline-block" }}>
                   <Avatar state={state} p={p} size={54} ring={p === me} />
@@ -2822,7 +2945,7 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
           <div style={{ marginTop:12, background:"var(--paper)", border:"1px solid var(--line)",
             borderRadius:14, padding:"12px 13px" }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-              <span style={label}>Travel and jersey sheet</span>
+              <span style={label}>Travel and apparel sheet</span>
               {/* the sheet you actually order from lives in a supplier form or
                   a spreadsheet, not on a phone, so it has to be able to leave */}
               <button onClick={() => copySheet(state)} style={{ marginLeft:"auto", background:"none",
@@ -2834,6 +2957,7 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
               const pr = profs[p];
               const legs = [pr?.flightIn && `in ${legText(pr.flightIn, "in")}`,
                 pr?.flightOut && `out ${legText(pr.flightOut, "out")}`].filter(Boolean).join(" · ");
+              const travelStatus = legs || (pr?.flightsBooked === false ? "not booked yet" : "no flight response");
               return (
                 <div key={p} style={{ padding:"6px 0", borderBottom:"1px solid var(--line)" }}>
                   <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:SANS, fontSize:14 }}>
@@ -2849,8 +2973,8 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
                       {pr?.size || "?"}</button>
                   </div>
                   <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.4, marginTop:1,
-                    color: legs ? "var(--muted2)" : "var(--clay)" }}>
-                    {legs || "no flights yet"}</div>
+                    color: legs ? "var(--muted2)" : pr?.flightsBooked === false ? "var(--muted)" : "var(--clay)" }}>
+                    {travelStatus}</div>
                 </div>
               );
             })}
@@ -3393,6 +3517,10 @@ function ChampionCard({ state, champion, coChamps, big }) {
       position:"relative", overflow:"hidden", borderRadius:14,
       background:"radial-gradient(110% 80% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)",
       border:"1.5px solid var(--ink)" }}>
+      <div style={{ display:"flex", justifyContent:"center",
+        margin:big ? "-24px 0 -10px" : "-14px 0 -4px" }}>
+        <TrophyHero size={big ? 250 : 164} plate="FIELD DAY" />
+      </div>
       <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14 }}>
         {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={big ? 110 : 64}
           style={{ border:"2.5px solid var(--sun)" }} />)}
@@ -3549,9 +3677,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
     md: { av:24, f:13.5, tf:13, pad:"7px 10px", gap:8, col:"1fr 1fr" },
     lg: { av:36, f:19,   tf:17, pad:"11px 14px", gap:14, col:`repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` },
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal }) => (
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => (
     <div style={{ background:"var(--paper2)", border:"1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
-      borderRadius:14, overflow:"hidden", boxShadow:"var(--shadow-1)" }}>
+      borderRadius:14, overflow:"hidden", boxShadow:"var(--shadow-1)",
+      ...(wide ? { gridColumn:"1 / -1" } : {}) }}>
       <div style={{ ...label, fontSize: size==="lg" ? 13 : 10.5, padding: size==="lg" ? "9px 14px 5px" : "7px 10px 3px",
         color: isFinal ? "var(--accent2)" : "var(--muted)" }}>{title}</div>
       {entrants.map(key => {
@@ -3587,7 +3716,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
           entrants={g.entrants} through={g.through} gIdx={i} />
       ))}
       {finalists && (
-        <GroupCard title="The Final" entrants={finalists} isFinal />
+        <GroupCard title="The Final" entrants={finalists} isFinal
+          wide={size === "md" && (st.groups.length + 1) % 2 === 1} />
       )}
     </div>
   );
@@ -3671,7 +3801,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           ) : (
             <div style={{ display:"grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap:8 }}>
               {draw.teams.map((t,i) => (
-                <div key={i} style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14, padding:"10px 12px" }}>
+                <div key={i} style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+                  padding:"10px 12px",
+                  ...(draw.teams.length > 3 && draw.teams.length % 2 === 1 && i === draw.teams.length - 1
+                    ? { gridColumn:"1 / -1" } : {}) }}>
                   <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
                   <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
@@ -3726,9 +3859,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                 {diff > 0 ? ` ${diff} extra will double up.` : diff < 0 ? ` ${-diff} short.` : ""}
               </div>
               {showOuts && (
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:5, marginBottom:10 }}>
-                  {ROSTER.map(p => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
-                    onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])} />)}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
+                  {ROSTER.map((p, i) => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
+                    onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])}
+                    style={centeredGridCell(i, ROSTER.length, 3, 5)} />)}
                 </div>
               )}
               <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
@@ -3774,9 +3908,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                           {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
                       </div>
                       {showOuts && (
-                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:5, marginBottom:10 }}>
-                          {ROSTER.map(p => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
-                            onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])} />)}
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
+                          {ROSTER.map((p, i) => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
+                            onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])}
+                            style={centeredGridCell(i, ROSTER.length, 3, 5)} />)}
                         </div>
                       )}
                     </>
@@ -3832,11 +3967,12 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
             <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
               padding:"12px 13px", marginTop:8 }}>
               <div style={{ ...label, marginBottom:6 }}>Name</div>
-              <input value={eName} onChange={e => setEName(e.target.value)} maxLength={28}
+              <input value={eName} onChange={e => setEName(e.target.value)} maxLength={28} aria-label="Event name"
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
                   padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:12, outline:"none" }} />
               <div style={{ ...label, marginBottom:6 }}>How it works</div>
               <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} maxLength={300} rows={3}
+                aria-label="Event description"
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
                   padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
                   marginBottom:12, outline:"none", resize:"vertical" }} />
@@ -3911,6 +4047,7 @@ function AddEventSheet({ state, onClose, save }) {
     <Sheet title="Add an event" onClose={onClose}>
       <div style={{ ...label, marginBottom:6 }}>Name</div>
       <input value={name} onChange={e => setName(e.target.value)} maxLength={28} placeholder="Bocce, poker, HORSE"
+        aria-label="Event name"
         style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
           padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:14, outline:"none" }} />
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
@@ -4087,11 +4224,12 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
           ))}
         </div>
         <div style={{ ...label, marginBottom:8 }}>Captains {captains.length}/{N}</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:14 }}>
-          {(pool || []).map(p => {
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:6, marginBottom:14 }}>
+          {(pool || []).map((p, pi) => {
             const i = captains.indexOf(p);
             return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} (C${i+1})` : disp(state,p)}
-              selected={i >= 0} onClick={() => toggleCap(p)} />;
+              selected={i >= 0} onClick={() => toggleCap(p)}
+              style={centeredGridCell(pi, (pool || []).length)} />;
           })}
         </div>
         <Btn disabled={captains.length !== N} onClick={() => onStart(captains, pool)} style={{ width:"100%" }}>
@@ -4122,7 +4260,8 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
       <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
         {d.teams.map((t, i) => (
           <div key={i} style={{ background:"var(--paper)", borderRadius:14, padding:"9px 11px",
-            border: i === onClock ? "1.5px solid var(--ink)" : "1.5px solid var(--line)" }}>
+            border: i === onClock ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
+            ...(i === T - 1 && T % 2 === 1 ? { gridColumn:"1 / -1" } : {}) }}>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
               <Tag tone="gold">C</Tag>
               <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)",
@@ -4140,9 +4279,10 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
       {!poolEmpty && (
         <>
           <div style={{ ...label, marginBottom:8 }}>{canPick ? "Tap to draft" : "Still available"}</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:12 }}>
-            {d.pool.map(p => <PlayerChip key={p} small name={disp(state,p)}
-              disabled={!canPick} onClick={() => canPick && onPick(p)} />)}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:6, marginBottom:12 }}>
+            {d.pool.map((p, i) => <PlayerChip key={p} small name={disp(state,p)}
+              disabled={!canPick} onClick={() => canPick && onPick(p)}
+              style={centeredGridCell(i, d.pool.length)} />)}
           </div>
         </>
       )}
@@ -4227,7 +4367,9 @@ function ResultSheet({ ev, state, onClose, save }) {
               <button key={i} onClick={() => toggleTeam(t)} style={{ display:"flex", alignItems:"center", gap:8,
                 padding:"10px 11px", borderRadius:14, cursor:"pointer", textAlign:"left",
                 background: w === active ? GOLD_GRAD : "var(--paper)",
-                border: w === active ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>
+                border: w === active ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
+                ...(draw.teams.length % 2 === 1 && i === draw.teams.length - 1
+                  ? { gridColumn:"1 / -1" } : {}) }}>
                 <AvatarStack state={state} players={t.players} size={22} max={3} />
                 <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:12.5, minWidth:0,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
@@ -4239,11 +4381,12 @@ function ResultSheet({ ev, state, onClose, save }) {
           })}
         </div>
       ) : (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
-          {ROSTER.map(p => {
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:10 }}>
+          {ROSTER.map((p, i) => {
             const w = taken(p);
             return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} (${SLOT_META[w].label})` : p}
-              selected={w===active} onClick={() => toggle(p)} small />;
+              selected={w===active} onClick={() => toggle(p)} small
+              style={centeredGridCell(i, ROSTER.length)} />;
           })}
         </div>
       )}
@@ -4259,9 +4402,15 @@ function ResultSheet({ ev, state, onClose, save }) {
 }
 
 /* ─────────── how to play ─────────── */
-/* flat inline marks, one per event or per sport; fall back to the FD mark */
+/* Event marks share one scorecard seal and one optical box. The equipment
+   inside can stay distinctive without each icon inventing its own scale,
+   background, or border language. */
 const svgMark = (s, kids) => (
-  <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>{kids}</svg>
+  <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true"
+    style={{ flexShrink:0, display:"block" }}>
+    <circle cx="16" cy="16" r="15" fill="var(--paper2)" stroke="var(--line)" strokeWidth="1.2" />
+    <g transform="translate(2 2) scale(.875)">{kids}</g>
+  </svg>
 );
 const MARKS = {
   poker: s => svgMark(s, <>
@@ -4287,7 +4436,7 @@ const MARKS = {
     <ellipse cx="15" cy="27" rx="8" ry="2.2" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
   </>),
   "8ball": s => svgMark(s, <>
-    <circle cx="16" cy="16" r="11" fill="var(--ink)"/>
+    <circle cx="16" cy="16" r="11" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.2"/>
     <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
     <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily={SANS} fill="var(--ink)">8</text>
   </>),
@@ -4363,9 +4512,139 @@ const MARKS = {
     <circle cx="26" cy="22" r="3.4" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
   </>),
 };
-function GameMark({ id, size=54 }) {
-  const draw = MARKS[id];
-  return draw ? draw(size) : <FDMark size={size} />;
+/* One pictogram system for every event: the same rounded score tile, the same
+   2.4px line, and one terracotta signal. The former marks mixed illustrations,
+   filled objects, and several optical scales; this family stays legible from
+   the 26px schedule rail through the full-screen announcement. */
+function EventGlyph({ id }) {
+  const bone = "var(--bone)", accent = "var(--accent2)", sun = "var(--sun)";
+  const common = { fill:"none", stroke:bone, strokeWidth:2.4,
+    strokeLinecap:"round", strokeLinejoin:"round" };
+  switch (id) {
+    case "putting": return <g {...common}>
+      <path d="M15 37V11l16 5-16 5" />
+      <path d="M9 37c4-3 10-3 14 0-4 3-10 3-14 0Z" />
+      <circle cx="32" cy="35" r="2.6" fill={accent} stroke="none" />
+    </g>;
+    case "8ball": return <g {...common}>
+      <circle cx="24" cy="24" r="13" />
+      <circle cx="24" cy="21" r="3.2" />
+      <circle cx="24" cy="28" r="3.2" />
+      <path d="M14 12l-3-3M34 36l3 3" stroke={accent} />
+    </g>;
+    case "pong": return <g {...common}>
+      <path d="M15 20h18l-2.4 17H17.4L15 20Z" />
+      <path d="M16 20c4-2 12-2 16 0" />
+      <circle cx="25" cy="11" r="3.2" fill={sun} stroke={bone} />
+      <path d="M17 13l4 2" stroke={accent} />
+    </g>;
+    case "die": return <g {...common}>
+      <rect x="11" y="11" width="26" height="26" rx="7" />
+      {[[17,17],[31,17],[24,24],[17,31],[31,31]].map(([x,y]) =>
+        <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" fill={x === 24 ? accent : bone} stroke="none" />)}
+    </g>;
+    case "basketball": return <g {...common}>
+      <circle cx="24" cy="24" r="13" />
+      <path d="M11 24h26M24 11v26M15 14c5 5 5 15 0 20M33 14c-5 5-5 15 0 20" />
+      <path d="M34 12l4-4" stroke={accent} />
+    </g>;
+    case "spikeball": return <g {...common}>
+      <ellipse cx="24" cy="32" rx="14" ry="5.5" />
+      <path d="M14 32h20M24 26.5v11M15 35l-3 4M33 35l3 4" />
+      <circle cx="24" cy="15" r="4" fill={sun} stroke={bone} />
+      <path d="M18 11l-3-3" stroke={accent} />
+    </g>;
+    case "pingpong": return <g {...common}>
+      <circle cx="20" cy="20" r="9" />
+      <path d="M14 27l-6 8" />
+      <circle cx="35" cy="32" r="3.2" fill={accent} stroke={bone} />
+      <path d="M29 17l5-3" />
+    </g>;
+    case "foosball": return <g {...common}>
+      <path d="M8 15h32M8 31h32" />
+      <circle cx="24" cy="14" r="3.5" />
+      <path d="M24 18v10M18 22h12M24 28l-5 7M24 28l5 7" />
+      <circle cx="35" cy="37" r="2.8" fill={accent} stroke="none" />
+    </g>;
+    case "volleyball": return <g {...common}>
+      <path d="M30 12v27M30 19h10v20M30 24h10M30 29h10M30 34h10" />
+      <circle cx="17" cy="22" r="9" />
+      <path d="M17 13c4 5 4 13 0 18M9 20c6 1 12-1 16-5" />
+      <path d="M9 35l4-3" stroke={accent} />
+    </g>;
+    case "pickleball": return <g {...common}>
+      <circle cx="19" cy="19" r="9.5" />
+      <path d="M13 26l-5 9" />
+      <circle cx="35" cy="31" r="5" fill={sun} />
+      {[[33,29],[37,29],[35,33]].map(([x,y]) =>
+        <circle key={`${x}-${y}`} cx={x} cy={y} r=".8" fill={bone} stroke="none" />)}
+      <path d="M29 15l4-3" stroke={accent} />
+    </g>;
+    case "flipcup": return <g {...common}>
+      <path d="M15 15h15l-2 17H17l-2-17Z" transform="rotate(-28 22.5 23.5)" />
+      <path d="M10 34c6 5 19 5 27-1" />
+      <path d="M10 29c-3-7 0-13 6-17" stroke={accent} />
+      <path d="M13 11l3 1-1 3" stroke={accent} />
+    </g>;
+    case "beerio": return <g {...common}>
+      <circle cx="19" cy="24" r="11" />
+      <circle cx="19" cy="24" r="3" />
+      <path d="M19 13v8M10 29l6-3M28 29l-6-3" />
+      <path d="M33 18h8l-1 17h-6l-1-17Z" />
+      <path d="M34 18c2-1 4-1 6 0" />
+      <path d="M32 12l4 2" stroke={accent} />
+    </g>;
+    case "ragecage": return <g {...common}>
+      {[15,24,33].map(x => <path key={x} d={`M${x-4} 26h8l-1 11h-6l-1-11Z`} />)}
+      <path d="M20 14h8l-1 10h-6l-1-10Z" />
+      <circle cx="12" cy="15" r="3" fill={sun} stroke={bone} />
+      <path d="M8 20l-2 4" stroke={accent} />
+    </g>;
+    case "poker": return <g {...common}>
+      <rect x="10" y="11" width="15" height="21" rx="3" transform="rotate(-9 17.5 21.5)" />
+      <rect x="23" y="10" width="15" height="21" rx="3" transform="rotate(8 30.5 20.5)" />
+      <path d="M30 16l3 3-3 3-3-3 3-3Z" fill={accent} stroke="none" />
+      <circle cx="24" cy="36" r="6" fill="var(--paper2)" />
+      <path d="M20 36h8M24 32v8" stroke={sun} />
+    </g>;
+    case "gauntlet": return <g {...common}>
+      <path d="M9 34c0-12 8-19 18-18 6 1 9 5 9 11" />
+      {[[9,34],[12,23],[21,17],[31,19]].map(([x,y], i) =>
+        <circle key={i} cx={x} cy={y} r="2.8" fill={i === 0 ? accent : "var(--paper2)"} />)}
+      <path d="M36 27V11M36 11l7 3-7 3" />
+    </g>;
+    default: return <g {...common}>
+      <circle cx="24" cy="24" r="12" />
+      <path d="M24 15v18M15 24h18" stroke={accent} />
+    </g>;
+  }
+}
+function GameMark({ id, size=54, hero=false }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true"
+      style={{ flexShrink:0, display:"block", filter:hero ? "drop-shadow(0 14px 26px rgba(10,6,3,.32))" : "none" }}>
+      <rect x="1.5" y="1.5" width="45" height="45" rx="14"
+        fill={hero ? "var(--night2)" : "var(--paper2)"} stroke="var(--bone-line)" strokeWidth="1.5" />
+      <EventGlyph id={id} />
+      <circle cx="39.5" cy="8.5" r="2.4" fill="var(--accent2)" />
+    </svg>
+  );
+}
+
+/* One broadcast ident, with the event's own mark doing the differentiating.
+   Subtle rings and a single rule replace fifteen novelty mini-animations. */
+function EventSpotlight({ gameId, big=false }) {
+  const mark = big ? 150 : 112;
+  const box = big ? 242 : 176;
+  return (
+    <div style={{ position:"relative", width:box, height:box, display:"grid", placeItems:"center" }}>
+      <span className="si-event-ring" aria-hidden="true" />
+      <span className="si-event-ring si-event-ring-2" aria-hidden="true" />
+      <span className="si-event-rule si-event-rule-left" aria-hidden="true" />
+      <span className="si-event-rule si-event-rule-right" aria-hidden="true" />
+      <span className="si-event-mark"><GameMark id={gameId} size={mark} hero /></span>
+    </div>
+  );
 }
 /* beer die flagship: a die that arcs and bounces off the far edge of the table */
 function DieHero() {
@@ -4629,14 +4908,14 @@ function HowToSheet({ gameId, variant, onClose }) {
     return () => clearTimeout(t);
   }, [shown, steps.length]);
   if (!h) return null;
-  const Hero = GAME_HEROES[gameId];
   return (
     <Sheet title="How to play" onClose={onClose}>
-      <div onClick={() => Hero && setHeroKey(k => k + 1)}
-        style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:66, marginBottom:6,
-          cursor: Hero ? "pointer" : "default" }}>
-        {Hero ? <span key={heroKey}><Hero /></span>
-          : <span style={{ animation:"si-pop .4s ease-out" }}><GameMark id={gameId} size={56} /></span>}
+      <div onClick={() => setHeroKey(k => k + 1)}
+        style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:82, marginBottom:6,
+          cursor:"pointer" }} aria-label={`Replay ${game.name} mark`}>
+        <span key={heroKey} style={{ animation:"si-intro-mark .55s cubic-bezier(.2,.85,.28,1) both" }}>
+          <GameMark id={gameId} size={76} hero />
+        </span>
       </div>
       <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{game.name}</div>
       {variants && (
@@ -4719,7 +4998,7 @@ function mergeWagerLines(list) {
   }
   return [...out.values()];
 }
-function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, onRetract }) {
+function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
   const [denom, setDenom] = useState(PT);
@@ -4793,7 +5072,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   /* the whiteboard row: one tap drops a chip, everyone's chips sit on the pick
      in their own colors, the x pulls your last one back, and tapping the chip
      cluster reveals exactly who is riding the pick */
-  const PickRow = ({ players, name, onClick, wide, pred, rowKey }) => {
+  const PickRow = ({ players, name, onClick, wide, pred, rowKey, cellStyle }) => {
     const bets = pred ? pending.filter(x => pred(x.w)) : [];
     const mineBets = bets.filter(x => x.w.player === me);
     const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
@@ -4801,7 +5080,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
     const shownChips = chips.slice(0, 5);
     const open = whoOpen === rowKey && bets.length > 0;
     return (
-      <div>
+      <div style={cellStyle}>
         <button onClick={room < PT ? undefined : onClick}
           style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
             borderRadius:14, width:"100%",
@@ -4904,8 +5183,16 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
   return (
     <div style={{ padding:"0 16px", paddingBottom: me && ev ? 152 : 0 }}>
       {!ev && !state.frozen && (
-        <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
-          Betting is closed.
+        <div style={{ textAlign:"center", padding:"clamp(56px,15vh,120px) 24px 24px",
+          display:"flex", flexDirection:"column", alignItems:"center" }}>
+          <div style={{ opacity:0.82, marginBottom:18 }}><ArtTicket /></div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, lineHeight:1,
+            textTransform:"uppercase", color:"var(--ink)", marginBottom:9 }}>
+            {state.live ? "Between events" : "Betting opens with the first event"}</div>
+          <div style={{ maxWidth:300, color:"var(--muted2)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
+            As each event starts, betting opens here.
+          </div>
+          <Btn kind="ghost" onClick={onEvents} style={{ marginTop:20 }}>Browse the events</Btn>
         </div>
       )}
       {state.frozen && (
@@ -4978,8 +5265,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onPick, onVoid, on
               </div>
               <div style={{ display: bigTeams ? "flex" : "grid", flexDirection:"column",
                 gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
-                {outrights.map(o => (
+                {outrights.map((o, i) => (
                   <PickRow key={o.key} rowKey={"o:" + o.key} players={o.players} name={o.name} wide={bigTeams}
+                    cellStyle={!bigTeams ? centeredGridCell(i, outrights.length, 2, 6) : undefined}
                     pred={w => w.kind === "outright" && w.eventId === ev.id &&
                       (o.pick.pickTeam
                         ? w.pickTeam && w.drawId === o.pick.drawId && (w.pickPlayers||[]).join("|") === o.pick.pickPlayers.join("|")
@@ -5504,19 +5792,19 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onCountRest}>Count the rest</Btn>}
       </div>
-      <div style={sect}>Onboarding</div>
+      <div style={sect}>Guest check-in</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        <Btn kind="ghost" onClick={onReplayMine}>Replay on this phone</Btn>
+        <Btn kind="ghost" onClick={onReplayMine}>Redo on this phone</Btn>
         {/* the only QA control that throws away something a guest chose, so it
             asks twice and says what it costs. Reset game keeps every claim. */}
         {confirmRerun
           ? <Btn kind="flame" onClick={() => { setConfirmRerun(false); onRerun(); }}>
               Confirm, drops every chip</Btn>
-          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Rerun for everyone</Btn>}
+          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Reopen for everyone</Btn>}
       </div>
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
-        This phone replays now. Everyone else replays the next time their app has focus.
-        A rerun reopens the chip race, so every claimed color is released.</div>
+        This phone starts the six-step check-in again. Reopening it for everyone
+        releases every claimed chip color.</div>
       <div style={sect}>Board</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         {confirm ? (
@@ -5542,7 +5830,7 @@ function AdjustSheet({ player, onClose, save }) {
           color: delta >= 0 ? "var(--green)" : "var(--clay)" }}>{delta>0?"+":""}{delta}</div>
         <Btn kind="dark" onClick={() => setDelta(d => d + PT)} style={{ fontSize:19, width:54 }}>+</Btn>
       </div>
-      <input value={reason} onChange={e => setReason(e.target.value)} maxLength={50}
+      <input value={reason} onChange={e => setReason(e.target.value)} maxLength={50} aria-label="Ruling reason"
         placeholder="Reason, e.g. pressure putt"
         style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
           padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, marginBottom:14, outline:"none" }} />
@@ -5555,6 +5843,7 @@ function PinSheet({ onClose, unlock }) {
   return (
     <Sheet title="Commissioner" onClose={onClose}>
       <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+        aria-label="Commissioner passcode"
         inputMode="numeric" placeholder="Passcode" autoFocus
         onKeyDown={e => e.key === "Enter" && unlock(pin)}
         style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
@@ -5570,18 +5859,25 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
   const [flightIn, setFlightIn] = useState(state.profiles?.[me]?.flightIn || null);
   const [flightOut, setFlightOut] = useState(state.profiles?.[me]?.flightOut || null);
+  const [flightsBooked, setFlightsBooked] = useState(
+    typeof state.profiles?.[me]?.flightsBooked === "boolean" ? state.profiles[me].flightsBooked
+      : (state.profiles?.[me]?.flightIn || state.profiles?.[me]?.flightOut ? true : null));
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
-  const [jersey, setJersey] = useState(state.profiles?.[me]?.jersey ?? null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} size={size} setSize={setSize} jersey={jersey} setJersey={setJersey} onChip={onChip} />
-      <div style={{ marginTop:16 }}>
-        <TravelFields flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
+        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} showSize={false} />
+      <div style={{ marginTop:20, paddingTop:18, borderTop:"1px solid var(--line)" }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
+          textTransform:"uppercase", color:"var(--ink)", marginBottom:12 }}>Information I need</div>
+        <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
+          flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
+        <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), size, jersey, flightIn, flightOut, ...(photo ? {photo} : {}) })}
+          num: num === "" ? null : Number(num), size, flightsBooked,
+          flightIn, flightOut, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
@@ -5589,8 +5885,9 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
 function Reveal({ state, reveal, big, auto, onClose, onBets }) {
-  const items = reveal.versus ? 2 : reveal.groups.length;
-  const [shown, setShown] = useState(0);
+  const items = reveal.versus ? 1 : reveal.groups.length;
+  const reducedMotion = prefersReducedMotion();
+  const [shown, setShown] = useState(() => reducedMotion ? items : 0);
   useEffect(() => {
     if (shown >= items) return;
     const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 900 : 1300);
@@ -5600,9 +5897,9 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
   const closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(() => {
     if (!auto || !doneAll) return;
-    const t = setTimeout(() => closeRef.current(), 6000);
+    const t = setTimeout(() => closeRef.current(), reducedMotion ? 2200 : 6000);
     return () => clearTimeout(t);
-  }, [auto, doneAll]);
+  }, [auto, doneAll, reducedMotion]);
   return (
     <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
@@ -5620,7 +5917,8 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
         </div>
       ) : (
         <div style={{ display:"grid", gap: big ? 16 : 10, width:"100%", maxWidth: big ? 1100 : 460,
-          gridTemplateColumns: big ? `repeat(${Math.min(items,3)}, 1fr)` : items > 3 ? "1fr 1fr" : "1fr" }}>
+          gridTemplateColumns: big ? `repeat(${items === 4 ? 2 : Math.min(items,3)}, 1fr)`
+            : items > 3 ? "1fr 1fr" : "1fr" }}>
           {reveal.groups.map((g, i) => (
             <div key={i} style={{ visibility: i < shown ? "visible" : "hidden",
               animation: i < shown ? "si-flag .55s both" : "none",
@@ -5662,31 +5960,33 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 /* ─────────── TV mode ─────────── */
 /* one point as a poker chip in the player's claimed color and skin;
    empty renders the open table spot it could fill */
-const chipMarks = (skin, cx = 16, edge = 12.4) => {
+const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
   const pt = (r, deg) => {
     const a = deg * Math.PI / 180;
     return [cx + Math.cos(a) * r, cx + Math.sin(a) * r];
   };
   const lines = (n, off, r1, r2, w) => Array.from({ length: n }, (_, i) => {
     const [x1, y1] = pt(r1, i * (360 / n) + off), [x2, y2] = pt(r2, i * (360 / n) + off);
-    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--chip-mark)"
+    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={ink}
       strokeWidth={w} strokeLinecap="round" />;
   });
   if (skin === "plain") return null;
-  if (skin === "dash") return <circle cx={cx} cy={cx} r={edge - 1.4} fill="none"
-    stroke="var(--chip-mark)" strokeWidth="2.6" strokeDasharray="7.2 10.1" />;
-  if (skin === "ring") return <circle cx={cx} cy={cx} r={edge - 3.4} fill="none"
-    stroke="var(--chip-mark)" strokeWidth="1.8" />;
+  if (skin === "dash") return <circle cx={cx} cy={cx} r={edge - 1.1} fill="none"
+    stroke={ink} strokeWidth="3" strokeDasharray="8.4 11.4" strokeLinecap="butt" />;
+  if (skin === "ring") return <>
+    <circle cx={cx} cy={cx} r={edge - 2.5} fill="none" stroke={ink} strokeWidth="1.15" />
+    <circle cx={cx} cy={cx} r={edge - 4.4} fill="none" stroke={ink} strokeWidth=".8" opacity=".8" />
+  </>;
   if (skin === "quad") return lines(4, 0, edge - 3.6, edge + 0.6, 3.4);
-  if (skin === "dots") return Array.from({ length: 8 }, (_, i) => {
-    const [x, y] = pt(edge - 1.8, i * 45 + 22.5);
-    return <circle key={i} cx={x} cy={y} r="1.7" fill="var(--chip-mark)" />;
+  if (skin === "dots") return Array.from({ length: 12 }, (_, i) => {
+    const [x, y] = pt(edge - 1.45, i * 30 + 15);
+    return <circle key={i} cx={x} cy={y} r="1.08" fill={ink} />;
   });
   /* the loud half of the rack. Still flat, still one ink, still an edge
      treatment so the number in the middle stays readable at 18px */
   const around = (n, d, r, spin = 0) => Array.from({ length: n }, (_, i) => {
     const a = i * (360 / n) + spin, [x, y] = pt(r, a);
-    return <path key={i} d={d} fill="var(--chip-mark)"
+    return <path key={i} d={d} fill={ink}
       transform={`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${a + 90})`} />;
   });
   if (skin === "saw") {
@@ -5695,25 +5995,25 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
       const [x, y] = pt(i % 2 ? edge - 3.6 : edge + 0.5, i * (180 / n) - 90);
       p2.push(`${x.toFixed(2)},${y.toFixed(2)}`);
     }
-    return <polygon points={p2.join(" ")} fill="none" stroke="var(--chip-mark)"
+    return <polygon points={p2.join(" ")} fill="none" stroke={ink}
       strokeWidth="1.5" strokeLinejoin="round" />;
   }
   /* symmetric teardrop: the earlier version had an inner curl that read as a
      comma once it was 3px on a phone */
   if (skin === "flame") return around(6,
-    "M0 -4.8C2.4 -1.9 2.9 -0.7 2.9 0.7 2.9 2.6 1.6 3.7 0 3.7S-2.9 2.6 -2.9 0.7C-2.9 -0.7 -2.4 -1.9 0 -4.8Z",
-    edge - 2.8);
+    "M0 -3.9C1.9 -1.5 2.3 -0.5 2.3 0.6 2.3 2.1 1.3 3 0 3S-2.3 2.1 -2.3 0.6C-2.3-0.5-1.9-1.5 0-3.9Z",
+    edge - 0.6);
   if (skin === "star") return around(6,
-    "M0 -3.4C0.4 -1 0.6 -0.8 3 -0.4 0.6 0 0.4 0.2 0 2.6c-0.4-2.4-0.6-2.6-3-3 2.4-0.4 2.6-0.6 3-3Z",
-    edge - 2.4);
-  if (skin === "bolt") return around(5, "M1.3 -4 -1.9 0.5h2L0 4 3 -0.7h-2z", edge - 2.4);
+    "M0 -3C0.35-0.9 0.55-0.7 2.7-0.35 0.55 0 0.35 0.2 0 2.3c-0.35-2.1-0.55-2.3-2.7-2.65C-0.55-0.7-0.35-0.9 0-3Z",
+    edge - 0.9);
+  if (skin === "bolt") return around(6, "M-2.7-2.4 0 .2 2.7-2.4 2.7.2 0 2.9-2.7.2 0-2.4Z", edge - 0.8);
   if (skin === "wave") {
     const n = 60, d = [];
     for (let i = 0; i <= n; i++) {
       const [x, y] = pt(edge - 1.9 + Math.sin(i / n * Math.PI * 14) * 1.5, i * (360 / n));
       d.push(`${i ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`);
     }
-    return <path d={d.join(" ")} fill="none" stroke="var(--chip-mark)" strokeWidth="1.5" />;
+    return <path d={d.join(" ")} fill="none" stroke={ink} strokeWidth="1.5" />;
   }
   /* the one asymmetric skin, and the only one that has to be read as an
      object rather than a pattern, so it is filled. It rides the top edge:
@@ -5721,46 +6021,63 @@ const chipMarks = (skin, cx = 16, edge = 12.4) => {
      in there is the whole point of the chip. */
   if (skin === "crown") return (
     <path d="M-6.2 3.4 -5-3.6-2.1-0.9 0-5.2 2.1-0.9 5-3.6 6.2 3.4Z"
-      fill="var(--chip-mark)" transform={`translate(${cx} ${cx - 8.3})`} />
+      fill={ink} transform={`translate(${cx} ${cx - 8.3})`} />
   );
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
-function BankChip({ p, size=18, empty, val }) {
+function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
+  color: colorOverride, isLight: lightOverride, valueRing=false }) {
+  const clipId = `chip-edge-${useId().replace(/:/g, "")}`;
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
     border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
-  /* the center stamp: a bet chip carries its value like a casino chip, an
-     identity chip carries the jersey number. Color says whose it is either way */
+  const color = colorOverride || playerColor(p);
+  const light = lightOverride ?? playerIsLight(p);
+  const skin = skinOverride || playerSkin(p);
+  const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
+  const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
+  const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
   const num = CHIP_PROFILES[p]?.num ?? playerNo(p);
-  const stamp = val != null ? val : num;
+  const stamp = stampOverride != null ? stampOverride : num;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
-      <circle cx="16" cy="16" r="14.6" fill={playerColor(p)} stroke="var(--ink0)" strokeWidth="1.8"/>
-      {chipMarks(playerSkin(p))}
-      {val != null && <circle cx="16" cy="16" r="9.6" fill="none" strokeWidth="1"
-        stroke={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"} opacity="0.55"/>}
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
+      style={{ flexShrink:0, display:"block",
+        filter:size >= 32 ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
+      <defs>
+        <clipPath id={clipId}><circle cx="16" cy="16" r="14.7" /></clipPath>
+      </defs>
+      <circle cx="16" cy="16" r="14.7" fill={color} stroke="var(--ink0)" strokeWidth="1.45"/>
+      <circle cx="16" cy="16" r="13.25" fill="none" stroke={inlayLine} strokeWidth=".65" opacity=".72" />
+      <g clipPath={`url(#${clipId})`}>{chipMarks(skin, 16, 12.4, skinInk)}</g>
+      <circle cx="16" cy="16" r="8.75" fill={inlay} stroke={inlayLine} strokeWidth=".8" />
+      <path d="M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4" fill="none"
+        stroke="rgba(255,255,255,.38)" strokeWidth=".75" strokeLinecap="round" opacity=".65" />
+      <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
+        stroke="rgba(23,16,9,.45)" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
+      {valueRing && <circle cx="16" cy="16" r="7.25" fill="none" strokeWidth=".8"
+        stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
       {size >= 20 && stamp != null && (
-        /* last, so it is never behind a skin, and carrying the chip colour as
-           a halo so a loud skin cannot swallow the digits either */
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
-          fontFamily={DISPLAY} fontWeight="700" fontSize={val != null && val >= 100 ? 9.5 : 12.5}
-          stroke={playerColor(p)} strokeWidth="2.6" strokeLinejoin="round" paintOrder="stroke"
-          fill={playerIsLight(p) ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
+          fontFamily={DISPLAY} fontWeight="700" fontSize={valueRing && stamp >= 100 ? 8.7 : 11.7}
+          fill={light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
       )}
     </svg>
   );
+}
+function BankChip({ p, size=18, empty, val }) {
+  /* A bet chip carries its value; an identity chip carries the jersey number.
+     Color still says whose it is either way. */
+  return <ChipFace p={p} size={size} empty={empty} stamp={val} valueRing={val != null} />;
 }
 /* TV betting scene: the open board. Every live pick is a felt cell and the
    value chips sit on it; before any chips land, the game's hero plays. */
 function TVBettingBoard({ state, events, ev }) {
   const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
     .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
-  const Hero = GAME_HEROES[ev.game];
   const chipsIn = open.reduce((n, x) => n + x.w.stake, 0) / PT;
   if (!open.length) return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", alignItems:"center",
-      justifyContent:"center", gap:20 }}>
-      {Hero ? <div style={{ transform:"scale(1.9)", margin:"20px 0 30px" }}><Hero /></div>
-        : <GameMark id={ev.game} size={150} />}
+      justifyContent:"center", gap:6 }}>
+      <EventSpotlight gameId={ev.game} big />
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)",
         textTransform:"uppercase", color:"var(--night-text)" }}>Betting is open. No chips in yet.</div>
     </div>
@@ -6071,14 +6388,18 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   }, []);
 
   const liveEv = onDeckEv || liveBracketEv || liveStageEv;
+  /* Once an event is explicitly on deck, an unfinished bracket from another
+     game must not leak into its TV scene. */
+  const activeBracketEv = liveEv && state.brackets[liveEv.id] && state.draws[liveEv.id] ? liveEv : null;
+  const activeStageEv = liveEv && state.stages[liveEv.id] ? liveEv : null;
   /* who steps up next: the first open, fully-seated matchup in the live bracket */
-  const upNext = useMemo(() => liveBracketEv ? nextOpenMatch(state.brackets[liveBracketEv.id]) : null,
-    [liveBracketEv, state]);
-  const upNextDraw = liveBracketEv ? state.draws[liveBracketEv.id] : null;
+  const upNext = useMemo(() => activeBracketEv ? nextOpenMatch(state.brackets[activeBracketEv.id]) : null,
+    [activeBracketEv, state]);
+  const upNextDraw = activeBracketEv ? state.draws[activeBracketEv.id] : null;
   /* chips riding a TV bracket cell, value stamped, read-only */
   const tvBracketChips = (r, m, tIdx) => {
     const bets = allW.filter(x => x.r.status === "pending" && x.w.kind === "match" &&
-      x.w.eventId === liveBracketEv.id && x.w.drawId === upNextDraw?.id &&
+      x.w.eventId === activeBracketEv?.id && x.w.drawId === upNextDraw?.id &&
       x.w.match?.[0] === r && x.w.match?.[1] === m && x.w.teamIdx === tIdx);
     if (!bets.length) return null;
     return (
@@ -6100,12 +6421,14 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     return s;
   }, [champion, joinNeeded, qrUrl, nextEv, latest, openBook.length]);
   const [sceneIdx, setSceneIdx] = useState(0);
-  useEffect(() => { setSceneIdx(0); }, [scenes.length]);
+  const sceneKey = scenes.join("|");
+  const reducedMotion = prefersReducedMotion();
+  useEffect(() => { setSceneIdx(0); }, [sceneKey]);
   useEffect(() => {
-    if (scenes.length < 2) return;
+    if (scenes.length < 2 || reducedMotion) return;
     const t = setInterval(() => setSceneIdx(i => (i + 1) % scenes.length), 12000);
     return () => clearInterval(t);
-  }, [scenes.length]);
+  }, [sceneKey, scenes.length, reducedMotion]);
   const scene = scenes[sceneIdx] || "board";
   const sceneLabel = { ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"var(--night-text)", marginBottom:6 };
   const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
@@ -6160,7 +6483,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
-      background:"radial-gradient(110% 60% at 50% -10%, rgba(240,176,47,0.10) 0%, transparent 60%), var(--night)" }}>
+      background:"var(--night)", borderTop:"4px solid var(--sun)" }}>
       <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
         background:"var(--paper)", border:"1.5px solid var(--ghost-line)", color:"var(--ink)",
         width:40, height:40, borderRadius:10, fontSize:16, cursor:"pointer" }}>✕</button>
@@ -6173,11 +6496,17 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           textTransform:"uppercase", letterSpacing:"0.015em", color:"var(--sun)" }}>
           Field Day</div>
         <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)" }}>Scottsdale · 2026</div>
-        <span style={{ width:10, height:10, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.6s infinite" }} />
+        <span style={{ display:"inline-flex", alignItems:"center", gap:7, ...label,
+          fontSize:"clamp(10px,0.9vw,13px)", color:state.live ? "var(--live2)" : "var(--night-text)" }}>
+          <span style={{ width:9, height:9, borderRadius:99,
+            background:state.live ? "var(--clay)" : "var(--muted)",
+            animation:state.live ? "si-pulse 1.6s infinite" : "none" }} />
+          {state.live ? "Weekend live" : "Check-in"}
+        </span>
         <div style={{ flex:1 }} />
         {onDeckEv && !champion && (
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 20px", borderRadius:14,
-            background:"linear-gradient(90deg, rgba(192,71,58,0.14), rgba(192,71,58,0.03))",
+            background:"var(--clay-tint)",
             border:"1px solid rgba(192,71,58,0.45)", marginRight:56 }}>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
               letterSpacing:"0.18em", color:"var(--live2)", textTransform:"uppercase" }}>On deck</span>
@@ -6208,8 +6537,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div style={{ ...sceneLabel, marginBottom:2, display:"flex", alignItems:"center", gap:9 }}>
                   <span style={{ width:9, height:9, borderRadius:99, background:"var(--sun)",
                     animation:"si-pulse 1.6s infinite" }} />
-                  {onDeckEv ? "Betting open" : liveBracketEv ? "Live bracket"
-                    : state.stages[liveStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
+                  {onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
+                    : state.stages[activeStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
                 <div style={{ ...sceneTitle, marginBottom:0, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
               </div>
               {/* the call to the table: who plays next, straight off the bracket */}
@@ -6230,12 +6559,12 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               )}
             </div>
             <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
-              {liveBracketEv ? <BracketGrid state={state} ev={liveBracketEv} gm={false} size="lg"
+              {activeBracketEv ? <BracketGrid state={state} ev={activeBracketEv} gm={false} size="lg"
                   bet={{ chips: tvBracketChips }} hot={upNext ? [upNext.r, upNext.m] : null} />
-                : liveStageEv ? <StageGrid state={state} ev={liveStageEv} gm={false} size="lg" />
+                : activeStageEv ? <StageGrid state={state} ev={activeStageEv} gm={false} size="lg" />
                 : <TVBettingBoard state={state} events={events} ev={onDeckEv} />}
             </div>
-            {onDeckEv && (liveBracketEv || liveStageEv) && (
+            {onDeckEv && (activeBracketEv || activeStageEv) && (
               <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
                 <BetsBoard state={state} events={events} ev={onDeckEv} />
               </div>
@@ -6399,81 +6728,167 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 }
 
 /* ─────────── rules ─────────── */
-function Guide({ replay, events, state }) {
+function Guide({ events, state }) {
   const [howToEv, setHowToEv] = useState(null);
   const lg = state?.logistics || {};
-  const S = ({ n, t, children }) => (
-    <div style={{ marginBottom:18 }}>
-      <div style={{ display:"flex", gap:10, alignItems:"baseline", marginBottom:6 }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, color:"var(--muted)" }}>{n}</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>{t}</span>
+  const games = Object.entries(GAMES);
+  const awards = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
+    "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
+  const SectionTitle = ({ kicker, title, note }) => (
+    <div style={{ margin:"22px 2px 9px", minWidth:0 }}>
+      <div style={{ ...label, fontSize:10, marginBottom:3 }}>{kicker}</div>
+      <div style={{ display:"flex", alignItems:"baseline", gap:9, minWidth:0 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1,
+          textTransform:"uppercase", color:"var(--ink)", minWidth:0 }}>{title}</div>
+        {note && <div style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11.5,
+          color:"var(--muted)", flexShrink:0 }}>{note}</div>}
       </div>
-      <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.62, color:"var(--muted2)" }}>{children}</div>
     </div>
   );
+  const Rule = ({ title, meta, children }) => (
+    <details style={{ background:"var(--paper)", border:"1px solid var(--line)",
+      borderRadius:12, marginBottom:7, overflow:"hidden", maxWidth:"100%" }}>
+      <summary style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 13px",
+        cursor:"pointer", listStyle:"none", minWidth:0 }}>
+        <span style={{ width:5, height:28, borderRadius:6, background:"var(--accent)", flexShrink:0 }} />
+        <span style={{ flex:1, minWidth:0 }}>
+          <span style={{ display:"block", fontFamily:DISPLAY, fontWeight:700, fontSize:18,
+            lineHeight:1, textTransform:"uppercase", color:"var(--ink)" }}>{title}</span>
+          <span style={{ display:"block", fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
+            marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{meta}</span>
+        </span>
+        <span aria-hidden="true" style={{ fontFamily:DISPLAY, fontWeight:700,
+          fontSize:20, color:"var(--accent2)" }}>+</span>
+      </summary>
+      <div style={{ borderTop:"1px solid var(--line)", padding:"11px 14px 13px 28px",
+        fontFamily:SANS, fontSize:13.5, lineHeight:1.58, color:"var(--muted2)" }}>{children}</div>
+    </details>
+  );
   return (
-    <div style={{ padding:"0 18px 10px" }}>
-      {(lg.venue || lg.checkIn) && (
-        <div style={{ marginBottom:8 }}>
-          <div style={{ ...label, marginBottom:8 }}>{EDITION.short} · Scottsdale</div>
-          <VenueCard lg={lg} />
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", margin:"-4px 0 14px" }}>
-            Your own flights live in your profile.</div>
+    <div style={{ padding:"0 16px 20px", maxWidth:"100%", overflowX:"hidden" }}>
+      <div style={{ background:"var(--paper)", border:"1.5px solid var(--ink)",
+        borderRadius:14, overflow:"hidden", marginBottom:4 }}>
+        <div style={{ padding:"13px 14px 12px" }}>
+          <div style={{ ...label, color:"var(--accent2)", marginBottom:5 }}>How Field Day works</div>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
+            textTransform:"uppercase", color:"var(--ink)", maxWidth:360 }}>
+            Build one score. Bring it to poker.</div>
+          <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.55,
+            color:"var(--muted2)", marginTop:8 }}>
+            Thirteen players, sixteen events, one board. Teams reshuffle every event.
+            Everyone starts at 1,000, and results, bets, and duels all move that same number.
+          </div>
         </div>
-      )}
-      <S n="01" t="The weekend">
-        Thirteen players, sixteen events, one board. Teams reshuffle every event. Everyone starts at 1,000, and results, bets, and duels all move that same number.
-      </S>
-      <S n="02" t="Points are chips">
-        Whatever you have when the events end is the stack you are dealt at Championship Poker. The winner of that table is the Field Day champion.
-      </S>
-      <S n="03" t="What events pay">
-        Friday 400. Saturday morning 800, afternoon 1,200, night 1,600. Solo events pay the podium. Team events pay every player on the placing team the full amount. Ties are settled on the spot, and a championship tie is one pressure putt.
-      </S>
-      <S n="04" t="Betting">
-        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts. Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1. Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one bad decision, only half your points can be at risk at a time. Bets settle off the official result, so correcting a result corrects the payouts. Brandon can void any wager.
-      </S>
-      <S n="05" t="Duels">
-        Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same. You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips. One open challenge per pair, three a day.
-      </S>
-      <S n="06" t="Draws and brackets">
-        Brandon runs each draw and it reveals on every phone at once. Teams balance from your ratings and your results so far, and the later the weekend, the more the results count. Ratings are never shown. Some events are captains drafting instead. Brackets, heats, and pools update here and on the TV as they are played.
-      </S>
-      <S n="07" t="Learn the games">
-        <div style={{ display:"grid", gap:8 }}>
-          {Object.entries(GAMES).map(([id, g]) => (
-            <button key={id} onClick={() => setHowToEv(id)} style={{ display:"flex", alignItems:"center",
-              gap:12, textAlign:"left", cursor:"pointer", background:"var(--paper)",
-              border:"1px solid var(--line)", borderRadius:14, padding:"9px 11px" }}>
-              <GameMark id={id} size={30} />
-              <span style={{ flex:1, minWidth:0 }}>
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--ink)",
-                  textTransform:"uppercase", display:"block", lineHeight:1.05 }}>{g.name}</span>
-                <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", display:"block",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {(g.howto || g.variants?.[0]?.howto)?.objective}</span>
-              </span>
-              <span style={{ color:"var(--accent2)", fontFamily:SANS, fontWeight:700, flexShrink:0 }}>→</span>
-            </button>
-          ))}
+        <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) auto minmax(0,1fr)",
+          alignItems:"center", gap:9, padding:"10px 13px", background:"var(--paper2)",
+          borderTop:"1px solid var(--line)" }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ ...label, fontSize:9.5 }}>All weekend</div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--ink)",
+              textTransform:"uppercase", lineHeight:1.05 }}>Your points</div>
+          </div>
+          <div aria-hidden="true" style={{ color:"var(--accent2)", fontFamily:DISPLAY,
+            fontWeight:700, fontSize:22 }}>→</div>
+          <div style={{ minWidth:0, textAlign:"right" }}>
+            <div style={{ ...label, fontSize:9.5 }}>The finale</div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--sun)",
+              textTransform:"uppercase", lineHeight:1.05 }}>Your chips</div>
+          </div>
         </div>
-      </S>
-      <S n="08" t="Saturday night awards">
-        Voted Saturday night: The Championship, Fraud of the Weekend, Sharpshooter, Degenerate of the Weekend, Media MVP, Teammate of the Weekend.
-      </S>
-      <S n="09" t="House rules">
-        Alcohol optional everywhere, NA equivalents carry no penalty. No forced participation. Rack cups hold water, drink from your own. No hard contact. Respect the property. Everyone knows when the 360 cam is rolling. Brandon can stop anything for safety.
-      </S>
-      {!isStandalone() && (
-        <S n="10" t="The app">
-          <InstallHint />
-        </S>
-      )}
-      <div style={{ display:"flex", justifyContent:"center", padding:"6px 0 18px" }}>
-        <Btn kind="ghost" onClick={replay}>Replay the intro</Btn>
+        <div style={{ padding:"11px 14px 13px", fontFamily:SANS, fontSize:12.5,
+          color:"var(--muted)", lineHeight:1.5 }}>
+          Whatever you have when the events end is the stack you are dealt at Championship Poker.
+          The winner of that table is the Field Day champion.
+        </div>
       </div>
-      <div style={{ fontFamily:DISPLAY, textAlign:"center", fontSize:12.5, letterSpacing:"0.24em",
-        color:"var(--disabled)", paddingBottom:8 }}>FIELD DAY ✦ SCOTTSDALE 2026</div>
+
+      <SectionTitle kicker="The mechanics" title="Core rules" note="Tap to open" />
+      <Rule title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
+        Friday events pay 400. Saturday morning pays 800, afternoon 1,200, and night 1,600.
+        Solo events pay the podium. Team events pay every player on the placing team the full amount.
+        Ties are settled on the spot, and a championship tie is one pressure putt.
+      </Rule>
+      <Rule title="Betting" meta="One open event · 100 to 1,000 per tap">
+        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts.
+        Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1.
+        Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one
+        bad decision, only half your points can be at risk at a time. Bets settle off the official result,
+        so correcting a result corrects the payouts. I can void any wager.
+      </Rule>
+      <Rule title="Duels" meta="Quick Draw · equal ante · three a day">
+        Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same.
+        You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait,
+        tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips.
+        One open challenge per pair, three a day.
+      </Rule>
+      <Rule title="Draws and brackets" meta="Balanced teams · live brackets, heats, and pools">
+        I run each draw, and it reveals on every phone at once. Teams balance from your ratings and your results
+        so far, and the later the weekend, the more the results count. Ratings are never shown. Some events are
+        captains drafting instead. Brackets, heats, and pools update here and on the TV as they are played.
+      </Rule>
+
+      <SectionTitle kicker="Saturday night" title="Awards" />
+      <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
+        borderRadius:14, padding:"12px 13px" }}>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginBottom:9 }}>
+          Voted Saturday night.</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {awards.map(x => <span key={x} style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
+            color:"var(--ink)", background:"var(--paper2)", border:"1px solid var(--line)",
+            borderRadius:99, padding:"6px 9px", maxWidth:"100%" }}>{x}</span>)}
+        </div>
+      </div>
+
+      <SectionTitle kicker="The house" title="Safety and respect" />
+      <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
+        borderRadius:14, padding:"11px 13px" }}>
+        <ul style={{ margin:0, paddingLeft:18, fontFamily:SANS, fontSize:13.5,
+          lineHeight:1.55, color:"var(--muted2)" }}>
+          <li style={{ marginBottom:5 }}>Alcohol is optional everywhere. NA equivalents carry no penalty. No forced participation.</li>
+          <li style={{ marginBottom:5 }}>Rack cups hold water. Drink from your own cup.</li>
+          <li style={{ marginBottom:5 }}>No hard contact. Respect the property.</li>
+          <li style={{ marginBottom:5 }}>Everyone knows when the 360 cam is rolling.</li>
+          <li>I can stop anything for safety.</li>
+        </ul>
+      </div>
+
+      {(lg.venue || lg.checkIn) && (
+        <>
+          <SectionTitle kicker={`${EDITION.short} · Scottsdale`} title="Trip details" />
+          <VenueCard lg={lg} />
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", margin:"-4px 2px 0" }}>
+            To update your flights, tap your player icon in the top-left.</div>
+        </>
+      )}
+      {!isStandalone() && (
+        <>
+          <SectionTitle kicker="On your phone" title="The app" />
+          <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
+            borderRadius:14, padding:"12px 13px" }}><InstallHint /></div>
+        </>
+      )}
+
+      <SectionTitle kicker={`${games.length} games`} title="Learn the games" note="Tap one" />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))",
+        gap:7, width:"100%", maxWidth:"100%" }}>
+        {games.map(([id, g]) => {
+          const objective = (g.howto || g.variants?.[0]?.howto)?.objective || "";
+          return (
+            <button key={id} onClick={() => setHowToEv(id)}
+              aria-label={objective ? `${g.name}. ${objective}` : g.name}
+              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", minWidth:0,
+                textAlign:"left", cursor:"pointer", background:"var(--paper)",
+                border:"1px solid var(--line)", borderRadius:12, padding:"8px 9px" }}>
+              <GameMark id={id} size={28} />
+              <span style={{ flex:1, minWidth:0, fontFamily:DISPLAY, fontWeight:700, fontSize:15.5,
+                color:"var(--ink)", textTransform:"uppercase", lineHeight:1.05,
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{g.name}</span>
+              <span aria-hidden="true" style={{ color:"var(--accent2)", fontFamily:DISPLAY,
+                fontWeight:700, fontSize:16, flexShrink:0 }}>›</span>
+            </button>
+          );
+        })}
+      </div>
       {howToEv && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
     </div>
   );

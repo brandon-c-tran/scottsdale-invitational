@@ -1,7 +1,7 @@
 {
   "name": "Field Day",
   "short_name": "Field Day",
-  "description": "13 players. One board. A champion at the final table.",
+  "description": "The bachelor party is a tournament. Thirteen players, sixteen events, one board.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -11,8 +11,8 @@
   "background_color": "#171009",
   "theme_color": "#171009",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],

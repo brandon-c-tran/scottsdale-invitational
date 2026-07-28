@@ -252,6 +252,7 @@ const CHIP_COLORS = [
   { hex:"#B23B2E" }, { hex:"#8E3B2F" }, { hex:"#7A5C43" }, { hex:"#A9663F" },
   { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
   { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
+  { hex:"#D1C0A0", light:true }, { hex:"#E3D7BD", light:true },
 ];
 const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
   "saw", "flame", "star", "bolt", "wave", "crown"];

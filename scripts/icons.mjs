@@ -1,17 +1,14 @@
 /* Regenerates the PWA icon set from the FD chip mark (same geometry as FDMark
-   in src/App.jsx, tokens resolved to static hex). Pure geometry, no fonts.
-
-   Run: NODE_PATH=$(npm root -g) node scripts/icons.mjs */
-import { createRequire } from "module";
+   in src/App.jsx, tokens resolved to static hex). Pure geometry, no browser
+   dependency. Use --icons-only to leave the existing share card untouched. */
 import { writeFileSync } from "fs";
-
-const require2 = createRequire(import.meta.url);
-const { chromium } = require2(process.env.PLAYWRIGHT_PKG || require2.resolve("playwright", { paths: [process.env.NODE_PATH || "/opt/node22/lib/node_modules"] }));
+import sharp from "sharp";
 
 const SUN = "#F0B02F", INK0 = "#2A2119", NIGHT = "#171009", BONE = "#FBF3E4";
 
-/* chip mark mirrors FDMark: sun chip, bone edge ticks, geometric sun center */
-const mark = (px, ring = INK0) => {
+/* Chip mark mirrors FDMark. Triangular rays read as a sun rather than a clock,
+   and the compact favicon drops the hairline inner ring at tiny sizes. */
+const mark = (px, ring = INK0, compact = false) => {
   const pt = (r, deg) => {
     const a = deg * Math.PI / 180;
     return [32 + Math.cos(a) * r, 32 + Math.sin(a) * r].map(v => v.toFixed(2));
@@ -21,66 +18,69 @@ const mark = (px, ring = INK0) => {
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${BONE}" stroke-width="3.4" stroke-linecap="round"/>`;
   }).join("");
   const rays = Array.from({ length: 8 }, (_, i) => {
-    const [x1, y1] = pt(13.4, i * 45), [x2, y2] = pt(17.6, i * 45);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${INK0}" stroke-width="3.1" stroke-linecap="round"/>`;
+    const a = i * 45;
+    const [x1, y1] = pt(10.7, a - 8), [x2, y2] = pt(17.8, a), [x3, y3] = pt(10.7, a + 8);
+    return `<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${INK0}"/>`;
   }).join("");
   return `
   <svg width="${px}" height="${px}" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
     <circle cx="32" cy="32" r="29.5" fill="${SUN}" stroke="${ring}" stroke-width="3.5"/>
-    ${ticks}
-    <circle cx="32" cy="32" r="20.6" fill="none" stroke="${INK0}" stroke-width="1.5" opacity="0.6"/>
-    <circle cx="32" cy="32" r="8.6" fill="${INK0}"/>
+    ${ticks.replaceAll('stroke-width="3.4"', 'stroke-width="3.8"')}
+    ${compact ? "" : `<circle cx="32" cy="32" r="20.6" fill="none" stroke="${INK0}" stroke-width="1.5" opacity="0.6"/>`}
     ${rays}
+    <circle cx="32" cy="32" r="8.4" fill="${INK0}"/>
   </svg>`;
 };
 
-const page_ = (body, px, bg) => `<!doctype html><html><head>
-  <style>html,body{margin:0}#f{width:${px}px;height:${px}px;display:flex;align-items:center;justify-content:center;${bg ? `background:${bg}` : ""}}</style>
-  </head><body><div id="f">${body}</div></body></html>`;
+const frame = (body, px, markPx, bg) => {
+  const at = (px - markPx) / 2;
+  const nested = body.replace("<svg ", `<svg x="${at}" y="${at}" `);
+  return `<svg width="${px}" height="${px}" viewBox="0 0 ${px} ${px}"
+    xmlns="http://www.w3.org/2000/svg">
+    ${bg ? `<rect width="${px}" height="${px}" fill="${bg}"/>` : ""}
+    ${nested}
+  </svg>`;
+};
 
 /* the link card: what the invite looks like pasted into a group chat. Same
    mark, same night field, the words set in the display face so a bare URL is
    never what people see first. */
-const share = () => `<div style="width:1200px;height:630px;background:${NIGHT};display:flex;
-  align-items:center;justify-content:center;gap:64px;font-family:'Barlow Condensed',sans-serif">
-  ${mark(300, BONE)}
-  <div style="color:${BONE}">
-    <div style="font-size:44px;font-weight:700;letter-spacing:0.22em;color:${SUN};
-      text-transform:uppercase">Scottsdale &middot; 2026</div>
-    <div style="font-size:150px;font-weight:700;line-height:0.92;letter-spacing:-0.01em;
-      text-transform:uppercase">Field Day</div>
-    <div style="font-size:40px;font-weight:500;letter-spacing:0.04em;color:#B9A88E;
-      margin-top:14px">Oct 30 to Nov 1 &middot; 13 players &middot; 16 events</div>
-  </div>
-</div>`;
+const share = () => `<svg width="1200" height="630" viewBox="0 0 1200 630"
+  xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="${NIGHT}"/>
+  ${mark(300, BONE).replace("<svg ", '<svg x="105" y="165" ')}
+  <g font-family="Barlow Condensed, Arial Narrow, sans-serif">
+    <text x="470" y="224" fill="${SUN}" font-size="44" font-weight="700"
+      letter-spacing="9">SCOTTSDALE · 2026</text>
+    <text x="465" y="385" fill="${BONE}" font-size="150" font-weight="700"
+      letter-spacing="-1">FIELD DAY</text>
+    <text x="470" y="455" fill="#B9A88E" font-size="40" font-weight="500"
+      letter-spacing="1.6">Oct 30 to Nov 1 · 13 players · 16 events</text>
+  </g>
+</svg>`;
 
 const OUTPUTS = [
   { file: "public/icon-512.png", px: 512, markPx: 512, bg: null },
   { file: "public/icon-192.png", px: 192, markPx: 192, bg: null },
-  /* maskable: mark inside the 80% safe zone on the night canvas */
-  { file: "public/icon-maskable-512.png", px: 512, markPx: 400, bg: NIGHT, ring: BONE },
-  { file: "public/icon-maskable-192.png", px: 192, markPx: 150, bg: NIGHT, ring: BONE },
+  /* Maskable: a quieter 72% mark leaves real room for every launcher crop. */
+  { file: "public/icon-maskable-512.png", px: 512, markPx: 368, bg: NIGHT, ring: BONE },
+  { file: "public/icon-maskable-192.png", px: 192, markPx: 138, bg: NIGHT, ring: BONE },
   /* iOS home screen: opaque night field */
   { file: "public/apple-touch-icon.png", px: 180, markPx: 148, bg: NIGHT, ring: BONE },
 ];
 
-const browser = await chromium.launch();
-const page = await browser.newPage();
-/* the share card needs the real display face, so load fonts first */
-await page.setViewportSize({ width: 1200, height: 630 });
-await page.setContent(`<!doctype html><html><head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
-  <style>html,body{margin:0}</style></head><body>${share()}</body></html>`);
-await page.waitForTimeout(1800);
-writeFileSync("public/share.png", await page.screenshot());
-console.log("wrote public/share.png");
+if (!process.argv.includes("--icons-only")) {
+  await sharp(Buffer.from(share())).png().toFile("public/share.png");
+  console.log("wrote public/share.png");
+}
 
 for (const o of OUTPUTS) {
-  await page.setViewportSize({ width: o.px, height: o.px });
-  await page.setContent(page_(mark(o.markPx, o.ring), o.px, o.bg));
-  const buf = await page.locator("#f").screenshot({ omitBackground: !o.bg });
-  writeFileSync(o.file, buf);
-  console.log("wrote", o.file, buf.length, "bytes");
+  const svg = frame(mark(o.markPx, o.ring), o.px, o.markPx, o.bg);
+  await sharp(Buffer.from(svg)).png().toFile(o.file);
+  console.log("wrote", o.file);
 }
-await browser.close();
+
+/* Vector favicon uses the compact geometry, so 16px does not turn into a
+   ring of hairlines. Browsers that ignore SVG keep the 192px PNG fallback. */
+writeFileSync("public/favicon.svg", mark(64, BONE, true).trim());
+console.log("wrote public/favicon.svg");

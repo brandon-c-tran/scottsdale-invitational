@@ -67,10 +67,13 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    the ONLY place that decides where it opens, because the install gate (step
    -1) is skipped for standalone and desktop and every entry point (first run,
    GM rerun, local replay) has to agree, or the gate quietly vanishes for
-   everyone re-onboarded. The order: install, check in, the
-   announcement (sessions show "N events · V each", never a block total), the
-   travel map (`TravelMap`, real lon/lat over a dotted lower-48), then
-   logistics reading `state.logistics` via `VenueCard` (`HouseArt` + the
+   everyone re-onboarded. After that is one five-step check-in, with one progress
+   system and no automatic tab tour: claim a roster spot; get the tournament
+   reveal and `TravelMap` (real lon/lat over a dotted lower-48) on one screen;
+   submit logistics; build the player card; submit private ratings. Detailed
+   payouts, wagers, duels and game rules live in the Rules tab instead of a
+   second onboarding chapter. Finishing ratings lands directly on the board.
+   Logistics reads `state.logistics` via `VenueCard` (`HouseArt` + the
    address + a maps link, and the check-in window INSIDE the same card so those
    times can only be read as the house's; then one travel card pairing the PHX
    row with Brandon's own arrival and departure, since both answer the same
@@ -81,21 +84,20 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    is replaced whole, and at the current edition blanks fall back to what
    shipped and retired keys are dropped, so a GM edit is never clobbered but a
    stale one can never outlive the real address either. Bump `v` when the
-   booking actually changes) and writing BOTH garment sizes + flights: a jersey
-   does not run like a tee, and the boxes waiting on arrival need each. Everyone lands Friday and
+   booking actually changes) and writing one T-shirt size + flights. That one
+   apparel size is also used for the jersey. Everyone lands Friday and
    leaves Sunday and the flight code already implies the airport, so a leg is
    only `{air,num,time}` (24h off the native picker), validated by `cleanLeg`
    on BOTH sides. `FlightPass` prints a saved leg as a boarding pass;
    `FlightEntry` collects one as three captioned boxes, because pass chrome on
    an empty form reads as already filled in. Legacy free text survives as
-   `{note}` and the DO normalises stored legs on load. Everything the GUEST owes
-   (the Booked-your-flights question, both legs, shirt size) sits inside one
-   bordered "What Brandon needs" panel, so the switch from being told things to
-   giving things is visible. Then profile, seeds, and four closing cards under a
-   "How the tournament works" label that land one story: collect points, points
-   ARE your chips (literally, not converted), duels are how you catch up, and
-   the poker winner is champion and takes home a real trophy (`TrophyHero`,
-   flat blades revolved on the Y axis, plate engraved on both faces). `rerunOnboarding` re-opens the chip race by
+   `{note}` and the DO normalises stored legs on load. The explicit yes/no is
+   persisted as `flightsBooked`, so "not booked yet" is distinct from no answer.
+   Everything the GUEST owes (the Booked-your-flights question, both legs, shirt size) sits inside one
+   bordered "Information I need" panel, so the switch from being told things to
+   giving things is visible. Then come the player card and private ratings;
+   there is no second mechanics carousel or tab-by-tab tour. `rerunOnboarding`
+   re-opens the chip race by
    clearing every claimed color/skin, but never once `state.live`. The GM
    travel board lives in the locker room; resets preserve profiles, seeds,
    logistics, AND the onboarding epoch (zeroing it would kill every rerun).
@@ -160,8 +162,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   - A dry aside is welcome where a rule sounds arbitrary ("to limit the damage
     of one bad decision, only half your points can be at risk"). Dry, never
     zany.
-  - Name the section a screen belongs to when the flow changes gears ("How the
-    tournament works" over the closing cards).
+  - A first-run flow gets one progress system and one finish line. Put deeper
+    mechanics in the Rules tab instead of making a completed check-in continue.
   - Ask questions outright with equal answers instead of hiding the alternative
     in a link ("Booked your flights? Yes / Not yet").
   - Headings carry the message, bodies carry the detail ("Thank you for flying
@@ -202,9 +204,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 
 ## What the guests give you
 
-Onboarding collects exactly what a per-player box needs: display name, jersey
-number, shirt size, jersey size, chip color and skin, photo, and both flight
-legs. `sheetText` turns all of it into tab-separated text behind "Copy sheet"
+Onboarding collects exactly what a per-player box needs: display name, player
+number, one T-shirt size (also used for the jersey), chip color and skin, photo,
+flight-booking status, and both flight legs. `sheetText` turns all of it into tab-separated text behind "Copy sheet"
 on the GM travel board, because ordering happens in a spreadsheet or a
 supplier form, not on a phone. Blanks stay blank there on purpose.
 

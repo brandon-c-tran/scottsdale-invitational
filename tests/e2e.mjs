@@ -364,5 +364,11 @@ r = await a.dispatch("resetTournament", {});
 assert(r.ok, "cleanup reset");
 
 log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} FAILURES`);
-a.ws.close(); b.ws.close();
-process.exit(failures === 0 ? 0 : 1);
+const closeSocket = ws => new Promise(resolve => {
+  if (ws.readyState === WebSocket.CLOSED) return resolve();
+  ws.addEventListener("close", resolve, { once:true });
+  ws.close();
+  setTimeout(resolve, 500);
+});
+await Promise.all([closeSocket(a.ws), closeSocket(b.ws)]);
+process.exitCode = failures === 0 ? 0 : 1;

@@ -15,7 +15,7 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display, num, size, jersey, flightIn, flightOut }, ctx) {
+  saveProfile(state, { player, display, num, size, flightsBooked, flightIn, flightOut }, ctx) {
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
@@ -28,6 +28,11 @@ export const ACTIONS = {
       if (leg === undefined) return err("Bad flight");
       if (leg === null) delete prof[k]; else prof[k] = leg;
     }
+    if (flightsBooked !== undefined) {
+      if (typeof flightsBooked !== "boolean") return err("Bad flight status");
+      prof.flightsBooked = flightsBooked;
+      if (!flightsBooked) { delete prof.flightIn; delete prof.flightOut; }
+    }
     if (num !== undefined) {
       if (num === null) delete prof.num;
       else {
@@ -38,13 +43,13 @@ export const ACTIONS = {
         prof.num = n;
       }
     }
-    /* two garments, two sizes: a jersey does not run like a tee, so "L" on one
-       is not an answer for the other */
-    for (const [k, v] of [["size", size], ["jersey", jersey]]) {
-      if (v === undefined) continue;
-      if (v === null) delete prof[k];
-      else if (!SIZES.includes(v)) return err("Bad size");
-      else prof[k] = v;
+    /* One apparel size now covers both the T-shirt and jersey. Drop the retired
+       second field whenever a profile is touched so old records migrate cleanly. */
+    if (size !== undefined) {
+      if (size === null) delete prof.size;
+      else if (!SIZES.includes(size)) return err("Bad size");
+      else prof.size = size;
+      delete prof.jersey;
     }
     state.profiles[player] = prof;
     return ok();
@@ -669,7 +674,7 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const signedUp = ROSTER.filter(p => {
       const pr = state.profiles?.[p];
-      return !!(pr && (pr.size || pr.flightIn || pr.flightOut || pr.color || pr.skin
+      return !!(pr && (pr.size || pr.flightsBooked !== undefined || pr.flightIn || pr.flightOut || pr.color || pr.skin
         || pr.photoV || state.seeds?.[p]));
     });
     if (signedUp.length && !force)

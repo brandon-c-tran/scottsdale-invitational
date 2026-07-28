@@ -11,5 +11,11 @@
     "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }],
+  /* the app answers on the real domain, not a workers.dev subdomain. Requires
+     fielddayseries.com to be an active zone on this Cloudflare account:
+     wrangler creates the DNS record, it cannot create the zone. */
+  "routes": [
+    { "pattern": "fielddayseries.com", "custom_domain": true }
+  ],
   "observability": { "enabled": true }
 }

@@ -2,13 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
 
-/* Link previews want an ABSOLUTE og:image, and the domain is not known at
-   commit time. `SITE_URL=https://... npm run build` stamps it in; with the
-   variable unset the tag stays relative, which most chat clients still
-   resolve, so a plain build is never broken by forgetting it. */
+/* Link previews need ABSOLUTE urls: og:url especially is meaningless as a
+   path, so the live domain is the default rather than something you have to
+   remember to pass. SITE_URL still overrides it for a preview deploy. */
+const SITE = (process.env.SITE_URL || "https://fielddayseries.com").replace(/\/+$/, "");
 const ogUrl = () => ({
   name: "fd-og-url",
-  transformIndexHtml: html => html.replaceAll("%SITE_URL%", (process.env.SITE_URL || "").replace(/\/$/, "")),
+  transformIndexHtml: html => html.replaceAll("%SITE_URL%", SITE),
 });
 
 export default defineConfig({

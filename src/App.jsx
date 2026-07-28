@@ -2432,8 +2432,8 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
 function HouseArt() {
   return (
     <div style={{ position:"relative", aspectRatio:"16 / 9", background:"var(--paper2)", overflow:"hidden" }}>
-      <img src="/airbnb-compound.webp" alt=""
-        width="960" height="540" loading="eager" decoding="async"
+      <img src="/airbnb-compound-field-day.webp" alt=""
+        width="1440" height="810" loading="eager" decoding="async"
         style={{ width:"100%", height:"100%", display:"block", objectFit:"cover",
           filter:"saturate(.94) contrast(1.02)" }} />
       <div aria-hidden="true" style={{ position:"absolute", inset:0,

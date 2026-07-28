@@ -9,8 +9,15 @@ const localGet = k => { try { return localStorage.getItem(k); } catch { return n
 const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 export { localGet, localSet };
 
+/* randomUUID exists only in a secure context, so over plain http it is
+   undefined and throwing here would blank the app before React ever mounts.
+   The id is an opaque key in the server's claims map, never parsed. */
+const newDeviceId = () =>
+  crypto.randomUUID?.() ??
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+
 let deviceId = localGet("si-device");
-if (!deviceId) { deviceId = crypto.randomUUID(); localSet("si-device", deviceId); }
+if (!deviceId) { deviceId = newDeviceId(); localSet("si-device", deviceId); }
 export const getDeviceId = () => deviceId;
 
 let gmToken = localGet("si-gm-token") || null;

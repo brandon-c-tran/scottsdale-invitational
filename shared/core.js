@@ -4,7 +4,33 @@
 
 const GM_PIN = "1016";
 
-const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
+/* Names are the shipped M0 storage keys, so Scottsdale keeps them as stable
+   ids. The record shape separates identity from display and attendance without
+   rewriting claims, profiles, photos, bets, or results. */
+const ROSTER_CONFIG = [
+  { id:"Brandon", name:"Brandon", status:"confirmed" },
+  { id:"Evan", name:"Evan", status:"confirmed" },
+  { id:"Eyob", name:"Eyob", status:"confirmed" },
+  { id:"Sahil", name:"Sahil", status:"confirmed" },
+  { id:"Khoa", name:"Khoa", status:"confirmed" },
+  { id:"Chinh", name:"Chinh", status:"confirmed" },
+  { id:"Adi", name:"Adi", status:"confirmed" },
+  { id:"Chiang", name:"Chiang", status:"confirmed" },
+  { id:"Richard", name:"Richard", status:"confirmed" },
+  { id:"Allan", name:"Allan", status:"confirmed" },
+  { id:"Henry", name:"Henry", status:"confirmed" },
+  { id:"Ben", name:"Ben", status:"confirmed" },
+  { id:"Jeremy", name:"Jeremy", status:"confirmed" },
+];
+const ROSTER_STATUSES = ["confirmed", "pending", "out"];
+const rosterPlayers = (config = ROSTER_CONFIG, statuses = ["confirmed"]) => {
+  const allowed = new Set(statuses);
+  return config.filter(player => allowed.has(player.status)).map(player => player.id);
+};
+const ALL_PLAYERS = rosterPlayers(ROSTER_CONFIG, ROSTER_STATUSES);
+const ROSTER = rosterPlayers();
+const rosterRecord = id => ROSTER_CONFIG.find(player => player.id === id) || null;
+const isActivePlayer = id => ROSTER.includes(id);
 
 /* the chip quantum: every point value in the economy is a multiple of PT and
    one rendered BankChip is worth PT points. The board is denominated in
@@ -55,7 +81,7 @@ const SESSIONS = [
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
-const BUILTIN_EVENTS = [
+const RAW_BUILTIN_EVENTS = [
   /* ── Friday night · 400 pts ── */
   { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
@@ -109,6 +135,23 @@ const BUILTIN_EVENTS = [
   { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
     desc:"Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
+
+const OVERFLOW_ROLES = ["referee", "scorekeeper", "photographer", "on-deck", "sit-out"];
+const participationForEvent = ev => {
+  if (ev?.participation) return ev.participation;
+  if (ev?.teamCfg) return {
+    type: "strict-teams",
+    teams: ev.teamCfg.teams,
+    size: ev.teamCfg.size,
+    allowSitOut: true,
+    overflowRoles: OVERFLOW_ROLES,
+  };
+  return { type:"all", allowSitOut:false, overflowRoles:[] };
+};
+const BUILTIN_EVENTS = RAW_BUILTIN_EVENTS.map(ev => ({
+  ...ev,
+  participation: participationForEvent(ev),
+}));
 
 /* the games library: one how-to per game, shared across events */
 const GAMES = {
@@ -311,8 +354,14 @@ const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], se
    reordered via state.eventOrder; results and wagers key off ids so both are safe */
 function allEventsOf(state) {
   const evs = [
-    ...BUILTIN_EVENTS.map(e => ({ ...e, ...(state.eventEdits?.[e.id] || {}) })),
-    ...(state.customEvents || []),
+    ...BUILTIN_EVENTS.map(e => {
+      const event = { ...e, ...(state.eventEdits?.[e.id] || {}) };
+      return { ...event, participation:participationForEvent(event) };
+    }),
+    ...(state.customEvents || []).map(event => ({
+      ...event,
+      participation:participationForEvent(event),
+    })),
   ];
   const ord = state.eventOrder || [];
   if (ord.length) {
@@ -320,6 +369,84 @@ function allEventsOf(state) {
     evs.sort((a, b) => idx(a.id) - idx(b.id) || (a.n || 99) - (b.n || 99));
   }
   return evs;
+}
+function eventCapacity(ev) {
+  const policy = participationForEvent(ev);
+  if (policy.type === "strict-teams")
+    return Number.isInteger(policy.teams) && Number.isInteger(policy.size)
+      ? policy.teams * policy.size : null;
+  if (policy.type === "fixed") return Number.isInteger(policy.entrants) ? policy.entrants : null;
+  return null;
+}
+function validateEventParticipants(ev, selected, active = ROSTER) {
+  const policy = participationForEvent(ev);
+  const activeUnique = [...new Set(active)];
+  const activeSet = new Set(activeUnique);
+  if (!Array.isArray(selected))
+    return { ok:false, code:"selection-required", error:"Choose who is playing" };
+  const players = [...new Set(selected)];
+  if (players.length !== selected.length)
+    return { ok:false, code:"duplicate-player", error:"A player is selected twice" };
+  if (players.some(player => !activeSet.has(player)))
+    return { ok:false, code:"inactive-player", error:"Only confirmed players can participate" };
+
+  const capacity = eventCapacity(ev);
+  if (policy.type === "all") {
+    if (players.length !== activeUnique.length || activeUnique.some(player => !players.includes(player)))
+      return { ok:false, code:"all-required", error:`All ${activeUnique.length} confirmed players are required`,
+        selectedCount:players.length, activeCount:activeUnique.length, required:activeUnique.length };
+  } else if (policy.type === "strict-teams" || policy.type === "fixed") {
+    if (!capacity || capacity < 1)
+      return { ok:false, code:"bad-policy", error:"Event participation is not configured" };
+    if (activeUnique.length < capacity)
+      return { ok:false, code:"roster-short", error:`This event needs ${capacity} players; ${activeUnique.length} confirmed`,
+        selectedCount:players.length, activeCount:activeUnique.length, required:capacity };
+    if (players.length !== capacity) {
+      const overflow = Math.max(0, activeUnique.length - capacity);
+      return { ok:false, code:"wrong-count",
+        error:`Select exactly ${capacity} players${overflow ? ` and assign ${overflow} overflow ${overflow === 1 ? "role" : "roles"}` : ""}`,
+        selectedCount:players.length, activeCount:activeUnique.length, required:capacity, overflow };
+    }
+  } else if (policy.type === "selection") {
+    const min = Number.isInteger(policy.min) ? policy.min : 1;
+    const max = Number.isInteger(policy.max) ? policy.max : activeUnique.length;
+    if (players.length < min || players.length > max)
+      return { ok:false, code:"outside-range", error:`Select ${min} to ${max} players`,
+        selectedCount:players.length, activeCount:activeUnique.length };
+  } else if (policy.type === "approximate-teams") {
+    const min = Number.isInteger(policy.min) ? policy.min : 2;
+    if (players.length < min)
+      return { ok:false, code:"roster-short", error:`Select at least ${min} players`,
+        selectedCount:players.length, activeCount:activeUnique.length };
+  } else {
+    return { ok:false, code:"bad-policy", error:"Unknown participation policy" };
+  }
+
+  const overflow = activeUnique.filter(player => !players.includes(player));
+  if (overflow.length && !policy.allowSitOut)
+    return { ok:false, code:"overflow-not-allowed", error:"Every confirmed player must participate" };
+  return {
+    ok:true,
+    players,
+    overflow,
+    capacity,
+    selectedCount:players.length,
+    activeCount:activeUnique.length,
+    policy,
+  };
+}
+function normalizeOverflowRoles(selected, active = ROSTER, roles = [], ev = null) {
+  const policy = participationForEvent(ev || {});
+  const allowed = new Set(policy.overflowRoles?.length ? policy.overflowRoles : OVERFLOW_ROLES);
+  const supplied = new Map((Array.isArray(roles) ? roles : []).map(item => [item?.player, item?.role]));
+  return active.filter(player => !selected.includes(player)).map(player => ({
+    player,
+    role: allowed.has(supplied.get(player)) ? supplied.get(player) : "sit-out",
+  }));
+}
+function defaultQaParticipants(ev, active = ROSTER) {
+  const capacity = eventCapacity(ev);
+  return capacity ? [...active].slice(0, capacity) : [...active];
 }
 const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
@@ -584,9 +711,13 @@ function seedSnake(keys, nGroups, strengthOf) {
 
 function drawTeams(ev, state, players) {
   const cfg = ev.teamCfg; if (!cfg) return null;
+  const compatibility = validateEventParticipants(ev, players);
+  if (!compatibility.ok) return null;
   const s = strengthMap(state, players, ev.sport);
-  const nTeams = Math.min(cfg.teams, players.length);
+  const nTeams = cfg.teams;
   const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
+  if (participationForEvent(ev).type === "strict-teams"
+      && groups.some(group => group.length !== cfg.size)) return null;
   const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
   return { id:"d"+Date.now(), method:"balanced", ts:Date.now(),
     teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
@@ -621,8 +752,11 @@ const bracketChampion = br => {
 };
 
 export {
-  GM_PIN, ROSTER, AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  GM_PIN, ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
+  AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
+  OVERFLOW_ROLES, participationForEvent, eventCapacity, validateEventParticipants,
+  normalizeOverflowRoles, defaultQaParticipants,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,

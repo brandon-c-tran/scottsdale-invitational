@@ -11,11 +11,43 @@
     "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }],
+  "vars": {
+    "APP_ENV": "production",
+    "APP_VERSION": "m1-foundations"
+  },
   /* the app answers on the real domain, not a workers.dev subdomain. Requires
      fielddayseries.com to be an active zone on this Cloudflare account:
      wrangler creates the DNS record, it cannot create the zone. */
   "routes": [
     { "pattern": "fielddayseries.com", "custom_domain": true }
   ],
+  /* Named environments must repeat Durable Object bindings. They are not
+     inherited, which prevents a staging omission from reaching live state. */
+  "env": {
+    "local": {
+      "name": "scottsdale-invitational-local",
+      "workers_dev": true,
+      "routes": [],
+      "vars": {
+        "APP_ENV": "local",
+        "APP_VERSION": "m1-foundations"
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
+      }
+    },
+    "staging": {
+      "name": "scottsdale-invitational-staging",
+      "workers_dev": true,
+      "routes": [],
+      "vars": {
+        "APP_ENV": "staging",
+        "APP_VERSION": "m1-foundations"
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
+      }
+    }
+  },
   "observability": { "enabled": true }
 }

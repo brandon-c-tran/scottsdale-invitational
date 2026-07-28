@@ -4,9 +4,10 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ROSTER, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, PT, MAX_RISK, BUYIN_FLOOR, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
+  validateEventParticipants, normalizeOverflowRoles,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -16,7 +17,8 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 export const ACTIONS = {
   /* ── identity / profile ── */
   saveProfile(state, { player, display, num, size, flightsBooked, flightIn, flightOut }, ctx) {
-    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (!ALL_PLAYERS.includes(player)) return err("Unknown player");
+    if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
     const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
@@ -57,7 +59,8 @@ export const ACTIONS = {
   /* chip identity: color is a first-come-first-serve claim, skin repeats
      freely. Both lock when the weekend goes live so the board stays learnable. */
   pickChip(state, { player, color, skin }, ctx) {
-    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (!ALL_PLAYERS.includes(player)) return err("Unknown player");
+    if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your chip");
     const prof = { ...(state.profiles[player] || {}) };
     if (color !== undefined) {
@@ -80,7 +83,8 @@ export const ACTIONS = {
     return ok();
   },
   saveSeeds(state, { player, ratings }, ctx) {
-    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (!ALL_PLAYERS.includes(player)) return err("Unknown player");
+    if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your ratings");
     /* only known sports, only known rating values: junk here would silently
        poison every balanced draw via NaN strengths */
@@ -293,6 +297,8 @@ export const ACTIONS = {
     if (!Array.isArray(slots) || !slots[0]?.length) return err("Winners required");
     if (slots.length > 3 || !slots.every(s => Array.isArray(s) && s.every(p => ROSTER.includes(p))))
       return err("Bad slots");
+    const placed = slots.flat();
+    if (new Set(placed).size !== placed.length) return err("A player is listed twice");
     state.results[evId] = { slots: slots.map(s => [...s]), ts: Date.now() };
     if (state.onDeck === evId) state.onDeck = null;
     return ok();
@@ -394,15 +400,18 @@ export const ACTIONS = {
   /* ── GM: draws, brackets, stages ── */
   /* one draw: balanced on live strength (sealed survey + board + results),
      recursively refined server-side in drawTeams */
-  runDraw(state, { evId, players }, ctx) {
+  runDraw(state, { evId, players, roles }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev?.teamCfg) return err("Not a team event");
-    if (!Array.isArray(players)) return err("Not enough players");
-    players = [...new Set(players.filter(p => ROSTER.includes(p)))];
-    if (players.length < 2) return err("Not enough players");
+    const compatible = validateEventParticipants(ev, players, ROSTER);
+    if (!compatible.ok) return err(compatible.error);
+    players = compatible.players;
+    if (ev.teamCfg.bracket && !makeBracket(ev.teamCfg.bracket))
+      return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
     const draw = drawTeams(ev, state, players);
     if (!draw) return err("Draw failed");
+    draw.roles = normalizeOverflowRoles(players, ROSTER, roles, ev);
     state.draws[evId] = draw;
     delete state.stages[evId];
     if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
@@ -433,8 +442,9 @@ export const ACTIONS = {
       return err("Bad stage setup");
     let entrantType, keys, drawId = null;
     if (cfg.kind === "heats") {
-      entrantType = "solo"; keys = [...new Set((cfg.players || []).filter(p => ROSTER.includes(p)))];
-      if (keys.length < 2) return err("Not enough players");
+      const compatible = validateEventParticipants(ev, cfg.players, ROSTER);
+      if (!compatible.ok) return err(compatible.error);
+      entrantType = "solo"; keys = compatible.players;
     } else {
       const draw = state.draws[evId]; if (!draw) return err("Draw teams first");
       entrantType = "team"; keys = draw.teams.map((_, i) => i); drawId = draw.id;
@@ -474,14 +484,16 @@ export const ACTIONS = {
   },
 
   /* ── captains draft (GM sets up + can override; on-clock captain picks) ── */
-  startDraft(state, { evId, captains, players }, ctx) {
+  startDraft(state, { evId, captains, players, roles }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev?.teamCfg || ev.kind !== "team") return err("Not a team event");
     if (state.draws[evId]) return err("Teams already set, clear them first");
+    const compatible = validateEventParticipants(ev, players, ROSTER);
+    if (!compatible.ok) return err(compatible.error);
     if (!Array.isArray(captains) || captains.length !== ev.teamCfg.teams) return err("Pick one captain per team");
     if (new Set(captains).size !== captains.length) return err("A captain is listed twice");
-    const pool = (players || []).filter(p => ROSTER.includes(p));
+    const pool = compatible.players;
     if (!captains.every(c => pool.includes(c))) return err("Captains must be in the playing pool");
     state.drafts = state.drafts || {};
     state.drafts[evId] = {
@@ -489,6 +501,7 @@ export const ACTIONS = {
       teams: captains.map(c => ({ captain: c, players: [c] })),
       pool: pool.filter(p => !captains.includes(p)),
       picks: [],
+      roles: normalizeOverflowRoles(pool, ROSTER, roles, ev),
     };
     return ok();
   },
@@ -516,8 +529,10 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(e => e.id === evId);
     const d = state.drafts?.[evId]; if (!ev || !d) return err("No draft running");
     if (d.pool.length) return err("Pool not empty yet");
+    if (d.teams.some(team => team.players.length !== ev.teamCfg.size))
+      return err(`Teams must have exactly ${ev.teamCfg.size} players`);
     const mascots = (ev.teamCfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-    state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(),
+    state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(), roles:d.roles || [],
       teams: d.teams.map((t, i) => mascots ? { players: t.players, name: mascots[i % mascots.length] } : { players: t.players }) };
     delete state.stages[evId];
     if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)

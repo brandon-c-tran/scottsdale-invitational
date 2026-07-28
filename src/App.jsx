@@ -6,10 +6,11 @@ import {
   pokerLive, pokerClock, pokerDenoms,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
-  AIRLINES, cleanLeg, legTime, legText,
+  AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
+  defaultQaParticipants, OVERFLOW_ROLES,
 } from "../shared/core.js";
 import {
-  useTournament, dispatch, uploadPhoto, localGet, localSet, setGmToken, hasGmToken,
+  useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
 } from "./lib/client.js";
 import PhotoCropper from "./PhotoCropper.jsx";
 
@@ -465,7 +466,7 @@ function VersusDraw({ state, teams, size="md" }) {
 
 /* ═════════════════════════════ APP ═════════════════════════════ */
 export default function App() {
-  const { state, connected, ready, version, lastAction } = useTournament();
+  const { state, connected, ready, version, lastAction, environment, capabilities } = useTournament();
   syncChips(state.profiles);
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
@@ -495,6 +496,8 @@ export default function App() {
   const prevVersion = useRef(0);
   const loaded = ready;
   const saveMine = (k, v) => localSet(k, v);
+  const qaAllowed = environment !== "production" && capabilities.qa === true;
+  const qaActive = qaAllowed && qa;
 
   const events = useMemo(() => allEventsOf(state), [state]);
   const standings = useMemo(() => computeStandings(state), [state]);
@@ -834,9 +837,10 @@ export default function App() {
       }});
     });
   };
-  const runDraw = (ev, players) => act("runDraw", { evId: ev.id, players });
+  const runDraw = (ev, players, roles = []) => act("runDraw", { evId: ev.id, players, roles });
   const clearDraw = ev => act("clearDraw", { evId: ev.id });
-  const startDraft = (evId, captains, players) => act("startDraft", { evId, captains, players });
+  const startDraft = (evId, captains, players, roles = []) =>
+    act("startDraft", { evId, captains, players, roles });
   const pickDraftPlayer = (evId, player) => act("pickDraftPlayer", { evId, player });
   const undoDraftPick = evId => act("undoDraftPick", { evId });
   const finalizeDraft = evId => act("finalizeDraft", { evId });
@@ -889,7 +893,10 @@ export default function App() {
     setModal(null);
     setOnboardStep(firstOnboardStep());
   };
-  const toggleQa = () => setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
+  const toggleQa = () => {
+    if (!qaAllowed) return notify("QA mode is unavailable in production");
+    setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
+  };
 
   /* ── QA simulation driver ──
      Plays the weekend through real actions on this device's socket, claiming
@@ -1009,7 +1016,11 @@ export default function App() {
     const s = stateRef.current;
     if (s.results[ev.id]) return;
     if (ev.teamCfg && !s.draws[ev.id]) {
-      await simDo("runDraw", { evId: ev.id, players: ROSTER }, `Drawing ${ev.name}`);
+      const players = defaultQaParticipants(ev, ROSTER);
+      const selected = new Set(players);
+      const roles = ROSTER.filter(player => !selected.has(player))
+        .map(player => ({ player, role:"sit-out" }));
+      await simDo("runDraw", { evId: ev.id, players, roles }, `Drawing ${ev.name}`);
       await simWait(1300);
     }
     const s2 = stateRef.current;
@@ -1284,7 +1295,7 @@ export default function App() {
     return 0;
   };
   const QA_PRESETS = [
-    { key:"locker", name:"Locker room", rank:0, note:"All 13 checked in, chips claimed, not live",
+    { key:"locker", name:"Locker room", rank:0, note:`All ${ROSTER.length} checked in, chips claimed, not live`,
       run: simCheckIn },
     { key:"betting", name:"Betting open", rank:2, note:"Live, first event on deck, bets down",
       run: async () => {
@@ -1347,11 +1358,15 @@ export default function App() {
     /* one tap, two scenes, in the order a broadcast would run them: the event
        announces itself, then the teams drop out of it. Drawing first put the
        matchups on screen before anyone knew what the game was. */
-    if (ev.teamCfg && !state.draws[ev.id])
+    if (ev.teamCfg && !state.draws[ev.id]) {
+      const compatibility = validateEventParticipants(ev, ROSTER, ROSTER);
+      if (!compatibility.ok)
+        return { label:`Choose players for ${ev.name}`, run:() => setModal({type:"event", ev}) };
       return { label:`Announce and draw ${ev.name}`, run: async () => {
         if (state.onDeck !== ev.id) await setOnDeck(ev.id);
         runDraw(ev, ROSTER);
       } };
+    }
     if (state.onDeck !== ev.id)
       return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
     const br = state.brackets[ev.id];
@@ -1365,7 +1380,7 @@ export default function App() {
 
   if (tv) {
     return (
-      <Shell tv>
+      <Shell tv environment={environment}>
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} onExit={() => setTv(false)} />
         {intro && (() => {
@@ -1382,7 +1397,7 @@ export default function App() {
 
   if (onboardStep < 99) {
     return (
-      <Shell>
+      <Shell environment={environment}>
         <Onboarding step={onboardStep} me={me} state={state} onTv={() => setTv(true)} onChip={pickChip}
           pick={p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); }}
           saveProfile={prof => saveProfile(me, prof)}
@@ -1397,7 +1412,7 @@ export default function App() {
   }
 
   return (
-    <Shell>
+    <Shell environment={environment}>
       {/* header: night chrome framing the paper below */}
       <div style={{ position:"sticky", top:0, zIndex:40, background:"var(--chrome)",
         backdropFilter:"blur(14px)", borderBottom:"1px solid var(--chrome-line)",
@@ -1452,8 +1467,8 @@ export default function App() {
       </div>
 
       <div style={{ flex:1, overflowY:"auto",
-        paddingTop: gm && qa && qaTop && !qaMin ? 150 : 12,
-        paddingBottom:`calc(${gm && qa && !qaMin && !qaTop ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
+        paddingTop: gm && qaActive && qaTop && !qaMin ? 150 : 12,
+        paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && (<>
           {me && !state.frozen && (
             <div style={{ padding:"0 16px" }}>
@@ -1502,7 +1517,7 @@ export default function App() {
 
       {gmNext && !modal && (
         <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
-          bottom:`calc(${gm && qa && !qaMin && !qaTop ? 224
+          bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 224
             : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
           display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
           border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
@@ -1513,7 +1528,7 @@ export default function App() {
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
         </button>
       )}
-      {gm && qa && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa}
+      {gm && qaActive && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa}
         minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
         top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}
         sim={sim} onStop={stopSim} guestLens={guestLens}
@@ -1554,7 +1569,13 @@ export default function App() {
             )}
             <Btn kind="dark" onClick={() => { setLive(!state.live); setModal(null); }}>
               {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
-            <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>{qa ? "QA mode off" : "QA mode"}</Btn>
+            {qaAllowed && <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>
+              {qa ? "QA mode off" : "QA mode"}</Btn>}
+            {capabilities.snapshotExport && <Btn kind="dark" onClick={async () => {
+              const exported = await downloadSnapshot();
+              notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
+                : exported.error || "Export failed");
+            }}>Export snapshot</Btn>}
             <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
             {state.frozen
               ? <Btn kind="danger" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</Btn>
@@ -1567,7 +1588,7 @@ export default function App() {
         enterResult={() => setModal({type:"result", ev:modal.ev})}
         clearRes={() => { clearResult(modal.ev); setModal(null); notify("Result cleared, wagers reopened"); }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
-        onDraw={players => { runDraw(modal.ev, players); setModal(null); }}
+        onDraw={(players, roles) => { runDraw(modal.ev, players, roles); setModal(null); }}
         onClearDraw={() => clearDraw(modal.ev)}
         onStages={cfg => { runStages(modal.ev, cfg); setModal(null); }}
         onClearStages={() => clearStages(modal.ev)}
@@ -1577,7 +1598,7 @@ export default function App() {
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
         openBracket={() => setModal({type:"bracket", ev:modal.ev})}
-        openDraft={pool => setModal({type:"draft", ev:modal.ev, pool})} />}
+        openDraft={(pool, roles) => setModal({type:"draft", ev:modal.ev, pool, roles})} />}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
@@ -1585,7 +1606,7 @@ export default function App() {
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool}
         onClose={() => setModal({type:"event", ev:modal.ev})}
-        onStart={(captains, players) => startDraft(modal.ev.id, captains, players)}
+        onStart={(captains, players) => startDraft(modal.ev.id, captains, players, modal.roles)}
         onPick={player => pickDraftPlayer(modal.ev.id, player)}
         onUndo={() => undoDraftPick(modal.ev.id)}
         onFinalize={() => { finalizeDraft(modal.ev.id); setModal(null); }}
@@ -1609,7 +1630,7 @@ export default function App() {
         onClose={() => setModal(null)} />}
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
-      {modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
+      {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
         onJump={jumpTo} pokerOn={pokerLive(state)}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
@@ -1739,7 +1760,7 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
 }
 
 /* ─────────── shell ─────────── */
-function Shell({ children, tv }) {
+function Shell({ children, tv, environment = "production" }) {
   return (
     <div className="si-vh" style={{ background:"var(--bg)", display:"flex", justifyContent:"center" }}>
       <style>{`
@@ -1972,6 +1993,13 @@ function Shell({ children, tv }) {
         flexDirection:"column", position:"relative",
         background:"radial-gradient(120% 50% at 50% -6%, var(--sun-tint) 0%, transparent 60%), var(--bg)" }}>
         {!tv && <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"screen", opacity:0.6 }} />}
+        {environment !== "production" && (
+          <div aria-label={`${environment} environment`} style={{ position:"fixed", top:"calc(6px + env(safe-area-inset-top))",
+            left:8, zIndex:2000, pointerEvents:"none", borderRadius:999, padding:"5px 9px",
+            background:"var(--clay)", color:"var(--bone)", border:"1px solid var(--bone)",
+            boxShadow:"var(--shadow-1)", fontFamily:SANS, fontWeight:800, fontSize:10,
+            letterSpacing:"0.14em", textTransform:"uppercase" }}>{environment}</div>
+        )}
         {children}
       </div>
     </div>
@@ -2196,7 +2224,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:31, lineHeight:1.04,
           color:"var(--ink)", marginBottom:8 }}>The bachelor party is a tournament</div>
         <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
-          Thirteen players, sixteen events, one board. Win events and land bets to collect points all weekend,
+          {ROSTER.length} players, {allEventsOf(state).filter(e => !e.finale).length} events, one board.
+          {" "}Win events and land bets to collect points all weekend,
           then your points become your chips at the poker finale. Whoever wins the poker table is the Field Day champion.
         </div>
         <OnboardingMechanics me={me} />
@@ -2213,7 +2242,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, don
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, lineHeight:1.04,
         color:"var(--ink)", margin:"12px 0 8px" }}>Thank you for flying in for this!</div>
       <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
-        13 players coming in from {TRAVEL_CITIES.length} cities.
+        {ROSTER.length} players coming in from {TRAVEL_CITIES.length} cities.
       </div>
       <div style={{ flex:1, minHeight:0, minWidth:0, width:"100%", overflow:"hidden",
         display:"flex", alignItems:"center", margin:"12px -6px 0", padding:"0 6px" }}>
@@ -3750,11 +3779,17 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
     setEditOpen(true);
   };
   const [outs, setOuts] = useState([]);
+  const [outRoles, setOutRoles] = useState({});
   const [showOuts, setShowOuts] = useState(false);
   const [stageCfgOpen, setStageCfgOpen] = useState(false);
   const [nGroups, setNGroups] = useState(null);
   const [advance, setAdvance] = useState(1);
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
+  const participantFit = validateEventParticipants(ev, inPlayers, ROSTER);
+  const overflowAssignments = outs.map(player => ({
+    player,
+    role: OVERFLOW_ROLES.includes(outRoles[player]) ? outRoles[player] : "sit-out",
+  }));
   const isPoker = ev.game === "poker" && !!ev.finale;
   const canHeats = ev.kind === "solo" && !res && !isPoker;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
@@ -3813,6 +3848,11 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               ))}
             </div>
           )}
+          {draw.roles?.length > 0 && (
+            <div style={{ marginTop:9, fontFamily:SANS, fontSize:12.5, lineHeight:1.5, color:"var(--muted)" }}>
+              {draw.roles.map(({ player, role }) => `${disp(state, player)}: ${role}`).join(" · ")}
+            </div>
+          )}
           {br && <Btn kind="dark" onClick={openBracket} style={{ width:"100%", marginTop:10 }}>View bracket</Btn>}
         </div>
       )}
@@ -3840,7 +3880,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
       {gm && !state.frozen && (
         <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
           {ev.teamCfg && !draw && !draftLive && !res && (() => {
-            const fit = ev.teamCfg.teams * ev.teamCfg.size;
+            const fit = eventCapacity(ev);
             const diff = inPlayers.length - fit;
             return (
             <>
@@ -3856,24 +3896,42 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
                 color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
                 Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size}, fits {fit}.
-                {diff > 0 ? ` ${diff} extra will double up.` : diff < 0 ? ` ${-diff} short.` : ""}
+                {diff > 0 ? ` Assign ${diff} to non-playing roles.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
               </div>
               {showOuts && (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
-                  {ROSTER.map((p, i) => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
-                    onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])}
-                    style={centeredGridCell(i, ROSTER.length, 3, 5)} />)}
-                </div>
+                <>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
+                    {ROSTER.map((p, i) => <PlayerChip key={p} name={p} small selected={!outs.includes(p)}
+                      onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])}
+                      style={centeredGridCell(i, ROSTER.length, 3, 5)} />)}
+                  </div>
+                  {outs.map(player => (
+                    <label key={player} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7,
+                      fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)" }}>
+                      <span style={{ flex:1 }}>{disp(state, player)}</span>
+                      <select value={outRoles[player] || "sit-out"}
+                        onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
+                        style={{ minWidth:132, padding:"8px 9px", borderRadius:9, background:"var(--paper)",
+                          color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:600 }}>
+                        {OVERFLOW_ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </>
               )}
               <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
-                Teams balance from your ratings and your results so far.
+                {participantFit.ok
+                  ? `Teams balance from ratings and results. ${outs.length} excluded ${outs.length === 1 ? "player gets" : "players get"} a recorded sit-out role.`
+                  : participantFit.error}
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                <Btn disabled={inPlayers.length < 2} onClick={() => onDraw(inPlayers)}
+                <Btn disabled={!participantFit.ok}
+                  onClick={() => onDraw(inPlayers, overflowAssignments)}
                   style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
                   Run the draw</Btn>
                 {ev.kind === "team" && (
-                  <Btn kind="dark" disabled={inPlayers.length < 2} onClick={() => openDraft(inPlayers)}
+                  <Btn kind="dark" disabled={!participantFit.ok}
+                    onClick={() => openDraft(inPlayers, overflowAssignments)}
                     style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
                     Captains draft</Btn>
                 )}
@@ -3936,7 +3994,8 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     ))}
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <Btn onClick={() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
+                    <Btn disabled={canHeats && !participantFit.ok}
+                      onClick={() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
                       players:inPlayers })} style={{ flex:1 }}>
                       {canHeats ? "Draw heats" : "Draw pools"}</Btn>
                     <Btn kind="ghost" onClick={() => setStageCfgOpen(false)}>Cancel</Btn>
@@ -6775,7 +6834,8 @@ function Guide({ events, state }) {
             Build one score. Bring it to poker.</div>
           <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.55,
             color:"var(--muted2)", marginTop:8 }}>
-            Thirteen players, sixteen events, one board. Teams reshuffle every event.
+            {ROSTER.length} players, {events.filter(e => !e.finale).length} events, one board.
+            {" "}Teams reshuffle every event.
             Everyone starts at 1,000, and results, bets, and duels all move that same number.
           </div>
         </div>

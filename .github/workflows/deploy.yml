@@ -1,11 +1,8 @@
-name: Deploy to Cloudflare
+name: Deploy production to Cloudflare
 
-# Auto-deploys the app to the live Cloudflare Worker on every push.
-# Push from your branch and your installed PWA updates in ~30s (pull-to-refresh
-# to clear the service worker cache). master is covered too, for after merges.
+# Production is a manual, protected action. Staging has a separate named
+# Wrangler target and must never reuse this job implicitly.
 on:
-  push:
-    branches: [master, "claude/**"]
   workflow_dispatch: {}
 
 # A newer push cancels an in-flight deploy for the same branch, so rapid
@@ -17,6 +14,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,10 +22,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Runs the project's own script (vite build && wrangler deploy) so the
-      # pinned wrangler 4.x is used - it reads wrangler.jsonc, which older
-      # wrangler bundled by third-party actions does not.
-      - run: npm run deploy
+      # The target is deliberately named. The generic deploy script refuses to
+      # choose production or staging on the operator's behalf.
+      - run: npm run deploy:production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

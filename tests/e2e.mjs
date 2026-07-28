@@ -4,10 +4,19 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS }
+import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
+const target = new URL(BASE);
+const productionHost = target.hostname === "fielddayseries.com"
+  || target.hostname.endsWith(".fielddayseries.com");
+const localHost = ["localhost", "127.0.0.1", "::1"].includes(target.hostname);
+if (productionHost)
+  throw new Error("E2E refuses to run against the production domain");
+if (!localHost && process.env.FIELD_DAY_E2E_TARGET !== "staging")
+  throw new Error("Non-local E2E requires FIELD_DAY_E2E_TARGET=staging");
+
 const log = (...a) => console.log(...a);
 let failures = 0;
 const assert = (cond, msg) => {
@@ -20,6 +29,7 @@ function makeWindow(name) {
   const ws = new WebSocket(BASE);
   const win = {
     name, deviceId, ws, gmToken: null, state: null, version: 0, you: null,
+    environment: null, capabilities: null,
     aid: 0, pending: new Map(), broadcasts: [],
     send(obj) { ws.send(JSON.stringify({ ...obj, deviceId, gmToken: win.gmToken })); },
     dispatch(type, payload) {
@@ -44,6 +54,8 @@ function makeWindow(name) {
       if (msg.version >= win.version) {
         win.state = msg.state; win.version = msg.version;
         if (msg.you !== undefined) win.you = msg.you;
+        win.environment = msg.environment || "production";
+        win.capabilities = msg.capabilities || {};
         win.broadcasts.push({ version: msg.version, lastAction: msg.lastAction || null, at: Date.now() });
       }
     } else if (msg.type === "ack") {
@@ -64,6 +76,8 @@ await Promise.all([A.open, B.open]);
 const a = A.win, b = B.win;
 await a.waitVersion(0); await new Promise(r => setTimeout(r, 300));
 assert(a.state && b.state, "both windows received initial state on hello");
+assert(a.environment === "local" && a.capabilities?.qa && a.capabilities?.restore,
+  "local server is visibly isolated and enables only local recovery/QA capabilities");
 
 /* ── onboarding: claim different players ── */
 let r = await a.dispatch("claim", { player: "Brandon" });
@@ -94,14 +108,22 @@ assert(r.ok, "GM resets tournament for a clean run");
 await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
-const ROSTER = ["Brandon","Evan","Eyob","Sahil","Khoa","Chinh","Adi","Chiang","Richard","Allan","Henry","Ben","Jeremy"];
+r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER });
+assert(!r.ok && /exactly 12/i.test(r.error),
+  "GM cannot silently squeeze 13 players into a 12-seat format (rejected: " + r.error + ")");
 /* Evan sits out the draw so his wagers are never against his own team */
-r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER.filter(p => p !== "Evan") });
+r = await a.dispatch("runDraw", {
+  evId: "8ball",
+  players: ROSTER.filter(p => p !== "Evan"),
+  roles: [{ player:"Evan", role:"scorekeeper" }],
+});
 assert(r.ok, "GM draws 8-Ball teams");
 await b.waitVersion(a.version);
 const draw = b.state.draws["8ball"];
 assert(draw && draw.teams.length === 6, "draw produced 6 teams (window B sees it)");
 assert(draw.teams.flatMap(t => t.players).length === 12, "all 12 entrants placed");
+assert(draw.roles?.length === 1 && draw.roles[0].player === "Evan" && draw.roles[0].role === "scorekeeper",
+  "excluded player has an explicit operational role");
 const br0 = b.state.brackets["8ball"];
 assert(br0 && br0.size === 6, "6-team bracket created");
 

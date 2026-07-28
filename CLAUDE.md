@@ -133,10 +133,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 
 - `npm run dev` - vite dev server with the Worker + DO running locally (workerd)
 - `npm run build` - production build
-- `npm run deploy` - build + `wrangler deploy` (needs `wrangler login` once)
-- `npm run tail` - live production logs
-- `npm run test:e2e` - full game loop over two WebSocket clients (dev server must
-  be running; `WS_BASE=wss://.../ws` targets prod; resets the board when done)
+- `npm run build:staging` - staging-mode build without deployment
+- `npm run deploy` - refuses; the operator must name a target
+- `npm run deploy:staging` - creates/updates the isolated staging Worker; approval required
+- `npm run deploy:production` - updates the existing live Worker; approval and snapshot required
+- `npm run tail` - live production logs; approval required
+- `npm run test` - M1 snapshot, roster, participation, and compatibility checks
+- `npm run test:e2e` - full game loop over two local WebSocket clients (dev
+  server must be running; production URLs are rejected; resets local state)
+- `npm run snapshot:validate -- <file>` - offline, read-only snapshot validation
 
 ## Copy and design taste (Brandon's rules)
 
@@ -197,8 +202,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   plus 6 edge-tick skins, first come first serve, gray until claimed, locked
   once the weekend goes live), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
   edge ticks and a geometric sun at center; scripts/icons.mjs regenerates the
-  PWA icons from the same geometry, no fonts needed. No emojis as final
-  artwork, no gradients, no glows, no luxury conventions.
+  PWA icons from the same geometry. The staging PWA keeps that mark but uses
+  an electric-blue palette and an explicit STG badge, with its own manifest
+  and Apple touch icon. No emojis as final artwork, no gradients, no glows,
+  no luxury conventions.
 - Real names in all commissioner controls. Fun is for reveals, not for admin.
 - The app should reduce mental load during the weekend, not add process.
 

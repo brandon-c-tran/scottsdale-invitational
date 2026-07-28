@@ -24,7 +24,15 @@ let gmToken = localGet("si-gm-token") || null;
 export const setGmToken = t => { gmToken = t; localSet("si-gm-token", t || ""); };
 export const hasGmToken = () => !!gmToken;
 
-const snapshot = { state: EMPTY_STATE, version: 0, connected: false, ready: false, lastAction: null };
+const snapshot = {
+  state: EMPTY_STATE,
+  version: 0,
+  connected: false,
+  ready: false,
+  lastAction: null,
+  environment: "production",
+  capabilities: { qa: false, restore: false, snapshotExport: false },
+};
 let cached = { ...snapshot };
 const listeners = new Set();
 const emit = () => { cached = { ...snapshot }; listeners.forEach(fn => fn()); };
@@ -60,6 +68,8 @@ function connect() {
       if (msg.version >= snapshot.version) {
         snapshot.state = msg.state; snapshot.version = msg.version;
         snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
+        snapshot.environment = msg.environment || "production";
+        snapshot.capabilities = msg.capabilities || { qa: false, restore: false, snapshotExport: false };
         emit();
       }
     } else if (msg.type === "ack") {
@@ -102,6 +112,27 @@ export async function uploadPhoto(player, dataUrl) {
     });
     return await r.json();
   } catch { return { ok: false, error: "Upload failed" }; }
+}
+
+export async function downloadSnapshot() {
+  try {
+    const response = await fetch("/api/admin/snapshot", {
+      headers: { Authorization: `Bearer ${gmToken || ""}` },
+    });
+    const snapshotBody = await response.json();
+    if (!response.ok) return { ok: false, error: snapshotBody.error || "Export failed" };
+    const stamp = new Date(snapshotBody.metadata.exportedAt).toISOString().replace(/[:.]/g, "-");
+    const blob = new Blob([`${JSON.stringify(snapshotBody, null, 2)}\n`], { type: "application/json" });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `field-day-${snapshotBody.metadata.environment}-${stamp}.fieldday-snapshot.json`;
+    link.click();
+    URL.revokeObjectURL(href);
+    return { ok: true, metadata: snapshotBody.metadata };
+  } catch {
+    return { ok: false, error: "Export failed" };
+  }
 }
 
 export function useTournament() {

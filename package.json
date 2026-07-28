@@ -3,11 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "deploy": "vite build && wrangler deploy",
+    "dev": "vite dev --mode development",
+    "build": "vite build --mode production",
+    "build:staging": "vite build --mode staging",
+    "deploy": "node scripts/deploy-target.mjs",
+    "deploy:staging": "npm run build:staging && wrangler deploy",
+    "deploy:production": "npm run build && wrangler deploy",
     "tail": "wrangler tail",
-    "test:e2e": "node tests/e2e.mjs"
+    "test": "node --test tests/m1-foundations.test.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "check": "node --check shared/core.js && node --check worker/actions.js && node --check worker/index.js && node --check worker/state.js && node --check worker/snapshot.js && node --check worker/tournament.js && node --check scripts/snapshot.mjs && node --check scripts/deploy-target.mjs && node --check scripts/icons.mjs && node --check vite.config.js",
+    "snapshot:export": "node scripts/snapshot.mjs export",
+    "snapshot:validate": "node scripts/snapshot.mjs validate",
+    "snapshot:restore": "node scripts/snapshot.mjs restore",
+    "snapshot:recover": "node scripts/snapshot.mjs recover"
   },
   "dependencies": {
     "qrcode-generator": "^2.0.4",

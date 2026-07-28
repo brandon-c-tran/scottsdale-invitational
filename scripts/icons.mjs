@@ -7,32 +7,47 @@ import sharp from "sharp";
 
 const SUN = "#F0B02F", INK0 = "#2A2119", NIGHT = "#171009", BONE = "#FBF3E4";
 const ACCENT = "#C25832", ACCENT2 = "#D97A50", MUTED = "#C9B896";
+const STAGING_ICON = {
+  sun: "#35C8F5",
+  ink: "#101A33",
+  detail: "#F7FBFF",
+  badge: "#EB3F78",
+};
 const DISPLAY_FONT = fileURLToPath(new URL("./fonts/BarlowCondensed-Bold.ttf", import.meta.url));
 const VENUE_IMAGE = fileURLToPath(new URL("../public/airbnb-compound-field-day.webp", import.meta.url));
 
 /* Chip mark mirrors FDMark. Triangular rays read as a sun rather than a clock,
    and the compact favicon drops the hairline inner ring at tiny sizes. */
-const mark = (px, ring = INK0, compact = false) => {
+const mark = (px, ring = INK0, compact = false, palette = null, label = "") => {
+  const sun = palette?.sun || SUN;
+  const ink = palette?.ink || INK0;
+  const detail = palette?.detail || BONE;
   const pt = (r, deg) => {
     const a = deg * Math.PI / 180;
     return [32 + Math.cos(a) * r, 32 + Math.sin(a) * r].map(v => v.toFixed(2));
   };
   const ticks = Array.from({ length: 8 }, (_, i) => {
     const [x1, y1] = pt(23.4, i * 45 + 22.5), [x2, y2] = pt(28.2, i * 45 + 22.5);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${BONE}" stroke-width="3.4" stroke-linecap="round"/>`;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${detail}" stroke-width="3.4" stroke-linecap="round"/>`;
   }).join("");
   const rays = Array.from({ length: 8 }, (_, i) => {
     const a = i * 45;
     const [x1, y1] = pt(10.7, a - 8), [x2, y2] = pt(17.8, a), [x3, y3] = pt(10.7, a + 8);
-    return `<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${INK0}"/>`;
+    return `<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${ink}"/>`;
   }).join("");
+  const labelMarkup = label ? `
+    <rect x="8.5" y="42" width="47" height="16" rx="4" fill="${palette.badge}"
+      stroke="${detail}" stroke-width="1.5"/>
+    <text x="32" y="54.3" text-anchor="middle" fill="${detail}"
+      font-family="Arial, sans-serif" font-size="12.5" font-weight="900"
+      letter-spacing="1.2">${label}</text>` : "";
   return `
   <svg width="${px}" height="${px}" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="32" cy="32" r="29.5" fill="${SUN}" stroke="${ring}" stroke-width="3.5"/>
+    <circle cx="32" cy="32" r="29.5" fill="${sun}" stroke="${ring}" stroke-width="3.5"/>
     ${ticks.replaceAll('stroke-width="3.4"', 'stroke-width="3.8"')}
-    ${compact ? "" : `<circle cx="32" cy="32" r="20.6" fill="none" stroke="${INK0}" stroke-width="1.5" opacity="0.6"/>`}
+    ${compact ? "" : `<circle cx="32" cy="32" r="20.6" fill="none" stroke="${ink}" stroke-width="1.5" opacity="0.6"/>`}
     ${rays}
-    <circle cx="32" cy="32" r="8.4" fill="${INK0}"/>
+    <circle cx="32" cy="32" r="8.4" fill="${ink}"/>${labelMarkup}
   </svg>`;
 };
 
@@ -124,6 +139,14 @@ const OUTPUTS = [
   { file: "public/apple-touch-icon.png", px: 180, markPx: 148, bg: NIGHT, ring: BONE },
 ];
 
+const STAGING_OUTPUTS = [
+  { file: "public/icon-staging-512.png", px: 512, markPx: 512, bg: null },
+  { file: "public/icon-staging-192.png", px: 192, markPx: 192, bg: null },
+  { file: "public/icon-staging-maskable-512.png", px: 512, markPx: 368, bg: STAGING_ICON.ink },
+  { file: "public/icon-staging-maskable-192.png", px: 192, markPx: 138, bg: STAGING_ICON.ink },
+  { file: "public/apple-touch-icon-staging.png", px: 180, markPx: 148, bg: STAGING_ICON.ink },
+];
+
 if (!process.argv.includes("--icons-only")) {
   writeFileSync("public/share.png", await share());
   console.log("wrote public/share.png");
@@ -135,7 +158,23 @@ for (const o of OUTPUTS) {
   console.log("wrote", o.file);
 }
 
+for (const o of STAGING_OUTPUTS) {
+  const svg = frame(
+    mark(o.markPx, STAGING_ICON.detail, false, STAGING_ICON, "STG"),
+    o.px,
+    o.markPx,
+    o.bg,
+  );
+  await sharp(Buffer.from(svg)).png().toFile(o.file);
+  console.log("wrote", o.file);
+}
+
 /* Vector favicon uses the compact geometry, so 16px does not turn into a
    ring of hairlines. Browsers that ignore SVG keep the 192px PNG fallback. */
 writeFileSync("public/favicon.svg", mark(64, BONE, true).trim());
 console.log("wrote public/favicon.svg");
+writeFileSync(
+  "public/favicon-staging.svg",
+  mark(64, STAGING_ICON.detail, true, STAGING_ICON, "STG").trim(),
+);
+console.log("wrote public/favicon-staging.svg");

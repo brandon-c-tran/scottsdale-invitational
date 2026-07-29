@@ -5,7 +5,7 @@ import {
   DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
+  resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
   defaultQaParticipants, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
 } from "../shared/core.js";
@@ -504,6 +504,8 @@ export default function App() {
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
+  const wagerEv = useMemo(() => wagerBoardEvent(state, events), [state, events]);
+  const wagerMarketOpen = !!onDeckEv && onDeckEv.id === wagerEv?.id;
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
   const introHasQueuedReveal = !!intro && (
@@ -1458,17 +1460,21 @@ export default function App() {
               color:"var(--bone)", textTransform:"uppercase" }}>Reconnecting</span>
           </div>
         )}
-        {onDeckEv && (
+        {wagerEv && (
           <button onClick={() => setTab("bets")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"calc(100% - 32px)", margin:"0 16px 10px",
             padding:"9px 13px", borderRadius:14, border:"1px solid rgba(240,176,47,0.4)",
             background:"rgba(240,176,47,0.14)", cursor:"pointer", textAlign:"left" }}>
-            <GameMark id={onDeckEv.game} size={26} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--sun)" }}>ON DECK</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>{onDeckEv.name}</span>
+            <GameMark id={wagerEv.game} size={26} />
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--sun)" }}>
+              {wagerMarketOpen ? "ON DECK" : "WAGER BOARD"}</span>
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>{wagerEv.name}</span>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
               textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
-              color:"var(--ink0)", background:"var(--sun)" }}>Betting open</span>
+              color:wagerMarketOpen ? "var(--ink0)" : "var(--sun)",
+              background:wagerMarketOpen ? "var(--sun)" : "rgba(240,176,47,0.12)",
+              border:wagerMarketOpen ? "none" : "1px solid rgba(240,176,47,0.45)" }}>
+              {wagerMarketOpen ? "Betting open" : "Betting locked"}</span>
           </button>
         )}
       </div>
@@ -1514,7 +1520,7 @@ export default function App() {
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
-          onDeckEv={onDeckEv}
+          onDeckEv={onDeckEv} wagerEv={wagerEv}
           onEvents={() => setTab("sched")}
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={id => retractWager(id)}
@@ -5151,7 +5157,7 @@ function mergeWagerLines(list) {
   }
   return [...out.values()];
 }
-function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, onVoid, onRetract }) {
+function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
   const [denom, setDenom] = useState(PT);
@@ -5190,7 +5196,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
   const tapStake = Math.max(PT, Math.min(denom, Math.floor(room / PT) * PT));
   const bet = pick => onPick({ ...pick, stake: tapStake });
 
-  const ev = onDeckEv;
+  const ev = wagerEv;
+  const marketOpen = !!onDeckEv && onDeckEv.id === ev?.id;
   const draw = ev ? state.draws[ev.id] : null;
   const br = ev ? state.brackets[ev.id] : null;
   const st = ev ? state.stages[ev.id] : null;
@@ -5232,15 +5239,16 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
     const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
     const shownChips = chips.slice(0, 5);
     const open = whoOpen === rowKey && bets.length > 0;
+    const canPick = marketOpen && room >= PT && typeof onClick === "function";
     return (
       <div style={cellStyle}>
-        <button onClick={room < PT ? undefined : onClick}
+        <button onClick={canPick ? onClick : undefined}
           style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
             borderRadius:14, width:"100%",
             background:"var(--paper2)",
             border:"1px solid " + (mine > 0 ? "rgba(194,88,50,0.55)" : "var(--line)"),
-            cursor: room < PT ? "default" : "pointer",
-            opacity: room < PT && !mine ? 0.5 : 1, textAlign:"left" }}>
+            cursor: canPick ? "pointer" : "default",
+            opacity: marketOpen && room < PT && !mine ? 0.5 : 1, textAlign:"left" }}>
           <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
           <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--ink)",
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
@@ -5250,7 +5258,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
               {shownChips.map((c, i) => <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={c.p} size={22} val={c.val} /></span>)}
               {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
                 color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
-              {mine > 0 && (
+              {marketOpen && mine > 0 && (
                 <span onClick={e => { e.stopPropagation(); onRetract(mineBets[mineBets.length - 1].w.id); }} role="button"
                   style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
                     justifyContent:"center", cursor:"pointer", marginLeft:4, fontSize:11,
@@ -5334,7 +5342,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
   };
 
   return (
-    <div style={{ padding:"0 16px", paddingBottom: me && ev ? 152 : 0 }}>
+    <div style={{ padding:"0 16px", paddingBottom: me && marketOpen ? 152 : 0 }}>
       {!ev && !state.frozen && (
         <div style={{ textAlign:"center", padding:"clamp(56px,15vh,120px) 24px 24px",
           display:"flex", flexDirection:"column", alignItems:"center" }}>
@@ -5358,11 +5366,13 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
         <div style={{ borderRadius:14, border:"1px solid rgba(251,243,228,0.2)", overflow:"hidden",
           background:"var(--paper)", boxShadow:"var(--shadow-1)", marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 13px",
-            background:"var(--clay)", color:BONE }}>
+            background:marketOpen ? "var(--clay)" : "var(--night)", color:BONE }}>
             <GameMark id={ev.game} size={26} />
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.02em",
               textTransform:"uppercase", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ev.name}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.06em" }}>BETTING OPEN</span>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.06em",
+              color:marketOpen ? BONE : "var(--sun)" }}>
+              {marketOpen ? "BETTING OPEN" : "BETTING LOCKED"}</span>
           </div>
           <div style={{ padding:"12px 13px 8px" }}>
 
@@ -5371,12 +5381,12 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
           {br && draw && (
             <div style={{ marginBottom:14, overflowX:"auto" }}>
               <BracketGrid state={state} ev={ev} gm={false} bet={{
-                onBet: (r2, m2, tIdx, roundName) => {
+                onBet: marketOpen ? (r2, m2, tIdx, roundName) => {
                   if (room < PT) return;
                   bet({ kind:"match", eventId:ev.id, teamIdx:tIdx,
                     pickPlayers:[...draw.teams[tIdx].players], pickTeam:true, drawId:draw.id,
                     match:[r2, m2], matchName: roundName, evName: ev.name });
-                },
+                } : undefined,
                 chips: (r2, m2, tIdx) => {
                   const bets = pending.filter(x => x.w.kind === "match" && x.w.eventId === ev.id &&
                     x.w.drawId === draw.id && x.w.match?.[0] === r2 && x.w.match?.[1] === m2 &&
@@ -5390,7 +5400,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
                         <BankChip p={c.p} size={20} val={c.val} /></span>)}
                       {chips.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
                         color:"var(--muted2)", marginLeft:2 }}>+{chips.length - 4}</span>}
-                      {mineBets.length > 0 && (
+                      {marketOpen && mineBets.length > 0 && (
                         <span onClick={e => { e.stopPropagation(); onRetract(mineBets[mineBets.length - 1].w.id); }}
                           role="button" style={{ width:20, height:20, borderRadius:99, display:"flex",
                             alignItems:"center", justifyContent:"center", cursor:"pointer", marginLeft:3,
@@ -5401,7 +5411,9 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
                 },
               }} />
               <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", marginTop:6 }}>
-                Matchups pay even. Tap a side to put a chip on it.</div>
+                {marketOpen
+                  ? "Matchups pay even. Tap a side to put a chip on it."
+                  : "Betting is locked. Chips stay on the bracket until each matchup settles."}</div>
             </div>
           )}
           {st && !br && (
@@ -5495,7 +5507,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
           the gold is what is riding now. The gap between gold and notch is
           what you have left, and you can see it can never cross. Shown even
           when you are maxed out, because that is when it explains the most. */}
-      {me && ev && (
+      {me && ev && marketOpen && (
         <div style={{ position:"fixed", bottom:"calc(72px + env(safe-area-inset-bottom))", zIndex:48,
           left:"50%", transform:"translateX(-50%)", width:"min(92vw, 430px)",
           display:"flex", flexDirection:"column", gap:10, padding:"11px 16px 12px", borderRadius:16,

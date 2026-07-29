@@ -16,6 +16,7 @@ import {
   rosterPlayers,
   resolveEventLifecycle,
   resolveWeekendOperation,
+  wagerBoardEvent,
   validateEventParticipants,
 } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
@@ -340,6 +341,53 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
   }, gm).ok, true);
   assert.equal(computeStandings(state).find(row => row.player === "Evan").betNet, 0);
   assert.equal(Object.keys(state.wagerOps).length, 4);
+});
+
+test("locking betting keeps a bracket with pending chips active until settlement", () => {
+  const state = structuredClone(EMPTY_STATE);
+  const bettor = {
+    isGm:false,
+    player:"Jeremy",
+    deviceId:"device-jeremy",
+    actionId:"locked-bracket-wager",
+  };
+
+  assert.equal(applyAction(state, "runDraw", {
+    evId:"8ball",
+    players:ROSTER.slice(0, 12),
+  }, gm).ok, true);
+  const bracket = state.brackets["8ball"];
+  const draw = state.draws["8ball"];
+  const match = bracket.rounds[0][0];
+  const teamIdx = resolveSlot(bracket, match.a);
+
+  assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
+  assert.equal(applyAction(state, "placeWager", { wager:{
+    kind:"match",
+    eventId:"8ball",
+    evName:"8-Ball Doubles",
+    drawId:draw.id,
+    match:[0, 0],
+    matchName:"Play-in",
+    teamIdx,
+    pickPlayers:[...draw.teams[teamIdx].players],
+    pickTeam:true,
+    stake:100,
+  } }, bettor).ok, true);
+  assert.equal(wagerBoardEvent(state).id, "8ball");
+
+  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
+  assert.equal(state.onDeck, null);
+  assert.equal(wagerBoardEvent(state).id, "8ball");
+
+  assert.equal(applyAction(state, "startEvent", { evId:"8ball" }, gm).ok, true);
+  assert.equal(applyAction(state, "pickBracketWinner", {
+    evId:"8ball",
+    r:0,
+    m:0,
+    teamIdx,
+  }, gm).ok, true);
+  assert.equal(wagerBoardEvent(state), null);
 });
 
 test("snapshot builder excludes credentials and internal restore backups", () => {

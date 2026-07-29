@@ -530,6 +530,30 @@ function resolveWager(state, w, events) {
   return { status:"void", delta:0 };
 }
 
+/* The betting market and its board have different lifetimes. Closing the
+   market stops new chips, but the board remains relevant until every wager on
+   it settles or is voided. Prefer the open market; otherwise keep the most
+   recently active event with pending wagers on screen. */
+function wagerBoardEvent(state, events = allEventsOf(state)) {
+  const open = events.find(ev => ev.id === state.onDeck && !state.results?.[ev.id]);
+  if (open) return open;
+
+  const pending = (state.wagers || []).filter(w =>
+    resolveWager(state, w, events).status === "pending");
+  if (!pending.length) return null;
+
+  const pendingIds = new Set(pending.map(({ eventId }) => eventId));
+  const activityAt = ev => Math.max(
+    Number(state.eventOps?.[ev.id]?.bettingLockedAt || 0),
+    Number(state.eventOps?.[ev.id]?.startedAt || 0),
+    ...pending.filter(w => w.eventId === ev.id)
+      .map(w => Number(w.updatedAt || w.ts || 0)),
+  );
+  return events
+    .filter(ev => pendingIds.has(ev.id) && !state.results?.[ev.id])
+    .sort((a, b) => activityAt(b) - activityAt(a))[0] || null;
+}
+
 /* ─────────── the poker finale ───────────
    Physical cards and chips; the app runs the table. state.poker is the
    table (buy-in snapshot, blind schedule, eliminations). The clock is
@@ -973,7 +997,7 @@ export {
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
+  resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
   pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,

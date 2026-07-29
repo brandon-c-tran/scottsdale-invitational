@@ -122,7 +122,8 @@ migration. Existing names remain player IDs for Scottsdale 2026.
    isolated staging state before any production restore is considered.
 3. Local, staging, and production have unmistakable identities and isolated
    Durable Object namespaces.
-4. Production surfaces expose no QA simulation or restore controls.
+4. Production exposes QA and the narrow game-progress reset only as explicit
+   commissioner capabilities; it exposes no import or restore controls.
 5. Attendance changes are made through one roster configuration.
 6. Deactivating a player excludes them without deleting their stored data.
 7. Strict pairs remain pairs at 12, 13, and 14 active-player configurations.
@@ -174,8 +175,9 @@ builder.
    three.
 8. **Recovery is a product feature.** Export, validate, restore, correction,
    and rollback are designed and rehearsed.
-9. **Production is deliberately boring.** QA, reset, import, and rehearsal
-   tools stay outside the live build.
+9. **Production is deliberately explicit.** QA and the narrow game-progress
+   reset are commissioner-only capabilities for an approved dry run. Import,
+   restore, profile reset, and chip-claim release stay outside that path.
 10. **Keep the coordination model.** One event weekend is one coordination
     atom, so the single `main` Durable Object remains appropriate.
 
@@ -235,7 +237,8 @@ explicit, approved action.
 - Staging has an explicitly declared Durable Object binding and cannot inherit
   the production binding by omission.
 - Non-production UI has a persistent environment marker.
-- Production UI has no QA simulator or snapshot import control.
+- Production QA and game-progress reset require explicit server capabilities
+  and commissioner unlock. Snapshot import and restore remain absent.
 - Build, source checks, focused tests, and local E2E pass.
 - A staging full-weekend rehearsal completes without touching production.
 
@@ -278,7 +281,8 @@ dependencies.
 - no staging custom-domain route unless separately approved
 - visible local/staging banner on phone and TV
 - environment-aware client payloads
-- production runtime hides QA and restore controls
+- production runtime exposes QA/reset only when explicitly enabled and always
+  hides import/restore controls
 - deployment commands name their target
 - production deployment requires an explicit production script
 - CI does not deploy arbitrary branches to the production route
@@ -316,8 +320,9 @@ dependencies.
 - Restore produces an audit result containing backup key, source snapshot hash,
   restored entry count, and timestamp.
 - Local and staging may be reset only after target identity is shown.
-- Production reset and onboarding rerun remain normal GM actions only where
-  product behavior requires them, with confirmation; QA shortcuts do not.
+- Production game-progress reset is an explicit commissioner capability and
+  requires confirmation plus a validated pre-run snapshot. Onboarding rerun is
+  a separate destructive action because it releases chip claims.
 - Logs must not contain profile payloads, flights, photos, GM tokens, or
   snapshot bodies.
 - A launch operator must be able to answer: current environment, last snapshot,
@@ -367,7 +372,9 @@ dependencies.
 - `APP_ENV=production`.
 - Snapshot export is an operator CLI action authenticated by the server-only
   `SNAPSHOT_ADMIN_TOKEN`; it is not shown in the production client.
-- Import and QA simulator controls are absent.
+- QA and game-progress reset are explicitly enabled commissioner capabilities
+  for the approved dry run.
+- Import and restore controls are absent.
 - Code/configuration is promoted to production; staging runtime state is not.
 
 Wrangler environment bindings are non-inheritable. Every named environment must
@@ -661,7 +668,8 @@ must never be the first restore rehearsal.
 - [x] Poker totals checked for 12/13/14 seats
 - [x] Phone reconnect checked locally
 - [x] TV reconnect checked locally
-- [x] QA and restore controls absent from production build
+- [x] Production QA and narrow game-progress reset are explicit capabilities;
+      restore/import remain absent
 - [x] Production target shown before deploy
 - [x] Rollback version and data recovery steps available
 - [ ] GM has offline copy of the runbook
@@ -678,7 +686,7 @@ must never be the first restore rehearsal.
 | Player-ID breakage | names are map keys everywhere | retain legacy IDs and add labels/status only |
 | Snapshot leaks PII | profiles, travel, and photos are included | GM auth, no public link, ignore files, operator handling |
 | Partial restore | no import transaction or backup | validate first, pre-backup, isolated restore |
-| QA damages real answers | simulator runs real actions | non-production build gate and profile-preserving rules |
+| QA damages real answers | simulator runs real actions | commissioner gate, production marker, validated snapshot, narrow confirmed reset |
 | Lifecycle ambiguity | state inferred across several fields | shared resolver and transition tests |
 | Network outage | no offline shell | later M1 reliability slice; printed GM recovery sheet |
 
@@ -714,7 +722,8 @@ must never be the first restore rehearsal.
 - `wrangler.jsonc` declares local/staging behavior and explicit DO bindings.
 - Staging cannot inherit production bindings or route.
 - Environment identity reaches client and TV.
-- QA/import is false in production at render and server layers.
+- QA and game-progress reset fail closed unless explicitly enabled; production
+  import and restore remain hard disabled.
 - CI no longer deploys feature branches to the production route.
 - Staging creation/deploy remains an approval stop.
 
@@ -768,7 +777,8 @@ must never be the first restore rehearsal.
 
 - Current state, next action, blockers, and recovery are visible together.
 - Dangerous controls are separated and confirmed.
-- Production supports operator CLI export but renders no export, import, or QA
+- Production supports operator CLI export plus explicitly enabled
+  commissioner QA and game-progress reset; it renders no import or restore
   controls.
 
 ### Reliability and launch

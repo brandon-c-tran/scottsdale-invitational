@@ -10,6 +10,7 @@ import {
   validateEventParticipants, normalizeOverflowRoles,
   resolveEventLifecycle,
   pokerDistribution,
+  RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
 } from "../shared/core.js";
 
 const ok = extra => ({ ok: true, extra });
@@ -1067,21 +1068,26 @@ export const ACTIONS = {
     state.live = !!on;
     return ok();
   },
-  /* resets wipe the game, never the people: profiles (names, photos, numbers,
-     sizes, flights), sealed seeds, and weekend logistics survive so nobody
-     re-registers between test runs */
-  resetTournament(state, {}, ctx) {
+  /* Reset only the rehearsal/gameplay layer. Guest input, trip information,
+     and the configured event slate survive, while every derived or live
+     tournament fact returns to a clean board. The explicit capability and
+     confirmation value protect this production-enabled operation from stale
+     or accidental clients. Claims and photos live in separate storage keys
+     and are never touched by an action-state reset. */
+  resetTournament(state, { confirm }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const profiles = state.profiles, seeds = state.seeds, logistics = state.logistics;
-    /* the epoch only ever climbs: devices store the epoch they finished at,
-       so a reset that zeroed it would make every future rerun invisible */
-    const onboardEpoch = state.onboardEpoch || 0;
+    if (!ctx.progressReset) return err("Game progress reset is unavailable");
+    if (confirm !== RESET_PROGRESS_CONFIRMATION)
+      return err("Confirm game progress reset");
+    const preserved = Object.fromEntries(RESET_PROGRESS_PRESERVED_KEYS.map(key => [
+      key,
+      key === "onboardEpoch"
+        ? Number(state[key] || 0)
+        : structuredClone(state[key] ?? EMPTY_STATE[key]),
+    ]));
     Object.assign(state, structuredClone(EMPTY_STATE));
-    state.profiles = profiles;
-    state.seeds = seeds;
-    state.onboardEpoch = onboardEpoch;
-    if (logistics) state.logistics = logistics;
-    return ok();
+    Object.assign(state, preserved);
+    return ok({ preserved:[...RESET_PROGRESS_PRESERVED_KEYS] });
   },
   /* the weekend sheet: where we sleep and how the host flies. GM writes it
      once, onboarding and the guide read it on every phone */

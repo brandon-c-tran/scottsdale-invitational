@@ -167,8 +167,12 @@ formats. It is the highest-priority D2 behavior correction.
 - `gmNext` is computed in `App.jsx`, not shared or server validated as a
   lifecycle transition.
 - QA simulations use real actions.
-- QA controls are bundled and available to an unlocked GM in production.
-- `resetTournament` preserves profiles, seeds, logistics, and onboarding epoch.
+- QA controls are an explicit server capability and are available to an
+  unlocked GM in production for the approved dry run.
+- `resetTournament` is a game-progress reset. It requires an explicit
+  capability and confirmation, writes a rotating internal backup, and
+  preserves profiles, seeds, logistics, onboarding epoch, event additions,
+  event edits, event order, claims, and photos.
 - `rerunOnboarding` can release real chip claims after a forced confirmation.
 
 ### Tests and deployment
@@ -191,7 +195,7 @@ formats. It is the highest-priority D2 behavior correction.
 | 3v3 is 4 teams of 3 | extras can join teams | enforce exact capacity |
 | 5v5 is two teams of 5 | any selected count is split over two | enforce exact capacity |
 | State/version are atomic | normal action write is atomic, but claims and photos are separate | snapshot all relevant keys |
-| QA is safe around real data | profile filler is cautious, but QA runs in production and E2E can target production | environment gate |
+| QA is safe around real data | profile filler is cautious and production QA is explicitly enabled for the dry run | commissioner gate, production marker, narrow confirmed reset, snapshot gate |
 | M0 has 45 actions | code has the documented action registry plus claim/unlock special handling | retain structure |
 | "sixteen events" in UI/manifest | slate has 17 scored events plus finale | correct edition copy separately |
 | PIN is server auth | PIN constant ships to client | move to secret in an approved slice |
@@ -367,9 +371,10 @@ deployed. This first pass changes configuration but does not run deployment.
 The Worker includes environment identity in state frames. The client displays a
 fixed local/staging badge. Production renders none.
 
-QA state initializes false in production and QA controls are not rendered there.
-Restore has both CLI and server gates; no restore control is rendered in the
-guest application.
+QA initializes off on each device and renders only when the server advertises
+the explicit capability. Production enables it for the approved dry run and
+shows a production marker throughout the QA console. Restore has both CLI and
+server gates; no restore control is rendered in the production application.
 
 ### D1: scripts and workflow
 

@@ -6,6 +6,7 @@ import {
   EMPTY_STATE,
   ROSTER,
   ROSTER_CONFIG,
+  RESET_PROGRESS_CONFIRMATION,
   allEventsOf,
   atRisk,
   computeStandings,
@@ -390,10 +391,11 @@ test("locking betting keeps a bracket with pending chips active until settlement
   assert.equal(wagerBoardEvent(state), null);
 });
 
-test("snapshot builder excludes credentials and internal restore backups", () => {
+test("snapshot builder excludes credentials and internal backups", () => {
   const entries = snapshotEntries();
   entries.set("gmToken", "secret");
   entries.set("m1:pre-restore:123:manifest", { secret:"backup" });
+  entries.set("m1:pre-reset:456:manifest", { secret:"reset-backup" });
   entries.set("future:portable-key", { value:1 });
   const snapshot = buildSnapshot(entries, {
     environment:"local",
@@ -402,8 +404,79 @@ test("snapshot builder excludes credentials and internal restore backups", () =>
   });
   assert.equal(snapshot.entries.some(entry => entry.key === "gmToken"), false);
   assert.equal(snapshot.entries.some(entry => entry.key.startsWith("m1:pre-restore:")), false);
+  assert.equal(snapshot.entries.some(entry => entry.key.startsWith("m1:pre-reset:")), false);
   assert.deepEqual(snapshot.entries.find(entry => entry.key === "future:portable-key")?.value, { value:1 });
   assert.equal(validateSnapshot(snapshot).ok, true);
+});
+
+test("game progress reset requires explicit capability and preserves people plus event configuration", () => {
+  const state = structuredClone(EMPTY_STATE);
+  state.live = true;
+  state.results.putt = { slots:[["Brandon"]], ts:1 };
+  state.wagers = [{ id:"w1" }];
+  state.adjustments = [{ id:"a1" }];
+  state.draws["8ball"] = { id:"draw-1" };
+  state.brackets["8ball"] = { size:6, rounds:[] };
+  state.stages.putt = { id:"stage-1" };
+  state.drafts.pong = { id:"draft-1" };
+  state.duels = [{ id:"duel-1" }];
+  state.poker = { id:"poker" };
+  state.shelved.pong = true;
+  state.onDeck = "putt";
+  state.frozen = true;
+  state.eventOps.putt = { completedAt:1 };
+  state.profiles.Brandon = {
+    display:"B",
+    size:"L",
+    color:"#123456",
+    flightIn:{ air:"AA", num:"100", time:"15:00" },
+  };
+  state.seeds.Brandon = { pool:4 };
+  state.logistics = { ...state.logistics, venue:"Saved house" };
+  state.onboardEpoch = 9;
+  state.customEvents = [{ id:"custom-1", name:"Custom event" }];
+  state.eventEdits.putt = { name:"Pressure putt" };
+  state.eventOrder = ["custom-1", "putt"];
+  const preserved = {
+    profiles:structuredClone(state.profiles),
+    seeds:structuredClone(state.seeds),
+    logistics:structuredClone(state.logistics),
+    onboardEpoch:state.onboardEpoch,
+    customEvents:structuredClone(state.customEvents),
+    eventEdits:structuredClone(state.eventEdits),
+    eventOrder:structuredClone(state.eventOrder),
+  };
+
+  assert.match(applyAction(state, "resetTournament", {
+    confirm:RESET_PROGRESS_CONFIRMATION,
+  }, gm).error, /unavailable/i);
+  assert.match(applyAction(state, "resetTournament", {}, {
+    ...gm,
+    progressReset:true,
+  }).error, /confirm/i);
+  assert.equal(applyAction(state, "resetTournament", {
+    confirm:RESET_PROGRESS_CONFIRMATION,
+  }, {
+    ...gm,
+    progressReset:true,
+  }).ok, true);
+
+  for (const [key, value] of Object.entries(preserved))
+    assert.deepEqual(state[key], value, `${key} survives a progress reset`);
+  assert.equal(state.live, false);
+  assert.equal(state.frozen, false);
+  assert.equal(state.onDeck, null);
+  assert.deepEqual(state.results, {});
+  assert.deepEqual(state.wagers, []);
+  assert.deepEqual(state.adjustments, []);
+  assert.deepEqual(state.draws, {});
+  assert.deepEqual(state.brackets, {});
+  assert.deepEqual(state.stages, {});
+  assert.deepEqual(state.drafts, {});
+  assert.deepEqual(state.duels, []);
+  assert.equal(state.poker, null);
+  assert.deepEqual(state.shelved, {});
+  assert.deepEqual(state.eventOps, {});
 });
 
 test("snapshot round-trip includes referenced photos and has a deterministic hash", async () => {
@@ -431,14 +504,36 @@ test("restore versions remain monotonic for older and newer snapshots", () => {
 test("environment capabilities fail closed and production restore routes hard deny", async () => {
   const unknown = tournamentFor({});
   assert.equal(unknown.environment, "production");
-  assert.deepEqual(unknown.capabilities, { qa:false, restore:false, snapshotExport:false });
+  assert.deepEqual(unknown.capabilities, {
+    qa:false,
+    progressReset:false,
+    restore:false,
+    snapshotExport:false,
+  });
 
-  const local = tournamentFor({ APP_ENV:"local" });
-  assert.deepEqual(local.capabilities, { qa:true, restore:true, snapshotExport:true });
+  const local = tournamentFor({
+    APP_ENV:"local",
+    QA_ENABLED:"true",
+    PROGRESS_RESET_ENABLED:"true",
+  });
+  assert.deepEqual(local.capabilities, {
+    qa:true,
+    progressReset:true,
+    restore:true,
+    snapshotExport:true,
+  });
 
   const production = tournamentFor({
     APP_ENV:"production",
+    QA_ENABLED:"true",
+    PROGRESS_RESET_ENABLED:"true",
     SNAPSHOT_ADMIN_TOKEN:"snapshot-test-token",
+  });
+  assert.deepEqual(production.capabilities, {
+    qa:true,
+    progressReset:true,
+    restore:false,
+    snapshotExport:false,
   });
   production.gmToken = "test-token";
   const weakRequest = new Request("https://fielddayseries.com/api/admin/snapshot", {

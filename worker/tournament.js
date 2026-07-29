@@ -15,6 +15,7 @@ import { applyAction } from "./actions.js";
 import { hydrateStoredState } from "./state.js";
 import {
   INTERNAL_BACKUP_PREFIX,
+  INTERNAL_RESET_BACKUP_PREFIX,
   MAX_SNAPSHOT_BYTES,
   buildSnapshot,
   isPortableStorageKey,
@@ -55,8 +56,14 @@ export class Tournament {
   }
 
   get capabilities() {
+    const configured = ["local", "staging", "production"].includes(this.env.APP_ENV);
     const isolated = this.environment === "local" || this.environment === "staging";
-    return { qa: isolated, restore: isolated, snapshotExport: isolated };
+    return {
+      qa: configured && this.env.QA_ENABLED === "true",
+      progressReset: configured && this.env.PROGRESS_RESET_ENABLED === "true",
+      restore: isolated,
+      snapshotExport: isolated,
+    };
   }
 
   async hydrateFromStorage() {
@@ -195,8 +202,9 @@ export class Tournament {
   }
 
   async loadInternalBackup(backupKey) {
+    const backupPrefixes = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_PREFIX];
     if (typeof backupKey !== "string"
-        || !new RegExp(`^${INTERNAL_BACKUP_PREFIX}\\d+$`).test(backupKey))
+        || !backupPrefixes.some(prefix => new RegExp(`^${prefix}\\d+$`).test(backupKey)))
       throw new Error("Invalid backup key");
     const manifest = await this.ctx.storage.get(`${backupKey}:manifest`);
     if (!manifest || !Array.isArray(manifest.entries) || manifest.entries.length > 256)
@@ -358,6 +366,8 @@ export class Tournament {
       player: isActivePlayer(claimed) ? claimed : null,
       deviceId,
       actionId,
+      environment:this.environment,
+      progressReset:this.capabilities.progressReset,
     });
     if (!result.ok) return reply(result);
     /* Explicit no-ops make retried result/transition actions idempotent:
@@ -365,19 +375,46 @@ export class Tournament {
        broadcasting a state that did not change. */
     if (result.extra?.unchanged)
       return reply({ ...result, version:this.version });
-    await this.persistAndBroadcast(type, nextState);
-    reply({ ...result, version: this.version });
+    const persisted = await this.persistAndBroadcast(type, nextState, {
+      backupPrefix:type === "resetTournament" ? INTERNAL_RESET_BACKUP_PREFIX : null,
+    });
+    const extra = { ...(result.extra || {}), ...(persisted || {}) };
+    reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
   }
 
-  async persistAndBroadcast(lastAction, nextState = this.state) {
+  async persistAndBroadcast(lastAction, nextState = this.state, { backupPrefix = null } = {}) {
     const nextVersion = this.version + 1;
     nextState.updatedAt = Date.now();
     /* Persist first, cache second. The atomic map write keeps state/version
        aligned, and a failed write cannot leak an uncommitted in-memory board. */
-    await this.ctx.storage.put({ state:nextState, version:nextVersion });
+    let backupKey = null;
+    if (backupPrefix) {
+      const backup = await this.createSnapshot();
+      const backupEntries = backup.entries;
+      backupKey = `${backupPrefix}${Date.now()}`;
+      const olderResetBackupKeys = backupPrefix === INTERNAL_RESET_BACKUP_PREFIX
+        ? [...(await this.ctx.storage.list({ prefix:INTERNAL_RESET_BACKUP_PREFIX })).keys()]
+        : [];
+      await this.ctx.storage.transaction(async txn => {
+        if (olderResetBackupKeys.length) await txn.delete(olderResetBackupKeys);
+        await txn.put(`${backupKey}:manifest`, {
+          ...backup,
+          entries:backupEntries.map((entry, index) => ({
+            key:entry.key,
+            storageKey:`${backupKey}:entry:${index}`,
+          })),
+        });
+        for (let index = 0; index < backupEntries.length; index++)
+          await txn.put(`${backupKey}:entry:${index}`, backupEntries[index].value);
+        await txn.put({ state:nextState, version:nextVersion });
+      });
+    } else {
+      await this.ctx.storage.put({ state:nextState, version:nextVersion });
+    }
     this.state = nextState;
     this.version = nextVersion;
     this.broadcastState(lastAction);
+    return backupKey ? { backupKey } : null;
   }
 
   broadcastState(lastAction) {

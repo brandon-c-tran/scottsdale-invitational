@@ -99,8 +99,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    there is no second mechanics carousel or tab-by-tab tour. `rerunOnboarding`
    re-opens the chip race by
    clearing every claimed color/skin, but never once `state.live`. The GM
-   travel board lives in the locker room; resets preserve profiles, seeds,
-   logistics, AND the onboarding epoch (zeroing it would kill every rerun).
+   travel board lives in the locker room; game-progress resets preserve
+   profiles, seeds, logistics, the onboarding epoch, and configured event
+   additions/edits/order (zeroing the epoch would kill every rerun). Claims
+   and photos are separate Durable Object keys and are not touched.
    Once the invite is out those profiles are real answers Brandon orders
    shirts and plans pickups from, so the QA driver (`simCheckIn`) skips any
    player with a single field set and only fills wholly empty slots. Filling
@@ -150,6 +152,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    intentional stake so retract removes only the most recent chip. Older
    separate-record wagers remain readable and settle through the same derived
    resolver.
+11. **Production rehearsal tools are explicit capabilities.** QA and
+   game-progress reset render only when their server capabilities are enabled
+   and commissioner mode is unlocked. Reset requires the exact confirmation
+   payload and creates one rotating internal pre-reset backup before the clean
+   state is published. Production import, restore, and internal-backup recovery
+   remain hard disabled.
 
 ## Commands
 

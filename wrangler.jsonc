@@ -14,7 +14,9 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }],
   "vars": {
     "APP_ENV": "production",
-    "APP_VERSION": "m1-weekend-engine-3"
+    "APP_VERSION": "m1-rehearsal-console-4",
+    "QA_ENABLED": "true",
+    "PROGRESS_RESET_ENABLED": "true"
   },
   /* the app answers on the real domain, not a workers.dev subdomain. Requires
      fielddayseries.com to be an active zone on this Cloudflare account:
@@ -31,7 +33,9 @@
       "routes": [],
       "vars": {
         "APP_ENV": "local",
-        "APP_VERSION": "m1-weekend-engine-3"
+        "APP_VERSION": "m1-rehearsal-console-4",
+        "QA_ENABLED": "true",
+        "PROGRESS_RESET_ENABLED": "true"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
@@ -43,7 +47,9 @@
       "routes": [],
       "vars": {
         "APP_ENV": "staging",
-        "APP_VERSION": "m1-weekend-engine-3"
+        "APP_VERSION": "m1-rehearsal-console-4",
+        "QA_ENABLED": "true",
+        "PROGRESS_RESET_ENABLED": "true"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]

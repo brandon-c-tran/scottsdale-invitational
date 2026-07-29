@@ -38,6 +38,11 @@ local Worker.
   domain; get approval and a validated production snapshot first.
 - `npm run deploy` deliberately refuses to guess a target.
 
+QA and `Reset game progress` are explicit commissioner capabilities in every
+environment. The reset keeps people, claims, photos, trip details, ratings,
+chip choices, and event configuration. Snapshot import and restore remain
+unavailable in production.
+
 Production deployment is manual in GitHub Actions. Do not deploy, create
 staging resources, read production data, or run a production snapshot without
 explicit authorization.

@@ -348,6 +348,16 @@ function cleanLogistics(stored) {
 const EMPTY_STATE = { v:7, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, logistics:{ ...LOGISTICS }, updatedAt:0 };
+const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
+const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
+  "profiles",
+  "seeds",
+  "logistics",
+  "onboardEpoch",
+  "customEvents",
+  "eventEdits",
+  "eventOrder",
+]);
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and
@@ -992,6 +1002,7 @@ export {
   GM_PIN, ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
+  RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, participationForEvent, eventCapacity, validateEventParticipants,
   normalizeOverflowRoles, defaultQaParticipants,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,

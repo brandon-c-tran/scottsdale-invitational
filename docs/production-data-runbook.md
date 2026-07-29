@@ -274,6 +274,45 @@ Record only:
 
 Do not record snapshot contents.
 
+## Production dry run and game-progress reset
+
+Use the production QA console only for an approved pre-weekend dry run. Before
+starting:
+
+1. deploy the exact commit accepted in staging
+2. export and validate a fresh production snapshot using the commands above
+3. record its SHA-256 and secure storage location
+4. unlock commissioner mode and turn on QA
+5. run the desired checkpoints or the full weekend
+6. choose `Reset game progress` from QA or commissioner controls
+7. review the kept/cleared summary, check the production confirmation, and
+   reset
+8. verify the profiles, claims, photos, chip choices, travel details, ratings,
+   and event configuration are still present
+
+The reset keeps:
+
+- profiles, ratings, shirt/travel answers, seeds, and logistics
+- device claims, photos, chip colors, and chip skins
+- onboarding epoch
+- custom event additions, edits, and order
+
+The reset clears:
+
+- live/frozen status, results, wagers, rulings, and event lifecycle progress
+- draws, brackets, heats, pools, drafts, duels, and poker
+- shelved/on-deck state
+
+The server requires commissioner authentication, an enabled environment
+capability, and the exact reset confirmation. It transactionally writes one
+rotating `m1:pre-reset:` internal backup before publishing the reset. That
+backup is not included in portable exports and is not a substitute for the
+validated production snapshot. Production restore and internal-backup recovery
+remain disabled.
+
+Do not use `Rerun check-in on every phone` for this rehearsal cleanup. That
+operation intentionally releases chip claims.
+
 ## Production restore
 
 The application restore route rejects production. That is intentional.

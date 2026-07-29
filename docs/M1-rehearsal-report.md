@@ -5,7 +5,7 @@ require production data or an explicit staging reset approval.
 
 ## Automated local rehearsal
 
-**Application version:** `m1-weekend-engine-3`
+**Application version:** `m1-rehearsal-console-4`
 
 **Environment:** isolated local workerd Durable Object
 
@@ -28,7 +28,9 @@ The seeded action rehearsal:
 
 The WebSocket E2E additionally verifies duplicate wager delivery, correction
 recalculation, two-client settlement, finale recovery, phone reconnect, and an
-unclaimed TV reconnect at the same authoritative state/version.
+unclaimed TV reconnect at the same authoritative state/version. It also proves
+that a confirmed game-progress reset creates an internal pre-reset backup,
+clears gameplay, and preserves people plus event configuration.
 
 ## Launch operations still requiring approval
 

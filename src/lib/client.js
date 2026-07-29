@@ -31,7 +31,7 @@ const snapshot = {
   ready: false,
   lastAction: null,
   environment: "production",
-  capabilities: { qa: false, restore: false, snapshotExport: false },
+  capabilities: { qa:false, progressReset:false, restore:false, snapshotExport:false },
 };
 let cached = { ...snapshot };
 const listeners = new Set();
@@ -69,7 +69,8 @@ function connect() {
         snapshot.state = msg.state; snapshot.version = msg.version;
         snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
         snapshot.environment = msg.environment || "production";
-        snapshot.capabilities = msg.capabilities || { qa: false, restore: false, snapshotExport: false };
+        snapshot.capabilities = msg.capabilities
+          || { qa:false, progressReset:false, restore:false, snapshotExport:false };
         emit();
       }
     } else if (msg.type === "ack") {

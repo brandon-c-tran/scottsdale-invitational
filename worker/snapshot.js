@@ -5,6 +5,8 @@ const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7]);
 const ENVIRONMENTS = new Set(["local", "staging", "production"]);
 const REQUIRED_KEYS = ["state", "version", "claims"];
 const INTERNAL_BACKUP_PREFIX = "m1:pre-restore:";
+const INTERNAL_RESET_BACKUP_PREFIX = "m1:pre-reset:";
+const INTERNAL_BACKUP_PREFIXES = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_PREFIX];
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const MAX_ENTRIES = 256;
 const MAX_PHOTO_LENGTH = 120000;
@@ -16,7 +18,7 @@ function isPortableStorageKey(key) {
     && key.length > 0
     && key.length <= 256
     && key !== "gmToken"
-    && !key.startsWith(INTERNAL_BACKUP_PREFIX);
+    && !INTERNAL_BACKUP_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 
 function storageEntryList(entries) {
@@ -179,6 +181,7 @@ export {
   SNAPSHOT_FORMAT,
   SNAPSHOT_VERSION,
   INTERNAL_BACKUP_PREFIX,
+  INTERNAL_RESET_BACKUP_PREFIX,
   MAX_SNAPSHOT_BYTES,
   isPortableStorageKey,
   portableEntries,

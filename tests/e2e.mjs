@@ -4,7 +4,8 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS }
+import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
+  RESET_PROGRESS_CONFIRMATION }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -76,8 +77,9 @@ await Promise.all([A.open, B.open]);
 const a = A.win, b = B.win;
 await a.waitVersion(0); await new Promise(r => setTimeout(r, 300));
 assert(a.state && b.state, "both windows received initial state on hello");
-assert(a.environment === "local" && a.capabilities?.qa && a.capabilities?.restore,
-  "local server is visibly isolated and enables only local recovery/QA capabilities");
+assert(a.environment === "local" && a.capabilities?.qa && a.capabilities?.progressReset
+  && a.capabilities?.restore,
+  "local server is visibly isolated and enables rehearsal, reset, and recovery capabilities");
 
 /* ── onboarding: claim different players ── */
 let r = await a.dispatch("claim", { player: "Brandon" });
@@ -103,8 +105,9 @@ assert(r.ok && r.extra?.gmToken, "GM unlock with 1016 mints token");
 a.gmToken = r.extra.gmToken;
 
 /* clean slate so the run is deterministic */
-r = await a.dispatch("resetTournament", {});
-assert(r.ok, "GM resets tournament for a clean run");
+r = await a.dispatch("resetTournament", { confirm:RESET_PROGRESS_CONFIRMATION });
+assert(r.ok && r.extra?.backupKey?.startsWith("m1:pre-reset:"),
+  "GM resets tournament for a clean run with an internal backup");
 await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
@@ -458,7 +461,7 @@ assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
 }
 
 /* clean up: reset so the real weekend state is not polluted */
-r = await a.dispatch("resetTournament", {});
+r = await a.dispatch("resetTournament", { confirm:RESET_PROGRESS_CONFIRMATION });
 assert(r.ok, "cleanup reset");
 
 log(failures === 0 ? "\nALL CHECKS PASSED" : `\n${failures} FAILURES`);

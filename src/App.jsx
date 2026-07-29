@@ -8,6 +8,7 @@ import {
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
   defaultQaParticipants, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
+  RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
@@ -496,7 +497,8 @@ export default function App() {
   const prevVersion = useRef(0);
   const loaded = ready;
   const saveMine = (k, v) => localSet(k, v);
-  const qaAllowed = environment !== "production" && capabilities.qa === true;
+  const qaAllowed = capabilities.qa === true;
+  const progressResetAllowed = capabilities.progressReset === true;
   const qaActive = qaAllowed && qa;
 
   const events = useMemo(() => allEventsOf(state), [state]);
@@ -506,6 +508,28 @@ export default function App() {
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
   const wagerEv = useMemo(() => wagerBoardEvent(state, events), [state, events]);
   const wagerMarketOpen = !!onDeckEv && onDeckEv.id === wagerEv?.id;
+  const qaStatus = useMemo(() => {
+    const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
+    const pendingWagers = (state.wagers || []).filter(w =>
+      resolveWager(state, w, events).status === "pending").length;
+    const openDuels = (state.duels || []).filter(duel =>
+      duel.status === "open" && !resolveDuel(duel).settled).length;
+    return {
+      environment,
+      version,
+      schema:state.v,
+      profiles:Object.values(state.profiles || {}).filter(profile =>
+        profile && Object.keys(profile).length > 0).length,
+      completed:scored.filter(ev => state.results?.[ev.id]).length,
+      total:scored.length,
+      pendingWagers,
+      openDuels,
+      current:weekendOperation.event?.name || "No active event",
+      phase:weekendOperation.lifecycle?.label || (state.live ? "Weekend live" : "Locker room"),
+      next:weekendOperation.nextAction?.label || "No pending action",
+      blockers:weekendOperation.lifecycle?.blockers || [],
+    };
+  }, [environment, version, state, events, weekendOperation]);
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
   const introHasQueuedReveal = !!intro && (
@@ -882,7 +906,9 @@ export default function App() {
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
-  const resetGame = () => act("resetTournament", {}, "Board reset");
+  const resetGame = () => act("resetTournament", {
+    confirm:RESET_PROGRESS_CONFIRMATION,
+  }, "Game progress reset");
   /* two taps AND an explicit force, because this is the only control that
      discards guest input. The dry run tells us how many people it costs. */
   const rerunOnboard = async () => {
@@ -908,7 +934,7 @@ export default function App() {
     setOnboardStep(firstOnboardStep());
   };
   const toggleQa = () => {
-    if (!qaAllowed) return notify("QA mode is unavailable in production");
+    if (!qaAllowed) return notify("QA mode is unavailable");
     setQa(v => { saveMine("si-qa", v ? "no" : "yes"); return !v; });
   };
 
@@ -1342,7 +1368,9 @@ export default function App() {
     setModal(null);
     runSim(async () => {
       if (simRank(stateRef.current) > pre.rank) {
-        await simDo("resetTournament", {}, "Resetting the board");
+        await simDo("resetTournament", {
+          confirm:RESET_PROGRESS_CONFIRMATION,
+        }, "Resetting game progress");
         await simWait(400);
       }
       await pre.run();
@@ -1360,7 +1388,13 @@ export default function App() {
     setGmToken(r.extra?.gmToken); setGm(true); saveMine("si-gm", "yes");
     setModal(null); notify("Commissioner mode on");
   });
-  const switchPlayer = p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); setModal(null); notify(`Now viewing as ${p}`, null, undefined, p); };
+  const switchPlayer = (p, close = true) => {
+    setMe(p);
+    saveMine("si-me", p);
+    dispatch("claim", { player:p });
+    if (close) setModal(null);
+    notify(`Now viewing as ${p}`, null, undefined, p);
+  };
 
 
   const gmNext = (() => {
@@ -1480,8 +1514,8 @@ export default function App() {
       </div>
 
       <div style={{ flex:1, overflowY:"auto",
-        paddingTop: gm && qaActive && qaTop && !qaMin ? 150 : 12,
-        paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 212 : 92}px + env(safe-area-inset-bottom))` }}>
+        paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 12,
+        paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && (<>
           {me && !state.frozen && (
             <div style={{ padding:"0 16px" }}>
@@ -1530,7 +1564,7 @@ export default function App() {
 
       {gmNext && !modal && (
         <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
-          bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 224
+          bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
             : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
           display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
           border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
@@ -1541,14 +1575,13 @@ export default function App() {
           <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
         </button>
       )}
-      {gm && qaActive && <QABar me={me} onSwitch={switchPlayer} onReset={resetGame} onExit={toggleQa}
+      {gm && qaActive && <QABar me={me} status={qaStatus} onExit={toggleQa}
         minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
         top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}
         sim={sim} onStop={stopSim} guestLens={guestLens}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
-        onJump={() => setModal({ type:"qa" })}
-        onSimBets={qaGuard(simBetsRound)} onPlayNext={runSim(simPlayEvent)}
-        onDuelMe={qaGuard(simDuelMe)} />}
+        onOpen={() => setModal({ type:"qa" })}
+        onPlayNext={runSim(simPlayEvent)} />}
 
       {/* tab bar: night chrome, sun pill marks the active tab */}
       <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
@@ -1584,6 +1617,10 @@ export default function App() {
               {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
             {qaAllowed && <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>
               {qa ? "QA mode off" : "QA mode"}</Btn>}
+            {progressResetAllowed && (
+              <Btn kind="danger" onClick={() => setModal({type:"resetProgress"})}>
+                Reset game progress</Btn>
+            )}
             {capabilities.snapshotExport && <Btn kind="dark" onClick={async () => {
               const exported = await downloadSnapshot();
               notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
@@ -1660,7 +1697,11 @@ export default function App() {
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
       {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
+        status={qaStatus} me={me} guestLens={guestLens}
+        onSwitch={player => switchPlayer(player, false)}
+        onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         onJump={jumpTo} pokerOn={pokerLive(state)}
+        onPlayNext={() => { setModal(null); runSim(simPlayEvent)(); }}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
         onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
@@ -1679,8 +1720,20 @@ export default function App() {
         }}
         onRerun={() => { rerunOnboard(); setModal(null); }}
         onReplayMine={() => { replayOnboardHere(); setModal(null); }}
-        onReset={() => { resetGame(); setModal(null); }}
+        onResetRequest={() => setModal({type:"resetProgress"})}
         onClose={() => setModal(null)} />}
+      {progressResetAllowed && modal?.type === "resetProgress" && (
+        <ResetProgressSheet state={state} environment={environment} busy={!!sim}
+          onClose={() => setModal(null)}
+          onConfirm={async () => {
+            const reset = await resetGame();
+            if (!reset.ok) return;
+            setIntro(null);
+            setReveal(null);
+            setModal(null);
+            setTab("board");
+          }} />
+      )}
       {modal?.type === "freeze" && (
         <Sheet title="Crown the champion" onClose={() => setModal(null)}>
           <p style={pStyle}>Freezes the board and crowns <b style={{color:"var(--accent2)"}}>{disp(state, standings[0]?.player)}</b> at {fmt(standings[0]?.pts)} points. All betting closes.</p>
@@ -5836,9 +5889,8 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
 }
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
-function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
-  onJump, onSimBets, onPlayNext, onDuelMe, minimized, onMin, top, onPos }) {
-  const [confirm, setConfirm] = useState(false);
+function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,
+  onOpen, onPlayNext, minimized, onMin, top, onPos }) {
   const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
     textTransform:"uppercase", padding:"6px 10px", borderRadius:10, cursor:"pointer", flexShrink:0 };
   if (minimized) return (
@@ -5848,7 +5900,8 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
       padding:"9px 14px", cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:14,
       letterSpacing:"0.06em", boxShadow:"var(--shadow-2)" }}>
       {sim && <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)",
-        animation:"si-pulse 1s infinite" }} />}QA</button>
+        animation:"si-pulse 1s infinite" }} />}
+      QA · {status.environment.toUpperCase()}</button>
   );
   return (
     <div style={{ position:"fixed", zIndex:55, left:0, right:0, display:"flex", justifyContent:"center",
@@ -5860,35 +5913,17 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
         padding:"8px 10px", boxShadow:"var(--shadow-3)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
           <span style={{ ...label, fontSize:10, color:"var(--sun)" }}>QA</span>
-          <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1, minWidth:0,
+          <Tag tone={status.environment === "production" ? "flame" : "gold"}>
+            {status.environment}</Tag>
+          <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--bone)", flex:1, minWidth:0,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            Acting as <b style={{ color:"var(--bone)" }}>{me || "nobody"}</b></span>
-          {confirm ? (
-            <>
-              <button onClick={() => { onReset(); setConfirm(false); }} style={{ ...small,
-                background:"var(--clay)", border:"none", color:"var(--bone)" }}>Confirm reset</button>
-              <button onClick={() => setConfirm(false)} style={{ ...small,
-                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Keep</button>
-            </>
-          ) : (
-            <button onClick={() => setConfirm(true)} style={{ ...small,
-              background:"none", border:"1px solid var(--danger-line)", color:"var(--clay)" }}>Reset game</button>
-          )}
+            {status.current} · {status.phase}</span>
           <button onClick={onPos} title="Dock top or bottom" style={{ background:"none", border:"1px solid var(--ghost-line)",
             color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
           <button onClick={onMin} title="Minimize" style={{ background:"none", border:"1px solid var(--ghost-line)",
             color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:12.5, cursor:"pointer", flexShrink:0 }}>–</button>
           <button onClick={onExit} style={{ background:"var(--paper2)", border:"1px solid var(--line)",
             color:"var(--ink)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
-        </div>
-        <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:7 }}>
-          {ROSTER.map(p => (
-            <button key={p} onClick={() => onSwitch(p)} style={{ fontFamily:SANS, fontWeight:600,
-              fontSize:12.5, padding:"6px 11px", borderRadius:99, cursor:"pointer", flexShrink:0,
-              background: me === p ? "var(--sun)" : "var(--paper2)",
-              color: me === p ? "var(--ink0)" : "var(--ink)",
-              border: me === p ? "1px solid var(--ink0)" : "1px solid var(--line)" }}>{p}</button>
-          ))}
         </div>
         {sim ? (
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -5899,18 +5934,18 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
             <button onClick={onStop} style={{ ...small, background:"var(--clay)", border:"none", color:"var(--bone)" }}>Stop</button>
           </div>
         ) : (
-          <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
-            <button onClick={onJump} style={{ ...small,
-              background:"var(--sun)", border:"1px solid var(--ink0)", color:"var(--ink0)" }}>Jump to</button>
-            {[["Play next", onPlayNext], ["Sim bets", onSimBets], ["Duel me", onDuelMe]].map(([lb, fn]) => (
-              <button key={lb} onClick={fn} style={{ ...small,
-                background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>{lb}</button>
-            ))}
+          <div style={{ display:"flex", alignItems:"center", gap:6, overflowX:"auto" }}>
+            <button onClick={onOpen} style={{ ...small,
+              background:"var(--sun)", border:"1px solid var(--ink0)", color:"var(--ink0)" }}>Console</button>
+            <button onClick={onPlayNext} style={{ ...small,
+              background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Run next event</button>
             <button onClick={onLens} style={{ ...small,
               background: guestLens ? "var(--sun)" : "transparent",
               border: guestLens ? "1px solid var(--ink0)" : "1px solid var(--ghost-line)",
               color: guestLens ? "var(--ink0)" : "var(--bone)" }}>
               {guestLens ? "Guest view on" : "Guest view"}</button>
+            <span style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11.5, color:"var(--night-text)",
+              whiteSpace:"nowrap" }}>As <b style={{ color:"var(--bone)" }}>{me || "nobody"}</b></span>
           </div>
         )}
       </div>
@@ -5921,14 +5956,65 @@ function QABar({ me, onSwitch, onReset, onExit, sim, onStop, guestLens, onLens,
 /* QA jump sheet: checkpoints land the board at a named point in the weekend,
    helpers poke one feature at a time. Everything runs the sim driver; the
    bar shows progress and holds the Stop. */
-function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBets,
-  onBustOne, onCountRest, onRerun, onReplayMine, onReset, onClose }) {
-  const [confirm, setConfirm] = useState(false);
+function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
+  onJump, pokerOn, onPlayNext, onDuelMe, onDuels, onBets,
+  onBustOne, onCountRest, onRerun, onReplayMine, onResetRequest, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
+  const stat = (value, name) => (
+    <div style={{ minWidth:0, background:"var(--paper2)", border:"1px solid var(--line)",
+      borderRadius:10, padding:"9px 10px" }}>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:21, color:"var(--ink)",
+        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
+      <div style={{ ...label, fontSize:9.5, marginTop:2 }}>{name}</div>
+    </div>
+  );
   return (
-    <Sheet title="QA" onClose={onClose}>
-      <div style={{ ...sect, marginTop:0 }}>Checkpoints</div>
+    <Sheet title={`QA · ${status.environment}`} onClose={onClose}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 2px 10px" }}>
+        <Tag tone={status.environment === "production" ? "flame" : "gold"}>
+          {status.environment}</Tag>
+        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginLeft:"auto" }}>
+          state v{status.schema} · sync {status.version}</span>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:7 }}>
+        {stat(`${status.completed}/${status.total}`, "Events")}
+        {stat(status.pendingWagers, "Open bets")}
+        {stat(status.openDuels, "Open duels")}
+        {stat(`${status.profiles}/${ROSTER.length}`, "Profiles")}
+      </div>
+      <div style={{ marginTop:9, padding:"10px 12px", borderRadius:10,
+        background:"var(--ink-tint)", border:"1px solid var(--line)" }}>
+        <div style={{ ...label, fontSize:9.5 }}>Current</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, textTransform:"uppercase",
+          color:"var(--ink)", marginTop:2 }}>{status.current} · {status.phase}</div>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
+          Next: {status.next}</div>
+        {status.blockers.length > 0 && (
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay)", marginTop:4 }}>
+            Blocked: {status.blockers.join(" · ")}</div>
+        )}
+      </div>
+
+      <div style={sect}>View as player</div>
+      <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
+        {ROSTER.map(player => (
+          <button key={player} disabled={busy} onClick={() => onSwitch(player)}
+            style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
+              borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
+              background:me === player ? "var(--sun)" : "var(--paper2)",
+              color:me === player ? "var(--ink0)" : "var(--ink)",
+              border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
+              opacity:busy ? 0.45 : 1 }}>{player}</button>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
+        <Btn kind={guestLens ? "primary" : "ghost"} onClick={onLens}>
+          {guestLens ? "Guest view on" : "Guest view"}</Btn>
+        <Btn kind="ghost" onClick={onReplayMine}>Redo check-in here</Btn>
+      </div>
+
+      <div style={sect}>Rehearsal checkpoints</div>
       {presets.map(pre => {
         const reached = rank >= pre.rank;
         const resets = rank > pre.rank;
@@ -5936,9 +6022,9 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
           <button key={pre.key} disabled={busy} onClick={() => onJump(pre)}
             style={{ width:"100%", display:"flex", alignItems:"center", gap:10, textAlign:"left",
               background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-              padding:"10px 12px", marginBottom:7, cursor:"pointer", opacity: busy ? 0.45 : 1 }}>
+              padding:"10px 12px", marginBottom:7, cursor:"pointer", opacity:busy ? 0.45 : 1 }}>
             <span style={{ width:8, height:8, borderRadius:99, flexShrink:0,
-              background: reached ? "var(--sun)" : "transparent",
+              background:reached ? "var(--sun)" : "transparent",
               border:"1.5px solid " + (reached ? "var(--sun)" : "var(--muted)") }} />
             <span style={{ flex:1, minWidth:0 }}>
               <span style={{ display:"block", fontFamily:DISPLAY, fontWeight:700, fontSize:16.5,
@@ -5949,35 +6035,84 @@ function QASheet({ rank, presets, busy, onJump, pokerOn, onDuelMe, onDuels, onBe
           </button>
         );
       })}
-      <div style={sect}>Helpers</div>
+
+      <div style={sect}>Quick tests</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <Btn kind="primary" disabled={busy} onClick={onPlayNext}>Run next event</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onBets}>Add bets</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuelMe}>Duel me</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuels}>Duels round</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onBets}>Sim bets</Btn>
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onCountRest}>Count the rest</Btn>}
       </div>
-      <div style={sect}>Guest check-in</div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        <Btn kind="ghost" onClick={onReplayMine}>Redo on this phone</Btn>
-        {/* the only QA control that throws away something a guest chose, so it
-            asks twice and says what it costs. Reset game keeps every claim. */}
+
+      <div style={sect}>All phones</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
         {confirmRerun
           ? <Btn kind="flame" onClick={() => { setConfirmRerun(false); onRerun(); }}>
-              Confirm, drops every chip</Btn>
-          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Reopen for everyone</Btn>}
+              Confirm, release every chip</Btn>
+          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Reopen check-in</Btn>}
+        {confirmRerun && <Btn kind="ghost" onClick={() => setConfirmRerun(false)}>Keep it closed</Btn>}
       </div>
       <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
-        This phone starts the six-step check-in again. Reopening it for everyone
-        releases every claimed chip color.</div>
-      <div style={sect}>Board</div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        {confirm ? (
-          <>
-            <Btn kind="flame" onClick={onReset}>Confirm reset</Btn>
-            <Btn kind="ghost" onClick={() => setConfirm(false)}>Keep</Btn>
-          </>
-        ) : <Btn kind="danger" onClick={() => setConfirm(true)}>Reset game</Btn>}
+        Reopening check-in releases every claimed chip color. Profiles, photos,
+        ratings, shirt sizes, and flights stay saved.</div>
+
+      <div style={{ ...sect, color:"var(--clay)" }}>Danger zone</div>
+      <div style={{ border:"1px solid var(--danger-line)", borderRadius:10, padding:"11px 12px" }}>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
+          Reset game progress</div>
+        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.45,
+          margin:"4px 0 9px" }}>
+          Clears the rehearsal and keeps people, travel, ratings, and the event setup.</div>
+        <Btn kind="danger" disabled={busy} onClick={onResetRequest}>Review reset</Btn>
+      </div>
+    </Sheet>
+  );
+}
+
+function ResetProgressSheet({ state, environment, busy, onClose, onConfirm }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const completed = Object.keys(state.results || {}).length;
+  const listStyle = { margin:"5px 0 0", paddingLeft:18, fontFamily:SANS, fontSize:13,
+    lineHeight:1.55, color:"var(--muted)" };
+  return (
+    <Sheet title="Reset game progress" onClose={onClose}>
+      <div style={{ margin:"0 16px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+          <Tag tone={environment === "production" ? "flame" : "gold"}>{environment}</Tag>
+          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)" }}>
+            {completed} result{completed === 1 ? "" : "s"} currently posted</span>
+        </div>
+        <div style={{ ...label, color:"var(--green)" }}>Kept</div>
+        <ul style={listStyle}>
+          <li>Profiles, photos, numbers, shirts, flights, and chip designs</li>
+          <li>Device claims, private ratings, and trip details</li>
+          <li>Event additions, edits, and order</li>
+        </ul>
+        <div style={{ ...label, color:"var(--clay)", marginTop:14 }}>Cleared</div>
+        <ul style={listStyle}>
+          <li>Results, wagers, rulings, draws, brackets, heats, pools, and drafts</li>
+          <li>Duels, poker, shelved events, and weekend live or frozen state</li>
+        </ul>
+        <label style={{ display:"flex", alignItems:"flex-start", gap:10, margin:"16px 0 12px",
+          padding:"11px 12px", borderRadius:10, background:"var(--paper2)", border:"1px solid var(--line)",
+          cursor:busy ? "default" : "pointer" }}>
+          <input type="checkbox" checked={confirmed} disabled={busy}
+            onChange={event => setConfirmed(event.target.checked)}
+            style={{ marginTop:2, accentColor:"var(--clay)" }} />
+          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, lineHeight:1.45, color:"var(--ink)" }}>
+            Reset the {environment} game on every connected screen.</span>
+        </label>
+        {busy && (
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
+            Stop the running rehearsal first.</div>
+        )}
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn kind="flame" disabled={!confirmed || busy} onClick={onConfirm}
+            style={{ flex:1 }}>Reset progress</Btn>
+          <Btn kind="ghost" onClick={onClose}>Keep it</Btn>
+        </div>
       </div>
     </Sheet>
   );

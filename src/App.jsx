@@ -1542,11 +1542,8 @@ export default function App() {
                 onChallenge={p => setModal({type:"player", p})}
                 onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
                 finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
-            : <LockerRoom state={state} me={me} gm={gmView}
-                onProfile={() => setModal({type:"profile"})} onStart={() => setLive(true)}
-                onLogistics={vals => act("saveLogistics", vals, "Trip details saved")}
-                onSize={(p, sz) => act("saveProfile", { player: p, display: state.profiles?.[p]?.display || p, size: sz })}
-                onNotify={notify}
+            : <LockerRoom state={state} me={me}
+                onProfile={() => setModal({type:"profile"})}
                 onChallenge={p => setModal({type:"player", p})} />}
 
         </>)}
@@ -1608,7 +1605,13 @@ export default function App() {
         save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
-          <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <div style={{ ...label, marginBottom:7 }}>Weekend details</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:18 }}>
+            <Btn kind="ghost" onClick={() => setModal({type:"logistics"})}>Trip details</Btn>
+            <Btn kind="ghost" onClick={() => setModal({type:"travelSheet"})}>Travel sheet</Btn>
+          </div>
+          <div style={{ ...label, marginBottom:7 }}>Game controls</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {state.onDeck && (
               <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
                 Close betting</Btn>
@@ -1617,20 +1620,43 @@ export default function App() {
               {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
             {qaAllowed && <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>
               {qa ? "QA mode off" : "QA mode"}</Btn>}
-            {progressResetAllowed && (
-              <Btn kind="danger" onClick={() => setModal({type:"resetProgress"})}>
-                Reset game progress</Btn>
-            )}
             {capabilities.snapshotExport && <Btn kind="dark" onClick={async () => {
               const exported = await downloadSnapshot();
               notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
                 : exported.error || "Export failed");
             }}>Export snapshot</Btn>}
-            <Btn kind="dark" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>Exit GM</Btn>
-            {state.frozen
+            {state.live && (state.frozen
               ? <Btn kind="danger" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</Btn>
-              : <Btn onClick={() => setModal({type:"freeze"})}>Crown the champion</Btn>}
+              : <Btn onClick={() => setModal({type:"freeze"})}>Crown the champion</Btn>)}
           </div>
+          <div style={{ ...label, margin:"18px 0 7px" }}>Access and recovery</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {progressResetAllowed && (
+              <Btn kind="danger" onClick={() => setModal({type:"resetProgress"})}>
+                Reset game progress</Btn>
+            )}
+            <Btn kind="ghost" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>
+              Exit GM</Btn>
+          </div>
+        </Sheet>
+      )}
+      {gmView && modal?.type === "logistics" && (
+        <Sheet title="Trip details" onClose={() => setModal(null)}>
+          <LogisticsEditor state={state} onSave={async vals => {
+            const saved = await act("saveLogistics", vals, "Trip details saved");
+            if (saved.ok) setModal(null);
+          }} />
+        </Sheet>
+      )}
+      {gmView && modal?.type === "travelSheet" && (
+        <Sheet title="Travel sheet" onClose={() => setModal(null)}>
+          <TravelApparelSheet state={state}
+            onSize={(p, sz) => act("saveProfile", {
+              player:p,
+              display:state.profiles?.[p]?.display || p,
+              size:sz,
+            })}
+            onNotify={notify} />
         </Sheet>
       )}
       {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gmView}
@@ -2963,10 +2989,12 @@ function sheetText(state) {
 /* GM's weekend sheet: the address and host flights everyone reads during
    onboarding and in the guide. Saved as one action */
 const LOGI_FIELDS = [
-  { k:"venue",     ph:"House address" },
-  { k:"venueNote", ph:"Door code, parking, anything they need" },
-  { k:"checkIn",   ph:"Check in, e.g. Fri Oct 30, 4:00 PM", half:true },
-  { k:"checkOut",  ph:"Checkout, e.g. Sun Nov 1, 10:00 AM", half:true },
+  { k:"venue", label:"House address", ph:"10848 North Aberdeen Road, Scottsdale, AZ",
+    autoComplete:"street-address" },
+  { k:"venueNote", label:"Arrival notes", ph:"Door code, parking, or anything guests need",
+    multiline:true, optional:true },
+  { k:"checkIn", label:"Check-in", ph:"Fri Oct 30, 4:00 PM" },
+  { k:"checkOut", label:"Checkout", ph:"Sun Nov 1, 10:00 AM" },
 ];
 function LogisticsEditor({ state, onSave }) {
   const lg = state.logistics || {};
@@ -2979,40 +3007,123 @@ function LogisticsEditor({ state, onSave }) {
     || !same(hostIn, lg.hostIn) || !same(hostOut, lg.hostOut);
   const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
     color:"var(--ink)", outline:"none", width:"100%", padding:"12px 13px",
-    fontFamily:SANS, fontWeight:600, fontSize:14 };
+    fontFamily:SANS, fontWeight:600, fontSize:15, boxSizing:"border-box" };
   return (
-    <div style={{ marginTop:18, background:"var(--paper)", border:"1px solid var(--line)",
-      borderRadius:14, padding:"12px 13px" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-        <div style={{ ...label, flex:1 }}>Trip details guests see</div>
-        <Tag>Onboarding + Rules</Tag>
+    <div>
+      <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.5, color:"var(--muted2)",
+        marginBottom:18 }}>
+        Guests see this during check-in and in Rules.
       </div>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-        {LOGI_FIELDS.map(f => (
-          <input key={f.k} value={form[f.k]} placeholder={f.ph} aria-label={f.ph} maxLength={240}
-            onChange={e => setForm(x => ({ ...x, [f.k]: e.target.value }))}
-            style={{ ...field, flex: f.half ? "1 1 45%" : "1 1 100%", minWidth:0 }} />
-        ))}
+      <div>
+        {LOGI_FIELDS.map(f => {
+          const inputProps = {
+            value:form[f.k],
+            placeholder:f.ph,
+            "aria-label":f.label,
+            maxLength:240,
+            autoComplete:f.autoComplete,
+            onChange:e => setForm(x => ({ ...x, [f.k]:e.target.value })),
+            style:{ ...field, minHeight:f.multiline ? 82 : 48,
+              resize:f.multiline ? "vertical" : undefined },
+          };
+          return (
+            <label key={f.k} style={{ display:"block", marginBottom:14 }}>
+              <span style={{ ...label, display:"block", marginBottom:6 }}>
+                {f.label}{f.optional && <span style={{ fontWeight:600, textTransform:"none",
+                  letterSpacing:0 }}> · optional</span>}
+              </span>
+              {f.multiline ? <textarea {...inputProps} /> : <input {...inputProps} />}
+            </label>
+          );
+        })}
       </div>
-      <div style={{ marginTop:14 }}>
+      <div style={{ borderTop:"1px solid var(--line)", paddingTop:16, marginTop:4 }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
+          color:"var(--ink)", marginBottom:4 }}>Your flights</div>
+        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45, color:"var(--muted)",
+          marginBottom:14 }}>Shown to guests for airport coordination.</div>
         <TravelLists />
         <LegField lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
         <LegField lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
       </div>
       <Btn disabled={!dirty} onClick={() => onSave({ ...form, hostIn, hostOut })}
-        style={{ width:"100%", marginTop:4 }}>Save</Btn>
+        style={{ width:"100%", marginTop:8 }}>Save trip details</Btn>
     </div>
   );
 }
-function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, onLogistics, onNotify }) {
+
+function TravelApparelSheet({ state, onSize, onNotify }) {
   const copySheet = st => {
     const txt = sheetText(st);
-    navigator.clipboard?.writeText(txt)
+    const fallback = () => {
+      try { window.prompt("Copy the sheet", txt); }
+      catch { onNotify?.("Could not copy"); }
+    };
+    if (!navigator.clipboard?.writeText) return fallback();
+    navigator.clipboard.writeText(txt)
       .then(() => onNotify?.("Sheet copied"))
-      /* clipboard is blocked outside https and in some in-app browsers, so
-         fall back to something you can still select by hand */
-      .catch(() => { try { window.prompt("Copy the sheet", txt); } catch { onNotify?.("Could not copy"); } });
+      /* Clipboard is blocked outside HTTPS and in some in-app browsers. */
+      .catch(fallback);
   };
+  const profs = state.profiles || {};
+  const checkedIn = ROSTER.filter(p => profs[p]).length;
+  const shirts = ROSTER.filter(p => profs[p]?.size).length;
+  const flights = ROSTER.filter(p => profs[p]?.flightsBooked === true
+    || profs[p]?.flightIn || profs[p]?.flightOut).length;
+  const stat = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
+    padding:"9px 8px", textAlign:"center" };
+  return (
+    <div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginBottom:12 }}>
+        {[["Checked in", checkedIn], ["Shirts", shirts], ["Flights", flights]].map(([lb, value]) => (
+          <div key={lb} style={stat}>
+            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, color:"var(--ink)",
+              lineHeight:1 }}>{value}/{ROSTER.length}</div>
+            <div style={{ ...label, fontSize:9, marginTop:4 }}>{lb}</div>
+          </div>
+        ))}
+      </div>
+      <Btn kind="ghost" onClick={() => copySheet(state)} style={{ width:"100%", marginBottom:14 }}>
+        Copy spreadsheet data</Btn>
+      <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px", gap:8,
+        padding:"0 8px 7px", borderBottom:"1px solid var(--line)" }}>
+        {["Player", "No.", "Shirt"].map(x => <span key={x} style={{ ...label,
+          textAlign:x === "Player" ? "left" : "center" }}>{x}</span>)}
+      </div>
+      {ROSTER.map(p => {
+        const pr = profs[p];
+        const legs = [pr?.flightIn && `In: ${legText(pr.flightIn, "in")}`,
+          pr?.flightOut && `Out: ${legText(pr.flightOut, "out")}`].filter(Boolean);
+        const travelStatus = legs.length ? legs.join(" · ")
+          : pr?.flightsBooked === false ? "Flights not booked" : "No flight response";
+        return (
+          <div key={p} style={{ padding:"10px 8px", borderBottom:"1px solid var(--line)" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px",
+              gap:8, alignItems:"center" }}>
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
+                color:pr ? "var(--ink)" : "var(--muted)" }}>{p}</span>
+              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, textAlign:"center",
+                color:pr?.num != null ? "var(--accent2)" : "var(--muted)" }}>
+                {pr?.num != null ? `#${pr.num}` : "—"}</span>
+              <select value={pr?.size || ""} aria-label={`${p} shirt size`}
+                onChange={e => onSize(p, e.target.value || null)}
+                style={{ width:"100%", height:38, background:"var(--paper2)", border:"1px solid var(--line)",
+                  borderRadius:8, color:pr?.size ? "var(--ink)" : "var(--muted)", fontFamily:SANS,
+                  fontWeight:700, fontSize:13, textAlign:"center", outline:"none" }}>
+                <option value="">—</option>
+                {SIZES.map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </div>
+            <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:5,
+              color:legs.length ? "var(--muted2)" : "var(--muted)" }}>{travelStatus}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LockerRoom({ state, me, onProfile, onChallenge }) {
   const profs = state.profiles || {};
   const inCount = ROSTER.filter(p => profs[p]).length;
   return (
@@ -3050,49 +3161,6 @@ function LockerRoom({ state, me, gm, onProfile, onStart, onSize, onChallenge, on
         })}
       </div>
       {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
-      {gm && (
-        <>
-          <LogisticsEditor state={state} onSave={onLogistics} />
-          <div style={{ marginTop:12, background:"var(--paper)", border:"1px solid var(--line)",
-            borderRadius:14, padding:"12px 13px" }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-              <span style={label}>Travel and apparel sheet</span>
-              {/* the sheet you actually order from lives in a supplier form or
-                  a spreadsheet, not on a phone, so it has to be able to leave */}
-              <button onClick={() => copySheet(state)} style={{ marginLeft:"auto", background:"none",
-                border:"none", padding:0, cursor:"pointer", fontFamily:SANS, fontWeight:700,
-                fontSize:11, letterSpacing:"0.1em", textTransform:"uppercase",
-                color:"var(--accent2)" }}>Copy sheet</button>
-            </div>
-            {ROSTER.map(p => {
-              const pr = profs[p];
-              const legs = [pr?.flightIn && `in ${legText(pr.flightIn, "in")}`,
-                pr?.flightOut && `out ${legText(pr.flightOut, "out")}`].filter(Boolean).join(" · ");
-              const travelStatus = legs || (pr?.flightsBooked === false ? "not booked yet" : "no flight response");
-              return (
-                <div key={p} style={{ padding:"6px 0", borderBottom:"1px solid var(--line)" }}>
-                  <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:SANS, fontSize:14 }}>
-                    <span style={{ flex:1, fontWeight:600, color:"var(--ink)" }}>{p}</span>
-                    <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:36,
-                      color: pr?.num != null ? "var(--accent2)" : "var(--line)" }}>
-                      {pr?.num != null ? `#${pr.num}` : "?"}</span>
-                    <button onClick={() => onSize(p, SIZES[(SIZES.indexOf(pr?.size) + 1) % SIZES.length])}
-                      title="Tap to cycle the size"
-                      style={{ width:44, fontFamily:SANS, fontWeight:700, fontSize:14, textAlign:"right",
-                        background:"none", border:"none", cursor:"pointer", padding:0,
-                        color: pr?.size ? "var(--ink)" : "var(--clay)" }}>
-                      {pr?.size || "?"}</button>
-                  </div>
-                  <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.4, marginTop:1,
-                    color: legs ? "var(--muted2)" : pr?.flightsBooked === false ? "var(--muted)" : "var(--clay)" }}>
-                    {travelStatus}</div>
-                </div>
-              );
-            })}
-            <Btn onClick={onStart} style={{ width:"100%", marginTop:12 }}>Start the weekend</Btn>
-          </div>
-        </>
-      )}
     </div>
   );
 }

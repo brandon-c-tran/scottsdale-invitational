@@ -7,7 +7,7 @@ import {
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
-  defaultQaParticipants, OVERFLOW_ROLES,
+  defaultQaParticipants, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
 } from "../shared/core.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
@@ -500,6 +500,7 @@ export default function App() {
   const qaActive = qaAllowed && qa;
 
   const events = useMemo(() => allEventsOf(state), [state]);
+  const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
@@ -806,7 +807,7 @@ export default function App() {
   }, [state.onDeck, ready, reveal, rememberReveal]);
 
   /* every mutation is an action; the server validates, applies, broadcasts */
-  const act = (type, payload, okMsg) => dispatch(type, payload).then(r => {
+  const act = (type, payload, okMsg, options) => dispatch(type, payload, options).then(r => {
     if (!r.ok) notify(r.error || "Rejected");
     else if (okMsg) notify(okMsg);
     return r;
@@ -819,9 +820,20 @@ export default function App() {
   };
   const setLive = on => act("setLive", { on });
   const saveSeeds = r => act("saveSeeds", { player: me, ratings: r });
-  const saveResult = (ev, slots) => act("saveResult", { evId: ev.id, slots });
-  const clearResult = ev => act("clearResult", { evId: ev.id });
+  const saveResult = (ev, slots, options = {}) =>
+    act("saveResult", { evId:ev.id, slots, ...options });
+  const clearResult = (ev, correctionReason) =>
+    act("clearResult", { evId:ev.id, confirmClear:true, correctionReason });
   const setOnDeck = id => act("setOnDeck", { id });
+  const startEvent = ev => act("startEvent", { evId:ev.id }, `${ev.name} is underway`);
+  const openResultEntry = async ev => {
+    if (!state.results[ev.id] && resolveEventLifecycle(state, ev).phase !== "result-entry") {
+      const opened = await act("beginResultEntry", { evId:ev.id });
+      if (!opened.ok) return false;
+    }
+    setModal({ type:"result", ev });
+    return true;
+  };
   const shelveEvent = (id, on) => act("shelve", { id, on });
   const addCustomEvent = ev => act("addEvent", { ev });
   const editEvent = (id, patch) => act("editEvent", { id, patch }, "Saved");
@@ -863,8 +875,8 @@ export default function App() {
   const playDuelRun = (id, ms, foul) => act("playDuel", { id, ms, foul });
   const declineDuel = id => act("declineDuel", { id }, "Declined");
   const voidDuel = id => act("voidDuel", { id }, "Duel voided");
-  const placeWager = w => act("placeWager", { wager: w }, "Chip down");
-  const retractWager = id => act("retractWager", { id }, "Chip back");
+  const placeWager = w => act("placeWager", { wager: w }, "Chip down", { retry:true });
+  const retractWager = id => act("retractWager", { id }, "Chip back", { retry:true });
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
@@ -1070,6 +1082,8 @@ export default function App() {
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(600);
     await simBetsRound();
+    await simDo("setOnDeck", { id:null }, `Betting locks on ${ev.name}`);
+    await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
     let br = stateRef.current.brackets[ev.id];
     if (br) {
       for (let r = 0; r < br.rounds.length; r++) {
@@ -1122,6 +1136,7 @@ export default function App() {
       const order = shuffle(ROSTER);
       slots = [[order[0]], table[1] > 0 ? [order[1]] : [], table[2] > 0 ? [order[2]] : []];
     }
+    await simDo("beginResultEntry", { evId:ev.id }, `Opening the ${ev.name} scorecard`);
     await simDo("saveResult", { evId: ev.id, slots }, `Posting the ${ev.name} result`);
     await simWait(800);
   };
@@ -1348,34 +1363,26 @@ export default function App() {
 
   const gmNext = (() => {
     if (!gmView || state.frozen || !ready) return null;
-    const ev = events.find(e => !state.results[e.id] && !state.shelved[e.id]);
-    if (!ev) return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
-    if (ev.game === "poker" && ev.finale) {
-      if (!state.poker) return { label:"Set up the poker table", run:() => { pokerSetup(); setModal({type:"pokerBuyin"}); } };
-      if (!state.poker.startedAt) return { label:"Start the table", run:() => setModal({type:"pokerBuyin"}) };
-      return { label:"Run the table", run:() => setModal({type:"pokerResult"}) };
-    }
-    /* one tap, two scenes, in the order a broadcast would run them: the event
-       announces itself, then the teams drop out of it. Drawing first put the
-       matchups on screen before anyone knew what the game was. */
-    if (ev.teamCfg && !state.draws[ev.id]) {
-      const compatibility = validateEventParticipants(ev, ROSTER, ROSTER);
-      if (!compatibility.ok)
-        return { label:`Choose players for ${ev.name}`, run:() => setModal({type:"event", ev}) };
-      return { label:`Announce and draw ${ev.name}`, run: async () => {
-        if (state.onDeck !== ev.id) await setOnDeck(ev.id);
-        runDraw(ev, ROSTER);
-      } };
-    }
-    if (state.onDeck !== ev.id)
-      return { label:`Open betting on ${ev.name}`, run:() => setOnDeck(ev.id) };
-    const br = state.brackets[ev.id];
-    if (br && bracketChampion(br) === null)
-      return { label:`Advance the ${ev.name} bracket`, run:() => setModal({type:"bracket", ev}) };
-    const st = state.stages[ev.id];
-    if (st && (!stageFinalists(st) || st.finalWinner === null || st.finalWinner === undefined))
-      return { label:`Advance the ${st.kind === "heats" ? "heats" : "pools"}`, run:() => setModal({type:"event", ev}) };
-    return { label:`Post the ${ev.name} result`, run:() => setModal({type:"result", ev}) };
+    const { event:ev, nextAction } = weekendOperation;
+    if (!ev || nextAction?.type === "crown-champion")
+      return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
+    if (!nextAction) return null;
+    const run = {
+      "setup-poker":() => { pokerSetup(); setModal({type:"pokerBuyin"}); },
+      "start-poker":() => setModal({type:"pokerBuyin"}),
+      "run-poker":() => setModal({type:"pokerResult"}),
+      "post-poker-result":() => setModal({type:"pokerResult"}),
+      "prepare-draw":() => setModal({type:"event", ev}),
+      "continue-draft":() => setModal({type:"event", ev}),
+      "open-betting":() => setOnDeck(ev.id),
+      "lock-betting":() => setOnDeck(null),
+      "start-event":() => startEvent(ev),
+      "advance-bracket":() => setModal({type:"bracket", ev}),
+      "advance-stages":() => setModal({type:"event", ev}),
+      "enter-result":() => openResultEntry(ev),
+      "post-result":() => setModal({type:"result", ev}),
+    }[nextAction.type];
+    return run ? { label:nextAction.label, run } : null;
   })();
 
   if (tv) {
@@ -1585,8 +1592,14 @@ export default function App() {
       )}
       {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gmView}
         onClose={() => setModal(null)}
-        enterResult={() => setModal({type:"result", ev:modal.ev})}
-        clearRes={() => { clearResult(modal.ev); setModal(null); notify("Result cleared, wagers reopened"); }}
+        enterResult={() => openResultEntry(modal.ev)}
+        clearRes={async reason => {
+          const cleared = await clearResult(modal.ev, reason);
+          if (cleared.ok) {
+            setModal(null);
+            notify("Result cleared for correction. Betting stays closed.");
+          }
+        }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
         onDraw={(players, roles) => { runDraw(modal.ev, players, roles); setModal(null); }}
         onClearDraw={() => clearDraw(modal.ev)}
@@ -1595,6 +1608,7 @@ export default function App() {
         onThrough={(g,k) => toggleThrough(modal.ev.id, g, k)}
         onFinal={k => setFinalWinner(modal.ev.id, k)}
         onDeckToggle={() => { setOnDeck(state.onDeck === modal.ev.id ? null : modal.ev.id); }}
+        onStart={() => startEvent(modal.ev)}
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
         openBracket={() => setModal({type:"bracket", ev:modal.ev})}
@@ -1602,7 +1616,7 @@ export default function App() {
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
-        onPostResult={() => setModal({type:"result", ev:modal.ev})} />}
+        onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool}
         onClose={() => setModal({type:"event", ev:modal.ev})}
@@ -1613,7 +1627,16 @@ export default function App() {
         onCancel={() => { cancelDraft(modal.ev.id); setModal({type:"event", ev:modal.ev}); }} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
-        save={slots => { saveResult(modal.ev, slots); setModal(null); notify(`${modal.ev.name} posted, wagers settled`); }} />}
+        save={async (slots, options) => {
+          const saved = await saveResult(modal.ev, slots, options);
+          if (saved.ok) {
+            setModal(null);
+            notify(saved.extra?.unchanged
+              ? `${modal.ev.name} result is unchanged`
+              : `${modal.ev.name} posted, wagers settled`);
+          }
+          return saved;
+        }} />}
       {modal?.type === "addEvent" && <AddEventSheet state={state} onClose={() => setModal(null)}
         save={ev => { addCustomEvent(ev); setModal(null); notify(`${ev.name} added`); }} />}
       {modal?.type === "pokerBuyin" && <PokerBuyinSheet state={state} standings={standings} gm={gmView}
@@ -3754,7 +3777,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 
 /* ─────────── event sheet ─────────── */
 function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
-  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onShelve, onRemove, openBracket, openDraft }) {
+  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove, openBracket, openDraft }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -3765,6 +3788,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [confirmRedraw, setConfirmRedraw] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [clearReason, setClearReason] = useState("");
   const [confirmScrap, setConfirmScrap] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [howTo, setHowTo] = useState(false);
@@ -3784,6 +3808,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [stageCfgOpen, setStageCfgOpen] = useState(false);
   const [nGroups, setNGroups] = useState(null);
   const [advance, setAdvance] = useState(1);
+  const lifecycle = resolveEventLifecycle(state, ev);
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
   const participantFit = validateEventParticipants(ev, inPlayers, ROSTER);
   const overflowAssignments = outs.map(player => ({
@@ -3803,7 +3828,9 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
         <GameMark id={ev.game} size={38} />
         <Tag tone={ev.finale ? "flame" : "gold"}>{ev.value ? `${ev.value} pts` : "Poker"}</Tag>
         <Tag>{ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"}</Tag>
-        {state.onDeck === ev.id && <Tag tone="flame">On deck</Tag>}
+        <Tag tone={lifecycle.phase === "complete" ? "green"
+          : lifecycle.phase === "betting-open" || lifecycle.phase === "in-progress" ? "flame" : undefined}>
+          {lifecycle.label}</Tag>
         {shelvedNow && <Tag>Shelved</Tag>}
       </div>
       {ev.desc && <p style={{ ...pStyle, marginBottom: GAMES[ev.game] ? 8 : 14 }}>{ev.desc}</p>}
@@ -4015,13 +4042,50 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           )}
 
           <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-            {!isPoker && <Btn onClick={enterResult} style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
-              {res ? "Edit result" : "Post result"}</Btn>}
-            {!res && !isPoker && <Btn kind="dark" onClick={onDeckToggle} style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
-              {state.onDeck === ev.id ? "Close betting" : "Open betting"}</Btn>}
-            {res && !confirmClear && <Btn kind="danger" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</Btn>}
-            {res && confirmClear && <Btn kind="danger" onClick={clearRes} style={{ flex:1 }}>Clear, sure</Btn>}
+            {res && !isPoker && <Btn onClick={enterResult}
+              style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Edit result</Btn>}
+            {!res && lifecycle.nextAction?.type === "open-betting" && (
+              <Btn kind="dark" onClick={onDeckToggle}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open betting</Btn>
+            )}
+            {!res && lifecycle.nextAction?.type === "lock-betting" && (
+              <Btn kind="dark" onClick={onDeckToggle}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Lock betting</Btn>
+            )}
+            {!res && lifecycle.nextAction?.type === "start-event" && (
+              <Btn onClick={onStart}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Start event</Btn>
+            )}
+            {!res && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type) && (
+              <Btn disabled={!lifecycle.nextAction?.enabled} onClick={enterResult}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
+                {lifecycle.nextAction.type === "enter-result" ? "Enter result" : "Post result"}</Btn>
+            )}
+            {res && !confirmClear && (
+              <Btn kind="danger" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</Btn>
+            )}
           </div>
+          {!res && lifecycle.blockers?.length > 0 && (
+            <div style={{ ...pStyle, marginTop:8, color:"var(--muted)", fontSize:13 }}>
+              Next: {lifecycle.blockers[0]}</div>
+          )}
+          {res && confirmClear && (
+            <div style={{ marginTop:10, padding:"12px 13px", background:"var(--paper2)",
+              border:"1px solid var(--line)", borderRadius:14 }}>
+              <div style={{ ...label, marginBottom:6 }}>Why is this result being cleared?</div>
+              <input value={clearReason} onChange={event => setClearReason(event.target.value)}
+                maxLength={100} placeholder="Example: signed scorecard needs re-entry"
+                style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)",
+                  borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
+                  fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <Btn kind="danger" disabled={!clearReason.trim()}
+                  onClick={() => clearRes(clearReason)} style={{ flex:1 }}>Clear official result</Btn>
+                <Btn kind="ghost" onClick={() => { setConfirmClear(false); setClearReason(""); }}
+                  style={{ flex:1 }}>Keep it</Btn>
+              </div>
+            </div>
+          )}
           {editOpen ? (
             <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
               padding:"12px 13px", marginTop:8 }}>
@@ -4388,8 +4452,11 @@ function ResultSheet({ ev, state, onClose, save }) {
   const [slots, setSlots] = useState(initial);
   const [active, setActive] = useState(0);
   const [byPlayer, setByPlayer] = useState(false);
+  const [confirmCorrection, setConfirmCorrection] = useState(false);
+  const [correctionReason, setCorrectionReason] = useState("");
   const draw = state.draws[ev.id];
   const teamMode = !!draw?.teams?.length && ev.kind !== "solo" && !byPlayer;
+  const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const taken = p => slots.findIndex(s => s.includes(p));
   const toggle = p => setSlots(prev => {
     const nx = prev.map(s => [...s]);
@@ -4454,8 +4521,36 @@ function ResultSheet({ ev, state, onClose, save }) {
           fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"0 0 14px", display:"block" }}>
           {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
       )}
-      <Btn disabled={slots[0].length===0} onClick={() => save(slots)} style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
-        Post result</Btn>
+      {!existing ? (
+        <Btn disabled={slots[0].length===0} onClick={() => save(slots)}
+          style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
+          Post official result</Btn>
+      ) : !confirmCorrection ? (
+        <Btn disabled={slots[0].length===0 || unchanged} onClick={() => setConfirmCorrection(true)}
+          style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
+          {unchanged ? `Official result · revision ${existing.revision || 1}` : "Review result correction"}</Btn>
+      ) : (
+        <div style={{ marginTop:4, padding:"12px 13px", background:"var(--paper2)",
+          border:"1px solid var(--line)", borderRadius:14 }}>
+          <div style={{ ...label, marginBottom:6 }}>Why is the official result changing?</div>
+          <input value={correctionReason} onChange={event => setCorrectionReason(event.target.value)}
+            maxLength={100} placeholder="Example: 2nd and 3rd were reversed"
+            style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)",
+              borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
+              fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn kind="danger" disabled={!correctionReason.trim()}
+              onClick={() => save(slots, {
+                confirmOverwrite:true,
+                correctionReason,
+              })} style={{ flex:1 }}>Replace official result</Btn>
+            <Btn kind="ghost" onClick={() => {
+              setConfirmCorrection(false);
+              setCorrectionReason("");
+            }} style={{ flex:1 }}>Keep current</Btn>
+          </div>
+        </div>
+      )}
     </Sheet>
   );
 }
@@ -5036,10 +5131,9 @@ function wagerPickLabel(state, w, events) {
    quick as stacks grow. Anything unaffordable sits gray in the rack */
 const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
 
-/* one line per bettor per pick: five taps on the same team read as one wager
-   with the total, never five rows. Identical picks settle identically, so
-   merging within a status is safe and the deltas just add. w.ids carries
-   every underlying wager id (void and retract act on all of them). */
+/* New wagers are aggregated by the server. This compatibility merge keeps
+   older snapshots with separate same-pick records equally readable. w.ids
+   carries every underlying record id for commissioner void actions. */
 function mergeWagerLines(list) {
   const key = ({ w, r }) => [w.player, r.status, w.kind, w.eventId,
     w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick)
@@ -5064,8 +5158,8 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, onEvents, onPick, 
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
     [state, events]);
   const pending = resolved.filter(x => x.r.status === "pending");
-  /* the lists show merged lines; the raw pending set still drives the chips
-     riding each pick (one chip per tap is the point there) */
+  /* One pending server record now represents the bettor's total on that pick;
+     legacy separate records are merged for the list below. */
   const pendingLines = mergeWagerLines(pending);
   const settledLines = mergeWagerLines(resolved.filter(x => x.r.status !== "pending"));
   /* thirteen people betting several picks each turns the settled list into a
@@ -6400,6 +6494,9 @@ function TVDraft({ state, ev, d }) {
 }
 
 function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, onExit }) {
+  const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
+  const operationEv = operation.event;
+  const operationLifecycle = operation.lifecycle;
   const liveBracketEv = useMemo(() => {
     const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
     if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
@@ -6425,7 +6522,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   });
   const tvImpact = useMemo(() => latest && !latest.res.stacks
     ? resultImpact(state, events, latest, standings) : "", [state, events, latest, standings]);
-  const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== onDeckEv?.id);
+  const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== operationEv?.id);
   const allW = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
     [state, events]);
   const openBook = mergeWagerLines(allW.filter(x => x.r.status === "pending")).slice(0, 9);
@@ -6446,7 +6543,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     } catch { return null; }
   }, []);
 
-  const liveEv = onDeckEv || liveBracketEv || liveStageEv;
+  const lifecycleLive = operationEv && ["betting-locked", "in-progress", "result-entry"]
+    .includes(operationLifecycle?.phase);
+  const liveEv = onDeckEv || liveBracketEv || liveStageEv || (lifecycleLive ? operationEv : null);
   /* Once an event is explicitly on deck, an unfinished bracket from another
      game must not leak into its TV scene. */
   const activeBracketEv = liveEv && state.brackets[liveEv.id] && state.draws[liveEv.id] ? liveEv : null;
@@ -6596,8 +6695,10 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div style={{ ...sceneLabel, marginBottom:2, display:"flex", alignItems:"center", gap:9 }}>
                   <span style={{ width:9, height:9, borderRadius:99, background:"var(--sun)",
                     animation:"si-pulse 1.6s infinite" }} />
-                  {onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
-                    : state.stages[activeStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
+                  {operationEv?.id === liveEv.id && operationLifecycle
+                    ? operationLifecycle.label
+                    : onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
+                      : state.stages[activeStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
                 <div style={{ ...sceneTitle, marginBottom:0, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
               </div>
               {/* the call to the table: who plays next, straight off the bracket */}
@@ -6621,7 +6722,18 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               {activeBracketEv ? <BracketGrid state={state} ev={activeBracketEv} gm={false} size="lg"
                   bet={{ chips: tvBracketChips }} hot={upNext ? [upNext.r, upNext.m] : null} />
                 : activeStageEv ? <StageGrid state={state} ev={activeStageEv} gm={false} size="lg" />
-                : <TVBettingBoard state={state} events={events} ev={onDeckEv} />}
+                : onDeckEv ? <TVBettingBoard state={state} events={events} ev={onDeckEv} />
+                  : (
+                    <div style={{ height:"100%", minHeight:260, display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center", textAlign:"center", padding:36,
+                      border:"1px solid var(--ghost-line)", borderRadius:18, background:"var(--night2)" }}>
+                      <div style={{ ...sceneLabel }}>{operationLifecycle?.label}</div>
+                      <div style={{ ...sceneTitle, marginBottom:10 }}>{liveEv.name}</div>
+                      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(18px,2vw,28px)",
+                        color:"var(--night-text)" }}>
+                        {operationLifecycle?.nextAction?.label || "Waiting for the commissioner"}</div>
+                    </div>
+                  )}
             </div>
             {onDeckEv && (activeBracketEv || activeStageEv) && (
               <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>

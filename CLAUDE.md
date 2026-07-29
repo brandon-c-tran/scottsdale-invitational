@@ -14,7 +14,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   state directly. This is the whole reliability story: one single-threaded writer,
   strict action ordering, no last-write-wins.
 - **`shared/core.js`** is the single source of truth for game logic (settlement,
-  standings, draws, brackets, stages). Imported by BOTH the DO and the React app.
+  standings, draws, brackets, stages, and event lifecycle). Imported by BOTH the DO and the React app.
   Never fork this logic. If client and server disagree, the server is right.
 - **`worker/actions.js`**: every mutation, validated server-side (GM auth, wager
   caps/balance, stale draw/stage references). Add new mutations here, never as
@@ -127,7 +127,29 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    (`pokerLive`) and betting stays CLOSED once counts post (`stacksPosted`):
    no wagers, duels, or on-deck after the finale settles; rulings then move
    in 25s (chip units). Derived and reversible: `clearResult` re-arms the
-   table.
+   table. `POKER_CONFIG` is the explicit contract: 600 minimum, exact 100-chip
+   starting stacks, 25-chip final counts, no cap, no silent rounding. Once
+   `pokerSetup` deals the board, every non-poker tournament mutation is blocked
+   until `pokerCancel`; minimum grants carry table-specific IDs so cancellation
+   reverses exactly that table. Setup, start, identical counts, final posting,
+   and cancel are retry-safe no-ops.
+
+9. **The event lifecycle is shared and server-guarded.** `eventOps` is the
+   metadata map introduced in `v:6` for facts the old domain objects cannot
+   express: betting lock, event start, result-entry open, completion, and
+   correction history. `resolveEventLifecycle()` and
+   `resolveWeekendOperation()` drive both GM and TV. A normal event must open
+   betting, lock betting, start, finish its bracket/stages if present, enter
+   results, and then post. Results are revisioned; overwrites and clears
+   require a reason, and identical retries are no-ops.
+10. **The wager ledger is duplicate-safe.** Current state schema `v:7` adds
+   `wagerOps`, keyed by device plus action id. The client may retry place and
+   retract once using the same action id; the server acknowledges that retry
+   without applying it twice. A new tap has a new action id and aggregates
+   into the bettor's open record for the same pick. `chips` retains each
+   intentional stake so retract removes only the most recent chip. Older
+   separate-record wagers remain readable and settle through the same derived
+   resolver.
 
 ## Commands
 

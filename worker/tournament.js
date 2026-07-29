@@ -23,6 +23,25 @@ import {
   validateSnapshot,
 } from "./snapshot.js";
 
+const tokenEncoder = new TextEncoder();
+async function secureTokenEqual(provided, expected) {
+  if (!provided || !expected) return false;
+  const [providedHash, expectedHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", tokenEncoder.encode(provided)),
+    crypto.subtle.digest("SHA-256", tokenEncoder.encode(expected)),
+  ]);
+  if (typeof crypto.subtle.timingSafeEqual === "function")
+    return crypto.subtle.timingSafeEqual(providedHash, expectedHash);
+  /* Node's Web Crypto does not yet expose the Workers timingSafeEqual
+     extension, so focused Node tests use the equivalent fixed-size loop. */
+  const left = new Uint8Array(providedHash);
+  const right = new Uint8Array(expectedHash);
+  let difference = 0;
+  for (let index = 0; index < left.length; index++)
+    difference |= left[index] ^ right[index];
+  return difference === 0;
+}
+
 export class Tournament {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -78,14 +97,17 @@ export class Tournament {
         let body;
         try { body = await req.json(); } catch { return Response.json({ ok: false, error: "Bad photo" }, { status: 400 }); }
         const { dataUrl, deviceId, gmToken } = body || {};
-        const isGm = !!this.gmToken && gmToken === this.gmToken;
+        const isGm = await secureTokenEqual(gmToken, this.gmToken);
         if ((!isActivePlayer(player) || this.claims[deviceId] !== player) && !isGm)
           return Response.json({ ok: false, error: "Not your profile" }, { status: 403 });
         if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/") || dataUrl.length > 120000)
           return Response.json({ ok: false, error: "Bad photo" }, { status: 400 });
+        const nextState = structuredClone(this.state);
+        nextState.profiles[player] = { ...(nextState.profiles[player] || {}), photoV: Date.now() };
+        /* Persist the payload before publishing its reference. A failed state
+           write can leave only an unreferenced photo, never a broken profile. */
         await this.ctx.storage.put("photo:" + player, dataUrl);
-        this.state.profiles[player] = { ...(this.state.profiles[player] || {}), photoV: Date.now() };
-        await this.persistAndBroadcast();
+        await this.persistAndBroadcast("photo", nextState);
         return Response.json({ ok: true });
       }
       return new Response("Method not allowed", { status: 405 });
@@ -94,13 +116,13 @@ export class Tournament {
     return new Response("Not found", { status: 404 });
   }
 
-  adminAuthorized(req) {
+  async adminAuthorized(req) {
     const auth = req.headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
     const expected = this.environment === "production"
       ? this.env.SNAPSHOT_ADMIN_TOKEN
       : this.gmToken;
-    return !!expected && !!token && token === expected;
+    return secureTokenEqual(token, expected);
   }
 
   async readBoundedJson(req) {
@@ -194,7 +216,7 @@ export class Tournament {
   }
 
   async handleAdmin(req, url) {
-    if (!this.adminAuthorized(req))
+    if (!await this.adminAuthorized(req))
       return Response.json({ ok: false, error: "Commissioner authentication required" }, { status: 403 });
 
     if (url.pathname === "/api/admin/snapshot" && req.method === "GET") {
@@ -322,27 +344,39 @@ export class Tournament {
     if (type === "claim") {
       const player = payload?.player;
       if (!ROSTER.includes(player)) return reply({ ok: false, error: "Pick a player" });
-      this.claims[deviceId] = player;
-      await this.ctx.storage.put("claims", this.claims);
+      const nextClaims = { ...this.claims, [deviceId]:player };
+      await this.ctx.storage.put("claims", nextClaims);
+      this.claims = nextClaims;
       return reply({ ok: true });
     }
 
-    const isGm = !!this.gmToken && gmToken === this.gmToken;
+    const isGm = await secureTokenEqual(gmToken, this.gmToken);
     const claimed = this.claims[deviceId];
-    const result = applyAction(this.state, type, payload, {
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, type, payload, {
       isGm,
       player: isActivePlayer(claimed) ? claimed : null,
+      deviceId,
+      actionId,
     });
     if (!result.ok) return reply(result);
-    await this.persistAndBroadcast(type);
+    /* Explicit no-ops make retried result/transition actions idempotent:
+       acknowledge them without incrementing the transport version or
+       broadcasting a state that did not change. */
+    if (result.extra?.unchanged)
+      return reply({ ...result, version:this.version });
+    await this.persistAndBroadcast(type, nextState);
     reply({ ...result, version: this.version });
   }
 
-  async persistAndBroadcast(lastAction) {
-    this.version += 1;
-    this.state.updatedAt = Date.now();
-    /* one put, both keys: state and version can never disagree in storage */
-    await this.ctx.storage.put({ state: this.state, version: this.version });
+  async persistAndBroadcast(lastAction, nextState = this.state) {
+    const nextVersion = this.version + 1;
+    nextState.updatedAt = Date.now();
+    /* Persist first, cache second. The atomic map write keeps state/version
+       aligned, and a failed write cannot leak an uncommitted in-memory board. */
+    await this.ctx.storage.put({ state:nextState, version:nextVersion });
+    this.state = nextState;
+    this.version = nextVersion;
     this.broadcastState(lastAction);
   }
 

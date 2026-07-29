@@ -74,7 +74,12 @@ function connect() {
       }
     } else if (msg.type === "ack") {
       const p = pendingAcks.get(msg.actionId);
-      if (p) { pendingAcks.delete(msg.actionId); clearTimeout(p.t); p.resolve(msg); }
+      if (p) {
+        pendingAcks.delete(msg.actionId);
+        clearTimeout(p.t);
+        clearTimeout(p.retryTimer);
+        p.resolve(msg);
+      }
     }
   };
   ws.onclose = () => {
@@ -91,16 +96,24 @@ function send(obj) {
   try { ws?.readyState === 1 && ws.send(JSON.stringify({ ...obj, deviceId, gmToken })); } catch {}
 }
 
-export function dispatch(type, payload) {
+export function dispatch(type, payload, { retry = false } = {}) {
   return new Promise(resolve => {
     if (!ws || ws.readyState !== 1) return resolve({ ok: false, error: "Offline, try again" });
     const actionId = "a" + (++aid) + "-" + Date.now();
+    const message = { actionId, type, payload };
+    let retryTimer = null;
     const t = setTimeout(() => {
       pendingAcks.delete(actionId);
+      clearTimeout(retryTimer);
       resolve({ ok: false, error: "No response, try again" });
     }, 6000);
-    pendingAcks.set(actionId, { resolve, t });
-    send({ actionId, type, payload });
+    if (retry) {
+      retryTimer = setTimeout(() => {
+        if (pendingAcks.has(actionId)) send(message);
+      }, 1800);
+    }
+    pendingAcks.set(actionId, { resolve, t, retryTimer });
+    send(message);
   });
 }
 

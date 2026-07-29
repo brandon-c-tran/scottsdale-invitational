@@ -32,9 +32,9 @@ function makeWindow(name) {
     environment: null, capabilities: null,
     aid: 0, pending: new Map(), broadcasts: [],
     send(obj) { ws.send(JSON.stringify({ ...obj, deviceId, gmToken: win.gmToken })); },
-    dispatch(type, payload) {
+    dispatch(type, payload, options = {}) {
       return new Promise(resolve => {
-        const actionId = "a" + (++win.aid) + "-" + name;
+        const actionId = options.actionId || "a" + (++win.aid) + "-" + name;
         const t = setTimeout(() => { win.pending.delete(actionId); resolve({ ok: false, error: "timeout" }); }, 6000);
         win.pending.set(actionId, { resolve, t });
         win.send({ actionId, type, payload });
@@ -135,15 +135,27 @@ assert(b.state.onDeck === "8ball", "window B sees betting open");
 
 /* ── wagers from both windows ── */
 const t0 = draw.teams[0];
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 400 } });
-assert(r.ok, "Evan places outright wager (400 on team 0)");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 400 } });
-assert(!r.ok, "Evan's second 400 rejected, 500 cap at 1000 points (rejected: " + r.error + ")");
+const retrySafeWager = { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
+  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 300 };
+r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
+assert(r.ok, "Evan places outright wager (300 on team 0)");
+r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
+assert(r.ok && r.extra?.unchanged, "transport retry is acknowledged without a duplicate wager");
+await b.waitVersion(a.version);
+let evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
+assert(evanOutright.length === 1 && evanOutright[0].stake === 300,
+  "same request id leaves exactly one 300-point wager");
+r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 100 } });
+assert(r.ok && r.extra?.aggregated, "a deliberate second chip aggregates into the existing wager");
+await b.waitVersion(a.version);
+evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
+assert(evanOutright.length === 1 && evanOutright[0].stake === 400 && evanOutright[0].chips?.length === 2,
+  "one persisted line carries both intentional chips");
+r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 200 } });
+assert(!r.ok, "Evan's next 200 rejected, 500 cap at 1000 points (rejected: " + r.error + ")");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
   pickTeam: true, pickPlayers: [...t0.players], drawId: "stale-draw-id", stake: 200 } });
-assert(!r.ok, "stale drawId rejected (" + r.error + ")");
+assert(!r.ok && /draw changed/i.test(r.error), "stale drawId is rejected before the cap response (" + r.error + ")");
 
 const m00 = br0.rounds[0][0];
 const aIdx = m00.a.t, bIdx = m00.b.t;
@@ -153,6 +165,13 @@ r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", e
 assert(r.ok, "Evan places matchup wager (100 on play-in)");
 await b.waitVersion(a.version);
 assert(b.state.wagers.length === 2, "both open wagers visible in window B");
+
+/* lock betting and start the competition */
+r = await a.dispatch("setOnDeck", { id: null });
+assert(r.ok, "GM locks betting for 8-Ball");
+r = await a.dispatch("startEvent", { evId: "8ball" });
+assert(r.ok, "GM starts 8-Ball");
+await b.waitVersion(a.version);
 
 /* ── advance the bracket ── */
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 0, m: 0, teamIdx: aIdx });
@@ -190,6 +209,8 @@ assert(!r.ok, "wager on decided matchup rejected (" + r.error + ")");
 
 /* ── post the result ── */
 const runnerTeam = 1;
+r = await a.dispatch("beginResultEntry", { evId: "8ball" });
+assert(r.ok, "GM opens official result entry");
 const vBefore = a.version;
 r = await a.dispatch("saveResult", { evId: "8ball", slots: [[...draw.teams[0].players], [...draw.teams[runnerTeam].players], []] });
 assert(r.ok, "GM posts official result");
@@ -319,9 +340,14 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 
 r = await a.dispatch("setOnDeck", { id: null });
 assert(r.ok, "betting closed");
+const prePokerRows = computeStandings(a.state).map(row => ({ player:row.player, pts:row.pts }));
 r = await a.dispatch("pokerSetup", {});
 assert(r.ok, "table set");
 await b.waitVersion(a.version);
+const setupVersion = a.version;
+r = await a.dispatch("pokerSetup", {});
+assert(r.ok && r.extra?.unchanged && a.version === setupVersion,
+  "retrying table setup does not duplicate minimum grants or advance state");
 {
   const stake = b.state.adjustments.find(x => x.reason === "Minimum stack");
   assert(stake?.player === "Chinh" && stake.delta === 200, "minimum-stack ruling brought Chinh to 600");
@@ -333,8 +359,15 @@ assert(pokerTotal === computeStandings(b.state).reduce((s, x) => s + x.pts, 0),
   "buy-in total matches the board");
 r = await a.dispatch("setOnDeck", { id: "poker" });
 assert(!r.ok, "no betting on the finale (rejected: " + r.error + ")");
+r = await a.dispatch("adjust", { player: "Evan", delta: 100, reason: "late ruling" });
+assert(!r.ok && /cancel the poker table/i.test(r.error),
+  "the dealt board is locked before cards start (rejected: " + r.error + ")");
 r = await a.dispatch("pokerStart", {});
 assert(r.ok, "shuffle up and deal");
+const startVersion = a.version;
+r = await a.dispatch("pokerStart", {});
+assert(r.ok && r.extra?.unchanged && a.version === startVersion,
+  "retrying poker start is a no-op");
 r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
   pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 200 } });
 assert(!r.ok, "wagers frozen while cards are live (rejected: " + r.error + ")");
@@ -354,31 +387,74 @@ for (const p of ROSTER) {
   if (p === "Evan") continue;
   r = await a.dispatch("pokerCount", { player: p, count: p === "Brandon" ? pokerTotal : 0 });
   assert(r.ok, `count in for ${p}`);
+  if (p === "Brandon") {
+    const countVersion = a.version;
+    r = await a.dispatch("pokerCount", { player: p, count: pokerTotal });
+    assert(r.ok && r.extra?.unchanged && a.version === countVersion,
+      "retrying the same chip count is a no-op");
+  }
 }
 r = await a.dispatch("pokerResult", {});
 assert(r.ok, "final counts posted");
 await b.waitVersion(a.version);
+const resultVersion = a.version;
+r = await a.dispatch("pokerResult", {});
+assert(r.ok && r.extra?.unchanged && r.extra?.revision === 1 && a.version === resultVersion,
+  "retrying the final post does not create another revision");
 for (const [label, win] of [["A", a], ["B", b]]) {
   const rows = computeStandings(win.state);
   assert(rows[0].player === "Brandon" && rows[0].pts === pokerTotal,
     `window ${label}: chip leader tops the board with the whole ${pokerTotal}`);
   assert(rows.find(x => x.player === "Evan").pts === 0, `window ${label}: busted Evan at 0`);
 }
-r = await a.dispatch("clearResult", { evId: "poker" });
+r = await a.dispatch("clearResult", {
+  evId: "poker",
+  confirmClear: true,
+  correctionReason: "E2E verifies that finale results remain reversible",
+});
 assert(r.ok, "clearResult re-arms the table");
 await b.waitVersion(a.version);
 assert(computeStandings(b.state)[0].pts !== pokerTotal, "board restored pre-poker");
+r = await a.dispatch("pokerCancel", {});
+assert(r.ok, "cleared finale can be canceled");
+await b.waitVersion(a.version);
+assert(JSON.stringify(computeStandings(b.state).map(row => ({ player:row.player, pts:row.pts })))
+    === JSON.stringify(prePokerRows),
+  "cancel removes only this table's minimum grants and restores the exact prior board");
+const cancelVersion = a.version;
+r = await a.dispatch("pokerCancel", {});
+assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
+  "retrying poker cancel is a no-op");
 
-/* reconnect check: fresh hello returns claim identity */
+/* Phone and TV reconnects receive the same full authoritative version/state. */
 {
-  const ws2 = new WebSocket(BASE);
-  const you = await new Promise((res, rej) => {
-    ws2.onopen = () => ws2.send(JSON.stringify({ type: "hello", deviceId: b.deviceId }));
-    ws2.onmessage = e => { const m = JSON.parse(e.data); if (m.type === "state") res(m.you); };
-    setTimeout(() => rej(new Error("no hello reply")), 3000);
-  });
-  assert(you === "Evan", "reconnect: server remembers Evan's device claim");
-  ws2.close();
+  const hello = deviceId => {
+    const socket = new WebSocket(BASE);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("no hello reply")), 3000);
+      socket.onopen = () => socket.send(JSON.stringify({ type:"hello", deviceId }));
+      socket.onmessage = event => {
+        const message = JSON.parse(event.data);
+        if (message.type !== "state") return;
+        clearTimeout(timer);
+        resolve({ message, socket });
+      };
+    });
+  };
+  const phone = await hello(b.deviceId);
+  assert(phone.message.you === "Evan", "phone reconnect remembers Evan's device claim");
+  assert(phone.message.version === b.version
+      && JSON.stringify(phone.message.state.results) === JSON.stringify(b.state.results),
+    "phone reconnect reconstructs the current authoritative board");
+  phone.socket.close();
+
+  const tv = await hello(`tv-${crypto.randomUUID()}`);
+  assert(tv.message.you === null || tv.message.you === undefined,
+    "TV reconnect remains unclaimed and read-only");
+  assert(tv.message.environment === "local" && tv.message.version === b.version
+      && JSON.stringify(tv.message.state) === JSON.stringify(b.state),
+    "TV reconnect receives the same complete state and environment");
+  tv.socket.close();
 }
 
 /* clean up: reset so the real weekend state is not polluted */

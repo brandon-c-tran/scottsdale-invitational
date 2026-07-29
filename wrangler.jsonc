@@ -1,7 +1,8 @@
 {
   "name": "scottsdale-invitational",
   "main": "worker/index.js",
-  "compatibility_date": "2025-05-01",
+  "compatibility_date": "2026-07-21",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",
     "binding": "ASSETS",
@@ -13,7 +14,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Tournament"] }],
   "vars": {
     "APP_ENV": "production",
-    "APP_VERSION": "m1-foundations"
+    "APP_VERSION": "m1-weekend-engine-3"
   },
   /* the app answers on the real domain, not a workers.dev subdomain. Requires
      fielddayseries.com to be an active zone on this Cloudflare account:
@@ -30,7 +31,7 @@
       "routes": [],
       "vars": {
         "APP_ENV": "local",
-        "APP_VERSION": "m1-foundations"
+        "APP_VERSION": "m1-weekend-engine-3"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
@@ -42,7 +43,7 @@
       "routes": [],
       "vars": {
         "APP_ENV": "staging",
-        "APP_VERSION": "m1-foundations"
+        "APP_VERSION": "m1-weekend-engine-3"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]

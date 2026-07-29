@@ -1,6 +1,7 @@
 const SNAPSHOT_FORMAT = "field-day-snapshot";
 const SNAPSHOT_VERSION = 1;
-const SUPPORTED_STATE_VERSIONS = new Set([5]);
+/* v5/v6 snapshots remain importable; hydration adds current metadata maps. */
+const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7]);
 const ENVIRONMENTS = new Set(["local", "staging", "production"]);
 const REQUIRED_KEYS = ["state", "version", "claims"];
 const INTERNAL_BACKUP_PREFIX = "m1:pre-restore:";

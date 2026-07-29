@@ -44,7 +44,8 @@ explicit authorization.
 
 See [the M1 implementation plan](docs/M1-implementation-plan.md) and
 [production data runbook](docs/production-data-runbook.md) before any remote
-operation.
+operation. The repeatable local baseline and remaining approval gates are in
+[the M1 rehearsal report](docs/M1-rehearsal-report.md).
 
 ## How sync works
 

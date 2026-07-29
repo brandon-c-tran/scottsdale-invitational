@@ -10,6 +10,9 @@ function hydrateStoredState(stored) {
 
   for (const [key, value] of Object.entries(EMPTY_STATE))
     if (state[key] === undefined) state[key] = structuredClone(value);
+  /* v7 is additive: lifecycle metadata and wager idempotency records start
+     empty while all v5/v6 gameplay facts remain readable. */
+  if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
 
   state.logistics = cleanLogistics(state.logistics);
   for (const profile of Object.values(state.profiles || {})) {

@@ -2,9 +2,27 @@
 
 **Product:** Field Day, Scottsdale 2026  
 **Milestone:** M1, Weekend Engine  
-**Status:** Defined for implementation  
+**Status:** Code complete; production-data and operator launch gates remain
 **Baseline:** M0 is shipped at `fielddayseries.com` and holds real guest data  
 **Last updated:** July 28, 2026
+
+Implementation status on July 28, 2026:
+
+- D0 snapshot, validation, local restore, and recovery foundations are complete.
+  D0 acceptance still requires an approved real production export.
+- D1 environment separation is implemented and staging has been deployed and
+  operator-verified. A production-derived staging restore is still required.
+- D2 roster configuration, status filtering, strict participation, and
+  12/13/14-player coverage are complete.
+- The shared lifecycle resolver, guarded event transitions, GM/TV next action,
+  and audited result correction are implemented locally and await staging
+  rehearsal.
+- Duplicate-safe wager placement/retraction, intentional chip aggregation, and
+  correction-sensitive payout coverage are implemented and await the full
+  staging weekend rehearsal.
+- Poker distribution, dealt-board locking, retry-safe finale posting, exact
+  recovery, deterministic all-event rehearsal, and phone/TV reconnect coverage
+  are implemented locally.
 
 ## 1. Executive summary
 
@@ -347,7 +365,8 @@ dependencies.
 
 - The existing top-level Worker identity and custom domain remain unchanged.
 - `APP_ENV=production`.
-- Snapshot export is available after GM unlock.
+- Snapshot export is an operator CLI action authenticated by the server-only
+  `SNAPSHOT_ADMIN_TOKEN`; it is not shown in the production client.
 - Import and QA simulator controls are absent.
 - Code/configuration is promoted to production; staging runtime state is not.
 
@@ -438,9 +457,13 @@ Canonical lifecycle:
 6. `betting-locked`
 7. `in-progress`
 8. `result-entry`
-9. `result-confirmed`
-10. `scoring-applied`
-11. `complete`
+9. `complete`
+
+`result-confirmed` and `scoring-applied` are atomic transition facts rather
+than separately visible phases in the current architecture. Saving the
+official result writes one revision, and every standings and wager surface
+derives the resulting score in that same authoritative update. `shelved` is a
+terminal operational phase for an event removed from the active slate.
 
 The implementation should derive states from current M0 fields where reliable:
 draws/stages, `onDeck`, bracket progress, results, and poker state. A small
@@ -528,7 +551,7 @@ introduce an unnecessary conversion.
 - Normal operation separated from correction and dangerous tools
 - Confirmation for redraw, result overwrite, restore, reset, and onboarding
   rerun
-- Snapshot export in production
+- Operator-authenticated snapshot export in production, outside the client
 - Snapshot import and QA only in non-production
 - Recovery controls describe consequence and recovery point
 
@@ -626,19 +649,20 @@ must never be the first restore rehearsal.
 - [ ] Production snapshot generated and validated
 - [ ] Snapshot stored outside the repository
 - [x] Local restore rehearsal passed
-- [ ] Staging namespace confirmed isolated
+- [x] Staging namespace confirmed isolated
 - [ ] Staging restore rehearsal passed
 - [x] 12/13/14 roster tests passed
 - [ ] Final attendance status configured
 - [ ] Every event participation model approved
-- [ ] Every strict event reports exact capacity
+- [x] Every strict event reports exact capacity
 - [ ] Full weekend staging rehearsal passed
-- [ ] Result correction and rollback rehearsed
-- [ ] Betting ledger and poker totals checked
-- [ ] Phone reconnect checked
-- [ ] TV reconnect checked
+- [x] Result correction and rollback rehearsed locally
+- [x] Betting ledger checked
+- [x] Poker totals checked for 12/13/14 seats
+- [x] Phone reconnect checked locally
+- [x] TV reconnect checked locally
 - [x] QA and restore controls absent from production build
-- [ ] Production target shown before deploy
+- [x] Production target shown before deploy
 - [x] Rollback version and data recovery steps available
 - [ ] GM has offline copy of the runbook
 
@@ -744,7 +768,8 @@ must never be the first restore rehearsal.
 
 - Current state, next action, blockers, and recovery are visible together.
 - Dangerous controls are separated and confirmed.
-- Production contains export but not import or QA.
+- Production supports operator CLI export but renders no export, import, or QA
+  controls.
 
 ### Reliability and launch
 

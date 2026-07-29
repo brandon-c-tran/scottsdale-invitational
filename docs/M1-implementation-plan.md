@@ -3,6 +3,47 @@
 **Scope of this plan:** define the complete Weekend Engine and implement only
 the safe local foundations for D0, D1, and D2 in the first pass.
 
+## Implementation progress
+
+Completed in the foundations pass:
+
+- portable snapshots, validation, local/staging restore safeguards, and
+  automatic pre-restore backups
+- explicit local, staging, and production capabilities and deploy target
+  guards
+- isolated staging deployment, as confirmed by the operator
+- roster status/configuration, strict event participation, overflow roles, and
+  12/13/14-player coverage
+
+Completed locally in Weekend Engine slices 1 through 3:
+
+- additive state schema `v:7`: `eventOps` lifecycle metadata introduced in
+  `v:6`, plus bounded wager request metadata in `wagerOps`
+- a shared lifecycle and canonical weekend-operation resolver used by GM and TV
+- server guards for market lock, event start, bracket/stage progress, result
+  entry, result posting, and draw mutation
+- idempotent result retries, monotonic result revisions, confirmed overwrite
+  and clear flows, and bounded correction history
+- idempotent wager placement and retraction keyed by device/action, one
+  persisted open wager per bettor/pick, and one-chip-at-a-time retraction
+- server-canonical stale target validation and correction-sensitive derived
+  payout coverage
+- configured poker minimum, quantum, uncapped 1:1 conversion, exact physical
+  denominations, and deterministic tie behavior
+- idempotent table setup/start/count/result/cancel actions, a board-wide lock
+  after chips are dealt, and exact minimum-grant reversal
+- storage-first Durable Object publication, lifecycle-aware QA, deterministic
+  all-event rehearsal, and two-client phone/TV reconnect coverage
+- current runtime-supported Workers compatibility date (`2026-07-21`) plus
+  `nodejs_compat`, validated locally and in the staging build
+
+Code-complete M1 still has these explicit operator acceptance gates:
+
+- approved real production snapshot export and offline validation
+- approved production-derived snapshot restore rehearsal in staging
+- approved destructive full-weekend staging rehearsal and resulting snapshot
+- final attendance/event-model approval and an offline GM copy of the runbook
+
 ## 1. Repository audit findings
 
 ### Baseline validation
@@ -449,7 +490,10 @@ Logical compatibility changes:
 - Inactive data remains in existing maps.
 - Old draws without `roles` remain valid.
 - Snapshot format is external to `EMPTY_STATE`.
-- New state fields, if any, use current hydration backfill.
+- State schema `v:6` added `eventOps`; `v:7` adds only `wagerOps`. Hydration
+  backfills both maps without rewriting any existing domain value.
+- Snapshot validation accepts state schemas `v:5`, `v:6`, and `v:7`; restored
+  older state hydrates to `v:7`.
 
 The DO class remains SQLite-backed and uses the existing `v1` namespace
 migration. Changing `migrations` to the newer `exports` lifecycle mechanism is
@@ -460,7 +504,8 @@ not required and would add risk without user value in this slice.
 - Preserve top-level production Worker identity and route.
 - Preserve DO class name and object name `main`.
 - Preserve every existing player ID.
-- Preserve `EMPTY_STATE.v:5` unless a persisted state field is added.
+- Preserve every `v:5`/`v:6` field and hydrate additively into
+  `EMPTY_STATE.v:7`.
 - Preserve old action payloads where possible.
 - Treat absent environment in an old frame as production-safe: no QA/import.
 - Treat absent draw roles as an empty list.
@@ -483,6 +528,19 @@ not required and would add risk without user value in this slice.
 - strict 3v3, 5v5, and 6-player teams enforce capacity
 - default QA participant selection produces exact teams
 - only 4/6 bracket configurations pass
+- lifecycle progression and server transition rejection
+- result retry, correction confirmation, correction audit, clear, and
+  monotonic repost revision
+- canonical next-event selection when multiple events have prepared state
+- duplicate-safe wager placement/retraction, intentional chip aggregation,
+  stale-target rejection before cap messaging, and correction-sensitive
+  zero-reconciliation
+- configured exact poker distribution for 12/13/14 seats, idempotent finale
+  actions, dealt-board locking, tie behavior, and exact cancel/clear reversal
+- deterministic all-17-event-through-poker action rehearsal
+- phone and unclaimed TV reconnect to the same authoritative state/version
+- Durable Object state becomes visible in memory only after its atomic storage
+  write succeeds
 
 ### Existing E2E
 
@@ -655,15 +713,56 @@ Stop before:
 Local code, local workerd storage, pure fixtures, builds, dry parsing, and local
 E2E are not approval stops.
 
-## 16. Next Weekend Engine slice after foundations
+## 16. Weekend Engine sequencing after foundations
 
-Implement the shared event lifecycle resolver and server transition guards:
+### Slice 1: lifecycle and guarded results
 
-1. derive lifecycle from current M0 fields
-2. return current state, blockers, and one next action
-3. use it in GM and TV
-4. add result confirmation/correction metadata
-5. add lifecycle and idempotency tests
+Implemented locally:
 
-This slice should precede betting UI refinement because market opening and
-locking depend on a reliable event lifecycle.
+1. derive lifecycle from current M0 facts plus minimal `eventOps` timestamps
+2. return current phase, blockers, and one next action
+3. share the resolver across GM and TV
+4. guard lifecycle mutations on the server
+5. add result revision and correction metadata
+6. cover lifecycle transitions, result idempotency, and the updated E2E flow
+
+### Slice 2: betting ledger reliability
+
+Implemented locally:
+
+1. wager place/retract actions use the transport action id plus device id as a
+   bounded durable idempotency key
+2. the client retries those actions once with the same id; exact retries are
+   no-ops and conflicting id reuse is rejected
+3. intentional repeat taps aggregate into one persisted bettor/pick record,
+   with individual `chips` retained so one retract removes one tap
+4. server-canonical target validation rejects stale draws, matches, and stages
+   before affordability messaging
+5. unit and two-client E2E coverage exercise duplicate delivery, aggregation,
+   caps, stale targets, retraction, settlement, and result correction
+
+### Slice 3: poker distribution and weekend rehearsal
+
+Implemented locally:
+
+1. configure and simulate exact physical chip distribution for 12, 13, and 14
+   seats, including minimum frequency, 25-chip counts, no silent rounding, no
+   cap, and deterministic ties
+2. make setup, start, repeated counts, final posting, and cancel retry-safe
+3. lock the tournament board as soon as the table is dealt; correction requires
+   canceling the table first
+4. tag minimum-stack grants to the current table so cancel reverses exactly
+   those grants
+5. run a seeded local rehearsal through every shipped event and poker, then
+   prove clear/cancel restores the pre-poker board
+6. verify phone and unclaimed TV reconnects receive the same full state/version
+
+### Remaining launch operations
+
+These are not code changes and retain their original approval stops:
+
+1. export and validate a real production snapshot
+2. restore the approved production-derived snapshot into staging
+3. reset and run the destructive full-weekend staging rehearsal
+4. approve final attendance and every event participation model
+5. store an offline copy of the GM runbook

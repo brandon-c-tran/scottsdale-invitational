@@ -323,6 +323,9 @@ portable `before-<environment>-restore.fieldday-snapshot.json` created above.
 
 ## Launch rehearsal record
 
+The automated local baseline is recorded in `docs/M1-rehearsal-report.md`.
+Complete the table below only for an approved remote staging rehearsal.
+
 For each rehearsal, record:
 
 | Field | Value |

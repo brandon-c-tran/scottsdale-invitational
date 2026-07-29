@@ -345,9 +345,9 @@ function cleanLogistics(stored) {
   return out;
 }
 
-const EMPTY_STATE = { v:5, live:false, results:{}, wagers:[], adjustments:[], seeds:{}, draws:{}, brackets:{},
+const EMPTY_STATE = { v:7, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
-  onboardEpoch:0, eventEdits:{}, eventOrder:[], logistics:{ ...LOGISTICS }, updatedAt:0 };
+  onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, logistics:{ ...LOGISTICS }, updatedAt:0 };
 
 /* ─────────── helpers ─────────── */
 /* built-ins can be edited (name, desc, value, session) via state.eventEdits and
@@ -547,6 +547,15 @@ const stacksPosted = state =>
    conversion: 2,200 points is 2,200 in front of you. Real tournament
    denominations, so any standard set works. */
 const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
+const POKER_CONFIG = Object.freeze({
+  minimumStack:BUYIN_FLOOR,
+  stackQuantum:PT,
+  countQuantum:CHIP_MIN,
+  maxStack:null,
+  rounding:"exact",
+  denominations:Object.freeze([1000, 500, 100, 25]),
+  blindPack:Object.freeze({ denomination:25, count:8, minimumStack:400 }),
+});
 /* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
 const POKER_LEVELS = [
   { sb:25, bb:50, mins:15 }, { sb:50, bb:100, mins:15 }, { sb:100, bb:200, mins:15 },
@@ -567,19 +576,75 @@ function pokerClock(poker, now) {
   const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
   return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
 }
-/* physical dealing breakdown for a buy-in of pts: a blind pack of eight 25s
-   for posting, the rest greedy in 1000/500/100. Exact because every board
-   value is a PT multiple and PT is 100. */
+/* Physical dealing breakdown: reserve eight 25s for blinds when practical,
+   then deal greedily. The final 25 pass keeps post-finale counts exact too. */
 function pokerDenoms(pts) {
-  let chips = pts;
-  const stack = [];
-  if (chips >= 400) { stack.push({ v: 25, n: 8 }); chips -= 200; }
-  else if (chips > 0) { stack.push({ v: 25, n: chips / 25 }); chips = 0; }
-  for (const v of [1000, 500, 100]) {
+  const value = Number(pts);
+  if (!Number.isInteger(value) || value < 0 || value % POKER_CONFIG.countQuantum !== 0)
+    return [];
+  if (value === 0) return [];
+  if (value < POKER_CONFIG.blindPack.minimumStack)
+    return [{ v:POKER_CONFIG.blindPack.denomination,
+      n:value / POKER_CONFIG.blindPack.denomination }];
+
+  let chips = value;
+  const counts = new Map();
+  const add = (v, n) => {
+    if (n > 0) counts.set(v, (counts.get(v) || 0) + n);
+  };
+  const pack = POKER_CONFIG.blindPack;
+  add(pack.denomination, pack.count);
+  chips -= pack.denomination * pack.count;
+  for (const v of POKER_CONFIG.denominations.filter(v => v !== pack.denomination)) {
     const n = Math.floor(chips / v);
-    if (n) { stack.push({ v, n }); chips -= n * v; }
+    add(v, n);
+    chips -= n * v;
   }
-  return stack.sort((a, b) => b.v - a.v);
+  add(pack.denomination, chips / pack.denomination);
+  return POKER_CONFIG.denominations
+    .filter(v => counts.has(v))
+    .map(v => ({ v, n:counts.get(v) }));
+}
+
+/* Pure finale audit used by setup and deterministic 12/13/14-player
+   rehearsals. Weekend points are already exact 100-chip units; M1 does not
+   silently round or cap them. The only adjustment is the configured minimum. */
+function pokerDistribution(entries) {
+  const source = Array.isArray(entries) ? entries : [];
+  const seen = new Set();
+  const errors = [];
+  const rows = source.map((entry, index) => {
+    const player = typeof entry?.player === "string" && entry.player
+      ? entry.player : `seat-${index + 1}`;
+    const before = Number(entry?.pts);
+    if (seen.has(player)) errors.push(`Duplicate poker seat: ${player}`);
+    seen.add(player);
+    if (!Number.isInteger(before) || before < 0)
+      errors.push(`Invalid stack for ${player}`);
+    else if (before % POKER_CONFIG.stackQuantum !== 0)
+      errors.push(`${player}'s stack must be exact ${POKER_CONFIG.stackQuantum}s`);
+    const legalBefore = Number.isInteger(before) && before >= 0 ? before : 0;
+    const uncapped = Math.max(POKER_CONFIG.minimumStack, legalBefore);
+    const stack = POKER_CONFIG.maxStack === null
+      ? uncapped : Math.min(POKER_CONFIG.maxStack, uncapped);
+    const denominations = pokerDenoms(stack);
+    if (denominations.reduce((sum, chip) => sum + chip.v * chip.n, 0) !== stack)
+      errors.push(`Cannot deal ${player}'s stack exactly`);
+    return {
+      player,
+      before:legalBefore,
+      stack,
+      grant:stack - legalBefore,
+      denominations,
+    };
+  });
+  return {
+    ok:errors.length === 0,
+    errors,
+    rows,
+    total:rows.reduce((sum, row) => sum + row.stack, 0),
+    minimumCount:rows.filter(row => row.grant > 0).length,
+  };
 }
 
 /* duel outcome is DERIVED from the two stored runs, never written. A foul
@@ -751,6 +816,154 @@ const bracketChampion = br => {
   return last.winner ?? null;
 };
 
+/* ─────────── event lifecycle ───────────
+   Facts that already exist (draws, brackets, stages, results, poker) remain
+   authoritative. eventOps only records distinctions those facts cannot
+   express: market locked, play started, and result entry opened. */
+const EVENT_PHASES = [
+  "scheduled", "setup", "draw-pending", "draw-revealed", "betting-open",
+  "betting-locked", "in-progress", "result-entry", "complete", "shelved",
+];
+const EVENT_PHASE_LABELS = {
+  scheduled:"Scheduled",
+  setup:"Setup",
+  "draw-pending":"Draw pending",
+  "draw-revealed":"Draw revealed",
+  "betting-open":"Betting open",
+  "betting-locked":"Betting locked",
+  "in-progress":"In progress",
+  "result-entry":"Result entry",
+  complete:"Complete",
+  shelved:"Shelved",
+};
+const eventOpOf = (state, evId) => state.eventOps?.[evId] || {};
+const bracketStarted = br => !!br?.rounds?.some(round =>
+  round.some(match => match.winner !== null && match.winner !== undefined));
+const stagesStarted = st => !!st && (
+  st.finalWinner !== null && st.finalWinner !== undefined
+  || st.groups?.some(group => (group.through || []).length > 0)
+);
+function resultReadiness(state, ev) {
+  const blockers = [];
+  if (state.drafts?.[ev.id] && !state.draws?.[ev.id])
+    blockers.push("Finish or cancel the captains draft");
+  if (ev.teamCfg && !state.draws?.[ev.id])
+    blockers.push("Set the teams first");
+  const bracket = state.brackets?.[ev.id];
+  if (bracket && bracketChampion(bracket) === null)
+    blockers.push("Complete the bracket");
+  const stages = state.stages?.[ev.id];
+  if (stages && (!stageFinalists(stages)
+      || stages.finalWinner === null || stages.finalWinner === undefined))
+    blockers.push(`Complete the ${stages.kind === "heats" ? "heats" : "pools"} and final`);
+  return { ok:blockers.length === 0, blockers };
+}
+const lifecycleAction = (type, label, blockers = []) => ({
+  type,
+  label,
+  enabled:blockers.length === 0,
+  blockers,
+});
+function resolveEventLifecycle(state, ev) {
+  if (!ev) return {
+    phase:"scheduled",
+    label:EVENT_PHASE_LABELS.scheduled,
+    blockers:["Event not found"],
+    nextAction:null,
+  };
+  const result = state.results?.[ev.id];
+  const op = eventOpOf(state, ev.id);
+  const finish = resultReadiness(state, ev);
+  const response = (phase, nextAction = null, blockers = []) => ({
+    eventId:ev.id,
+    phase,
+    label:EVENT_PHASE_LABELS[phase],
+    blockers,
+    nextAction,
+    revision:Number(op.revision || result?.revision || 0),
+  });
+
+  if (state.shelved?.[ev.id]) return response("shelved");
+  if (result) return response("complete");
+
+  if (ev.game === "poker" && ev.finale) {
+    if (!state.poker)
+      return response("setup", lifecycleAction("setup-poker", "Set up the poker table"));
+    if (op.resultEntryAt)
+      return response("result-entry", lifecycleAction("post-poker-result", "Post the final chip counts"));
+    if (!state.poker.startedAt)
+      return response("setup", lifecycleAction("start-poker", "Start the poker table"));
+    return response("in-progress", lifecycleAction("run-poker", "Run the poker table"));
+  }
+
+  const draw = state.draws?.[ev.id];
+  const draft = state.drafts?.[ev.id];
+  if (draft && !draw)
+    return response("draw-pending", lifecycleAction("continue-draft", `Continue the ${ev.name} draft`));
+  if (ev.teamCfg && !draw)
+    return response("draw-pending", lifecycleAction("prepare-draw", `Choose players and draw ${ev.name}`));
+  if (state.onDeck === ev.id)
+    return response("betting-open", lifecycleAction("lock-betting", `Lock betting on ${ev.name}`));
+  if (op.resultEntryAt)
+    return response("result-entry",
+      lifecycleAction("post-result", `Post the ${ev.name} result`, finish.blockers),
+      finish.blockers);
+
+  const competitionStarted = !!op.startedAt
+    || bracketStarted(state.brackets?.[ev.id])
+    || stagesStarted(state.stages?.[ev.id]);
+  if (competitionStarted) {
+    let action;
+    if (!finish.ok && state.brackets?.[ev.id])
+      action = lifecycleAction("advance-bracket", `Advance the ${ev.name} bracket`, finish.blockers);
+    else if (!finish.ok && state.stages?.[ev.id])
+      action = lifecycleAction("advance-stages",
+        `Advance the ${state.stages[ev.id].kind === "heats" ? "heats" : "pools"}`,
+        finish.blockers);
+    else action = lifecycleAction("enter-result", `Enter the ${ev.name} result`);
+    return response("in-progress", action, finish.blockers);
+  }
+  if (op.bettingLockedAt)
+    return response("betting-locked", lifecycleAction("start-event", `Start ${ev.name}`));
+  if (draw)
+    return response("draw-revealed", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
+  return response("setup", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
+}
+function resolveWeekendOperation(state, events = allEventsOf(state)) {
+  const open = events.filter(ev => !state.results?.[ev.id] && !state.shelved?.[ev.id]);
+  if (!open.length) return {
+    event:null,
+    lifecycle:null,
+    nextAction:state.frozen ? null : lifecycleAction("crown-champion", "Crown the champion"),
+  };
+
+  let event = open.find(ev => ev.id === state.onDeck);
+  if (!event) {
+    /* Pick the most recently touched active operation. This prevents a draft
+       prepared for a later game from hiding an event already underway. */
+    const active = open
+      .map(ev => {
+        const op = eventOpOf(state, ev.id);
+        const draft = state.drafts?.[ev.id];
+        const poker = state.poker?.id === ev.id ? state.poker : null;
+        const at = Math.max(
+          op.resultEntryAt || 0,
+          op.startedAt || 0,
+          op.bettingLockedAt || 0,
+          poker?.startedAt || poker?.ts || 0,
+          draft?.ts || 0,
+        );
+        return { ev, at };
+      })
+      .filter(item => item.at > 0)
+      .sort((a, b) => b.at - a.at);
+    event = active[0]?.ev;
+  }
+  if (!event) event = open[0];
+  const lifecycle = resolveEventLifecycle(state, event);
+  return { event, lifecycle, nextAction:lifecycle.nextAction };
+}
+
 export {
   GM_PIN, ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
@@ -758,10 +971,13 @@ export {
   OVERFLOW_ROLES, participationForEvent, eventCapacity, validateEventParticipants,
   normalizeOverflowRoles, defaultQaParticipants,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
-  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
+  pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
+  EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
+  resolveEventLifecycle, resolveWeekendOperation,
 };

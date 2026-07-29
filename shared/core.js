@@ -589,8 +589,9 @@ function resolveWager(state, w, events) {
 
 /* The betting market and its board have different lifetimes. Closing the
    market stops new chips, but the board remains the event's betting context
-   while the locked event waits to start, even when nobody placed a wager.
-   Once play starts, keep the board only while it still has pending wagers. */
+   through play and result entry, even when nobody placed a wager. The board
+   clears only when the event result is posted. Pending wagers remain a
+   fallback for state created before event operations tracked betting locks. */
 function wagerBoardEvent(state, events = allEventsOf(state)) {
   const open = events.find(ev => ev.id === state.onDeck && !state.results?.[ev.id]);
   if (open) return open;
@@ -609,7 +610,9 @@ function wagerBoardEvent(state, events = allEventsOf(state)) {
   return events
     .filter(ev => !state.results?.[ev.id]
       && !state.shelved?.[ev.id]
-      && (resolveEventLifecycle(state, ev).phase === "betting-locked"
+      && ((["betting-locked", "in-progress", "result-entry"]
+          .includes(resolveEventLifecycle(state, ev).phase)
+          && state.eventOps?.[ev.id]?.bettingLockedAt)
         || pendingIds.has(ev.id)))
     .sort((a, b) => activityAt(b) - activityAt(a))[0] || null;
 }

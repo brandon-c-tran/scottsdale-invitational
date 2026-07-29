@@ -384,7 +384,7 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
   assert.equal(Object.keys(state.wagerOps).length, 4);
 });
 
-test("locking betting keeps a bracket with pending chips active until settlement", () => {
+test("locking betting keeps its bracket active after matchup chips settle", () => {
   const state = structuredClone(EMPTY_STATE);
   const bettor = {
     isGm:false,
@@ -428,10 +428,10 @@ test("locking betting keeps a bracket with pending chips active until settlement
     m:0,
     teamIdx,
   }, gm).ok, true);
-  assert.equal(wagerBoardEvent(state), null);
+  assert.equal(wagerBoardEvent(state).id, "8ball");
 });
 
-test("locking an empty market keeps its betting board visible until play starts", () => {
+test("locking an empty market keeps its betting board visible until the result posts", () => {
   const state = structuredClone(EMPTY_STATE);
 
   assert.equal(wagerBoardEvent(state), null);
@@ -444,6 +444,14 @@ test("locking an empty market keeps its betting board visible until play starts"
   assert.equal(wagerBoardEvent(state).id, "putt");
 
   assert.equal(applyAction(state, "startEvent", { evId:"putt" }, gm).ok, true);
+  assert.equal(wagerBoardEvent(state).id, "putt");
+  assert.equal(applyAction(state, "beginResultEntry", { evId:"putt" }, gm).ok, true);
+  assert.equal(wagerBoardEvent(state).id, "putt");
+
+  assert.equal(applyAction(state, "saveResult", {
+    evId:"putt",
+    slots:[["Brandon"], ["Evan"], ["Eyob"]],
+  }, gm).ok, true);
   assert.equal(wagerBoardEvent(state), null);
 });
 

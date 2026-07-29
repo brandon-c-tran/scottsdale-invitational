@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   BUILTIN_EVENTS,
   EMPTY_STATE,
+  OVERFLOW_ROLES,
   ROSTER,
   ROSTER_CONFIG,
   RESET_PROGRESS_CONFIRMATION,
@@ -13,6 +14,8 @@ import {
   defaultQaParticipants,
   drawTeams,
   makeBracket,
+  normalizeOverflowRoles,
+  overflowRoleMeta,
   qaBracketMatchWager,
   resolveSlot,
   rosterPlayers,
@@ -70,6 +73,21 @@ test("strict team participation handles 12, 13, and 14 active-roster scenarios e
   const chosen12of14 = validateEventParticipants(eightBall, active14.slice(0, 12), active14);
   assert.equal(chosen12of14.ok, true);
   assert.equal(chosen12of14.overflow.length, 2);
+});
+
+test("event crew gives every stored overflow role an intentional presentation", () => {
+  for (const role of OVERFLOW_ROLES) {
+    const meta = overflowRoleMeta(role);
+    assert.ok(meta.label, `${role} label`);
+    assert.ok(meta.short, `${role} short label`);
+    assert.match(meta.detail, /\.$/, `${role} duty`);
+  }
+  assert.equal(overflowRoleMeta("sit-out").label, "Event host");
+  assert.deepEqual(
+    normalizeOverflowRoles(ROSTER.slice(0, 12), ROSTER,
+      [{ player:ROSTER[12], role:"sit-out" }], eightBall),
+    [{ player:ROSTER[12], role:"sit-out" }],
+  );
 });
 
 test("server rejects oversized draws and persists exact teams plus overflow roles", () => {

@@ -137,6 +137,34 @@ const RAW_BUILTIN_EVENTS = [
 ];
 
 const OVERFLOW_ROLES = ["referee", "scorekeeper", "photographer", "on-deck", "sit-out"];
+const OVERFLOW_ROLE_META = Object.freeze({
+  referee: Object.freeze({
+    label:"Event official",
+    short:"Official",
+    detail:"Calls rules and settles close plays.",
+  }),
+  scorekeeper: Object.freeze({
+    label:"Scorekeeper",
+    short:"Score",
+    detail:"Tracks the score and reports the finish.",
+  }),
+  photographer: Object.freeze({
+    label:"Photographer",
+    short:"Camera",
+    detail:"Captures the matchup and the winner.",
+  }),
+  "on-deck": Object.freeze({
+    label:"On-deck lead",
+    short:"Next up",
+    detail:"Keeps the next matchup ready to go.",
+  }),
+  "sit-out": Object.freeze({
+    label:"Event host",
+    short:"Host",
+    detail:"Resets the station and keeps play moving.",
+  }),
+});
+const overflowRoleMeta = role => OVERFLOW_ROLE_META[role] || OVERFLOW_ROLE_META["sit-out"];
 const participationForEvent = ev => {
   if (ev?.participation) return ev.participation;
   if (ev?.teamCfg) return {
@@ -1040,7 +1068,7 @@ export {
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
-  OVERFLOW_ROLES, participationForEvent, eventCapacity, validateEventParticipants,
+  OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
   normalizeOverflowRoles, defaultQaParticipants,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,

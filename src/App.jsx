@@ -7,7 +7,8 @@ import {
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
-  defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
+  defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
+  resolveEventLifecycle, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
 import {
@@ -686,7 +687,7 @@ export default function App() {
           groups = draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
         }
         return { id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups,
-          versus: draw.teams.length === 2 ? draw.teams : null };
+          versus: draw.teams.length === 2 ? draw.teams : null, crew:draw.roles || [] };
       }
     }
     for (const [eid, st] of ordered(state.stages)) {
@@ -701,7 +702,7 @@ export default function App() {
           }),
         }));
         return { id:st.id, evId:ev.id, title: st.kind === "heats" ? "The heats" : "The pools",
-          subtitle:ev.name, groups, versus:null };
+          subtitle:ev.name, groups, versus:null, crew:[] };
       }
     }
     return null;
@@ -1696,7 +1697,7 @@ export default function App() {
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
         onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
-        state={state} gm={gmView} me={me} standings={standings} pool={modal.pool}
+        state={state} gm={gmView} me={me} standings={standings} pool={modal.pool} roles={modal.roles}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onStart={(captains, players) => startDraft(modal.ev.id, captains, players, modal.roles)}
         onPick={player => pickDraftPlayer(modal.ev.id, player)}
@@ -3740,6 +3741,62 @@ const PHASE = {
 };
 const phaseOf = ev => PHASE[ev?.session] || { bg:"var(--paper2)", fg:"var(--ink)" };
 
+function EventCrewCard({ state, roles, compact=false }) {
+  const assignments = (roles || []).filter(item => item?.player);
+  if (!assignments.length) return null;
+  if (compact) {
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, marginTop:9, paddingTop:8,
+        borderTop:"1px solid var(--line)" }}>
+        <span style={{ ...label, color:"var(--accent2)", flexShrink:0 }}>Event crew</span>
+        <AvatarStack state={state} players={assignments.map(item => item.player)} size={20} max={3} />
+        <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--ink)", minWidth:0,
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+          {assignments.map(item => disp(state, item.player)).join(", ")}
+        </span>
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)",
+          flexShrink:0 }}>
+          {assignments.map(item => overflowRoleMeta(item.role).short).join(" + ")}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div style={{ margin:"10px 0 4px", padding:"11px 12px", borderRadius:14,
+      background:"var(--paper2)", border:"1px solid rgba(194,88,50,0.38)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+        <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)" }}>
+          {assignments.length} {assignments.length === 1 ? "assignment" : "assignments"}
+        </span>
+      </div>
+      {assignments.map((item, index) => {
+        const meta = overflowRoleMeta(item.role);
+        return (
+          <div key={`${item.player}-${index}`} style={{ display:"flex", alignItems:"center", gap:9,
+            padding:index ? "8px 0 0" : "0", marginTop:index ? 8 : 0,
+            borderTop:index ? "1px solid var(--line)" : "none" }}>
+            <Avatar state={state} p={item.player} size={30} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {disp(state, item.player)}
+              </div>
+              <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35, color:"var(--muted2)" }}>
+                {meta.detail}
+              </div>
+            </div>
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--accent2)",
+              background:"var(--accent-tint)", borderRadius:7, padding:"4px 7px", flexShrink:0 }}>
+              {meta.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Schedule({ state, events, gm, open, onAdd, onReorder }) {
   const [reorderMode, setReorderMode] = useState(false);
   const shelved = events.filter(e => state.shelved[e.id]);
@@ -3808,6 +3865,9 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
             ))}
           </div>
         )}
+        {!moving && draw?.roles?.length > 0 && (
+          <EventCrewCard state={state} roles={draw.roles} compact />
+        )}
       </button>
     );
   });
@@ -3834,7 +3894,7 @@ function Schedule({ state, events, gm, open, onAdd, onReorder }) {
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
             borderRadius:10, background:"var(--paper2)", color:"var(--ink)", border:"1.5px solid var(--ink)" }}>
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.03em",
-              textTransform:"uppercase", flex:1 }}>Extra</span>
+              textTransform:"uppercase", flex:1 }}>Added events</span>
           </div>
           {section(extras, true)}
         </div>
@@ -3988,6 +4048,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
           <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
             Open the draft board</Btn>
+          <EventCrewCard state={state} roles={draftLive.roles} />
         </div>
       )}
 
@@ -4011,11 +4072,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               ))}
             </div>
           )}
-          {draw.roles?.length > 0 && (
-            <div style={{ marginTop:9, fontFamily:SANS, fontSize:12.5, lineHeight:1.5, color:"var(--muted)" }}>
-              {draw.roles.map(({ player, role }) => `${disp(state, player)}: ${role}`).join(" · ")}
-            </div>
-          )}
+          <EventCrewCard state={state} roles={draw.roles} />
           {br && <Btn kind="dark" onClick={openBracket} style={{ width:"100%", marginTop:10 }}>View bracket</Btn>}
         </div>
       )}
@@ -4054,12 +4111,12 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
                   border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
                   color: diff !== 0 ? "var(--clay)" : "var(--ink)" }}>
-                  {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
+                  {inPlayers.length} competitors {showOuts ? "▴" : "▾"}</button>
               </div>
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
                 color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
                 Format: {ev.teamCfg.teams} teams of {ev.teamCfg.size}, fits {fit}.
-                {diff > 0 ? ` Assign ${diff} to non-playing roles.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
+                {diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
               </div>
               {showOuts && (
                 <>
@@ -4068,23 +4125,57 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                       onClick={() => setOuts(o => o.includes(p) ? o.filter(x=>x!==p) : [...o,p])}
                       style={centeredGridCell(i, ROSTER.length, 3, 5)} />)}
                   </div>
-                  {outs.map(player => (
-                    <label key={player} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7,
-                      fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)" }}>
-                      <span style={{ flex:1 }}>{disp(state, player)}</span>
-                      <select value={outRoles[player] || "sit-out"}
-                        onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
-                        style={{ minWidth:132, padding:"8px 9px", borderRadius:9, background:"var(--paper)",
-                          color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:600 }}>
-                        {OVERFLOW_ROLES.map(role => <option key={role} value={role}>{role}</option>)}
-                      </select>
-                    </label>
-                  ))}
+                  {outs.length > 0 && (
+                    <div style={{ background:"var(--paper2)", border:"1px solid rgba(194,88,50,0.38)",
+                      borderRadius:14, padding:"11px 12px", marginBottom:10 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                        <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
+                        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)" }}>
+                          {outs.length} {outs.length === 1 ? "assignment" : "assignments"}
+                        </span>
+                      </div>
+                      <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.4, color:"var(--muted2)",
+                        marginBottom:9 }}>
+                        These jobs keep the event moving. Crew do not compete or score in this one.
+                      </div>
+                      {outs.map((player, index) => {
+                        const role = outRoles[player] || "sit-out";
+                        const meta = overflowRoleMeta(role);
+                        return (
+                          <div key={player} style={{ display:"flex", alignItems:"center", gap:9,
+                            padding:index ? "9px 0 0" : "0", marginTop:index ? 9 : 0,
+                            borderTop:index ? "1px solid var(--line)" : "none" }}>
+                            <Avatar state={state} p={player} size={32} />
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
+                                marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                {disp(state, player)}
+                              </div>
+                              <div style={{ fontFamily:SANS, fontSize:10.5, lineHeight:1.3, color:"var(--muted2)" }}>
+                                {meta.detail}
+                              </div>
+                            </div>
+                            <select aria-label={`${disp(state, player)} event crew role`} value={role}
+                              onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
+                              style={{ width:142, maxWidth:"42%", padding:"8px 8px", borderRadius:9,
+                                background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)",
+                                fontFamily:SANS, fontWeight:700, fontSize:11.5 }}>
+                              {OVERFLOW_ROLES.map(value => (
+                                <option key={value} value={value}>{overflowRoleMeta(value).label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </>
               )}
               <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
                 {participantFit.ok
-                  ? `Teams balance from ratings and results. ${outs.length} excluded ${outs.length === 1 ? "player gets" : "players get"} a recorded sit-out role.`
+                  ? `Teams balance from ratings and results.${outs.length
+                    ? " Event crew assignments save with the draw."
+                    : ""}`
                   : participantFit.error}
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
@@ -4247,7 +4338,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               </div>
               <div style={{ ...label, marginBottom:6 }}>When</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
-                {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
+                {[...SESSIONS.map(s => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => (
                   <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
                     fontSize:12.5, padding:"10px 12px", borderRadius:10, cursor:"pointer",
                     background: eSession===id ? GOLD_GRAD : "var(--paper)",
@@ -4321,7 +4412,7 @@ function AddEventSheet({ state, onClose, save }) {
       </div>
       <div style={{ ...label, marginBottom:6 }}>When</div>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
-        {[...SESSIONS.map(s => [s.id, s.label]), [null, "Extra"]].map(([id, lb]) => (
+        {[...SESSIONS.map(s => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => (
           <button key={String(id)} onClick={() => setSess(id)} style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5,
             padding:"10px 12px", borderRadius:10, cursor:"pointer",
             background: sess===id ? GOLD_GRAD : "var(--paper)",
@@ -4443,6 +4534,7 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
         </div>
       )}
       <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick} />
+      <EventCrewCard state={state} roles={draw.roles} compact />
       {gm && champ !== null && !state.results[ev.id] && (
         <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
       )}
@@ -4451,7 +4543,7 @@ function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
 }
 
 /* ─────────── captains draft (GM sets up + can override; on-clock captain picks) ─────────── */
-function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPick, onUndo, onFinalize, onCancel }) {
+function DraftSheet({ ev, state, gm, me, standings, pool, roles, onClose, onStart, onPick, onUndo, onFinalize, onCancel }) {
   const d = state.drafts?.[ev.id];
   const N = ev.teamCfg?.teams || 2;
   const seedVal = p => ev.sport
@@ -4491,6 +4583,7 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
               style={centeredGridCell(pi, (pool || []).length)} />;
           })}
         </div>
+        <EventCrewCard state={state} roles={roles} />
         <Btn disabled={captains.length !== N} onClick={() => onStart(captains, pool)} style={{ width:"100%" }}>
           Start the draft</Btn>
       </Sheet>
@@ -4534,6 +4627,7 @@ function DraftSheet({ ev, state, gm, me, standings, pool, onClose, onStart, onPi
           </div>
         ))}
       </div>
+      <EventCrewCard state={state} roles={d.roles} />
 
       {!poolEmpty && (
         <>
@@ -6243,7 +6337,9 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
 function Reveal({ state, reveal, big, auto, onClose, onBets }) {
-  const items = reveal.versus ? 1 : reveal.groups.length;
+  const teamItems = reveal.versus ? 1 : (reveal.groups?.length || 0);
+  const crew = reveal.crew || [];
+  const items = teamItems + (crew.length ? 1 : 0);
   const reducedMotion = prefersReducedMotion();
   const [shown, setShown] = useState(() => reducedMotion ? items : 0);
   useEffect(() => {
@@ -6275,8 +6371,8 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
         </div>
       ) : (
         <div style={{ display:"grid", gap: big ? 16 : 10, width:"100%", maxWidth: big ? 1100 : 460,
-          gridTemplateColumns: big ? `repeat(${items === 4 ? 2 : Math.min(items,3)}, 1fr)`
-            : items > 3 ? "1fr 1fr" : "1fr" }}>
+          gridTemplateColumns: big ? `repeat(${teamItems === 4 ? 2 : Math.min(teamItems,3)}, 1fr)`
+            : teamItems > 3 ? "1fr 1fr" : "1fr" }}>
           {reveal.groups.map((g, i) => (
             <div key={i} style={{ visibility: i < shown ? "visible" : "hidden",
               animation: i < shown ? "si-flag .55s both" : "none",
@@ -6301,6 +6397,13 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
               ))}
             </div>
           ))}
+        </div>
+      )}
+      {crew.length > 0 && (
+        <div style={{ width:"100%", maxWidth:big ? 760 : 470,
+          visibility:shown > teamItems ? "visible" : "hidden",
+          animation:shown > teamItems ? "si-flag .55s both" : "none" }}>
+          <EventCrewCard state={state} roles={crew} />
         </div>
       )}
       {doneAll && !auto && (
@@ -6811,6 +6914,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
      game must not leak into its TV scene. */
   const activeBracketEv = liveEv && state.brackets[liveEv.id] && state.draws[liveEv.id] ? liveEv : null;
   const activeStageEv = liveEv && state.stages[liveEv.id] ? liveEv : null;
+  const liveCrew = (liveEv && state.draws[liveEv.id]?.roles) || draftLive?.d.roles || [];
   /* who steps up next: the first open, fully-seated matchup in the live bracket */
   const upNext = useMemo(() => activeBracketEv ? nextOpenMatch(state.brackets[activeBracketEv.id]) : null,
     [activeBracketEv, state]);
@@ -6860,6 +6964,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     if (cur) tickerItems.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
       text:`${disp(state, cur)} is on the clock` });
   }
+  if (liveCrew.length) tickerItems.push({
+    tag:"Event crew",
+    tone:"var(--accent2)",
+    players:liveCrew.map(item => item.player).slice(0, 4),
+    text:liveCrew.map(item =>
+      `${disp(state, item.player)}, ${overflowRoleMeta(item.role).label}`).join(" · "),
+  });
   if (latest) tickerItems.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0,4),
     text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
   if (upNext && upNextDraw) tickerItems.push({ tag:"Up now", tone:"var(--sun)",

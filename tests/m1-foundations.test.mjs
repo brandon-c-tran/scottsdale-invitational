@@ -16,6 +16,7 @@ import {
   makeBracket,
   normalizeOverflowRoles,
   overflowRoleMeta,
+  coalescePendingReveals,
   qaBracketMatchWager,
   resolveSlot,
   rosterPlayers,
@@ -88,6 +89,26 @@ test("event crew gives every stored overflow role an intentional presentation", 
       [{ player:ROSTER[12], role:"sit-out" }], eightBall),
     [{ player:ROSTER[12], role:"sit-out" }],
   );
+});
+
+test("returning devices play only the latest unseen draw ceremony", () => {
+  const draws = {
+    putt:{ id:"d100", ts:100, teams:[] },
+    pong:{ id:"d300", ts:300, teams:[] },
+  };
+  const stages = {
+    bball:{ id:"s200", ts:200, groups:[] },
+    pool:{ id:"s400", ts:400, groups:[] },
+  };
+  const pending = coalescePendingReveals(draws, stages, ["d300"]);
+  assert.equal(pending.latest.item.id, "s400");
+  assert.equal(pending.latest.evId, "pool");
+  assert.equal(pending.latest.kind, "stage");
+  assert.deepEqual(pending.staleIds, ["s200", "d100"]);
+
+  const activeAnnouncement = coalescePendingReveals(draws, stages, [], "pong");
+  assert.equal(activeAnnouncement.latest.item.id, "d300");
+  assert.deepEqual(activeAnnouncement.staleIds, ["s400", "s200", "d100"]);
 });
 
 test("server rejects oversized draws and persists exact teams plus overflow roles", () => {

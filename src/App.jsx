@@ -7,7 +7,7 @@ import {
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
-  defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
+  coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
   resolveEventLifecycle, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
@@ -638,7 +638,8 @@ export default function App() {
   /* reveal detection: team draws and stage draws reveal on every phone.
      The intro announces the game first and the reveal comes second, but the
      handover is automatic: one GM tap plays both scenes in order, so nobody
-     has to close a card to make the draw appear. */
+     has to close a card to make the draw appear. If a device reconnects with
+     several unseen ceremonies, older ones retire and only the latest plays. */
   const INTRO_HOLD = prefersReducedMotion() ? 650 : 4200;
   const introAt = useRef(0);
   useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
@@ -652,6 +653,13 @@ export default function App() {
         const nx = [...seenReveals, ...ids].slice(-60);
         setSeenReveals(nx); localSet("si-seen-v5", JSON.stringify(nx));
       }
+      return;
+    }
+    const { staleIds } = coalescePendingReveals(state.draws, state.stages, seenReveals, intro);
+    if (staleIds.length) {
+      const nx = [...seenReveals, ...staleIds].filter((id, index, all) => all.indexOf(id) === index).slice(-60);
+      setSeenReveals(nx);
+      localSet("si-seen-v5", JSON.stringify(nx));
       return;
     }
     /* built first and shown second: the intro can only be handed over once we

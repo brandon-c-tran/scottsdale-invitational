@@ -486,6 +486,25 @@ function defaultQaParticipants(ev, active = ROSTER) {
   const capacity = eventCapacity(ev);
   return capacity ? [...active].slice(0, capacity) : [...active];
 }
+function coalescePendingReveals(draws = {}, stages = {}, seenIds = [], preferredEvId = null) {
+  const seen = new Set(Array.isArray(seenIds) ? seenIds : []);
+  let order = 0;
+  const entries = [];
+  const add = (kind, map) => Object.entries(map || {}).forEach(([evId, item]) => {
+    if (!item?.id || seen.has(item.id)) return;
+    const idTime = Number(String(item.id).replace(/^\D+/, "")) || 0;
+    entries.push({ kind, evId, item, at:Number(item.ts) || idTime, order:order++ });
+  });
+  add("draw", draws);
+  add("stage", stages);
+  const queue = entries.sort((a, b) =>
+    Number(b.evId === preferredEvId) - Number(a.evId === preferredEvId)
+    || b.at - a.at || b.order - a.order);
+  return {
+    latest:queue[0] || null,
+    staleIds:queue.slice(1).map(entry => entry.item.id),
+  };
+}
 const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
 /* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
@@ -1069,7 +1088,7 @@ export {
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
-  normalizeOverflowRoles, defaultQaParticipants,
+  normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,

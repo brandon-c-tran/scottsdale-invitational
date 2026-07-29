@@ -55,6 +55,13 @@ See [the M1 implementation plan](docs/M1-implementation-plan.md) and
 operation. The repeatable local baseline and remaining approval gates are in
 [the M1 rehearsal report](docs/M1-rehearsal-report.md).
 
+Milestone 2 is defined in [the M2 PRD](docs/M2-prd.md) and sequenced in
+[the M2 implementation plan](docs/M2-implementation-plan.md). Its first
+feature-gated slices are recoverable Show Control and the Spotify test Audio
+Director. They are enabled locally and in staging; production remains disabled.
+Spotify search needs `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. Playback
+also requires a one-time commissioner OAuth connection from Audio Director.
+
 ## How sync works
 
 Phones never write state. They send actions over a WebSocket to one Durable

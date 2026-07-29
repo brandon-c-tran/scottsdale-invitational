@@ -31,7 +31,16 @@ const snapshot = {
   ready: false,
   lastAction: null,
   environment: "production",
-  capabilities: { qa:false, progressReset:false, restore:false, snapshotExport:false },
+  capabilities: {
+    qa:false,
+    progressReset:false,
+    restore:false,
+    snapshotExport:false,
+    showControl:false,
+    audioDirector:false,
+    audioCatalog:false,
+    audioPlayback:false,
+  },
 };
 let cached = { ...snapshot };
 const listeners = new Set();
@@ -69,8 +78,16 @@ function connect() {
         snapshot.state = msg.state; snapshot.version = msg.version;
         snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
         snapshot.environment = msg.environment || "production";
-        snapshot.capabilities = msg.capabilities
-          || { qa:false, progressReset:false, restore:false, snapshotExport:false };
+        snapshot.capabilities = msg.capabilities || {
+          qa:false,
+          progressReset:false,
+          restore:false,
+          snapshotExport:false,
+          showControl:false,
+          audioDirector:false,
+          audioCatalog:false,
+          audioPlayback:false,
+        };
         emit();
       }
     } else if (msg.type === "ack") {
@@ -127,6 +144,47 @@ export async function uploadPhoto(player, dataUrl) {
     return await r.json();
   } catch { return { ok: false, error: "Upload failed" }; }
 }
+
+async function spotifyRequest(path, { method = "GET", body, gm = false } = {}) {
+  try {
+    const response = await fetch(`/api/spotify/${path}`, {
+      method,
+      headers:{
+        ...(body ? { "Content-Type":"application/json" } : {}),
+        "X-Field-Day-Device":deviceId,
+        ...(gm ? { Authorization:`Bearer ${gmToken || ""}` } : {}),
+      },
+      ...(body ? { body:JSON.stringify(body) } : {}),
+    });
+    const result = await response.json().catch(() => ({}));
+    return response.ok
+      ? result
+      : { ...result, ok:false, error:result.error || "Spotify request failed" };
+  } catch {
+    return { ok:false, error:"Spotify is unavailable" };
+  }
+}
+
+export const spotifyStatus = () => spotifyRequest("status", { gm:true });
+export const spotifyPlayer = () => spotifyRequest("player", { gm:true });
+export const spotifySearch = query =>
+  spotifyRequest(`search?q=${encodeURIComponent(query)}`, { gm:true });
+export const spotifyAuthorize = () =>
+  spotifyRequest("authorize", { method:"POST", gm:true });
+export const spotifyDisconnect = () =>
+  spotifyRequest("disconnect", { method:"POST", gm:true });
+export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs = 0 } = {}) =>
+  spotifyRequest("play", {
+    method:"POST",
+    gm:true,
+    body:{ uri, deviceId:targetDevice, positionMs },
+  });
+export const spotifyPause = ({ deviceId:targetDevice = "" } = {}) =>
+  spotifyRequest("pause", {
+    method:"POST",
+    gm:true,
+    body:{ deviceId:targetDevice },
+  });
 
 export async function downloadSnapshot() {
   try {

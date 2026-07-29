@@ -81,8 +81,8 @@ const a = A.win, b = B.win;
 await a.waitVersion(0); await new Promise(r => setTimeout(r, 300));
 assert(a.state && b.state, "both windows received initial state on hello");
 assert(a.environment === "local" && a.capabilities?.qa && a.capabilities?.progressReset
-  && a.capabilities?.restore,
-  "local server is visibly isolated and enables rehearsal, reset, and recovery capabilities");
+  && a.capabilities?.restore && a.capabilities?.showControl,
+  "local server is visibly isolated and enables rehearsal, recovery, and Show Control capabilities");
 
 /* ── onboarding: claim different players ── */
 let r = await a.dispatch("claim", { player: "Brandon" });
@@ -115,6 +115,33 @@ assert(r.ok && r.extra?.backupKey?.startsWith("m1:pre-reset:"),
 await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
+/* directed presentation is durable and independent from the tournament loop */
+r = await a.dispatch("startShowScene", { kind:"event-intro", eventId:"putt" });
+assert(r.ok, "GM starts a directed event scene");
+await b.waitVersion(a.version);
+const showId = b.state.showControl?.active?.id;
+assert(showId && b.state.showControl.active.step === 0,
+  "window B receives the active Show Control scene");
+
+const TVScene = makeWindow("TV(Show)");
+await TVScene.open;
+await new Promise(resolve => setTimeout(resolve, 100));
+assert(TVScene.win.you === null && TVScene.win.state?.showControl?.active?.id === showId,
+  "a refreshing TV reconstructs the active scene while remaining unclaimed");
+
+r = await a.dispatch("advanceShowScene", { id:showId });
+assert(r.ok, "GM advances the directed scene");
+await TVScene.win.waitVersion(a.version);
+assert(TVScene.win.state.showControl.active.step === 1,
+  "TV receives the authoritative scene step");
+r = await a.dispatch("endShowScene", { id:showId, outcome:"skipped" });
+assert(r.ok, "GM skips the scene back to ambient TV");
+await b.waitVersion(a.version);
+assert(b.state.showControl.active === null
+    && b.state.showControl.history[0]?.outcome === "skipped",
+  "scene outcome is durable without changing tournament state");
+TVScene.win.ws.close();
+
 r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER });
 assert(!r.ok && /exactly 12/i.test(r.error),
   "GM cannot silently squeeze 13 players into a 12-seat format (rejected: " + r.error + ")");

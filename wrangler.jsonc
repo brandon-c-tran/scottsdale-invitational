@@ -17,9 +17,12 @@
   },
   "vars": {
     "APP_ENV": "production",
-    "APP_VERSION": "m1-rehearsal-console-4",
+    "APP_VERSION": "m2-audio-director-1",
     "QA_ENABLED": "true",
-    "PROGRESS_RESET_ENABLED": "true"
+    "PROGRESS_RESET_ENABLED": "true",
+    "M2_SHOW_CONTROL_ENABLED": "false",
+    "M2_AUDIO_CATALOG_ENABLED": "false",
+    "M2_AUDIO_PLAYBACK_ENABLED": "false"
   },
   /* the app answers on the real domain, not a workers.dev subdomain. Requires
      fielddayseries.com to be an active zone on this Cloudflare account:
@@ -39,9 +42,12 @@
       },
       "vars": {
         "APP_ENV": "local",
-        "APP_VERSION": "m1-rehearsal-console-4",
+        "APP_VERSION": "m2-audio-director-1",
         "QA_ENABLED": "true",
-        "PROGRESS_RESET_ENABLED": "true"
+        "PROGRESS_RESET_ENABLED": "true",
+        "M2_SHOW_CONTROL_ENABLED": "true",
+        "M2_AUDIO_CATALOG_ENABLED": "true",
+        "M2_AUDIO_PLAYBACK_ENABLED": "true"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
@@ -56,9 +62,12 @@
       },
       "vars": {
         "APP_ENV": "staging",
-        "APP_VERSION": "m1-rehearsal-console-4",
+        "APP_VERSION": "m2-audio-director-1",
         "QA_ENABLED": "true",
-        "PROGRESS_RESET_ENABLED": "true"
+        "PROGRESS_RESET_ENABLED": "true",
+        "M2_SHOW_CONTROL_ENABLED": "true",
+        "M2_AUDIO_CATALOG_ENABLED": "true",
+        "M2_AUDIO_PLAYBACK_ENABLED": "true"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]

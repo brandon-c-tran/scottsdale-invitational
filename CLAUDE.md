@@ -145,7 +145,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    betting, lock betting, start, finish its bracket/stages if present, enter
    results, and then post. Results are revisioned; overwrites and clears
    require a reason, and identical retries are no-ops.
-10. **The wager ledger is duplicate-safe.** Current state schema `v:7` adds
+10. **The wager ledger is duplicate-safe.** State schema `v:7` adds
    `wagerOps`, keyed by device plus action id. The client may retry place and
    retract once using the same action id; the server acknowledges that retry
    without applying it twice. A new tap has a new action id and aggregates
@@ -159,6 +159,19 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    payload and creates one rotating internal pre-reset backup before the clean
    state is published. Production import, restore, and internal-backup recovery
    remain hard disabled.
+12. **Show Control is recoverable presentation state, not tournament truth.**
+   Current state schema `v:8` adds `showControl`. Its active scene and step are
+   persisted by the Durable Object, so every TV reconstructs after refresh or
+   reconnect. Scenes reference current official events, results, and standings
+   instead of copying them. Commissioner commands are capability-gated and
+   duplicate-safe; skip, cancel, retry, and a safe ambient fallback are always
+   available.
+13. **Provider credentials are private infrastructure state.** Spotify client
+   credentials are Worker secrets. Application tokens stay in Worker memory;
+   GM access and refresh tokens use `private:spotify:*` Durable Object keys.
+   Private keys, `gmToken`, and internal backups are excluded from portable
+   snapshots. Tournament state may contain only validated public walkout-track
+   metadata, and Show Control never depends on playback success.
 
 ## Commands
 
@@ -169,7 +182,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 - `npm run deploy:staging` - creates/updates the isolated staging Worker; approval required
 - `npm run deploy:production` - updates the existing live Worker; approval and snapshot required
 - `npm run tail` - live production logs; approval required
-- `npm run test` - M1 snapshot, roster, participation, and compatibility checks
+- `npm run test` - M1/M2 state, action, snapshot, and compatibility checks
 - `npm run test:e2e` - full game loop over two local WebSocket clients (dev
   server must be running; production URLs are rejected; resets local state)
 - `npm run snapshot:validate -- <file>` - offline, read-only snapshot validation

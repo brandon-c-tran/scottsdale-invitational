@@ -23,8 +23,31 @@ import {
   snapshotSha256,
   validateSnapshot,
 } from "./snapshot.js";
+import {
+  SpotifyServiceError,
+  compactSpotifyDevice,
+  compactSpotifyPlayback,
+  exchangeAuthorizationCode,
+  publicSpotifyError,
+  refreshAuthorization,
+  requestClientToken,
+  searchSpotifyTracks,
+  spotifyApi,
+  spotifyAuthorizeUrl,
+  spotifyConfigured,
+  spotifyRedirectUri,
+} from "./spotify.js";
 
 const tokenEncoder = new TextEncoder();
+const SPOTIFY_SESSION_KEY = "private:spotify:session";
+const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
+const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
+const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
+const SPOTIFY_SEARCH_LIMIT = 12;
+const spotifyJson = (body, status = 200) => Response.json(body, {
+  status,
+  headers:{ "Cache-Control":"no-store" },
+});
 async function secureTokenEqual(provided, expected) {
   if (!provided || !expected) return false;
   const [providedHash, expectedHash] = await Promise.all([
@@ -63,6 +86,17 @@ export class Tournament {
       progressReset: configured && this.env.PROGRESS_RESET_ENABLED === "true",
       restore: isolated,
       snapshotExport: isolated,
+      showControl: configured && this.env.M2_SHOW_CONTROL_ENABLED === "true",
+      audioDirector:configured && (
+        this.env.M2_AUDIO_CATALOG_ENABLED === "true"
+        || this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
+      ),
+      audioCatalog:configured
+        && this.env.M2_AUDIO_CATALOG_ENABLED === "true"
+        && spotifyConfigured(this.env),
+      audioPlayback:configured
+        && this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
+        && spotifyConfigured(this.env),
     };
   }
 
@@ -85,6 +119,7 @@ export class Tournament {
     }
 
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
+    if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
@@ -121,6 +156,256 @@ export class Tournament {
     }
 
     return new Response("Not found", { status: 404 });
+  }
+
+  async gmAuthorized(req) {
+    const auth = req.headers.get("Authorization") || "";
+    const token = auth.startsWith("Bearer ")
+      ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
+    return secureTokenEqual(token, this.gmToken);
+  }
+
+  spotifyRateLimit(deviceId) {
+    const now = Date.now();
+    this.spotifySearches = this.spotifySearches || new Map();
+    const recent = (this.spotifySearches.get(deviceId) || [])
+      .filter(timestamp => now - timestamp < SPOTIFY_SEARCH_WINDOW_MS);
+    if (recent.length >= SPOTIFY_SEARCH_LIMIT) return false;
+    recent.push(now);
+    this.spotifySearches.set(deviceId, recent);
+    return true;
+  }
+
+  async spotifySearchAuthorized(req) {
+    if (await this.gmAuthorized(req)) return { ok:true, key:"gm" };
+    const deviceId = req.headers.get("X-Field-Day-Device") || "";
+    return isActivePlayer(this.claims[deviceId])
+      ? { ok:true, key:`device:${deviceId}` }
+      : { ok:false, key:null };
+  }
+
+  async spotifyCatalogAccessToken() {
+    if (this.spotifyCatalogToken?.expiresAt > Date.now() + 30000)
+      return this.spotifyCatalogToken.accessToken;
+    this.spotifyCatalogToken = await requestClientToken(this.env);
+    return this.spotifyCatalogToken.accessToken;
+  }
+
+  async storeSpotifyOAuthState(state, redirectUri) {
+    const now = Date.now();
+    const existing = await this.ctx.storage.list({ prefix:SPOTIFY_STATE_PREFIX });
+    const stale = [...existing.entries()]
+      .filter(([, value]) => now - Number(value?.createdAt) > SPOTIFY_STATE_TTL_MS)
+      .map(([key]) => key);
+    const fresh = [...existing.entries()]
+      .filter(([key]) => !stale.includes(key))
+      .sort((left, right) => Number(left[1]?.createdAt) - Number(right[1]?.createdAt));
+    const excess = fresh.slice(0, Math.max(0, fresh.length - 4)).map(([key]) => key);
+    if (stale.length || excess.length) await this.ctx.storage.delete([...stale, ...excess]);
+    await this.ctx.storage.put(`${SPOTIFY_STATE_PREFIX}${state}`, {
+      createdAt:now,
+      redirectUri,
+    });
+  }
+
+  async spotifySession({ forceRefresh = false } = {}) {
+    let session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+    if (!session?.refreshToken && !session?.accessToken)
+      throw new SpotifyServiceError("Connect Spotify first",
+        { status:401, code:"not_connected" });
+    if (forceRefresh || !(session.expiresAt > Date.now() + 30000)) {
+      session = await refreshAuthorization(this.env, session);
+      await this.ctx.storage.put(SPOTIFY_SESSION_KEY, session);
+    }
+    return session;
+  }
+
+  async spotifyUserApi(path, init = {}) {
+    let session = await this.spotifySession();
+    try {
+      return await spotifyApi(session.accessToken, path, init);
+    } catch (error) {
+      if (!(error instanceof SpotifyServiceError) || error.status !== 401) throw error;
+      session = await this.spotifySession({ forceRefresh:true });
+      return spotifyApi(session.accessToken, path, init);
+    }
+  }
+
+  spotifyCallbackRedirect(req, status) {
+    const url = new URL(req.url);
+    url.pathname = "/";
+    url.search = "";
+    url.searchParams.set("spotify", status);
+    return Response.redirect(url.toString(), 302);
+  }
+
+  async handleSpotify(req, url) {
+    const catalogFlag = this.env.M2_AUDIO_CATALOG_ENABLED === "true";
+    const playbackFlag = this.env.M2_AUDIO_PLAYBACK_ENABLED === "true";
+    if (!catalogFlag && !playbackFlag) return new Response("Not found", { status:404 });
+
+    if (url.pathname === "/api/spotify/callback" && req.method === "GET") {
+      if (!playbackFlag) return this.spotifyCallbackRedirect(req, "disabled");
+      const stateId = url.searchParams.get("state") || "";
+      const stateKey = `${SPOTIFY_STATE_PREFIX}${stateId}`;
+      const pending = stateId ? await this.ctx.storage.get(stateKey) : null;
+      if (stateId) await this.ctx.storage.delete(stateKey);
+      if (!pending || Date.now() - Number(pending.createdAt) > SPOTIFY_STATE_TTL_MS)
+        return this.spotifyCallbackRedirect(req, "invalid_state");
+      if (url.searchParams.get("error"))
+        return this.spotifyCallbackRedirect(req, "denied");
+      const code = url.searchParams.get("code") || "";
+      if (!code || code.length > 2048)
+        return this.spotifyCallbackRedirect(req, "error");
+      try {
+        const token = await exchangeAuthorizationCode(this.env, {
+          code,
+          redirectUri:pending.redirectUri,
+        });
+        const account = await spotifyApi(token.accessToken, "/me");
+        await this.ctx.storage.put(SPOTIFY_SESSION_KEY, {
+          ...token,
+          account:{
+            id:String(account?.id || "").slice(0, 100),
+            displayName:String(account?.display_name || account?.id || "Spotify").slice(0, 100),
+            product:String(account?.product || "unknown").slice(0, 30),
+          },
+          connectedAt:Date.now(),
+        });
+        return this.spotifyCallbackRedirect(req, "connected");
+      } catch {
+        return this.spotifyCallbackRedirect(req, "error");
+      }
+    }
+
+    if (url.pathname === "/api/spotify/search" && req.method === "GET") {
+      if (!catalogFlag) return new Response("Not found", { status:404 });
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok)
+        return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      if (!this.spotifyRateLimit(authorized.key))
+        return spotifyJson({ ok:false, error:"Too many searches; wait a minute", retryAfter:60 }, 429);
+      const query = (url.searchParams.get("q") || "").trim().replace(/\s+/g, " ");
+      if (query.length < 2 || query.length > 80)
+        return spotifyJson({ ok:false, error:"Search must be 2 to 80 characters" }, 400);
+      try {
+        const accessToken = await this.spotifyCatalogAccessToken();
+        return spotifyJson({ ok:true, tracks:await searchSpotifyTracks(accessToken, query) });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (!await this.gmAuthorized(req))
+      return spotifyJson({ ok:false, error:"Commissioner authentication required" }, 403);
+
+    if (url.pathname === "/api/spotify/status" && req.method === "GET") {
+      const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+      let redirectUri = null;
+      try { redirectUri = spotifyRedirectUri(req, this.env); } catch {}
+      return spotifyJson({
+        ok:true,
+        configured:spotifyConfigured(this.env),
+        connected:!!(session?.refreshToken || session?.accessToken),
+        account:session?.account || null,
+        redirectUri,
+        catalogEnabled:catalogFlag,
+        playbackEnabled:playbackFlag,
+      });
+    }
+
+    if (!playbackFlag) return new Response("Not found", { status:404 });
+
+    if (url.pathname === "/api/spotify/authorize" && req.method === "POST") {
+      if (!spotifyConfigured(this.env))
+        return spotifyJson({ ok:false, error:"Spotify credentials are not configured" }, 503);
+      try {
+        const redirectUri = spotifyRedirectUri(req, this.env);
+        const state = `${crypto.randomUUID()}${crypto.randomUUID()}`.replaceAll("-", "");
+        await this.storeSpotifyOAuthState(state, redirectUri);
+        return spotifyJson({
+          ok:true,
+          authorizationUrl:spotifyAuthorizeUrl({
+            clientId:this.env.SPOTIFY_CLIENT_ID,
+            redirectUri,
+            state,
+          }),
+        });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/disconnect" && req.method === "POST") {
+      const pending = await this.ctx.storage.list({ prefix:SPOTIFY_STATE_PREFIX });
+      await this.ctx.storage.delete([SPOTIFY_SESSION_KEY, ...pending.keys()]);
+      return spotifyJson({ ok:true });
+    }
+
+    if (url.pathname === "/api/spotify/player" && req.method === "GET") {
+      try {
+        const [deviceBody, playbackBody] = await Promise.all([
+          this.spotifyUserApi("/me/player/devices"),
+          this.spotifyUserApi("/me/player"),
+        ]);
+        return spotifyJson({
+          ok:true,
+          devices:(deviceBody?.devices || []).map(compactSpotifyDevice).filter(Boolean),
+          playback:compactSpotifyPlayback(playbackBody),
+        });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/play" && req.method === "POST") {
+      let body;
+      try { body = await req.json(); } catch {
+        return spotifyJson({ ok:false, error:"Invalid playback request" }, 400);
+      }
+      const uri = typeof body?.uri === "string" ? body.uri : null;
+      if (uri && !/^spotify:track:[A-Za-z0-9]{22}$/.test(uri))
+        return spotifyJson({ ok:false, error:"Invalid Spotify track" }, 400);
+      const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
+        ? body.deviceId : "";
+      const positionMs = Math.max(0, Math.min(12 * 60 * 60 * 1000,
+        Math.floor(Number(body?.positionMs) || 0)));
+      try {
+        await this.spotifyUserApi(
+          `/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
+          {
+            method:"PUT",
+            body:JSON.stringify(uri ? { uris:[uri], position_ms:positionMs } : {}),
+          },
+        );
+        return spotifyJson({ ok:true });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/pause" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
+        ? body.deviceId : "";
+      try {
+        await this.spotifyUserApi(
+          `/me/player/pause${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
+          { method:"PUT" },
+        );
+        return spotifyJson({ ok:true });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    return new Response("Not found", { status:404 });
   }
 
   async adminAuthorized(req) {
@@ -369,6 +654,7 @@ export class Tournament {
       actionId,
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
+      showControl:this.capabilities.showControl,
     });
     if (!result.ok) return reply(result);
     /* Explicit no-ops make retried result/transition actions idempotent:

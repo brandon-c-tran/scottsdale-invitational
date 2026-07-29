@@ -1,7 +1,7 @@
 const SNAPSHOT_FORMAT = "field-day-snapshot";
 const SNAPSHOT_VERSION = 1;
-/* v5/v6 snapshots remain importable; hydration adds current metadata maps. */
-const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7]);
+/* v5-v7 snapshots remain importable; hydration adds current metadata maps. */
+const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7, 8]);
 const ENVIRONMENTS = new Set(["local", "staging", "production"]);
 const REQUIRED_KEYS = ["state", "version", "claims"];
 const INTERNAL_BACKUP_PREFIX = "m1:pre-restore:";
@@ -18,6 +18,7 @@ function isPortableStorageKey(key) {
     && key.length > 0
     && key.length <= 256
     && key !== "gmToken"
+    && !key.startsWith("private:")
     && !INTERNAL_BACKUP_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 

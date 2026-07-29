@@ -12,10 +12,45 @@ import {
   pokerDistribution,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
 } from "../shared/core.js";
+import {
+  SHOW_TERMINAL_OUTCOMES,
+  createShowScene,
+  finishShowScene,
+  showDefinition,
+  validateShowSceneRequest,
+} from "../shared/show.js";
+import { validateSpotifyTrack } from "../shared/audio.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
 const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
+const showOnly = ctx => (ctx.showControl ? null : err("Show Control is unavailable"));
+const showControlOf = state => {
+  if (!state.showControl || typeof state.showControl !== "object")
+    state.showControl = { active:null, history:[] };
+  if (!Array.isArray(state.showControl.history)) state.showControl.history = [];
+  return state.showControl;
+};
+const showCommandId = ctx =>
+  typeof ctx?.actionId === "string" && ctx.actionId && ctx.actionId.length <= 120
+    ? ctx.actionId : null;
+const showCommandFingerprint = (...parts) => JSON.stringify(parts);
+const showCommandReplay = (control, commandId, type, fingerprint) => {
+  if (!commandId) return null;
+  const records = [control.active, ...(control.history || [])].filter(Boolean);
+  for (const record of records) {
+    const command = (record.commands || []).find(item => item?.id === commandId);
+    if (!command) continue;
+    return command.type === type && command.fingerprint === fingerprint
+      ? ok({ unchanged:true, sceneId:record.id, outcome:record.outcome })
+      : err("Request id already used");
+  }
+  return null;
+};
+const rememberShowCommand = (record, commandId, type, fingerprint) => {
+  record.commands = [...(Array.isArray(record.commands) ? record.commands : []),
+    { id:commandId, type, fingerprint }].slice(-8);
+};
 const eventOp = (state, evId) => {
   state.eventOps = state.eventOps || {};
   state.eventOps[evId] = state.eventOps[evId] || {};
@@ -86,6 +121,7 @@ const rememberWagerOp = (state, requestKey, record) => {
 };
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
+  "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament",
@@ -106,7 +142,9 @@ const reopenCompetition = (state, evId) => {
 
 export const ACTIONS = {
   /* ── identity / profile ── */
-  saveProfile(state, { player, display, num, size, flightsBooked, flightIn, flightOut }, ctx) {
+  saveProfile(state, {
+    player, display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack,
+  }, ctx) {
     if (!ALL_PLAYERS.includes(player)) return err("Unknown player");
     if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
@@ -142,6 +180,12 @@ export const ACTIONS = {
       else if (!SIZES.includes(size)) return err("Bad size");
       else prof.size = size;
       delete prof.jersey;
+    }
+    if (walkoutTrack !== undefined) {
+      const checked = validateSpotifyTrack(walkoutTrack);
+      if (!checked.ok) return err(checked.error);
+      if (checked.track === null) delete prof.walkoutTrack;
+      else prof.walkoutTrack = checked.track;
     }
     state.profiles[player] = prof;
     return ok();
@@ -188,6 +232,97 @@ export const ACTIONS = {
     }
     state.seeds[player] = clean;
     return ok();
+  },
+
+  /* ── show control (commissioner) ── */
+  /* Directed presentation references current tournament
+     facts but never changes them. The persisted scene and step reconstruct on
+     every TV after refresh or reconnect. */
+  startShowScene(state, request, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint(request?.kind, request?.eventId || null);
+    const replay = showCommandReplay(control, commandId, "start", fingerprint);
+    if (replay) return replay;
+    if (control.active) return err("Finish or cancel the current scene first");
+    const checked = validateShowSceneRequest(state, request, allEventsOf(state));
+    if (!checked.ok) return err(checked.error);
+    const now = Date.now();
+    control.active = createShowScene(checked.request, {
+      id:`show-${now}-${crypto.randomUUID()}`,
+      now,
+    });
+    rememberShowCommand(control.active, commandId, "start", fingerprint);
+    return ok({ sceneId:control.active.id });
+  },
+  advanceShowScene(state, { id }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint(id);
+    const replay = showCommandReplay(control, commandId, "advance", fingerprint);
+    if (replay) return replay;
+    const active = control.active;
+    if (!active || active.id !== id) return err("That scene is no longer active");
+    const definition = showDefinition(active.kind);
+    if (!definition) return err("Cancel this unsupported scene");
+    rememberShowCommand(active, commandId, "advance", fingerprint);
+    const now = Date.now();
+    if (active.step >= definition.steps.length - 1) {
+      const completed = finishShowScene(control, "completed", now);
+      return ok({ sceneId:completed.id, outcome:"completed" });
+    }
+    active.step += 1;
+    active.updatedAt = now;
+    return ok({ sceneId:active.id, step:active.step });
+  },
+  endShowScene(state, { id, outcome }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint(id, outcome);
+    const replay = showCommandReplay(control, commandId, "end", fingerprint);
+    if (replay) return replay;
+    const active = control.active;
+    if (!active || active.id !== id) return err("That scene is no longer active");
+    if (!SHOW_TERMINAL_OUTCOMES.includes(outcome) || outcome === "completed")
+      return err("Choose skip or cancel");
+    rememberShowCommand(active, commandId, "end", fingerprint);
+    const ended = finishShowScene(control, outcome);
+    return ok({ sceneId:ended.id, outcome });
+  },
+  retryShowScene(state, { id }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint(id);
+    const replay = showCommandReplay(control, commandId, "retry", fingerprint);
+    if (replay) return replay;
+    if (control.active) return err("Finish or cancel the current scene first");
+    const prior = control.history.find(item => item.id === id);
+    if (!prior) return err("That scene is no longer available");
+    const checked = validateShowSceneRequest(state, {
+      kind:prior.kind,
+      eventId:prior.eventId,
+    }, allEventsOf(state));
+    if (!checked.ok) return err(checked.error);
+    const now = Date.now();
+    control.active = createShowScene(checked.request, {
+      id:`show-${now}-${crypto.randomUUID()}`,
+      now,
+      retryOf:prior.id,
+    });
+    rememberShowCommand(control.active, commandId, "retry", fingerprint);
+    return ok({ sceneId:control.active.id, retryOf:prior.id });
   },
 
   /* ── wagers (players) ── */

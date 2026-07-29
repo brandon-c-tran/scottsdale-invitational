@@ -10,8 +10,8 @@ function hydrateStoredState(stored) {
 
   for (const [key, value] of Object.entries(EMPTY_STATE))
     if (state[key] === undefined) state[key] = structuredClone(value);
-  /* v7 is additive: lifecycle metadata and wager idempotency records start
-     empty while all v5/v6 gameplay facts remain readable. */
+  /* v8 is additive: Show Control starts empty while every v5-v7 gameplay,
+     lifecycle, and wager fact remains readable. */
   if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
 
   state.logistics = cleanLogistics(state.logistics);

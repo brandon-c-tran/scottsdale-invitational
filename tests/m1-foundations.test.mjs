@@ -514,6 +514,10 @@ test("QA bracket betting covers open matchups without backing a player's opponen
 test("snapshot builder excludes credentials and internal backups", () => {
   const entries = snapshotEntries();
   entries.set("gmToken", "secret");
+  entries.set("private:spotify:session", {
+    accessToken:"access-secret",
+    refreshToken:"refresh-secret",
+  });
   entries.set("m1:pre-restore:123:manifest", { secret:"backup" });
   entries.set("m1:pre-reset:456:manifest", { secret:"reset-backup" });
   entries.set("future:portable-key", { value:1 });
@@ -523,6 +527,7 @@ test("snapshot builder excludes credentials and internal backups", () => {
     exportedAt:"2026-07-28T12:00:00.000Z",
   });
   assert.equal(snapshot.entries.some(entry => entry.key === "gmToken"), false);
+  assert.equal(snapshot.entries.some(entry => entry.key.startsWith("private:")), false);
   assert.equal(snapshot.entries.some(entry => entry.key.startsWith("m1:pre-restore:")), false);
   assert.equal(snapshot.entries.some(entry => entry.key.startsWith("m1:pre-reset:")), false);
   assert.deepEqual(snapshot.entries.find(entry => entry.key === "future:portable-key")?.value, { value:1 });
@@ -629,18 +634,31 @@ test("environment capabilities fail closed and production restore routes hard de
     progressReset:false,
     restore:false,
     snapshotExport:false,
+    showControl:false,
+    audioDirector:false,
+    audioCatalog:false,
+    audioPlayback:false,
   });
 
   const local = tournamentFor({
     APP_ENV:"local",
     QA_ENABLED:"true",
     PROGRESS_RESET_ENABLED:"true",
+    M2_SHOW_CONTROL_ENABLED:"true",
+    M2_AUDIO_CATALOG_ENABLED:"true",
+    M2_AUDIO_PLAYBACK_ENABLED:"true",
+    SPOTIFY_CLIENT_ID:"client",
+    SPOTIFY_CLIENT_SECRET:"secret",
   });
   assert.deepEqual(local.capabilities, {
     qa:true,
     progressReset:true,
     restore:true,
     snapshotExport:true,
+    showControl:true,
+    audioDirector:true,
+    audioCatalog:true,
+    audioPlayback:true,
   });
 
   const production = tournamentFor({
@@ -654,6 +672,10 @@ test("environment capabilities fail closed and production restore routes hard de
     progressReset:true,
     restore:false,
     snapshotExport:false,
+    showControl:false,
+    audioDirector:false,
+    audioCatalog:false,
+    audioPlayback:false,
   });
   production.gmToken = "test-token";
   const weakRequest = new Request("https://fielddayseries.com/api/admin/snapshot", {
@@ -745,6 +767,10 @@ test("malformed, incompatible, unsafe, and incomplete snapshots are rejected", (
   legacyV6.metadata.stateSchemaVersion = 6;
   legacyV6.entries.find(entry => entry.key === "state").value.v = 6;
   assert.equal(validateSnapshot(legacyV6).ok, true);
+  const legacyV7 = structuredClone(valid);
+  legacyV7.metadata.stateSchemaVersion = 7;
+  legacyV7.entries.find(entry => entry.key === "state").value.v = 7;
+  assert.equal(validateSnapshot(legacyV7).ok, true);
   const missingState = structuredClone(valid);
   missingState.entries = missingState.entries.filter(entry => entry.key !== "state");
   assert.match(validateSnapshot(missingState).errors.join(" "), /Missing required storage key: state/);
@@ -788,9 +814,10 @@ test("pre-M1 state hydrates additively without rewriting persisted values", () =
   assert.equal(hydrated.results.putt.id, "r1");
   assert.equal(hydrated.logistics.venue, "Original venue");
   assert.equal(hydrated.legacyMarker, "keep-me");
-  assert.equal(hydrated.v, 7);
+  assert.equal(hydrated.v, 8);
   assert.deepEqual(hydrated.eventOps, {});
   assert.deepEqual(hydrated.wagerOps, {});
+  assert.deepEqual(hydrated.showControl, { active:null, history:[] });
   assert.ok(Array.isArray(hydrated.wagers));
   assert.ok(hydrated.draws && typeof hydrated.draws === "object");
 });

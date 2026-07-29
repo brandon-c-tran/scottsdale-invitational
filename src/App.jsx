@@ -12,7 +12,13 @@ import {
   RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
 import {
+  SHOW_SCENE_DEFINITIONS,
+  resolveShowScene,
+} from "../shared/show.js";
+import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
+  spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect,
+  spotifyPlay, spotifyPause,
 } from "./lib/client.js";
 import PhotoCropper from "./PhotoCropper.jsx";
 
@@ -500,9 +506,16 @@ export default function App() {
   const saveMine = (k, v) => localSet(k, v);
   const qaAllowed = capabilities.qa === true;
   const progressResetAllowed = capabilities.progressReset === true;
+  const showControlAllowed = capabilities.showControl === true;
+  const audioDirectorAllowed = capabilities.audioDirector === true;
+  const audioCatalogAllowed = capabilities.audioCatalog === true;
   const qaActive = qaAllowed && qa;
 
   const events = useMemo(() => allEventsOf(state), [state]);
+  const activeShowScene = useMemo(
+    () => showControlAllowed ? resolveShowScene(state, events) : null,
+    [showControlAllowed, state, events],
+  );
   const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
@@ -545,6 +558,21 @@ export default function App() {
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : tone === "gold" ? 4000 : 2600);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !audioDirectorAllowed) return;
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get("spotify");
+    if (!result) return;
+    url.searchParams.delete("spotify");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    if (result === "connected") {
+      notify("Spotify connected", null, "gold");
+      if (gmView) setModal({type:"audioDirector"});
+    } else {
+      notify(result === "denied" ? "Spotify connection cancelled" : "Spotify connection failed");
+    }
+  }, [audioDirectorAllowed, gmView, notify]);
 
   /* re-claim identity on every (re)connect so the server knows who this device is */
   useEffect(() => { if (connected && me) dispatch("claim", { player: me }); }, [connected, me]);
@@ -850,7 +878,8 @@ export default function App() {
 
   const saveProfile = (p, prof) => {
     act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
-      flightsBooked: prof.flightsBooked, flightIn: prof.flightIn, flightOut: prof.flightOut });
+      flightsBooked: prof.flightsBooked, flightIn: prof.flightIn, flightOut: prof.flightOut,
+      walkoutTrack:prof.walkoutTrack });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
   };
   const setLive = on => act("setLive", { on });
@@ -860,6 +889,14 @@ export default function App() {
   const clearResult = (ev, correctionReason) =>
     act("clearResult", { evId:ev.id, confirmClear:true, correctionReason });
   const setOnDeck = id => act("setOnDeck", { id });
+  const startShowScene = request =>
+    act("startShowScene", request, null, { retry:true });
+  const advanceShowScene = id =>
+    act("advanceShowScene", { id }, null, { retry:true });
+  const endShowScene = (id, outcome) =>
+    act("endShowScene", { id, outcome }, null, { retry:true });
+  const retryShowScene = id =>
+    act("retryShowScene", { id }, null, { retry:true });
   const startEvent = ev => act("startEvent", { evId:ev.id }, `${ev.name} is underway`);
   const openResultEntry = async ev => {
     if (!state.results[ev.id] && resolveEventLifecycle(state, ev).phase !== "result-entry") {
@@ -1443,14 +1480,16 @@ export default function App() {
     return (
       <Shell tv environment={environment}>
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
-          champion={champion} coChamps={coChamps} onExit={() => setTv(false)} />
-        {intro && (() => {
+          champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
+          onExit={() => setTv(false)} />
+        {!activeShowScene && intro && (() => {
           const iev = events.find(e => e.id === intro);
           return iev && !state.results[iev.id]
             ? <EventIntro state={state} ev={iev} big auto handoff={introHasQueuedReveal}
                 onClose={() => setIntro(null)} /> : null;
         })()}
-        {reveal && <Reveal key={reveal.id} state={state} reveal={reveal} big auto onClose={closeReveal} />}
+        {!activeShowScene && reveal &&
+          <Reveal key={reveal.id} state={state} reveal={reveal} big auto onClose={closeReveal} />}
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1620,6 +1659,7 @@ export default function App() {
       {/* modals */}
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} unlock={unlockGm} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onChip={pickChip}
+        spotifyCatalogEnabled={audioCatalogAllowed}
         save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
@@ -1630,6 +1670,14 @@ export default function App() {
           </div>
           <div style={{ ...label, marginBottom:7 }}>Game controls</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {showControlAllowed && (
+              <Btn kind="dark" onClick={() => setModal({type:"showControl"})}>
+                Show Control</Btn>
+            )}
+            {audioDirectorAllowed && (
+              <Btn kind="dark" onClick={() => setModal({type:"audioDirector"})}>
+                Audio Director</Btn>
+            )}
             {state.onDeck && (
               <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
                 Close betting</Btn>
@@ -1657,6 +1705,22 @@ export default function App() {
               Exit GM</Btn>
           </div>
         </Sheet>
+      )}
+      {gmView && showControlAllowed && modal?.type === "showControl" && (
+        <ShowControlSheet
+          state={state}
+          events={events}
+          scene={activeShowScene}
+          onClose={() => setModal(null)}
+          onStart={startShowScene}
+          onAdvance={advanceShowScene}
+          onEnd={endShowScene}
+          onRetry={retryShowScene}
+          onAudio={audioDirectorAllowed ? () => setModal({type:"audioDirector"}) : null}
+        />
+      )}
+      {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && (
+        <AudioDirectorSheet state={state} onClose={() => setModal(null)} notify={notify} />
       )}
       {gmView && modal?.type === "logistics" && (
         <Sheet title="Trip details" onClose={() => setModal(null)}>
@@ -6313,7 +6377,7 @@ function PinSheet({ onClose, unlock }) {
     </Sheet>
   );
 }
-function ProfileSheet({ state, me, onClose, save, onChip }) {
+function ProfileSheet({ state, me, onClose, save, onChip, spotifyCatalogEnabled }) {
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
@@ -6323,6 +6387,8 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
     typeof state.profiles?.[me]?.flightsBooked === "boolean" ? state.profiles[me].flightsBooked
       : (state.profiles?.[me]?.flightIn || state.profiles?.[me]?.flightOut ? true : null));
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
+  const [walkoutTrack, setWalkoutTrack] = useState(
+    state.profiles?.[me]?.walkoutTrack || null);
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={onClose}>
@@ -6335,15 +6401,489 @@ function ProfileSheet({ state, me, onClose, save, onChip }) {
           flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
         <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
+      <div style={{ marginTop:20, paddingTop:18, borderTop:"1px solid var(--line)" }}>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
+          textTransform:"uppercase", color:"var(--ink)", marginBottom:5 }}>Walkout song</div>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.45,
+          marginBottom:12 }}>Pick the moment that should hit when your name gets called.</div>
+        <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
+          enabled={spotifyCatalogEnabled} />
+      </div>
       <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
           num: num === "" ? null : Number(num), size, flightsBooked,
-          flightIn, flightOut, ...(photo ? {photo} : {}) })}
+          flightIn, flightOut, walkoutTrack, ...(photo ? {photo} : {}) })}
         style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
     </Sheet>
   );
 }
 
+const audioClock = milliseconds => {
+  const total = Math.max(0, Math.floor((Number(milliseconds) || 0) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+
+function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = false }) {
+  if (!track) return null;
+  return (
+    <div style={{ display:"flex", gap:10, alignItems:"center", padding:compact ? 9 : 11,
+      border:"1px solid var(--line)", borderRadius:11, background:"var(--paper2)" }}>
+      {track.imageUrl
+        ? <img src={track.imageUrl} alt="" width={compact ? 42 : 52} height={compact ? 42 : 52}
+            style={{ width:compact ? 42 : 52, height:compact ? 42 : 52, objectFit:"cover",
+              borderRadius:8, flexShrink:0 }} />
+        : <div aria-hidden="true" style={{ width:compact ? 42 : 52, height:compact ? 42 : 52,
+            borderRadius:8, flexShrink:0, background:"var(--ink-tint)", display:"grid",
+            placeItems:"center", fontFamily:DISPLAY, fontWeight:700, color:"var(--muted)" }}>FD</div>}
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:compact ? 12.5 : 14,
+          color:"var(--ink)", whiteSpace:"nowrap", overflow:"hidden",
+          textOverflow:"ellipsis" }}>{track.name}</div>
+        <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
+          whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+          {(track.artists || []).join(", ")} · {audioClock(track.durationMs)}</div>
+        <a href={track.url} target="_blank" rel="noreferrer"
+          style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--accent2)",
+            textDecoration:"none" }}>Open in Spotify</a>
+      </div>
+      {action && <Btn kind="ghost" onClick={action}
+        style={{ minHeight:38, padding:"8px 10px", fontSize:11, flexShrink:0 }}>{actionLabel}</Btn>}
+    </div>
+  );
+}
+
+function WalkoutTrackPicker({ value, onChange, enabled }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const runSearch = async () => {
+    if (query.trim().length < 2 || busy) return;
+    setBusy(true); setError("");
+    const result = await spotifySearch(query.trim());
+    setBusy(false);
+    if (!result.ok) {
+      setResults([]);
+      setError(result.error || "Search failed");
+      return;
+    }
+    setResults(result.tracks || []);
+  };
+  const maxStart = value ? Math.max(0, value.durationMs - 1000) : 0;
+  return (
+    <div>
+      {value && (
+        <div style={{ marginBottom:12 }}>
+          <SpotifyTrackCard track={value} />
+          <div style={{ marginTop:9, padding:"10px 11px", border:"1px solid var(--line)",
+            borderRadius:10, background:"var(--paper2)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
+              <div style={{ ...label, flex:1 }}>Start point</div>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12,
+                color:"var(--ink)" }}>{audioClock(value.startMs)}</div>
+            </div>
+            <input type="range" min="0" max={maxStart} step="5000" value={value.startMs || 0}
+              onChange={event => onChange({ ...value, startMs:Number(event.target.value) })}
+              aria-label="Walkout song start point" style={{ width:"100%", accentColor:"var(--accent)" }} />
+          </div>
+          <Btn kind="danger" onClick={() => onChange(null)}
+            style={{ width:"100%", marginTop:8, minHeight:40, padding:"9px 12px" }}>
+            Remove song</Btn>
+        </div>
+      )}
+      {enabled ? (
+        <>
+          <div style={{ display:"flex", gap:8 }}>
+            <input value={query} onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.key === "Enter" && runSearch()}
+              maxLength={80} placeholder="Track or artist" aria-label="Search Spotify"
+              style={{ flex:1, minWidth:0, height:46, padding:"0 12px", borderRadius:10,
+                border:"1.5px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
+                fontFamily:SANS, fontSize:15, outline:"none" }} />
+            <Btn kind="dark" disabled={busy || query.trim().length < 2} onClick={runSearch}
+              style={{ minHeight:46, padding:"10px 13px" }}>{busy ? "Searching" : "Search"}</Btn>
+          </div>
+          {error && <div role="alert" style={{ fontFamily:SANS, fontSize:12.5,
+            color:"var(--clay)", marginTop:8 }}>{error}</div>}
+          {!!results.length && (
+            <div style={{ display:"grid", gap:7, marginTop:10 }}>
+              {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
+                action={() => { onChange(track); setResults([]); setQuery(""); }}
+                actionLabel="Choose" />)}
+            </div>
+          )}
+          <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)",
+            lineHeight:1.4, marginTop:9 }}>Search results and artwork provided by Spotify.</div>
+        </>
+      ) : (
+        <div style={{ padding:"10px 11px", border:"1px solid var(--line)", borderRadius:10,
+          background:"var(--paper2)", fontFamily:SANS, fontSize:12.5,
+          color:"var(--muted)", lineHeight:1.45 }}>
+          Spotify search is not configured in this environment.
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────── reveal (draws, heats, pools) ─────────── */
+function ShowControlSheet({
+  state, events, scene, onClose, onStart, onAdvance, onEnd, onRetry, onAudio,
+}) {
+  const [busy, setBusy] = useState(false);
+  const operation = resolveWeekendOperation(state, events);
+  let latest = null;
+  for (const [eventId, result] of Object.entries(state.results || {})) {
+    const event = events.find(item => item.id === eventId);
+    if (event && result?.slots?.[0]?.length && (!latest || Number(result.ts) > Number(latest.result.ts)))
+      latest = { event, result };
+  }
+  const run = async action => {
+    if (busy) return;
+    setBusy(true);
+    try { await action(); }
+    finally { setBusy(false); }
+  };
+  const last = state.showControl?.history?.[0] || null;
+  const startOptions = [
+    { kind:"opening", label:"Opening", note:"Field Day title and room handoff" },
+    operation.event && {
+      kind:"event-intro",
+      eventId:operation.event.id,
+      label:"Event intro",
+      note:operation.event.name,
+    },
+    latest && {
+      kind:"winner",
+      eventId:latest.event.id,
+      label:"Winner",
+      note:latest.event.name,
+    },
+    { kind:"standings", label:"Standings", note:"Current board" },
+    state.frozen && { kind:"champion", label:"Champion", note:"Final standings" },
+  ].filter(Boolean);
+  const stepNames = {
+    title:"Title",
+    room:"Room",
+    ready:"Ready",
+    winner:"Winner",
+    standings:"Standings",
+    board:"Board",
+    champion:"Champion",
+  };
+
+  return (
+    <Sheet title="Show Control" onClose={onClose}>
+      {scene ? (
+        <>
+          <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden",
+            marginBottom:14, background:"var(--paper2)" }}>
+            <div style={{ background:"var(--night)", padding:"12px 14px", display:"flex",
+              alignItems:"center", gap:10 }}>
+              <Tag tone={scene.definition?.intensity === "major" ? "gold" : "dim"}>
+                {scene.definition?.intensity || "Scene"}</Tag>
+              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
+                textTransform:"uppercase", color:"var(--bone)" }}>
+                {scene.definition?.label || "Unsupported scene"}</div>
+              <div style={{ marginLeft:"auto", fontFamily:SANS, fontWeight:700,
+                fontSize:11, color:"var(--night-text)" }}>
+                {scene.stepCount ? `${scene.stepIndex + 1} / ${scene.stepCount}` : ""}</div>
+            </div>
+            <div style={{ padding:14 }}>
+              {scene.event && (
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15,
+                  color:"var(--ink)", marginBottom:5 }}>{scene.event.name}</div>
+              )}
+              <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>
+                {scene.staleReason || stepNames[scene.stepKey] || "Waiting for the commissioner"}</div>
+            </div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <Btn disabled={busy || !scene.definition} onClick={() => run(() => onAdvance(scene.active.id))}>
+              {scene.stepIndex >= scene.stepCount - 1 ? "Complete scene" : "Advance"}</Btn>
+            <Btn kind="ghost" disabled={busy}
+              onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</Btn>
+            <Btn kind="danger" disabled={busy}
+              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel</Btn>
+            <Btn kind="ghost" disabled={busy} onClick={onClose}>Close controls</Btn>
+          </div>
+          <div style={{ ...pStyle, fontSize:12, margin:"12px 1px 0" }}>
+            TV returns to live tournament context when this scene ends.</div>
+          {onAudio && <Btn kind="dark" onClick={onAudio}
+            style={{ width:"100%", marginTop:12 }}>Open Audio Director</Btn>}
+        </>
+      ) : (
+        <>
+          <div style={{ ...label, marginBottom:7 }}>Start a scene</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {startOptions.map(option => (
+              <button key={`${option.kind}:${option.eventId || ""}`} disabled={busy}
+                onClick={() => run(() => onStart({ kind:option.kind, eventId:option.eventId }))}
+                style={{ minHeight:68, padding:"10px 12px", textAlign:"left", borderRadius:10,
+                  border:"1.5px solid var(--line)", background:"var(--paper2)",
+                  color:"var(--ink)", cursor:busy ? "default" : "pointer",
+                  opacity:busy ? 0.45 : 1 }}>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13,
+                  textTransform:"uppercase", letterSpacing:"0.04em" }}>{option.label}</div>
+                <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
+                  marginTop:4, lineHeight:1.3 }}>{option.note}</div>
+              </button>
+            ))}
+          </div>
+          {last && (
+            <div style={{ marginTop:18, paddingTop:14, borderTop:"1px solid var(--line)" }}>
+              <div style={{ ...label, marginBottom:7 }}>Last scene</div>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>
+                    {SHOW_SCENE_DEFINITIONS[last.kind]?.label || last.kind}</div>
+                  <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
+                    {last.outcome}</div>
+                </div>
+                <Btn kind="ghost" disabled={busy} style={{ minHeight:40, padding:"9px 13px" }}
+                  onClick={() => run(() => onRetry(last.id))}>Retry</Btn>
+              </div>
+            </div>
+          )}
+          {onAudio && <Btn kind="dark" onClick={onAudio}
+            style={{ width:"100%", marginTop:14 }}>Open Audio Director</Btn>}
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+function AudioDirectorSheet({ state, onClose, notify }) {
+  const [status, setStatus] = useState(null);
+  const [player, setPlayer] = useState(null);
+  const [deviceId, setDeviceId] = useState("");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const savedCues = ROSTER.map(player => ({
+    player,
+    track:state.profiles?.[player]?.walkoutTrack,
+  })).filter(item => item.track);
+
+  const refreshPlayer = useCallback(async () => {
+    setBusy("refresh"); setError("");
+    const result = await spotifyPlayer();
+    setBusy("");
+    if (!result.ok) {
+      setPlayer(null);
+      setError(result.error || "Could not read Spotify");
+      return;
+    }
+    setPlayer(result);
+    const devices = result.devices || [];
+    setDeviceId(current => devices.some(device => device.id === current)
+      ? current : (devices.find(device => device.active) || devices[0])?.id || "");
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const result = await spotifyStatus();
+      if (!active) return;
+      setStatus(result);
+      if (!result.ok) setError(result.error || "Could not read Spotify setup");
+      else if (result.connected) refreshPlayer();
+    })();
+    return () => { active = false; };
+  }, [refreshPlayer]);
+
+  const connect = async () => {
+    if (busy) return;
+    setBusy("connect"); setError("");
+    const result = await spotifyAuthorize();
+    if (!result.ok) {
+      setBusy("");
+      setError(result.error || "Could not start Spotify authorization");
+      return;
+    }
+    window.location.assign(result.authorizationUrl);
+  };
+  const disconnect = async () => {
+    if (busy || !window.confirm("Disconnect the commissioner Spotify session?")) return;
+    setBusy("disconnect"); setError("");
+    const result = await spotifyDisconnect();
+    setBusy("");
+    if (!result.ok) return setError(result.error || "Disconnect failed");
+    setStatus(current => ({ ...current, connected:false, account:null }));
+    setPlayer(null);
+    notify("Spotify disconnected");
+  };
+  const runSearch = async () => {
+    if (busy || query.trim().length < 2) return;
+    setBusy("search"); setError("");
+    const result = await spotifySearch(query.trim());
+    setBusy("");
+    if (!result.ok) {
+      setResults([]);
+      setError(result.error || "Search failed");
+    } else {
+      setResults(result.tracks || []);
+    }
+  };
+  const playTrack = async (track, playerName = null) => {
+    if (busy) return;
+    setBusy(`play:${track.trackId}`); setError("");
+    const result = await spotifyPlay({
+      uri:track.uri,
+      deviceId,
+      positionMs:track.startMs || 0,
+    });
+    setBusy("");
+    if (!result.ok) return setError(result.error || "Playback failed");
+    notify(playerName ? `${disp(state, playerName)} cue playing` : `${track.name} playing`,
+      null, "gold", playerName);
+    setTimeout(refreshPlayer, 450);
+  };
+  const playbackAction = async kind => {
+    if (busy) return;
+    setBusy(kind); setError("");
+    const result = kind === "pause"
+      ? await spotifyPause({ deviceId })
+      : await spotifyPlay({ deviceId });
+    setBusy("");
+    if (!result.ok) return setError(result.error || "Playback command failed");
+    setTimeout(refreshPlayer, 350);
+  };
+
+  if (!status) {
+    return <Sheet title="Audio Director" onClose={onClose}>
+      <div style={{ ...pStyle, padding:"18px 0" }}>Checking Spotify…</div>
+    </Sheet>;
+  }
+
+  return (
+    <Sheet title="Audio Director" onClose={onClose}>
+      {!status.configured ? (
+        <div>
+          <Tag tone="gold">Setup needed</Tag>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
+            textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
+            Connect the Spotify app</div>
+          <div style={{ ...pStyle, marginBottom:14 }}>
+            Add <b>SPOTIFY_CLIENT_ID</b> and <b>SPOTIFY_CLIENT_SECRET</b> as staging
+            Worker secrets, then register this exact callback URL in Spotify:</div>
+          <div style={{ padding:"11px 12px", border:"1px solid var(--line)", borderRadius:10,
+            background:"var(--paper2)", fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
+            fontSize:11.5, lineHeight:1.45, overflowWrap:"anywhere", color:"var(--ink)",
+            userSelect:"text" }}>{status.redirectUri || "Callback URL unavailable"}</div>
+          <Btn kind="ghost" onClick={() => navigator.clipboard?.writeText(status.redirectUri || "")}
+            disabled={!status.redirectUri} style={{ width:"100%", marginTop:9 }}>Copy callback URL</Btn>
+          <div style={{ ...pStyle, fontSize:11.5, marginTop:12 }}>
+            Credentials stay in Cloudflare and never enter the browser, tournament state, or exports.</div>
+        </div>
+      ) : !status.connected ? (
+        <div>
+          <Tag tone="gold">Ready to authorize</Tag>
+          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
+            textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
+            One commissioner session</div>
+          <div style={{ ...pStyle, marginBottom:14 }}>
+            Spotify will ask for playback access. Use the Premium account that will control
+            the weekend speaker.</div>
+          <Btn onClick={connect} disabled={!!busy}
+            style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…" : "Connect Spotify"}</Btn>
+          <div style={{ ...label, margin:"18px 0 6px" }}>Registered callback</div>
+          <div style={{ fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
+            fontSize:10.5, overflowWrap:"anywhere", color:"var(--muted)" }}>{status.redirectUri}</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14,
+            padding:"11px 12px", background:"var(--paper2)", border:"1px solid var(--line)",
+            borderRadius:11 }}>
+            <Tag tone="green">Connected</Tag>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
+                color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis",
+                whiteSpace:"nowrap" }}>{status.account?.displayName || "Spotify"}</div>
+              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>
+                {status.account?.product || "account"}</div>
+            </div>
+            <Btn kind="danger" disabled={!!busy} onClick={disconnect}
+              style={{ minHeight:38, padding:"8px 9px", fontSize:10.5 }}>Disconnect</Btn>
+          </div>
+
+          <div style={{ ...label, marginBottom:6 }}>Playback device</div>
+          <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+            <select value={deviceId} onChange={event => setDeviceId(event.target.value)}
+              aria-label="Spotify playback device"
+              style={{ flex:1, minWidth:0, height:44, border:"1.5px solid var(--line)",
+                borderRadius:10, padding:"0 10px", background:"var(--paper2)", color:"var(--ink)",
+                fontFamily:SANS, fontWeight:600 }}>
+              {!(player?.devices || []).length && <option value="">No devices found</option>}
+              {(player?.devices || []).map(device => (
+                <option key={device.id} value={device.id} disabled={device.restricted}>
+                  {device.name}{device.active ? " · active" : ""}{device.restricted ? " · unavailable" : ""}
+                </option>
+              ))}
+            </select>
+            <Btn kind="ghost" disabled={!!busy} onClick={refreshPlayer}
+              style={{ minHeight:44, padding:"9px 11px" }}>Refresh</Btn>
+          </div>
+
+          {player?.playback?.track && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ ...label, marginBottom:6 }}>Now playing</div>
+              <SpotifyTrackCard track={player.playback.track} />
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:8 }}>
+                <Btn kind="dark" disabled={!!busy} onClick={() => playbackAction("resume")}>Resume</Btn>
+                <Btn kind="ghost" disabled={!!busy} onClick={() => playbackAction("pause")}>Pause</Btn>
+              </div>
+            </div>
+          )}
+
+          {!!savedCues.length && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ ...label, marginBottom:7 }}>Player cues</div>
+              <div style={{ display:"grid", gap:7 }}>
+                {savedCues.map(item => (
+                  <div key={item.player}>
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
+                      color:"var(--muted)", margin:"0 0 4px 2px" }}>{disp(state, item.player)}</div>
+                    <SpotifyTrackCard track={item.track} compact action={() => playTrack(item.track, item.player)}
+                      actionLabel={busy === `play:${item.track.trackId}` ? "Playing…" : "Play"} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ ...label, marginBottom:7 }}>Find a track</div>
+          <div style={{ display:"flex", gap:8 }}>
+            <input value={query} onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.key === "Enter" && runSearch()}
+              maxLength={80} placeholder="Track or artist" aria-label="Search Spotify"
+              style={{ flex:1, minWidth:0, height:46, padding:"0 12px", borderRadius:10,
+                border:"1.5px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
+                fontFamily:SANS, fontSize:15, outline:"none" }} />
+            <Btn kind="dark" disabled={!!busy || query.trim().length < 2} onClick={runSearch}
+              style={{ minHeight:46, padding:"10px 13px" }}>
+              {busy === "search" ? "Searching" : "Search"}</Btn>
+          </div>
+          {!!results.length && (
+            <div style={{ display:"grid", gap:7, marginTop:10 }}>
+              {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
+                action={() => playTrack(track)}
+                actionLabel={busy === `play:${track.trackId}` ? "Playing…" : "Play"} />)}
+            </div>
+          )}
+          <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)",
+            lineHeight:1.4, marginTop:9 }}>Search results and artwork provided by Spotify.</div>
+        </>
+      )}
+      {error && <div role="alert" style={{ marginTop:13, padding:"10px 11px",
+        border:"1px solid var(--danger-line)", borderRadius:9, background:"var(--clay-tint)",
+        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--clay)",
+        lineHeight:1.4 }}>{error}</div>}
+    </Sheet>
+  );
+}
+
 function Reveal({ state, reveal, big, auto, onClose, onBets }) {
   const teamItems = reveal.versus ? 1 : (reveal.groups?.length || 0);
   const crew = reveal.crew || [];
@@ -6865,8 +7405,140 @@ function TVDraft({ state, ev, d }) {
   );
 }
 
-function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, onExit }) {
+function TVDirectedStandings({ state, standings, title = "Standings" }) {
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
+      padding:"14px 7vw 26px", animation:"si-fade .45s ease-out" }}>
+      <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(12px,1.2vw,17px)",
+        textAlign:"center", marginBottom:4 }}>Field Day</div>
+      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,92px)",
+        textTransform:"uppercase", color:"var(--bone)", textAlign:"center",
+        lineHeight:0.95, marginBottom:24 }}>{title}</div>
+      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr",
+        gap:"8px 18px", alignContent:"center", maxWidth:1200, width:"100%", margin:"0 auto" }}>
+        {standings.slice(0, 8).map(row => (
+          <div key={row.player} style={{ display:"flex", alignItems:"center", gap:14,
+            minHeight:62, padding:"8px 16px", borderRadius:14,
+            border:row.rank === 1 ? "1.5px solid var(--sun)" : "1px solid var(--line)",
+            background:row.rank === 1 ? "var(--sun-tint)" : "var(--paper)" }}>
+            <div style={{ width:32, textAlign:"center", fontFamily:DISPLAY, fontWeight:700,
+              fontSize:28, color:row.rank === 1 ? "var(--sun)" : "var(--muted)" }}>{row.rank}</div>
+            <Avatar state={state} p={row.player} size={42} />
+            <div style={{ flex:1, fontFamily:SANS, fontWeight:700,
+              fontSize:"clamp(16px,1.8vw,25px)", color:"var(--ink)" }}>
+              {disp(state, row.player)}</div>
+            <div style={{ fontFamily:DISPLAY, fontWeight:800,
+              fontSize:"clamp(22px,2.4vw,34px)", color:"var(--ink)" }}>{fmt(row.pts)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TVDirectedScene({ state, scene }) {
+  if (!scene.definition || scene.staleReason) {
+    return (
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", padding:50, textAlign:"center", animation:"si-fade .4s ease-out" }}>
+        <FDMark size={100} variant="night" />
+        <div style={{ ...label, color:"var(--sun)", fontSize:15, margin:"24px 0 8px" }}>Show Control</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(42px,5vw,76px)",
+          textTransform:"uppercase", color:"var(--bone)" }}>Scene unavailable</div>
+        <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(16px,1.7vw,23px)",
+          color:"var(--night-text)", marginTop:12 }}>
+          {scene.staleReason || "The commissioner can skip or cancel this scene."}</div>
+      </div>
+    );
+  }
+
+  if (scene.active.kind === "standings"
+      || (scene.active.kind === "winner" && scene.stepKey === "standings"))
+    return <TVDirectedStandings state={state} standings={scene.standings}
+      title={scene.active.kind === "winner" ? "Standings updated" : "Standings"} />;
+
+  if (scene.active.kind === "champion") {
+    const winner = scene.standings[0];
+    const coChamps = scene.standings.filter(row => row.rank === 1);
+    return (
+      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+        padding:"10px 60px 30px", animation:"si-fade .45s ease-out" }}>
+        <div style={{ width:"100%", maxWidth:1100 }}>
+          <ChampionCard state={state} champion={winner} coChamps={coChamps} big />
+        </div>
+      </div>
+    );
+  }
+
+  if (scene.active.kind === "opening") {
+    return (
+      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+        padding:50, animation:"si-fade .45s ease-out" }}>
+        <div style={{ textAlign:"center" }}>
+          <FDMark size={scene.stepKey === "title" ? 132 : 104} variant="night" />
+          <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(78px,10vw,150px)",
+            lineHeight:0.82, textTransform:"uppercase", color:"var(--sun)",
+            marginTop:24 }}>Field Day</div>
+          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.8vw,25px)",
+            letterSpacing:"0.16em", color:"var(--night-text)", marginTop:20 }}>
+            {scene.stepKey === "title" ? "SCOTTSDALE · 2026" : "THE WEEKEND STARTS HERE"}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (scene.active.kind === "event-intro") {
+    const event = scene.event;
+    return (
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", padding:"10px 50px 30px", textAlign:"center",
+        animation:"si-fade .45s ease-out" }}>
+        <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(13px,1.3vw,18px)",
+          marginBottom:18 }}>{scene.stepKey === "title" ? "Up next" : "Ready"}</div>
+        <GameMark id={event.game} size={124} />
+        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(60px,8vw,124px)",
+          lineHeight:0.9, textTransform:"uppercase", color:"var(--bone)", marginTop:18 }}>
+          {event.name}</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,1.8vw,25px)",
+          color:"var(--night-text)", marginTop:18 }}>
+          {scene.stepKey === "title"
+            ? (event.value ? `${fmt(event.value)} points` : "The finale")
+            : event.desc}</div>
+      </div>
+    );
+  }
+
+  if (scene.active.kind === "winner") {
+    const winners = scene.players;
+    return (
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", padding:"10px 50px 30px", textAlign:"center",
+        animation:"si-fade .45s ease-out" }}>
+        <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(13px,1.3vw,18px)",
+          marginBottom:8 }}>Final · {scene.event.name}</div>
+        <div style={{ display:"flex", justifyContent:"center", gap:14, margin:"16px 0 20px" }}>
+          {winners.map(player => <Avatar key={player} state={state} p={player} size={96} ring />)}
+        </div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(58px,7vw,112px)",
+          lineHeight:0.9, textTransform:"uppercase", color:"var(--sun)" }}>
+          {teamLabel(state, { players:winners })}</div>
+        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,1.8vw,25px)",
+          color:"var(--night-text)", marginTop:18 }}>
+          +{fmt(AWARDS[scene.event.value]?.[0] || 0)} each</div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps,
+  showControlEnabled, onExit }) {
   const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
+  const showScene = useMemo(
+    () => showControlEnabled ? resolveShowScene(state, events) : null,
+    [showControlEnabled, state, events],
+  );
   const operationEv = operation.event;
   const operationLifecycle = operation.lifecycle;
   const liveBracketEv = useMemo(() => {
@@ -7042,7 +7714,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
           {state.live ? "Weekend live" : "Check-in"}
         </span>
         <div style={{ flex:1 }} />
-        {onDeckEv && !champion && (
+        {onDeckEv && !champion && !showScene && (
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 20px", borderRadius:14,
             background:"var(--clay-tint)",
             border:"1px solid rgba(192,71,58,0.45)", marginRight:56 }}>
@@ -7055,7 +7727,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
         )}
       </div>
 
-      {champion ? (
+      {showScene ? (
+        <TVDirectedScene state={state} scene={showScene} />
+      ) : champion ? (
         <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 60px" }}>
           <div style={{ width:"100%", maxWidth:1100 }}>
             <ChampionCard state={state} champion={champion} coChamps={coChamps} big />
@@ -7249,13 +7923,13 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       )}
 
       {/* scene dots + ticker */}
-      {scenes.length > 1 && !champion && !liveEv && (
+      {!showScene && scenes.length > 1 && !champion && !liveEv && (
         <div style={{ display:"flex", justifyContent:"center", gap:8, paddingBottom:8 }}>
           {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:6,
             background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
         </div>
       )}
-      <div style={{ borderTop:"1px solid rgba(194,88,50,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
+      {!showScene && <div style={{ borderTop:"1px solid rgba(194,88,50,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
         <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
           animation:`si-tick ${Math.max(24, tickerItems.length * 9)}s linear infinite` }}>
           {[0,1].map(k => (
@@ -7273,7 +7947,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             </span>
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

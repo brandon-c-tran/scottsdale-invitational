@@ -31,9 +31,11 @@ The app currently uses the Durable Object KV API:
 - `claims`
 - `gmToken`
 - `photo:<player-id>`
+- private integration records such as `private:spotify:*`
 
 Snapshot export enumerates storage so future portable keys are included.
-`gmToken` and internal `m1:pre-restore:*` keys are deliberately excluded.
+`gmToken`, all `private:*` integration records, and internal
+`m1:pre-restore:*` keys are deliberately excluded.
 
 Cloudflare SQLite-backed Durable Objects also support point-in-time recovery
 for the embedded database, including KV data. PITR is a secondary emergency
@@ -227,6 +229,19 @@ through Wrangler's private prompt, never in `wrangler.jsonc`:
 ```powershell
 npx.cmd wrangler secret put GM_PIN --env staging
 ```
+
+Spotify testing additionally uses the staging-only secrets
+`SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. Register the exact callback
+URL shown in Commissioner > Audio Director, then add both values through
+Wrangler's private prompts:
+
+```powershell
+npx.cmd wrangler secret put SPOTIFY_CLIENT_ID --env staging
+npx.cmd wrangler secret put SPOTIFY_CLIENT_SECRET --env staging
+```
+
+Never place either value in `wrangler.jsonc`, a snapshot, chat, or command
+argument.
 
 The top-level production Worker has its own secret. Changing it is a production
 mutation and requires explicit approval:

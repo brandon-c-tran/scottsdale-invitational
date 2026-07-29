@@ -42,7 +42,7 @@ Code-complete M1 still has these explicit operator acceptance gates:
 - approved real production snapshot export and offline validation
 - approved production-derived snapshot restore rehearsal in staging
 - approved destructive full-weekend staging rehearsal and resulting snapshot
-- final attendance/event-model approval and an offline GM copy of the runbook
+- final attendance approval and an offline GM copy of the runbook
 
 ## 1. Repository audit findings
 
@@ -689,10 +689,12 @@ Do not push any commit. The current workflow can deploy some pushed branches.
 2. **Production PIN:** choose secret management and rotation timing.
 3. **Roster ID policy after Scottsdale:** retain display-name IDs forever or
    introduce a later compatibility map.
-4. **Live overflow roles:** decide whether every non-player must be explicitly
-   assigned or whether `sit-out` may be defaulted.
-5. **Final event slate:** approve capacities and official requirements before
-   lifecycle work.
+4. **Live overflow roles (resolved July 28, 2026):** every non-player is stored
+   with an Event Crew assignment. The backward-compatible `sit-out` default is
+   presented as Event host and can be changed before the draw.
+5. **Final event slate (resolved July 28, 2026):** current capacities and
+   Event Crew handling are approved. Final attendance remains open so a
+   fourteenth player can be added through the canonical roster configuration.
 6. **Snapshot retention:** decide operator location, encryption, and retention.
 7. **CI deployment:** decide protected manual production deploy versus
    master-only automatic production deploy.
@@ -769,5 +771,6 @@ These are not code changes and retain their original approval stops:
 1. export and validate a real production snapshot
 2. restore the approved production-derived snapshot into staging
 3. reset and run the destructive full-weekend staging rehearsal
-4. approve final attendance and every event participation model
+4. approve final attendance; event participation models were approved July
+   28, 2026 with additive fourteen-player support retained
 5. store an offline copy of the GM runbook

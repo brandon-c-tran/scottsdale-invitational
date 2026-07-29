@@ -660,7 +660,9 @@ must never be the first restore rehearsal.
 - [ ] Staging restore rehearsal passed
 - [x] 12/13/14 roster tests passed
 - [ ] Final attendance status configured
-- [ ] Every event participation model approved
+- [x] Every event participation model approved (July 28, 2026); strict formats
+      retain exact capacities and assign any active-roster overflow to Event
+      Crew, including an additive fourteenth player
 - [x] Every strict event reports exact capacity
 - [ ] Full weekend staging rehearsal passed
 - [x] Result correction and rollback rehearsed locally

@@ -41,7 +41,8 @@ for:
 2. secure storage of that snapshot outside the repository
 3. an approved production-derived restore into staging
 4. an approved destructive full-weekend staging rehearsal
-5. final attendance and event-participation approval
+5. final attendance approval; event participation models were approved July
+   28, 2026 with additive fourteen-player support retained
 6. an offline GM copy of the runbook
 
 Use the rehearsal table in `docs/production-data-runbook.md` for the approved

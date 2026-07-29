@@ -7,7 +7,7 @@ import {
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
-  defaultQaParticipants, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
+  defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, resolveEventLifecycle, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
 import {
@@ -998,7 +998,9 @@ export default function App() {
   const simBetsRound = async () => {
     const evId = stateRef.current.onDeck;
     if (!evId) throw new Error("Open betting on an event first");
-    for (const p of shuffle(ROSTER).slice(0, 9)) {
+    const bettors = shuffle(ROSTER).slice(0, 9);
+    for (let bettorIndex = 0; bettorIndex < bettors.length; bettorIndex++) {
+      const p = bettors[bettorIndex];
       const s = stateRef.current;
       const events2 = allEventsOf(s);
       const ev = events2.find(e => e.id === evId);
@@ -1009,10 +1011,17 @@ export default function App() {
       if (room < PT) continue;
       const stake = Math.min(Math.floor(room / PT) * PT, rnd([PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]));
       const draw = s.draws[evId];
+      const br = s.brackets[evId];
       const st = s.stages[evId];
       const myIdx = draw ? draw.teams.findIndex(t => t.players.includes(p)) : -1;
       let wager = null;
-      if (st && Math.random() < 0.5) {
+      /* Bracket rehearsals deliberately split between matchups and the
+         outright board. This stress-tests crowded matchup pills and proves
+         their even-money settlement path instead of only betting champions. */
+      if (br && bettorIndex % 2 === 0) {
+        wager = qaBracketMatchWager(s, ev, p, bettorIndex, stake);
+      }
+      if (!wager && st && Math.random() < 0.5) {
         /* group bet on an undecided heat or pool; inside your own group you
            back yourself, mirroring the server's against-your-team rule */
         let gi = null, pickKey = null;
@@ -1033,15 +1042,15 @@ export default function App() {
         wager = { kind:"stage", eventId:evId, evName:ev.name, stagesId:st.id, group:gi,
           groupName:st.groups[gi].name, pickKey, final:false, pickPlayers:[...v.players],
           pickTeam: st.entrantType === "team", stake };
-      } else if (ev.kind === "solo") {
+      } else if (!wager && ev.kind === "solo") {
         const pick = rnd(ROSTER);
         wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake };
-      } else if (draw) {
+      } else if (!wager && draw) {
         /* in a 2-team draw the server forbids backing the other side */
         const t = draw.teams.length === 2 && myIdx >= 0 ? myIdx : rnd(draw.teams.map((_, i) => i));
         wager = { kind:"outright", eventId:evId, evName:ev.name, pickTeam:true,
           pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake };
-      } else continue;
+      } else if (!wager) continue;
       await simDo("claim", { player: p });
       await simTry("placeWager", { wager },
         `${p} puts ${stake} on ${wager.kind === "stage" ? stageEntrantView(s, st, wager.pickKey).name
@@ -4374,7 +4383,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
     <div style={{ display:"flex", gap: size==="lg" ? 22 : 14, overflowX:"auto", paddingBottom:6,
       justifyContent: size==="lg" ? "center" : "flex-start" }}>
       {br.rounds.map((round, r) => (
-        <div key={r} style={{ minWidth:dims.col, display:"flex", flexDirection:"column",
+        <div key={r} style={{ width:dims.col, minWidth:dims.col, display:"flex", flexDirection:"column",
           justifyContent:"space-around", gap:12 }}>
           <div style={{ ...label, fontSize:dims.lbl, textAlign:"center" }}>{names[r]}</div>
           {round.map((match, m) => {
@@ -4396,7 +4405,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
                     <button key={side} disabled={!tappable}
                       onClick={() => gm ? onPick && onPick(r, m, tIdx) : bet.onBet(r, m, tIdx, names[r])}
                       style={{ display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
-                        padding:dims.pad,
+                        minWidth:0, boxSizing:"border-box", padding:dims.pad,
                         cursor: tappable ? "pointer" : "default", border:"none",
                         borderBottom: side === 0 ? "1px solid var(--line)" : "none",
                         background: isWinner ? "var(--accent-tint)" : "transparent",
@@ -5358,35 +5367,25 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
     const mineBets = bets.filter(x => x.w.player === me);
     const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
     const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
-    const shownChips = chips.slice(0, 5);
     const open = whoOpen === rowKey && bets.length > 0;
     const canPick = marketOpen && room >= PT && typeof onClick === "function";
     return (
-      <div style={cellStyle}>
+      <div style={{ minWidth:0, ...cellStyle }}>
         <button onClick={canPick ? onClick : undefined}
           style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
-            borderRadius:14, width:"100%",
+            borderRadius:14, width:"100%", minWidth:0, boxSizing:"border-box",
             background:"var(--paper2)",
             border:"1px solid " + (mine > 0 ? "rgba(194,88,50,0.55)" : "var(--line)"),
             cursor: canPick ? "pointer" : "default",
             opacity: marketOpen && room < PT && !mine ? 0.5 : 1, textAlign:"left" }}>
           <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
           <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{name}</span>
-          {chips.length > 0 && (
-            <span onClick={e => { e.stopPropagation(); setWhoOpen(w => w === rowKey ? null : rowKey); }} role="button"
-              style={{ display:"flex", alignItems:"center", flexShrink:0, cursor:"pointer", padding:"4px 0" }}>
-              {shownChips.map((c, i) => <span key={i} style={{ marginLeft: i ? -6 : 0 }}><BankChip p={c.p} size={22} val={c.val} /></span>)}
-              {chips.length > shownChips.length && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
-                color:"var(--muted2)", marginLeft:3 }}>+{chips.length - shownChips.length}</span>}
-              {marketOpen && mine > 0 && (
-                <span onClick={e => { e.stopPropagation(); onRetract(mineBets[mineBets.length - 1].w.id); }} role="button"
-                  style={{ width:22, height:22, borderRadius:99, display:"flex", alignItems:"center",
-                    justifyContent:"center", cursor:"pointer", marginLeft:4, fontSize:11,
-                    background:"rgba(251,243,228,0.08)", color:"var(--muted2)" }}>✕</span>
-              )}
-            </span>
-          )}
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, minWidth:0 }}>{name}</span>
+          <BetChipCluster chips={chips} size={22} max={3} reserveAction={marketOpen}
+            onOpen={chips.length ? () => setWhoOpen(w => w === rowKey ? null : rowKey) : undefined}
+            onRetract={marketOpen && mine > 0
+              ? () => onRetract(mineBets[mineBets.length - 1].w.id)
+              : undefined} />
         </button>
         {open && (
           <div style={{ margin:"4px 0 2px", padding:"7px 10px", borderRadius:10, background:"var(--paper)",
@@ -5515,20 +5514,11 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
                   if (!bets.length) return null;
                   const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
                   const mineBets = bets.filter(x => x.w.player === me);
-                  return (
-                    <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
-                      {chips.slice(0, 4).map((c, i) => <span key={i} style={{ marginLeft: i ? -7 : 0 }}>
-                        <BankChip p={c.p} size={20} val={c.val} /></span>)}
-                      {chips.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
-                        color:"var(--muted2)", marginLeft:2 }}>+{chips.length - 4}</span>}
-                      {marketOpen && mineBets.length > 0 && (
-                        <span onClick={e => { e.stopPropagation(); onRetract(mineBets[mineBets.length - 1].w.id); }}
-                          role="button" style={{ width:20, height:20, borderRadius:99, display:"flex",
-                            alignItems:"center", justifyContent:"center", cursor:"pointer", marginLeft:3,
-                            fontSize:10, background:"var(--ink-tint)", color:"var(--muted2)" }}>✕</span>
-                      )}
-                    </span>
-                  );
+                  return <BetChipCluster chips={chips} size={20} max={3}
+                    reserveAction={marketOpen}
+                    onRetract={marketOpen && mineBets.length > 0
+                      ? () => onRetract(mineBets[mineBets.length - 1].w.id)
+                      : undefined} />;
                 },
               }} />
               <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", marginTop:6 }}>
@@ -6436,6 +6426,59 @@ function BankChip({ p, size=18, empty, val }) {
      Color still says whose it is either way. */
   return <ChipFace p={p} size={size} empty={empty} stamp={val} valueRing={val != null} />;
 }
+/* A chip pile gets one fixed well. More bettors increase the badge, never the
+   width or height of the market pill carrying it. The full bettor list remains
+   available through `onOpen` where the phone UI provides one. */
+function BetChipCluster({ chips, size=22, max=3, onOpen, onRetract, reserveAction=false }) {
+  if (!chips?.length) return null;
+  const visible = chips.slice(0, max);
+  const step = Math.max(7, Math.round(size * 0.42));
+  const stackWidth = size + step * (max - 1);
+  const actionWidth = reserveAction ? 24 : 0;
+  const openProps = onOpen ? {
+    role:"button",
+    tabIndex:0,
+    onClick:e => { e.stopPropagation(); onOpen(); },
+    onKeyDown:e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen();
+      }
+    },
+  } : {};
+  return (
+    <span {...openProps} style={{ width:stackWidth + actionWidth, height:size + 4,
+      display:"flex", alignItems:"center", justifyContent:"flex-end", flexShrink:0,
+      cursor:onOpen ? "pointer" : "inherit" }}>
+      <span style={{ position:"relative", width:stackWidth, height:size, flexShrink:0 }}>
+        {visible.map((chip, index) => {
+          const left = stackWidth - size - (visible.length - 1 - index) * step;
+          return (
+            <span key={`${chip.p}:${index}`} style={{ position:"absolute", left, top:0,
+              width:size, height:size }}>
+              <BankChip p={chip.p} size={size} val={chip.val} />
+            </span>
+          );
+        })}
+        {chips.length > max && (
+          <span style={{ position:"absolute", right:-3, top:-5, minWidth:17, height:17,
+            padding:"0 4px", borderRadius:99, display:"flex", alignItems:"center",
+            justifyContent:"center", background:"var(--night)", border:"1px solid var(--paper)",
+            color:"var(--bone)", fontFamily:SANS, fontWeight:800, fontSize:9,
+            lineHeight:1, zIndex:max + 1 }}>+{chips.length - max}</span>
+        )}
+      </span>
+      {reserveAction && (onRetract ? (
+        <span onClick={e => { e.stopPropagation(); onRetract(); }} role="button"
+          aria-label="Retract last chip" style={{ width:20, height:20, borderRadius:99,
+            display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
+            marginLeft:4, fontSize:10, background:"var(--ink-tint)",
+            color:"var(--muted2)", flexShrink:0 }}>✕</span>
+      ) : <span aria-hidden="true" style={{ width:24, height:20, flexShrink:0 }} />)}
+    </span>
+  );
+}
 /* TV betting scene: the open board. Every live pick is a felt cell and the
    value chips sit on it; before any chips land, the game's hero plays. */
 function TVBettingBoard({ state, events, ev }) {
@@ -6486,26 +6529,29 @@ function BetsBoard({ state, events, ev, big }) {
     <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"var(--night-text)",
       textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
   );
-  const chip = big ? 46 : 40;
+  const chip = big ? 42 : 34;
+  const cellWidth = big ? 270 : 210;
+  const cellHeight = big ? 108 : 94;
   return (
     <div style={{ display:"flex", flexWrap:"wrap", gap:14,
-      justifyContent: big ? "center" : "flex-start", alignItems:"flex-end" }}>
+      justifyContent: big ? "center" : "flex-start", alignItems:"stretch" }}>
       {list.map((cell, i) => {
         const total = cell.bets.reduce((s, b) => s + b.stake, 0);
         return (
           <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)",
-            borderRadius:14, padding:"10px 14px 12px", minWidth:150 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:12, marginBottom:10 }}>
+            borderRadius:14, padding:"10px 14px 12px", width:cellWidth, height:cellHeight,
+            boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:12, marginBottom:8, minWidth:0 }}>
               <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
-                textTransform:"uppercase", color:"var(--ink)", whiteSpace:"nowrap",
-                overflow:"hidden", textOverflow:"ellipsis", maxWidth:230 }}>{cell.name}</span>
+                textTransform:"uppercase", color:"var(--ink)", whiteSpace:"nowrap", flex:1, minWidth:0,
+                overflow:"hidden", textOverflow:"ellipsis" }}>{cell.name}</span>
               <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(15px,1.5vw,20px)" : 15,
-                color:"var(--sun)", marginLeft:"auto" }}>{fmt(total)}</span>
+                color:"var(--sun)", flexShrink:0 }}>{fmt(total)}</span>
             </div>
-            {/* one value-stamped chip per bet, the bettor's color says whose */}
-            <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap" }}>
-              {cell.bets.map((b, j) => <span key={j} style={{ marginLeft: j ? -Math.round(chip * 0.22) : 0 }}>
-                <BankChip p={b.player} size={chip} val={b.stake} /></span>)}
+            {/* The well stays one line tall. Overflow moves into the badge. */}
+            <div style={{ marginTop:"auto" }}>
+              <BetChipCluster chips={cell.bets.map(b => ({ p:b.player, val:b.stake }))}
+                size={chip} max={big ? 5 : 4} />
             </div>
           </div>
         );

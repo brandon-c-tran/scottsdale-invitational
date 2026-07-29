@@ -13,6 +13,7 @@ import {
   defaultQaParticipants,
   drawTeams,
   makeBracket,
+  qaBracketMatchWager,
   resolveSlot,
   rosterPlayers,
   resolveEventLifecycle,
@@ -389,6 +390,38 @@ test("locking betting keeps a bracket with pending chips active until settlement
     teamIdx,
   }, gm).ok, true);
   assert.equal(wagerBoardEvent(state), null);
+});
+
+test("QA bracket betting covers open matchups without backing a player's opponent", () => {
+  const state = structuredClone(EMPTY_STATE);
+  assert.equal(applyAction(state, "runDraw", {
+    evId:"8ball",
+    players:ROSTER.slice(0, 12),
+  }, gm).ok, true);
+  const draw = state.draws["8ball"];
+  const bracket = state.brackets["8ball"];
+  const picks = ROSTER.slice(0, 9).map((player, index) =>
+    qaBracketMatchWager(state, eightBall, player, index, 100));
+
+  assert.equal(picks.every(wager => wager?.kind === "match"), true);
+  assert.equal(new Set(picks.map(wager => wager.match.join(":"))).size, 2);
+  assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
+  for (let index = 0; index < picks.length; index++) {
+    const player = ROSTER[index];
+    const wager = picks[index];
+    const match = bracket.rounds[wager.match[0]][wager.match[1]];
+    const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
+    assert.equal(sides.includes(wager.teamIdx), true);
+    const myTeamIdx = draw.teams.findIndex(team => team.players.includes(player));
+    if (sides.includes(myTeamIdx)) assert.equal(wager.teamIdx, myTeamIdx);
+    assert.equal(applyAction(state, "placeWager", { wager }, {
+      isGm:false,
+      player,
+      deviceId:`qa-device-${index}`,
+      actionId:`qa-match-${index}`,
+    }).ok, true);
+  }
+  assert.equal(state.wagers.filter(wager => wager.kind === "match").length, 9);
 });
 
 test("snapshot builder excludes credentials and internal backups", () => {

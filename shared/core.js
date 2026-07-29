@@ -845,6 +845,43 @@ function resolveSlot(br, slot) {
   const src = br.rounds[slot.w[0]]?.[slot.w[1]];
   return src && src.winner !== null && src.winner !== undefined ? src.winner : null;
 }
+/* A deterministic QA matchup pick. It only returns fully seated, undecided
+   bracket matches and never backs the opponent facing the simulated player's
+   own team. Cycling `ordinal` spreads a rehearsal over both matches and sides. */
+function qaBracketMatchWager(state, ev, player, ordinal = 0, stake = PT) {
+  const draw = state.draws?.[ev?.id];
+  const bracket = state.brackets?.[ev?.id];
+  if (!draw || !bracket) return null;
+  const open = [];
+  for (let r = 0; r < bracket.rounds.length; r++) {
+    for (let m = 0; m < bracket.rounds[r].length; m++) {
+      const match = bracket.rounds[r][m];
+      if (match.winner !== null && match.winner !== undefined) continue;
+      const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
+      if (sides.every(teamIdx => teamIdx !== null && draw.teams[teamIdx]))
+        open.push({ r, m, sides });
+    }
+  }
+  if (!open.length) return null;
+  const index = Math.abs(Math.trunc(Number(ordinal) || 0));
+  const selected = open[index % open.length];
+  const myTeamIdx = draw.teams.findIndex(team => team.players.includes(player));
+  const teamIdx = selected.sides.includes(myTeamIdx)
+    ? myTeamIdx
+    : selected.sides[Math.floor(index / open.length) % selected.sides.length];
+  return {
+    kind:"match",
+    eventId:ev.id,
+    evName:ev.name,
+    drawId:draw.id,
+    match:[selected.r, selected.m],
+    matchName:(ROUND_NAMES[bracket.size] || [])[selected.r] || "Match",
+    teamIdx,
+    pickPlayers:[...draw.teams[teamIdx].players],
+    pickTeam:true,
+    stake,
+  };
+}
 const bracketChampion = br => {
   const last = br.rounds[br.rounds.length-1][0];
   return last.winner ?? null;
@@ -1012,7 +1049,7 @@ export {
   pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
-  makeBracket, ROUND_NAMES, resolveSlot, bracketChampion,
+  makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
   resolveEventLifecycle, resolveWeekendOperation,
 };

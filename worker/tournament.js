@@ -9,7 +9,7 @@
      client immediately receives the full authoritative state. */
 
 import {
-  ALL_PLAYERS, GM_PIN, ROSTER, isActivePlayer,
+  ALL_PLAYERS, ROSTER, isActivePlayer,
 } from "../shared/core.js";
 import { applyAction } from "./actions.js";
 import { hydrateStoredState } from "./state.js";
@@ -336,7 +336,8 @@ export class Tournament {
       const now = Date.now();
       if (this.pinLockUntil && now < this.pinLockUntil)
         return reply({ ok: false, error: "Too many tries, wait a minute" });
-      if (payload?.pin !== GM_PIN) {
+      const submittedPin = typeof payload?.pin === "string" ? payload.pin : "";
+      if (!await secureTokenEqual(submittedPin, this.env.GM_PIN)) {
         this.pinFails = (this.pinFails || 0) + 1;
         if (this.pinFails >= 10) { this.pinLockUntil = now + 60000; this.pinFails = 0; }
         return reply({ ok: false, error: "Wrong passcode" });

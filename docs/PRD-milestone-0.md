@@ -792,20 +792,13 @@ Listed so M1 scoping starts from a known set rather than rediscovering them:
 
 Ranked by what would actually hurt.
 
-### 11.1 `GM_PIN` ships in the client bundle — **open, highest priority**
+### 11.1 GM PIN disclosure — **resolved in M1**
 
-`GM_PIN = "1016"` lives in `shared/core.js`, which is imported by the React app
-and therefore ships in the JavaScript bundle. Any guest who opens devtools can
-read it and unlock commissioner mode: void wagers, post results, issue rulings,
-freeze the board.
-
-The pin is only compared server-side in the DO, so the fix is small: read it from
-`env.GM_PIN` (a Worker secret) in `worker/tournament.js` and remove the constant
-from the shared module. The client never needs the value — it posts a pin and
-gets a token back.
-
-**This should be fixed before the weekend, and arguably before more guests
-onboard**, since the invite is already out.
+Commissioner unlock now reads the required, per-environment `env.GM_PIN`
+Worker secret and compares it server-side using the timing-safe secret helper.
+The value no longer lives in the shared module, client bundle, checked-in
+configuration, or documentation. Local development uses an ignored
+`.dev.vars.local` file; the client only submits a PIN and receives a token.
 
 ### 11.2 Cold-start race in the e2e test — low severity, pre-existing
 
@@ -870,7 +863,7 @@ for.
 ### M1 — "It survives the house" (do before October)
 
 **P0 — correctness and reliability**
-1. **Move `GM_PIN` to a Worker secret.** (§11.1)
+1. **Move `GM_PIN` to a Worker secret.** (§11.1) — completed in M1.
 2. **Service worker offline shell.** The app boots and shows last-known state
    without network; actions queue or fail loudly. Directly de-risks §11.3.
 3. **State export.** One GM button that copies full state JSON. Insurance

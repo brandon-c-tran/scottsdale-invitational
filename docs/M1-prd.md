@@ -683,7 +683,7 @@ must never be the first restore rehearsal.
 | Loss of the only state copy | One DO, no export | D0 portable snapshots and rehearsed restore |
 | Accidental production mutation | Top-level live config, remote E2E supported | target guards, staging, remote E2E block |
 | Branch deploy overwrites live | workflow deploys `claude/**` with live config | production-only protected workflow |
-| GM secret disclosure | `GM_PIN` is in shared client code | dedicated server-only secret protects production snapshots; move all GM auth to per-environment Worker secrets before event |
+| GM secret disclosure | Resolved: unlock reads required per-environment `env.GM_PIN` | keep values only in Worker secrets and ignored local dev vars |
 | Invalid teams | `drawTeams()` accepts all selected players | strict participation validation |
 | Player-ID breakage | names are map keys everywhere | retain legacy IDs and add labels/status only |
 | Snapshot leaks PII | profiles, travel, and photos are included | GM auth, no public link, ignore files, operator handling |

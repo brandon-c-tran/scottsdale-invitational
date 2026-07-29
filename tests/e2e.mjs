@@ -9,6 +9,9 @@ import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, brack
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
+const GM_PIN = process.env.GM_PIN;
+if (!GM_PIN)
+  throw new Error("GM_PIN is required for the E2E commissioner unlock");
 const target = new URL(BASE);
 const productionHost = target.hostname === "fielddayseries.com"
   || target.hostname.endsWith(".fielddayseries.com");
@@ -98,10 +101,11 @@ assert(r.ok, "B seals scouting report");
 /* ── GM unlock ── */
 r = await b.dispatch("runDraw", { evId: "8ball", players: null });
 assert(!r.ok, "non-GM cannot run a draw (rejected: " + r.error + ")");
-r = await a.dispatch("gmUnlock", { pin: "9999" });
+const wrongPin = GM_PIN === "9999" ? "0000" : "9999";
+r = await a.dispatch("gmUnlock", { pin: wrongPin });
 assert(!r.ok, "wrong pin rejected");
-r = await a.dispatch("gmUnlock", { pin: "1016" });
-assert(r.ok && r.extra?.gmToken, "GM unlock with 1016 mints token");
+r = await a.dispatch("gmUnlock", { pin: GM_PIN });
+assert(r.ok && r.extra?.gmToken, "configured GM PIN mints token");
 a.gmToken = r.extra.gmToken;
 
 /* clean slate so the run is deterministic */

@@ -50,6 +50,8 @@ Official references:
 
 ```powershell
 npm.cmd ci
+Copy-Item .dev.vars.example .dev.vars.local
+# Edit .dev.vars.local and choose a local-only GM_PIN.
 npm.cmd run dev
 ```
 
@@ -219,8 +221,19 @@ Before confirming deployment, verify Wrangler reports:
 - `APP_ENV=staging`
 - a `TOURNAMENT` binding owned by the staging Worker
 
-Configure the staging GM secret independently when the PIN is moved out of
-source. Do not reuse a production token.
+`GM_PIN` is a required, per-environment Worker secret. Configure or rotate it
+through Wrangler's private prompt, never in `wrangler.jsonc`:
+
+```powershell
+npx.cmd wrangler secret put GM_PIN --env staging
+```
+
+The top-level production Worker has its own secret. Changing it is a production
+mutation and requires explicit approval:
+
+```powershell
+npx.cmd wrangler secret put GM_PIN
+```
 
 ## Import a snapshot into staging
 

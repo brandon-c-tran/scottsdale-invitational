@@ -2,8 +2,6 @@
    and the Durable Object. The server is authoritative; the client uses these
    for display only. */
 
-const GM_PIN = "1016";
-
 /* Names are the shipped M0 storage keys, so Scottsdale keeps them as stable
    ids. The record shape separates identity from display and attendance without
    rewriting claims, profiles, photos, bets, or results. */
@@ -1089,7 +1087,7 @@ function resolveWeekendOperation(state, events = allEventsOf(state)) {
 }
 
 export {
-  GM_PIN, ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
+  ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,

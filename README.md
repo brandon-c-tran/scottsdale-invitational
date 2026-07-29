@@ -7,22 +7,25 @@ TV mode runs on the living room screen.
 
 ## Setup
 
-```bash
+```powershell
 npm ci
+Copy-Item .dev.vars.example .dev.vars.local
+# Edit .dev.vars.local and choose a local-only GM_PIN.
 npm run dev          # local dev at http://localhost:5173, DO runs in workerd
 ```
 
 Open two browser windows to see live sync. The local app carries a visible
-`LOCAL` badge. GM passcode: 1016.
+`LOCAL` badge. The commissioner PIN comes from the ignored
+`.dev.vars.local` file and never enters the client bundle.
 
 ## Validate
 
-```bash
+```powershell
 npm run check
 npm test
 npm run build
 npm run build:staging
-npm run test:e2e
+$env:GM_PIN="<same local test PIN>"; npm run test:e2e
 ```
 
 The end-to-end test refuses the production domain and defaults to the isolated

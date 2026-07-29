@@ -60,8 +60,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    by itself after `INTRO_HOLD`. Drawing before the announcement put matchups
    on screen before anyone knew the game, and a manual close made the GM tap
    twice.
-5. **GM auth:** pin (in `shared/core.js`, GM_PIN) unlocks once and mints a
-   server-held token; GM actions require it.
+5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once and
+   mints a server-held token; GM actions require it. The PIN must never enter a
+   shared module, client bundle, checked-in vars, or documentation.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
    Onboarding doubles as the invite, sent months out. `firstOnboardStep()` is
    the ONLY place that decides where it opens, because the install gate (step

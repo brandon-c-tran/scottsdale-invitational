@@ -44,6 +44,30 @@ const snapshotEntries = () => new Map([
   ["claims", { deviceA:"Brandon" }],
 ]);
 const tournamentFor = env => new Tournament({ blockConcurrencyWhile() {} }, env);
+const attemptGmUnlock = async ({ configuredPin, submittedPin }) => {
+  const frames = [];
+  let storedToken = null;
+  const context = {
+    blockConcurrencyWhile() {},
+    storage:{
+      async put(key, value) {
+        if (key === "gmToken") storedToken = value;
+      },
+    },
+  };
+  const tournament = new Tournament(context,
+    configuredPin === undefined ? {} : { GM_PIN:configuredPin });
+  tournament.gmToken = null;
+  await tournament.webSocketMessage({
+    send(frame) { frames.push(JSON.parse(frame)); },
+  }, JSON.stringify({
+    actionId:"unlock-test",
+    type:"gmUnlock",
+    payload:{ pin:submittedPin },
+    deviceId:"unlock-test-device",
+  }));
+  return { reply:frames.at(-1), storedToken };
+};
 
 test("roster config is additive and attendance status does not rewrite profile data", () => {
   assert.equal(ROSTER_CONFIG.length, 13);
@@ -645,6 +669,29 @@ test("environment capabilities fail closed and production restore routes hard de
     assert.equal(response.status, 403);
     assert.match((await response.json()).error, /disabled in production/);
   }
+});
+
+test("GM unlock reads a required server secret and fails closed when it is absent", async () => {
+  const accepted = await attemptGmUnlock({
+    configuredPin:"unit-test-pin",
+    submittedPin:"unit-test-pin",
+  });
+  assert.equal(accepted.reply.ok, true);
+  assert.ok(accepted.reply.extra.gmToken);
+  assert.equal(accepted.storedToken, accepted.reply.extra.gmToken);
+
+  const rejected = await attemptGmUnlock({
+    configuredPin:"unit-test-pin",
+    submittedPin:"wrong-pin",
+  });
+  assert.equal(rejected.reply.ok, false);
+  assert.match(rejected.reply.error, /wrong passcode/i);
+  assert.equal(rejected.storedToken, null);
+
+  const missing = await attemptGmUnlock({ submittedPin:"unit-test-pin" });
+  assert.equal(missing.reply.ok, false);
+  assert.match(missing.reply.error, /wrong passcode/i);
+  assert.equal(missing.storedToken, null);
 });
 
 test("Durable Object publishes state only after the atomic storage write succeeds", async () => {

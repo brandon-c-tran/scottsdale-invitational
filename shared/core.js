@@ -588,26 +588,29 @@ function resolveWager(state, w, events) {
 }
 
 /* The betting market and its board have different lifetimes. Closing the
-   market stops new chips, but the board remains relevant until every wager on
-   it settles or is voided. Prefer the open market; otherwise keep the most
-   recently active event with pending wagers on screen. */
+   market stops new chips, but the board remains the event's betting context
+   while the locked event waits to start, even when nobody placed a wager.
+   Once play starts, keep the board only while it still has pending wagers. */
 function wagerBoardEvent(state, events = allEventsOf(state)) {
   const open = events.find(ev => ev.id === state.onDeck && !state.results?.[ev.id]);
   if (open) return open;
 
   const pending = (state.wagers || []).filter(w =>
     resolveWager(state, w, events).status === "pending");
-  if (!pending.length) return null;
-
   const pendingIds = new Set(pending.map(({ eventId }) => eventId));
   const activityAt = ev => Math.max(
+    Number(state.eventOps?.[ev.id]?.resultEntryAt || 0),
     Number(state.eventOps?.[ev.id]?.bettingLockedAt || 0),
     Number(state.eventOps?.[ev.id]?.startedAt || 0),
+    Number(state.eventOps?.[ev.id]?.bettingOpenedAt || 0),
     ...pending.filter(w => w.eventId === ev.id)
       .map(w => Number(w.updatedAt || w.ts || 0)),
   );
   return events
-    .filter(ev => pendingIds.has(ev.id) && !state.results?.[ev.id])
+    .filter(ev => !state.results?.[ev.id]
+      && !state.shelved?.[ev.id]
+      && (resolveEventLifecycle(state, ev).phase === "betting-locked"
+        || pendingIds.has(ev.id)))
     .sort((a, b) => activityAt(b) - activityAt(a))[0] || null;
 }
 

@@ -431,6 +431,22 @@ test("locking betting keeps a bracket with pending chips active until settlement
   assert.equal(wagerBoardEvent(state), null);
 });
 
+test("locking an empty market keeps its betting board visible until play starts", () => {
+  const state = structuredClone(EMPTY_STATE);
+
+  assert.equal(wagerBoardEvent(state), null);
+  assert.equal(applyAction(state, "setOnDeck", { id:"putt" }, gm).ok, true);
+  assert.equal(wagerBoardEvent(state).id, "putt");
+
+  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
+  assert.equal(state.wagers.length, 0);
+  assert.equal(resolveEventLifecycle(state, longPutt).phase, "betting-locked");
+  assert.equal(wagerBoardEvent(state).id, "putt");
+
+  assert.equal(applyAction(state, "startEvent", { evId:"putt" }, gm).ok, true);
+  assert.equal(wagerBoardEvent(state), null);
+});
+
 test("QA bracket betting covers open matchups without backing a player's opponent", () => {
   const state = structuredClone(EMPTY_STATE);
   assert.equal(applyAction(state, "runDraw", {

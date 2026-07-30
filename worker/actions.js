@@ -20,34 +20,11 @@ import {
   validateShowSceneRequest,
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
-import {
-  MARKET_CHIP,
-  bracketMatchContext,
-  bracketMatchMarket,
-  createBracketMatchMarket,
-  contestMarketRole,
-  ensureBracketMatchMarket,
-  ensureNextBracketMatchMarket,
-  hasUnsettledFundedContestMarket,
-  lockBracketMatchMarkets,
-  lockContestMarketTerms,
-  voidContestMarketsForEvent,
-} from "../shared/markets.js";
-import {
-  HONOR_THEME_IDS,
-  activeHonorMoment,
-  cleanHonorNote,
-  createHonorMoment,
-  honorMomentContext,
-} from "../shared/honors.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
 const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 const showOnly = ctx => (ctx.showControl ? null : err("Show Control is unavailable"));
-const matchupStakesOnly = ctx =>
-  (ctx.matchupStakes ? null : err("Matchup Stakes is unavailable"));
-const honorsOnly = ctx => (ctx.honors ? null : err("Postgame Props is unavailable"));
 const showControlOf = state => {
   if (!state.showControl || typeof state.showControl !== "object")
     state.showControl = { active:null, history:[] };
@@ -142,95 +119,9 @@ const rememberWagerOp = (state, requestKey, record) => {
   keys.sort((left, right) => (state.wagerOps[left]?.at || 0) - (state.wagerOps[right]?.at || 0));
   keys.slice(0, keys.length - WAGER_OP_LIMIT).forEach(key => delete state.wagerOps[key]);
 };
-const MARKET_OP_LIMIT = 2048;
-const marketFingerprint = (...parts) => JSON.stringify(parts);
-const replayedMarketOp = (state, requestKey, actor, type, fingerprint) => {
-  const prior = state.marketOps?.[requestKey];
-  if (!prior) return null;
-  if (prior.actor !== actor || prior.type !== type || prior.fingerprint !== fingerprint)
-    return err("Request id already used");
-  return ok({
-    unchanged:true,
-    marketId:prior.marketId,
-    operation:prior.type,
-  });
-};
-const rememberMarketOp = (state, requestKey, record) => {
-  state.marketOps = state.marketOps || {};
-  state.marketOps[requestKey] = { ...record, at:Date.now() };
-  const keys = Object.keys(state.marketOps);
-  if (keys.length <= MARKET_OP_LIMIT) return;
-  keys.sort((left, right) => (state.marketOps[left]?.at || 0) - (state.marketOps[right]?.at || 0));
-  keys.slice(0, keys.length - MARKET_OP_LIMIT).forEach(key => delete state.marketOps[key]);
-};
-const marketOf = (state, id) => state.contestMarkets?.[id] || null;
-const marketOpen = market =>
-  !!market && !market.lockedAt && !market.voidedAt;
-const marketParticipationError = state => {
-  if (state.frozen) return err("The board is frozen");
-  if (pokerLive(state)) return err("The finale is live");
-  if (stacksPosted(state)) return err("The finale is settled");
-  return null;
-};
-const marketSide = (market, sideKey) =>
-  (market.sides || []).find(side => String(side.key) === String(sideKey));
-const HONOR_OP_LIMIT = 2048;
-const honorFingerprint = (...parts) => JSON.stringify(parts);
-const replayedHonorOp = (state, requestKey, actor, type, fingerprint) => {
-  const prior = state.honorOps?.[requestKey];
-  if (!prior) return null;
-  if (prior.actor !== actor || prior.type !== type || prior.fingerprint !== fingerprint)
-    return err("Request id already used");
-  return ok({
-    unchanged:true,
-    momentId:prior.momentId,
-    honorId:prior.honorId,
-    operation:prior.type,
-  });
-};
-const rememberHonorOp = (state, requestKey, record) => {
-  state.honorOps = state.honorOps || {};
-  state.honorOps[requestKey] = { ...record, at:Date.now() };
-  const keys = Object.keys(state.honorOps);
-  if (keys.length <= HONOR_OP_LIMIT) return;
-  keys.sort((left, right) => (state.honorOps[left]?.at || 0) - (state.honorOps[right]?.at || 0));
-  keys.slice(0, keys.length - HONOR_OP_LIMIT).forEach(key => delete state.honorOps[key]);
-};
-const honorSourceKey = source => source?.kind === "bracket-match"
-  ? ["bracket-match", source.eventId, Number(source.round), Number(source.match)].join("|")
-  : ["event", source?.eventId].join("|");
-const honorMomentSourceKey = moment => honorSourceKey(moment);
-const trimHonorHistory = state => {
-  const moments = Object.values(state.honorMoments || {});
-  if (moments.length <= 128) return;
-  const removable = moments.filter(moment => moment.closedAt || moment.voidedAt)
-    .sort((left, right) =>
-      Number(left.closedAt || left.voidedAt || left.openedAt || 0)
-      - Number(right.closedAt || right.voidedAt || right.openedAt || 0));
-  const removeIds = new Set(removable.slice(0, Math.max(0, moments.length - 128))
-    .map(moment => moment.id));
-  removeIds.forEach(id => delete state.honorMoments[id]);
-  state.honors = (state.honors || []).filter(honor => !removeIds.has(honor.momentId)).slice(-2048);
-};
-const liveDuelExposure = (state, player) =>
-  (state.duels || [])
-    .filter(duel => duel.status === "open"
-      && !resolveDuel(duel).settled
-      && (duel.from === player || duel.to === player))
-    .reduce((sum, duel) => sum + duel.stake, 0);
-const stakeAvailabilityError = (state, player, additional) => {
-  const events = allEventsOf(state);
-  const points = computeStandings(state).find(row => row.player === player)?.pts ?? 0;
-  const exposure = atRisk(state, player, events) + liveDuelExposure(state, player);
-  if (additional > points - exposure) return "Not enough points";
-  const cap = maxRisk(points);
-  if (exposure + additional > cap) return `Max ${cap} at risk`;
-  return null;
-};
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
   "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
-  "openHonorMoment", "closeHonorMoment", "voidHonorMoment", "submitHonor",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament",
@@ -247,11 +138,6 @@ const reopenCompetition = (state, evId) => {
   const op = eventOp(state, evId);
   delete op.resultEntryAt;
   delete op.completedAt;
-};
-const hasPendingLegacyWager = state => {
-  const events = allEventsOf(state);
-  return (state.wagers || []).some(wager =>
-    resolveWager(state, wager, events).status === "pending");
 };
 
 export const ACTIONS = {
@@ -440,158 +326,9 @@ export const ACTIONS = {
   },
 
   /* ── wagers (players) ── */
-  /* Postgame Props keeps one server-authoritative window open at a time.
-     Submissions upsert by giver + moment, so retries never inflate a count and
-     a player may revise one quick choice while the window remains open. */
-  openHonorMoment(state, { source }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = honorsOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This props command is missing a request id");
-    const fingerprint = honorFingerprint(honorSourceKey(source));
-    const replay = replayedHonorOp(state, requestKey, "commissioner", "open", fingerprint);
-    if (replay) return replay;
-    const active = activeHonorMoment(state);
-    const sourceKey = honorSourceKey(source);
-    if (active && honorMomentSourceKey(active) !== sourceKey)
-      return err("Close the current props window first");
-    state.honorMoments = state.honorMoments || {};
-    let moment = Object.values(state.honorMoments)
-      .find(item => !item.voidedAt && honorMomentSourceKey(item) === sourceKey);
-    if (moment) {
-      const context = honorMomentContext(state, moment);
-      if (!context.valid) return err(context.reason);
-      if (!moment.closedAt) return ok({ unchanged:true, momentId:moment.id });
-      moment.closedAt = null;
-      moment.openedAt = Date.now();
-      moment.reopened = Number(moment.reopened || 0) + 1;
-    } else {
-      const created = createHonorMoment(state, source, {
-        id:`props-${Date.now()}-${crypto.randomUUID()}`,
-      });
-      if (!created.ok) return err(created.error);
-      moment = created.moment;
-      state.honorMoments[moment.id] = moment;
-    }
-    rememberHonorOp(state, requestKey, {
-      actor:"commissioner",
-      type:"open",
-      fingerprint,
-      momentId:moment.id,
-    });
-    trimHonorHistory(state);
-    return ok({ momentId:moment.id });
-  },
-  closeHonorMoment(state, { momentId }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = honorsOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This props command is missing a request id");
-    const fingerprint = honorFingerprint(momentId);
-    const replay = replayedHonorOp(state, requestKey, "commissioner", "close", fingerprint);
-    if (replay) return replay;
-    const moment = state.honorMoments?.[momentId];
-    if (!moment) return err("No such props moment");
-    if (moment.closedAt || moment.voidedAt) return ok({ unchanged:true, momentId });
-    moment.closedAt = Date.now();
-    rememberHonorOp(state, requestKey, {
-      actor:"commissioner",
-      type:"close",
-      fingerprint,
-      momentId,
-    });
-    return ok({ momentId });
-  },
-  voidHonorMoment(state, { momentId, reason }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = honorsOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This props command is missing a request id");
-    const cleanReason = String(reason || "").trim().slice(0, 100);
-    const fingerprint = honorFingerprint(momentId, cleanReason);
-    const replay = replayedHonorOp(state, requestKey, "commissioner", "void", fingerprint);
-    if (replay) return replay;
-    if (!cleanReason) return err("Void reason required");
-    const moment = state.honorMoments?.[momentId];
-    if (!moment) return err("No such props moment");
-    if (moment.voidedAt) return ok({ unchanged:true, momentId });
-    moment.closedAt = moment.closedAt || Date.now();
-    moment.voidedAt = Date.now();
-    moment.voidReason = cleanReason;
-    rememberHonorOp(state, requestKey, {
-      actor:"commissioner",
-      type:"void",
-      fingerprint,
-      momentId,
-    });
-    return ok({ momentId });
-  },
-  submitHonor(state, { momentId, recipient, theme, note }, ctx) {
-    const enabled = honorsOnly(ctx); if (enabled) return enabled;
-    const giver = ctx.player;
-    if (!giver) return err("Check in first");
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This props submission is missing a request id");
-    const cleanTheme = String(theme || "");
-    const cleanRecipient = String(recipient || "");
-    const cleanNote = cleanHonorNote(note);
-    const fingerprint = honorFingerprint(momentId, cleanRecipient, cleanTheme, cleanNote);
-    const replay = replayedHonorOp(state, requestKey, giver, "submit", fingerprint);
-    if (replay) return replay;
-    const moment = state.honorMoments?.[momentId];
-    if (!moment || moment.closedAt || moment.voidedAt)
-      return err("This props window is closed");
-    const context = honorMomentContext(state, moment);
-    if (!context.valid) return err(context.reason);
-    if (!context.participants.includes(giver))
-      return err("You were not part of this moment");
-    if (!context.participants.includes(cleanRecipient))
-      return err("Pick someone from this moment");
-    if (giver === cleanRecipient) return err("Give props to someone else");
-    if (!HONOR_THEME_IDS.has(cleanTheme)) return err("Choose a positive prop");
-    state.honors = Array.isArray(state.honors) ? state.honors : [];
-    let honor = state.honors.find(item =>
-      item.momentId === momentId && item.giver === giver);
-    if (honor
-        && honor.recipient === cleanRecipient
-        && honor.theme === cleanTheme
-        && (honor.note || "") === cleanNote)
-      return ok({ unchanged:true, momentId, honorId:honor.id });
-    const now = Date.now();
-    if (honor) {
-      honor.recipient = cleanRecipient;
-      honor.theme = cleanTheme;
-      honor.note = cleanNote;
-      honor.updatedAt = now;
-    } else {
-      honor = {
-        id:`prop-${now}-${crypto.randomUUID()}`,
-        momentId,
-        giver,
-        recipient:cleanRecipient,
-        theme:cleanTheme,
-        note:cleanNote,
-        createdAt:now,
-        updatedAt:now,
-      };
-      state.honors.push(honor);
-      state.honors = state.honors.slice(-2048);
-    }
-    rememberHonorOp(state, requestKey, {
-      actor:giver,
-      type:"submit",
-      fingerprint,
-      momentId,
-      honorId:honor.id,
-    });
-    return ok({ momentId, honorId:honor.id });
-  },
-
   placeWager(state, { wager }, ctx) {
     const player = ctx.player;
     if (!player) return err("Check in first");
-    if (Object.keys(state.contestMarkets || {}).length)
-      return err("Legacy betting is retired after Matchup Stakes begins");
     const requestKey = wagerRequestKey(ctx);
     if (!requestKey) return err("This wager is missing a request id");
     const fingerprint = wagerFingerprint(wager);
@@ -799,301 +536,6 @@ export const ACTIONS = {
     return ok();
   },
 
-  /* M2 contest-bound stakes and predictions. This is additive to the
-     historical M1 book; the first market requires no pending legacy wager. */
-  openMatchMarket(state, { eventId, round, match }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This market command is missing a request id");
-    const fingerprint = marketFingerprint(eventId, Number(round), Number(match));
-    const replay = replayedMarketOp(state, requestKey, "commissioner", "open", fingerprint);
-    if (replay) return replay;
-    if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("The finale is live");
-    if (stacksPosted(state)) return err("The finale is settled");
-    const events = allEventsOf(state);
-    const ev = events.find(event => event.id === eventId);
-    if (!ev) return err("No such event");
-    if ((state.wagers || []).some(wager =>
-      resolveWager(state, wager, events).status === "pending"))
-      return err("Settle or void legacy wagers before opening Matchup Stakes");
-    const lifecycle = resolveEventLifecycle(state, ev);
-    if (!["betting-open", "betting-locked", "in-progress"].includes(lifecycle.phase))
-      return err("Open a market only when this event is about to play");
-    const duplicate = Object.values(state.contestMarkets || {}).find(marketEntry =>
-      !marketEntry.voidedAt
-      && marketEntry.eventId === eventId
-      && marketEntry.drawId === state.draws?.[eventId]?.id
-      && Number(marketEntry.round) === Number(round)
-      && Number(marketEntry.match) === Number(match));
-    if (duplicate) return err("This matchup already has a market");
-    const created = createBracketMatchMarket(state, { eventId, round, match });
-    if (!created.ok) return err(created.error);
-    state.contestMarkets = state.contestMarkets || {};
-    state.contestMarkets[created.market.id] = created.market;
-    rememberMarketOp(state, requestKey, {
-      actor:"commissioner",
-      type:"open",
-      fingerprint,
-      marketId:created.market.id,
-    });
-    return ok({ marketId:created.market.id });
-  },
-
-  /* The visible GM action is the physical transition, not market plumbing:
-     the bracket has already opened picks automatically. A recovery path can
-     create the market here if this state predates automatic lifecycle wiring. */
-  startBracketMatch(state, { evId, r, m }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This matchup command is missing a request id");
-    const fingerprint = marketFingerprint(evId, Number(r), Number(m));
-    const replay = replayedMarketOp(state, requestKey, "commissioner", "start", fingerprint);
-    if (replay) return replay;
-    if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("The finale is live");
-    const ev = allEventsOf(state).find(event => event.id === evId);
-    if (!ev) return err("No such event");
-    if (hasPendingLegacyWager(state))
-      return err("Settle or void legacy wagers before starting Matchup Stakes");
-    const live = competitionLive(state, ev); if (live) return live;
-    const context = ensureBracketMatchMarket(state, {
-      eventId:evId,
-      round:Number(r),
-      match:Number(m),
-    });
-    if (!context.ok) return err(context.error);
-    const market = context.market;
-    if (market.lockedAt)
-      return ok({ unchanged:true, marketId:market.id });
-    lockContestMarketTerms(market);
-    rememberMarketOp(state, requestKey, {
-      actor:"commissioner",
-      type:"start",
-      fingerprint,
-      marketId:market.id,
-    });
-    return ok({
-      marketId:market.id,
-      marketCreated:context.created,
-      poolActive:!!market.pool?.activation?.active,
-      anteActive:!!market.ante?.activation?.active,
-    });
-  },
-
-  recordContestPrediction(state, { marketId, sideKey }, ctx) {
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const board = marketParticipationError(state); if (board) return board;
-    const player = ctx.player;
-    if (!player) return err("Check in first");
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This prediction is missing a request id");
-    const fingerprint = marketFingerprint(marketId, String(sideKey));
-    const replay = replayedMarketOp(state, requestKey, player, "predict", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (!marketOpen(market)) return err("Predictions are closed");
-    if (!bracketMatchContext(state, market).valid) return err("The matchup changed");
-    const role = contestMarketRole(market, player);
-    if (!role.canPredict) return err("Competitors use the optional ante for this matchup");
-    if (!marketSide(market, sideKey)) return err("Pick a side in this matchup");
-    const backed = market.backing?.[player];
-    if (backed && String(backed.sideKey) !== String(sideKey))
-      return err("Pull your backed chips before changing sides");
-    market.predictions = market.predictions || {};
-    market.predictions[player] = String(sideKey);
-    rememberMarketOp(state, requestKey, {
-      actor:player,
-      type:"predict",
-      fingerprint,
-      marketId,
-    });
-    return ok({ marketId });
-  },
-
-  backContestPrediction(state, { marketId, sideKey, stake:want }, ctx) {
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const board = marketParticipationError(state); if (board) return board;
-    const player = ctx.player;
-    if (!player) return err("Check in first");
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This backing is missing a request id");
-    const stake = Math.floor(Number(want));
-    const fingerprint = marketFingerprint(marketId, String(sideKey), stake);
-    const replay = replayedMarketOp(state, requestKey, player, "back", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (!marketOpen(market)) return err("Backing is closed");
-    if (!bracketMatchContext(state, market).valid) return err("The matchup changed");
-    const role = contestMarketRole(market, player);
-    if (!role.canBack) return err("Competitors cannot back their own matchup");
-    if (!marketSide(market, sideKey)) return err("Pick a side in this matchup");
-    if (market.predictions?.[player] !== String(sideKey))
-      return err("Make your free pick first");
-    if (!(Number.isInteger(stake) && stake >= MARKET_CHIP && stake % MARKET_CHIP === 0))
-      return err("Backing moves in 100s");
-    const availability = stakeAvailabilityError(state, player, stake);
-    if (availability) return err(availability);
-    market.backing = market.backing || {};
-    const existing = market.backing[player];
-    if (existing && String(existing.sideKey) !== String(sideKey))
-      return err("Pull your backed chips before changing sides");
-    if (existing) {
-      existing.stake += stake;
-      existing.chips = [...(Array.isArray(existing.chips) ? existing.chips : []),
-        { requestKey, stake, ts:Date.now() }];
-      existing.updatedAt = Date.now();
-    } else {
-      market.backing[player] = {
-        sideKey:String(sideKey),
-        stake,
-        chips:[{ requestKey, stake, ts:Date.now() }],
-        ts:Date.now(),
-      };
-    }
-    rememberMarketOp(state, requestKey, {
-      actor:player,
-      type:"back",
-      fingerprint,
-      marketId,
-    });
-    return ok({ marketId, stake:market.backing[player].stake });
-  },
-
-  retractContestBacking(state, { marketId }, ctx) {
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const board = marketParticipationError(state); if (board) return board;
-    const player = ctx.player;
-    if (!player) return err("Check in first");
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This retraction is missing a request id");
-    const fingerprint = marketFingerprint(marketId);
-    const replay = replayedMarketOp(state, requestKey, player, "retract-backing", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (!marketOpen(market)) return err("Backing is closed");
-    const backing = market.backing?.[player];
-    if (!backing) return err("No backed chips to pull");
-    const chips = Array.isArray(backing.chips) && backing.chips.length
-      ? backing.chips : [{ stake:backing.stake }];
-    const chip = chips.pop();
-    const remaining = Math.max(0, backing.stake - Number(chip.stake || 0));
-    if (remaining) {
-      backing.stake = remaining;
-      backing.chips = chips;
-      backing.updatedAt = Date.now();
-    } else {
-      delete market.backing[player];
-    }
-    rememberMarketOp(state, requestKey, {
-      actor:player,
-      type:"retract-backing",
-      fingerprint,
-      marketId,
-    });
-    return ok({ marketId, stake:remaining, removed:remaining === 0 });
-  },
-
-  respondContestAnte(state, { marketId, accept, stake:want }, ctx) {
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const board = marketParticipationError(state); if (board) return board;
-    const player = ctx.player;
-    if (!player) return err("Check in first");
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This ante response is missing a request id");
-    const requestedStake = want === undefined ? null : Math.floor(Number(want));
-    const fingerprint = marketFingerprint(marketId, !!accept, requestedStake);
-    const replay = replayedMarketOp(state, requestKey, player, "ante", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (!marketOpen(market)) return err("The ante is closed");
-    if (!bracketMatchContext(state, market).valid) return err("The matchup changed");
-    if (!contestMarketRole(market, player).canAnte)
-      return err("Only competitors in this matchup can respond");
-    market.ante = market.ante || { stake:null, responses:{}, activation:null };
-    market.ante.responses = market.ante.responses || {};
-    if (!accept) {
-      market.ante.responses[player] = "declined";
-    } else {
-      const stake = market.ante.stake === null || market.ante.stake === undefined
-        ? requestedStake : Number(market.ante.stake);
-      if (!(Number.isInteger(stake) && stake >= MARKET_CHIP && stake % MARKET_CHIP === 0))
-        return err("Choose an ante in 100s");
-      if (requestedStake !== null && market.ante.stake !== null
-          && market.ante.stake !== undefined && requestedStake !== stake)
-        return err(`This matchup ante is ${stake}`);
-      const additional = market.ante.responses[player] === "accepted" ? 0 : stake;
-      const availability = stakeAvailabilityError(state, player, additional);
-      if (availability) return err(availability);
-      market.ante.stake = stake;
-      market.ante.responses[player] = "accepted";
-    }
-    rememberMarketOp(state, requestKey, {
-      actor:player,
-      type:"ante",
-      fingerprint,
-      marketId,
-    });
-    return ok({ marketId, response:market.ante.responses[player], stake:market.ante.stake });
-  },
-
-  lockContestMarket(state, { marketId }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This market command is missing a request id");
-    const fingerprint = marketFingerprint(marketId);
-    const replay = replayedMarketOp(state, requestKey, "commissioner", "lock", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (market.voidedAt) return err("Market already voided");
-    if (market.lockedAt) return ok({ unchanged:true, marketId });
-    if (!bracketMatchContext(state, market).valid) return err("The matchup changed");
-    lockContestMarketTerms(market);
-    rememberMarketOp(state, requestKey, {
-      actor:"commissioner",
-      type:"lock",
-      fingerprint,
-      marketId,
-    });
-    return ok({
-      marketId,
-      poolActive:!!market.pool?.activation?.active,
-      anteActive:!!market.ante?.activation?.active,
-    });
-  },
-
-  voidContestMarket(state, { marketId, reason }, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
-    const requestKey = wagerRequestKey(ctx);
-    if (!requestKey) return err("This market command is missing a request id");
-    const cleanReason = String(reason || "").trim().slice(0, 100);
-    const fingerprint = marketFingerprint(marketId, cleanReason);
-    const replay = replayedMarketOp(state, requestKey, "commissioner", "void", fingerprint);
-    if (replay) return replay;
-    const market = marketOf(state, marketId);
-    if (!market) return err("No such matchup market");
-    if (!cleanReason) return err("Void reason required");
-    if (market.voidedAt) return ok({ unchanged:true, marketId });
-    market.voidedAt = Date.now();
-    market.voidReason = cleanReason;
-    rememberMarketOp(state, requestKey, {
-      actor:"commissioner",
-      type:"void",
-      fingerprint,
-      marketId,
-    });
-    return ok({ marketId });
-  },
-
   /* ── duels (players) ──
      A duel is a phone minigame between two players. Both ante DUEL_STAKE at
      send time; each plays a run whenever they want; settlement is derived from
@@ -1281,15 +723,7 @@ export const ACTIONS = {
     op.bettingOpenedAt = Date.now();
     delete op.bettingLockedAt;
     state.onDeck = id;
-    let automaticMarket = null;
-    if (ctx.matchupStakes && state.brackets?.[id] && !hasPendingLegacyWager(state)) {
-      const ensured = ensureNextBracketMatchMarket(state, id);
-      if (ensured.ok) automaticMarket = ensured;
-    }
-    return ok(automaticMarket ? {
-      marketId:automaticMarket.market.id,
-      marketCreated:automaticMarket.created,
-    } : undefined);
+    return ok();
   },
   startEvent(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1299,15 +733,7 @@ export const ACTIONS = {
     if (lifecycle.phase !== "betting-locked")
       return err(lifecycle.nextAction?.label || "Lock betting before starting");
     eventOp(state, evId).startedAt = Date.now();
-    let automaticMarket = null;
-    if (ctx.matchupStakes && state.brackets?.[evId] && !hasPendingLegacyWager(state)) {
-      const ensured = ensureNextBracketMatchMarket(state, evId);
-      if (ensured.ok) automaticMarket = ensured;
-    }
-    return ok(automaticMarket ? {
-      marketId:automaticMarket.market.id,
-      marketCreated:automaticMarket.created,
-    } : undefined);
+    return ok();
   },
   beginResultEntry(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1343,25 +769,12 @@ export const ACTIONS = {
       ev, result: state.results[id], draw: state.draws[id], bracket: state.brackets[id],
       stages: state.stages[id], eventOp:state.eventOps?.[id], shelved: !!state.shelved[id],
       wagers: state.wagers.filter(w => w.eventId === id),
-      contestMarkets:Object.values(state.contestMarkets || {})
-        .filter(market => market.eventId === id),
-      honorMoments:Object.values(state.honorMoments || {})
-        .filter(moment => moment.eventId === id),
     };
-    const honorMomentIds = new Set(snapshot.honorMoments.map(moment => moment.id));
-    snapshot.honors = (state.honors || []).filter(honor => honorMomentIds.has(honor.momentId));
     state.customEvents = state.customEvents.filter(e => e.id !== id);
     delete state.results[id]; delete state.draws[id]; delete state.brackets[id];
     delete state.stages[id]; delete state.shelved[id];
     if (state.eventOps) delete state.eventOps[id];
     state.wagers = state.wagers.filter(w => w.eventId !== id);
-    state.contestMarkets = state.contestMarkets || {};
-    for (const market of snapshot.contestMarkets)
-      delete state.contestMarkets[market.id];
-    state.honorMoments = state.honorMoments || {};
-    for (const moment of snapshot.honorMoments)
-      delete state.honorMoments[moment.id];
-    state.honors = (state.honors || []).filter(honor => !honorMomentIds.has(honor.momentId));
     if (state.onDeck === id) state.onDeck = null;
     return ok({ snapshot });
   },
@@ -1411,22 +824,6 @@ export const ACTIONS = {
     if (u.eventOp) Object.assign(eventOp(state, u.ev.id), u.eventOp);
     if (u.shelved) state.shelved[u.ev.id] = true;
     state.wagers = [...(Array.isArray(u.wagers) ? u.wagers : []), ...state.wagers];
-    state.contestMarkets = state.contestMarkets || {};
-    for (const market of Array.isArray(u.contestMarkets) ? u.contestMarkets : [])
-      if (market?.id && market.eventId === u.ev.id)
-        state.contestMarkets[market.id] = market;
-    state.honorMoments = state.honorMoments || {};
-    const restoredMomentIds = new Set();
-    for (const moment of Array.isArray(u.honorMoments) ? u.honorMoments : [])
-      if (moment?.id && moment.eventId === u.ev.id) {
-        state.honorMoments[moment.id] = moment;
-        restoredMomentIds.add(moment.id);
-      }
-    state.honors = [
-      ...(Array.isArray(u.honors) ? u.honors.filter(honor =>
-        honor?.id && restoredMomentIds.has(honor.momentId)) : []),
-      ...(state.honors || []),
-    ].slice(-2048);
     return ok();
   },
 
@@ -1449,7 +846,6 @@ export const ACTIONS = {
     const draw = drawTeams(ev, state, players);
     if (!draw) return err("Draw failed");
     draw.roles = normalizeOverflowRoles(players, ROSTER, roles, ev);
-    voidContestMarketsForEvent(state, evId, "Teams redrawn");
     state.draws[evId] = draw;
     delete state.stages[evId];
     if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
@@ -1463,7 +859,6 @@ export const ACTIONS = {
     if (state.results[evId]) return err("Clear the result before the draw");
     if (state.onDeck === evId) return err("Lock betting before clearing the draw");
     if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
-    voidContestMarketsForEvent(state, evId, "Draw cleared");
     delete state.draws[evId]; delete state.brackets[evId]; delete state.stages[evId];
     if (state.eventOps) delete state.eventOps[evId];
     return ok();
@@ -1477,25 +872,10 @@ export const ACTIONS = {
     const match = br.rounds[r][m];
     const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
     if (teamIdx !== a && teamIdx !== b) return err("Not in this matchup");
-    /* Result entry closes participation and freezes terms in the same Durable
-       Object mutation. If the GM forgot the start-match tap, result entry is
-       still safe and atomic instead of blocking the physical contest. */
-    const matchupLifecycleEnabled = ctx.matchupStakes && !hasPendingLegacyWager(state);
-    if (matchupLifecycleEnabled && !bracketMatchMarket(state, evId, r, m))
-      ensureBracketMatchMarket(state, { eventId:evId, round:r, match:m });
-    lockBracketMatchMarkets(state, evId, r, m);
     reopenCompetition(state, evId);
     br.rounds[r][m].winner = teamIdx;
     for (let rr = r + 1; rr < br.rounds.length; rr++) br.rounds[rr].forEach(match => { match.winner = null; });
-    let nextMarket = null;
-    if (matchupLifecycleEnabled) {
-      const ensured = ensureNextBracketMatchMarket(state, evId);
-      if (ensured.ok) nextMarket = ensured;
-    }
-    return ok(nextMarket ? {
-      nextMarketId:nextMarket.market.id,
-      nextMarketCreated:nextMarket.created,
-    } : undefined);
+    return ok();
   },
   runStages(state, { evId, cfg }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1641,8 +1021,6 @@ export const ACTIONS = {
     const events = allEventsOf(state);
     if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
       return err("Settle or void the open wagers first");
-    if (hasUnsettledFundedContestMarket(state))
-      return err("Settle or void the funded matchup markets first");
     if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
       return err("Settle or void the open duels first");
     const rows = computeStandings(state);

@@ -1,8 +1,3 @@
-import {
-  contestMarketsAtRisk,
-  resolveContestMarket,
-} from "./markets.js";
-
 /* Single source of truth for game logic. Imported by BOTH the React client
    and the Durable Object. The server is authoritative; the client uses these
    for display only. */
@@ -376,11 +371,9 @@ function cleanLogistics(stored) {
   return out;
 }
 
-const EMPTY_STATE = { v:10, live:false, results:{}, wagers:[], wagerOps:{}, contestMarkets:{}, marketOps:{},
-  adjustments:[], seeds:{}, draws:{}, brackets:{},
+const EMPTY_STATE = { v:8, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
-  honorMoments:{}, honors:[], honorOps:{},
   logistics:{ ...LOGISTICS }, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
@@ -753,15 +746,8 @@ function resolveDuel(duel) {
 }
 
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {}, marketNet = {}, duelNet = {}, awardPts = {};
-  ROSTER.forEach(p => {
-    pts[p] = START;
-    wins[p] = 0;
-    betNet[p] = 0;
-    marketNet[p] = 0;
-    duelNet[p] = 0;
-    awardPts[p] = 0;
-  });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
+  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
@@ -780,15 +766,6 @@ function computeStandings(state) {
     if (r.status === "won" || r.status === "lost") {
       if (pts[w.player] !== undefined) { pts[w.player] += r.delta; betNet[w.player] += r.delta; }
     }
-  });
-  Object.values(state.contestMarkets || {}).forEach(market => {
-    const settlement = resolveContestMarket(state, market);
-    if (settlement.status !== "settled") return;
-    Object.entries(settlement.deltas).forEach(([player, delta]) => {
-      if (pts[player] === undefined) return;
-      pts[player] += delta;
-      marketNet[player] += delta;
-    });
   });
   (state.duels || []).forEach(d => {
     const r = resolveDuel(d);
@@ -813,15 +790,7 @@ function computeStandings(state) {
     const i = (stacksRes?.outs || []).indexOf(p);
     return i < 0 ? Infinity : i;
   };
-  const rows = ROSTER.map(p => ({
-    player:p,
-    pts:pts[p],
-    wins:wins[p],
-    betNet:betNet[p],
-    marketNet:marketNet[p],
-    duelNet:duelNet[p],
-    awardPts:awardPts[p],
-  }))
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
     .sort((x,y) => y.pts - x.pts
       || (stacksRes ? outRank(y.player) - outRank(x.player) : 0)
       || y.wins - x.wins || x.player.localeCompare(y.player));
@@ -830,10 +799,9 @@ function computeStandings(state) {
   return rows;
 }
 function atRisk(state, p, events) {
-  const legacy = (state.wagers || [])
+  return (state.wagers || [])
     .filter(w => w.player === p && resolveWager(state, w, events).status === "pending")
     .reduce((s,w) => s + w.stake, 0);
-  return legacy + contestMarketsAtRisk(state, p);
 }
 
 /* ─────────── the balanced draw ───────────

@@ -10,8 +10,8 @@ function hydrateStoredState(stored) {
 
   for (const [key, value] of Object.entries(EMPTY_STATE))
     if (state[key] === undefined) state[key] = structuredClone(value);
-  /* v10 is additive: honor maps start empty while every v5-v9 gameplay,
-     lifecycle, wager, market, Show Control, and audio fact remains readable. */
+  /* v8 is additive: Show Control starts empty while every v5-v7 gameplay,
+     lifecycle, and wager fact remains readable. */
   if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
 
   state.logistics = cleanLogistics(state.logistics);

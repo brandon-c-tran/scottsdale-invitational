@@ -16,19 +16,6 @@ import {
   resolveShowScene,
 } from "../shared/show.js";
 import {
-  contestMarketPublicSummary,
-  contestMarketRole,
-  resolveContestMarket,
-} from "../shared/markets.js";
-import {
-  HONOR_NOTE_MAX,
-  HONOR_THEMES,
-  activeHonorMoment,
-  honorAggregation,
-  honorMomentContext,
-  honorMomentLabel,
-} from "../shared/honors.js";
-import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
   spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect,
   spotifyPlay, spotifyPause,
@@ -520,8 +507,6 @@ export default function App() {
   const qaAllowed = capabilities.qa === true;
   const progressResetAllowed = capabilities.progressReset === true;
   const showControlAllowed = capabilities.showControl === true;
-  const matchupStakesAllowed = capabilities.matchupStakes === true;
-  const honorsAllowed = capabilities.honors === true;
   const audioDirectorAllowed = capabilities.audioDirector === true;
   const audioCatalogAllowed = capabilities.audioCatalog === true;
   const qaActive = qaAllowed && qa;
@@ -537,39 +522,10 @@ export default function App() {
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
   const wagerEv = useMemo(() => wagerBoardEvent(state, events), [state, events]);
   const wagerMarketOpen = !!onDeckEv && onDeckEv.id === wagerEv?.id;
-  const pendingLegacyWagers = useMemo(() => (state.wagers || []).filter(wager =>
-    resolveWager(state, wager, events).status === "pending"), [state, events]);
-  const contestMarketItems = useMemo(() =>
-    Object.values(state.contestMarkets || {})
-      .map(market => ({
-        market,
-        summary:contestMarketPublicSummary(state, market),
-      }))
-      .sort((left, right) =>
-        Number(right.summary.status === "pending") - Number(left.summary.status === "pending")
-        || Number(right.market.openedAt || 0) - Number(left.market.openedAt || 0)),
-  [state]);
-  const activeContestMarket = matchupStakesAllowed
-    ? contestMarketItems.find(item => item.summary.status === "pending") || null
-    : null;
-  const activeContestEvent = activeContestMarket
-    ? events.find(event => event.id === activeContestMarket.market.eventId) || null
-    : null;
-  const qaRolePlayers = useMemo(() => {
-    const market = activeContestMarket?.market;
-    const competitors = new Set((market?.sides || []).flatMap(side => side.players || []));
-    return {
-      competitor:[...competitors][0] || null,
-      spectator:ROSTER.find(player => !competitors.has(player)) || null,
-    };
-  }, [activeContestMarket]);
-  const activePropsMoment = honorsAllowed ? activeHonorMoment(state) : null;
   const qaStatus = useMemo(() => {
     const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
     const pendingWagers = (state.wagers || []).filter(w =>
       resolveWager(state, w, events).status === "pending").length;
-    const openMarkets = Object.values(state.contestMarkets || {}).filter(market =>
-      resolveContestMarket(state, market).status === "pending").length;
     const openDuels = (state.duels || []).filter(duel =>
       duel.status === "open" && !resolveDuel(duel).settled).length;
     return {
@@ -581,20 +537,13 @@ export default function App() {
       completed:scored.filter(ev => state.results?.[ev.id]).length,
       total:scored.length,
       pendingWagers,
-      openMarkets,
       openDuels,
-      matchup:activeContestMarket ? {
-        picks:activeContestMarket.summary.predictionTotal,
-        chips:activeContestMarket.summary.backingCommitted,
-        locked:activeContestMarket.summary.locked,
-        ante:activeContestMarket.summary.anteActive,
-      } : null,
       current:weekendOperation.event?.name || "No active event",
       phase:weekendOperation.lifecycle?.label || (state.live ? "Weekend live" : "Locker room"),
       next:weekendOperation.nextAction?.label || "No pending action",
       blockers:weekendOperation.lifecycle?.blockers || [],
     };
-  }, [environment, version, state, events, weekendOperation, activeContestMarket]);
+  }, [environment, version, state, events, weekendOperation]);
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
   const introHasQueuedReveal = !!intro && (
@@ -1001,27 +950,6 @@ export default function App() {
   const placeWager = w => act("placeWager", { wager: w }, "Chip down", { retry:true });
   const retractWager = id => act("retractWager", { id }, "Chip back", { retry:true });
   const voidWager = id => act("voidWager", { id });
-  const recordContestPrediction = (marketId, sideKey) =>
-    act("recordContestPrediction", { marketId, sideKey }, "Pick saved", { retry:true });
-  const backContestPrediction = (marketId, sideKey, stake = PT) =>
-    act("backContestPrediction", { marketId, sideKey, stake }, "Chips behind it", { retry:true });
-  const retractContestBacking = marketId =>
-    act("retractContestBacking", { marketId }, "Chip back", { retry:true });
-  const respondContestAnte = (marketId, accept, stake) =>
-    act("respondContestAnte", { marketId, accept, stake },
-      accept ? "You raised the stakes" : "Playing as-is", { retry:true });
-  const startBracketMatch = (evId, r, m) =>
-    act("startBracketMatch", { evId, r, m }, "Matchup started · picks locked", { retry:true });
-  const voidContestMarket = (marketId, reason) =>
-    act("voidContestMarket", { marketId, reason }, "Market voided · chips refunded", { retry:true });
-  const openPropsMoment = source =>
-    act("openHonorMoment", { source }, "Props are open", { retry:true });
-  const closePropsMoment = momentId =>
-    act("closeHonorMoment", { momentId }, "Props closed", { retry:true });
-  const voidPropsMoment = (momentId, reason) =>
-    act("voidHonorMoment", { momentId, reason }, "Props moment voided", { retry:true });
-  const submitProps = (momentId, recipient, theme, note) =>
-    act("submitHonor", { momentId, recipient, theme, note }, "Props sent", { retry:true });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
   const resetGame = () => act("resetTournament", {
@@ -1113,139 +1041,9 @@ export default function App() {
       await simWait(120);
     }
   };
-  const simMatchupMarket = async (ev, r, m, {
-    crowd=8,
-    backing="balanced",
-    ante="mixed",
-    lock=true,
-  } = {}) => {
-    let s = stateRef.current;
-    const draw = s.draws?.[ev.id];
-    const bracket = s.brackets?.[ev.id];
-    const match = bracket?.rounds?.[r]?.[m];
-    if (!draw || !match) return;
-    const a = resolveSlot(bracket, match.a), b = resolveSlot(bracket, match.b);
-    if (a === null || b === null || match.winner !== null && match.winner !== undefined) return;
-    let market = Object.values(s.contestMarkets || {}).find(item =>
-      !item.voidedAt
-      && item.eventId === ev.id
-      && item.drawId === draw.id
-      && Number(item.round) === Number(r)
-      && Number(item.match) === Number(m));
-    if (!market) {
-      const opened = await simDo("openMatchMarket", { eventId:ev.id, round:r, match:m },
-        `Recovering the automatic matchup window`);
-      await simWait(180);
-      s = stateRef.current;
-      market = s.contestMarkets?.[opened.extra?.marketId]
-        || Object.values(s.contestMarkets || {}).find(item =>
-          item.eventId === ev.id && item.drawId === draw.id
-          && Number(item.round) === Number(r) && Number(item.match) === Number(m));
-    }
-    if (!market || market.lockedAt) return;
-    const competitors = new Set(market.sides.flatMap(side => side.players || []));
-    const spectators = shuffle(ROSTER.filter(player => !competitors.has(player))).slice(0, crowd);
-    for (let index = 0; index < spectators.length; index++) {
-      const player = spectators[index];
-      const side = market.sides[index % market.sides.length];
-      await simDo("claim", { player });
-      await simTry("recordContestPrediction", { marketId:market.id, sideKey:side.key },
-        `${player} picks ${teamLabel(stateRef.current, { players:side.players })}`);
-      if (backing !== "none" && index < 4 && !market.backing?.[player]) {
-        const backedSide = backing === "one-sided" ? market.sides[0] : side;
-        if (backedSide.key !== side.key) {
-          await simTry("recordContestPrediction", { marketId:market.id, sideKey:backedSide.key },
-            `${player} changes the free pick`);
-        }
-        await simTry("backContestPrediction", {
-          marketId:market.id,
-          sideKey:backedSide.key,
-          stake:RACK_DENOMS[index % RACK_DENOMS.length],
-        }, `${player} drops a custom chip`);
-      }
-      await simWait(180);
-    }
-    if (ante !== "none") {
-      const antePlayers = market.sides.flatMap(side => side.players || []);
-      for (let index = 0; index < antePlayers.length; index++) {
-        const player = antePlayers[index];
-        if (market.ante?.responses?.[player]) continue;
-        const accept = ante === "accepted" || index < antePlayers.length - 1;
-        await simDo("claim", { player });
-        await simTry("respondContestAnte", {
-          marketId:market.id,
-          accept,
-          ...(accept ? { stake:PT } : {}),
-        }, `${player} answers the private stakes prompt`);
-        await simWait(140);
-      }
-    }
-    if (lock) {
-      await simDo("lockContestMarket", { marketId:market.id }, "Starting the matchup");
-      await simWait(220);
-    }
-  };
-  const simCurrentMatchup = async options => {
-    const s = stateRef.current;
-    const market = Object.values(s.contestMarkets || {}).find(item =>
-      resolveContestMarket(s, item).status === "pending" && !item.lockedAt);
-    if (!market) throw new Error("No open matchup. Jump to Picks open first.");
-    const ev = allEventsOf(s).find(item => item.id === market.eventId);
-    if (!ev) throw new Error("The matchup event is missing");
-    await simMatchupMarket(ev, market.round, market.match, options);
-  };
-  const simStartCurrentMatchup = async () => {
-    let s = stateRef.current;
-    const market = Object.values(s.contestMarkets || {}).find(item =>
-      resolveContestMarket(s, item).status === "pending" && !item.lockedAt);
-    if (!market) throw new Error("No open matchup to start");
-    const ev = allEventsOf(s).find(item => item.id === market.eventId);
-    if (!ev) throw new Error("The matchup event is missing");
-    let lifecycle = resolveEventLifecycle(s, ev);
-    if (lifecycle.phase === "betting-open") {
-      await simDo("setOnDeck", { id:null }, `Closing event betting on ${ev.name}`);
-      s = stateRef.current;
-      lifecycle = resolveEventLifecycle(s, ev);
-    }
-    if (lifecycle.phase === "betting-locked")
-      await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
-    await simDo("startBracketMatch", {
-      evId:ev.id,
-      r:market.round,
-      m:market.match,
-    }, "Starting the physical matchup");
-  };
-  const simPostCurrentWinner = async () => {
-    const s = stateRef.current;
-    const market = Object.values(s.contestMarkets || {}).find(item =>
-      resolveContestMarket(s, item).status === "pending" && item.lockedAt);
-    if (!market) throw new Error("Start a matchup before posting its winner");
-    const bracket = s.brackets?.[market.eventId];
-    const match = bracket?.rounds?.[market.round]?.[market.match];
-    const left = resolveSlot(bracket, match?.a);
-    const right = resolveSlot(bracket, match?.b);
-    if (left === null || right === null) throw new Error("The matchup is not concrete");
-    await simDo("pickBracketWinner", {
-      evId:market.eventId,
-      r:market.round,
-      m:market.match,
-      teamIdx:rnd([left, right]),
-    }, "Posting the matchup winner");
-  };
-  const simBetsRound = async ({ lock=true } = {}) => {
+  const simBetsRound = async () => {
     const evId = stateRef.current.onDeck;
     if (!evId) throw new Error("Open betting on an event first");
-    const firstState = stateRef.current;
-    const firstEvent = allEventsOf(firstState).find(event => event.id === evId);
-    const firstBracket = firstState.brackets?.[evId];
-    if (matchupStakesAllowed && firstEvent && firstBracket) {
-      const next = nextOpenMatch(firstBracket);
-      if (next) await simMatchupMarket(firstEvent, next.r, next.m, { lock });
-      return;
-    }
-    /* Once Matchup Stakes has been introduced, the legacy house-backed book
-       stays historical. Non-bracket events simply skip betting in rehearsal. */
-    if (Object.keys(firstState.contestMarkets || {}).length > 0) return;
     const bettors = shuffle(ROSTER).slice(0, 9);
     for (let bettorIndex = 0; bettorIndex < bettors.length; bettorIndex++) {
       const p = bettors[bettorIndex];
@@ -1355,33 +1153,6 @@ export default function App() {
       await simWait(500);
     }
   };
-  const simPostgameProps = async ev => {
-    if (!honorsAllowed) return;
-    const opened = await simDo("openHonorMoment", {
-      source:{ kind:"event", eventId:ev.id },
-    }, `Opening postgame props for ${ev.name}`);
-    await simWait(220);
-    const moment = stateRef.current.honorMoments?.[opened.extra?.momentId]
-      || activeHonorMoment(stateRef.current);
-    const context = honorMomentContext(stateRef.current, moment);
-    if (!moment || !context.valid) return;
-    const givers = shuffle(context.participants).slice(0, Math.min(6, context.participants.length));
-    for (let index = 0; index < givers.length; index++) {
-      const giver = givers[index];
-      const recipients = context.participants.filter(player => player !== giver);
-      if (!recipients.length) continue;
-      await simDo("claim", { player:giver });
-      await simTry("submitHonor", {
-        momentId:moment.id,
-        recipient:rnd(recipients),
-        theme:HONOR_THEMES[index % HONOR_THEMES.length].id,
-        note:index === 0 ? "Made that one memorable." : "",
-      }, `${giver} sends postgame props`);
-      await simWait(150);
-    }
-    await simDo("closeHonorMoment", { momentId:moment.id }, "Closing postgame props");
-    await simWait(180);
-  };
   const simPlayEvent = async () => {
     await simCheckIn();
     if (!stateRef.current.live) await simDo("setLive", { on: true }, "The weekend goes live");
@@ -1393,7 +1164,7 @@ export default function App() {
     await simEnsureFormat(ev);
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(600);
-    await simBetsRound({ lock:false });
+    await simBetsRound();
     await simDo("setOnDeck", { id:null }, `Betting locks on ${ev.name}`);
     await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
     let br = stateRef.current.brackets[ev.id];
@@ -1405,7 +1176,6 @@ export default function App() {
           if (match.winner !== null && match.winner !== undefined) continue;
           const a = resolveSlot(cur, match.a), b = resolveSlot(cur, match.b);
           if (a === null || b === null) continue;
-          if (matchupStakesAllowed) await simMatchupMarket(ev, r, m);
           await simDo("pickBracketWinner", { evId: ev.id, r, m, teamIdx: rnd([a, b]) }, `Advancing the ${ev.name} bracket`);
           await simWait(900);
         }
@@ -1452,7 +1222,6 @@ export default function App() {
     await simDo("beginResultEntry", { evId:ev.id }, `Opening the ${ev.name} scorecard`);
     await simDo("saveResult", { evId: ev.id, slots }, `Posting the ${ev.name} result`);
     await simWait(800);
-    await simPostgameProps(ev);
   };
   const simFastForward = async () => {
     for (let i = 0; i < 20; i++) {
@@ -1526,13 +1295,6 @@ export default function App() {
       if (resolveWager(s, w, events2).status === "pending")
         await simDo("voidWager", { id: w.id }, "Voiding open wagers");
     }
-    for (const market of Object.values(s.contestMarkets || {})) {
-      if (resolveContestMarket(s, market).status === "pending")
-        await simDo("voidContestMarket", {
-          marketId:market.id,
-          reason:"QA closed the open matchup before poker",
-        }, "Refunding open matchup stakes");
-    }
     for (const d of s.duels || []) {
       if (d.status === "open" && !resolveDuel(d).settled)
         await simDo("voidDuel", { id: d.id }, "Voiding open duels");
@@ -1602,15 +1364,7 @@ export default function App() {
     await simEnsureFormat(ev);
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(400);
-    if (stateRef.current.brackets?.[ev.id]) {
-      const next = nextOpenMatch(stateRef.current.brackets[ev.id]);
-      if (next) await simMatchupMarket(ev, next.r, next.m, {
-        crowd:6,
-        backing:"balanced",
-        ante:"mixed",
-        lock:false,
-      });
-    }
+    await simBetsRound();
   };
   const runSim = (fn, fast = false) => () => {
     if (simRef.current.running) return;
@@ -1641,7 +1395,7 @@ export default function App() {
   const QA_PRESETS = [
     { key:"locker", name:"Locker room", rank:0, note:`All ${ROSTER.length} checked in, chips claimed, not live`,
       run: simCheckIn },
-    { key:"betting", name:"Picks open", rank:2, note:"Live, first event on deck, matchup picks rehearsed",
+    { key:"betting", name:"Betting open", rank:2, note:"Live, first event on deck, bets down",
       run: async () => {
         await simCheckIn();
         if (!stateRef.current.live) await simDo("setLive", { on:true }, "The weekend goes live");
@@ -1727,8 +1481,6 @@ export default function App() {
       <Shell tv environment={environment}>
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
-          matchupStakesEnabled={matchupStakesAllowed}
-          honorsEnabled={honorsAllowed}
           onExit={() => setTv(false)} />
         {!activeShowScene && intro && (() => {
           const iev = events.find(e => e.id === intro);
@@ -1799,26 +1551,21 @@ export default function App() {
               color:"var(--bone)", textTransform:"uppercase" }}>Reconnecting</span>
           </div>
         )}
-        {(activeContestMarket || wagerEv) && (
+        {wagerEv && (
           <button onClick={() => setTab("bets")}
             style={{ display:"flex", alignItems:"center", gap:10, width:"calc(100% - 32px)", margin:"0 16px 10px",
             padding:"9px 13px", borderRadius:14, border:"1px solid rgba(240,176,47,0.4)",
             background:"rgba(240,176,47,0.14)", cursor:"pointer", textAlign:"left" }}>
-            <GameMark id={(activeContestEvent || wagerEv).game} size={26} />
+            <GameMark id={wagerEv.game} size={26} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--sun)" }}>
-              {activeContestMarket ? "MATCHUP" : wagerMarketOpen ? "ON DECK" : "WAGER BOARD"}</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>
-              {(activeContestEvent || wagerEv).name}</span>
+              {wagerMarketOpen ? "ON DECK" : "WAGER BOARD"}</span>
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>{wagerEv.name}</span>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
               textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
-              color:(activeContestMarket && !activeContestMarket.summary.locked) || wagerMarketOpen ? "var(--ink0)" : "var(--sun)",
-              background:(activeContestMarket && !activeContestMarket.summary.locked) || wagerMarketOpen
-                ? "var(--sun)" : "rgba(240,176,47,0.12)",
-              border:(activeContestMarket && !activeContestMarket.summary.locked) || wagerMarketOpen
-                ? "none" : "1px solid rgba(240,176,47,0.45)" }}>
-              {activeContestMarket
-                ? activeContestMarket.summary.locked ? "Picks locked" : "Picks open"
-                : wagerMarketOpen ? "Betting open" : "Betting locked"}</span>
+              color:wagerMarketOpen ? "var(--ink0)" : "var(--sun)",
+              background:wagerMarketOpen ? "var(--sun)" : "rgba(240,176,47,0.12)",
+              border:wagerMarketOpen ? "none" : "1px solid rgba(240,176,47,0.45)" }}>
+              {wagerMarketOpen ? "Betting open" : "Betting locked"}</span>
           </button>
         )}
       </div>
@@ -1827,12 +1574,6 @@ export default function App() {
         paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 12,
         paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && (<>
-          {honorsAllowed && activePropsMoment && (
-            <div style={{ padding:"0 16px" }}>
-              <HonorPrompt state={state} moment={activePropsMoment} me={me}
-                onSubmit={submitProps} />
-            </div>
-          )}
           {me && !state.frozen && (
             <div style={{ padding:"0 16px" }}>
               <DuelStrip state={state} me={me} gm={gmView}
@@ -1866,31 +1607,19 @@ export default function App() {
         {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onReorder={reorderEvents} />}
-        {tab === "bets" && matchupStakesAllowed && pendingLegacyWagers.length === 0
-          ? <MatchupStakesBoard state={state} me={me} standings={standings} gm={gmView} events={events}
-              trayBottom={gm && qaActive && !qaTop ? qaMin ? 118 : 160 : 68}
-              onEvents={() => setTab("sched")}
-              onPredict={recordContestPrediction}
-              onBack={backContestPrediction}
-              onRetract={retractContestBacking}
-              onAnte={respondContestAnte}
-              onStart={startBracketMatch}
-              onWinner={pickBracketWinner}
-              onVoid={voidContestMarket} />
-          : tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
-              onDeckEv={onDeckEv} wagerEv={wagerEv}
-              onEvents={() => setTab("sched")}
-              onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
-              onRetract={id => retractWager(id)}
-              onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
+        {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
+          onDeckEv={onDeckEv} wagerEv={wagerEv}
+          onEvents={() => setTab("sched")}
+          onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
+          onRetract={id => retractWager(id)}
+          onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
         {tab === "guide" && <Guide events={events} state={state} />}
       </div>
 
       {gmNext && !modal && (
         <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
-          bottom:`calc(${tab === "bets" && me && activeContestMarket && !state.frozen
-            ? gm && qaActive && !qaTop ? qaMin ? 276 : 318 : 228
-            : gm && qaActive && !qaMin && !qaTop ? 172 : 74}px + env(safe-area-inset-bottom))`,
+          bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
+            : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
           display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
           border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
           boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
@@ -1949,10 +1678,6 @@ export default function App() {
               <Btn kind="dark" onClick={() => setModal({type:"audioDirector"})}>
                 Audio Director</Btn>
             )}
-            {honorsAllowed && (
-              <Btn kind="dark" onClick={() => setModal({type:"honorsControl"})}>
-                Postgame Props</Btn>
-            )}
             {state.onDeck && (
               <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
                 Close betting</Btn>
@@ -1997,13 +1722,6 @@ export default function App() {
       {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && (
         <AudioDirectorSheet state={state} onClose={() => setModal(null)} notify={notify} />
       )}
-      {gmView && honorsAllowed && modal?.type === "honorsControl" && (
-        <HonorsControlSheet state={state} events={events}
-          onClose={() => setModal(null)}
-          onOpen={openPropsMoment}
-          onCloseMoment={closePropsMoment}
-          onVoid={voidPropsMoment} />
-      )}
       {gmView && modal?.type === "logistics" && (
         <Sheet title="Trip details" onClose={() => setModal(null)}>
           <LogisticsEditor state={state} onSave={async vals => {
@@ -2024,7 +1742,6 @@ export default function App() {
         </Sheet>
       )}
       {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gmView}
-        honorsEnabled={honorsAllowed}
         onClose={() => setModal(null)}
         enterResult={() => openResultEntry(modal.ev)}
         clearRes={async reason => {
@@ -2045,14 +1762,11 @@ export default function App() {
         onStart={() => startEvent(modal.ev)}
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
-        onOpenHonors={() => openPropsMoment({ kind:"event", eventId:modal.ev.id })}
         openBracket={() => setModal({type:"bracket", ev:modal.ev})}
         openDraft={(pool, roles) => setModal({type:"draft", ev:modal.ev, pool, roles})} />}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
-        matchupStakesEnabled={matchupStakesAllowed}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
-        onStartMarket={(r,m) => startBracketMatch(modal.ev.id, r, m)}
         onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool} roles={modal.roles}
@@ -2093,34 +1807,12 @@ export default function App() {
       {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens}
         onSwitch={player => switchPlayer(player, false)}
-        rolePlayers={qaRolePlayers}
-        onRole={role => {
-          const player = qaRolePlayers[role];
-          if (!player) return notify(`No ${role} is available for this matchup`);
-          switchPlayer(player, false);
-          setGuestLens(true);
-          setTab("bets");
-        }}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         onJump={jumpTo} pokerOn={pokerLive(state)}
         onPlayNext={() => { setModal(null); runSim(simPlayEvent)(); }}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
         onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
-        onCrowd={() => { setModal(null); qaGuard(() => simCurrentMatchup({
-          crowd:8, backing:"none", ante:"none", lock:false,
-        }))(); }}
-        onOneSided={() => { setModal(null); qaGuard(() => simCurrentMatchup({
-          crowd:8, backing:"one-sided", ante:"none", lock:false,
-        }))(); }}
-        onFunded={() => { setModal(null); qaGuard(() => simCurrentMatchup({
-          crowd:8, backing:"balanced", ante:"none", lock:false,
-        }))(); }}
-        onAnte={() => { setModal(null); qaGuard(() => simCurrentMatchup({
-          crowd:0, backing:"none", ante:"accepted", lock:false,
-        }))(); }}
-        onStartMatch={() => { setModal(null); qaGuard(simStartCurrentMatchup)(); }}
-        onPostWinner={() => { setModal(null); qaGuard(simPostCurrentWinner)(); }}
         onBustOne={() => { const pool = simPokerAlive().filter(q => q !== me); if (pool.length) pokerBust(pool[Math.floor(Math.random() * pool.length)]); }}
         onCountRest={async () => {
           const p = state.poker; if (!p) return;
@@ -4352,9 +4044,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 }
 
 /* ─────────── event sheet ─────────── */
-function EventSheet({ ev, state, gm, honorsEnabled, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
-  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove,
-  onOpenHonors, openBracket, openDraft }) {
+function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
+  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove, openBracket, openDraft }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -4652,8 +4343,6 @@ function EventSheet({ ev, state, gm, honorsEnabled, onClose, enterResult, clearR
           <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
             {res && !isPoker && <Btn onClick={enterResult}
               style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Edit result</Btn>}
-            {res && honorsEnabled && <Btn kind="dark" onClick={onOpenHonors}
-              style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open props</Btn>}
             {!res && lifecycle.nextAction?.type === "open-betting" && (
               <Btn kind="dark" onClick={onDeckToggle}
                 style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open betting</Btn>
@@ -4847,15 +4536,6 @@ function nextOpenMatch(br) {
 function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
-  const scroller = useRef(null);
-  useEffect(() => {
-    const column = scroller.current?.querySelector(`[data-bracket-round="${hot?.[0]}"]`);
-    if (!column || !scroller.current) return;
-    scroller.current.scrollTo({
-      left:Math.max(0, column.offsetLeft - 12),
-      behavior:prefersReducedMotion() ? "auto" : "smooth",
-    });
-  }, [ev.id, hot?.[0]]);
   if (!br || !draw) return null;
   const names = ROUND_NAMES[br.size] || [];
   const dims = {
@@ -4863,11 +4543,10 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
     lg: { col:280, av:34, f:18,   pad:"13px 15px", lbl:14 },
   }[size];
   return (
-    <div ref={scroller} style={{ display:"flex", gap: size==="lg" ? 22 : 14, overflowX:"auto", paddingBottom:6,
+    <div style={{ display:"flex", gap: size==="lg" ? 22 : 14, overflowX:"auto", paddingBottom:6,
       justifyContent: size==="lg" ? "center" : "flex-start" }}>
       {br.rounds.map((round, r) => (
-        <div key={r} data-bracket-round={r} style={{ width:dims.col, minWidth:dims.col,
-          display:"flex", flexDirection:"column",
+        <div key={r} style={{ width:dims.col, minWidth:dims.col, display:"flex", flexDirection:"column",
           justifyContent:"space-around", gap:12 }}>
           <div style={{ ...label, fontSize:dims.lbl, textAlign:"center" }}>{names[r]}</div>
           {round.map((match, m) => {
@@ -4882,12 +4561,9 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
                   const t = tIdx !== null ? draw.teams[tIdx] : null;
                   const isWinner = match.winner !== null && match.winner === tIdx;
                   const isLoser = match.winner !== null && match.winner !== tIdx && tIdx !== null;
-                  /* Betting can target one live matchup while the rest of the
-                     bracket stays visible and read-only. */
-                  const canBet = !!bet?.onBet && undecided && a !== null && b !== null && tIdx !== null
-                    && (!bet.canBet || bet.canBet(r, m, tIdx));
+                  /* bet mode: an open, fully-seated matchup takes a chip on tap */
+                  const canBet = !!bet?.onBet && undecided && a !== null && b !== null && tIdx !== null;
                   const tappable = gm ? (onPick && tIdx !== null && a !== null && b !== null) : canBet;
-                  const selected = !!bet?.isSelected?.(r, m, tIdx);
                   return (
                     <button key={side} disabled={!tappable}
                       onClick={() => gm ? onPick && onPick(r, m, tIdx) : bet.onBet(r, m, tIdx, names[r])}
@@ -4895,9 +4571,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
                         minWidth:0, boxSizing:"border-box", padding:dims.pad,
                         cursor: tappable ? "pointer" : "default", border:"none",
                         borderBottom: side === 0 ? "1px solid var(--line)" : "none",
-                        background: isWinner ? "var(--accent-tint)"
-                          : selected ? "var(--sun-tint)" : "transparent",
-                        boxShadow:selected ? "inset 3px 0 0 var(--sun)" : "none",
+                        background: isWinner ? "var(--accent-tint)" : "transparent",
                         opacity: isLoser ? 0.38 : 1 }}>
                       {t && <AvatarStack state={state} players={t.players} size={dims.av} max={3} />}
                       <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f, flex:1, minWidth:0,
@@ -4917,32 +4591,11 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
     </div>
   );
 }
-function BracketSheet({
-  ev, state, gm, matchupStakesEnabled, onClose, onPick, onPostResult,
-  onStartMarket,
-}) {
-  const [marketBusy, setMarketBusy] = useState(false);
+function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
   if (!br || !draw) return null;
   const champ = bracketChampion(br);
-  const next = nextOpenMatch(br);
-  const market = next ? Object.values(state.contestMarkets || {}).find(item =>
-    !item.voidedAt
-    && item.eventId === ev.id
-    && item.drawId === draw.id
-    && Number(item.round) === Number(next.r)
-    && Number(item.match) === Number(next.m)) : null;
-  const marketSummary = market ? contestMarketPublicSummary(state, market) : null;
-  const lifecycle = resolveEventLifecycle(state, ev);
-  const canStartMatch = gm && next && (!marketSummary || !marketSummary.locked)
-    && ["in-progress", "result-entry"].includes(lifecycle.phase);
-  const runMarket = async operation => {
-    if (marketBusy) return;
-    setMarketBusy(true);
-    try { await operation(); }
-    finally { setMarketBusy(false); }
-  };
   return (
     <Sheet title={`${ev.name} bracket`} onClose={onClose} wide>
       {champ !== null && (
@@ -4952,37 +4605,7 @@ function BracketSheet({
             {teamLabel(state, draw.teams[champ])} take it</span>
         </div>
       )}
-      {matchupStakesEnabled && next && (
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 12px",
-          marginBottom:12, borderRadius:14, background:"var(--sun-tint)",
-          border:"1px solid var(--sun)" }}>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ ...label, fontSize:9.5, color:"var(--accent2)", marginBottom:3 }}>
-              Next matchup · {next.roundName}</div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)",
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {teamLabel(state, draw.teams[next.a])} vs {teamLabel(state, draw.teams[next.b])}</div>
-            {marketSummary && (
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)", marginTop:2 }}>
-                {marketSummary.predictionTotal} crowd pick{marketSummary.predictionTotal === 1 ? "" : "s"}
-                {marketSummary.backingCommitted > 0 ? ` · ${fmt(marketSummary.backingCommitted)} backed` : ""}
-              </div>
-            )}
-          </div>
-          {canStartMatch && (
-            <Btn kind="dark" disabled={marketBusy}
-              onClick={() => runMarket(() => onStartMarket(next.r, next.m))}
-              style={{ minHeight:44, padding:"9px 13px" }}>
-              {marketBusy ? "Starting…" : "Start matchup"}</Btn>
-          )}
-          {marketSummary?.locked && marketSummary.status === "pending" && <Tag tone="gold">In play</Tag>}
-          {gm && !canStartMatch && !marketSummary?.locked && (
-            <Tag tone="green">{lifecycle.phase === "betting-open" ? "Picks open" : "Ready"}</Tag>
-          )}
-        </div>
-      )}
-      <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick}
-        hot={next ? [next.r, next.m] : null} />
+      <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick} />
       <EventCrewCard state={state} roles={draw.roles} compact />
       {gm && champ !== null && !state.results[ev.id] && (
         <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
@@ -5830,1038 +5453,6 @@ function mergeWagerLines(list) {
   }
   return [...out.values()];
 }
-
-function HonorPrompt({ state, moment, me, onSubmit }) {
-  const context = honorMomentContext(state, moment);
-  const existing = (state.honors || []).find(honor =>
-    honor.momentId === moment.id && honor.giver === me);
-  const [recipient, setRecipient] = useState(existing?.recipient || null);
-  const [theme, setTheme] = useState(existing?.theme || null);
-  const [note, setNote] = useState(existing?.note || "");
-  const [editing, setEditing] = useState(!existing);
-  const [dismissed, setDismissed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setRecipient(existing?.recipient || null);
-    setTheme(existing?.theme || null);
-    setNote(existing?.note || "");
-    setEditing(!existing);
-    setDismissed(false);
-  }, [moment.id, existing?.id]);
-  if (!me || !context.valid || !context.participants.includes(me) || dismissed) return null;
-  const candidates = context.participants.filter(player => player !== me);
-  const selectedTheme = HONOR_THEMES.find(item => item.id === theme);
-  const send = async () => {
-    if (!recipient || !theme || busy) return;
-    setBusy(true);
-    try {
-      const result = await onSubmit(moment.id, recipient, theme, note);
-      if (result?.ok) setEditing(false);
-    } finally { setBusy(false); }
-  };
-  if (existing && !editing) {
-    const meta = HONOR_THEMES.find(item => item.id === existing.theme);
-    return (
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12,
-        padding:"10px 12px", borderRadius:14, background:"var(--green-tint)",
-        border:"1px solid rgba(78,110,57,0.45)" }}>
-        <Avatar state={state} p={existing.recipient} size={34} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ ...label, fontSize:9.5, color:"var(--green)" }}>Props sent</div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {disp(state, existing.recipient)} · {meta?.label || existing.theme}</div>
-        </div>
-        <Btn kind="ghost" onClick={() => setEditing(true)}
-          style={{ minHeight:42, padding:"8px 11px" }}>Edit</Btn>
-      </div>
-    );
-  }
-  return (
-    <div style={{ marginBottom:12, borderRadius:16, overflow:"hidden",
-      background:"var(--paper)", border:"1px solid rgba(194,88,50,0.45)",
-      boxShadow:"var(--shadow-1)" }}>
-      <div style={{ padding:"11px 13px", background:"var(--night)",
-        display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ ...label, fontSize:9.5, color:"var(--sun)", marginBottom:2 }}>Props are open</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20, lineHeight:1,
-            textTransform:"uppercase", color:BONE, overflow:"hidden",
-            textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {honorMomentLabel(state, moment)}</div>
-        </div>
-        <button onClick={() => setDismissed(true)}
-          style={{ background:"transparent", color:"var(--night-text)", border:"1px solid var(--ghost-line)",
-            borderRadius:9, minHeight:38, padding:"7px 10px", cursor:"pointer",
-            fontFamily:SANS, fontWeight:700, fontSize:11 }}>Skip</button>
-      </div>
-      <div style={{ padding:"12px 13px 13px" }}>
-        <div style={{ ...label, fontSize:10, marginBottom:7 }}>
-          {recipient ? "Your prop" : "Who made the moment better?"}</div>
-        <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:4 }}>
-          {candidates.map(player => (
-            <button key={player} onClick={() => { setRecipient(player); setTheme(null); }}
-              style={{ minWidth:76, maxWidth:92, padding:"8px 7px", borderRadius:12,
-                background:recipient === player ? "var(--sun-tint)" : "var(--paper2)",
-                border:"1.5px solid " + (recipient === player ? "var(--sun)" : "var(--line)"),
-                color:"var(--ink)", cursor:"pointer" }}>
-              <Avatar state={state} p={player} size={32} />
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5, marginTop:5,
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {disp(state, player)}</div>
-            </button>
-          ))}
-        </div>
-        {recipient && (
-          <>
-            <div style={{ ...label, fontSize:10, margin:"10px 0 7px" }}>What did they bring?</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:6 }}>
-              {HONOR_THEMES.map(item => (
-                <button key={item.id} onClick={() => setTheme(item.id)}
-                  style={{ minHeight:44, padding:"7px 5px", borderRadius:10, cursor:"pointer",
-                    fontFamily:SANS, fontWeight:700, fontSize:11.5,
-                    background:theme === item.id ? "var(--sun)" : "var(--paper2)",
-                    color:theme === item.id ? "var(--ink0)" : "var(--ink)",
-                    border:"1.5px solid " + (theme === item.id ? "var(--ink0)" : "var(--line)") }}>
-                  {item.label}</button>
-              ))}
-            </div>
-            {selectedTheme && (
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)",
-                margin:"7px 1px 0" }}>{selectedTheme.detail}</div>
-            )}
-          </>
-        )}
-        {recipient && theme && (
-          <>
-            <input value={note} onChange={event => setNote(event.target.value)}
-              maxLength={HONOR_NOTE_MAX} placeholder="Add a quick note (optional)"
-              aria-label="Optional props note"
-              style={{ width:"100%", marginTop:10, padding:"10px 11px", borderRadius:10,
-                background:"var(--paper2)", color:"var(--ink)", border:"1px solid var(--line)",
-                fontFamily:SANS, fontSize:13.5, outline:"none" }} />
-            <div style={{ display:"flex", gap:8, marginTop:9 }}>
-              <Btn disabled={busy} onClick={send} style={{ flex:1, minHeight:46 }}>
-                {busy ? "Sending…" : `Send props to ${disp(state, recipient)}`}</Btn>
-              {existing && <Btn kind="ghost" onClick={() => setEditing(false)}
-                style={{ minHeight:46 }}>Cancel</Btn>}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HonorsControlSheet({ state, events, onClose, onOpen, onCloseMoment, onVoid }) {
-  const [busy, setBusy] = useState(null);
-  const [confirmVoid, setConfirmVoid] = useState(false);
-  const current = activeHonorMoment(state);
-  const aggregates = honorAggregation(state);
-  const moments = Object.values(state.honorMoments || {});
-  const sourceKey = source => source.kind === "bracket-match"
-    ? `${source.kind}|${source.eventId}|${source.round}|${source.match}`
-    : `event|${source.eventId}`;
-  const existingFor = source => moments.find(moment => sourceKey(moment) === sourceKey(source)
-    && !moment.voidedAt);
-  const run = async (key, operation) => {
-    if (busy) return;
-    setBusy(key);
-    try { await operation(); }
-    finally { setBusy(null); }
-  };
-  const eventCandidates = events
-    .filter(event => state.results?.[event.id])
-    .sort((left, right) =>
-      Number(state.results[right.id]?.ts || 0) - Number(state.results[left.id]?.ts || 0))
-    .slice(0, 10)
-    .map(event => ({
-      source:{ kind:"event", eventId:event.id },
-      label:event.name,
-      detail:"Completed event",
-      players:(state.results[event.id]?.slots || []).flat().filter(Boolean).slice(0, 4),
-    }));
-  const matchupCandidates = events.flatMap(event => {
-    const bracket = state.brackets?.[event.id];
-    const draw = state.draws?.[event.id];
-    if (!bracket || !draw) return [];
-    const names = ROUND_NAMES[bracket.size] || [];
-    return bracket.rounds.flatMap((round, r) => round.map((match, m) => {
-      if (match.winner === null || match.winner === undefined) return null;
-      const a = resolveSlot(bracket, match.a), b = resolveSlot(bracket, match.b);
-      if (a === null || b === null) return null;
-      return {
-        source:{ kind:"bracket-match", eventId:event.id, round:r, match:m },
-        label:`${teamLabel(state, draw.teams[a])} vs ${teamLabel(state, draw.teams[b])}`,
-        detail:`${event.name} · ${names[r] || "Matchup"}`,
-        players:[...(draw.teams[a]?.players || []), ...(draw.teams[b]?.players || [])].slice(0, 4),
-      };
-    }).filter(Boolean));
-  }).reverse().slice(0, 10);
-  const candidateRow = candidate => {
-    const existing = existingFor(candidate.source);
-    const isCurrent = current?.id === existing?.id;
-    const key = sourceKey(candidate.source);
-    return (
-      <div key={key} style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px",
-        marginBottom:6, borderRadius:12, background:"var(--paper2)", border:"1px solid var(--line)" }}>
-        <AvatarStack state={state} players={candidate.players} size={28} max={3} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{candidate.label}</div>
-          <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted2)" }}>{candidate.detail}</div>
-        </div>
-        {isCurrent ? <Tag tone="gold">Open</Tag> : (
-          <Btn kind="ghost" disabled={!!current || busy === key}
-            onClick={() => run(key, () => onOpen(candidate.source))}
-            style={{ minHeight:40, padding:"7px 10px" }}>
-            {busy === key ? "Opening…" : existing?.closedAt ? "Reopen" : "Open"}</Btn>
-        )}
-      </div>
-    );
-  };
-  const currentCount = current
-    ? (state.honors || []).filter(honor => honor.momentId === current.id).length : 0;
-  return (
-    <Sheet title="Postgame Props" onClose={onClose}>
-      <div style={{ fontFamily:SANS, fontSize:13, lineHeight:1.5, color:"var(--muted2)", marginBottom:13 }}>
-        Open one quick positive moment. Phones collect one response; the TV never shows vote totals.</div>
-      {current && (
-        <div style={{ padding:"12px 13px", marginBottom:14, borderRadius:14,
-          background:"var(--sun-tint)", border:"1px solid var(--sun)" }}>
-          <div style={{ ...label, color:"var(--accent2)", marginBottom:4 }}>Open now</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
-            color:"var(--ink)" }}>{honorMomentLabel(state, current)}</div>
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted2)", marginTop:3 }}>
-            {currentCount} response{currentCount === 1 ? "" : "s"} received · private GM view</div>
-          {!confirmVoid ? (
-            <div style={{ display:"flex", gap:8, marginTop:10 }}>
-              <Btn disabled={busy === "close"} onClick={() =>
-                run("close", () => onCloseMoment(current.id))} style={{ flex:1 }}>
-                {busy === "close" ? "Closing…" : "Close props"}</Btn>
-              <Btn kind="danger" onClick={() => setConfirmVoid(true)}>Void</Btn>
-            </div>
-          ) : (
-            <div style={{ display:"flex", gap:8, marginTop:10 }}>
-              <Btn kind="danger" disabled={busy === "void"} onClick={() =>
-                run("void", async () => {
-                  const result = await onVoid(current.id, "Commissioner voided this props moment");
-                  if (result?.ok) setConfirmVoid(false);
-                })} style={{ flex:1 }}>Confirm void</Btn>
-              <Btn kind="ghost" onClick={() => setConfirmVoid(false)}>Keep open</Btn>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ ...label, marginBottom:7 }}>Completed events</div>
-      {eventCandidates.length ? eventCandidates.map(candidateRow)
-        : <div style={{ ...pStyle, color:"var(--muted)", marginBottom:14 }}>No completed events yet.</div>}
-      {matchupCandidates.length > 0 && (
-        <>
-          <div style={{ ...label, margin:"15px 0 7px" }}>Completed matchups</div>
-          {matchupCandidates.map(candidateRow)}
-        </>
-      )}
-
-      <div style={{ ...label, margin:"17px 0 7px" }}>Recognition breadth · private</div>
-      {aggregates.length ? aggregates.slice(0, 8).map(row => (
-        <div key={row.player} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 2px",
-          borderTop:"1px solid var(--line)" }}>
-          <Avatar state={state} p={row.player} size={30} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)" }}>
-              {disp(state, row.player)}</div>
-            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted2)" }}>
-              Across {row.uniqueEvents} event{row.uniqueEvents === 1 ? "" : "s"} · {row.uniqueThemes} kind{row.uniqueThemes === 1 ? "" : "s"} of props</div>
-          </div>
-          <Tag>{row.uniqueGivers} people</Tag>
-        </div>
-      )) : (
-        <div style={{ ...pStyle, color:"var(--muted)" }}>Breadth appears here after responses. It never affects points.</div>
-      )}
-    </Sheet>
-  );
-}
-
-function matchupSideView(state, market, side) {
-  const draw = state.draws?.[market.eventId];
-  const team = draw?.teams?.[Number(side.key)];
-  const players = team?.players || side.players || [];
-  return {
-    ...side,
-    players,
-    name:team ? teamLabel(state, team) : teamLabel(state, { players }),
-  };
-}
-
-function marketBackingChips(market, sideKey, onlyPlayer = null) {
-  return Object.entries(market?.backing || {}).flatMap(([player, backing]) => {
-    if (onlyPlayer && player !== onlyPlayer) return [];
-    if (String(backing?.sideKey) !== String(sideKey)) return [];
-    const chips = Array.isArray(backing.chips) && backing.chips.length
-      ? backing.chips : [{ stake:backing.stake }];
-    return chips.map(chip => ({
-      p:player,
-      val:Number(chip?.stake) || PT,
-    }));
-  });
-}
-
-function StakeChipRack({ player, room, target, onDrop, busy, labelText="Put a chip on your pick" }) {
-  return (
-    <div style={{ padding:"11px 12px 10px", borderRadius:14,
-      background:"var(--night)", border:"1px solid var(--ink0)" }}>
-      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:10 }}>
-        <div style={{ ...label, color:"var(--sun)", fontSize:9.5 }}>{labelText}</div>
-        <div style={{ marginLeft:"auto", fontFamily:SANS, fontWeight:700, fontSize:11,
-          color:"var(--night-text)" }}>{fmt(room)} available</div>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-around", gap:8 }}>
-        {RACK_DENOMS.map(stake => {
-          const available = stake <= room && !busy;
-          return (
-            <button key={stake} disabled={!available}
-              aria-label={`${labelText}: ${stake}${target ? ` on ${target}` : ""}`}
-              onClick={() => onDrop(stake)}
-              style={{ width:52, minWidth:0, minHeight:58, display:"flex", alignItems:"center",
-                justifyContent:"center", background:"transparent", border:"none", padding:0,
-                cursor:available ? "pointer" : "default", opacity:available ? 1 : 0.24,
-                transition:"transform .14s ease, filter .14s ease",
-                filter:available ? "drop-shadow(0 4px 5px rgba(0,0,0,.32))" : "none" }}>
-              <BankChip p={player} size={46} val={stake} />
-            </button>
-          );
-        })}
-      </div>
-      {target && (
-        <div style={{ fontFamily:SANS, fontSize:11.5, textAlign:"center",
-          color:"var(--bone)", marginTop:7 }}>
-          Tap one to back <b>{target}</b>. Your chip design stays yours.</div>
-      )}
-    </div>
-  );
-}
-
-function MarketCardBettingBoard({
-  state, me, standings, gm, events, onEvents, onPredict,
-  onBack, onRetract, onAnte, onStart, onVoid,
-}) {
-  const [busy, setBusy] = useState(new Set());
-  const run = async (key, operation) => {
-    if (busy.has(key)) return;
-    setBusy(current => new Set(current).add(key));
-    try { await operation(); }
-    finally {
-      setBusy(current => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-    }
-  };
-  const marketItems = Object.values(state.contestMarkets || {})
-    .map(market => ({ market, summary:contestMarketPublicSummary(state, market) }))
-    .sort((left, right) =>
-      Number(right.summary.status === "pending") - Number(left.summary.status === "pending")
-      || Number(right.market.openedAt || 0) - Number(left.market.openedAt || 0));
-  const pending = marketItems.filter(item => item.summary.status === "pending");
-  const recent = marketItems.filter(item => item.summary.status !== "pending").slice(0, 3);
-  const myPoints = standings.find(row => row.player === me)?.pts ?? 0;
-  const myExposure = me ? atRisk(state, me, events) : 0;
-  const room = me
-    ? Math.max(0, Math.min(maxRisk(myPoints) - myExposure, myPoints - myExposure))
-    : 0;
-
-  return (
-    <div style={{ padding:"0 16px 28px" }}>
-      <div style={{ padding:"4px 2px 13px" }}>
-        <div style={{ ...label, marginBottom:4 }}>{gm ? "GM matchup view" : "Matchup picks"}</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:28, lineHeight:1,
-          textTransform:"uppercase", color:"var(--ink)", marginBottom:6 }}>
-          {gm ? "Run the game. The picks follow." : "Pick a side. Put your chip on it."}</div>
-        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45,
-          color:"var(--muted2)", maxWidth:430 }}>
-          {gm
-            ? "Each concrete bracket matchup opens automatically. Start the matchup when play begins; record the winner when it ends."
-            : "Your first tap is a free crowd pick. Back it only if you feel it."}</div>
-      </div>
-
-      {!pending.length && !recent.length && !state.frozen && (
-        <div style={{ textAlign:"center", padding:"clamp(52px,13vh,100px) 24px 24px",
-          display:"flex", flexDirection:"column", alignItems:"center" }}>
-          <div style={{ opacity:0.82, marginBottom:18 }}><ArtTicket /></div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:28, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)", marginBottom:9 }}>
-            Next matchup gets the room</div>
-          <div style={{ maxWidth:310, color:"var(--muted2)", fontFamily:SANS, fontSize:14, lineHeight:1.55 }}>
-            Picks appear automatically when the next bracket matchup is concrete.</div>
-          <Btn kind="ghost" onClick={onEvents} style={{ marginTop:18 }}>Browse the events</Btn>
-        </div>
-      )}
-
-      {pending.map(item => (
-        <MatchupMarketCard key={item.market.id} {...item}
-          state={state} me={me} gm={gm} room={room} busy={busy} run={run}
-          onPredict={onPredict} onBack={onBack} onRetract={onRetract}
-          onAnte={onAnte} onStart={onStart} onVoid={onVoid} />
-      ))}
-
-      {recent.length > 0 && (
-        <>
-          <div style={{ ...label, margin:"18px 0 8px" }}>Recent matchups</div>
-          {recent.map(item => (
-            <MatchupMarketCard key={item.market.id} {...item}
-              state={state} me={me} gm={gm} room={room} busy={busy} run={run}
-              onPredict={onPredict} onBack={onBack} onRetract={onRetract}
-              onAnte={onAnte} onStart={onStart} onVoid={onVoid} compact />
-          ))}
-        </>
-      )}
-    </div>
-  );
-}
-
-function MatchupMarketCard({
-  state, market, summary, me, gm, room, busy, run,
-  onPredict, onBack, onRetract, onAnte, onStart, onVoid, compact=false,
-}) {
-  const [confirmVoid, setConfirmVoid] = useState(false);
-  const event = allEventsOf(state).find(item => item.id === market.eventId);
-  const sides = summary.sides.map(side => matchupSideView(state, market, side));
-  const role = contestMarketRole(market, me);
-  const settlement = resolveContestMarket(state, market);
-  const minePick = market.predictions?.[me] || null;
-  const mineBacking = market.backing?.[me] || null;
-  const projected = me ? projectedBackingDelta(market, me) : null;
-  const anteResponse = market.ante?.responses?.[me] || null;
-  const anteStake = Number(market.ante?.stake) || PT;
-  const open = summary.status === "pending" && !summary.locked;
-  const lifecycle = event ? resolveEventLifecycle(state, event) : null;
-  const gmCanStart = gm && open && ["in-progress", "result-entry"].includes(lifecycle?.phase);
-  const predictionPct = side => summary.predictionTotal
-    ? Math.round(side.predictions / summary.predictionTotal * 100) : 0;
-  const roundName = (ROUND_NAMES[state.brackets?.[market.eventId]?.size] || [])[market.round]
-    || "Matchup";
-  const myDelta = settlement.deltas?.[me] || 0;
-  const backingNeedsOpponent = summary.backingCommitted > 0 && !summary.backingActive;
-  const viewRole = gm ? "gm" : role.role;
-  const pickedSide = sides.find(side => String(side.key) === minePick) || null;
-
-  return (
-    <div style={{ borderRadius:18, border:"1.5px solid var(--ink)", overflow:"hidden",
-      background:"var(--paper)", boxShadow:"var(--shadow-2)", marginBottom:12 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
-        background:summary.status === "pending" ? "var(--night)" : "var(--paper2)" }}>
-        {event && <GameMark id={event.game} size={30} />}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18,
-            textTransform:"uppercase", color:summary.status === "pending" ? BONE : "var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {event?.name || "Changed event"}</div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.12em",
-            textTransform:"uppercase", color:summary.status === "pending" ? "var(--night-text)" : "var(--muted)" }}>
-            {roundName}</div>
-        </div>
-        <span style={{ ...label, fontSize:9.5, padding:"5px 9px", borderRadius:99,
-          color:summary.status === "pending" ? summary.locked ? "var(--sun)" : "var(--ink0)" : "var(--muted2)",
-          background:summary.status === "pending" && !summary.locked ? "var(--sun)" : "transparent",
-          border:summary.status === "pending" && !summary.locked
-            ? "none" : "1px solid " + (summary.status === "pending" ? "rgba(240,176,47,0.45)" : "var(--line)") }}>
-          {summary.voided ? "Refunded"
-            : summary.status === "settled" ? "Final"
-              : summary.locked ? "In play" : "Picks open"}</span>
-      </div>
-
-      <div style={{ padding:compact ? "10px 12px 12px" : "12px 12px 13px" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-          {sides.map(side => {
-            const selected = minePick === String(side.key);
-            const winner = summary.winnerKey === String(side.key);
-            const blockedSwitch = !!mineBacking && !selected;
-            const pickKey = `pick:${market.id}:${side.key}`;
-            const sideChips = marketBackingChips(market, side.key);
-            const mineCompetes = side.players.includes(me);
-            return (
-              <button key={side.key}
-                aria-pressed={selected}
-                disabled={!open || viewRole !== "spectator" || selected || blockedSwitch || busy.has(pickKey)}
-                onClick={() => run(pickKey, () => onPredict(market.id, side.key))}
-                style={{ minWidth:0, minHeight:compact ? 66 : 106, padding:"10px", borderRadius:14,
-                  border:"2px solid " + (winner ? "var(--green)" : selected ? "var(--sun)" : "var(--line)"),
-                  background:winner ? "var(--green-tint)" : selected ? "var(--sun-tint)" : "var(--paper2)",
-                  cursor:open && viewRole === "spectator" && !selected && !blockedSwitch ? "pointer" : "default",
-                  textAlign:"left", opacity:summary.status === "settled" && !winner ? 0.52 : 1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:7, minWidth:0 }}>
-                  <AvatarStack state={state} players={side.players} size={compact ? 24 : 28} max={3} />
-                  <span style={{ fontFamily:SANS, fontWeight:700, fontSize:compact ? 12.5 : 13.5,
-                    color:"var(--ink)", flex:1, minWidth:0, overflow:"hidden",
-                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                    {side.name}{winner ? " · won" : ""}</span>
-                </div>
-                {!compact && (
-                  <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:10, minWidth:0 }}>
-                    <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:20,
-                      color:selected ? "var(--accent2)" : "var(--ink)", flexShrink:0 }}>
-                      {summary.predictionTotal ? `${predictionPct(side)}%` : "—"}</div>
-                    <div style={{ fontFamily:SANS, fontSize:9.5, lineHeight:1.15,
-                      color:"var(--muted)", textTransform:"uppercase" }}>
-                      crowd<br/>pick</div>
-                    <div style={{ marginLeft:"auto", minWidth:0 }}>
-                      {sideChips.length ? (
-                        <BetChipCluster chips={sideChips} size={26} max={3} />
-                      ) : (
-                        <span style={{ fontFamily:SANS, fontSize:10.5,
-                          color:"var(--muted)" }}>{mineCompetes ? "Your side" : "No chips yet"}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {!compact && summary.status === "pending" && viewRole === "spectator" && (
-          <div style={{ marginTop:10 }}>
-            {!minePick ? (
-              <div style={{ padding:"10px 12px", borderRadius:13, background:"var(--sun-tint)",
-                border:"1px solid rgba(240,176,47,.48)", fontFamily:SANS, fontWeight:700,
-                fontSize:12.5, color:"var(--ink)", textAlign:"center" }}>
-                Tap a side for your free crowd pick.</div>
-            ) : (
-              <>
-                <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 2px 9px" }}>
-                  <Tag tone="gold">Your pick</Tag>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5,
-                    color:"var(--ink)", minWidth:0, overflow:"hidden", textOverflow:"ellipsis",
-                    whiteSpace:"nowrap" }}>{pickedSide?.name}</div>
-                  <span style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11,
-                    color:"var(--muted)", flexShrink:0 }}>{mineBacking ? "backed" : "free"}</span>
-                </div>
-                {open && (
-                  <StakeChipRack player={me} room={room} target={pickedSide?.name}
-                    busy={busy.has(`back:${market.id}`)}
-                    onDrop={stake => run(`back:${market.id}`, () =>
-                      onBack(market.id, minePick, stake))} />
-                )}
-                {mineBacking && (
-                  <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8,
-                    padding:"8px 10px", borderRadius:12, background:"var(--paper2)",
-                    border:"1px solid var(--line)" }}>
-                    <BetChipCluster
-                      chips={marketBackingChips(market, minePick, me)}
-                      size={27} max={3} reserveAction={open}
-                      onRetract={open && !busy.has(`pull:${market.id}`)
-                        ? () => run(`pull:${market.id}`, () => onRetract(market.id))
-                        : undefined} />
-                    <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontSize:11.5,
-                      lineHeight:1.35, color:projected === null ? "var(--muted2)" : "var(--green)" }}>
-                      <b>{fmt(mineBacking.stake)} of your chips</b><br/>
-                      {projected === null
-                        ? "They return unless the other side gets chips."
-                        : `Current upside +${fmt(projected)} if your pick wins.`}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {!compact && summary.status === "pending" && viewRole === "competitor" && (
-          <div style={{ marginTop:10, padding:"11px", borderRadius:13,
-            background:summary.anteActive ? "var(--sun-tint)" : "var(--paper2)",
-            border:"1px solid " + (summary.anteActive ? "var(--sun)" : "var(--line)") }}>
-            <div style={{ ...label, fontSize:9.5, marginBottom:4 }}>You’re in this matchup</div>
-            {summary.locked ? (
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-                {summary.anteActive
-                  ? `Stakes raised · ${fmt(anteStake)} each`
-                  : "Play the game · no competitor stakes"}</div>
-            ) : anteResponse === "accepted" ? (
-              <div style={{ display:"flex", alignItems:"center", gap:11 }}>
-                <BankChip p={me} size={48} val={anteStake} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-                    You’re in for {fmt(anteStake)}</div>
-                  <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35, color:"var(--muted2)" }}>
-                    It activates only if every competitor opts in.</div>
-                </div>
-                <button disabled={busy.has(`ante-out:${market.id}`)}
-                  onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
-                  style={{ border:"none", background:"transparent", color:"var(--muted)",
-                    fontFamily:SANS, fontWeight:700, fontSize:11, cursor:"pointer",
-                    textDecoration:"underline", textUnderlineOffset:3 }}>Play as-is</button>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45, color:"var(--muted2)",
-                  marginBottom:9 }}>
-                  Want to raise the stakes? This stays private and optional. If anyone plays as-is, no ante forms.</div>
-                {market.ante?.stake ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <button disabled={anteStake > room || busy.has(`ante-in:${market.id}`)}
-                      onClick={() => run(`ante-in:${market.id}`, () =>
-                        onAnte(market.id, true, anteStake))}
-                      aria-label={`Join the ${anteStake} competitor stake`}
-                      style={{ width:58, height:58, borderRadius:99, border:"none",
-                        background:"transparent", padding:0, cursor:anteStake <= room ? "pointer" : "default",
-                        opacity:anteStake <= room ? 1 : 0.28 }}>
-                      <BankChip p={me} size={52} val={anteStake} />
-                    </button>
-                    <div style={{ flex:1, fontFamily:SANS, fontWeight:700, fontSize:13,
-                      color:"var(--ink)" }}>Tap your chip to join<br/>
-                      <span style={{ fontWeight:400, fontSize:11.5, color:"var(--muted2)" }}>
-                        {fmt(anteStake)} each</span></div>
-                    <Btn kind={anteResponse === "declined" ? "primary" : "ghost"}
-                      disabled={busy.has(`ante-out:${market.id}`)}
-                      onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
-                      style={{ minHeight:42, padding:"8px 10px" }}>Play as-is</Btn>
-                  </div>
-                ) : (
-                  <StakeChipRack player={me} room={room} busy={busy.has(`ante-in:${market.id}`)}
-                    labelText="Choose the equal stake"
-                    onDrop={stake => run(`ante-in:${market.id}`, () =>
-                      onAnte(market.id, true, stake))} />
-                )}
-                {!market.ante?.stake && (
-                  <Btn kind={anteResponse === "declined" ? "primary" : "ghost"}
-                    disabled={busy.has(`ante-out:${market.id}`)}
-                    onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
-                    style={{ width:"100%", minHeight:42, marginTop:8 }}>
-                    {anteResponse === "declined" ? "Playing as-is" : "Play as-is"}</Btn>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {!compact && viewRole !== "gm" && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10,
-            fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
-            <span>{summary.predictionTotal
-              ? `${summary.predictionTotal} crowd pick${summary.predictionTotal === 1 ? "" : "s"}`
-              : "Crowd is still cold"}</span>
-            <span style={{ marginLeft:"auto", textAlign:"right" }}>
-              {summary.totalActivePot > 0
-                ? `${fmt(summary.totalActivePot)} active pot`
-                : backingNeedsOpponent ? "Backing refunds unless both sides fund"
-                  : summary.backingCommitted > 0 ? `${fmt(summary.backingCommitted)} waiting to activate`
-                    : "No chips required"}</span>
-          </div>
-        )}
-
-        {!compact && summary.status === "pending" && viewRole === "gm" && (
-          <div style={{ marginTop:10, padding:"11px 12px", borderRadius:14,
-            background:"var(--paper2)", border:"1px solid var(--line)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ ...label, fontSize:9.5 }}>GM · matchup lifecycle</div>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5,
-                  color:"var(--ink)", marginTop:3 }}>
-                  {summary.locked ? "In play · record the winner in the bracket"
-                    : gmCanStart ? "Ready to play · picks are still open"
-                      : "Picks opened automatically · start the event from the Board"}</div>
-                <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35,
-                  color:"var(--muted2)", marginTop:3 }}>
-                  {summary.predictionTotal} crowd pick{summary.predictionTotal === 1 ? "" : "s"}
-                  {summary.backingCommitted ? ` · ${fmt(summary.backingCommitted)} in chips` : ""}
-                  {summary.anteActive ? " · competitor stakes ready" : ""}</div>
-              </div>
-              {gmCanStart && (
-                <Btn disabled={busy.has(`start:${market.id}`)}
-                  onClick={() => run(`start:${market.id}`, () =>
-                    onStart(market.eventId, market.round, market.match))}
-                  style={{ minHeight:48, padding:"10px 13px" }}>
-                  {busy.has(`start:${market.id}`) ? "Starting…" : "Start matchup"}</Btn>
-              )}
-              {summary.locked && <Tag tone="gold">In play</Tag>}
-            </div>
-            <details style={{ marginTop:9, paddingTop:8, borderTop:"1px solid var(--line)" }}>
-              <summary style={{ cursor:"pointer", fontFamily:SANS, fontWeight:700,
-                fontSize:11, color:"var(--muted2)", listStyle:"none" }}>
-                Recovery controls</summary>
-              {!confirmVoid ? (
-                <Btn kind="danger" onClick={() => setConfirmVoid(true)}
-                  style={{ width:"100%", minHeight:42, marginTop:8 }}>Void and refund</Btn>
-              ) : (
-                <div style={{ padding:"10px", marginTop:8, borderRadius:12,
-                  background:"var(--clay-tint)", border:"1px solid var(--danger-line)" }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5,
-                    color:"var(--ink)", marginBottom:8 }}>
-                    Refund every committed chip and close this matchup?</div>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <Btn kind="danger" disabled={busy.has(`void:${market.id}`)}
-                      onClick={() => run(`void:${market.id}`, async () => {
-                        const result = await onVoid(market.id, "Commissioner voided the matchup market");
-                        if (result?.ok) setConfirmVoid(false);
-                      })} style={{ flex:1, minHeight:42 }}>Confirm refund</Btn>
-                    <Btn kind="ghost" onClick={() => setConfirmVoid(false)}
-                      style={{ flex:1, minHeight:42 }}>Keep matchup</Btn>
-                  </div>
-                </div>
-              )}
-            </details>
-          </div>
-        )}
-
-        {summary.status === "settled" && !compact && (
-          <div style={{ marginTop:10, padding:"9px 11px", borderRadius:12,
-            background:myDelta > 0 ? "var(--green-tint)" : myDelta < 0 ? "var(--clay-tint)" : "var(--paper2)",
-            border:"1px solid var(--line)", fontFamily:SANS, fontSize:12.5, color:"var(--ink)" }}>
-            {myDelta
-              ? `Your matchup result: ${myDelta > 0 ? "+" : ""}${fmt(myDelta)}`
-              : settlement.backing.committed > 0 && !settlement.backing.active
-                ? "Backing refunded · a fair pool did not form."
-                : "Final. No chips moved for you."}
-          </div>
-        )}
-
-        {summary.voided && !compact && (
-          <div style={{ marginTop:10, fontFamily:SANS, fontSize:12.5, color:"var(--muted2)" }}>
-            Voided · every committed chip returned.</div>
-        )}
-
-      </div>
-    </div>
-  );
-}
-
-/* The matchup book is the bracket. A spectator selects PICK or one of their
-   chips in the tray, then taps a team in the highlighted matchup. The rack
-   never changes the footprint of a bracket cell, no matter how many chips
-   arrive. GM controls are additive; they never replace the GM's player role. */
-function MatchupStakesBoard({
-  state, me, standings, gm, events, trayBottom=68, onEvents, onPredict,
-  onBack, onRetract, onAnte, onStart, onWinner, onVoid,
-}) {
-  const [tool, setTool] = useState("pick");
-  const [busy, setBusy] = useState(new Set());
-  const [confirmVoid, setConfirmVoid] = useState(false);
-  const run = async (key, operation) => {
-    if (busy.has(key)) return null;
-    setBusy(current => new Set(current).add(key));
-    try { return await operation(); }
-    finally {
-      setBusy(current => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-    }
-  };
-
-  const marketItems = Object.values(state.contestMarkets || {})
-    .map(market => ({ market, summary:contestMarketPublicSummary(state, market) }))
-    .sort((left, right) =>
-      Number(right.summary.status === "pending") - Number(left.summary.status === "pending")
-      || Number(right.market.openedAt || 0) - Number(left.market.openedAt || 0));
-  const active = marketItems.find(item => item.summary.status === "pending") || null;
-  const focus = active || marketItems.find(item => !item.summary.voided) || marketItems[0] || null;
-  const market = focus?.market || null;
-  const summary = focus?.summary || null;
-  const event = market
-    ? allEventsOf(state).find(item => item.id === market.eventId) || null
-    : null;
-  const role = market ? contestMarketRole(market, me) : { role:"spectator" };
-  const sides = market && summary
-    ? summary.sides.map(side => matchupSideView(state, market, side))
-    : [];
-  const minePick = market?.predictions?.[me] || null;
-  const mineBacking = market?.backing?.[me] || null;
-  const anteResponse = market?.ante?.responses?.[me] || null;
-  const anteStake = Number(market?.ante?.stake) || PT;
-  const open = !!active && !summary.locked && !state.frozen;
-  const myPoints = standings.find(row => row.player === me)?.pts ?? 0;
-  const myExposure = me ? atRisk(state, me, events) : 0;
-  const room = me
-    ? Math.max(0, Math.min(maxRisk(myPoints) - myExposure, myPoints - myExposure))
-    : 0;
-  const roundName = market
-    ? (ROUND_NAMES[state.brackets?.[market.eventId]?.size] || [])[market.round] || "Matchup"
-    : "";
-  const lifecycle = event ? resolveEventLifecycle(state, event) : null;
-  const gmCanStart = gm && open && ["in-progress", "result-entry"].includes(lifecycle?.phase);
-
-  useEffect(() => {
-    setTool(role.role === "competitor" ? "play" : "pick");
-  }, [market?.id, role.role]);
-  useEffect(() => {
-    if (typeof tool === "number" && tool > room
-        && !(role.role === "competitor" && anteResponse === "accepted" && tool === anteStake))
-      setTool(role.role === "competitor" ? "play" : "pick");
-  }, [tool, room, role.role, anteResponse, anteStake]);
-
-  const tapSide = async sideKey => {
-    if (!market || !open || !role.canPredict) return;
-    const key = `board:${market.id}:${sideKey}`;
-    await run(key, async () => {
-      let picked = { ok:true };
-      if (minePick !== String(sideKey))
-        picked = await onPredict(market.id, String(sideKey));
-      if (!picked?.ok || tool === "pick") return picked;
-      return onBack(market.id, String(sideKey), Number(tool));
-    });
-  };
-
-  const itemAt = (round, match) => marketItems.find(item =>
-    item.market.eventId === event?.id
-    && Number(item.market.round) === Number(round)
-    && Number(item.market.match) === Number(match));
-  const bracketBet = event ? {
-    onBet:role.canPredict ? (_round, _match, teamIdx) => tapSide(String(teamIdx)) : undefined,
-    canBet:(round, match, teamIdx) => !!active
-      && Number(market.round) === Number(round)
-      && Number(market.match) === Number(match)
-      && open && role.canPredict && !busy.has(`board:${market.id}:${teamIdx}`),
-    isSelected:(round, match, teamIdx) => {
-      const item = itemAt(round, match);
-      return !!item && item.market.predictions?.[me] === String(teamIdx);
-    },
-    chips:(round, match, teamIdx) => {
-      const item = itemAt(round, match);
-      if (!item) return null;
-      const side = item.summary.sides.find(entry => String(entry.key) === String(teamIdx));
-      const pct = item.summary.predictionTotal && side
-        ? Math.round(side.predictions / item.summary.predictionTotal * 100)
-        : null;
-      const selected = item.market.predictions?.[me] === String(teamIdx);
-      const chips = marketBackingChips(item.market, teamIdx);
-      if (pct === null && !selected && !chips.length) return null;
-      return (
-        <span style={{ width:70, minWidth:70, height:26, display:"flex", alignItems:"center",
-          justifyContent:"flex-end", gap:4, overflow:"visible" }}>
-          {selected && (
-            <span aria-label="Your pick" style={{ width:18, height:18, borderRadius:99,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              background:"var(--sun)", color:"var(--ink0)", fontFamily:SANS,
-              fontWeight:900, fontSize:11, flexShrink:0 }}>✓</span>
-          )}
-          {pct !== null && (
-            <span style={{ minWidth:24, textAlign:"right", fontFamily:DISPLAY,
-              fontWeight:800, fontSize:13, color:"var(--muted2)", flexShrink:0 }}>{pct}%</span>
-          )}
-          {chips.length > 0 && <BetChipCluster chips={chips} size={19} max={2} />}
-        </span>
-      );
-    },
-  } : null;
-
-  if (!focus || !event) return (
-    <div style={{ padding:"0 16px" }}>
-      <div style={{ minHeight:"58vh", display:"flex", flexDirection:"column",
-        alignItems:"center", justifyContent:"center", gap:16 }}>
-        <div style={{ opacity:0.82 }}><ArtTicket /></div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30,
-          textTransform:"uppercase", color:"var(--ink)" }}>Betting closed</div>
-        <Btn kind="ghost" onClick={onEvents}>Events</Btn>
-      </div>
-    </div>
-  );
-
-  const status = summary.voided ? "REFUNDED"
-    : summary.status === "settled" ? "FINAL"
-      : summary.locked ? "IN PLAY" : "PICKS OPEN";
-  const selectedSide = sides.find(side => String(side.key) === minePick);
-  const trayVisible = !!me && summary.status === "pending";
-
-  return (
-    <div style={{ padding:"0 16px", paddingBottom:trayVisible ? 196 : 24 }}>
-      <div style={{ borderRadius:18, border:"1.5px solid var(--ink)", overflow:"hidden",
-        background:"var(--paper)", boxShadow:"var(--shadow-2)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
-          background:"var(--night)" }}>
-          <GameMark id={event.game} size={30} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:20,
-              textTransform:"uppercase", color:BONE, overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{event.name}</div>
-            <div style={{ ...label, color:"var(--night-text)", fontSize:9.5 }}>{roundName}</div>
-          </div>
-          <span style={{ ...label, fontSize:9.5, padding:"5px 9px", borderRadius:99,
-            color:status === "PICKS OPEN" ? "var(--ink0)" : "var(--sun)",
-            background:status === "PICKS OPEN" ? "var(--sun)" : "rgba(240,176,47,.12)",
-            border:status === "PICKS OPEN" ? "none" : "1px solid rgba(240,176,47,.45)" }}>
-            {status}</span>
-        </div>
-
-        <div style={{ padding:"14px 12px 12px" }}>
-          <BracketGrid state={state} ev={event} gm={false} bet={bracketBet}
-            hot={active ? [market.round, market.match] : null} />
-        </div>
-
-        {gm && summary.status === "pending" && (
-          <div style={{ padding:"10px 12px 12px", borderTop:"1px solid var(--line)",
-            background:"var(--paper2)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <Tag tone="gold">GM</Tag>
-              <span style={{ ...label, color:"var(--muted2)" }}>
-                {summary.locked ? "IN PLAY" : "PICKS OPEN"}</span>
-              {gmCanStart && (
-                <Btn disabled={busy.has(`start:${market.id}`)}
-                  onClick={() => run(`start:${market.id}`, () =>
-                    onStart(market.eventId, market.round, market.match))}
-                  style={{ marginLeft:"auto", minHeight:42, padding:"8px 12px" }}>
-                  START MATCHUP</Btn>
-              )}
-            </div>
-            {summary.locked && (
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7, marginTop:9 }}>
-                {sides.map(side => (
-                  <Btn key={side.key} disabled={busy.has(`winner:${market.id}`)}
-                    onClick={() => run(`winner:${market.id}`, () =>
-                      onWinner(market.eventId, market.round, market.match, Number(side.key)))}
-                    style={{ minWidth:0, minHeight:44, padding:"8px 9px",
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                    {side.name} WON</Btn>
-                ))}
-              </div>
-            )}
-            <details style={{ marginTop:8 }}>
-              <summary style={{ cursor:"pointer", fontFamily:SANS, fontWeight:700,
-                fontSize:10.5, letterSpacing:".08em", color:"var(--muted)",
-                listStyle:"none", textTransform:"uppercase" }}>Recovery</summary>
-              {!confirmVoid ? (
-                <Btn kind="danger" onClick={() => setConfirmVoid(true)}
-                  style={{ width:"100%", minHeight:40, marginTop:8 }}>VOID + REFUND</Btn>
-              ) : (
-                <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                  <Btn kind="danger" disabled={busy.has(`void:${market.id}`)}
-                    onClick={() => run(`void:${market.id}`, async () => {
-                      const result = await onVoid(market.id, "Commissioner voided the matchup market");
-                      if (result?.ok) setConfirmVoid(false);
-                    })} style={{ flex:1, minHeight:40 }}>CONFIRM</Btn>
-                  <Btn kind="ghost" onClick={() => setConfirmVoid(false)}
-                    style={{ flex:1, minHeight:40 }}>CANCEL</Btn>
-                </div>
-              )}
-            </details>
-          </div>
-        )}
-      </div>
-
-      {trayVisible && (
-        <div style={{ position:"fixed", left:"50%", transform:"translateX(-50%)",
-          bottom:`calc(${trayBottom}px + env(safe-area-inset-bottom))`, width:"calc(100% - 20px)",
-          maxWidth:460, zIndex:48, padding:"10px 11px 11px", boxSizing:"border-box",
-          borderRadius:18, background:"var(--night)", border:"1px solid var(--ink0)",
-          boxShadow:"0 12px 34px rgba(0,0,0,.42)" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-            alignItems:"center", marginBottom:9 }}>
-            {[
-              ["STACK", fmt(myPoints)],
-              ["AVAILABLE", fmt(room)],
-              ["AT RISK", fmt(myExposure)],
-            ].map(([name, value], index) => (
-              <div key={name} style={{ textAlign:index === 0 ? "left" : index === 2 ? "right" : "center" }}>
-                <div style={{ ...label, fontSize:8.5, color:"var(--night-text)" }}>{name}</div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:19,
-                  color:name === "AVAILABLE" ? "var(--sun)" : BONE }}>{value}</div>
-              </div>
-            ))}
-          </div>
-
-          {open && role.role === "spectator" && (
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:5 }}>
-              <button aria-pressed={tool === "pick"} onClick={() => setTool("pick")}
-                style={{ width:54, height:48, flexShrink:0, borderRadius:12,
-                  border:tool === "pick" ? "2px solid var(--sun)" : "1px solid var(--ghost-line)",
-                  background:tool === "pick" ? "var(--sun)" : "rgba(251,243,228,.06)",
-                  color:tool === "pick" ? "var(--ink0)" : BONE, cursor:"pointer",
-                  fontFamily:DISPLAY, fontWeight:800, fontSize:15,
-                  transform:tool === "pick" ? "translateY(-3px)" : "none",
-                  transition:"transform .14s ease" }}>PICK</button>
-              {RACK_DENOMS.map(stake => {
-                const available = stake <= room;
-                const selected = tool === stake;
-                return (
-                  <button key={stake} disabled={!available} aria-pressed={selected}
-                    aria-label={`Select ${stake} chip`}
-                    onClick={() => setTool(stake)}
-                    style={{ width:52, height:52, minWidth:0, padding:0, borderRadius:99,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      border:selected ? "2px solid var(--sun)" : "2px solid transparent",
-                      background:"transparent", cursor:available ? "pointer" : "default",
-                      opacity:available ? 1 : .2,
-                      transform:selected ? "translateY(-4px) scale(1.06)" : "none",
-                      filter:selected ? "drop-shadow(0 5px 7px rgba(0,0,0,.42))" : "none",
-                      transition:"transform .14s ease" }}>
-                    <BankChip p={me} size={44} val={stake} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {open && role.role === "competitor" && (
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:5 }}>
-              <button aria-pressed={anteResponse === "declined"}
-                disabled={busy.has(`ante:${market.id}`)}
-                onClick={() => {
-                  setTool("play");
-                  run(`ante:${market.id}`, () => onAnte(market.id, false));
-                }}
-                style={{ width:54, height:48, flexShrink:0, borderRadius:12,
-                  border:anteResponse === "declined" ? "2px solid var(--sun)" : "1px solid var(--ghost-line)",
-                  background:anteResponse === "declined" ? "var(--sun)" : "rgba(251,243,228,.06)",
-                  color:anteResponse === "declined" ? "var(--ink0)" : BONE, cursor:"pointer",
-                  fontFamily:DISPLAY, fontWeight:800, fontSize:15,
-                  transform:anteResponse === "declined" ? "translateY(-3px)" : "none" }}>PLAY</button>
-              {RACK_DENOMS.map(stake => {
-                const fixed = market.ante?.stake !== null && market.ante?.stake !== undefined;
-                const accepted = anteResponse === "accepted" && stake === anteStake;
-                const available = (!fixed || stake === anteStake) && (stake <= room || accepted);
-                return (
-                  <button key={stake} disabled={!available || busy.has(`ante:${market.id}`)}
-                    aria-pressed={accepted} aria-label={`Play for ${stake}`}
-                    onClick={() => {
-                      setTool(stake);
-                      run(`ante:${market.id}`, () => onAnte(market.id, true, stake));
-                    }}
-                    style={{ width:52, height:52, minWidth:0, padding:0, borderRadius:99,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      border:accepted ? "2px solid var(--sun)" : "2px solid transparent",
-                      background:"transparent", cursor:available ? "pointer" : "default",
-                      opacity:available ? 1 : .2,
-                      transform:accepted ? "translateY(-4px) scale(1.06)" : "none",
-                      filter:accepted ? "drop-shadow(0 5px 7px rgba(0,0,0,.42))" : "none" }}>
-                    <BankChip p={me} size={44} val={stake} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {!open && (
-            <div style={{ height:38, display:"flex", alignItems:"center",
-              justifyContent:"center", ...label, color:"var(--sun)" }}>IN PLAY</div>
-          )}
-
-          {open && role.role === "spectator" && mineBacking && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8,
-              paddingTop:8, borderTop:"1px solid var(--ghost-line)" }}>
-              <span style={{ ...label, color:"var(--night-text)" }}>YOUR CHIPS</span>
-              <span style={{ marginLeft:"auto" }}>
-                <BetChipCluster chips={marketBackingChips(market, minePick, me)}
-                  size={25} max={3} reserveAction
-                  onRetract={!busy.has(`pull:${market.id}`)
-                    ? () => run(`pull:${market.id}`, () => onRetract(market.id))
-                    : undefined} />
-              </span>
-              {selectedSide && (
-                <span style={{ maxWidth:105, overflow:"hidden", textOverflow:"ellipsis",
-                  whiteSpace:"nowrap", fontFamily:SANS, fontWeight:700,
-                  fontSize:11, color:BONE }}>{selectedSide.name}</span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents, onPick, onVoid, onRetract }) {
   const [whoOpen, setWhoOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
@@ -7589,9 +6180,8 @@ function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,
 /* QA jump sheet: checkpoints land the board at a named point in the weekend,
    helpers poke one feature at a time. Everything runs the sim driver; the
    bar shows progress and holds the Stop. */
-function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, rolePlayers, onRole, onLens,
+function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
   onJump, pokerOn, onPlayNext, onDuelMe, onDuels, onBets,
-  onCrowd, onOneSided, onFunded, onAnte, onStartMatch, onPostWinner,
   onBustOne, onCountRest, onRerun, onReplayMine, onResetRequest, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
@@ -7611,11 +6201,9 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, rolePla
         <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginLeft:"auto" }}>
           state v{status.schema} · sync {status.version}</span>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:7 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:7 }}>
         {stat(`${status.completed}/${status.total}`, "Events")}
-        {stat(status.openMarkets, "Open matchups")}
-        {stat(status.matchup?.picks || 0, "Crowd picks")}
-        {stat(fmt(status.matchup?.chips || 0), "Chips riding")}
+        {stat(status.pendingWagers, "Open bets")}
         {stat(status.openDuels, "Open duels")}
         {stat(`${status.profiles}/${ROSTER.length}`, "Profiles")}
       </div>
@@ -7632,36 +6220,23 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, rolePla
         )}
       </div>
 
-      <div style={sect}>Test lens</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-        <Btn kind={guestLens && me === rolePlayers?.spectator ? "primary" : "ghost"}
-          disabled={busy || !rolePlayers?.spectator} onClick={() => onRole("spectator")}>
-          Spectator · {rolePlayers?.spectator || "none"}</Btn>
-        <Btn kind={guestLens && me === rolePlayers?.competitor ? "primary" : "ghost"}
-          disabled={busy || !rolePlayers?.competitor} onClick={() => onRole("competitor")}>
-          Competitor · {rolePlayers?.competitor || "none"}</Btn>
+      <div style={sect}>View as player</div>
+      <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
+        {ROSTER.map(player => (
+          <button key={player} disabled={busy} onClick={() => onSwitch(player)}
+            style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
+              borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
+              background:me === player ? "var(--sun)" : "var(--paper2)",
+              color:me === player ? "var(--ink0)" : "var(--ink)",
+              border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
+              opacity:busy ? 0.45 : 1 }}>{player}</button>
+        ))}
       </div>
       <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
         <Btn kind={guestLens ? "primary" : "ghost"} onClick={onLens}>
-          {guestLens ? "Return to GM lens" : "Player lens"}</Btn>
+          {guestLens ? "Guest view on" : "Guest view"}</Btn>
         <Btn kind="ghost" onClick={onReplayMine}>Redo check-in here</Btn>
       </div>
-      <details style={{ marginTop:8, border:"1px solid var(--line)", borderRadius:10,
-        background:"var(--paper2)", padding:"8px 10px" }}>
-        <summary style={{ cursor:"pointer", fontFamily:SANS, fontWeight:700,
-          fontSize:12, color:"var(--muted2)", listStyle:"none" }}>Choose any player</summary>
-        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingTop:8 }}>
-          {ROSTER.map(player => (
-            <button key={player} disabled={busy} onClick={() => onSwitch(player)}
-              style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
-                borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
-                background:me === player ? "var(--sun)" : "var(--paper)",
-                color:me === player ? "var(--ink0)" : "var(--ink)",
-                border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
-                opacity:busy ? 0.45 : 1 }}>{player}</button>
-          ))}
-        </div>
-      </details>
 
       <div style={sect}>Rehearsal checkpoints</div>
       {presets.map(pre => {
@@ -7685,33 +6260,10 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, rolePla
         );
       })}
 
-      <div style={sect}>Matchup lab</div>
-      <div style={{ padding:"10px 11px", marginBottom:8, borderRadius:10,
-        background:"var(--sun-tint)", border:"1px solid rgba(240,176,47,.45)",
-        fontFamily:SANS, fontSize:12, lineHeight:1.45, color:"var(--muted2)" }}>
-        Start with <b style={{color:"var(--ink)"}}>Picks open</b>, add one condition,
-        then switch between spectator, competitor, and GM lenses. Chips use every
-        simulated player’s saved custom design.</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-        <Btn kind="ghost" disabled={busy} onClick={onCrowd}>Crowd picks only</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onOneSided}>One-sided chips</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onFunded}>Fund both sides</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onAnte}>Complete ante</Btn>
-        <Btn kind="primary" disabled={busy} onClick={onStartMatch}>Start matchup</Btn>
-        <Btn kind="dark" disabled={busy} onClick={onPostWinner}>Post winner</Btn>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:7, margin:"8px 2px 0",
-        fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>
-        <Tag tone={status.matchup?.locked ? "gold" : "green"}>
-          {status.matchup?.locked ? "In play" : status.matchup ? "Picks open" : "No matchup"}</Tag>
-        {status.matchup?.ante && <span>Ante active</span>}
-        {status.matchup?.chips > 0 && <span>{fmt(status.matchup.chips)} chips committed</span>}
-      </div>
-
       <div style={sect}>Quick tests</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         <Btn kind="primary" disabled={busy} onClick={onPlayNext}>Run next event</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onBets}>Populate + lock picks</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onBets}>Add bets</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuelMe}>Duel me</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuels}>Duels round</Btn>
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
@@ -8108,7 +6660,6 @@ function AudioDirectorSheet({ state, onClose, notify }) {
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const searchSequence = useRef(0);
   const savedCues = ROSTER.map(player => ({
     player,
     track:state.profiles?.[player]?.walkoutTrack,
@@ -8162,13 +6713,10 @@ function AudioDirectorSheet({ state, onClose, notify }) {
     setPlayer(null);
     notify("Spotify disconnected");
   };
-  const runSearch = async (rawQuery = query) => {
-    const cleanQuery = rawQuery.trim();
-    if ((busy && busy !== "search") || cleanQuery.length < 2) return;
-    const sequence = ++searchSequence.current;
+  const runSearch = async () => {
+    if (busy || query.trim().length < 2) return;
     setBusy("search"); setError("");
-    const result = await spotifySearch(cleanQuery);
-    if (sequence !== searchSequence.current) return;
+    const result = await spotifySearch(query.trim());
     setBusy("");
     if (!result.ok) {
       setResults([]);
@@ -8177,17 +6725,6 @@ function AudioDirectorSheet({ state, onClose, notify }) {
       setResults(result.tracks || []);
     }
   };
-  useEffect(() => {
-    searchSequence.current += 1;
-    const cleanQuery = query.trim();
-    if (cleanQuery.length < 2) {
-      setResults([]);
-      if (busy === "search") setBusy("");
-      return;
-    }
-    const timer = setTimeout(() => runSearch(cleanQuery), 550);
-    return () => clearTimeout(timer);
-  }, [query]);
   const playTrack = async (track, playerName = null) => {
     if (busy) return;
     setBusy(`play:${track.trackId}`); setError("");
@@ -8202,9 +6739,8 @@ function AudioDirectorSheet({ state, onClose, notify }) {
       null, "gold", playerName);
     setTimeout(refreshPlayer, 450);
   };
-  const playbackAction = async () => {
+  const playbackAction = async kind => {
     if (busy) return;
-    const kind = player?.playback?.playing ? "pause" : "resume";
     setBusy(kind); setError("");
     const result = kind === "pause"
       ? await spotifyPause({ deviceId })
@@ -8292,17 +6828,12 @@ function AudioDirectorSheet({ state, onClose, notify }) {
 
           {player?.playback?.track && (
             <div style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <div style={{ ...label, flex:1 }}>Now playing</div>
-                <Tag tone={player.playback.playing ? "green" : undefined}>
-                  {player.playback.playing ? "Playing" : "Paused"}</Tag>
-              </div>
+              <div style={{ ...label, marginBottom:6 }}>Now playing</div>
               <SpotifyTrackCard track={player.playback.track} />
-              <Btn kind={player.playback.playing ? "ghost" : "dark"} disabled={!!busy}
-                onClick={playbackAction} style={{ width:"100%", minHeight:46, marginTop:8 }}>
-                {busy === "pause" ? "Pausing…"
-                  : busy === "resume" ? "Resuming…"
-                    : player.playback.playing ? "Pause playback" : "Resume playback"}</Btn>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:8 }}>
+                <Btn kind="dark" disabled={!!busy} onClick={() => playbackAction("resume")}>Resume</Btn>
+                <Btn kind="ghost" disabled={!!busy} onClick={() => playbackAction("pause")}>Pause</Btn>
+              </div>
             </div>
           )}
 
@@ -8323,29 +6854,19 @@ function AudioDirectorSheet({ state, onClose, notify }) {
           )}
 
           <div style={{ ...label, marginBottom:7 }}>Find a track</div>
-          <div style={{ position:"relative" }}>
+          <div style={{ display:"flex", gap:8 }}>
             <input value={query} onChange={event => setQuery(event.target.value)}
-              onKeyDown={event => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                runSearch();
-              }}
-              maxLength={80} placeholder="Start typing a track or artist" aria-label="Search Spotify"
-              style={{ width:"100%", height:46, padding:"0 86px 0 12px", borderRadius:10,
+              onKeyDown={event => event.key === "Enter" && runSearch()}
+              maxLength={80} placeholder="Track or artist" aria-label="Search Spotify"
+              style={{ flex:1, minWidth:0, height:46, padding:"0 12px", borderRadius:10,
                 border:"1.5px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
                 fontFamily:SANS, fontSize:15, outline:"none" }} />
-            <span style={{ position:"absolute", right:query ? 38 : 11, top:"50%", transform:"translateY(-50%)",
-              fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted)" }}>
-              {busy === "search" ? "Searching…" : query.trim().length >= 2 ? "Auto search" : ""}</span>
-            {query && <button aria-label="Clear Spotify search"
-              onClick={() => { setQuery(""); setResults([]); }}
-              style={{ position:"absolute", right:7, top:7, width:32, height:32, borderRadius:9,
-                background:"transparent", border:"1px solid var(--line)", color:"var(--muted)",
-                cursor:"pointer", fontSize:16 }}>×</button>}
+            <Btn kind="dark" disabled={!!busy || query.trim().length < 2} onClick={runSearch}
+              style={{ minHeight:46, padding:"10px 13px" }}>
+              {busy === "search" ? "Searching" : "Search"}</Btn>
           </div>
           {!!results.length && (
             <div style={{ display:"grid", gap:7, marginTop:10 }}>
-              <div style={{ ...label, fontSize:9.5 }}>Results</div>
               {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
                 action={() => playTrack(track)}
                 actionLabel={busy === `play:${track.trackId}` ? "Playing…" : "Play"} />)}
@@ -9011,65 +7532,8 @@ function TVDirectedScene({ state, scene }) {
   return null;
 }
 
-function TVMatchupStakes({ state, market }) {
-  if (!market) return null;
-  const summary = contestMarketPublicSummary(state, market);
-  const sides = summary.sides.map(side => matchupSideView(state, market, side));
-  const pct = side => summary.predictionTotal
-    ? Math.round(side.predictions / summary.predictionTotal * 100) : 0;
-  const potLabel = summary.totalActivePot > 0
-    ? `${fmt(summary.totalActivePot)} active pot`
-    : summary.backingCommitted > 0
-      ? `${fmt(summary.backingCommitted)} backed · activates only with both sides`
-      : "Crowd picks are free · chips optional";
-  return (
-    <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", alignItems:"stretch", gap:12,
-      padding:"11px 14px", borderRadius:16, background:"var(--night2)",
-      border:"1px solid rgba(240,176,47,0.42)" }}>
-      {sides.map((side, index) => (
-        <React.Fragment key={side.key}>
-          {index === 1 && (
-            <div style={{ width:1, background:"var(--ghost-line)", margin:"2px 4px" }} />
-          )}
-          <div style={{ minWidth:0, textAlign:index === 0 ? "left" : "right" }}>
-            <div style={{ display:"flex", flexDirection:index === 0 ? "row" : "row-reverse",
-              alignItems:"center", gap:8 }}>
-              <AvatarStack state={state} players={side.players} size={28} max={3} />
-              <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700,
-                fontSize:"clamp(12px,1.25vw,17px)", color:BONE,
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{side.name}</div>
-              <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(24px,2.5vw,38px)",
-                lineHeight:1, color:"var(--sun)" }}>
-                {summary.predictionTotal ? `${pct(side)}%` : "—"}</div>
-            </div>
-            <div style={{ display:"flex", flexDirection:index === 0 ? "row" : "row-reverse",
-              alignItems:"center", gap:8, marginTop:5 }}>
-              <div style={{ fontFamily:SANS, fontSize:"clamp(10px,0.95vw,13px)",
-                color:"var(--night-text)" }}>
-                {side.predictions} pick{side.predictions === 1 ? "" : "s"}
-                {side.backing > 0 ? ` · ${fmt(side.backing)} backed` : ""}</div>
-              {side.backing > 0 && (
-                <BetChipCluster chips={marketBackingChips(market, side.key)}
-                  size={27} max={3} />
-              )}
-            </div>
-          </div>
-        </React.Fragment>
-      ))}
-      <div style={{ gridColumn:"1 / -1", display:"flex", alignItems:"center", gap:10,
-        paddingTop:7, borderTop:"1px solid var(--ghost-line)", fontFamily:SANS,
-        fontWeight:700, fontSize:"clamp(10px,0.95vw,13px)", color:"var(--night-text)" }}>
-        <span style={{ ...label, fontSize:"inherit", color:summary.locked ? "var(--sun)" : "var(--live2)" }}>
-          {summary.status === "settled" ? "Final" : summary.locked ? "Picks locked" : "Picks open"}</span>
-        <span>{potLabel}</span>
-        {summary.anteActive && <span style={{ marginLeft:"auto", color:"var(--sun)" }}>Competitor stakes raised</span>}
-      </div>
-    </div>
-  );
-}
-
 function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps,
-  showControlEnabled, matchupStakesEnabled, honorsEnabled, onExit }) {
+  showControlEnabled, onExit }) {
   const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   const showScene = useMemo(
     () => showControlEnabled ? resolveShowScene(state, events) : null,
@@ -9077,7 +7541,6 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   );
   const operationEv = operation.event;
   const operationLifecycle = operation.lifecycle;
-  const tvPropsMoment = honorsEnabled ? activeHonorMoment(state) : null;
   const liveBracketEv = useMemo(() => {
     const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
     if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
@@ -9136,49 +7599,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const upNext = useMemo(() => activeBracketEv ? nextOpenMatch(state.brackets[activeBracketEv.id]) : null,
     [activeBracketEv, state]);
   const upNextDraw = activeBracketEv ? state.draws[activeBracketEv.id] : null;
-  const contestMarketItems = matchupStakesEnabled
-    ? Object.values(state.contestMarkets || {})
-      .map(market => ({ market, summary:contestMarketPublicSummary(state, market) }))
-      .sort((left, right) => Number(right.market.openedAt || 0) - Number(left.market.openedAt || 0))
-    : [];
-  const activeContestMarket = contestMarketItems.find(item =>
-    item.summary.status === "pending"
-    && item.market.eventId === activeBracketEv?.id
-    && item.market.drawId === upNextDraw?.id
-    && (!upNext || (
-      Number(item.market.round) === Number(upNext.r)
-      && Number(item.market.match) === Number(upNext.m)
-    ))) || null;
-  const contestMarketAt = (r, m) => contestMarketItems.find(item =>
-    item.market.eventId === activeBracketEv?.id
-    && item.market.drawId === upNextDraw?.id
-    && Number(item.market.round) === Number(r)
-    && Number(item.market.match) === Number(m)
-    && !item.summary.voided);
   /* chips riding a TV bracket cell, value stamped, read-only */
   const tvBracketChips = (r, m, tIdx) => {
-    const contest = contestMarketAt(r, m);
-    if (contest) {
-      const side = contest.summary.sides.find(item => String(item.key) === String(tIdx));
-      if (!side || (!contest.summary.predictionTotal && !side.backing)) return null;
-      const crowd = contest.summary.predictionTotal
-        ? Math.round(side.predictions / contest.summary.predictionTotal * 100) : null;
-      return (
-        <span style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0,
-          minWidth:0 }}>
-          <span style={{ padding:"3px 6px", borderRadius:7,
-            background:"var(--sun-tint)", border:"1px solid rgba(240,176,47,0.45)",
-            fontFamily:SANS, fontWeight:800, fontSize:11, color:"var(--accent2)" }}>
-            {crowd !== null ? `${crowd}%` : "—"}
-          </span>
-          {side.backing > 0 && (
-            <BetChipCluster
-              chips={marketBackingChips(contest.market, side.key)}
-              size={25} max={3} />
-          )}
-        </span>
-      );
-    }
     const bets = allW.filter(x => x.r.status === "pending" && x.w.kind === "match" &&
       x.w.eventId === activeBracketEv?.id && x.w.drawId === upNextDraw?.id &&
       x.w.match?.[0] === r && x.w.match?.[1] === m && x.w.teamIdx === tIdx);
@@ -9233,28 +7655,11 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
   if (upNext && upNextDraw) tickerItems.push({ tag:"Up now", tone:"var(--sun)",
     players:[...upNextDraw.teams[upNext.a].players, ...upNextDraw.teams[upNext.b].players].slice(0,4),
-      text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });
-  if (activeContestMarket) {
-    const summary = activeContestMarket.summary;
-    const sides = summary.sides.map(side => matchupSideView(state, activeContestMarket.market, side));
-    const crowd = sides.map(side => summary.predictionTotal
-      ? `${side.name} ${Math.round(side.predictions / summary.predictionTotal * 100)}%`
-      : side.name).join(" · ");
-    tickerItems.push({
-      tag:summary.locked ? "Picks locked" : "Crowd",
-      tone:"var(--accent2)",
-      text:`${crowd}${summary.backingCommitted ? ` · ${fmt(summary.backingCommitted)} backed` : ""}`,
-    });
-  }
-  if (tvPropsMoment) tickerItems.push({
-    tag:"Props open",
-    tone:"var(--olive)",
-    text:`Give someone their flowers for ${honorMomentLabel(state, tvPropsMoment)}`,
-  });
+    text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });
   if (onDeckEv) {
     const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
     const ptsIn = riding.reduce((n, x) => n + x.w.stake, 0);
-    if (!activeContestMarket && ptsIn > 0) tickerItems.push({ tag:"Betting", tone:"var(--accent2)",
+    if (ptsIn > 0) tickerItems.push({ tag:"Betting", tone:"var(--accent2)",
       players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
       text:`${fmt(ptsIn)} on ${onDeckEv.name}` });
   }
@@ -9317,19 +7722,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               letterSpacing:"0.18em", color:"var(--live2)", textTransform:"uppercase" }}>On deck</span>
             <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"var(--bone)" }}>
               {onDeckEv.name}</span>
-            <Tag tone="gold" style={{ fontSize:"clamp(10px,0.9vw,13px)" }}>
-              {activeContestMarket
-                ? activeContestMarket.summary.locked ? "Picks locked" : "Picks open"
-                : "Betting open"}</Tag>
-          </div>
-        )}
-        {tvPropsMoment && !onDeckEv && !champion && !showScene && (
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px",
-            borderRadius:14, background:"rgba(78,110,57,0.18)",
-            border:"1px solid rgba(78,110,57,0.55)", marginRight:56 }}>
-            <Tag tone="green">Props open</Tag>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(12px,1.1vw,16px)",
-              color:BONE }}>{honorMomentLabel(state, tvPropsMoment)}</span>
+            <Tag tone="gold" style={{ fontSize:"clamp(10px,0.9vw,13px)" }}>Betting open</Tag>
           </div>
         )}
       </div>
@@ -9358,9 +7751,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     animation:"si-pulse 1.6s infinite" }} />
                   {operationEv?.id === liveEv.id && operationLifecycle
                     ? operationLifecycle.label
-                    : activeContestMarket
-                      ? activeContestMarket.summary.locked ? "Picks locked" : "Picks open"
-                      : onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
+                    : onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
                       : state.stages[activeStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
                 <div style={{ ...sceneTitle, marginBottom:0, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
               </div>
@@ -9398,12 +7789,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     </div>
                   )}
             </div>
-            {activeBracketEv && activeContestMarket && (
-              <div style={{ marginTop:14 }}>
-                <TVMatchupStakes state={state} market={activeContestMarket.market} />
-              </div>
-            )}
-            {onDeckEv && (activeBracketEv || activeStageEv) && !activeContestMarket && (
+            {onDeckEv && (activeBracketEv || activeStageEv) && (
               <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
                 <BetsBoard state={state} events={events} ev={onDeckEv} />
               </div>
@@ -9648,13 +8034,12 @@ function Guide({ events, state }) {
         Solo events pay the podium. Team events pay every player on the placing team the full amount.
         Ties are settled on the spot, and a championship tie is one pressure putt.
       </Rule>
-      <Rule title="Matchup picks" meta="Free crowd pick · optional custom chips · player-funded">
-        When the bracket produces the next concrete matchup, everyone watching can make a free pick.
-        If you want more on it, tap one of your own custom chips to back that same side. A chip pool
-        activates only when both sides receive backing; otherwise every chip returns. Competitors get
-        a separate, private chance to agree to an equal ante on themselves. Nothing is required, betting
-        never pays the house, and every settled or refunded chip stays inside the group. Correcting the
-        official result corrects the settlement.
+      <Rule title="Betting" meta="One open event · 100 to 1,000 per tap">
+        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts.
+        Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1.
+        Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one
+        bad decision, only half your points can be at risk at a time. Bets settle off the official result,
+        so correcting a result corrects the payouts. I can void any wager.
       </Rule>
       <Rule title="Duels" meta="Quick Draw · equal ante · three a day">
         Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same.

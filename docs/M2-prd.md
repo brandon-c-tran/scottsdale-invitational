@@ -2,9 +2,9 @@
 
 **Product:** Field Day, Scottsdale 2026  
 **Milestone:** M2, Spectacle and Social Layer  
-**Status:** Defined; Show Control and Audio Director implemented; Matchup Stakes and Postgame Props implemented locally behind independent flags
+**Status:** Defined; first foundation slice in progress  
 **Baseline:** M1 is live at `fielddayseries.com` and holds real guest data  
-**Last updated:** July 29, 2026
+**Last updated:** July 28, 2026
 
 ## 1. Executive summary
 
@@ -23,14 +23,13 @@ Object. Competition facts still come from results, draws, brackets, stages,
 wagers, and the M1 lifecycle. Presentation references those facts and may
 temporarily direct attention to one structured scene.
 
-P0 has six workstreams:
+P0 has five workstreams:
 
 1. a coherent interaction hierarchy
 2. recoverable Show Control
 3. a policy-compliant Audio Director
 4. a more intentional TV broadcast surface
 5. quick, positive Postgame Honors
-6. zero-sum Matchup Stakes and Predictions
 
 The first implementation slice is Show Control foundations. It introduces a
 feature-gated, server-authoritative scene record, bounded history, GM controls,
@@ -100,8 +99,6 @@ action must remain correct.
   isolated test authorization confirmed July 28, 2026
 - positive, event-scoped honors with bounded guest input
 - derived ceremony, award, and recap outputs
-- contest-bound competitor antes, free crowd predictions, and optional
-  player-funded backing
 
 ### 3.4 Existing foundations M2 can extend
 
@@ -135,10 +132,6 @@ action must remain correct.
 9. **Fast phone input.** A normal guest action takes one or two taps.
 10. **Preserve Field Day's voice.** Terse, direct, no borrowed broadcast or
     casino slogans, no exclamation-mark energy.
-11. **Betting only redistributes.** A betting operation transfers chips between
-    players or refunds them; it never creates a house liability or chip sink.
-12. **The contest comes first.** Stakes attach to a concrete matchup, heat,
-    round, or final and never block physical play.
 
 ## 5. Goals
 
@@ -155,9 +148,6 @@ action must remain correct.
 8. Eligible postgame moments can collect one quick positive honor per guest.
 9. Honors create breadth-based recognition without a raw public vote count.
 10. M2 can be disabled without rolling back M1 code or rewriting state.
-11. A player may watch, make a free pick, back that pick, or decline wagering
-    without friction.
-12. Every activated betting settlement conserves aggregate player chips.
 
 ## 6. Non-goals
 
@@ -176,9 +166,6 @@ M2 does not include:
 - a broad UI rewrite or a new frontend framework
 - changing existing Scottsdale player IDs
 - storing derived scores, ranks, winners, or payouts
-- routine fixed-odds or house-backed winner markets
-- broad eventual-winner books opened before their concrete field is known
-- requiring an ante, prediction, or funded pool before a contest can start
 
 ## 7. Intended experience
 
@@ -402,86 +389,7 @@ Rules:
 - honors never change tournament standings
 - no event result or next action waits for honor completion
 
-### 8.6 P0: Matchup Stakes and Predictions
-
-The shipped M0/M1 book opens one event-level market at a time and supports
-outright, bracket-match, and stage picks. Settlement is correctly derived from
-official results, retry-safe chip placement is logged in `wagerOps`, and open
-exposure is protected before poker. Its payout model is not compatible with
-this M2 direction: each losing wager subtracts chips from one player while each
-winning wager adds a fixed return without a player-funded counterparty.
-Consequently ordinary wagers can change aggregate chip supply.
-
-M2 introduces one shared **contest market** primitive. The first supported
-contest reference is a fully seated bracket matchup. Later adapters may point
-the same primitive at a named heat, stage final, or bounded free-for-all field.
-The official draw, bracket, stage, and result remain the only competition
-truth; a market only records participation and locked financial terms.
-
-Each eligible matchup has three deliberately separate layers:
-
-1. **Competitor ante.** Participants may opt into the same per-player stake on
-   themselves. It activates only when every participant on both equal-sized
-   sides accepts and can cover it. A decline is private participation state,
-   is not presented as a callout, and never delays play.
-2. **Free prediction.** A non-participant may pick a side without committing
-   chips. The pick may change while the contest market is open.
-3. **Chip backing.** A non-participant may add chips behind their current pick.
-   Backing forms a player-funded pool only when at least two outcomes receive
-   chips before lock.
-
-The economy invariant is:
-
-> For every contest market, the sum of all player settlement deltas is exactly
-> zero.
-
-Winning backers keep their committed chips and divide the losing pool
-proportionally. Distribution uses whole 100-chip units and a deterministic
-largest-remainder rule, so no fractional or residual house balance exists.
-Losing backing is transferred in full. An activated equal-team ante transfers
-each losing participant's stake to the winning side. If the funded pool is
-one-sided, the winning outcome has no backer, the ante lacks unanimous consent,
-the reference becomes invalid, or the contest is voided, every committed chip
-is refunded.
-
-Locking snapshots participation terms but not the winner. Settlement remains a
-pure derivation from the current official matchup result. Correcting a winner
-therefore reverses the former deltas and applies the corrected deltas exactly
-once. Clearing a result returns the market to pending; canceling or invalidating
-the contest returns zero deltas. Low participation never blocks the matchup.
-
-Mobile is role-aware:
-
-- a competitor sees the ante choice as their own custom chip and its neutral
-  activation status
-- a spectator taps one side for a free pick, then optionally taps one of their
-  own customized chip denominations to back it
-- someone who declines or ignores the module sees no repeated pressure
-- the GM never creates a market manually; the official bracket opens the next
-  concrete matchup automatically
-- the GM sees one primary `Start matchup` action that represents physical play
-  beginning and locks picks, while void/refund remains a tucked-away recovery
-  control
-
-TV may show the concrete matchup, aggregate crowd split, total activated pot,
-and the custom chips physically riding each side without adding names or an
-expandable bettor ledger. It never shows who declined an ante or a harsh
-prediction leaderboard. Show Control may reference this aggregate context, but
-neither TV nor audio participates in settlement.
-
-Cold start is free-pick first. A matchup with zero chips remains a useful crowd
-prediction and proceeds normally. Props are deferred until an opposing-outcome,
-player-funded version can use this same primitive without crowding the primary
-matchup flow.
-
-Legacy wagers are not rewritten. Historical settled wagers already contribute
-to real balances, and reinterpretation would mutate production truth. The new
-capability therefore ships independently and fails closed. Before enabling it
-in a persistent environment, the GM must close or void every legacy pending
-wager; once enabled, the client must stop offering new legacy house-backed
-wagers. Historical entries remain readable for audit and standings continuity.
-
-### 8.7 P1
+### 8.6 P1
 
 P1 is defined now but begins only after the P0 operating loop is rehearsed:
 
@@ -566,21 +474,6 @@ P1 is defined now but begins only after the P0 operating loop is rehearsed:
 3. Audio status reports unavailable to the GM.
 4. The GM continues silently or uses Spotify manually.
 5. The event lifecycle and scene controls remain available.
-
-### 10.6 Raise the stakes on a matchup
-
-1. The official bracket automatically opens picks when its next fully seated,
-   undecided matchup becomes concrete.
-2. Each competitor may accept the same per-player ante or quietly decline.
-3. Spectators tap a side for a free pick and may then place their own custom
-   100-, 200-, 500-, or 1,000-chip denominations on it.
-4. The GM taps `Start matchup` when physical play begins, which locks terms.
-   Posting the winner still locks atomically if the GM skipped that tap.
-5. Inactive ante and one-sided backing are refunded without blocking play.
-6. The official bracket winner derives one exact zero-sum settlement.
-7. If the GM corrects the winner, the former derivation disappears and the
-   corrected settlement replaces it.
-8. Bracket advancement automatically prepares the next concrete matchup.
 
 ## 11. Functional requirements
 
@@ -669,35 +562,10 @@ Rules:
   until corrected; it does not erase the audit record
 - award aggregation is pure and separately testable
 
-### 11.7 Contest markets
-
-- only the Durable Object may create, lock, void, or mutate contest-market
-  participation
-- every command that can change chip exposure requires a request ID and a
-  bounded replay ledger
-- market references are canonicalized from the current draw and bracket
-- participants cannot back a side in their own matchup
-- non-participants cannot respond to the competitor ante
-- predictions are chip-free and remain distinct from backing records
-- backing and accepted antes count toward the existing affordability and
-  maximum-at-risk rules
-- lock freezes backing and ante participation without writing a winner
-- result entry may atomically lock an otherwise-open market
-- settlement is derived, idempotent, and conserves chips exactly
-- invalid, canceled, one-sided, or unactivated terms return zero deltas
-- unresolved funded exposure blocks poker setup; free predictions and refunded
-  inactive terms do not
-- disabling the capability prevents new participation but does not prevent an
-  already-locked market from deriving safely from an official result
-
 ## 12. Presentation principles
 
 - One focal point per scene.
 - Use the existing chip, player photo, number, event mark, and phase palette.
-- Custom chip color, pattern, and denomination are the primary backing control,
-  not decoration around a generic action button.
-- Chip piles have a fixed footprint with an overflow count so participation
-  never stretches a matchup card or bracket cell.
 - Preserve full-dark TV chrome and living-room contrast.
 - Keep routine scene motion under a few seconds.
 - Major scenes may use multiple steps; normal and routine scenes should not.
@@ -826,22 +694,18 @@ Planned additive state:
 
 ```js
 {
-  v: 10,
+  v: 8,
   showControl: {
     active: null,
     history: []
   },
-  contestMarkets: {},
-  marketOps: {},
   honorMoments: {},
-  honors: [],
-  honorOps: {}
+  honors: []
 }
 ```
 
-The Show Control slice added `showControl`. Matchup Stakes added the two market
-maps. The local Postgame Props slice adds `honorMoments`, `honors`, and the
-bounded `honorOps` replay ledger. Hydration remains additive from v5-v9.
+The first slice adds only `showControl`. Honors fields are added in the honors
+slice, not preemptively.
 
 Planned profile extension:
 
@@ -858,12 +722,6 @@ Compatibility:
 - new snapshots identify the new state schema
 - code rollback must ignore unknown additive keys
 - no player ID or Durable Object migration is required
-- legacy `wagers` and their historical fixed-payout resolver remain readable
-  and are never rewritten into invented pools
-- new market deltas remain a separate standings component
-- poker receives the conserved player total after funded market exposure
-  settles or refunds; its existing minimum-stack grant remains an explicit
-  broader-game adjustment, not betting revenue or loss
 
 ## 19. Operational requirements
 
@@ -873,8 +731,6 @@ Compatibility:
 - production stays disabled until a staging show rehearsal and product approval
 - audio remains a separate capability from Show Control
 - honors remain a separate capability from both
-- Matchup Stakes remains an independent capability and is enabled only in local
-  and isolated staging during review
 - active scene and provider status are visible to the GM
 - scene recovery is possible from a second unlocked device
 - staging deployment and staging-only secret setup require explicit approval;
@@ -906,17 +762,6 @@ Compatibility:
 - game-progress reset clears transient show state
 - no audio provider is consulted by scene actions
 - duplicate command delivery is safe
-- proceed with no contest participation
-- putting a bracket event on deck creates exactly one next-match market
-- starting physical play locks the existing market without a separate open step
-- posting a bracket winner prepares the next concrete matchup automatically
-- accept, decline, lock, settle, void, and retry matchup participation
-- record and change a free prediction without moving chips
-- add and retract pooled backing with affordability protection
-- assert one-sided pools and inactive antes return every chip
-- assert correction reverses and reapplies the derived zero-sum settlement
-- assert aggregate balances are unchanged by every betting settlement
-- assert unresolved funded exposure, but not free picks, blocks poker setup
 
 ### 20.3 Integration tests
 
@@ -959,17 +804,9 @@ Compatibility:
 
 ### Phase C: honors
 
-Implemented behind `M2_HONORS_ENABLED` and enabled in isolated staging for
-review:
-
-- honor moment, record, and bounded replay-ledger model
-- event and completed-bracket-match eligibility
-- compact mobile prompt with skip and in-window edit
-- GM open, reopen, close, void, and private breadth summary
-- TV open-state treatment without response totals
-- deterministic correction invalidation and focused tests
-
-Staging rehearsal, final theme-name approval, and ceremony consumption remain.
+- add honor moment and record model
+- add compact mobile prompt
+- add derived private GM summary and ceremony inputs
 
 ### Phase D: audio feasibility prototype
 
@@ -1001,10 +838,6 @@ Staging rehearsal, final theme-name approval, and ceremony consumption remain.
 | honor prompts become homework | GM-opened eligible moments, one tap, skip always available |
 | visual inconsistency grows | semantic action inventory and representative migration |
 | M2 harms M1 reliability | independent capabilities, additive schema, full M1 regression suite |
-| historical fixed-payout wagers changed aggregate supply | never reinterpret settled history; retire new legacy placement only at an explicit capability cutover |
-| thin or one-sided matchup participation | keep free picks; refund backing at lock; never delay the contest |
-| corrected bracket result changes a payout | derive deltas from the current winner rather than recording a payment |
-| team or multi-outcome rounding leaks chips | equal-side ante activation and deterministic whole-chip pooled distribution |
 
 ## 23. Decisions requiring product input
 
@@ -1039,10 +872,6 @@ Staging rehearsal, final theme-name approval, and ceremony consumption remain.
 - large photo gallery or R2 migration
 - push notifications for show prompts
 - cross-edition honor or music history
-- unmatched house-backed props
-- broad eventual-winner markets
-- multi-outcome ante before an actual slate requires it
-- public individual wagering history or prediction leaderboard
 
 ## 25. Acceptance criteria by workstream
 
@@ -1087,29 +916,13 @@ Staging rehearsal, final theme-name approval, and ceremony consumption remain.
 
 ### Postgame Honors
 
-- [x] only eligible positive themes are accepted
-- [x] self-honors and duplicate submissions are rejected
-- [x] submission is one short, skippable flow
-- [x] honors never affect points
-- [x] raw popularity counts are absent from guest and TV presentation
-- [x] corrections and ineligible source moments are handled deterministically
-- [x] private aggregation rewards breadth
-- [ ] final theme names and frequency are approved in staging
-- [ ] approved ceremony scenes consume derived honor inputs
-
-### Matchup Stakes and Predictions
-
-- [x] the current wallet and payout model is audited and its supply-changing
-  behavior is documented
-- [x] one contest-market domain model separates ante, free pick, and backing
-- [x] settlement math is player-funded, whole-chip, deterministic, and zero-sum
-- [x] legacy production-shaped state hydrates without reinterpretation
-- [x] role-aware mobile controls replace the legacy book when enabled
-- [ ] automatic opening, GM start, void, and recovery controls are rehearsed
-  on staging
-- [x] TV shows aggregate sentiment and activated stakes without private detail
-- [ ] heat, final, and bounded multi-outcome adapters reuse the shared primitive
-- [ ] the rollout gate verifies no legacy wager remains pending
+- only eligible positive themes are accepted
+- self-honors and duplicate submissions are rejected
+- submission is one short flow
+- honors never affect points
+- raw popularity counts are not public
+- corrections and ineligible source moments are handled deterministically
+- aggregation rewards breadth
 
 ### Reliability and launch
 

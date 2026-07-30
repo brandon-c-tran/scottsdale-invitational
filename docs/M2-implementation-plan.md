@@ -2,8 +2,7 @@
 
 **Milestone:** M2, Spectacle and Social Layer  
 **Baseline commit:** `c630b3f`  
-**Current slice:** local Matchup Stakes product surface and Postgame Props vertical slice
-**Date:** July 29, 2026
+**First slice:** feature-gated Show Control and directed TV presentation  
 **Remote operations authorized:** none
 
 ## 1. Repository audit findings
@@ -131,25 +130,10 @@ own sheet and clear status.
 - settlement is derived
 - brackets and stages already expose meaningful match completion points
 - duplicate wager delivery is bounded and idempotent
-- the book accepts outright, bracket-match, and stage wagers under one on-deck
-  event
-- each bettor is paid independently at fixed 2:1 or even-money deltas
 
-The fixed payout is house-backed. A 100-chip loss removes 100 from aggregate
-player supply while a 100-chip even-money win adds 100 and a 100-chip outright
-win adds 200. This conflicts with the M2 invariant that betting only
-redistributes chips. Existing duels are zero-sum. Poker converts the current
-board exactly apart from its explicit, reversible minimum-stack grants.
-
-Historical wagers cannot be safely pooled after the fact because no
-counterparty or locked pool terms exist. They remain readable under the M1
-resolver. The safe migration is a capability cutover: verify that no legacy
-wager is pending, stop offering new legacy placement, and then expose the new
-contest-market UI. Never rewrite historical balances.
-
-M2 implication: honors, winner scenes, and contest settlement reference result
-revision or bracket coordinates. They never store a winner as a second fact. A
-cleared or corrected result is resolved from current official state.
+M2 implication: honors and winner scenes reference result revision or bracket
+coordinates. They never store a winner as a second fact. A cleared or corrected
+result must be resolved at presentation time.
 
 ### 1.9 Configuration and deployment
 
@@ -387,11 +371,11 @@ surfaces share the API.
 
 Current independent flags:
 
-| Environment | Show Control | Matchup Stakes | Honors | Audio catalog | Audio playback |
-|---|---:|---:|---:|---:|---:|
-| local | `true` | `true` | `true` | `true` when configured | `true` when configured |
-| staging | `true` | `true` | `true` | `true` when configured | `true` when configured |
-| production | `false` | `false` | `false` | `false` | `false` |
+| Environment | Show Control | Audio catalog | Audio playback |
+|---|---:|---:|---:|
+| local | `true` | `true` when configured | `true` when configured |
+| staging | `true` | `true` when configured | `true` when configured |
+| production | `false` | `false` | `false` |
 
 The Worker advertises `capabilities.showControl`. The server action also checks
 the capability. Hiding the client control is not the security boundary.
@@ -400,88 +384,11 @@ The corresponding server capabilities are:
 
 - `M2_AUDIO_CATALOG_ENABLED`
 - `M2_AUDIO_PLAYBACK_ENABLED`
-- `M2_MATCHUP_STAKES_ENABLED`
-- `M2_HONORS_ENABLED`
 
-Honors is enabled in isolated staging for review of prompt frequency and the six
-theme names. Production remains disabled.
+`M2_HONORS_ENABLED` remains future work.
 
 Do not use one broad `M2_ENABLED` flag. It would make rollback and rehearsal
 needlessly coupled.
-
-Matchup Stakes is enabled in isolated staging now that the role-aware UI and GM
-recovery surface are complete. Production remains disabled, and any persistent
-environment must have no pending legacy wager before the capability is enabled.
-
-### 3.9 Matchup Stakes domain
-
-The shared primitive is a `contestMarket`, not separate ante, prediction, and
-betting engines:
-
-```js
-contestMarkets[id] = {
-  id,
-  kind:"bracket-match",
-  eventId,
-  drawId,
-  round,
-  match,
-  sides:[{ key, players }],
-  predictions:{ [player]:sideKey },
-  backing:{ [player]:{ sideKey, stake, chips } },
-  ante:{ stake, responses, activation },
-  pool:{ activation },
-  openedAt,
-  lockedAt,
-  voidedAt,
-}
-```
-
-The first adapter canonicalizes a fully seated bracket match. `sides` is a
-contest snapshot used to detect a stale or edited bracket reference; the
-current bracket winner remains authoritative. A later heat/final adapter may
-produce the same bounded side/outcome shape.
-
-`predictions` contains no financial value. `backing` records player-funded
-100-chip units. `ante.responses` is limited to competitors. Locking stores only
-whether the pool and ante activated plus their participant terms. It does not
-store a winner or payout.
-
-`resolveContestMarket(state, market)` derives:
-
-1. whether the contest reference is current
-2. whether an official winner exists
-3. backing and ante activation/refund status
-4. one `deltaByPlayer` map whose sum is zero
-
-Losing backing is distributed among winning backers in whole 100-chip units
-using proportional largest remainder with a deterministic player tie-break.
-An ante activates only for two equal-sized sides with unanimous acceptance at
-one equal per-player stake. All other cases refund with zero deltas.
-
-`computeStandings()` applies resolved contest-market deltas once as a pure
-function. Result correction therefore replaces, rather than appends, a payout.
-`atRisk()` includes open backing and accepted ante exposure. Poker setup rejects
-unresolved funded exposure but ignores free picks and locked inactive terms.
-
-All participation and GM commands are Durable Object actions gated by
-`capabilities.matchupStakes`. Financial commands use a bounded `marketOps`
-request ledger. Official bracket actions still lock an existing market when
-the capability is disabled so rollback cannot strand committed chips.
-
-Market creation is lifecycle plumbing, not a visible GM task. Putting a bracket
-event on deck ensures the next concrete matchup market, result entry locks the
-current terms if necessary, and bracket advancement ensures the next market.
-The GM's visible `Start matchup` command maps to physical play beginning and
-locks participation. It is retry-safe in `marketOps`; void/refund stays under
-recovery controls.
-
-The guest surface reuses the M1 chip language instead of generic financial
-buttons. A spectator taps a side for a free pick and then taps their own
-custom-color, custom-pattern denomination to add backing. Competitor ante
-choices use the same chip face. All chip piles use the bounded
-`BetChipCluster`, keeping matchup and bracket dimensions fixed as participation
-grows. GM lens suppresses player participation controls.
 
 ## 4. Dependency ordering
 
@@ -528,19 +435,12 @@ Audio does not block Show Control, broadcast, interaction, or honors.
 - `src/PhotoCropper.jsx`
 - component-level tests if a lightweight DOM test setup is approved
 
-### Postgame Props slice
+### Later honors slice
 
-- `shared/honors.js` new
-- `shared/core.js`
+- `shared/core.js` or a new `shared/honors.js`
 - `worker/actions.js`
-- `worker/state.js`
-- `worker/snapshot.js`
-- `worker/tournament.js`
-- `src/lib/client.js`
 - `src/App.jsx`
-- `wrangler.jsonc`
-- `package.json`
-- `tests/m2-honors.test.mjs` new
+- focused tests and E2E
 
 ### Policy-approved audio slice
 
@@ -550,21 +450,6 @@ Audio does not block Show Control, broadcast, interaction, or honors.
 - client search and GM status helpers
 - required-secret declarations only after credentials are approved
 - no provider code in `shared/core.js`
-
-### Matchup Stakes foundation
-
-- `docs/M2-prd.md`
-- `docs/M2-implementation-plan.md`
-- `shared/markets.js` new
-- `shared/core.js`
-- `worker/actions.js`
-- `worker/state.js`
-- `worker/snapshot.js`
-- `worker/tournament.js`
-- `src/lib/client.js`
-- `wrangler.jsonc`
-- `package.json`
-- `tests/m2-matchup-stakes.test.mjs` new
 
 ## 6. Data migration and compatibility
 
@@ -595,30 +480,6 @@ is needed, the disabled capability prevents old clients from depending on it.
 An absent `walkoutTrack` remains valid. A later server validator will accept a
 compact allowlist and drop no unrelated profile field. No bulk profile rewrite
 is planned.
-
-### 6.5 Matchup Stakes schema and cutover
-
-- increment `EMPTY_STATE.v` from 8 to 9
-- add empty `contestMarkets` and `marketOps` maps
-- accept v5-v8 snapshots and hydrate them additively
-- retain `wagers`, `wagerOps`, and their historical resolver unchanged
-- do not auto-convert a pending wager into a pool without counterparties
-- require a no-pending-legacy-wager check before enabling the new client in a
-  persistent environment
-- enable the staging capability for the product-surface review and
-  production-shaped rehearsal while keeping production off
-
-### 6.6 Postgame Props schema
-
-- increment `EMPTY_STATE.v` from 9 to 10
-- add empty `honorMoments`, `honors`, and `honorOps`
-- accept v5-v9 snapshots and hydrate them additively
-- store source references and participant snapshots, never a copied winner
-- keep invalidated records for audit while excluding them from aggregation
-- bound moments, records, and replay operations
-- clear the social gameplay layer with game-progress reset while preserving
-  profiles and travel data
-- enable the staging capability for product review while keeping production off
 
 ## 7. Interaction migration plan
 
@@ -718,40 +579,6 @@ Add after the first pure/action slice:
 
 The existing production-host rejection remains unchanged.
 
-### 9.4 Matchup Stakes focused tests
-
-- a matchup proceeds with no participation and an automatically prepared record
-- putting the event on deck prepares exactly one next-match market
-- starting physical play locks it and bracket advancement prepares the next
-- unanimous equal ante activates and settles zero-sum
-- decline leaves the ante inactive and does not block the bracket
-- a free prediction changes no balance or exposure
-- optional backing is retry-safe and counts toward exposure
-- a funded pool transfers exactly its losing chips with no residual
-- one-sided backing refunds at lock
-- void and invalid contest references refund
-- a duplicate result action cannot append a second payment
-- winner correction reverses and reapplies the pure settlement
-- role resolution exposes ante only to competitors and backing only to
-  spectators
-- v5-v8 production-shaped state hydrates with empty additive maps
-- poker setup receives the conserved total after funded markets settle
-- production capability remains false unless explicitly configured
-- invariant tests assert the sum of contest-market deltas is zero
-
-### 9.5 Postgame Props focused tests
-
-- capability and commissioner open checks fail closed
-- event and completed-matchup sources validate against official facts
-- self-recognition, unknown themes, and irrelevant participants are rejected
-- one giver record per moment is retry-safe and editable while open
-- close blocks late submissions; reopen preserves the record
-- void and cleared/corrected sources remain auditable but do not aggregate
-- standings are identical before and after every honor operation
-- aggregation favors unique givers, events, and themes
-- v9 state hydrates additively to v10
-- production capability remains false by default
-
 ## 10. Rollback and degraded mode
 
 ### Disable
@@ -811,18 +638,11 @@ retained. No data reversal is required.
 
 ### Slice 4: Postgame Honors
 
-Implemented locally and enabled in isolated staging for review:
-
 - honor moment and honor record state
 - eligibility and duplicate-safe actions
 - compact mobile prompt
 - private GM aggregation preview
 - no public raw ranking
-- event and matchup sources
-- TV open state without response totals
-
-Exit still requires holistic staging review of prompt frequency, labels, and
-GM recovery.
 
 ### Slice 5: audio interfaces and validation
 
@@ -859,37 +679,6 @@ Operator steps still required:
 - approved live votes
 - memorable-moment capture
 - photo-supported recap
-
-### Slice 8: Matchup Stakes domain foundation
-
-- document the economy audit and cutover rule
-- add schema v9 maps and the shared bracket-match adapter
-- implement role resolution, exact pooled distribution, ante activation,
-  exposure, and derived correction behavior
-- add capability-gated Durable Object actions and bounded command replay
-- integrate official bracket result, draw invalidation, and poker preparation
-- keep local and isolated staging on while production remains off
-
-Exit: domain and server actions prove exact chip conservation without exposing
-an unfinished guest surface.
-
-### Slice 9: Matchup Stakes product surface
-
-Implemented and enabled in isolated staging; the staging rehearsal remains:
-
-- replace the legacy book when the capability is enabled
-- automatically prepare markets from the official bracket lifecycle
-- add the GM's start, void, and recovery controls in matchup flow
-- restore custom chips as the primary competitor ante and spectator backing
-  interactions, with fixed-footprint piles
-- show projected, changeable pool returns in plain language
-- add aggregate crowd split and activated-pot context to TV and Show Control
-- add QA lenses and scenarios for spectator, competitor, GM, crowd-only,
-  one-sided, funded, ante, start, and result states
-- rehearse legacy cutover and rollback on a production-shaped staging snapshot
-
-Exit: staging completes no-wager, thin-pool, funded-pool, cancellation,
-correction, reconnect, and poker handoff rehearsals.
 
 ## 12. Decisions requiring product input
 

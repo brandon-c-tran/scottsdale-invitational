@@ -186,20 +186,15 @@ test("presentation remains independent of poker and audio providers", () => {
   assert.equal(resolveShowScene(state, events).stepKey, "board");
 });
 
-test("v10 hydration, snapshots, and game-progress reset handle additive M2 state safely", () => {
+test("v8 hydration, snapshots, and game-progress reset handle Show Control safely", () => {
   const legacy = {
     v:7,
     profiles:{ Brandon:{ display:"B" } },
     logistics:structuredClone(EMPTY_STATE.logistics),
   };
   const hydrated = hydrateStoredState(legacy);
-  assert.equal(hydrated.v, 10);
+  assert.equal(hydrated.v, 8);
   assert.deepEqual(hydrated.showControl, { active:null, history:[] });
-  assert.deepEqual(hydrated.contestMarkets, {});
-  assert.deepEqual(hydrated.marketOps, {});
-  assert.deepEqual(hydrated.honorMoments, {});
-  assert.deepEqual(hydrated.honors, []);
-  assert.deepEqual(hydrated.honorOps, {});
 
   const state = structuredClone(EMPTY_STATE);
   state.profiles.Brandon = { display:"B" };
@@ -215,14 +210,12 @@ test("v10 hydration, snapshots, and game-progress reset handle additive M2 state
     exportedAt:"2026-07-28T12:00:00.000Z",
   });
   assert.equal(validateSnapshot(snapshot).ok, true);
-  assert.equal(snapshot.metadata.stateSchemaVersion, 10);
+  assert.equal(snapshot.metadata.stateSchemaVersion, 8);
 
   const reset = applyAction(state, "resetTournament", {
     confirm:RESET_PROGRESS_CONFIRMATION,
   }, gm("reset-progress"));
   assert.equal(reset.ok, true);
   assert.deepEqual(state.showControl, { active:null, history:[] });
-  assert.deepEqual(state.honorMoments, {});
-  assert.deepEqual(state.honors, []);
   assert.deepEqual(state.profiles.Brandon, { display:"B" });
 });

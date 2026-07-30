@@ -87,6 +87,8 @@ export class Tournament {
       restore: isolated,
       snapshotExport: isolated,
       showControl: configured && this.env.M2_SHOW_CONTROL_ENABLED === "true",
+      matchupStakes:configured && this.env.M2_MATCHUP_STAKES_ENABLED === "true",
+      honors:configured && this.env.M2_HONORS_ENABLED === "true",
       audioDirector:configured && (
         this.env.M2_AUDIO_CATALOG_ENABLED === "true"
         || this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
@@ -655,6 +657,8 @@ export class Tournament {
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
+      matchupStakes:this.capabilities.matchupStakes,
+      honors:this.capabilities.honors,
     });
     if (!result.ok) return reply(result);
     /* Explicit no-ops make retried result/transition actions idempotent:

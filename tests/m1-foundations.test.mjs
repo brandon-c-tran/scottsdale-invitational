@@ -634,8 +634,10 @@ test("environment capabilities fail closed and production restore routes hard de
     progressReset:false,
     restore:false,
     snapshotExport:false,
-    showControl:false,
-    audioDirector:false,
+      showControl:false,
+      matchupStakes:false,
+      honors:false,
+      audioDirector:false,
     audioCatalog:false,
     audioPlayback:false,
   });
@@ -645,6 +647,7 @@ test("environment capabilities fail closed and production restore routes hard de
     QA_ENABLED:"true",
     PROGRESS_RESET_ENABLED:"true",
     M2_SHOW_CONTROL_ENABLED:"true",
+    M2_MATCHUP_STAKES_ENABLED:"true",
     M2_AUDIO_CATALOG_ENABLED:"true",
     M2_AUDIO_PLAYBACK_ENABLED:"true",
     SPOTIFY_CLIENT_ID:"client",
@@ -656,6 +659,8 @@ test("environment capabilities fail closed and production restore routes hard de
     restore:true,
     snapshotExport:true,
     showControl:true,
+    matchupStakes:true,
+    honors:false,
     audioDirector:true,
     audioCatalog:true,
     audioPlayback:true,
@@ -673,6 +678,8 @@ test("environment capabilities fail closed and production restore routes hard de
     restore:false,
     snapshotExport:false,
     showControl:false,
+    matchupStakes:false,
+    honors:false,
     audioDirector:false,
     audioCatalog:false,
     audioPlayback:false,
@@ -814,10 +821,12 @@ test("pre-M1 state hydrates additively without rewriting persisted values", () =
   assert.equal(hydrated.results.putt.id, "r1");
   assert.equal(hydrated.logistics.venue, "Original venue");
   assert.equal(hydrated.legacyMarker, "keep-me");
-  assert.equal(hydrated.v, 8);
+  assert.equal(hydrated.v, 10);
   assert.deepEqual(hydrated.eventOps, {});
   assert.deepEqual(hydrated.wagerOps, {});
   assert.deepEqual(hydrated.showControl, { active:null, history:[] });
+  assert.deepEqual(hydrated.contestMarkets, {});
+  assert.deepEqual(hydrated.marketOps, {});
   assert.ok(Array.isArray(hydrated.wagers));
   assert.ok(hydrated.draws && typeof hydrated.draws === "object");
 });

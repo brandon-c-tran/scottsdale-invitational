@@ -4,9 +4,10 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
+import { ROSTER, computeStandings, bracketChampion, CHIP_COLORS,
   RESET_PROGRESS_CONFIRMATION }
   from "../shared/core.js";
+import { resolveContestMarket } from "../shared/markets.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
 const GM_PIN = process.env.GM_PIN;
@@ -168,78 +169,142 @@ await b.waitVersion(a.version);
 assert(b.state.onDeck === "8ball", "window B sees betting open");
 
 /* ── wagers from both windows ── */
-const t0 = draw.teams[0];
-const retrySafeWager = { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 300 };
-r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
-assert(r.ok, "Evan places outright wager (300 on team 0)");
-r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
-assert(r.ok && r.extra?.unchanged, "transport retry is acknowledged without a duplicate wager");
-await b.waitVersion(a.version);
-let evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
-assert(evanOutright.length === 1 && evanOutright[0].stake === 300,
-  "same request id leaves exactly one 300-point wager");
-r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 100 } });
-assert(r.ok && r.extra?.aggregated, "a deliberate second chip aggregates into the existing wager");
-await b.waitVersion(a.version);
-evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
-assert(evanOutright.length === 1 && evanOutright[0].stake === 400 && evanOutright[0].chips?.length === 2,
-  "one persisted line carries both intentional chips");
-r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 200 } });
-assert(!r.ok, "Evan's next 200 rejected, 500 cap at 1000 points (rejected: " + r.error + ")");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: "stale-draw-id", stake: 200 } });
-assert(!r.ok && /draw changed/i.test(r.error), "stale drawId is rejected before the cap response (" + r.error + ")");
-
 const m00 = br0.rounds[0][0];
 const aIdx = m00.a.t, bIdx = m00.b.t;
-r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
-  teamIdx: aIdx, pickPlayers: [...draw.teams[aIdx].players], pickTeam: true, drawId: draw.id,
-  match: [0, 0], matchName: "Play-in", stake: 100 } });
-assert(r.ok, "Evan places matchup wager (100 on play-in)");
+let market0 = Object.values(b.state.contestMarkets || {}).find(market =>
+  market.eventId === "8ball" && market.round === 0 && market.match === 0);
+assert(market0 && !market0.lockedAt,
+  "putting the event on deck automatically opens its first concrete matchup");
+r = await b.dispatch("recordContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+}, { actionId:"prediction-idempotency-e2e" });
+assert(r.ok, "Evan makes a free crowd pick");
+r = await b.dispatch("recordContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+}, { actionId:"prediction-idempotency-e2e" });
+assert(r.ok && r.extra?.unchanged, "prediction transport retry is idempotent");
+r = await b.dispatch("backContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+  stake:300,
+}, { actionId:"backing-idempotency-e2e" });
+assert(r.ok, "Evan drops a 300 custom chip on the pick");
+r = await b.dispatch("backContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+  stake:300,
+}, { actionId:"backing-idempotency-e2e" });
+assert(r.ok && r.extra?.unchanged, "backing transport retry does not duplicate the chip");
+r = await b.dispatch("backContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+  stake:100,
+});
+assert(r.ok, "a deliberate second chip joins Evan's stack");
 await b.waitVersion(a.version);
-assert(b.state.wagers.length === 2, "both open wagers visible in window B");
+market0 = b.state.contestMarkets[market0.id];
+assert(market0.backing.Evan.stake === 400 && market0.backing.Evan.chips.length === 2,
+  "one backing record preserves both intentional chip drops");
+r = await b.dispatch("backContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+  stake:200,
+});
+assert(!r.ok && /max/i.test(r.error),
+  "Evan's next 200 is rejected by the existing risk cap (" + r.error + ")");
+r = await b.dispatch("recordContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(bIdx),
+});
+assert(!r.ok && /pull/i.test(r.error),
+  "a backed pick cannot silently jump to the other side (" + r.error + ")");
+
+for (const competitor of market0.sides.flatMap(side => side.players)) {
+  r = await a.dispatch("claim", { player:competitor });
+  assert(r.ok, `GM test window views as competitor ${competitor}`);
+  r = await a.dispatch("respondContestAnte", {
+    marketId:market0.id,
+    accept:true,
+    stake:100,
+  });
+  assert(r.ok, `${competitor} accepts the equal matchup stake`);
+}
+r = await a.dispatch("claim", { player:"Brandon" });
+assert(r.ok, "window A returns to Brandon");
+await b.waitVersion(a.version);
+market0 = b.state.contestMarkets[market0.id];
+assert(Object.values(market0.ante.responses).every(response => response === "accepted"),
+  "every competitor ante response is recorded");
+
+r = await a.dispatch("pokerSetup", {});
+assert(!r.ok && /funded matchup markets/i.test(r.error),
+  "unresolved matchup chips block the poker handoff (" + r.error + ")");
 
 /* lock betting and start the competition */
 r = await a.dispatch("setOnDeck", { id: null });
 assert(r.ok, "GM locks betting for 8-Ball");
 r = await a.dispatch("startEvent", { evId: "8ball" });
 assert(r.ok, "GM starts 8-Ball");
+r = await a.dispatch("startBracketMatch", { evId:"8ball", r:0, m:0 });
+assert(r.ok, "GM starts the physical matchup and locks picks");
 await b.waitVersion(a.version);
 
 /* ── advance the bracket ── */
+const totalBeforeMatchup = computeStandings(b.state).reduce((sum, row) => sum + row.pts, 0);
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 0, m: 0, teamIdx: aIdx });
 assert(r.ok, "GM advances play-in match 1 winner");
 await b.waitVersion(a.version);
 {
-  const events = allEventsOf(b.state);
-  const mw = b.state.wagers.find(w => w.kind === "match");
-  const res = resolveWager(b.state, mw, events);
-  assert(res.status === "won" && res.delta === 100, "the matchup wager settled WON +100 on window B immediately");
-  const resA = resolveWager(a.state, a.state.wagers.find(w => w.kind === "match"), allEventsOf(a.state));
-  assert(resA.status === res.status, "both windows agree on matchup settlement");
+  const settledB = resolveContestMarket(b.state, b.state.contestMarkets[market0.id]);
+  const settledA = resolveContestMarket(a.state, a.state.contestMarkets[market0.id]);
+  assert(settledB.status === "settled" && !settledB.backing.active
+      && (settledB.deltas.Evan || 0) === 0,
+    "one-sided spectator chips refund when the matchup settles");
+  assert(settledB.ante.active, "the unanimous competitor ante activates");
+  assert(JSON.stringify(settledA.deltas) === JSON.stringify(settledB.deltas),
+    "both windows agree on the derived zero-sum settlement");
+  assert(Object.values(settledB.deltas).reduce((sum, delta) => sum + delta, 0) === 0,
+    "the matchup settlement delta sums to zero");
+  assert(computeStandings(b.state).reduce((sum, row) => sum + row.pts, 0) === totalBeforeMatchup,
+    "matchup betting preserves total player chips");
+  const nextMarket = Object.values(b.state.contestMarkets).find(market =>
+    market.eventId === "8ball" && market.round === 0 && market.match === 1);
+  assert(nextMarket && !nextMarket.lockedAt,
+    "bracket advancement opens the next matchup automatically");
 }
-/* finish the bracket: play-in m1, semis, final. Champion = team 0 so Evan's outright wins. */
+/* Finish the bracket. Every start locks one physical matchup; each winner
+   automatically prepares the next concrete matchup. */
 const m01 = br0.rounds[0][1];
+r = await a.dispatch("startBracketMatch", { evId:"8ball", r:0, m:1 });
+assert(r.ok, "GM starts play-in match 2");
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 0, m: 1, teamIdx: m01.a.t });
 assert(r.ok, "GM advances play-in match 2");
 await b.waitVersion(a.version);
 const brB = () => b.state.brackets["8ball"];
-const semi0 = brB().rounds[1][0]; // a: t0
+r = await a.dispatch("startBracketMatch", { evId:"8ball", r:1, m:0 });
+assert(r.ok, "GM starts semifinal 1");
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 1, m: 0, teamIdx: 0 });
 assert(r.ok, "GM advances semifinal 1 (team 0)");
+r = await a.dispatch("startBracketMatch", { evId:"8ball", r:1, m:1 });
+assert(r.ok, "GM starts semifinal 2");
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 1, m: 1, teamIdx: 1 });
 assert(r.ok, "GM advances semifinal 2 (team 1)");
+r = await a.dispatch("startBracketMatch", { evId:"8ball", r:2, m:0 });
+assert(r.ok, "GM starts the final");
 r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 2, m: 0, teamIdx: 0 });
 assert(r.ok, "GM picks final winner (team 0)");
 await b.waitVersion(a.version);
 assert(bracketChampion(brB()) === 0, "bracket champion is team 0 on window B");
 
 /* wager placed on an already-decided matchup must be rejected */
-r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
-  teamIdx: 0, pickPlayers: [...t0.players], pickTeam: true, drawId: draw.id, match: [2, 0],
-  matchName: "Final", stake: 200 } });
-assert(!r.ok, "wager on decided matchup rejected (" + r.error + ")");
+r = await b.dispatch("recordContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+});
+assert(!r.ok && /closed/i.test(r.error),
+  "picks close on a decided matchup (" + r.error + ")");
 
 /* ── post the result ── */
 const runnerTeam = 1;
@@ -252,49 +317,40 @@ await Promise.all([a.waitVersion(vBefore + 1), b.waitVersion(vBefore + 1)]);
 
 /* ── confirm settlement on both screens ── */
 for (const [label, win] of [["A", a], ["B", b]]) {
-  const events = allEventsOf(win.state);
-  const ow = win.state.wagers.find(w => w.kind === "outright");
-  const res = resolveWager(win.state, ow, events);
-  assert(res.status === "won" && res.delta === 800, `window ${label}: Evan's outright settled WON +800 (2:1 on stake 400)`);
+  const res = resolveContestMarket(win.state, win.state.contestMarkets[market0.id]);
+  assert(res.status === "settled" && (res.deltas.Evan || 0) === 0,
+    `window ${label}: Evan's one-sided custom chips were refunded`);
   assert(win.state.onDeck === null, `window ${label}: betting closed automatically on result`);
 }
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-assert(evanRow.pts === 1900 && evanRow.betNet === 900, `Evan at 1900 pts (1000 start +800 outright +100 matchup), got ${evanRow.pts}`);
+assert(evanRow.pts === 1000 && evanRow.betNet === 0,
+  `Evan remains at 1000 after a refunded one-sided pool, got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);
 
 /* betting stays closed after result */
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 200 } });
-assert(!r.ok, "no wagers after result posted (" + r.error + ")");
+r = await b.dispatch("recordContestPrediction", {
+  marketId:market0.id,
+  sideKey:String(aIdx),
+});
+assert(!r.ok && /closed/i.test(r.error),
+  "no picks after the matchup result posts (" + r.error + ")");
 
 /* ── the poker finale: setup gate, freeze, stacks become standings ── */
 r = await b.dispatch("pokerSetup", {});
 assert(!r.ok, "non-GM cannot set the table (rejected: " + r.error + ")");
-r = await a.dispatch("setOnDeck", { id: "putt" });
-assert(r.ok, "GM opens betting on Long Putt");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 200 } });
-assert(r.ok, "Evan places a chip on Long Putt");
-r = await a.dispatch("pokerSetup", {});
-assert(!r.ok, "pending wager blocks the table (rejected: " + r.error + ")");
-r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt").id });
-assert(r.ok, "Evan pulls the chip back");
-/* scaling cap: half the stack scales with the stack */
-r = await a.dispatch("adjust", { player: "Evan", delta: 3000, reason: "cap test" });
-assert(r.ok, "GM ruling puts Evan deep in points");
-await b.waitVersion(a.version);
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 800 } });
-assert(r.ok, "800 fits under Evan's scaled cap");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 1700 } });
-assert(!r.ok && /Max \d+ at risk/.test(r.error), "exposure past the scaled cap rejected (" + r.error + ")");
-r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.stake === 800).id });
-assert(r.ok, "Evan pulls the 800 back");
+r = await b.dispatch("placeWager", { wager: {
+  kind:"outright",
+  eventId:"putt",
+  pick:"Khoa",
+  pickPlayers:["Khoa"],
+  stake:200,
+} });
+assert(!r.ok && /retired/i.test(r.error),
+  "legacy house-backed wagers stay retired after Matchup Stakes begins (" + r.error + ")");
 
 /* chip colors are first come first serve. Profiles deliberately survive resets,
    so release the color first: this run must not depend on who held it last */

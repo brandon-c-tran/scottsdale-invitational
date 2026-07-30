@@ -23,8 +23,11 @@ import { validateSpotifyTrack } from "../shared/audio.js";
 import {
   MARKET_CHIP,
   bracketMatchContext,
+  bracketMatchMarket,
   createBracketMatchMarket,
   contestMarketRole,
+  ensureBracketMatchMarket,
+  ensureNextBracketMatchMarket,
   hasUnsettledFundedContestMarket,
   lockBracketMatchMarkets,
   lockContestMarketTerms,
@@ -244,6 +247,11 @@ const reopenCompetition = (state, evId) => {
   const op = eventOp(state, evId);
   delete op.resultEntryAt;
   delete op.completedAt;
+};
+const hasPendingLegacyWager = state => {
+  const events = allEventsOf(state);
+  return (state.wagers || []).some(wager =>
+    resolveWager(state, wager, events).status === "pending");
 };
 
 export const ACTIONS = {
@@ -833,6 +841,48 @@ export const ACTIONS = {
     return ok({ marketId:created.market.id });
   },
 
+  /* The visible GM action is the physical transition, not market plumbing:
+     the bracket has already opened picks automatically. A recovery path can
+     create the market here if this state predates automatic lifecycle wiring. */
+  startBracketMatch(state, { evId, r, m }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
+    const requestKey = wagerRequestKey(ctx);
+    if (!requestKey) return err("This matchup command is missing a request id");
+    const fingerprint = marketFingerprint(evId, Number(r), Number(m));
+    const replay = replayedMarketOp(state, requestKey, "commissioner", "start", fingerprint);
+    if (replay) return replay;
+    if (state.frozen) return err("The board is frozen");
+    if (pokerLive(state)) return err("The finale is live");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    if (hasPendingLegacyWager(state))
+      return err("Settle or void legacy wagers before starting Matchup Stakes");
+    const live = competitionLive(state, ev); if (live) return live;
+    const context = ensureBracketMatchMarket(state, {
+      eventId:evId,
+      round:Number(r),
+      match:Number(m),
+    });
+    if (!context.ok) return err(context.error);
+    const market = context.market;
+    if (market.lockedAt)
+      return ok({ unchanged:true, marketId:market.id });
+    lockContestMarketTerms(market);
+    rememberMarketOp(state, requestKey, {
+      actor:"commissioner",
+      type:"start",
+      fingerprint,
+      marketId:market.id,
+    });
+    return ok({
+      marketId:market.id,
+      marketCreated:context.created,
+      poolActive:!!market.pool?.activation?.active,
+      anteActive:!!market.ante?.activation?.active,
+    });
+  },
+
   recordContestPrediction(state, { marketId, sideKey }, ctx) {
     const enabled = matchupStakesOnly(ctx); if (enabled) return enabled;
     const board = marketParticipationError(state); if (board) return board;
@@ -1231,7 +1281,15 @@ export const ACTIONS = {
     op.bettingOpenedAt = Date.now();
     delete op.bettingLockedAt;
     state.onDeck = id;
-    return ok();
+    let automaticMarket = null;
+    if (ctx.matchupStakes && state.brackets?.[id] && !hasPendingLegacyWager(state)) {
+      const ensured = ensureNextBracketMatchMarket(state, id);
+      if (ensured.ok) automaticMarket = ensured;
+    }
+    return ok(automaticMarket ? {
+      marketId:automaticMarket.market.id,
+      marketCreated:automaticMarket.created,
+    } : undefined);
   },
   startEvent(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1241,7 +1299,15 @@ export const ACTIONS = {
     if (lifecycle.phase !== "betting-locked")
       return err(lifecycle.nextAction?.label || "Lock betting before starting");
     eventOp(state, evId).startedAt = Date.now();
-    return ok();
+    let automaticMarket = null;
+    if (ctx.matchupStakes && state.brackets?.[evId] && !hasPendingLegacyWager(state)) {
+      const ensured = ensureNextBracketMatchMarket(state, evId);
+      if (ensured.ok) automaticMarket = ensured;
+    }
+    return ok(automaticMarket ? {
+      marketId:automaticMarket.market.id,
+      marketCreated:automaticMarket.created,
+    } : undefined);
   },
   beginResultEntry(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1412,13 +1478,24 @@ export const ACTIONS = {
     const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
     if (teamIdx !== a && teamIdx !== b) return err("Not in this matchup");
     /* Result entry closes participation and freezes terms in the same Durable
-       Object mutation. A market with no or thin participation never blocks the
-       bracket action. */
+       Object mutation. If the GM forgot the start-match tap, result entry is
+       still safe and atomic instead of blocking the physical contest. */
+    const matchupLifecycleEnabled = ctx.matchupStakes && !hasPendingLegacyWager(state);
+    if (matchupLifecycleEnabled && !bracketMatchMarket(state, evId, r, m))
+      ensureBracketMatchMarket(state, { eventId:evId, round:r, match:m });
     lockBracketMatchMarkets(state, evId, r, m);
     reopenCompetition(state, evId);
     br.rounds[r][m].winner = teamIdx;
     for (let rr = r + 1; rr < br.rounds.length; rr++) br.rounds[rr].forEach(match => { match.winner = null; });
-    return ok();
+    let nextMarket = null;
+    if (matchupLifecycleEnabled) {
+      const ensured = ensureNextBracketMatchMarket(state, evId);
+      if (ensured.ok) nextMarket = ensured;
+    }
+    return ok(nextMarket ? {
+      nextMarketId:nextMarket.market.id,
+      nextMarketCreated:nextMarket.created,
+    } : undefined);
   },
   runStages(state, { evId, cfg }, ctx) {
     const g = gmOnly(ctx); if (g) return g;

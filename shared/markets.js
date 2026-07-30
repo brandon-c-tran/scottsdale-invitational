@@ -124,6 +124,62 @@ function createBracketMatchMarket(state, {
   };
 }
 
+function bracketMatchMarket(state, eventId, round, match) {
+  const drawId = state.draws?.[eventId]?.id;
+  return Object.values(state.contestMarkets || {}).find(market =>
+    !market.voidedAt
+    && market.eventId === eventId
+    && market.drawId === drawId
+    && Number(market.round) === Number(round)
+    && Number(market.match) === Number(match)
+    && bracketMatchContext(state, market).valid) || null;
+}
+
+function nextConcreteBracketMatch(state, eventId) {
+  const bracket = state.brackets?.[eventId];
+  const draw = state.draws?.[eventId];
+  if (!bracket || !draw) return null;
+  for (let round = 0; round < bracket.rounds.length; round++) {
+    for (let match = 0; match < bracket.rounds[round].length; match++) {
+      const entry = bracket.rounds[round][match];
+      if (entry.winner !== null && entry.winner !== undefined) continue;
+      const left = resolveBracketSlot(bracket, entry.a);
+      const right = resolveBracketSlot(bracket, entry.b);
+      if (left !== null && right !== null && draw.teams?.[left] && draw.teams?.[right])
+        return { round, match, left, right };
+    }
+  }
+  return null;
+}
+
+/* Market creation follows the official bracket instead of becoming another
+   commissioner workflow. The helper is deliberately idempotent so set-on-deck,
+   event recovery, bracket advancement, and a retried command all converge on
+   the same one market. */
+function ensureBracketMatchMarket(state, {
+  eventId,
+  round,
+  match,
+}, options) {
+  const existing = bracketMatchMarket(state, eventId, round, match);
+  if (existing) return { ok:true, market:existing, created:false };
+  const created = createBracketMatchMarket(state, { eventId, round, match }, options);
+  if (!created.ok) return created;
+  state.contestMarkets = state.contestMarkets || {};
+  state.contestMarkets[created.market.id] = created.market;
+  return { ok:true, market:created.market, created:true };
+}
+
+function ensureNextBracketMatchMarket(state, eventId, options) {
+  const next = nextConcreteBracketMatch(state, eventId);
+  if (!next) return { ok:false, error:"No concrete matchup is ready" };
+  return ensureBracketMatchMarket(state, {
+    eventId,
+    round:next.round,
+    match:next.match,
+  }, options);
+}
+
 function contestMarketRole(market, player) {
   const competitor = (market?.sides || []).some(side =>
     (side.players || []).includes(player));
@@ -426,7 +482,11 @@ export {
   CONTEST_MARKET_KIND,
   MARKET_CHIP,
   bracketMatchContext,
+  bracketMatchMarket,
   createBracketMatchMarket,
+  ensureBracketMatchMarket,
+  ensureNextBracketMatchMarket,
+  nextConcreteBracketMatch,
   contestMarketRole,
   lockContestMarketTerms,
   resolveContestMarket,

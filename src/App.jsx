@@ -556,6 +556,14 @@ export default function App() {
   const activeContestEvent = activeContestMarket
     ? events.find(event => event.id === activeContestMarket.market.eventId) || null
     : null;
+  const qaRolePlayers = useMemo(() => {
+    const market = activeContestMarket?.market;
+    const competitors = new Set((market?.sides || []).flatMap(side => side.players || []));
+    return {
+      competitor:[...competitors][0] || null,
+      spectator:ROSTER.find(player => !competitors.has(player)) || null,
+    };
+  }, [activeContestMarket]);
   const activePropsMoment = honorsAllowed ? activeHonorMoment(state) : null;
   const qaStatus = useMemo(() => {
     const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
@@ -576,12 +584,18 @@ export default function App() {
       pendingWagers,
       openMarkets,
       openDuels,
+      matchup:activeContestMarket ? {
+        picks:activeContestMarket.summary.predictionTotal,
+        chips:activeContestMarket.summary.backingCommitted,
+        locked:activeContestMarket.summary.locked,
+        ante:activeContestMarket.summary.anteActive,
+      } : null,
       current:weekendOperation.event?.name || "No active event",
       phase:weekendOperation.lifecycle?.label || (state.live ? "Weekend live" : "Locker room"),
       next:weekendOperation.nextAction?.label || "No pending action",
       blockers:weekendOperation.lifecycle?.blockers || [],
     };
-  }, [environment, version, state, events, weekendOperation]);
+  }, [environment, version, state, events, weekendOperation, activeContestMarket]);
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
   const introHasQueuedReveal = !!intro && (
@@ -988,8 +1002,6 @@ export default function App() {
   const placeWager = w => act("placeWager", { wager: w }, "Chip down", { retry:true });
   const retractWager = id => act("retractWager", { id }, "Chip back", { retry:true });
   const voidWager = id => act("voidWager", { id });
-  const openMatchMarket = (eventId, round, match) =>
-    act("openMatchMarket", { eventId, round, match }, "Matchup picks open", { retry:true });
   const recordContestPrediction = (marketId, sideKey) =>
     act("recordContestPrediction", { marketId, sideKey }, "Pick saved", { retry:true });
   const backContestPrediction = (marketId, sideKey, stake = PT) =>
@@ -999,8 +1011,8 @@ export default function App() {
   const respondContestAnte = (marketId, accept, stake) =>
     act("respondContestAnte", { marketId, accept, stake },
       accept ? "You raised the stakes" : "Playing as-is", { retry:true });
-  const lockContestMarket = marketId =>
-    act("lockContestMarket", { marketId }, "Picks locked", { retry:true });
+  const startBracketMatch = (evId, r, m) =>
+    act("startBracketMatch", { evId, r, m }, "Matchup started · picks locked", { retry:true });
   const voidContestMarket = (marketId, reason) =>
     act("voidContestMarket", { marketId, reason }, "Market voided · chips refunded", { retry:true });
   const openPropsMoment = source =>
@@ -1102,7 +1114,12 @@ export default function App() {
       await simWait(120);
     }
   };
-  const simMatchupMarket = async (ev, r, m) => {
+  const simMatchupMarket = async (ev, r, m, {
+    crowd=8,
+    backing="balanced",
+    ante="mixed",
+    lock=true,
+  } = {}) => {
     let s = stateRef.current;
     const draw = s.draws?.[ev.id];
     const bracket = s.brackets?.[ev.id];
@@ -1118,7 +1135,7 @@ export default function App() {
       && Number(item.match) === Number(m));
     if (!market) {
       const opened = await simDo("openMatchMarket", { eventId:ev.id, round:r, match:m },
-        `Opening crowd picks on ${teamLabel(s, draw.teams[a])} vs ${teamLabel(s, draw.teams[b])}`);
+        `Recovering the automatic matchup window`);
       await simWait(180);
       s = stateRef.current;
       market = s.contestMarkets?.[opened.extra?.marketId]
@@ -1128,36 +1145,95 @@ export default function App() {
     }
     if (!market || market.lockedAt) return;
     const competitors = new Set(market.sides.flatMap(side => side.players || []));
-    const spectators = shuffle(ROSTER.filter(player => !competitors.has(player))).slice(0, 8);
-    const oneSidedPool = (r + m) % 3 === 2;
+    const spectators = shuffle(ROSTER.filter(player => !competitors.has(player))).slice(0, crowd);
     for (let index = 0; index < spectators.length; index++) {
       const player = spectators[index];
-      const side = market.sides[oneSidedPool ? 0 : index % market.sides.length];
+      const side = market.sides[index % market.sides.length];
       await simDo("claim", { player });
       await simTry("recordContestPrediction", { marketId:market.id, sideKey:side.key },
         `${player} picks ${teamLabel(stateRef.current, { players:side.players })}`);
-      if (index < 4) {
-        await simTry("backContestPrediction", { marketId:market.id, sideKey:side.key, stake:PT },
-          `${player} backs the pick`);
+      if (backing !== "none" && index < 4 && !market.backing?.[player]) {
+        const backedSide = backing === "one-sided" ? market.sides[0] : side;
+        if (backedSide.key !== side.key) {
+          await simTry("recordContestPrediction", { marketId:market.id, sideKey:backedSide.key },
+            `${player} changes the free pick`);
+        }
+        await simTry("backContestPrediction", {
+          marketId:market.id,
+          sideKey:backedSide.key,
+          stake:RACK_DENOMS[index % RACK_DENOMS.length],
+        }, `${player} drops a custom chip`);
       }
       await simWait(180);
     }
-    const antePlayers = market.sides.flatMap(side => side.players || []);
-    for (let index = 0; index < antePlayers.length; index++) {
-      const player = antePlayers[index];
-      const accept = !((r + m) % 2 === 1 && index === antePlayers.length - 1);
-      await simDo("claim", { player });
-      await simTry("respondContestAnte", {
-        marketId:market.id,
-        accept,
-        ...(accept ? { stake:PT } : {}),
-      }, `${player} answers the private stakes prompt`);
-      await simWait(140);
+    if (ante !== "none") {
+      const antePlayers = market.sides.flatMap(side => side.players || []);
+      for (let index = 0; index < antePlayers.length; index++) {
+        const player = antePlayers[index];
+        if (market.ante?.responses?.[player]) continue;
+        const accept = ante === "accepted" || index < antePlayers.length - 1;
+        await simDo("claim", { player });
+        await simTry("respondContestAnte", {
+          marketId:market.id,
+          accept,
+          ...(accept ? { stake:PT } : {}),
+        }, `${player} answers the private stakes prompt`);
+        await simWait(140);
+      }
     }
-    await simDo("lockContestMarket", { marketId:market.id }, "Locking matchup picks");
-    await simWait(220);
+    if (lock) {
+      await simDo("lockContestMarket", { marketId:market.id }, "Starting the matchup");
+      await simWait(220);
+    }
   };
-  const simBetsRound = async () => {
+  const simCurrentMatchup = async options => {
+    const s = stateRef.current;
+    const market = Object.values(s.contestMarkets || {}).find(item =>
+      resolveContestMarket(s, item).status === "pending" && !item.lockedAt);
+    if (!market) throw new Error("No open matchup. Jump to Picks open first.");
+    const ev = allEventsOf(s).find(item => item.id === market.eventId);
+    if (!ev) throw new Error("The matchup event is missing");
+    await simMatchupMarket(ev, market.round, market.match, options);
+  };
+  const simStartCurrentMatchup = async () => {
+    let s = stateRef.current;
+    const market = Object.values(s.contestMarkets || {}).find(item =>
+      resolveContestMarket(s, item).status === "pending" && !item.lockedAt);
+    if (!market) throw new Error("No open matchup to start");
+    const ev = allEventsOf(s).find(item => item.id === market.eventId);
+    if (!ev) throw new Error("The matchup event is missing");
+    let lifecycle = resolveEventLifecycle(s, ev);
+    if (lifecycle.phase === "betting-open") {
+      await simDo("setOnDeck", { id:null }, `Closing event betting on ${ev.name}`);
+      s = stateRef.current;
+      lifecycle = resolveEventLifecycle(s, ev);
+    }
+    if (lifecycle.phase === "betting-locked")
+      await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
+    await simDo("startBracketMatch", {
+      evId:ev.id,
+      r:market.round,
+      m:market.match,
+    }, "Starting the physical matchup");
+  };
+  const simPostCurrentWinner = async () => {
+    const s = stateRef.current;
+    const market = Object.values(s.contestMarkets || {}).find(item =>
+      resolveContestMarket(s, item).status === "pending" && item.lockedAt);
+    if (!market) throw new Error("Start a matchup before posting its winner");
+    const bracket = s.brackets?.[market.eventId];
+    const match = bracket?.rounds?.[market.round]?.[market.match];
+    const left = resolveSlot(bracket, match?.a);
+    const right = resolveSlot(bracket, match?.b);
+    if (left === null || right === null) throw new Error("The matchup is not concrete");
+    await simDo("pickBracketWinner", {
+      evId:market.eventId,
+      r:market.round,
+      m:market.match,
+      teamIdx:rnd([left, right]),
+    }, "Posting the matchup winner");
+  };
+  const simBetsRound = async ({ lock=true } = {}) => {
     const evId = stateRef.current.onDeck;
     if (!evId) throw new Error("Open betting on an event first");
     const firstState = stateRef.current;
@@ -1165,7 +1241,7 @@ export default function App() {
     const firstBracket = firstState.brackets?.[evId];
     if (matchupStakesAllowed && firstEvent && firstBracket) {
       const next = nextOpenMatch(firstBracket);
-      if (next) await simMatchupMarket(firstEvent, next.r, next.m);
+      if (next) await simMatchupMarket(firstEvent, next.r, next.m, { lock });
       return;
     }
     /* Once Matchup Stakes has been introduced, the legacy house-backed book
@@ -1318,7 +1394,7 @@ export default function App() {
     await simEnsureFormat(ev);
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(600);
-    await simBetsRound();
+    await simBetsRound({ lock:false });
     await simDo("setOnDeck", { id:null }, `Betting locks on ${ev.name}`);
     await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
     let br = stateRef.current.brackets[ev.id];
@@ -1527,7 +1603,15 @@ export default function App() {
     await simEnsureFormat(ev);
     await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
     await simWait(400);
-    await simBetsRound();
+    if (stateRef.current.brackets?.[ev.id]) {
+      const next = nextOpenMatch(stateRef.current.brackets[ev.id]);
+      if (next) await simMatchupMarket(ev, next.r, next.m, {
+        crowd:6,
+        backing:"balanced",
+        ante:"mixed",
+        lock:false,
+      });
+    }
   };
   const runSim = (fn, fast = false) => () => {
     if (simRef.current.running) return;
@@ -1786,12 +1870,11 @@ export default function App() {
         {tab === "bets" && matchupStakesAllowed && pendingLegacyWagers.length === 0
           ? <MatchupStakesBoard state={state} me={me} standings={standings} gm={gmView} events={events}
               onEvents={() => setTab("sched")}
-              onOpen={openMatchMarket}
               onPredict={recordContestPrediction}
               onBack={backContestPrediction}
               onRetract={retractContestBacking}
               onAnte={respondContestAnte}
-              onLock={lockContestMarket}
+              onStart={startBracketMatch}
               onVoid={voidContestMarket} />
           : tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
               onDeckEv={onDeckEv} wagerEv={wagerEv}
@@ -1967,8 +2050,7 @@ export default function App() {
         matchupStakesEnabled={matchupStakesAllowed}
         onClose={() => setModal({type:"event", ev:modal.ev})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
-        onOpenMarket={(r,m) => openMatchMarket(modal.ev.id, r, m)}
-        onLockMarket={lockContestMarket}
+        onStartMarket={(r,m) => startBracketMatch(modal.ev.id, r, m)}
         onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool} roles={modal.roles}
@@ -2009,12 +2091,34 @@ export default function App() {
       {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens}
         onSwitch={player => switchPlayer(player, false)}
+        rolePlayers={qaRolePlayers}
+        onRole={role => {
+          const player = qaRolePlayers[role];
+          if (!player) return notify(`No ${role} is available for this matchup`);
+          switchPlayer(player, false);
+          setGuestLens(true);
+          setTab("bets");
+        }}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         onJump={jumpTo} pokerOn={pokerLive(state)}
         onPlayNext={() => { setModal(null); runSim(simPlayEvent)(); }}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
         onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
+        onCrowd={() => { setModal(null); qaGuard(() => simCurrentMatchup({
+          crowd:8, backing:"none", ante:"none", lock:false,
+        }))(); }}
+        onOneSided={() => { setModal(null); qaGuard(() => simCurrentMatchup({
+          crowd:8, backing:"one-sided", ante:"none", lock:false,
+        }))(); }}
+        onFunded={() => { setModal(null); qaGuard(() => simCurrentMatchup({
+          crowd:8, backing:"balanced", ante:"none", lock:false,
+        }))(); }}
+        onAnte={() => { setModal(null); qaGuard(() => simCurrentMatchup({
+          crowd:0, backing:"none", ante:"accepted", lock:false,
+        }))(); }}
+        onStartMatch={() => { setModal(null); qaGuard(simStartCurrentMatchup)(); }}
+        onPostWinner={() => { setModal(null); qaGuard(simPostCurrentWinner)(); }}
         onBustOne={() => { const pool = simPokerAlive().filter(q => q !== me); if (pool.length) pokerBust(pool[Math.floor(Math.random() * pool.length)]); }}
         onCountRest={async () => {
           const p = state.poker; if (!p) return;
@@ -4798,7 +4902,7 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
 }
 function BracketSheet({
   ev, state, gm, matchupStakesEnabled, onClose, onPick, onPostResult,
-  onOpenMarket, onLockMarket,
+  onStartMarket,
 }) {
   const [marketBusy, setMarketBusy] = useState(false);
   const br = state.brackets[ev.id];
@@ -4813,6 +4917,9 @@ function BracketSheet({
     && Number(item.round) === Number(next.r)
     && Number(item.match) === Number(next.m)) : null;
   const marketSummary = market ? contestMarketPublicSummary(state, market) : null;
+  const lifecycle = resolveEventLifecycle(state, ev);
+  const canStartMatch = gm && next && (!marketSummary || !marketSummary.locked)
+    && ["in-progress", "result-entry"].includes(lifecycle.phase);
   const runMarket = async operation => {
     if (marketBusy) return;
     setMarketBusy(true);
@@ -4829,7 +4936,7 @@ function BracketSheet({
         </div>
       )}
       {matchupStakesEnabled && next && (
-        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+        <div style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 12px",
           marginBottom:12, borderRadius:14, background:"var(--sun-tint)",
           border:"1px solid var(--sun)" }}>
           <div style={{ flex:1, minWidth:0 }}>
@@ -4845,22 +4952,20 @@ function BracketSheet({
               </div>
             )}
           </div>
-          {gm && !market && (
+          {canStartMatch && (
             <Btn kind="dark" disabled={marketBusy}
-              onClick={() => runMarket(() => onOpenMarket(next.r, next.m))}
+              onClick={() => runMarket(() => onStartMarket(next.r, next.m))}
               style={{ minHeight:44, padding:"9px 13px" }}>
-              {marketBusy ? "Opening…" : "Open picks"}</Btn>
+              {marketBusy ? "Starting…" : "Start matchup"}</Btn>
           )}
-          {gm && market && !marketSummary.locked && marketSummary.status === "pending" && (
-            <Btn kind="dark" disabled={marketBusy}
-              onClick={() => runMarket(() => onLockMarket(market.id))}
-              style={{ minHeight:44, padding:"9px 13px" }}>
-              {marketBusy ? "Locking…" : "Lock picks"}</Btn>
+          {marketSummary?.locked && marketSummary.status === "pending" && <Tag tone="gold">In play</Tag>}
+          {gm && !canStartMatch && !marketSummary?.locked && (
+            <Tag tone="green">{lifecycle.phase === "betting-open" ? "Picks open" : "Ready"}</Tag>
           )}
-          {marketSummary?.locked && marketSummary.status === "pending" && <Tag tone="gold">Picks locked</Tag>}
         </div>
       )}
-      <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick} />
+      <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick}
+        hot={next ? [next.r, next.m] : null} />
       <EventCrewCard state={state} roles={draw.roles} compact />
       {gm && champ !== null && !state.results[ev.id] && (
         <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
@@ -5973,9 +6078,57 @@ function matchupSideView(state, market, side) {
   };
 }
 
+function marketBackingChips(market, sideKey, onlyPlayer = null) {
+  return Object.entries(market?.backing || {}).flatMap(([player, backing]) => {
+    if (onlyPlayer && player !== onlyPlayer) return [];
+    if (String(backing?.sideKey) !== String(sideKey)) return [];
+    const chips = Array.isArray(backing.chips) && backing.chips.length
+      ? backing.chips : [{ stake:backing.stake }];
+    return chips.map(chip => ({
+      p:player,
+      val:Number(chip?.stake) || PT,
+    }));
+  });
+}
+
+function StakeChipRack({ player, room, target, onDrop, busy, labelText="Put a chip on your pick" }) {
+  return (
+    <div style={{ padding:"11px 12px 10px", borderRadius:14,
+      background:"var(--night)", border:"1px solid var(--ink0)" }}>
+      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:10 }}>
+        <div style={{ ...label, color:"var(--sun)", fontSize:9.5 }}>{labelText}</div>
+        <div style={{ marginLeft:"auto", fontFamily:SANS, fontWeight:700, fontSize:11,
+          color:"var(--night-text)" }}>{fmt(room)} available</div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-around", gap:8 }}>
+        {RACK_DENOMS.map(stake => {
+          const available = stake <= room && !busy;
+          return (
+            <button key={stake} disabled={!available}
+              aria-label={`${labelText}: ${stake}${target ? ` on ${target}` : ""}`}
+              onClick={() => onDrop(stake)}
+              style={{ width:52, minWidth:0, minHeight:58, display:"flex", alignItems:"center",
+                justifyContent:"center", background:"transparent", border:"none", padding:0,
+                cursor:available ? "pointer" : "default", opacity:available ? 1 : 0.24,
+                transition:"transform .14s ease, filter .14s ease",
+                filter:available ? "drop-shadow(0 4px 5px rgba(0,0,0,.32))" : "none" }}>
+              <BankChip p={player} size={46} val={stake} />
+            </button>
+          );
+        })}
+      </div>
+      {target && (
+        <div style={{ fontFamily:SANS, fontSize:11.5, textAlign:"center",
+          color:"var(--bone)", marginTop:7 }}>
+          Tap one to back <b>{target}</b>. Your chip design stays yours.</div>
+      )}
+    </div>
+  );
+}
+
 function MatchupStakesBoard({
-  state, me, standings, gm, events, onEvents, onOpen, onPredict,
-  onBack, onRetract, onAnte, onLock, onVoid,
+  state, me, standings, gm, events, onEvents, onPredict,
+  onBack, onRetract, onAnte, onStart, onVoid,
 }) {
   const [busy, setBusy] = useState(new Set());
   const run = async (key, operation) => {
@@ -5996,23 +6149,7 @@ function MatchupStakesBoard({
       Number(right.summary.status === "pending") - Number(left.summary.status === "pending")
       || Number(right.market.openedAt || 0) - Number(left.market.openedAt || 0));
   const pending = marketItems.filter(item => item.summary.status === "pending");
-  const recent = marketItems.filter(item => item.summary.status !== "pending").slice(0, 4);
-  const existingKeys = new Set(marketItems
-    .filter(item => !item.market.voidedAt)
-    .map(item => [
-      item.market.eventId, item.market.drawId, item.market.round, item.market.match,
-    ].join("|")));
-  const candidates = gm ? events.flatMap(event => {
-    const lifecycle = resolveEventLifecycle(state, event);
-    if (!["betting-open", "betting-locked", "in-progress"].includes(lifecycle.phase))
-      return [];
-    const bracket = state.brackets?.[event.id];
-    const draw = state.draws?.[event.id];
-    const next = nextOpenMatch(bracket);
-    if (!bracket || !draw || !next) return [];
-    const key = [event.id, draw.id, next.r, next.m].join("|");
-    return existingKeys.has(key) ? [] : [{ event, draw, ...next }];
-  }) : [];
+  const recent = marketItems.filter(item => item.summary.status !== "pending").slice(0, 3);
   const myPoints = standings.find(row => row.player === me)?.pts ?? 0;
   const myExposure = me ? atRisk(state, me, events) : 0;
   const room = me
@@ -6021,46 +6158,19 @@ function MatchupStakesBoard({
 
   return (
     <div style={{ padding:"0 16px 28px" }}>
-      <div style={{ padding:"4px 2px 14px" }}>
-        <div style={{ ...label, marginBottom:5 }}>Matchup picks</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, lineHeight:1,
-          textTransform:"uppercase", color:"var(--ink)", marginBottom:7 }}>
-          Pick it. Back it if you want.</div>
-        <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.5, color:"var(--muted2)", maxWidth:420 }}>
-          A crowd pick is free. Chips only move when both sides form a pool.
-          Competitors can quietly agree to raise the stakes.</div>
+      <div style={{ padding:"4px 2px 13px" }}>
+        <div style={{ ...label, marginBottom:4 }}>{gm ? "GM matchup view" : "Matchup picks"}</div>
+        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:28, lineHeight:1,
+          textTransform:"uppercase", color:"var(--ink)", marginBottom:6 }}>
+          {gm ? "Run the game. The picks follow." : "Pick a side. Put your chip on it."}</div>
+        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45,
+          color:"var(--muted2)", maxWidth:430 }}>
+          {gm
+            ? "Each concrete bracket matchup opens automatically. Start the matchup when play begins; record the winner when it ends."
+            : "Your first tap is a free crowd pick. Back it only if you feel it."}</div>
       </div>
 
-      {gm && candidates.length > 0 && (
-        <div style={{ marginBottom:14 }}>
-          <div style={{ ...label, marginBottom:7 }}>Call the next matchup</div>
-          {candidates.map(candidate => {
-            const left = candidate.draw.teams[candidate.a];
-            const right = candidate.draw.teams[candidate.b];
-            const key = `open:${candidate.event.id}:${candidate.r}:${candidate.m}`;
-            return (
-              <div key={key} style={{ border:"1px solid var(--line)", borderRadius:14,
-                background:"var(--paper)", padding:"11px 12px", marginBottom:7,
-                display:"flex", alignItems:"center", gap:10 }}>
-                <GameMark id={candidate.event.game} size={30} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)",
-                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                    {teamLabel(state, left)} vs {teamLabel(state, right)}</div>
-                  <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>
-                    {candidate.event.name} · {candidate.roundName}</div>
-                </div>
-                <Btn kind="dark" disabled={busy.has(key)}
-                  onClick={() => run(key, () => onOpen(candidate.event.id, candidate.r, candidate.m))}
-                  style={{ minHeight:44, padding:"9px 13px" }}>
-                  {busy.has(key) ? "Opening…" : "Open picks"}</Btn>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!pending.length && !recent.length && !candidates.length && !state.frozen && (
+      {!pending.length && !recent.length && !state.frozen && (
         <div style={{ textAlign:"center", padding:"clamp(52px,13vh,100px) 24px 24px",
           display:"flex", flexDirection:"column", alignItems:"center" }}>
           <div style={{ opacity:0.82, marginBottom:18 }}><ArtTicket /></div>
@@ -6068,7 +6178,7 @@ function MatchupStakesBoard({
             textTransform:"uppercase", color:"var(--ink)", marginBottom:9 }}>
             Next matchup gets the room</div>
           <div style={{ maxWidth:310, color:"var(--muted2)", fontFamily:SANS, fontSize:14, lineHeight:1.55 }}>
-            Picks appear when a fully seated head-to-head is called.</div>
+            Picks appear automatically when the next bracket matchup is concrete.</div>
           <Btn kind="ghost" onClick={onEvents} style={{ marginTop:18 }}>Browse the events</Btn>
         </div>
       )}
@@ -6077,7 +6187,7 @@ function MatchupStakesBoard({
         <MatchupMarketCard key={item.market.id} {...item}
           state={state} me={me} gm={gm} room={room} busy={busy} run={run}
           onPredict={onPredict} onBack={onBack} onRetract={onRetract}
-          onAnte={onAnte} onLock={onLock} onVoid={onVoid} />
+          onAnte={onAnte} onStart={onStart} onVoid={onVoid} />
       ))}
 
       {recent.length > 0 && (
@@ -6087,7 +6197,7 @@ function MatchupStakesBoard({
             <MatchupMarketCard key={item.market.id} {...item}
               state={state} me={me} gm={gm} room={room} busy={busy} run={run}
               onPredict={onPredict} onBack={onBack} onRetract={onRetract}
-              onAnte={onAnte} onLock={onLock} onVoid={onVoid} compact />
+              onAnte={onAnte} onStart={onStart} onVoid={onVoid} compact />
           ))}
         </>
       )}
@@ -6097,7 +6207,7 @@ function MatchupStakesBoard({
 
 function MatchupMarketCard({
   state, market, summary, me, gm, room, busy, run,
-  onPredict, onBack, onRetract, onAnte, onLock, onVoid, compact=false,
+  onPredict, onBack, onRetract, onAnte, onStart, onVoid, compact=false,
 }) {
   const [confirmVoid, setConfirmVoid] = useState(false);
   const event = allEventsOf(state).find(item => item.id === market.eventId);
@@ -6110,17 +6220,21 @@ function MatchupMarketCard({
   const anteResponse = market.ante?.responses?.[me] || null;
   const anteStake = Number(market.ante?.stake) || PT;
   const open = summary.status === "pending" && !summary.locked;
+  const lifecycle = event ? resolveEventLifecycle(state, event) : null;
+  const gmCanStart = gm && open && ["in-progress", "result-entry"].includes(lifecycle?.phase);
   const predictionPct = side => summary.predictionTotal
     ? Math.round(side.predictions / summary.predictionTotal * 100) : 0;
   const roundName = (ROUND_NAMES[state.brackets?.[market.eventId]?.size] || [])[market.round]
     || "Matchup";
   const myDelta = settlement.deltas?.[me] || 0;
   const backingNeedsOpponent = summary.backingCommitted > 0 && !summary.backingActive;
+  const viewRole = gm ? "gm" : role.role;
+  const pickedSide = sides.find(side => String(side.key) === minePick) || null;
 
   return (
-    <div style={{ borderRadius:16, border:"1px solid var(--line)", overflow:"hidden",
-      background:"var(--paper)", boxShadow:"var(--shadow-1)", marginBottom:12 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
+    <div style={{ borderRadius:18, border:"1.5px solid var(--ink)", overflow:"hidden",
+      background:"var(--paper)", boxShadow:"var(--shadow-2)", marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
         background:summary.status === "pending" ? "var(--night)" : "var(--paper2)" }}>
         {event && <GameMark id={event.game} size={30} />}
         <div style={{ flex:1, minWidth:0 }}>
@@ -6132,31 +6246,34 @@ function MatchupMarketCard({
             textTransform:"uppercase", color:summary.status === "pending" ? "var(--night-text)" : "var(--muted)" }}>
             {roundName}</div>
         </div>
-        <span style={{ ...label, fontSize:9.5, padding:"4px 8px", borderRadius:99,
+        <span style={{ ...label, fontSize:9.5, padding:"5px 9px", borderRadius:99,
           color:summary.status === "pending" ? summary.locked ? "var(--sun)" : "var(--ink0)" : "var(--muted2)",
           background:summary.status === "pending" && !summary.locked ? "var(--sun)" : "transparent",
           border:summary.status === "pending" && !summary.locked
             ? "none" : "1px solid " + (summary.status === "pending" ? "rgba(240,176,47,0.45)" : "var(--line)") }}>
           {summary.voided ? "Refunded"
             : summary.status === "settled" ? "Final"
-              : summary.locked ? "Locked" : "Open"}</span>
+              : summary.locked ? "In play" : "Picks open"}</span>
       </div>
 
-      <div style={{ padding:compact ? "10px 12px 12px" : "12px" }}>
+      <div style={{ padding:compact ? "10px 12px 12px" : "12px 12px 13px" }}>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           {sides.map(side => {
             const selected = minePick === String(side.key);
             const winner = summary.winnerKey === String(side.key);
             const blockedSwitch = !!mineBacking && !selected;
             const pickKey = `pick:${market.id}:${side.key}`;
+            const sideChips = marketBackingChips(market, side.key);
+            const mineCompetes = side.players.includes(me);
             return (
               <button key={side.key}
-                disabled={!open || role.role !== "spectator" || blockedSwitch || busy.has(pickKey)}
+                aria-pressed={selected}
+                disabled={!open || viewRole !== "spectator" || selected || blockedSwitch || busy.has(pickKey)}
                 onClick={() => run(pickKey, () => onPredict(market.id, side.key))}
-                style={{ minWidth:0, minHeight:compact ? 60 : 76, padding:"9px 10px", borderRadius:13,
-                  border:"1.5px solid " + (winner ? "var(--green)" : selected ? "var(--sun)" : "var(--line)"),
+                style={{ minWidth:0, minHeight:compact ? 66 : 106, padding:"10px", borderRadius:14,
+                  border:"2px solid " + (winner ? "var(--green)" : selected ? "var(--sun)" : "var(--line)"),
                   background:winner ? "var(--green-tint)" : selected ? "var(--sun-tint)" : "var(--paper2)",
-                  cursor:open && role.role === "spectator" && !blockedSwitch ? "pointer" : "default",
+                  cursor:open && viewRole === "spectator" && !selected && !blockedSwitch ? "pointer" : "default",
                   textAlign:"left", opacity:summary.status === "settled" && !winner ? 0.52 : 1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:7, minWidth:0 }}>
                   <AvatarStack state={state} players={side.players} size={compact ? 24 : 28} max={3} />
@@ -6166,12 +6283,21 @@ function MatchupMarketCard({
                     {side.name}{winner ? " · won" : ""}</span>
                 </div>
                 {!compact && (
-                  <div style={{ display:"flex", alignItems:"center", gap:7, marginTop:7,
-                    fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
-                    <span>{summary.predictionTotal ? `${predictionPct(side)}% crowd` : "No crowd picks"}</span>
-                    <span style={{ marginLeft:"auto", fontWeight:700,
-                      color:side.backing ? "var(--accent2)" : "var(--muted)" }}>
-                      {side.backing ? `${fmt(side.backing)} backed` : "No chips"}</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:10, minWidth:0 }}>
+                    <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:20,
+                      color:selected ? "var(--accent2)" : "var(--ink)", flexShrink:0 }}>
+                      {summary.predictionTotal ? `${predictionPct(side)}%` : "—"}</div>
+                    <div style={{ fontFamily:SANS, fontSize:9.5, lineHeight:1.15,
+                      color:"var(--muted)", textTransform:"uppercase" }}>
+                      crowd<br/>pick</div>
+                    <div style={{ marginLeft:"auto", minWidth:0 }}>
+                      {sideChips.length ? (
+                        <BetChipCluster chips={sideChips} size={26} max={3} />
+                      ) : (
+                        <span style={{ fontFamily:SANS, fontSize:10.5,
+                          color:"var(--muted)" }}>{mineCompetes ? "Your side" : "No chips yet"}</span>
+                      )}
+                    </div>
                   </div>
                 )}
               </button>
@@ -6179,39 +6305,46 @@ function MatchupMarketCard({
           })}
         </div>
 
-        {!compact && summary.status === "pending" && role.role === "spectator" && (
-          <div style={{ marginTop:10, padding:"10px 11px", borderRadius:13,
-            background:"var(--paper2)", border:"1px solid var(--line)" }}>
+        {!compact && summary.status === "pending" && viewRole === "spectator" && (
+          <div style={{ marginTop:10 }}>
             {!minePick ? (
-              <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", textAlign:"center" }}>
-                Pick a side for free. Chips are optional.</div>
+              <div style={{ padding:"10px 12px", borderRadius:13, background:"var(--sun-tint)",
+                border:"1px solid rgba(240,176,47,.48)", fontFamily:SANS, fontWeight:700,
+                fontSize:12.5, color:"var(--ink)", textAlign:"center" }}>
+                Tap a side for your free crowd pick.</div>
             ) : (
               <>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ ...label, fontSize:9.5 }}>Your pick</div>
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-                      {sides.find(side => String(side.key) === minePick)?.name}</div>
-                  </div>
-                  {open && (
-                    <>
-                      <Btn kind="dark" disabled={room < PT || busy.has(`back:${market.id}`)}
-                        onClick={() => run(`back:${market.id}`, () => onBack(market.id, minePick, PT))}
-                        style={{ minHeight:44, padding:"9px 12px" }}>Back +{PT}</Btn>
-                      {mineBacking && (
-                        <Btn kind="ghost" disabled={busy.has(`pull:${market.id}`)}
-                          onClick={() => run(`pull:${market.id}`, () => onRetract(market.id))}
-                          style={{ minHeight:44, padding:"9px 10px" }}>Pull {PT}</Btn>
-                      )}
-                    </>
-                  )}
+                <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 2px 9px" }}>
+                  <Tag tone="gold">Your pick</Tag>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5,
+                    color:"var(--ink)", minWidth:0, overflow:"hidden", textOverflow:"ellipsis",
+                    whiteSpace:"nowrap" }}>{pickedSide?.name}</div>
+                  <span style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11,
+                    color:"var(--muted)", flexShrink:0 }}>{mineBacking ? "backed" : "free"}</span>
                 </div>
+                {open && (
+                  <StakeChipRack player={me} room={room} target={pickedSide?.name}
+                    busy={busy.has(`back:${market.id}`)}
+                    onDrop={stake => run(`back:${market.id}`, () =>
+                      onBack(market.id, minePick, stake))} />
+                )}
                 {mineBacking && (
-                  <div style={{ marginTop:7, fontFamily:SANS, fontSize:11.5, lineHeight:1.4,
-                    color:projected === null ? "var(--muted)" : "var(--green)" }}>
-                    {fmt(mineBacking.stake)} committed · {projected === null
-                      ? "needs chips on another side to activate"
-                      : `current upside +${fmt(projected)} if your pick wins`}
+                  <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8,
+                    padding:"8px 10px", borderRadius:12, background:"var(--paper2)",
+                    border:"1px solid var(--line)" }}>
+                    <BetChipCluster
+                      chips={marketBackingChips(market, minePick, me)}
+                      size={27} max={3} reserveAction={open}
+                      onRetract={open && !busy.has(`pull:${market.id}`)
+                        ? () => run(`pull:${market.id}`, () => onRetract(market.id))
+                        : undefined} />
+                    <div style={{ flex:1, minWidth:0, fontFamily:SANS, fontSize:11.5,
+                      lineHeight:1.35, color:projected === null ? "var(--muted2)" : "var(--green)" }}>
+                      <b>{fmt(mineBacking.stake)} of your chips</b><br/>
+                      {projected === null
+                        ? "They return unless the other side gets chips."
+                        : `Current upside +${fmt(projected)} if your pick wins.`}
+                    </div>
                   </div>
                 )}
               </>
@@ -6219,41 +6352,75 @@ function MatchupMarketCard({
           </div>
         )}
 
-        {!compact && summary.status === "pending" && role.role === "competitor" && (
+        {!compact && summary.status === "pending" && viewRole === "competitor" && (
           <div style={{ marginTop:10, padding:"11px", borderRadius:13,
             background:summary.anteActive ? "var(--sun-tint)" : "var(--paper2)",
             border:"1px solid " + (summary.anteActive ? "var(--sun)" : "var(--line)") }}>
-            <div style={{ ...label, fontSize:9.5, marginBottom:4 }}>Competitor stakes</div>
+            <div style={{ ...label, fontSize:9.5, marginBottom:4 }}>You’re in this matchup</div>
             {summary.locked ? (
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
                 {summary.anteActive
-                  ? `Stakes raised · ${fmt(summary.anteCommitted)} in the ante`
-                  : "Playing as-is · no ante activated"}</div>
+                  ? `Stakes raised · ${fmt(anteStake)} each`
+                  : "Play the game · no competitor stakes"}</div>
+            ) : anteResponse === "accepted" ? (
+              <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+                <BankChip p={me} size={48} val={anteStake} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
+                    You’re in for {fmt(anteStake)}</div>
+                  <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35, color:"var(--muted2)" }}>
+                    It activates only if every competitor opts in.</div>
+                </div>
+                <button disabled={busy.has(`ante-out:${market.id}`)}
+                  onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
+                  style={{ border:"none", background:"transparent", color:"var(--muted)",
+                    fontFamily:SANS, fontWeight:700, fontSize:11, cursor:"pointer",
+                    textDecoration:"underline", textUnderlineOffset:3 }}>Play as-is</button>
+              </div>
             ) : (
               <>
                 <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45, color:"var(--muted2)",
                   marginBottom:9 }}>
-                  Everyone on both sides must quietly opt in. Otherwise nothing changes.</div>
-                <div style={{ display:"flex", gap:8 }}>
-                  <Btn kind={anteResponse === "accepted" ? "primary" : "dark"}
-                    disabled={busy.has(`ante-in:${market.id}`)}
-                    onClick={() => run(`ante-in:${market.id}`, () => onAnte(market.id, true, anteStake))}
-                    style={{ flex:1, minHeight:44 }}>
-                    {anteResponse === "accepted" ? `You're in · ${fmt(anteStake)}` : `Raise it · ${fmt(anteStake)}`}
-                  </Btn>
+                  Want to raise the stakes? This stays private and optional. If anyone plays as-is, no ante forms.</div>
+                {market.ante?.stake ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <button disabled={anteStake > room || busy.has(`ante-in:${market.id}`)}
+                      onClick={() => run(`ante-in:${market.id}`, () =>
+                        onAnte(market.id, true, anteStake))}
+                      aria-label={`Join the ${anteStake} competitor stake`}
+                      style={{ width:58, height:58, borderRadius:99, border:"none",
+                        background:"transparent", padding:0, cursor:anteStake <= room ? "pointer" : "default",
+                        opacity:anteStake <= room ? 1 : 0.28 }}>
+                      <BankChip p={me} size={52} val={anteStake} />
+                    </button>
+                    <div style={{ flex:1, fontFamily:SANS, fontWeight:700, fontSize:13,
+                      color:"var(--ink)" }}>Tap your chip to join<br/>
+                      <span style={{ fontWeight:400, fontSize:11.5, color:"var(--muted2)" }}>
+                        {fmt(anteStake)} each</span></div>
+                    <Btn kind={anteResponse === "declined" ? "primary" : "ghost"}
+                      disabled={busy.has(`ante-out:${market.id}`)}
+                      onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
+                      style={{ minHeight:42, padding:"8px 10px" }}>Play as-is</Btn>
+                  </div>
+                ) : (
+                  <StakeChipRack player={me} room={room} busy={busy.has(`ante-in:${market.id}`)}
+                    labelText="Choose the equal stake"
+                    onDrop={stake => run(`ante-in:${market.id}`, () =>
+                      onAnte(market.id, true, stake))} />
+                )}
+                {!market.ante?.stake && (
                   <Btn kind={anteResponse === "declined" ? "primary" : "ghost"}
                     disabled={busy.has(`ante-out:${market.id}`)}
                     onClick={() => run(`ante-out:${market.id}`, () => onAnte(market.id, false))}
-                    style={{ flex:1, minHeight:44 }}>
-                    {anteResponse === "declined" ? "Playing as-is" : "No stakes"}
-                  </Btn>
-                </div>
+                    style={{ width:"100%", minHeight:42, marginTop:8 }}>
+                    {anteResponse === "declined" ? "Playing as-is" : "Play as-is"}</Btn>
+                )}
               </>
             )}
           </div>
         )}
 
-        {!compact && (
+        {!compact && viewRole !== "gm" && (
           <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:10,
             fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
             <span>{summary.predictionTotal
@@ -6265,6 +6432,60 @@ function MatchupMarketCard({
                 : backingNeedsOpponent ? "Backing refunds unless both sides fund"
                   : summary.backingCommitted > 0 ? `${fmt(summary.backingCommitted)} waiting to activate`
                     : "No chips required"}</span>
+          </div>
+        )}
+
+        {!compact && summary.status === "pending" && viewRole === "gm" && (
+          <div style={{ marginTop:10, padding:"11px 12px", borderRadius:14,
+            background:"var(--paper2)", border:"1px solid var(--line)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ ...label, fontSize:9.5 }}>GM · matchup lifecycle</div>
+                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5,
+                  color:"var(--ink)", marginTop:3 }}>
+                  {summary.locked ? "In play · record the winner in the bracket"
+                    : gmCanStart ? "Ready to play · picks are still open"
+                      : "Picks opened automatically · start the event from the Board"}</div>
+                <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35,
+                  color:"var(--muted2)", marginTop:3 }}>
+                  {summary.predictionTotal} crowd pick{summary.predictionTotal === 1 ? "" : "s"}
+                  {summary.backingCommitted ? ` · ${fmt(summary.backingCommitted)} in chips` : ""}
+                  {summary.anteActive ? " · competitor stakes ready" : ""}</div>
+              </div>
+              {gmCanStart && (
+                <Btn disabled={busy.has(`start:${market.id}`)}
+                  onClick={() => run(`start:${market.id}`, () =>
+                    onStart(market.eventId, market.round, market.match))}
+                  style={{ minHeight:48, padding:"10px 13px" }}>
+                  {busy.has(`start:${market.id}`) ? "Starting…" : "Start matchup"}</Btn>
+              )}
+              {summary.locked && <Tag tone="gold">In play</Tag>}
+            </div>
+            <details style={{ marginTop:9, paddingTop:8, borderTop:"1px solid var(--line)" }}>
+              <summary style={{ cursor:"pointer", fontFamily:SANS, fontWeight:700,
+                fontSize:11, color:"var(--muted2)", listStyle:"none" }}>
+                Recovery controls</summary>
+              {!confirmVoid ? (
+                <Btn kind="danger" onClick={() => setConfirmVoid(true)}
+                  style={{ width:"100%", minHeight:42, marginTop:8 }}>Void and refund</Btn>
+              ) : (
+                <div style={{ padding:"10px", marginTop:8, borderRadius:12,
+                  background:"var(--clay-tint)", border:"1px solid var(--danger-line)" }}>
+                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5,
+                    color:"var(--ink)", marginBottom:8 }}>
+                    Refund every committed chip and close this matchup?</div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <Btn kind="danger" disabled={busy.has(`void:${market.id}`)}
+                      onClick={() => run(`void:${market.id}`, async () => {
+                        const result = await onVoid(market.id, "Commissioner voided the matchup market");
+                        if (result?.ok) setConfirmVoid(false);
+                      })} style={{ flex:1, minHeight:42 }}>Confirm refund</Btn>
+                    <Btn kind="ghost" onClick={() => setConfirmVoid(false)}
+                      style={{ flex:1, minHeight:42 }}>Keep matchup</Btn>
+                  </div>
+                </div>
+              )}
+            </details>
           </div>
         )}
 
@@ -6285,36 +6506,6 @@ function MatchupMarketCard({
             Voided · every committed chip returned.</div>
         )}
 
-        {gm && summary.status === "pending" && (
-          <div style={{ marginTop:11, paddingTop:10, borderTop:"1px solid var(--line)" }}>
-            {!confirmVoid ? (
-              <div style={{ display:"flex", gap:8 }}>
-                {!summary.locked && (
-                  <Btn kind="dark" disabled={busy.has(`lock:${market.id}`)}
-                    onClick={() => run(`lock:${market.id}`, () => onLock(market.id))}
-                    style={{ flex:1, minHeight:44 }}>Lock picks</Btn>
-                )}
-                <Btn kind="danger" onClick={() => setConfirmVoid(true)}
-                  style={{ flex:1, minHeight:44 }}>Void and refund</Btn>
-              </div>
-            ) : (
-              <div style={{ padding:"10px", borderRadius:12, background:"var(--clay-tint)",
-                border:"1px solid var(--danger-line)" }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-                  marginBottom:8 }}>Refund every committed chip and close this matchup market?</div>
-                <div style={{ display:"flex", gap:8 }}>
-                  <Btn kind="danger" disabled={busy.has(`void:${market.id}`)}
-                    onClick={() => run(`void:${market.id}`, async () => {
-                      const result = await onVoid(market.id, "Commissioner voided the matchup market");
-                      if (result?.ok) setConfirmVoid(false);
-                    })} style={{ flex:1, minHeight:44 }}>Confirm refund</Btn>
-                  <Btn kind="ghost" onClick={() => setConfirmVoid(false)}
-                    style={{ flex:1, minHeight:44 }}>Keep open</Btn>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -7047,8 +7238,9 @@ function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,
 /* QA jump sheet: checkpoints land the board at a named point in the weekend,
    helpers poke one feature at a time. Everything runs the sim driver; the
    bar shows progress and holds the Stop. */
-function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
+function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, rolePlayers, onRole, onLens,
   onJump, pokerOn, onPlayNext, onDuelMe, onDuels, onBets,
+  onCrowd, onOneSided, onFunded, onAnte, onStartMatch, onPostWinner,
   onBustOne, onCountRest, onRerun, onReplayMine, onResetRequest, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
@@ -7068,9 +7260,11 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
         <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginLeft:"auto" }}>
           state v{status.schema} · sync {status.version}</span>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:7 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:7 }}>
         {stat(`${status.completed}/${status.total}`, "Events")}
-        {stat(status.pendingWagers + status.openMarkets, "Open picks/bets")}
+        {stat(status.openMarkets, "Open matchups")}
+        {stat(status.matchup?.picks || 0, "Crowd picks")}
+        {stat(fmt(status.matchup?.chips || 0), "Chips riding")}
         {stat(status.openDuels, "Open duels")}
         {stat(`${status.profiles}/${ROSTER.length}`, "Profiles")}
       </div>
@@ -7087,23 +7281,36 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
         )}
       </div>
 
-      <div style={sect}>View as player</div>
-      <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
-        {ROSTER.map(player => (
-          <button key={player} disabled={busy} onClick={() => onSwitch(player)}
-            style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
-              borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
-              background:me === player ? "var(--sun)" : "var(--paper2)",
-              color:me === player ? "var(--ink0)" : "var(--ink)",
-              border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
-              opacity:busy ? 0.45 : 1 }}>{player}</button>
-        ))}
+      <div style={sect}>Test lens</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+        <Btn kind={guestLens && me === rolePlayers?.spectator ? "primary" : "ghost"}
+          disabled={busy || !rolePlayers?.spectator} onClick={() => onRole("spectator")}>
+          Spectator · {rolePlayers?.spectator || "none"}</Btn>
+        <Btn kind={guestLens && me === rolePlayers?.competitor ? "primary" : "ghost"}
+          disabled={busy || !rolePlayers?.competitor} onClick={() => onRole("competitor")}>
+          Competitor · {rolePlayers?.competitor || "none"}</Btn>
       </div>
       <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
         <Btn kind={guestLens ? "primary" : "ghost"} onClick={onLens}>
-          {guestLens ? "Guest view on" : "Guest view"}</Btn>
+          {guestLens ? "Return to GM lens" : "Player lens"}</Btn>
         <Btn kind="ghost" onClick={onReplayMine}>Redo check-in here</Btn>
       </div>
+      <details style={{ marginTop:8, border:"1px solid var(--line)", borderRadius:10,
+        background:"var(--paper2)", padding:"8px 10px" }}>
+        <summary style={{ cursor:"pointer", fontFamily:SANS, fontWeight:700,
+          fontSize:12, color:"var(--muted2)", listStyle:"none" }}>Choose any player</summary>
+        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingTop:8 }}>
+          {ROSTER.map(player => (
+            <button key={player} disabled={busy} onClick={() => onSwitch(player)}
+              style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
+                borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
+                background:me === player ? "var(--sun)" : "var(--paper)",
+                color:me === player ? "var(--ink0)" : "var(--ink)",
+                border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
+                opacity:busy ? 0.45 : 1 }}>{player}</button>
+          ))}
+        </div>
+      </details>
 
       <div style={sect}>Rehearsal checkpoints</div>
       {presets.map(pre => {
@@ -7127,10 +7334,33 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
         );
       })}
 
+      <div style={sect}>Matchup lab</div>
+      <div style={{ padding:"10px 11px", marginBottom:8, borderRadius:10,
+        background:"var(--sun-tint)", border:"1px solid rgba(240,176,47,.45)",
+        fontFamily:SANS, fontSize:12, lineHeight:1.45, color:"var(--muted2)" }}>
+        Start with <b style={{color:"var(--ink)"}}>Picks open</b>, add one condition,
+        then switch between spectator, competitor, and GM lenses. Chips use every
+        simulated player’s saved custom design.</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+        <Btn kind="ghost" disabled={busy} onClick={onCrowd}>Crowd picks only</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onOneSided}>One-sided chips</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onFunded}>Fund both sides</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onAnte}>Complete ante</Btn>
+        <Btn kind="primary" disabled={busy} onClick={onStartMatch}>Start matchup</Btn>
+        <Btn kind="dark" disabled={busy} onClick={onPostWinner}>Post winner</Btn>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:7, margin:"8px 2px 0",
+        fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>
+        <Tag tone={status.matchup?.locked ? "gold" : "green"}>
+          {status.matchup?.locked ? "In play" : status.matchup ? "Picks open" : "No matchup"}</Tag>
+        {status.matchup?.ante && <span>Ante active</span>}
+        {status.matchup?.chips > 0 && <span>{fmt(status.matchup.chips)} chips committed</span>}
+      </div>
+
       <div style={sect}>Quick tests</div>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         <Btn kind="primary" disabled={busy} onClick={onPlayNext}>Run next event</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onBets}>Add picks/bets</Btn>
+        <Btn kind="ghost" disabled={busy} onClick={onBets}>Populate + lock picks</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuelMe}>Duel me</Btn>
         <Btn kind="ghost" disabled={busy} onClick={onDuels}>Duels round</Btn>
         {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
@@ -8461,10 +8691,17 @@ function TVMatchupStakes({ state, market }) {
                 lineHeight:1, color:"var(--sun)" }}>
                 {summary.predictionTotal ? `${pct(side)}%` : "—"}</div>
             </div>
-            <div style={{ fontFamily:SANS, fontSize:"clamp(10px,0.95vw,13px)",
-              color:"var(--night-text)", marginTop:4 }}>
-              {side.predictions} pick{side.predictions === 1 ? "" : "s"}
-              {side.backing > 0 ? ` · ${fmt(side.backing)} backed` : ""}</div>
+            <div style={{ display:"flex", flexDirection:index === 0 ? "row" : "row-reverse",
+              alignItems:"center", gap:8, marginTop:5 }}>
+              <div style={{ fontFamily:SANS, fontSize:"clamp(10px,0.95vw,13px)",
+                color:"var(--night-text)" }}>
+                {side.predictions} pick{side.predictions === 1 ? "" : "s"}
+                {side.backing > 0 ? ` · ${fmt(side.backing)} backed` : ""}</div>
+              {side.backing > 0 && (
+                <BetChipCluster chips={marketBackingChips(market, side.key)}
+                  size={27} max={3} />
+              )}
+            </div>
           </div>
         </React.Fragment>
       ))}
@@ -8576,11 +8813,18 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       const crowd = contest.summary.predictionTotal
         ? Math.round(side.predictions / contest.summary.predictionTotal * 100) : null;
       return (
-        <span style={{ flexShrink:0, padding:"3px 7px", borderRadius:7,
-          background:"var(--sun-tint)", border:"1px solid rgba(240,176,47,0.45)",
-          fontFamily:SANS, fontWeight:800, fontSize:11, color:"var(--accent2)" }}>
-          {crowd !== null ? `${crowd}%` : ""}
-          {side.backing > 0 ? `${crowd !== null ? " · " : ""}${fmt(side.backing)}` : ""}
+        <span style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0,
+          minWidth:0 }}>
+          <span style={{ padding:"3px 6px", borderRadius:7,
+            background:"var(--sun-tint)", border:"1px solid rgba(240,176,47,0.45)",
+            fontFamily:SANS, fontWeight:800, fontSize:11, color:"var(--accent2)" }}>
+            {crowd !== null ? `${crowd}%` : "—"}
+          </span>
+          {side.backing > 0 && (
+            <BetChipCluster
+              chips={marketBackingChips(contest.market, side.key)}
+              size={25} max={3} />
+          )}
         </span>
       );
     }
@@ -9053,12 +9297,13 @@ function Guide({ events, state }) {
         Solo events pay the podium. Team events pay every player on the placing team the full amount.
         Ties are settled on the spot, and a championship tie is one pressure putt.
       </Rule>
-      <Rule title="Betting" meta="One open event · 100 to 1,000 per tap">
-        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts.
-        Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1.
-        Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one
-        bad decision, only half your points can be at risk at a time. Bets settle off the official result,
-        so correcting a result corrects the payouts. I can void any wager.
+      <Rule title="Matchup picks" meta="Free crowd pick · optional custom chips · player-funded">
+        When the bracket produces the next concrete matchup, everyone watching can make a free pick.
+        If you want more on it, tap one of your own custom chips to back that same side. A chip pool
+        activates only when both sides receive backing; otherwise every chip returns. Competitors get
+        a separate, private chance to agree to an equal ante on themselves. Nothing is required, betting
+        never pays the house, and every settled or refunded chip stays inside the group. Correcting the
+        official result corrects the settlement.
       </Rule>
       <Rule title="Duels" meta="Quick Draw · equal ante · three a day">
         Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same.

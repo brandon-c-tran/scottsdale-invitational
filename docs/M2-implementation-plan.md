@@ -469,6 +469,20 @@ All participation and GM commands are Durable Object actions gated by
 request ledger. Official bracket actions still lock an existing market when
 the capability is disabled so rollback cannot strand committed chips.
 
+Market creation is lifecycle plumbing, not a visible GM task. Putting a bracket
+event on deck ensures the next concrete matchup market, result entry locks the
+current terms if necessary, and bracket advancement ensures the next market.
+The GM's visible `Start matchup` command maps to physical play beginning and
+locks participation. It is retry-safe in `marketOps`; void/refund stays under
+recovery controls.
+
+The guest surface reuses the M1 chip language instead of generic financial
+buttons. A spectator taps a side for a free pick and then taps their own
+custom-color, custom-pattern denomination to add backing. Competitor ante
+choices use the same chip face. All chip piles use the bounded
+`BetChipCluster`, keeping matchup and bracket dimensions fixed as participation
+grows. GM lens suppresses player participation controls.
+
 ## 4. Dependency ordering
 
 ```text
@@ -706,7 +720,9 @@ The existing production-host rejection remains unchanged.
 
 ### 9.4 Matchup Stakes focused tests
 
-- a matchup proceeds with no market or participation
+- a matchup proceeds with no participation and an automatically prepared record
+- putting the event on deck prepares exactly one next-match market
+- starting physical play locks it and bracket advancement prepares the next
 - unanimous equal ante activates and settles zero-sum
 - decline leaves the ante inactive and does not block the bracket
 - a free prediction changes no balance or exposure
@@ -862,10 +878,14 @@ an unfinished guest surface.
 Implemented and enabled in isolated staging; the staging rehearsal remains:
 
 - replace the legacy book when the capability is enabled
-- add the GM's open, lock, void, and recovery controls in matchup flow
-- add competitor ante and spectator pick/back interactions
+- automatically prepare markets from the official bracket lifecycle
+- add the GM's start, void, and recovery controls in matchup flow
+- restore custom chips as the primary competitor ante and spectator backing
+  interactions, with fixed-footprint piles
 - show projected, changeable pool returns in plain language
 - add aggregate crowd split and activated-pot context to TV and Show Control
+- add QA lenses and scenarios for spectator, competitor, GM, crowd-only,
+  one-sided, funded, ante, start, and result states
 - rehearse legacy cutover and rollback on a production-shaped staging snapshot
 
 Exit: staging completes no-wager, thin-pool, funded-pool, cancellation,

@@ -452,16 +452,22 @@ the contest returns zero deltas. Low participation never blocks the matchup.
 
 Mobile is role-aware:
 
-- a competitor sees the ante choice and its neutral activation status
-- a spectator sees one free pick followed by an optional “Back with chips”
+- a competitor sees the ante choice as their own custom chip and its neutral
+  activation status
+- a spectator taps one side for a free pick, then optionally taps one of their
+  own customized chip denominations to back it
 - someone who declines or ignores the module sees no repeated pressure
-- the GM sees open, lock, void, participation health, and recovery controls
+- the GM never creates a market manually; the official bracket opens the next
+  concrete matchup automatically
+- the GM sees one primary `Start matchup` action that represents physical play
+  beginning and locks picks, while void/refund remains a tucked-away recovery
+  control
 
 TV may show the concrete matchup, aggregate crowd split, total activated pot,
-and a neutral “stakes raised” treatment. It does not show individual backing,
-who declined an ante, or a harsh prediction leaderboard. Show Control may
-reference this aggregate context, but neither TV nor audio participates in
-settlement.
+and the custom chips physically riding each side without adding names or an
+expandable bettor ledger. It never shows who declined an ante or a harsh
+prediction leaderboard. Show Control may reference this aggregate context, but
+neither TV nor audio participates in settlement.
 
 Cold start is free-pick first. A matchup with zero chips remains a useful crowd
 prediction and proceeds normally. Props are deferred until an opposing-outcome,
@@ -563,14 +569,18 @@ P1 is defined now but begins only after the P0 operating loop is rehearsed:
 
 ### 10.6 Raise the stakes on a matchup
 
-1. The GM opens a contest market for a fully seated, undecided bracket matchup.
+1. The official bracket automatically opens picks when its next fully seated,
+   undecided matchup becomes concrete.
 2. Each competitor may accept the same per-player ante or quietly decline.
-3. Spectators may make a free pick and optionally add 100-chip units.
-4. The GM locks the market, or posting the matchup winner locks it atomically.
+3. Spectators tap a side for a free pick and may then place their own custom
+   100-, 200-, 500-, or 1,000-chip denominations on it.
+4. The GM taps `Start matchup` when physical play begins, which locks terms.
+   Posting the winner still locks atomically if the GM skipped that tap.
 5. Inactive ante and one-sided backing are refunded without blocking play.
 6. The official bracket winner derives one exact zero-sum settlement.
 7. If the GM corrects the winner, the former derivation disappears and the
    corrected settlement replaces it.
+8. Bracket advancement automatically prepares the next concrete matchup.
 
 ## 11. Functional requirements
 
@@ -684,6 +694,10 @@ Rules:
 
 - One focal point per scene.
 - Use the existing chip, player photo, number, event mark, and phase palette.
+- Custom chip color, pattern, and denomination are the primary backing control,
+  not decoration around a generic action button.
+- Chip piles have a fixed footprint with an overflow count so participation
+  never stretches a matchup card or bracket cell.
 - Preserve full-dark TV chrome and living-room contrast.
 - Keep routine scene motion under a few seconds.
 - Major scenes may use multiple steps; normal and routine scenes should not.
@@ -892,7 +906,10 @@ Compatibility:
 - game-progress reset clears transient show state
 - no audio provider is consulted by scene actions
 - duplicate command delivery is safe
-- proceed with no contest market
+- proceed with no contest participation
+- putting a bracket event on deck creates exactly one next-match market
+- starting physical play locks the existing market without a separate open step
+- posting a bracket winner prepares the next concrete matchup automatically
 - accept, decline, lock, settle, void, and retry matchup participation
 - record and change a free prediction without moving chips
 - add and retract pooled backing with affordability protection
@@ -1088,7 +1105,8 @@ Staging rehearsal, final theme-name approval, and ceremony consumption remain.
 - [x] settlement math is player-funded, whole-chip, deterministic, and zero-sum
 - [x] legacy production-shaped state hydrates without reinterpretation
 - [x] role-aware mobile controls replace the legacy book when enabled
-- [ ] GM open, lock, void, and recovery controls are rehearsed on staging
+- [ ] automatic opening, GM start, void, and recovery controls are rehearsed
+  on staging
 - [x] TV shows aggregate sentiment and activated stakes without private detail
 - [ ] heat, final, and bounded multi-outcome adapters reuse the shared primitive
 - [ ] the rollout gate verifies no legacy wager remains pending

@@ -106,14 +106,65 @@ function back(state, marketId, name, sideKey, stake, actionId) {
   return result;
 }
 
-test("a concrete matchup proceeds normally with no market or wagering", () => {
+test("a concrete matchup proceeds normally with no participation", () => {
   const state = matchupState();
   const before = total(state);
   startCompetition(state);
   pickWinner(state, 0);
   assert.equal(state.brackets[eventId].rounds[0][0].winner, 0);
   assert.equal(total(state), before);
-  assert.deepEqual(state.contestMarkets, {});
+  const market = Object.values(state.contestMarkets)[0];
+  assert.ok(market, "result recovery creates the concrete matchup record");
+  assert.deepEqual(market.predictions, {});
+  assert.deepEqual(market.backing, {});
+  assert.equal(resolveContestMarket(state, market).status, "settled");
+});
+
+test("putting a bracket event on deck opens its next matchup automatically", () => {
+  const state = matchupState();
+  state.onDeck = null;
+  state.eventOps[eventId] = {};
+  const opened = applyAction(state, "setOnDeck", { id:eventId }, gm("event-on-deck"));
+  assert.equal(opened.ok, true, opened.error);
+  assert.equal(opened.extra.marketCreated, true);
+  const market = state.contestMarkets[opened.extra.marketId];
+  assert.ok(market);
+  assert.equal(market.round, 0);
+  assert.equal(market.match, 0);
+  assert.equal(market.lockedAt, null);
+
+  const retry = applyAction(state, "setOnDeck", { id:eventId }, gm("event-on-deck-retry"));
+  assert.equal(retry.ok, true, retry.error);
+  assert.equal(retry.extra.unchanged, true);
+  assert.equal(Object.keys(state.contestMarkets).length, 1);
+});
+
+test("starting play locks the current matchup and bracket progress opens the next one", () => {
+  const state = matchupState();
+  const marketId = openMarket(state);
+  startCompetition(state);
+  const started = applyAction(state, "startBracketMatch", {
+    evId:eventId,
+    r:0,
+    m:0,
+  }, gm("start-physical-matchup"));
+  assert.equal(started.ok, true, started.error);
+  assert.ok(state.contestMarkets[marketId].lockedAt);
+  const retry = applyAction(state, "startBracketMatch", {
+    evId:eventId,
+    r:0,
+    m:0,
+  }, gm("start-physical-matchup"));
+  assert.equal(retry.ok, true, retry.error);
+  assert.equal(retry.extra.unchanged, true);
+
+  const winner = pickWinner(state, 0, "advance-and-prepare-next");
+  assert.ok(winner.extra.nextMarketId);
+  const next = state.contestMarkets[winner.extra.nextMarketId];
+  assert.equal(next.round, 0);
+  assert.equal(next.match, 1);
+  assert.equal(next.lockedAt, null);
+  assert.equal(Object.keys(state.contestMarkets).length, 2);
 });
 
 test("roles separate a consensual team ante from spectator prediction and backing", () => {

@@ -363,20 +363,60 @@ function Tag({ children, tone="dim", style }) {
   return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
     padding:"3px 8px", borderRadius:6, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
 }
-function Btn({ children, onClick, kind="primary", disabled, style, ...props }) {
-  const kinds = {
-    primary: { background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)" },
-    flame:   { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
-    ghost:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
-    dark:    { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
-    danger:  { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(192,71,58,0.55)" },
+/* Variant is hierarchy, not appearance: primary is the one next thing,
+   secondary is a real alternative, tertiary is quiet, destructive is the
+   outlined entry into a flow that loses something, commit is the filled
+   confirm step inside that flow. A destructive style never doubles as a
+   routine secondary. An async onClick gets one pending state and further
+   taps are ignored until it settles, so callers do not wire their own
+   duplicate-tap guards. */
+const ACTION_VARIANTS = {
+  primary:     { background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)" },
+  secondary:   { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
+  tertiary:    { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
+  destructive: { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(192,71,58,0.55)" },
+  commit:      { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
+};
+function ActionButton({ children, onClick, variant="primary", pending, disabled, compact, style, ...props }) {
+  const [busy, setBusy] = useState(false);
+  const waiting = !!pending || busy;
+  const off = disabled || waiting;
+  const handle = event => {
+    if (off || !onClick) return;
+    const result = onClick(event);
+    if (result && typeof result.then === "function") {
+      setBusy(true);
+      result.then(() => setBusy(false), () => setBusy(false));
+    }
   };
   return (
-    <button onClick={onClick} disabled={disabled} {...props} style={{ fontFamily:SANS, fontWeight:700,
-      letterSpacing:"0.04em", fontSize:14, textTransform:"uppercase", padding:"12px 16px", borderRadius:10, minHeight:44,
-      cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.35 : 1,
-      transition:"transform .1s", ...kinds[kind], ...style }}>{children}</button>
+    <button onClick={handle} disabled={disabled} aria-busy={waiting || undefined} {...props}
+      style={{ fontFamily:SANS, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase",
+      fontSize: compact ? 12 : 14, padding: compact ? "8px 11px" : "12px 16px",
+      borderRadius:10, minHeight: compact ? 36 : 44,
+      cursor: off ? "default" : "pointer", opacity: disabled ? 0.35 : waiting ? 0.6 : 1,
+      transition:"transform .1s, opacity .15s", ...ACTION_VARIANTS[variant], ...style }}>{children}</button>
   );
+}
+/* Icon actions are commands too; the label is required so none ships unnamed. */
+function IconButton({ label, onClick, size=38, selected, disabled, style, children, ...props }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-label={label} title={label} {...props}
+      style={{ width:size, height:size, borderRadius:10, flexShrink:0,
+      cursor: disabled ? "default" : "pointer",
+      background: selected ? "var(--sun)" : "transparent",
+      border:"1.5px solid " + (selected ? "var(--sun)" : "var(--ghost-line)"),
+      color: selected ? "var(--ink0)" : "var(--bone)",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      opacity: disabled ? 0.35 : 1, ...style }}>{children}</button>
+  );
+}
+/* Legacy alias: kind names described appearance; they now resolve to the
+   semantic variants so every existing call site shares one behavior. New
+   surfaces use ActionButton directly. */
+const BTN_KIND_VARIANT = { primary:"primary", dark:"secondary", ghost:"tertiary", danger:"destructive", flame:"commit" };
+function Btn({ kind="primary", ...props }) {
+  return <ActionButton variant={BTN_KIND_VARIANT[kind]} {...props} />;
 }
 function Sheet({ title, onClose, children, wide }) {
   return (
@@ -393,8 +433,7 @@ function Sheet({ title, onClose, children, wide }) {
           borderBottom:"1px solid var(--bone-line)", marginBottom:14 }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
             textTransform:"uppercase", color:"var(--bone)" }}>{title}</div>
-          <button onClick={onClose} aria-label="Close" style={{ background:"transparent", border:"1.5px solid var(--ghost-line)",
-            color:"var(--bone)", width:36, height:36, borderRadius:10, fontSize:14, cursor:"pointer" }}>✕</button>
+          <IconButton label="Close" onClick={onClose} size={36} style={{ fontSize:14 }}>✕</IconButton>
         </div>
         <div style={{ padding:"0 18px" }}>
           {children}
@@ -877,10 +916,11 @@ export default function App() {
   });
 
   const saveProfile = (p, prof) => {
-    act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
+    const saved = act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
       flightsBooked: prof.flightsBooked, flightIn: prof.flightIn, flightOut: prof.flightOut,
       walkoutTrack:prof.walkoutTrack });
     if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
+    return saved;
   };
   const setLive = on => act("setLive", { on });
   const saveSeeds = r => act("saveSeeds", { player: me, ratings: r });
@@ -1531,16 +1571,10 @@ export default function App() {
                 color:"var(--night-text)", marginTop:2 }}>SCOTTSDALE · 2026</div>
             </div>
           </div>
-          <button onClick={() => setTv(true)} title="TV mode" aria-label="TV mode"
-            style={{ background:"transparent", border:"1.5px solid var(--ghost-line)", borderRadius:10,
-              width:38, height:38, cursor:"pointer", color:"var(--bone)",
-              display:"flex", alignItems:"center", justifyContent:"center" }}><IconTV /></button>
-          <button onClick={() => !gm ? setModal({type:"pin"})
-            : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})} aria-label="Commissioner"
-            style={{ background: gmView ? "var(--sun)" : "transparent",
-              border:"1.5px solid " + (gmView ? "var(--sun)" : "var(--ghost-line)"), borderRadius:10,
-              width:38, height:38, cursor:"pointer", color: gmView ? "var(--ink0)" : "var(--bone)",
-              display:"flex", alignItems:"center", justifyContent:"center" }}><IconGM filled={gmView} /></button>
+          <IconButton label="TV mode" onClick={() => setTv(true)}><IconTV /></IconButton>
+          <IconButton label="Commissioner" selected={gmView} onClick={() => !gm ? setModal({type:"pin"})
+            : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})}>
+            <IconGM filled={gmView} /></IconButton>
         </div>
         {!connected && loaded && (
           <div role="status" aria-live="polite" style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
@@ -1660,49 +1694,53 @@ export default function App() {
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} unlock={unlockGm} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onChip={pickChip}
         spotifyCatalogEnabled={audioCatalogAllowed}
-        save={prof => { saveProfile(me, prof); setModal(null); notify("Profile saved"); }} />}
+        save={async prof => {
+          const saved = await saveProfile(me, prof);
+          if (saved.ok) { setModal(null); notify("Profile saved"); }
+          return saved;
+        }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
           <div style={{ ...label, marginBottom:7 }}>Weekend details</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:18 }}>
-            <Btn kind="ghost" onClick={() => setModal({type:"logistics"})}>Trip details</Btn>
-            <Btn kind="ghost" onClick={() => setModal({type:"travelSheet"})}>Travel sheet</Btn>
+            <ActionButton variant="tertiary" onClick={() => setModal({type:"logistics"})}>Trip details</ActionButton>
+            <ActionButton variant="tertiary" onClick={() => setModal({type:"travelSheet"})}>Travel sheet</ActionButton>
           </div>
           <div style={{ ...label, marginBottom:7 }}>Game controls</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {showControlAllowed && (
-              <Btn kind="dark" onClick={() => setModal({type:"showControl"})}>
-                Show Control</Btn>
+              <ActionButton variant="secondary" onClick={() => setModal({type:"showControl"})}>
+                Show Control</ActionButton>
             )}
             {audioDirectorAllowed && (
-              <Btn kind="dark" onClick={() => setModal({type:"audioDirector"})}>
-                Audio Director</Btn>
+              <ActionButton variant="secondary" onClick={() => setModal({type:"audioDirector"})}>
+                Audio Director</ActionButton>
             )}
             {state.onDeck && (
-              <Btn kind="danger" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
-                Close betting</Btn>
+              <ActionButton variant="secondary" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
+                Close betting</ActionButton>
             )}
-            <Btn kind="dark" onClick={() => { setLive(!state.live); setModal(null); }}>
-              {state.live ? "Back to the locker room" : "Start the weekend"}</Btn>
-            {qaAllowed && <Btn kind="dark" onClick={() => { toggleQa(); setModal(null); }}>
-              {qa ? "QA mode off" : "QA mode"}</Btn>}
-            {capabilities.snapshotExport && <Btn kind="dark" onClick={async () => {
+            <ActionButton variant="secondary" onClick={() => { setLive(!state.live); setModal(null); }}>
+              {state.live ? "Back to the locker room" : "Start the weekend"}</ActionButton>
+            {qaAllowed && <ActionButton variant="secondary" onClick={() => { toggleQa(); setModal(null); }}>
+              {qa ? "QA mode off" : "QA mode"}</ActionButton>}
+            {capabilities.snapshotExport && <ActionButton variant="secondary" onClick={async () => {
               const exported = await downloadSnapshot();
               notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
                 : exported.error || "Export failed");
-            }}>Export snapshot</Btn>}
+            }}>Export snapshot</ActionButton>}
             {state.live && (state.frozen
-              ? <Btn kind="danger" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</Btn>
-              : <Btn onClick={() => setModal({type:"freeze"})}>Crown the champion</Btn>)}
+              ? <ActionButton variant="destructive" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</ActionButton>
+              : <ActionButton onClick={() => setModal({type:"freeze"})}>Crown the champion</ActionButton>)}
           </div>
           <div style={{ ...label, margin:"18px 0 7px" }}>Access and recovery</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {progressResetAllowed && (
-              <Btn kind="danger" onClick={() => setModal({type:"resetProgress"})}>
-                Reset game progress</Btn>
+              <ActionButton variant="destructive" onClick={() => setModal({type:"resetProgress"})}>
+                Reset game progress</ActionButton>
             )}
-            <Btn kind="ghost" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>
-              Exit GM</Btn>
+            <ActionButton variant="tertiary" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>
+              Exit GM</ActionButton>
           </div>
         </Sheet>
       )}
@@ -4320,11 +4358,11 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     ))}
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <Btn disabled={canHeats && !participantFit.ok}
+                    <ActionButton disabled={canHeats && !participantFit.ok}
                       onClick={() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
                       players:inPlayers })} style={{ flex:1 }}>
-                      {canHeats ? "Draw heats" : "Draw pools"}</Btn>
-                    <Btn kind="ghost" onClick={() => setStageCfgOpen(false)}>Cancel</Btn>
+                      {canHeats ? "Draw heats" : "Draw pools"}</ActionButton>
+                    <ActionButton variant="tertiary" onClick={() => setStageCfgOpen(false)}>Cancel</ActionButton>
                   </div>
                 </div>
               )
@@ -4332,36 +4370,36 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           {st && !res && (
             confirmScrap
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                  <Btn kind="danger" onClick={() => { onClearStages(); setConfirmScrap(false); }} style={{ flex:1 }}>
-                    Scrap {st.kind === "heats" ? "heats" : "pools"}, sure</Btn>
-                  <Btn kind="ghost" onClick={() => setConfirmScrap(false)} style={{ flex:1 }}>Keep</Btn>
+                  <ActionButton variant="commit" onClick={() => { onClearStages(); setConfirmScrap(false); }} style={{ flex:1 }}>
+                    Scrap {st.kind === "heats" ? "heats" : "pools"}, sure</ActionButton>
+                  <ActionButton variant="tertiary" onClick={() => setConfirmScrap(false)} style={{ flex:1 }}>Keep</ActionButton>
                 </div>
-              : <Btn kind="ghost" onClick={() => setConfirmScrap(true)} style={{ width:"100%", marginBottom:10 }}>
-                  Scrap {st.kind === "heats" ? "heats" : "pools"}</Btn>
+              : <ActionButton variant="destructive" onClick={() => setConfirmScrap(true)} style={{ width:"100%", marginBottom:10 }}>
+                  Scrap {st.kind === "heats" ? "heats" : "pools"}</ActionButton>
           )}
 
           <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-            {res && !isPoker && <Btn onClick={enterResult}
-              style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Edit result</Btn>}
+            {res && !isPoker && <ActionButton onClick={enterResult}
+              style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Edit result</ActionButton>}
             {!res && lifecycle.nextAction?.type === "open-betting" && (
-              <Btn kind="dark" onClick={onDeckToggle}
-                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open betting</Btn>
+              <ActionButton variant="secondary" onClick={onDeckToggle}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open betting</ActionButton>
             )}
             {!res && lifecycle.nextAction?.type === "lock-betting" && (
-              <Btn kind="dark" onClick={onDeckToggle}
-                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Lock betting</Btn>
+              <ActionButton variant="secondary" onClick={onDeckToggle}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Lock betting</ActionButton>
             )}
             {!res && lifecycle.nextAction?.type === "start-event" && (
-              <Btn onClick={onStart}
-                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Start event</Btn>
+              <ActionButton onClick={onStart}
+                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Start event</ActionButton>
             )}
             {!res && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type) && (
-              <Btn disabled={!lifecycle.nextAction?.enabled} onClick={enterResult}
+              <ActionButton disabled={!lifecycle.nextAction?.enabled} onClick={enterResult}
                 style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
-                {lifecycle.nextAction.type === "enter-result" ? "Enter result" : "Post result"}</Btn>
+                {lifecycle.nextAction.type === "enter-result" ? "Enter result" : "Post result"}</ActionButton>
             )}
             {res && !confirmClear && (
-              <Btn kind="danger" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</Btn>
+              <ActionButton variant="destructive" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</ActionButton>
             )}
           </div>
           {!res && lifecycle.blockers?.length > 0 && (
@@ -4378,10 +4416,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
                   fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
               <div style={{ display:"flex", gap:8 }}>
-                <Btn kind="danger" disabled={!clearReason.trim()}
-                  onClick={() => clearRes(clearReason)} style={{ flex:1 }}>Clear official result</Btn>
-                <Btn kind="ghost" onClick={() => { setConfirmClear(false); setClearReason(""); }}
-                  style={{ flex:1 }}>Keep it</Btn>
+                <ActionButton variant="commit" disabled={!clearReason.trim()}
+                  onClick={() => clearRes(clearReason)} style={{ flex:1 }}>Clear official result</ActionButton>
+                <ActionButton variant="tertiary" onClick={() => { setConfirmClear(false); setClearReason(""); }}
+                  style={{ flex:1 }}>Keep it</ActionButton>
               </div>
             </div>
           )}
@@ -4824,13 +4862,13 @@ function ResultSheet({ ev, state, onClose, save }) {
           {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
       )}
       {!existing ? (
-        <Btn disabled={slots[0].length===0} onClick={() => save(slots)}
+        <ActionButton disabled={slots[0].length===0} onClick={() => save(slots)}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
-          Post official result</Btn>
+          Post official result</ActionButton>
       ) : !confirmCorrection ? (
-        <Btn disabled={slots[0].length===0 || unchanged} onClick={() => setConfirmCorrection(true)}
+        <ActionButton disabled={slots[0].length===0 || unchanged} onClick={() => setConfirmCorrection(true)}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
-          {unchanged ? `Official result · revision ${existing.revision || 1}` : "Review result correction"}</Btn>
+          {unchanged ? `Official result · revision ${existing.revision || 1}` : "Review result correction"}</ActionButton>
       ) : (
         <div style={{ marginTop:4, padding:"12px 13px", background:"var(--paper2)",
           border:"1px solid var(--line)", borderRadius:14 }}>
@@ -4841,15 +4879,15 @@ function ResultSheet({ ev, state, onClose, save }) {
               borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
               fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
           <div style={{ display:"flex", gap:8 }}>
-            <Btn kind="danger" disabled={!correctionReason.trim()}
+            <ActionButton variant="commit" disabled={!correctionReason.trim()}
               onClick={() => save(slots, {
                 confirmOverwrite:true,
                 correctionReason,
-              })} style={{ flex:1 }}>Replace official result</Btn>
-            <Btn kind="ghost" onClick={() => {
+              })} style={{ flex:1 }}>Replace official result</ActionButton>
+            <ActionButton variant="tertiary" onClick={() => {
               setConfirmCorrection(false);
               setCorrectionReason("");
-            }} style={{ flex:1 }}>Keep current</Btn>
+            }} style={{ flex:1 }}>Keep current</ActionButton>
           </div>
         </div>
       )}
@@ -6352,7 +6390,8 @@ function PinSheet({ onClose, unlock }) {
         style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
           padding:"13px 12px", color:"var(--ink)", fontFamily:DISPLAY, fontSize:24,
           letterSpacing:"0.4em", textAlign:"center", marginBottom:12, outline:"none" }} />
-      <Btn disabled={pin.length !== 4} onClick={() => unlock(pin)} style={{ width:"100%", fontSize:16, padding:"14px" }}>Unlock</Btn>
+      <ActionButton disabled={pin.length !== 4} onClick={() => unlock(pin)}
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>Unlock</ActionButton>
     </Sheet>
   );
 }
@@ -6388,10 +6427,10 @@ function ProfileSheet({ state, me, onClose, save, onChip, spotifyCatalogEnabled 
         <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
           enabled={spotifyCatalogEnabled} />
       </div>
-      <Btn disabled={!display.trim()} onClick={() => save({ display: display.trim(),
+      <ActionButton disabled={!display.trim()} onClick={() => save({ display: display.trim(),
           num: num === "" ? null : Number(num), size, flightsBooked,
           flightIn, flightOut, walkoutTrack, ...(photo ? {photo} : {}) })}
-        style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</Btn>
+        style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</ActionButton>
     </Sheet>
   );
 }
@@ -6577,18 +6616,18 @@ function ShowControlSheet({
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <Btn disabled={busy || !scene.definition} onClick={() => run(() => onAdvance(scene.active.id))}>
-              {scene.stepIndex >= scene.stepCount - 1 ? "Complete scene" : "Advance"}</Btn>
-            <Btn kind="ghost" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</Btn>
-            <Btn kind="danger" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel</Btn>
-            <Btn kind="ghost" disabled={busy} onClick={onClose}>Close controls</Btn>
+            <ActionButton disabled={busy || !scene.definition} onClick={() => run(() => onAdvance(scene.active.id))}>
+              {scene.stepIndex >= scene.stepCount - 1 ? "Complete scene" : "Advance"}</ActionButton>
+            <ActionButton variant="tertiary" disabled={busy}
+              onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</ActionButton>
+            <ActionButton variant="destructive" disabled={busy}
+              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel</ActionButton>
+            <ActionButton variant="tertiary" disabled={busy} onClick={onClose}>Close controls</ActionButton>
           </div>
           <div style={{ ...pStyle, fontSize:12, margin:"12px 1px 0" }}>
             TV returns to live tournament context when this scene ends.</div>
-          {onAudio && <Btn kind="dark" onClick={onAudio}
-            style={{ width:"100%", marginTop:12 }}>Open Audio Director</Btn>}
+          {onAudio && <ActionButton variant="secondary" onClick={onAudio}
+            style={{ width:"100%", marginTop:12 }}>Open Audio Director</ActionButton>}
         </>
       ) : (
         <>
@@ -6618,13 +6657,13 @@ function ShowControlSheet({
                   <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
                     {last.outcome}</div>
                 </div>
-                <Btn kind="ghost" disabled={busy} style={{ minHeight:40, padding:"9px 13px" }}
-                  onClick={() => run(() => onRetry(last.id))}>Retry</Btn>
+                <ActionButton variant="tertiary" compact disabled={busy}
+                  onClick={() => run(() => onRetry(last.id))}>Retry</ActionButton>
               </div>
             </div>
           )}
-          {onAudio && <Btn kind="dark" onClick={onAudio}
-            style={{ width:"100%", marginTop:14 }}>Open Audio Director</Btn>}
+          {onAudio && <ActionButton variant="secondary" onClick={onAudio}
+            style={{ width:"100%", marginTop:14 }}>Open Audio Director</ActionButton>}
         </>
       )}
     </Sheet>

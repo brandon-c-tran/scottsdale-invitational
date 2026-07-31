@@ -418,6 +418,51 @@ const BTN_KIND_VARIANT = { primary:"primary", dark:"secondary", ghost:"tertiary"
 function Btn({ kind="primary", ...props }) {
   return <ActionButton variant={BTN_KIND_VARIANT[kind]} {...props} />;
 }
+/* A menu is not a button rack. Hierarchy in a menu comes from grouping and
+   order, so every row shares one quiet shape, the note carries the live fact,
+   and only a destructive row changes ink. */
+function MenuRow({ name, note, tone, onClick, disabled, last }) {
+  const [busy, setBusy] = useState(false);
+  const handle = () => {
+    if (busy || disabled || !onClick) return;
+    const result = onClick();
+    if (result && typeof result.then === "function") {
+      setBusy(true);
+      result.then(() => setBusy(false), () => setBusy(false));
+    }
+  };
+  return (
+    <button onClick={handle} disabled={disabled} aria-busy={busy || undefined}
+      style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left",
+      minHeight:48, padding:"12px 14px", background:"transparent", border:"none",
+      borderBottom: last ? "none" : "1px solid var(--line)",
+      cursor: disabled || busy ? "default" : "pointer",
+      opacity: disabled ? 0.35 : busy ? 0.6 : 1 }}>
+      <span style={{ flex:1, minWidth:0 }}>
+        <span style={{ display:"block", fontFamily:SANS, fontWeight:700, fontSize:13.5,
+          letterSpacing:"0.04em", textTransform:"uppercase",
+          color: tone === "destructive" ? "var(--clay)" : "var(--ink)" }}>{name}</span>
+        {note && <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)",
+          marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{note}</span>}
+      </span>
+      <span aria-hidden="true" style={{ fontFamily:SANS, fontWeight:700, fontSize:15,
+        color:"var(--muted)" }}>›</span>
+    </button>
+  );
+}
+function MenuGroup({ title, children }) {
+  const rows = React.Children.toArray(children).filter(Boolean);
+  if (!rows.length) return null;
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ ...label, marginBottom:7 }}>{title}</div>
+      <div style={{ border:"1px solid var(--line)", borderRadius:14, background:"var(--paper2)",
+        overflow:"hidden" }}>
+        {rows.map((row, i) => React.cloneElement(row, { last: i === rows.length - 1 }))}
+      </div>
+    </div>
+  );
+}
 function Sheet({ title, onClose, children, wide }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
@@ -1701,47 +1746,44 @@ export default function App() {
         }} />}
       {modal?.type === "gmMenu" && (
         <Sheet title="Commissioner" onClose={() => setModal(null)}>
-          <div style={{ ...label, marginBottom:7 }}>Weekend details</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:18 }}>
-            <ActionButton variant="tertiary" onClick={() => setModal({type:"logistics"})}>Trip details</ActionButton>
-            <ActionButton variant="tertiary" onClick={() => setModal({type:"travelSheet"})}>Travel sheet</ActionButton>
-          </div>
-          <div style={{ ...label, marginBottom:7 }}>Game controls</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {showControlAllowed && (
-              <ActionButton variant="secondary" onClick={() => setModal({type:"showControl"})}>
-                Show Control</ActionButton>
-            )}
-            {audioDirectorAllowed && (
-              <ActionButton variant="secondary" onClick={() => setModal({type:"audioDirector"})}>
-                Audio Director</ActionButton>
-            )}
-            {state.onDeck && (
-              <ActionButton variant="secondary" onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }}>
-                Close betting</ActionButton>
-            )}
-            <ActionButton variant="secondary" onClick={() => { setLive(!state.live); setModal(null); }}>
-              {state.live ? "Back to the locker room" : "Start the weekend"}</ActionButton>
-            {qaAllowed && <ActionButton variant="secondary" onClick={() => { toggleQa(); setModal(null); }}>
-              {qa ? "QA mode off" : "QA mode"}</ActionButton>}
-            {capabilities.snapshotExport && <ActionButton variant="secondary" onClick={async () => {
+          {(showControlAllowed || audioDirectorAllowed) && (
+            <MenuGroup title="The show">
+              {showControlAllowed && <MenuRow name="Show Control"
+                note={activeShowScene
+                  ? `${activeShowScene.definition?.label || "Scene"} · step ${activeShowScene.stepIndex + 1} of ${activeShowScene.stepCount}`
+                  : "Ambient rotation"}
+                onClick={() => setModal({type:"showControl"})} />}
+              {!showControlAllowed && audioDirectorAllowed && <MenuRow name="Audio Director"
+                onClick={() => setModal({type:"audioDirector"})} />}
+            </MenuGroup>
+          )}
+          <MenuGroup title="The weekend">
+            <MenuRow name={state.live ? "Back to the locker room" : "Start the weekend"}
+              onClick={() => { setLive(!state.live); setModal(null); }} />
+            {state.live && !state.frozen && <MenuRow name="Crown the champion"
+              onClick={() => setModal({type:"freeze"})} />}
+          </MenuGroup>
+          <MenuGroup title="Fix something">
+            {state.onDeck && <MenuRow name="Close betting"
+              note={`${onDeckEv?.name || "An event"} is on deck`}
+              onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }} />}
+            {state.live && state.frozen && <MenuRow tone="destructive" name="Unfreeze board"
+              onClick={() => { setFrozen(false); setModal(null); }} />}
+          </MenuGroup>
+          <MenuGroup title="Setup and records">
+            <MenuRow name="Trip details" onClick={() => setModal({type:"logistics"})} />
+            <MenuRow name="Travel sheet" onClick={() => setModal({type:"travelSheet"})} />
+            {qaAllowed && <MenuRow name={qa ? "QA mode off" : "QA mode"}
+              onClick={() => { toggleQa(); setModal(null); }} />}
+            {capabilities.snapshotExport && <MenuRow name="Export snapshot" onClick={async () => {
               const exported = await downloadSnapshot();
               notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
                 : exported.error || "Export failed");
-            }}>Export snapshot</ActionButton>}
-            {state.live && (state.frozen
-              ? <ActionButton variant="destructive" onClick={() => { setFrozen(false); setModal(null); }}>Unfreeze board</ActionButton>
-              : <ActionButton onClick={() => setModal({type:"freeze"})}>Crown the champion</ActionButton>)}
-          </div>
-          <div style={{ ...label, margin:"18px 0 7px" }}>Access and recovery</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {progressResetAllowed && (
-              <ActionButton variant="destructive" onClick={() => setModal({type:"resetProgress"})}>
-                Reset game progress</ActionButton>
-            )}
-            <ActionButton variant="tertiary" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }}>
-              Exit GM</ActionButton>
-          </div>
+            }} />}
+            {progressResetAllowed && <MenuRow tone="destructive" name="Reset game progress"
+              onClick={() => setModal({type:"resetProgress"})} />}
+            <MenuRow name="Exit GM" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }} />
+          </MenuGroup>
         </Sheet>
       )}
       {gmView && showControlAllowed && modal?.type === "showControl" && (

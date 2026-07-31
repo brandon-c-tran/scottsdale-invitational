@@ -1,7 +1,7 @@
 # M2 interaction inventory
 
 **Slice:** 2, interaction hierarchy  
-**Primitives:** `ActionButton`, `IconButton` in `src/App.jsx`
+**Primitives:** `ActionButton`, `IconButton`, `MenuRow`/`MenuGroup` in `src/App.jsx`
 
 ## Semantic roles
 
@@ -38,10 +38,12 @@ existing call site shares the same behavior. New surfaces use `ActionButton`.
 
 - Show Control sheet: advance is primary, skip and close are tertiary,
   cancel is destructive, Audio Director is secondary
-- commissioner menu: menu commands are secondary, detail sheets and Exit GM
-  are tertiary, Crown the champion is primary, Unfreeze board and Reset game
-  progress are destructive. Close betting is a routine lock action and is now
-  secondary, not destructive.
+- commissioner menu: an intent-grouped `MenuRow` list, not a button rack.
+  Groups are The show, The weekend, Fix something, and Setup and records;
+  rows share one quiet shape, the note carries the live fact (active scene
+  and step, which event is on deck), only destructive rows change ink, and
+  Fix something renders only when a fix applies. Audio Director opens from
+  inside Show Control instead of sitting beside it.
 - result flows: post and edit are primary, clear/scrap/replace use the
   outline-reason-fill pattern
 - profile save and PIN unlock: primary with real pending; the profile sheet

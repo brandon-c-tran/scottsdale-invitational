@@ -5454,7 +5454,7 @@ function mergeWagerLines(list) {
   return [...out.values()];
 }
 function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents, onPick, onVoid, onRetract }) {
-  const [whoOpen, setWhoOpen] = useState(null);
+  const [settledOpen, setSettledOpen] = useState(null);
   /* the rack: pick a chip, then every tap on the board bets that chip */
   const [denom, setDenom] = useState(PT);
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
@@ -5525,15 +5525,13 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
     if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) stageFinal = finalists;
   }
 
-  /* the whiteboard row: one tap drops a chip, everyone's chips sit on the pick
-     in their own colors, the x pulls your last one back, and tapping the chip
-     cluster reveals exactly who is riding the pick */
-  const PickRow = ({ players, name, onClick, wide, pred, rowKey, cellStyle }) => {
+  /* One tap drops a chip. Ownership stays encoded by the customized chip
+     itself; there is no redundant bettor-name expansion under the pick. */
+  const PickRow = ({ players, name, onClick, wide, pred, cellStyle }) => {
     const bets = pred ? pending.filter(x => pred(x.w)) : [];
     const mineBets = bets.filter(x => x.w.player === me);
     const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
     const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
-    const open = whoOpen === rowKey && bets.length > 0;
     const canPick = marketOpen && room >= PT && typeof onClick === "function";
     return (
       <div style={{ minWidth:0, ...cellStyle }}>
@@ -5548,29 +5546,10 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
           <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--ink)",
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, minWidth:0 }}>{name}</span>
           <BetChipCluster chips={chips} size={22} max={3} reserveAction={marketOpen}
-            onOpen={chips.length ? () => setWhoOpen(w => w === rowKey ? null : rowKey) : undefined}
             onRetract={marketOpen && mine > 0
               ? () => onRetract(mineBets[mineBets.length - 1].w.id)
               : undefined} />
         </button>
-        {open && (
-          <div style={{ margin:"4px 0 2px", padding:"7px 10px", borderRadius:10, background:"var(--paper)",
-            border:"1px solid var(--line)", display:"flex", flexDirection:"column", gap:5, animation:"si-in .15s ease-out" }}>
-            {/* one row per bettor: their chip stack and total, never repeated */}
-            {[...bets.reduce((m2, x) => m2.set(x.w.player, (m2.get(x.w.player) || 0) + x.w.stake), new Map())]
-              .sort((x, y) => y[1] - x[1])
-              .map(([p, total]) => (
-                <div key={p} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <Avatar state={state} p={p} size={20} />
-                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
-                    minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</span>
-                  <BankChip p={p} size={20} val={total} />
-                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:14, color:"var(--muted2)",
-                    minWidth:28, textAlign:"right" }}>{total}</span>
-                </div>
-              ))}
-          </div>
-        )}
       </div>
     );
   };
@@ -5605,10 +5584,10 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
 
   /* one bettor, one line: name, how many bets are behind it, and the net */
   const SettledRow = ({ g }) => {
-    const key = "st:" + g.player, open = whoOpen === key;
+    const key = "st:" + g.player, open = settledOpen === key;
     return (
       <div style={{ marginBottom:7 }}>
-        <button onClick={() => setWhoOpen(w => w === key ? null : key)}
+        <button onClick={() => setSettledOpen(current => current === key ? null : key)}
           style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 13px",
             borderRadius:14, background:"var(--paper2)", border:"1px solid var(--line)",
             cursor:"pointer", textAlign:"left" }}>
@@ -5708,7 +5687,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
               <div style={{ display: bigTeams ? "flex" : "grid", flexDirection:"column",
                 gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
                 {outrights.map((o, i) => (
-                  <PickRow key={o.key} rowKey={"o:" + o.key} players={o.players} name={o.name} wide={bigTeams}
+                  <PickRow key={o.key} players={o.players} name={o.name} wide={bigTeams}
                     cellStyle={!bigTeams ? centeredGridCell(i, outrights.length, 2, 6) : undefined}
                     pred={w => w.kind === "outright" && w.eventId === ev.id &&
                       (o.pick.pickTeam
@@ -5738,7 +5717,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
                     {g.entrants.map(k => {
                       const v = stageEntrantView(state, st, k);
-                      return <PickRow key={String(k)} rowKey={`s:${g.gi}:${k}`} players={v.players} name={v.name}
+                      return <PickRow key={String(k)} players={v.players} name={v.name}
                         pred={w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
                           w.group === g.gi && w.pickKey === k}
                         onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
@@ -5760,7 +5739,7 @@ function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents,
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
                 {stageFinal.map(k => {
                   const v = stageEntrantView(state, st, k);
-                  return <PickRow key={String(k)} rowKey={`f:${k}`} players={v.players} name={v.name}
+                  return <PickRow key={String(k)} players={v.players} name={v.name}
                     pred={w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k}
                     onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
                       pickKey:k, pickPlayers:[...v.players], pickTeam: st.entrantType === "team", evName:ev.name })} />;
@@ -7078,30 +7057,17 @@ function BankChip({ p, size=18, empty, val }) {
   return <ChipFace p={p} size={size} empty={empty} stamp={val} valueRing={val != null} />;
 }
 /* A chip pile gets one fixed well. More bettors increase the badge, never the
-   width or height of the market pill carrying it. The full bettor list remains
-   available through `onOpen` where the phone UI provides one. */
-function BetChipCluster({ chips, size=22, max=3, onOpen, onRetract, reserveAction=false }) {
+   width or height of the market pill carrying it. */
+function BetChipCluster({ chips, size=22, max=3, onRetract, reserveAction=false }) {
   if (!chips?.length) return null;
   const visible = chips.slice(0, max);
   const step = Math.max(7, Math.round(size * 0.42));
   const stackWidth = size + step * (max - 1);
   const actionWidth = reserveAction ? 24 : 0;
-  const openProps = onOpen ? {
-    role:"button",
-    tabIndex:0,
-    onClick:e => { e.stopPropagation(); onOpen(); },
-    onKeyDown:e => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen();
-      }
-    },
-  } : {};
   return (
-    <span {...openProps} style={{ width:stackWidth + actionWidth, height:size + 4,
+    <span style={{ width:stackWidth + actionWidth, height:size + 4,
       display:"flex", alignItems:"center", justifyContent:"flex-end", flexShrink:0,
-      cursor:onOpen ? "pointer" : "inherit" }}>
+      cursor:"inherit" }}>
       <span style={{ position:"relative", width:stackWidth, height:size, flexShrink:0 }}>
         {visible.map((chip, index) => {
           const left = stackWidth - size - (visible.length - 1 - index) * step;

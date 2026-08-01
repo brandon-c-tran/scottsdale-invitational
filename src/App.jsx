@@ -370,11 +370,16 @@ function Tag({ children, tone="dim", style }) {
    routine secondary. An async onClick gets one pending state and further
    taps are ignored until it settles, so callers do not wire their own
    duplicate-tap guards. */
+/* The whole system is two fills and one quiet shape. Sun fill is the one
+   next thing, clay fill is the confirm step of a destructive flow, and every
+   other action shares the same paper-and-line shape where only the ink
+   changes: ink for a real alternative, muted for a quiet out, clay for the
+   entry to a destructive flow. No competing stroke weights. */
 const ACTION_VARIANTS = {
   primary:     { background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)" },
-  secondary:   { background:"var(--paper)", color:"var(--ink)", border:"1.5px solid var(--ink)" },
-  tertiary:    { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
-  destructive: { background:"transparent", color:"var(--clay)", border:"1.5px solid rgba(192,71,58,0.55)" },
+  secondary:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
+  tertiary:    { background:"var(--paper)", color:"var(--muted2)", border:"1px solid var(--line)" },
+  destructive: { background:"var(--paper)", color:"var(--clay)", border:"1px solid var(--line)" },
   commit:      { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
 };
 function ActionButton({ children, onClick, variant="primary", pending, disabled, compact, style, ...props }) {
@@ -463,7 +468,7 @@ function MenuGroup({ title, children }) {
     </div>
   );
 }
-function Sheet({ title, onClose, children, wide }) {
+function Sheet({ title, onClose, onBack, children, wide }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
       backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
@@ -474,10 +479,13 @@ function Sheet({ title, onClose, children, wide }) {
         padding:"0 0 calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
         {/* night title band ties every sheet to the chrome */}
         <div style={{ position:"sticky", top:0, zIndex:5, display:"flex", alignItems:"center",
-          justifyContent:"space-between", background:"var(--night)", padding:"13px 18px 11px",
+          gap:10, background:"var(--night)", padding:"13px 18px 11px",
           borderBottom:"1px solid var(--bone-line)", marginBottom:14 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
-            textTransform:"uppercase", color:"var(--bone)" }}>{title}</div>
+          {onBack && <IconButton label="Back" onClick={onBack} size={36}
+            style={{ fontSize:18, marginLeft:-6 }}>‹</IconButton>}
+          <div style={{ flex:1, fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
+            textTransform:"uppercase", color:"var(--bone)", overflow:"hidden", textOverflow:"ellipsis",
+            whiteSpace:"nowrap" }}>{title}</div>
           <IconButton label="Close" onClick={onClose} size={36} style={{ fontSize:14 }}>✕</IconButton>
         </div>
         <div style={{ padding:"0 18px" }}>
@@ -573,7 +581,15 @@ export default function App() {
   const [qaTop, setQaTop] = useState(() => localGet("si-qa-pos") === "top");
   const [tv, setTv] = useState(() => typeof window !== "undefined" &&
     (window.location.pathname === "/tv" || new URLSearchParams(window.location.search).has("tv")));
-  const [modal, setModal] = useState(null);
+  /* Sheets stack: setModal replaces the stack (open fresh, or null closes
+     all), pushModal opens a sheet INSIDE the current one so back returns to
+     it. The X and the scrim always close the whole stack. */
+  const [modalStack, setModalStack] = useState([]);
+  const modal = modalStack[modalStack.length - 1] || null;
+  const setModal = next => setModalStack(next ? [next] : []);
+  const pushModal = next => setModalStack(stack => [...stack, next]);
+  const popModal = () => setModalStack(stack => stack.slice(0, -1));
+  const modalBack = modalStack.length > 1 ? popModal : null;
   const [intro, setIntro] = useState(null);
   const [burst, setBurst] = useState(0);
   const [toast, setToast] = useState(null);
@@ -1752,16 +1768,16 @@ export default function App() {
                 note={activeShowScene
                   ? `${activeShowScene.definition?.label || "Scene"} · step ${activeShowScene.stepIndex + 1} of ${activeShowScene.stepCount}`
                   : "Ambient rotation"}
-                onClick={() => setModal({type:"showControl"})} />}
+                onClick={() => pushModal({type:"showControl"})} />}
               {!showControlAllowed && audioDirectorAllowed && <MenuRow name="Audio Director"
-                onClick={() => setModal({type:"audioDirector"})} />}
+                onClick={() => pushModal({type:"audioDirector"})} />}
             </MenuGroup>
           )}
           <MenuGroup title="The weekend">
             <MenuRow name={state.live ? "Back to the locker room" : "Start the weekend"}
               onClick={() => { setLive(!state.live); setModal(null); }} />
             {state.live && !state.frozen && <MenuRow name="Crown the champion"
-              onClick={() => setModal({type:"freeze"})} />}
+              onClick={() => pushModal({type:"freeze"})} />}
           </MenuGroup>
           <MenuGroup title="Fix something">
             {state.onDeck && <MenuRow name="Close betting"
@@ -1771,8 +1787,8 @@ export default function App() {
               onClick={() => { setFrozen(false); setModal(null); }} />}
           </MenuGroup>
           <MenuGroup title="Setup and records">
-            <MenuRow name="Trip details" onClick={() => setModal({type:"logistics"})} />
-            <MenuRow name="Travel sheet" onClick={() => setModal({type:"travelSheet"})} />
+            <MenuRow name="Trip details" onClick={() => pushModal({type:"logistics"})} />
+            <MenuRow name="Travel sheet" onClick={() => pushModal({type:"travelSheet"})} />
             {qaAllowed && <MenuRow name={qa ? "QA mode off" : "QA mode"}
               onClick={() => { toggleQa(); setModal(null); }} />}
             {capabilities.snapshotExport && <MenuRow name="Export snapshot" onClick={async () => {
@@ -1781,7 +1797,7 @@ export default function App() {
                 : exported.error || "Export failed");
             }} />}
             {progressResetAllowed && <MenuRow tone="destructive" name="Reset game progress"
-              onClick={() => setModal({type:"resetProgress"})} />}
+              onClick={() => pushModal({type:"resetProgress"})} />}
             <MenuRow name="Exit GM" onClick={() => { setGm(false); saveMine("si-gm","no"); setModal(null); }} />
           </MenuGroup>
         </Sheet>
@@ -1792,18 +1808,19 @@ export default function App() {
           events={events}
           scene={activeShowScene}
           onClose={() => setModal(null)}
+          onBack={modalBack}
           onStart={startShowScene}
           onAdvance={advanceShowScene}
           onEnd={endShowScene}
           onRetry={retryShowScene}
-          onAudio={audioDirectorAllowed ? () => setModal({type:"audioDirector"}) : null}
+          onAudio={audioDirectorAllowed ? () => pushModal({type:"audioDirector"}) : null}
         />
       )}
       {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && (
-        <AudioDirectorSheet state={state} onClose={() => setModal(null)} notify={notify} />
+        <AudioDirectorSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify} />
       )}
       {gmView && modal?.type === "logistics" && (
-        <Sheet title="Trip details" onClose={() => setModal(null)}>
+        <Sheet title="Trip details" onClose={() => setModal(null)} onBack={modalBack}>
           <LogisticsEditor state={state} onSave={async vals => {
             const saved = await act("saveLogistics", vals, "Trip details saved");
             if (saved.ok) setModal(null);
@@ -1811,7 +1828,7 @@ export default function App() {
         </Sheet>
       )}
       {gmView && modal?.type === "travelSheet" && (
-        <Sheet title="Travel sheet" onClose={() => setModal(null)}>
+        <Sheet title="Travel sheet" onClose={() => setModal(null)} onBack={modalBack}>
           <TravelApparelSheet state={state}
             onSize={(p, sz) => act("saveProfile", {
               player:p,
@@ -1912,7 +1929,7 @@ export default function App() {
         onClose={() => setModal(null)} />}
       {progressResetAllowed && modal?.type === "resetProgress" && (
         <ResetProgressSheet state={state} environment={environment} busy={!!sim}
-          onClose={() => setModal(null)}
+          onClose={() => setModal(null)} onBack={modalBack}
           onConfirm={async () => {
             const reset = await resetGame();
             if (!reset.ok) return;
@@ -1923,7 +1940,7 @@ export default function App() {
           }} />
       )}
       {modal?.type === "freeze" && (
-        <Sheet title="Crown the champion" onClose={() => setModal(null)}>
+        <Sheet title="Crown the champion" onClose={() => setModal(null)} onBack={modalBack}>
           <p style={pStyle}>Freezes the board and crowns <b style={{color:"var(--accent2)"}}>{disp(state, standings[0]?.player)}</b> at {fmt(standings[0]?.pts)} points. All betting closes.</p>
           {!state.results[events.find(e => e.finale)?.id] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
           <div style={{ display:"flex", gap:10 }}>
@@ -6354,13 +6371,13 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
   );
 }
 
-function ResetProgressSheet({ state, environment, busy, onClose, onConfirm }) {
+function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfirm }) {
   const [confirmed, setConfirmed] = useState(false);
   const completed = Object.keys(state.results || {}).length;
   const listStyle = { margin:"5px 0 0", paddingLeft:18, fontFamily:SANS, fontSize:13,
     lineHeight:1.55, color:"var(--muted)" };
   return (
-    <Sheet title="Reset game progress" onClose={onClose}>
+    <Sheet title="Reset game progress" onClose={onClose} onBack={onBack}>
       <div style={{ margin:"0 16px" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
           <Tag tone={environment === "production" ? "flame" : "gold"}>{environment}</Tag>
@@ -6587,7 +6604,7 @@ function WalkoutTrackPicker({ value, onChange, enabled }) {
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
 function ShowControlSheet({
-  state, events, scene, onClose, onStart, onAdvance, onEnd, onRetry, onAudio,
+  state, events, scene, onClose, onBack, onStart, onAdvance, onEnd, onRetry, onAudio,
 }) {
   const [busy, setBusy] = useState(false);
   const operation = resolveWeekendOperation(state, events);
@@ -6632,7 +6649,7 @@ function ShowControlSheet({
   };
 
   return (
-    <Sheet title="Show Control" onClose={onClose}>
+    <Sheet title="Show Control" onClose={onClose} onBack={onBack}>
       {scene ? (
         <>
           <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden",
@@ -6658,13 +6675,13 @@ function ShowControlSheet({
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <ActionButton disabled={busy || !scene.definition} onClick={() => run(() => onAdvance(scene.active.id))}>
+            <ActionButton disabled={busy || !scene.definition} style={{ gridColumn:"1 / -1" }}
+              onClick={() => run(() => onAdvance(scene.active.id))}>
               {scene.stepIndex >= scene.stepCount - 1 ? "Complete scene" : "Advance"}</ActionButton>
-            <ActionButton variant="tertiary" disabled={busy}
+            <ActionButton variant="secondary" disabled={busy}
               onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</ActionButton>
-            <ActionButton variant="destructive" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel</ActionButton>
-            <ActionButton variant="tertiary" disabled={busy} onClick={onClose}>Close controls</ActionButton>
+            <ActionButton variant="tertiary" disabled={busy}
+              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel scene</ActionButton>
           </div>
           <div style={{ ...pStyle, fontSize:12, margin:"12px 1px 0" }}>
             TV returns to live tournament context when this scene ends.</div>
@@ -6712,7 +6729,7 @@ function ShowControlSheet({
   );
 }
 
-function AudioDirectorSheet({ state, onClose, notify }) {
+function AudioDirectorSheet({ state, onClose, onBack, notify }) {
   const [status, setStatus] = useState(null);
   const [player, setPlayer] = useState(null);
   const [deviceId, setDeviceId] = useState("");
@@ -6811,13 +6828,13 @@ function AudioDirectorSheet({ state, onClose, notify }) {
   };
 
   if (!status) {
-    return <Sheet title="Audio Director" onClose={onClose}>
+    return <Sheet title="Audio Director" onClose={onClose} onBack={onBack}>
       <div style={{ ...pStyle, padding:"18px 0" }}>Checking Spotify…</div>
     </Sheet>;
   }
 
   return (
-    <Sheet title="Audio Director" onClose={onClose}>
+    <Sheet title="Audio Director" onClose={onClose} onBack={onBack}>
       {!status.configured ? (
         <div>
           <Tag tone="gold">Setup needed</Tag>

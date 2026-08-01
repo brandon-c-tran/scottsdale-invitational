@@ -5,14 +5,17 @@
 
 ## Semantic roles
 
-Variant is hierarchy, not appearance.
+Variant is hierarchy, not appearance. The whole system is two fills and one
+quiet shape: fills mark the two moments that matter, and every other action
+shares the same paper-and-line shape where only the ink changes. No two
+stroke weights ever compete in one view.
 
 | Variant | Meaning | Look |
 |---|---|---|
 | `primary` | the one next thing | sun fill, ink0 text |
-| `secondary` | a real alternative command | paper fill, ink border |
-| `tertiary` | quiet command: back, keep, close | paper fill, line border |
-| `destructive` | entry into a flow that loses something | clay outline |
+| `secondary` | a real alternative command | quiet shape, ink text |
+| `tertiary` | quiet out: back, keep, cancel | quiet shape, muted text |
+| `destructive` | entry into a flow that loses something | quiet shape, clay text |
 | `commit` | the filled confirm step inside that flow | clay fill |
 
 Rules the primitives enforce:
@@ -25,10 +28,16 @@ Rules the primitives enforce:
 - focus visibility comes from the global `:focus-visible` rule in `Shell`
 - a destructive style never doubles as a routine secondary action
 
-The destructive pattern is outline, then reason, then fill: a `destructive`
-button opens the confirmation, the consequence is stated (and a reason
-collected where the server requires one), and the `commit` button applies it.
-The escape from that flow is `tertiary`.
+The destructive pattern is clay ink, then reason, then clay fill: a
+`destructive` button opens the confirmation, the consequence is stated (and a
+reason collected where the server requires one), and the `commit` button
+applies it. The escape from that flow is `tertiary`.
+
+## Sheet navigation
+
+Sheets stack. Opening a sheet from inside another pushes it; the header then
+shows a back chevron that returns to the parent. The X and the scrim always
+close the whole stack. `setModal` opens fresh, `pushModal` nests.
 
 `Btn` remains as a legacy alias (`primary`/`dark`/`ghost`/`danger`/`flame`
 map to `primary`/`secondary`/`tertiary`/`destructive`/`commit`), so every
@@ -36,8 +45,9 @@ existing call site shares the same behavior. New surfaces use `ActionButton`.
 
 ## Migrated surfaces
 
-- Show Control sheet: advance is primary, skip and close are tertiary,
-  cancel is destructive, Audio Director is secondary
+- Show Control sheet: advance is the full-width primary, skip is secondary,
+  cancel is tertiary (a scene ending loses nothing; retry exists), Audio
+  Director is secondary and opens nested with back
 - commissioner menu: an intent-grouped `MenuRow` list, not a button rack.
   Groups are The show, The weekend, Fix something, and Setup and records;
   rows share one quiet shape, the note carries the live fact (active scene

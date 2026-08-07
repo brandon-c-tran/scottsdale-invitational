@@ -14,6 +14,7 @@ import {
 import {
   SHOW_SCENE_DEFINITIONS,
   resolveShowScene,
+  resolveDirector,
 } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
@@ -468,6 +469,32 @@ function MenuGroup({ title, children }) {
     </div>
   );
 }
+/* The audio cue is a chip beside the pill, never a wire into a scene:
+   playback happens only on this explicit tap, and its failure is a toast,
+   not a scene problem. One chip per relevant player covers ties and teams. */
+function CueChip({ state, player, track, notify }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button disabled={busy} aria-busy={busy || undefined}
+      onClick={async () => {
+        if (busy) return;
+        setBusy(true);
+        const result = await spotifyPlay({ uri:track.uri, positionMs:track.startMs || 0 });
+        setBusy(false);
+        if (result.ok) notify(`${disp(state, player)} cue playing`, null, "gold", player);
+        else notify(result.error || "Playback failed");
+      }}
+      style={{ display:"flex", alignItems:"center", gap:7, background:"var(--night)",
+        border:"1px solid var(--sun)", color:"var(--sun)", borderRadius:99,
+        padding:"8px 14px", cursor:busy ? "default" : "pointer", opacity:busy ? 0.6 : 1,
+        boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
+      <span aria-hidden="true" style={{ fontSize:13 }}>♪</span>
+      <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, whiteSpace:"nowrap",
+        overflow:"hidden", textOverflow:"ellipsis" }}>
+        Play {disp(state, player)}&#39;s walkout</span>
+    </button>
+  );
+}
 function Sheet({ title, onClose, onBack, children, wide }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
@@ -617,6 +644,12 @@ export default function App() {
     [showControlAllowed, state, events],
   );
   const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
+  /* the pill reads the director; the TV keeps reading weekendOperation so
+     director copy never leaks to the room */
+  const director = useMemo(
+    () => resolveDirector(state, events, { showControl:showControlAllowed }),
+    [state, events, showControlAllowed],
+  );
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
@@ -869,6 +902,14 @@ export default function App() {
     if (reveal) rememberReveal(reveal.id);
     setReveal(null);
   }, [reveal, rememberReveal]);
+  /* While a directed scene owns the TV, legacy ceremonies are marked SEEN,
+     not merely unmounted, so a stale intro or reveal cannot pop the moment
+     the scene ends. Phones keep playing the legacy chain. */
+  useEffect(() => {
+    if (!tv || !activeShowScene) return;
+    if (reveal) closeReveal();
+    if (intro) setIntro(null);
+  }, [tv, activeShowScene, reveal, intro, closeReveal]);
   /* Clearing or redrawing an event retires the visual for the old draw
      immediately; a replacement ID can then begin a fresh ceremony. */
   useEffect(() => {
@@ -999,6 +1040,9 @@ export default function App() {
   const retryShowScene = id =>
     act("retryShowScene", { id }, null, { retry:true });
   const startEvent = ev => act("startEvent", { evId:ev.id }, `${ev.name} is underway`);
+  const announceEvent = ev => act("announceEvent", { evId:ev.id }, `${ev.name} is on deck`);
+  const announceAndDraw = ev => act("announceAndDraw", { evId:ev.id });
+  const lockAndStart = ev => act("lockAndStart", { evId:ev.id }, `${ev.name} is underway`);
   const openResultEntry = async ev => {
     if (!state.results[ev.id] && resolveEventLifecycle(state, ev).phase !== "result-entry") {
       const opened = await act("beginResultEntry", { evId:ev.id });
@@ -1321,7 +1365,7 @@ export default function App() {
       slots = [[order[0]], table[1] > 0 ? [order[1]] : [], table[2] > 0 ? [order[2]] : []];
     }
     await simDo("beginResultEntry", { evId:ev.id }, `Opening the ${ev.name} scorecard`);
-    await simDo("saveResult", { evId: ev.id, slots }, `Posting the ${ev.name} result`);
+    await simDo("saveResult", { evId: ev.id, slots, noScene:true }, `Posting the ${ev.name} result`);
     await simWait(800);
   };
   const simFastForward = async () => {
@@ -1451,7 +1495,7 @@ export default function App() {
         await simWait(250);
       }
     }
-    await simDo("pokerResult", {}, "Posting the counts");
+    await simDo("pokerResult", { noScene:true }, "Posting the counts");
     await simWait(400);
   };
   const simCrown = async () => {
@@ -1553,13 +1597,25 @@ export default function App() {
   };
 
 
+  const DIRECTOR_SCENE_BEATS = ["advance-scene", "clear-scene", "start-opening",
+    "start-champion-scene", "replay-winner-scene"];
   const gmNext = (() => {
-    if (!gmView || state.frozen || !ready) return null;
-    const { event:ev, nextAction } = weekendOperation;
-    if (!ev || nextAction?.type === "crown-champion")
-      return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
+    if (!gmView || !ready) return null;
+    const { event:ev, nextAction } = director;
     if (!nextAction) return null;
+    /* the frozen board keeps only its ceremony beats */
+    if (state.frozen && !DIRECTOR_SCENE_BEATS.includes(nextAction.type)) return null;
+    if (nextAction.type === "crown-champion")
+      return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
     const run = {
+      "advance-scene":() => advanceShowScene(nextAction.sceneId),
+      "clear-scene":() => endShowScene(nextAction.sceneId, "cancelled"),
+      "start-opening":() => startShowScene({ kind:"opening" }),
+      "start-champion-scene":() => startShowScene({ kind:"champion" }),
+      "replay-winner-scene":() => startShowScene({ kind:"winner", eventId:nextAction.eventId }),
+      "announce":() => announceEvent(ev),
+      "announce-draw":() => announceAndDraw(ev),
+      "lock-start":() => lockAndStart(ev),
       "setup-poker":() => { pokerSetup(); setModal({type:"pokerBuyin"}); },
       "start-poker":() => setModal({type:"pokerBuyin"}),
       "run-poker":() => setModal({type:"pokerResult"}),
@@ -1574,7 +1630,27 @@ export default function App() {
       "enter-result":() => openResultEntry(ev),
       "post-result":() => setModal({type:"result", ev}),
     }[nextAction.type];
-    return run ? { label:nextAction.label, run } : null;
+    if (!run) return null;
+    /* a blocked beat is a door to the fixing surface, not a dead end */
+    if (nextAction.enabled === false && nextAction.blockers?.length) {
+      const route = nextAction.type === "setup-poker"
+        ? () => setTab("bets")
+        : ev ? () => setModal({type:"event", ev}) : run;
+      return { label:nextAction.blockers[0], run:route, blocked:true };
+    }
+    const note = nextAction.type === "lock-start" && ev && state.onDeck === ev.id ? (() => {
+      const bets = (state.wagers || []).filter(w => w.eventId === ev.id).length;
+      const openedAt = Number(state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
+      const mins = openedAt ? Math.max(0, Math.round((Date.now() - openedAt) / 60000)) : null;
+      return `${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`;
+    })() : null;
+    return {
+      label:nextAction.label,
+      run,
+      note,
+      skip:nextAction.type === "advance-scene"
+        ? () => endShowScene(nextAction.sceneId, "skipped") : null,
+    };
   })();
 
   if (tv) {
@@ -1711,19 +1787,56 @@ export default function App() {
         {tab === "guide" && <Guide events={events} state={state} />}
       </div>
 
-      {gmNext && !modal && (
-        <button onClick={gmNext.run} style={{ position:"fixed", right:14, zIndex:56,
-          bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
-            : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
-          display:"flex", alignItems:"center", gap:8, background:"var(--night)", color:BONE,
-          border:"1px solid var(--bone-line)", borderRadius:99, padding:"11px 18px", cursor:"pointer",
-          boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.04em",
-            textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {gmNext.label}</span>
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
-        </button>
-      )}
+      {(() => {
+        const cueTracks = gmView && audioDirectorAllowed && activeShowScene
+          && !activeShowScene.staleReason
+          && ["winner", "champion"].includes(activeShowScene.active?.kind)
+          ? (activeShowScene.players || [])
+              .map(player => ({ player, track:state.profiles?.[player]?.walkoutTrack }))
+              .filter(item => item.track)
+          : [];
+        if ((!gmNext && !cueTracks.length) || modal) return null;
+        return (
+          <div style={{ position:"fixed", right:14, zIndex:56,
+            bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
+              : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
+            display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
+            {cueTracks.map(item => (
+              <CueChip key={item.player} state={state} player={item.player}
+                track={item.track} notify={notify} />
+            ))}
+            {gmNext && (
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                {gmNext.skip && (
+                  <button onClick={gmNext.skip} aria-label="Skip scene"
+                    style={{ width:38, height:38, borderRadius:99, background:"var(--night)",
+                      border:"1px solid var(--bone-line)", color:"var(--night-text)",
+                      fontSize:13, cursor:"pointer", boxShadow:"var(--shadow-2)",
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                )}
+                <button onClick={gmNext.run}
+                  style={{ display:"flex", alignItems:"center", gap:8, background:"var(--night)",
+                    color:BONE, border:"1px solid var(--bone-line)", borderRadius:99,
+                    padding:"11px 18px", cursor:"pointer", boxShadow:"var(--shadow-2)",
+                    maxWidth:"78vw", opacity:gmNext.blocked ? 0.8 : 1 }}>
+                  <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", minWidth:0 }}>
+                    <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.04em",
+                      textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis",
+                      whiteSpace:"nowrap", maxWidth:"70vw",
+                      color:gmNext.blocked ? "var(--night-text)" : BONE }}>
+                      {gmNext.label}</span>
+                    {gmNext.note && (
+                      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:10.5,
+                        color:"var(--night-text)" }}>{gmNext.note}</span>
+                    )}
+                  </span>
+                  <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {gm && qaActive && <QABar me={me} status={qaStatus} onExit={toggleQa}
         minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
         top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}

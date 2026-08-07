@@ -51,6 +51,32 @@ const rememberShowCommand = (record, commandId, type, fingerprint) => {
   record.commands = [...(Array.isArray(record.commands) ? record.commands : []),
     { id:commandId, type, fingerprint }].slice(-8);
 };
+/* Best-effort scene start inside a host mutation. Runs AFTER the official
+   write and can only succeed or silently skip: an error returned from here
+   would make the Durable Object discard the whole clone, so no code path
+   may construct one. A scene already on its last step retires as completed,
+   anything earlier as skipped; completed stays an advance-only outcome
+   everywhere else. */
+const tryStartScene = (state, ctx, request, now = Date.now()) => {
+  if (!ctx?.showControl) return null;
+  const checked = validateShowSceneRequest(state, request, allEventsOf(state));
+  if (!checked.ok) return null;
+  const control = showControlOf(state);
+  if (control.active) {
+    const definition = showDefinition(control.active.kind);
+    const atLast = definition && control.active.step >= definition.steps.length - 1;
+    finishShowScene(control, atLast ? "completed" : "skipped", now);
+  }
+  const revision = checked.definition.requiresResult
+    ? Number(state.results?.[checked.request.eventId]?.revision || 1)
+    : null;
+  control.active = createShowScene(checked.request, {
+    id:`show-${now}-${crypto.randomUUID()}`,
+    now,
+    revision,
+  });
+  return control.active;
+};
 const eventOp = (state, evId) => {
   state.eventOps = state.eventOps || {};
   state.eventOps[evId] = state.eventOps[evId] || {};
@@ -254,6 +280,8 @@ export const ACTIONS = {
     control.active = createShowScene(checked.request, {
       id:`show-${now}-${crypto.randomUUID()}`,
       now,
+      revision:checked.definition.requiresResult
+        ? Number(state.results?.[checked.request.eventId]?.revision || 1) : null,
     });
     rememberShowCommand(control.active, commandId, "start", fingerprint);
     return ok({ sceneId:control.active.id });
@@ -320,6 +348,8 @@ export const ACTIONS = {
       id:`show-${now}-${crypto.randomUUID()}`,
       now,
       retryOf:prior.id,
+      revision:checked.definition.requiresResult
+        ? Number(state.results?.[checked.request.eventId]?.revision || 1) : null,
     });
     rememberShowCommand(control.active, commandId, "retry", fingerprint);
     return ok({ sceneId:control.active.id, retryOf:prior.id });
@@ -616,7 +646,7 @@ export const ACTIONS = {
   },
 
   /* ── GM: results ── */
-  saveResult(state, { evId, slots, confirmOverwrite, correctionReason }, ctx) {
+  saveResult(state, { evId, slots, confirmOverwrite, correctionReason, noScene }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
@@ -669,7 +699,13 @@ export const ACTIONS = {
     }
     op.completedAt = now;
     if (state.onDeck === evId) state.onDeck = null;
-    return ok({ revision:op.revision });
+    /* Fresh posts carry their own ceremony; corrections mark the old scene
+       stale and the replay beat offers the ceremony again instead. QA sim
+       passes noScene so a rehearsal never machine-guns the TV. */
+    const scene = !existing && noScene !== true
+      ? tryStartScene(state, ctx, { kind:"winner", eventId:evId }, now)
+      : null;
+    return ok({ revision:op.revision, ...(scene ? { sceneId:scene.id } : {}) });
   },
   clearResult(state, { evId, confirmClear, correctionReason }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -733,6 +769,89 @@ export const ACTIONS = {
     if (lifecycle.phase !== "betting-locked")
       return err(lifecycle.nextAction?.label || "Lock betting before starting");
     eventOp(state, evId).startedAt = Date.now();
+    return ok();
+  },
+
+  /* ── GM: director composites ──
+     One tap moves the tournament and points the TV in the same write. The
+     discrete actions above survive for the manual path; these merge the
+     routine pairs. Scenes start only on FRESH transitions so a retried
+     composite never restarts a ceremony. */
+  announceEvent(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const result = ACTIONS.setOnDeck(state, { id:evId }, ctx);
+    if (!result.ok || result.extra?.unchanged) return result;
+    const scene = tryStartScene(state, ctx, { kind:"event-intro", eventId:evId });
+    return ok({ ...(scene ? { sceneId:scene.id } : {}) });
+  },
+  /* The one-tap team-event open: draw runs, bracket seeds, and betting
+     opens in ONE broadcast, so every phone plays intro then reveal by
+     itself through the existing announce chain. No directed scene: the
+     legacy ceremony owns this moment on every screen. */
+  announceAndDraw(state, { evId, players, roles }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    if (!ev?.teamCfg) return err("Not a team event");
+    if (state.results[evId]) return err("Result already posted");
+    if (state.shelved[evId]) return err("That event is shelved");
+    if (stacksPosted(state)) return err("The finale is settled");
+    if (state.drafts[evId] && !state.draws[evId])
+      return err("Finish or cancel the captains draft");
+    const op = eventOp(state, evId);
+    if (op.startedAt || op.resultEntryAt) return err("The event has already started");
+    if (state.onDeck && state.onDeck !== evId) return err("Close the current betting market first");
+    let drew = false;
+    if (!state.draws[evId]) {
+      const roster = Array.isArray(players) && players.length ? players : ROSTER;
+      const compatible = validateEventParticipants(ev, roster, ROSTER);
+      if (!compatible.ok) return err(compatible.error);
+      if (ev.teamCfg.bracket && !makeBracket(ev.teamCfg.bracket))
+        return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
+      const draw = drawTeams(ev, state, compatible.players);
+      if (!draw) return err("Draw failed");
+      draw.roles = normalizeOverflowRoles(compatible.players, ROSTER, roles, ev);
+      state.draws[evId] = draw;
+      delete state.stages[evId];
+      if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
+        state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
+      else delete state.brackets[evId];
+      op.drawRevealedAt = Date.now();
+      drew = true;
+    }
+    let announced = false;
+    if (state.onDeck !== evId) {
+      op.bettingOpenedAt = Date.now();
+      delete op.bettingLockedAt;
+      state.onDeck = evId;
+      announced = true;
+    }
+    if (!drew && !announced) return ok({ unchanged:true });
+    return ok({ drew, announced });
+  },
+  lockAndStart(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    if (!ev) return err("No such event");
+    const op = eventOp(state, evId);
+    if (op.startedAt) return ok({ unchanged:true });
+    const lifecycle = resolveEventLifecycle(state, ev);
+    if (lifecycle.phase === "betting-open") {
+      op.bettingLockedAt = Date.now();
+      state.onDeck = null;
+    } else if (lifecycle.phase !== "betting-locked") {
+      return err(lifecycle.nextAction?.label || "Open betting first");
+    }
+    op.startedAt = Date.now();
+    /* the intro has said its piece; the game starting is the handoff */
+    if (ctx.showControl) {
+      const control = showControlOf(state);
+      const active = control.active;
+      if (active?.kind === "event-intro" && active.eventId === evId) {
+        const definition = showDefinition(active.kind);
+        const atLast = definition && active.step >= definition.steps.length - 1;
+        finishShowScene(control, atLast ? "completed" : "skipped");
+      }
+    }
     return ok();
   },
   beginResultEntry(state, { evId }, ctx) {
@@ -860,7 +979,14 @@ export const ACTIONS = {
     if (state.onDeck === evId) return err("Lock betting before clearing the draw");
     if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
     delete state.draws[evId]; delete state.brackets[evId]; delete state.stages[evId];
-    if (state.eventOps) delete state.eventOps[evId];
+    /* only the draw's own lifecycle stamps go; revision and correction
+       history outlive a redraw */
+    const op = state.eventOps?.[evId];
+    if (op) {
+      delete op.drawRevealedAt;
+      delete op.bettingOpenedAt;
+      delete op.bettingLockedAt;
+    }
     return ok();
   },
   pickBracketWinner(state, { evId, r, m, teamIdx }, ctx) {
@@ -1112,7 +1238,7 @@ export const ACTIONS = {
   },
   /* posting reads the collected counts; outs are 0. Sum mismatches are
      allowed (chips get miscounted); the client shows the discrepancy. */
-  pokerResult(state, {}, ctx) {
+  pokerResult(state, { noScene }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const pk = state.poker;
     if (!pk?.startedAt) return err("Cards are not live");
@@ -1135,7 +1261,10 @@ export const ACTIONS = {
       outs: pk.outs.map(o => o.player), ts:now, confirmedAt:now, revision };
     op.revision = revision;
     op.completedAt = now;
-    return ok({ revision });
+    const scene = noScene !== true
+      ? tryStartScene(state, ctx, { kind:"winner", eventId:pk.id }, now)
+      : null;
+    return ok({ revision, ...(scene ? { sceneId:scene.id } : {}) });
   },
   pokerCancel(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;

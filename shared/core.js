@@ -1010,8 +1010,23 @@ function resolveEventLifecycle(state, ev) {
   if (result) return response("complete");
 
   if (ev.game === "poker" && ev.finale) {
-    if (!state.poker)
-      return response("setup", lifecycleAction("setup-poker", "Set up the poker table"));
+    if (!state.poker) {
+      /* the board must be still before stacks are dealt; name what moves */
+      const blockers = [];
+      const events = allEventsOf(state);
+      const pendingWagers = (state.wagers || []).filter(w =>
+        resolveWager(state, w, events).status === "pending").length;
+      if (pendingWagers)
+        blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
+      const openDuels = (state.duels || []).filter(d =>
+        d.status === "open" && !resolveDuel(d).settled).length;
+      if (openDuels)
+        blockers.push(`Settle ${openDuels} open duel${openDuels === 1 ? "" : "s"} first`);
+      if (computeStandings(state).some(row => row.pts < 0))
+        blockers.push("Negative stacks, fix rulings first");
+      return response("setup",
+        lifecycleAction("setup-poker", "Set up the poker table", blockers), blockers);
+    }
     if (op.resultEntryAt)
       return response("result-entry", lifecycleAction("post-poker-result", "Post the final chip counts"));
     if (!state.poker.startedAt)

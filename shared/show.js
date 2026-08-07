@@ -2,7 +2,7 @@
    Scene records contain stable references and a step. Every player, result,
    and standings view is resolved from current authoritative state. */
 
-import { computeStandings } from "./core.js";
+import { computeStandings, resolveWeekendOperation, validateEventParticipants, ROSTER } from "./core.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -81,6 +81,7 @@ function createShowScene(request, {
   id,
   now,
   retryOf = null,
+  revision = null,
 } = {}) {
   const timestamp = Number(now) || Date.now();
   return {
@@ -91,6 +92,10 @@ function createShowScene(request, {
     startedAt:timestamp,
     updatedAt:timestamp,
     retryOf:retryOf || null,
+    /* winner scenes remember which result revision they played for, so a
+       correction marks the scene stale and the replay beat can tell a
+       ceremony that already ran from one the corrected result still owes. */
+    revision:revision ?? null,
     commands:[],
   };
 }
@@ -106,6 +111,7 @@ function finishShowScene(control, outcome, now = Date.now()) {
     endedAt:Number(now) || Date.now(),
     outcome,
     retryOf:active.retryOf || null,
+    revision:active.revision ?? null,
     commands:Array.isArray(active.commands) ? active.commands.slice(-8) : [],
   };
   control.active = null;
@@ -144,8 +150,13 @@ function resolveShowScene(state, events = []) {
   ));
   let staleReason = null;
   if (definition.requiresEvent && !event) staleReason = "The event is no longer available";
+  else if (definition.requiresEvent && state.shelved?.[event.id])
+    staleReason = "The event was shelved";
   else if (definition.requiresResult && !result?.slots?.[0]?.length)
     staleReason = "The official result is no longer available";
+  else if (definition.requiresResult && active.revision != null
+      && Number(result.revision || 1) !== Number(active.revision))
+    staleReason = "The result was corrected";
   else if (definition.requiresFrozen && !state.frozen)
     staleReason = "The championship is no longer final";
 
@@ -170,6 +181,85 @@ function resolveShowScene(state, events = []) {
   };
 }
 
+/* ── the director ──
+   One resolver decides the single next beat: advance the scene on the TV,
+   clear a stale one, replay a ceremony a corrected result still owes, or
+   run the next official step. Lifecycle beats are upgraded to their
+   composite forms (announce, announce-draw, lock-start) whether or not
+   Show Control is on; scene beats exist only when it is. The TV keeps
+   reading resolveWeekendOperation, so director copy never leaks to the
+   room. */
+const REPLAY_WINDOW_MS = 15 * 60 * 1000;
+const ADVANCE_LABELS = { winner:{ winner:"Show standings" } };
+const directorBeat = (type, label, extra = {}) =>
+  ({ type, label, enabled:true, blockers:[], ...extra });
+
+function resolveDirector(state, events = [], { showControl = false, now = Date.now() } = {}) {
+  const operation = resolveWeekendOperation(state, events);
+  const control = state.showControl;
+  const history = Array.isArray(control?.history) ? control.history : [];
+
+  if (showControl) {
+    const scene = resolveShowScene(state, events);
+    if (scene) {
+      if (scene.staleReason)
+        return { ...operation, scene, nextAction:
+          directorBeat("clear-scene", "Clear the scene", { sceneId:scene.active.id }) };
+      if (scene.stepIndex < scene.stepCount - 1)
+        return { ...operation, scene, nextAction:
+          directorBeat("advance-scene",
+            ADVANCE_LABELS[scene.active.kind]?.[scene.stepKey] || "Continue",
+            { sceneId:scene.active.id }) };
+      /* A scene on its last step never holds Continue: the next official
+         composite retires it, so the chain cannot dead-end on ceremony. */
+    }
+
+    if (!control?.active) {
+      const latest = Object.entries(state.results || {})
+        .map(([eventId, result]) => ({ eventId, result }))
+        .filter(item => item.result?.slots?.[0]?.length)
+        .sort((a, b) => Number(b.result.ts) - Number(a.result.ts))[0] || null;
+      if (latest && now - Number(latest.result.ts) < REPLAY_WINDOW_MS) {
+        const event = events.find(item => item.id === latest.eventId);
+        const played = history.some(entry => entry.kind === "winner"
+          && entry.eventId === latest.eventId
+          && Number(entry.revision ?? 0) === Number(latest.result.revision || 1));
+        if (event && !played && !state.shelved?.[latest.eventId])
+          return { ...operation, scene:null, nextAction:
+            directorBeat("replay-winner-scene", `Play the ${event.name} winner scene`,
+              { eventId:latest.eventId }) };
+      }
+
+      if (state.frozen && !history.some(entry => entry.kind === "champion"))
+        return { ...operation, scene:null, nextAction:
+          directorBeat("start-champion-scene", "Show the champion") };
+
+      if (state.live && !state.frozen
+          && !Object.keys(state.results || {}).length
+          && !history.some(entry => entry.kind === "opening"))
+        return { ...operation, scene:null, nextAction:
+          directorBeat("start-opening", "Open the weekend") };
+    }
+  }
+
+  const action = operation.nextAction;
+  const ev = operation.event;
+  if (!action || !ev) return { ...operation, scene:null };
+  if (action.type === "open-betting")
+    return { ...operation, scene:null, nextAction:
+      { ...action, type:"announce", label:`Announce ${ev.name}` } };
+  if (action.type === "prepare-draw" && validateEventParticipants(ev, ROSTER, ROSTER).ok)
+    return { ...operation, scene:null, nextAction:
+      { ...action, type:"announce-draw", label:`Announce and draw ${ev.name}` } };
+  if (action.type === "lock-betting")
+    return { ...operation, scene:null, nextAction:
+      { ...action, type:"lock-start", label:`Lock bets and start ${ev.name}` } };
+  if (action.type === "start-event")
+    return { ...operation, scene:null, nextAction:
+      { ...action, type:"lock-start", label:`Start ${ev.name}` } };
+  return { ...operation, scene:null };
+}
+
 export {
   SHOW_HISTORY_LIMIT,
   SHOW_TERMINAL_OUTCOMES,
@@ -180,4 +270,5 @@ export {
   createShowScene,
   finishShowScene,
   resolveShowScene,
+  resolveDirector,
 };

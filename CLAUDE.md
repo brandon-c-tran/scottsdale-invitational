@@ -55,11 +55,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
    also in the ticker and phone live strip), value chips ride the TV bracket
    and board cells, and bracket draw reveals announce first-round matchups.
-   A team event is ONE GM tap ("Announce and draw"): on deck goes out, the
-   draw follows, and the phone plays the intro then hands over to the reveal
-   by itself after `INTRO_HOLD`. Drawing before the announcement put matchups
-   on screen before anyone knew the game, and a manual close made the GM tap
-   twice.
+   A team event is ONE GM tap (`announceAndDraw`): draw, bracket seed, and
+   betting open land in one server write and one broadcast, so every phone
+   plays the intro then hands over to the reveal by itself after
+   `INTRO_HOLD`. Drawing before the announcement put matchups on screen
+   before anyone knew the game, and a manual close made the GM tap twice.
+   The GM pill reads `resolveDirector` (shared/show.js): every beat of the
+   weekend is one server action that moves the tournament and points the TV
+   in the same write (`announceEvent`, `lockAndStart`, winner scenes inside
+   `saveResult`/`pokerResult` via `tryStartScene`, which runs AFTER the
+   official write and can only silently skip, never fail it). Scene beats
+   exist only when Show Control is on; the chain is identical without them.
+   Winner scenes stamp the result revision they played for, so corrections
+   mark the scene stale and the director owes a replay at the new revision.
+   Walkout audio is a cue chip beside the pill, played only by an explicit
+   GM tap, never fired from a scene or action (Spotify policy).
 5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once and
    mints a server-held token; GM actions require it. The PIN must never enter a
    shared module, client bundle, checked-in vars, or documentation.

@@ -1,0 +1,35 @@
+.fd-event-info { margin:0 0 12px; border-top:1px solid var(--line); }
+.fd-event-info summary { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--muted2); cursor:pointer; font-size:12px; }
+.fd-event-info summary>span { display:flex; align-items:center; gap:7px; }
+.fd-event-info summary>span:before { content:'›'; color:var(--muted); font-size:18px; transition:transform .15s; }
+.fd-event-info[open] summary>span:before { transform:rotate(90deg); }
+.fd-event-info summary small { color:var(--muted); font-size:11px; }
+.fd-event-info p { font-size:13px; line-height:1.55; margin:0 0 12px; }
+.fd-event-awards { display:flex; gap:24px; margin-bottom:12px; }
+.fd-event-awards>span { display:flex; align-items:baseline; gap:6px; }
+.fd-event-awards small { color:var(--muted2); font-size:11px; }
+.fd-event-awards strong { font:700 21px/1 var(--fd-display); color:var(--sun); }
+.fd-chip-counter { color:var(--ink); }
+.fd-chip-counter p { color:var(--muted2); font-size:12px; margin:0 0 10px; }
+.fd-chip-count-row { display:grid; grid-template-columns:1fr 44px 64px 44px; align-items:center; gap:4px; border-top:1px solid var(--line); min-height:56px; }
+.fd-chip-count-row label { font-weight:600; font-size:14px; }
+.fd-chip-count-row button { min-width:44px; min-height:44px; border:0; border-radius:6px; color:var(--ink); background:var(--ink-tint); font-size:20px; cursor:pointer; }
+.fd-chip-count-row input { width:100%; min-width:0; min-height:44px; text-align:center; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); font-size:16px; }
+.fd-chip-count-total { display:flex; align-items:baseline; justify-content:space-between; margin:12px 0; font-size:12px; color:var(--muted2); }
+.fd-chip-count-total strong { color:var(--sun); font:700 28px/1 var(--fd-display); }
+.fd-result-winner { display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:7px 12px; padding:0 0 16px; }
+.fd-result-winner small { grid-column:1/-1; font-size:11px; color:var(--muted2); }
+.fd-result-winner strong { font:700 27px/1.12 var(--fd-display); }
+.fd-result-winner>span { color:var(--sun); font-size:13px; }
+.fd-poker-count-row { display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); }
+.fd-poker-count-player { display:flex; align-items:center; flex:1; gap:10px; min-width:0; min-height:52px; padding:4px 0; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-poker-count-player>span:not(:last-child) { flex:1; overflow:hidden; text-overflow:ellipsis; font-size:13px; font-weight:600; }
+.fd-poker-count-player strong { font:700 20px/1 var(--fd-display); }
+.fd-poker-count-player small { color:var(--muted2); font-size:12px; }
+.fd-poker-count-player:disabled { cursor:default; }
+.is-out .fd-poker-count-player { opacity:.55; }
+.fd-poker-count-action { min-height:44px; min-width:58px; padding:6px; background:none; border:0; color:var(--clay); font-size:12px; cursor:pointer; }
+.fd-event-crew-compact { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; border-top:1px solid var(--line); margin-top:8px; padding-top:6px; }
+.fd-event-crew-compact button { display:flex; align-items:center; gap:7px; min-height:44px; padding:4px 0; border:0; background:none; color:var(--ink); cursor:pointer; font-size:12px; }
+.fd-event-crew-compact small { color:var(--muted2); font-size:11px; }
+.fd-chip-count-row button:focus-visible,.fd-poker-count-player:focus-visible,.fd-poker-count-action:focus-visible,.fd-event-crew-compact button:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }

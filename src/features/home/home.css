@@ -1,0 +1,77 @@
+.fd-home { padding:0 20px 24px; }
+.fd-home-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:16px 0; }
+.fd-home-eyebrow { font:600 10px/1.5 var(--fd-body); text-transform:uppercase; letter-spacing:.1em; color:var(--muted2); }
+.fd-home-heading h1 { margin:5px 0 0; font:700 42px/.95 var(--fd-display); letter-spacing:-.01em; text-transform:uppercase; }
+.fd-home-text-link { display:inline-flex; align-items:center; justify-content:space-between; gap:9px; min-height:44px; padding:6px 0; border:0; background:none; color:var(--ink); font-size:11px; cursor:pointer; }
+.fd-home-arrow { flex-shrink:0; font:400 18px/1 var(--fd-body); }
+.fd-home-focus { border:1px solid var(--line); background:var(--paper); border-radius:12px; overflow:hidden; }
+.fd-home-focus-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; min-height:44px; padding:0 17px; border-bottom:1px solid var(--line); }
+.fd-home-focus-top>span:last-child { color:var(--muted); font-size:10px; }
+.fd-home-focus-top .fd-home-eyebrow { display:flex; align-items:center; gap:7px; color:var(--sun); }
+.fd-home-eyebrow i { width:6px; height:6px; border-radius:50%; background:var(--sun); }
+.fd-home-event-title { display:flex; align-items:center; gap:12px; width:100%; min-height:72px; border:0; padding:14px 16px; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-event-title>span:first-child { flex:1; min-width:0; }
+.fd-home-event-title h2 { font:700 clamp(32px,8.5vw,42px)/1.02 var(--fd-display); text-transform:uppercase; margin:0 0 6px; overflow-wrap:anywhere; }
+.fd-home-event-title small { font-size:11px; color:var(--muted2); }
+.fd-home-event-mark { flex-shrink:0; width:68px; height:68px; display:grid; place-items:center; transform:rotate(-7deg); }
+.fd-home-event-mark svg { width:64px; height:64px; }
+.fd-home-event-description { margin:0; padding:0 17px 4px; color:var(--muted2); font-size:12px; line-height:1.65; }
+.fd-home-contest-label { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--ink); font:600 18px/1.2 var(--fd-display); }
+.fd-home-contest-label span { color:var(--accent2); font:500 10px/1.3 var(--fd-body); }
+.fd-home-event-actions { display:flex; gap:9px; padding:12px 16px 16px; }
+.fd-home-primary,.fd-home-secondary { min-height:46px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; border:1px solid transparent; border-radius:7px; padding:12px 14px; font-size:12px; font-weight:600; text-align:left; cursor:pointer; }
+.fd-home-primary { color:var(--action-ink); background:var(--action-fill); }
+.fd-home-secondary { color:var(--ink); background:transparent; border-color:var(--line); }
+.fd-home-assignment { display:grid; gap:6px; padding:12px 16px 0; border-top:1px solid var(--line); }
+.fd-home-assignment small,.fd-home-result small,.fd-home-betting small { display:block; font-size:10px; color:var(--muted); margin-bottom:4px; }
+.fd-home-assignment>strong { font-size:14px; }
+.fd-home-assignment p { margin:0; color:var(--muted2); font-size:12px; line-height:1.5; }
+.fd-home-assignment .fd-home-assignment-status { color:var(--accent2); }
+.fd-home-player-links { display:flex; flex-wrap:wrap; gap:3px 12px; }
+.fd-home-player-links button { display:inline-flex; align-items:center; gap:7px; max-width:100%; min-height:44px; padding:3px 0; border:0; background:none; color:var(--ink); text-align:left; font-size:12px; cursor:pointer; }
+.fd-home-player-links button>span { overflow-wrap:anywhere; }
+.fd-home-opponents { display:flex; align-items:center; gap:10px; }
+.fd-home-opponents>span:first-child { color:var(--accent2); font:600 12px/1 var(--fd-body); }
+.fd-home-exposure { display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:100%; font-size:11px; color:var(--muted2); }
+.fd-home-exposure button { background:transparent; border:0; padding:6px 0; color:var(--sun); cursor:pointer; min-height:44px; }
+.fd-home-betting { display:flex; width:100%; align-items:center; gap:11px; border:1px solid var(--line); border-radius:8px; padding:12px; margin:16px 0; background:var(--paper2); color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-betting>span:nth-child(2) { flex:1; min-width:0; }
+.fd-home-betting strong { display:block; font-size:12px; }
+.fd-home-betting>span:last-child { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--sun); }
+.fd-home-result { border-bottom:1px solid var(--line); padding:9px 0 13px; }
+.fd-home-result-event { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; background:none; border:0; color:var(--ink); padding:10px 0 4px; text-align:left; cursor:pointer; }
+.fd-home-result-event strong { font:600 21px/1.1 var(--fd-display); }
+.fd-home-result>div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.fd-home-result-award { font:600 24px/1 var(--fd-display); color:var(--sun); }
+.fd-home-upcoming .fd-section-heading { margin:22px 0 3px; }
+.fd-home-next { display:flex; align-items:center; gap:12px; width:100%; min-height:73px; padding:13px 0; border:0; border-bottom:1px solid var(--line); background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-next>span:nth-child(2) { flex:1; min-width:0; }
+.fd-home-next strong { display:block; font-size:13px; font-weight:500; }
+.fd-home-next small { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
+.fd-home-leaderboard { margin-top:18px; }
+.fd-home-leaderboard .fd-section-heading { margin:0 0 6px; }
+.fd-home-card-link { display:flex; width:100%; min-height:48px; align-items:center; justify-content:space-between; padding:10px 0; color:var(--muted2); background:none; border:0; font-size:12px; cursor:pointer; }
+.fd-home-reference { display:flex; gap:20px; padding-top:10px; margin-top:14px; border-top:1px solid var(--line); }
+.fd-home-reference button { display:flex; align-items:center; gap:10px; min-height:48px; border:0; background:none; padding:8px 0; color:var(--muted); font-size:11px; cursor:pointer; }
+.fd-home-reference button .fd-home-arrow { font-size:14px; }
+.fd-home-finish { padding:22px 18px 18px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+.fd-home-finish>.fd-home-eyebrow { color:var(--accent2); }
+.fd-home-winner { display:flex; align-items:center; gap:16px; width:100%; padding:20px 0 4px; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-winner strong { font:700 38px/1 var(--fd-display); overflow-wrap:anywhere; }
+.fd-home-finish p { color:var(--muted2); font-size:12px; }
+.fd-home-finish p strong { color:var(--sun); font:600 46px/1 var(--fd-display); }
+.fd-home-finish>.fd-home-primary { width:100%; margin-top:20px; }
+.fd-home-poker>.fd-home-text-link { width:100%; }
+.si-sheet .fd-standings-page { padding-left:0; padding-right:0; }
+@media(hover:hover) {
+  .fd-home-event-title:hover h2,.fd-home-text-link:hover,.fd-home-player-links button:hover>span { text-decoration:underline; text-underline-offset:4px; }
+  .fd-home-event-title:hover .fd-home-event-mark { transform:rotate(0); }
+}
+@media(max-width:350px) {
+  .fd-home { padding-left:15px; padding-right:15px; }
+  .fd-home-heading h1 { font-size:37px; }
+  .fd-home-event-mark { width:66px; height:66px; }
+  .fd-home-event-mark svg { width:62px; height:62px; }
+  .fd-home-event-actions { gap:7px; }
+  .fd-home-primary,.fd-home-secondary { padding:11px; font-size:11px; }
+}

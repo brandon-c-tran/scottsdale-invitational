@@ -136,13 +136,21 @@ export function dispatch(type, payload, { retry = false } = {}) {
 }
 
 export async function uploadPhoto(player, dataUrl) {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 20000);
   try {
     const r = await fetch(`/api/photo/${encodeURIComponent(player)}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dataUrl, deviceId, gmToken }),
+      signal: controller.signal,
     });
     return await r.json();
-  } catch { return { ok: false, error: "Upload failed" }; }
+  } catch {
+    return { ok: false, error: controller.signal.aborted
+      ? "Photo upload timed out. Try again." : "Upload failed" };
+  } finally {
+    clearTimeout(deadline);
+  }
 }
 
 async function spotifyRequest(path, { method = "GET", body, gm = false } = {}) {

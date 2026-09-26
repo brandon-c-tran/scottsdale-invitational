@@ -5,6 +5,10 @@ Workers with a Durable Object as the single source of truth. Real-time over
 WebSockets: draws reveal on every phone, wagers settle the moment results post,
 TV mode runs on the living room screen.
 
+The current direction is a full experience and systems refactor. Start with
+[the working brief](docs/REFOUNDATION.md) for the guest experience, design taste,
+architecture boundaries, production-data requirements, and remaining work.
+
 ## Setup
 
 ```powershell

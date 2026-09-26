@@ -6,12 +6,18 @@ import {
   EMPTY_STATE,
   ROSTER,
   resolveEventLifecycle,
+  resolveCurrentContest,
   resolveWeekendOperation,
 } from "../shared/core.js";
 import { resolveDirector, resolveShowScene } from "../shared/show.js";
 import { applyAction } from "../worker/actions.js";
 
 const events = BUILTIN_EVENTS;
+const contestRef = (state, evId) => {
+  const event = BUILTIN_EVENTS.find(item => item.id === evId);
+  const contest = event && resolveCurrentContest(state, event);
+  return contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
+};
 const gm = actionId => ({
   isGm:true,
   player:"Brandon",
@@ -31,13 +37,13 @@ test("the director upgrades lifecycle beats and keeps scene beats capability-gat
   assert.equal(off.nextAction.type, "announce");
   assert.match(off.nextAction.label, /^Announce /);
 
-  /* nothing played, weekend live, Show Control on: the opening leads */
+  /* Going live never inserts a separate opening-weekend step. */
   state.live = true;
   const on = resolveDirector(state, events, { showControl:true });
-  assert.equal(on.nextAction.type, "start-opening");
-  assert.equal(on.nextAction.label, "Open the weekend");
+  assert.equal(on.nextAction.type, "announce");
+  assert.match(on.nextAction.label, /^Announce /);
 
-  /* an opening in history retires the beat for good */
+  /* A manually played opening remains optional. */
   state.showControl.history = [{ id:"show-x", kind:"opening", outcome:"completed" }];
   assert.equal(resolveDirector(state, events, { showControl:true }).nextAction.type,
     "announce");
@@ -114,7 +120,7 @@ test("announceAndDraw is one atomic write with a resume table", () => {
 test("lockAndStart merges lock and start and retires the intro as skipped", () => {
   const state = structuredClone(EMPTY_STATE);
   applyAction(state, "announceEvent", { evId:"putt" }, gm("ls-1"));
-  const locked = applyAction(state, "lockAndStart", { evId:"putt" }, gm("ls-2"));
+  const locked = applyAction(state, "lockAndStart", { evId:"putt", ...contestRef(state, "putt") }, gm("ls-2"));
   assert.equal(locked.ok, true);
   assert.equal(state.onDeck, null);
   assert.ok(state.eventOps.putt.bettingLockedAt > 0);
@@ -123,23 +129,23 @@ test("lockAndStart merges lock and start and retires the intro as skipped", () =
   assert.equal(state.showControl.history[0].kind, "event-intro");
   assert.equal(state.showControl.history[0].outcome, "skipped");
 
-  const retried = applyAction(state, "lockAndStart", { evId:"putt" }, gm("ls-3"));
+  const retried = applyAction(state, "lockAndStart", { evId:"putt", ...contestRef(state, "putt") }, gm("ls-3"));
   assert.equal(retried.ok, true);
   assert.equal(retried.extra.unchanged, true);
 
   /* also legal from betting-locked, and refused before betting ever opened */
   const lockedFirst = structuredClone(EMPTY_STATE);
   applyAction(lockedFirst, "setOnDeck", { id:"putt" }, gm("ls-4"));
-  applyAction(lockedFirst, "setOnDeck", { id:null }, gm("ls-5"));
-  assert.equal(applyAction(lockedFirst, "lockAndStart", { evId:"putt" }, gm("ls-6")).ok, true);
+  applyAction(lockedFirst, "setOnDeck", { id:null, ...contestRef(lockedFirst, lockedFirst.onDeck) }, gm("ls-5"));
+  assert.equal(applyAction(lockedFirst, "lockAndStart", { evId:"putt", ...contestRef(lockedFirst, "putt") }, gm("ls-6")).ok, true);
   const cold = structuredClone(EMPTY_STATE);
-  assert.equal(applyAction(cold, "lockAndStart", { evId:"putt" }, gm("ls-7")).ok, false);
+  assert.equal(applyAction(cold, "lockAndStart", { evId:"putt", ...contestRef(cold, "putt") }, gm("ls-7")).ok, false);
 });
 
 test("posting a result carries its ceremony; corrections mark it stale and owe a replay", () => {
   const state = structuredClone(EMPTY_STATE);
   applyAction(state, "announceEvent", { evId:"putt" }, gm("wr-1"));
-  applyAction(state, "lockAndStart", { evId:"putt" }, gm("wr-2"));
+  applyAction(state, "lockAndStart", { evId:"putt", ...contestRef(state, "putt") }, gm("wr-2"));
   applyAction(state, "beginResultEntry", { evId:"putt" }, gm("wr-3"));
   const posted = applyAction(state, "saveResult",
     { evId:"putt", slots:[["Brandon"], [], []] }, gm("wr-4"));
@@ -183,7 +189,7 @@ test("scenes never block the official write", () => {
   /* noScene (the QA sim path) posts with no ceremony and leaves no debt */
   const sim = structuredClone(EMPTY_STATE);
   applyAction(sim, "announceEvent", { evId:"putt" }, gm("nb-1"));
-  applyAction(sim, "lockAndStart", { evId:"putt" }, gm("nb-2"));
+  applyAction(sim, "lockAndStart", { evId:"putt", ...contestRef(sim, "putt") }, gm("nb-2"));
   applyAction(sim, "beginResultEntry", { evId:"putt" }, gm("nb-3"));
   const posted = applyAction(sim, "saveResult",
     { evId:"putt", slots:[["Brandon"], [], []], noScene:true }, gm("nb-4"));
@@ -193,7 +199,7 @@ test("scenes never block the official write", () => {
   /* a scene mid-flight when the result posts retires cleanly, never errs */
   const busy = structuredClone(EMPTY_STATE);
   applyAction(busy, "announceEvent", { evId:"putt" }, gm("nb-5"));
-  applyAction(busy, "lockAndStart", { evId:"putt" }, gm("nb-6"));
+  applyAction(busy, "lockAndStart", { evId:"putt", ...contestRef(busy, "putt") }, gm("nb-6"));
   applyAction(busy, "beginResultEntry", { evId:"putt" }, gm("nb-7"));
   applyAction(busy, "startShowScene", { kind:"standings" }, gm("nb-8"));
   const overStanding = applyAction(busy, "saveResult",

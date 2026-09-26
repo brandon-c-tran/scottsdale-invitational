@@ -19,8 +19,154 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 - **`worker/actions.js`**: every mutation, validated server-side (GM auth, wager
   caps/balance, stale draw/stage references). Add new mutations here, never as
   client-side state writes.
-- **`src/App.jsx`**: the entire UI (deliberately one file for now). `src/lib/client.js`
-  is the transport: reconnecting WS, promise-based `dispatch`, device identity.
+- **`src/App.jsx`**: application composition and the remaining feature UI during
+  the systems refactor. `src/ui/` owns the shared theme, controls, shell, and
+  static stylesheet. `src/lib/client.js` is the transport: reconnecting WS,
+  promise-based `dispatch`, device identity.
+- **`src/features/identity/`** owns the explicit profile provider and reusable
+  avatar/chip renderers. Every phone, TV, or preview tree must render inside
+  `PlayerIdentityProvider`; there is no mutable global profile registry.
+- **Guest modules:** `features/check-in/` owns the lazy-loaded invitation,
+  install gate, drafts, and acknowledged progression; `features/profile/` owns
+  the editor, live player card, and profile/photo save orchestration;
+  `features/travel/` owns shared trip presentation and entry. Feature modules
+  must not import from App. Shared semantic tokens are in
+  `src/ui/experience.css`; all guest pages use the green-charcoal dark palette.
+  `.fd-night` keeps TV and live surfaces on that same palette. `features/home/`,
+  `features/weekend/`, `features/standings/`, and `features/wagers/` own the
+  returning home, events/weekend reference, live board, and wagering UI.
+  `features/draft/` owns captain setup, the live snake draft, and its Home entry;
+  `shared/core.js` supplies its turn and mutation references through `draftTurn`.
+  `ui/AppChrome.jsx` owns the persistent header/navigation; `ui/GameMark.jsx`
+  owns the shared game illustrations.
+
+## Current redesign direction
+
+**September 5 correction is authoritative.** Brandon rejected the light
+redesign and the rewritten voice. It made the app harder to use and broke
+intentional cohesion. This supersedes the September 4 light paper/burgundy
+direction. In the subsequent Home brief, Brandon explicitly allowed a new
+dark palette: green charcoal, warm bone, muted yellow, and restrained lilac.
+Keep the dark theme and recover Brandon's existing wording from the
+pre-redesign source. Do not add slogans, a fictional host note, casino idioms,
+or reassuring filler. Change copy only to explain an actual changed interaction
+or keep a rule accurate.
+
+Treat this as a UX and system problem: make the app's functionality easy to
+find, keep related actions together, and preserve context between views.
+The September 7 product review is scoped to mobile players and commissioners,
+plus the shared TV. Do not prioritize keyboard-only audit findings for this
+weekend. Retain touch-target, legibility, motion and recovery requirements.
+Delight must support intuitive use. Betting should feel like video roulette
+or poker: choose a denomination, place chips directly on the board, and take
+the last chip back from the same stack. Selecting a player's name or avatar
+opens that person's player card consistently; a wager's chip target performs
+the wager action.
+
+The identity color selection colors the entire player card, front and back,
+with readable ink derived from that color. Keep the profile/check-in preview
+and public card on the same saved identity color, including photo frames and
+card ornament; it is not only a chip or thin accent rail.
+
+The original per-game SVG moments belong in the phone announcement and TV
+spotlight. An atomic announcement/draw must play the short intro first, then
+the saved draw; both effects must not mount their ceremonies in one render.
+Returning from a player card shows the completed draw without replaying it.
+
+**September 7 announcement crash:** the render-time announcement gate once
+read `simRef` before its declaration. Keep refs above every synchronous render
+read; callback-only tests cannot cover that transition. The actual-App
+regression renders both sides of the first announcement with retained refs.
+Keep the app-level recovery boundary in `main.jsx`; it may reload the client
+but must never clear claims, profiles, or tournament state.
+
+The current route structure has four stable main areas: Home, Events, Bets,
+and Weekend. Home keeps the same identity throughout the weekend. Its current
+event, real personal assignment, direct rules/betting actions, chip position,
+and actionable duels take precedence over reference material. The leaderboard
+is always visible on Home with all 13 players, chip balances, and the current
+player's row distinguished. Never collapse it into a roster accordion or
+require a sheet to see the standings. Home and the full standings sheet use
+the same `Leaderboard` component; only the commissioner board exposes Adjust.
+Before play, show the first event and all 13 neutral rows labelled Starting
+chips at 1,000. During poker, keep the actual table controls first;
+after results, show final chips and the confirmed champion when frozen.
+The weekend starts implicitly when the host opens the first game's betting
+or starts play. Team/heat/draft preparation alone does not start it. Never add
+a separate Start/Open weekend step, including in the director's next action.
+House, flights, and check-in details belong in Weekend, not a Home hero.
+Weekend contains Trip,
+Rules, and Games, and remembers its selected section. Profile, public player
+cards, and event details open as sheets; host controls remain separate from
+guest navigation. See `docs/UX-REPAIR.md` for route and acceptance criteria.
+
+**App-wide efficiency pass:** remove repeated content and unnecessary framing
+before reducing useful information or type size. Desktop modals fit their
+content; compact sheet headers carry the title and relevant actions once.
+Avoid repeating that title inside the body or adding another padded card
+around an already complete section. Keep scrolling, focus, return context,
+pending-write guards, and at least 44px active controls.
+
+Event and draw announcement sheets keep compact operational content and the
+announcement/reveal sequence. Efficiency must not remove the anticipation,
+player-color motion, or acknowledgement feedback that makes a result legible.
+Commissioner winner selection uses the actual bracket matchup or heat rows,
+with separate player-avatar targets for cards. Do not build a second copy of
+the teams just to choose a winner. Bets keeps one compact chip rack and a
+readable ledger, preserving direct chip placement, retraction, and feedback.
+Home consolidates the separate own-score summary into the always-visible
+leaderboard, with exposure and one standings-details route beside it. Events
+uses compact progress and session rows with shared lifecycle status. Weekend
+opens directly into its selected content; Trip is address-first with saved
+flights, Rules avoids nested framing, and game instructions use a single
+game-name sheet title. Preserve every objective, step, variant, win condition,
+and house rule. Live profile editing offers the card preview on demand and
+shows the current locked chip instead of a grid of disabled choices. Public
+cards keep their identity and stats; Quick Draw instructions expand beside
+the ante controls. The unlocked check-in editor, full venue introduction,
+saved flight answers, and acknowledgement flow remain intact.
+
+**Draw and draft follow-up:** keep the short event entrance before an automatic
+team reveal. Reveal the actual matchup, team, or heat groups in sequence,
+with covered identities unavailable to keyboard focus until shown. Skip
+animation and Replay draw remain explicit controls; reduced motion shows the
+complete draw immediately. Replaying presentation never redraws teams or
+changes gameplay. Winner celebrations, TV draft cues, chip feedback, and Home
+rank-change arrows remain part of the experience.
+
+Captain setup makes pick order visible and supports manual, seeded/standings,
+and random selection. The live draft shows whose pick it is, upcoming snake
+order, available players, named teams, the last pick, and crew. A captain can
+pick only on their turn; the commissioner can pick for them, undo, confirm
+completed teams, or explicitly discard a draft. Other guests follow the draft
+and open player cards. Picking and viewing a card have separate targets.
+Home and the event sheet open the draft directly, including the captain's
+Your pick notification. Brief pick/turn motion follows saved state.
+
+Draft writes carry `draftId`, `pickIndex`, and `draftRevision` from `draftTurn`.
+The server validates them and serializes picks; undo increases the revision
+even when it returns to an earlier pick index. Preserve legacy unversioned
+drafts and acknowledged retries. A shared pending guard blocks duplicate and
+conflicting draft actions. Failures keep the draft open for retry; confirming
+or discarding closes only after success. Confirmation preserves captain/team
+membership and crew, prepares the draw/bracket, and remains preparation;
+opening betting or starting play is still what starts the weekend.
+
+The broader systems refactor in `docs/REFOUNDATION.md` remains in scope.
+Staging and production already exist; production holds real guest data.
+Preserve the tournament/data contract, claims, answers, completion markers,
+pending-write guards, and acknowledgement-based check-in. A redesign never
+resets guests or requires completed setup again.
+
+**Returning guests first:** Brandon has already shared the current production
+app with the full group and most have completed check-in. Focus subsequent
+design work on an existing guest returning after an update. Keep FTUX usable
+for stragglers, but do not expand it unnecessarily or reset it for a redesign.
+Preserve device/claim/completion markers and all existing guest answers.
+Brandon may later add questions, activity votes, or restaurant polls. Plan one
+reusable prompt/response feature with endpoint-based host authoring if useful,
+separate from onboarding. Its details are recorded in `docs/REFOUNDATION.md`;
+no specific question, poll, or new endpoint has been implemented yet.
 
 ## Core invariants (do not break)
 
@@ -37,20 +183,29 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
    wager net + rulings, computed fresh from state every time. No stored
    balances.
-4. **Payouts:** outright winner pays 2:1 (`OUTRIGHT_MULT`); matchups, heat/pool
-   advancement, and stage finals pay even. Awards pay 400/800/1200/1600 by
+4. **Current-contest betting:** a free-for-all event winner pays 2:1
+   (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
+   winner pays even (1:1). The board exposes only that one current contest,
+   never every unresolved bracket matchup or an event-wide outright market
+   for an event being played as matches or stages. A competitor may optionally
+   back themself or their own team in that contest; spectators may back any
+   of its sides. Free-for-all choices remain unrestricted. There is no
+   automatic wager or required self-bet. Legacy outright and advancement
+   tickets keep their original settlement and payout contracts; they are not
+   converted to new winner bets. Awards pay 400/800/1200/1600 by
    session (`AWARDS` keys ARE the legal event values) so winning games outweighs
    betting. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
    capped under 500 (`MAX_RISK`), and it bounds duel antes too or a duel would
    be a way around it. Stake <= balance minus at-risk, stakes move in 100s. Betting UX
-   is video roulette: a fixed rack (100/200/500/1000, App.jsx `RACK_DENOMS`)
+   is video roulette: a fixed rack (100/200/500/1000, features/wagers/Wagers.jsx `RACK_DENOMS`)
    selects the tap stake and carries the only economy readout, a meter that
    DRAWS the cap instead of narrating it: the bar is your whole stack, the
    notch is `maxRisk`, the gold is your exposure, and the gap between them is
    what is left to bet. It stays up when you are maxed out, since that is when
    it explains the most, and it is labelled with numbers, never a phrase.
-   Tapping any pick or open bracket side drops
-   that chip, value stamped on its face, your ✕ pulls the last one back.
+   Tapping + on an eligible side of the current contest adds that chip, with
+   its value stamped on its face. Tapping your stack retrieves its last chip.
+   Player identity targets open player cards independently of chip actions.
    TV mode is the constant status: the live scene carries an UP NOW banner and
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
    also in the ticker and phone live strip), value chips ride the TV bracket
@@ -78,12 +233,18 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    the ONLY place that decides where it opens, because the install gate (step
    -1) is skipped for standalone and desktop and every entry point (first run,
    GM rerun, local replay) has to agree, or the gate quietly vanishes for
-   everyone re-onboarded. After that is one five-step check-in, with one progress
+   everyone re-onboarded. After that is one six-step check-in, with one progress
    system and no automatic tab tour: claim a roster spot; get the tournament
-   reveal and `TravelMap` (real lon/lat over a dotted lower-48) on one screen;
+   introduction; see `TravelMap` (real lon/lat over a dotted lower-48);
    submit logistics; build the player card; submit private ratings. Detailed
-   payouts, wagers, duels and game rules live in the Rules tab instead of a
+   payouts, wagers, duels and game rules live in Weekend's Rules and Games sections instead of a
    second onboarding chapter. Finishing ratings lands directly on the board.
+   Mount the form after the first server snapshot and preserve saved answers.
+   Claim, details, profile/photo, and ratings steps advance only after explicit
+   success acknowledgements. Pending writes freeze edits and navigation;
+   failures retain drafts for retry. Profile photos use their existing HTTP
+   endpoint and have a 20-second abort deadline. Color/pattern claims keep
+   their existing immediate server actions and share the submission guard.
    Logistics reads `state.logistics` via `VenueCard` (`HouseArt` + the
    address + a maps link, and the check-in window INSIDE the same card so those
    times can only be read as the house's; then one travel card pairing the PHX
@@ -151,10 +312,20 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    metadata map introduced in `v:6` for facts the old domain objects cannot
    express: betting lock, event start, result-entry open, completion, and
    correction history. `resolveEventLifecycle()` and
-   `resolveWeekendOperation()` drive both GM and TV. A normal event must open
-   betting, lock betting, start, finish its bracket/stages if present, enter
-   results, and then post. Results are revisioned; overwrites and clears
-   require a reason, and identical retries are no-ops.
+   `resolveWeekendOperation()` drive both GM and TV. State schema `v:9` adds
+   explicit current-contest identity, revision, phase, and correction metadata.
+   `resolveCurrentContest()` is the shared authority for the guest board,
+   commissioner panel, permitted bets, and server validation. Do not infer a
+   separate current match in a view. The sequence is open betting, lock and
+   start, record this contest's winner, then atomically open the next contest.
+   A heat records its winner separately from its complete qualifying list;
+   two-through requires the winner plus one other qualifier. Finish every
+   match or heat and the final before posting the event result. FFA goes from
+   play to its normal event result entry. New writes carry `contestId` and
+   `contestRevision`; reject stale targets and acknowledge identical retries
+   without moving twice. Old in-progress events remain readable and preserve
+   their draws, tickets, results, and original contracts. Results are revisioned;
+   overwrites and clears require a reason, and identical retries are no-ops.
 10. **The wager ledger is duplicate-safe.** State schema `v:7` adds
    `wagerOps`, keyed by device plus action id. The client may retry place and
    retract once using the same action id; the server acknowledges that retry
@@ -170,7 +341,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    state is published. Production import, restore, and internal-backup recovery
    remain hard disabled.
 12. **Show Control is recoverable presentation state, not tournament truth.**
-   Current state schema `v:8` adds `showControl`. Its active scene and step are
+   State schema `v:8` introduced `showControl`. Its active scene and step are
    persisted by the Durable Object, so every TV reconstructs after refresh or
    reconnect. Scenes reference current official events, results, and standings
    instead of copying them. Commissioner commands are capability-gated and
@@ -182,6 +353,16 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
    Private keys, `gmToken`, and internal backups are excluded from portable
    snapshots. Tournament state may contain only validated public walkout-track
    metadata, and Show Control never depends on playback success.
+14. **Previous-contest correction is explicit and guarded.**
+   `contestUndoAvailability()` supplies the eligibility and explanation;
+   `undoLastContest` validates the previous contest id and current revision.
+   Correction is allowed before the next contest locks or starts and only
+   after its pending chips have been removed. It is unavailable after the
+   event result posts, while frozen, during the finale, or while another
+   event's betting market is open. Restore the previous contest for winner
+   entry with betting still locked and a fresh revision. Derived settlement
+   reverses the old winner's effects; never silently erase the next market's
+   wagers or reopen the corrected contest for fresh bets.
 
 ## Commands
 
@@ -192,10 +373,23 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 - `npm run deploy:staging` - creates/updates the isolated staging Worker; approval required
 - `npm run deploy:production` - updates the existing live Worker; approval and snapshot required
 - `npm run tail` - live production logs; approval required
-- `npm run test` - M1/M2 state, action, snapshot, and compatibility checks
+- `npm run test` - state, action, snapshot, compatibility, and real component
+  handler checks, including current-contest sequencing, wagers, and correction
 - `npm run test:e2e` - full game loop over two local WebSocket clients (dev
   server must be running; production URLs are rejected; resets local state)
 - `npm run snapshot:validate -- <file>` - offline, read-only snapshot validation
+- `/dev/contest-preview.html` - local development rehearsal using actual
+  Wagers, ContestPanel, player cards, and `applyAction` against sample state in
+  memory. Includes FFA, a six-team bracket, two-through heats plus final, and
+  an existing mid-event scenario; switch guest/commissioner/player and simulate
+  failed acknowledgements. No WebSocket, persistent storage, or remote data.
+
+The app-wide efficiency pass passed 162 tests and is deployed to staging as
+version `98cb2071-82db-4898-b8ba-99f690c5ddff`. See `docs/UX-REPAIR.md` for
+the browser checks and separate historical records. The isolated actual-sheet
+preview is `/dev/efficiency-preview.html`; rebuild its transport-stubbed
+component bundle with `node scripts/build-efficiency-preview.mjs` after UI
+edits. This preview never connects to the tournament and is not deployed.
 
 ## Copy and design taste (Brandon's rules)
 
@@ -222,7 +416,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
     of one bad decision, only half your points can be at risk"). Dry, never
     zany.
   - A first-run flow gets one progress system and one finish line. Put deeper
-    mechanics in the Rules tab instead of making a completed check-in continue.
+    mechanics in Weekend's Rules section instead of making a completed check-in continue.
   - Ask questions outright with equal answers instead of hiding the alternative
     in a link ("Booked your flights? Yes / Not yet").
   - Headings carry the message, bodies carry the detail ("Thank you for flying
@@ -248,7 +442,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   for marks, poker chips, and anything sitting on sun. Barlow Condensed
   display for scores/ranks/event names, Inter for everything functional, no
   serif (fonts load in index.html, never via CSS import). Semantic tokens in
-  `Shell` (:root) are the only color source: no raw hex outside :root and
+  `src/ui/experience.css` (:root) are the only color source: no raw hex outside :root and
   PLAYER_COLORS, tints via the --*-tint tokens, shadows via --shadow-1/2/3
   (deep warm, never pure black), radii 6/10/14/16/99. Phase palette: pool
   (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale).

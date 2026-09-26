@@ -1,0 +1,43 @@
+.fd-player-sheet { width:100%; max-width:480px; margin:0 auto; }
+.fd-player-sheet>.fd-pass-wrap { max-width:256px; margin-bottom:12px; }
+.fd-player-sheet .fd-pass-face { padding:17px; }
+.fd-player-sheet .fd-pass-top,.fd-player-sheet .fd-pass-foot { font-size:8px; }
+.fd-player-sheet .fd-pass-name { font-size:41px; }
+.fd-player-sheet .fd-pass-number { font-size:140px; }
+.fd-player-sheet .fd-pass-back-title { font-size:28px; }
+.fd-player-sheet .fd-pass-edition { font-size:8px; }
+.fd-player-sheet .fd-pass-facts { font-size:10px; }
+.fd-player-sheet h2 { margin:0; color:var(--ink); font:700 20px/1.1 var(--fd-display); text-transform:uppercase; }
+.fd-player-stats { display:grid; grid-template-columns:1fr 1.4fr 1fr; margin:0 0 12px;
+  padding:12px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.fd-player-stats>div { text-align:center; }
+.fd-player-stats>div+div { border-left:1px solid var(--line); }
+.fd-player-stats dt { color:var(--muted2); font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+.fd-player-stats dd { margin:4px 0 0; font:700 34px/1 var(--fd-display); color:var(--ink); }
+.fd-player-stats>div:nth-child(2) dd { color:var(--sun); }
+.fd-player-record { margin:0 0 18px; font-size:12px; }
+.fd-player-record>div { display:flex; justify-content:space-between; gap:16px; padding:7px 0; }
+.fd-player-record dt { color:var(--muted2); }
+.fd-player-record dd { margin:0; text-align:right; font-weight:600; }
+.fd-player-record dd>span { display:block; margin-top:3px; color:var(--muted2); font-weight:400; }
+.fd-player-wins { margin:0 0 20px; }
+.fd-player-wins ul { display:flex; flex-wrap:wrap; gap:7px; padding:0; margin:10px 0 0; list-style:none; }
+.fd-player-wins li { padding:7px 9px; border:1px solid var(--line); border-radius:6px;
+  background:var(--sun-tint); font-size:11px; line-height:1.3; }
+.fd-player-duel { padding-top:8px; border-top:1px solid var(--line); }
+.fd-player-duel-rules { margin-bottom:8px; }
+.fd-player-duel-rules summary { display:flex; align-items:center; justify-content:space-between; min-height:44px; gap:12px; cursor:pointer; list-style:none; }
+.fd-player-duel-rules summary::-webkit-details-marker { display:none; }
+.fd-player-duel-rules summary:focus-visible { outline:2px solid var(--sun); outline-offset:3px; }
+.fd-player-duel-rules summary>span { color:var(--muted2); font-size:11px; }
+.fd-player-duel p { margin:9px 0 14px; color:var(--muted2); font-size:12px; line-height:1.6; }
+.fd-player-duel .fd-player-unavailable { font-weight:600; margin-bottom:0; }
+.fd-player-antes { display:flex; gap:10px; min-width:0; border:0; margin:0 0 14px; padding:8px 0 0; }
+.fd-player-antes legend { padding:0; color:var(--muted2); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+.fd-player-antes button { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;
+  min-height:56px; padding:6px 3px; border:1px solid transparent; border-radius:6px; background:none; color:var(--muted2); cursor:pointer; }
+.fd-player-antes button[aria-pressed=true] { border-color:var(--sun); background:var(--sun-tint); color:var(--sun); }
+.fd-player-antes button:disabled { opacity:.3; cursor:default; }
+.fd-player-antes button>span { font:600 11px/1 var(--fd-body); }
+.fd-player-antes button:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
+.fd-player-duel .fd-player-error { color:var(--clay); font-weight:600; }

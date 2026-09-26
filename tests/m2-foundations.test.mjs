@@ -186,14 +186,14 @@ test("presentation remains independent of poker and audio providers", () => {
   assert.equal(resolveShowScene(state, events).stepKey, "board");
 });
 
-test("v8 hydration, snapshots, and game-progress reset handle Show Control safely", () => {
+test("current-schema hydration, snapshots, and game-progress reset handle Show Control safely", () => {
   const legacy = {
     v:7,
     profiles:{ Brandon:{ display:"B" } },
     logistics:structuredClone(EMPTY_STATE.logistics),
   };
   const hydrated = hydrateStoredState(legacy);
-  assert.equal(hydrated.v, 8);
+  assert.equal(hydrated.v, EMPTY_STATE.v);
   assert.deepEqual(hydrated.showControl, { active:null, history:[] });
 
   const state = structuredClone(EMPTY_STATE);
@@ -210,7 +210,7 @@ test("v8 hydration, snapshots, and game-progress reset handle Show Control safel
     exportedAt:"2026-07-28T12:00:00.000Z",
   });
   assert.equal(validateSnapshot(snapshot).ok, true);
-  assert.equal(snapshot.metadata.stateSchemaVersion, 8);
+  assert.equal(snapshot.metadata.stateSchemaVersion, EMPTY_STATE.v);
 
   const reset = applyAction(state, "resetTournament", {
     confirm:RESET_PROGRESS_CONFIRMATION,

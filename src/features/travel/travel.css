@@ -1,0 +1,6 @@
+.fd-flight-entry-wrap { container-type:inline-size; }
+.fd-flight-entry { display:grid; grid-template-columns:minmax(94px,.8fr) minmax(82px,.9fr) minmax(140px,1.35fr); gap:8px 6px; }
+@container (max-width:340px) {
+  .fd-flight-entry { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fd-flight-time { grid-column:1/-1; }
+}

@@ -1,0 +1,84 @@
+.fd-pass-wrap {
+  --pass-color:var(--paper); --pass-ink:var(--ink);
+  width:100%; max-width:360px; margin:0 auto 24px;
+}
+.fd-pass { display:block; width:100%; aspect-ratio:4 / 5; padding:0; border:0;
+  background:transparent; perspective:1200px; text-align:left; cursor:pointer;
+  font-family:'Inter',sans-serif; border-radius:6px; }
+.fd-pass:focus-visible { outline:3px solid var(--sun); outline-offset:6px; }
+.fd-pass-inner { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d; }
+.fd-pass-inner.is-flipped { transform:rotateY(180deg); }
+.fd-pass-face { display:flex; flex-direction:column; position:absolute; inset:0; overflow:hidden;
+  background:var(--pass-color); color:var(--pass-ink); border:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent); border-radius:14px; padding:22px;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.fd-pass-top,.fd-pass-foot { display:flex; justify-content:space-between; align-items:center; gap:12px;
+  font-family:var(--fd-body, 'Inter', sans-serif); font-size:10px; line-height:1.4; font-weight:600; letter-spacing:.055em; }
+.fd-pass-top { text-transform:uppercase; }
+.fd-pass-front .fd-pass-top>span:first-child { font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:16px; letter-spacing:-.035em; }
+.fd-pass-art { position:relative; flex:1; min-height:0; display:block; overflow:hidden; }
+.fd-pass-number { position:absolute; left:-5px; top:9%; font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:clamp(120px,36vw,196px); line-height:.9; letter-spacing:-8px; opacity:.23; }
+.fd-pass-orbit { position:absolute; width:96%; height:44%; top:32%; left:0; border:1px solid var(--pass-ink);
+  border-radius:50%; transform:rotate(-34deg); opacity:.45; }
+.fd-pass-photo { position:absolute; top:19%; right:9%; width:54%; aspect-ratio:1;
+  border-radius:50%; object-fit:cover; border:5px solid var(--pass-ink); transform:rotate(5deg); }
+.fd-pass-chip { position:absolute; right:5%; top:25%; display:block; transform:rotate(12deg); }
+.fd-pass-chip.with-photo { top:auto; bottom:12%; right:0; transform:rotate(-9deg); }
+.fd-pass-edition { position:absolute; bottom:12%; left:2%; font-size:9px; letter-spacing:.12em; line-height:1.6; }
+.fd-pass-name { display:block; font-family:'Barlow Condensed',sans-serif; font-size:clamp(40px,12vw,58px);
+  text-transform:uppercase; line-height:1; font-weight:700; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.fd-pass-foot { border-top:1px solid currentColor; margin-top:15px; padding-top:10px; }
+.fd-pass-back { transform:rotateY(180deg); }
+.fd-pass-back-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:clamp(38px,10vw,50px); line-height:1.02;
+  letter-spacing:-.055em; margin:auto 0; }
+.fd-pass-facts { display:grid; gap:10px; font-size:11px; line-height:1.5; padding-bottom:12px; }
+.fd-pass-facts>span { display:flex; justify-content:space-between; gap:16px; }
+.fd-pass-facts strong { font-weight:600; text-align:right; max-width:60%; overflow-wrap:anywhere; }
+.fd-pass-hint { display:block; text-align:center; margin-top:12px; font:11px/1.5 var(--fd-body, 'Inter', sans-serif); color:var(--muted); }
+.fd-pass-compact { max-width:300px; }
+.fd-profile-editor { width:100%; }
+.fd-profile-controls { background:var(--paper); }
+.fd-profile-color-rail { height:2px; }
+.fd-profile-fields { padding:0 0 12px; }
+.fd-profile-photo-row { padding:0 0 12px; }
+.fd-profile-preview { margin-bottom:12px; border-bottom:1px solid var(--line); }
+.fd-profile-preview summary { display:flex; align-items:center; min-height:44px; color:var(--muted2); cursor:pointer; font-size:12px; }
+.fd-profile-preview summary::after { content:"+"; margin-left:auto; font-size:18px; }
+.fd-profile-preview[open] summary::after { content:"−"; }
+.fd-profile-preview summary:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
+.fd-profile-preview .fd-pass-wrap { margin-top:8px; margin-bottom:14px; }
+.fd-profile-chip-locked { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
+.fd-profile-chip-locked strong { font:600 13px/1.4 var(--fd-body); }
+.fd-profile-chip-locked p { margin:3px 0 0; color:var(--muted2); font:12px/1.4 var(--fd-body); }
+.fd-profile-photo-button { display:flex; align-items:center; gap:10px; width:100%;
+  min-height:54px; padding:12px 0; background:transparent; border:0;
+  border-bottom:1px solid var(--line); color:var(--ink); cursor:pointer;
+  text-align:left; font:500 13px/1.4 'Inter',sans-serif; }
+.fd-profile-photo-action { margin-left:auto; font-size:20px; font-weight:400;
+  line-height:1; color:var(--muted2); }
+.fd-profile-name-row { display:grid; grid-template-columns:minmax(0,1fr) 64px; gap:12px; }
+.fd-profile-field { display:grid; min-width:0; gap:7px; }
+.fd-profile-field>span { color:var(--muted); text-transform:uppercase;
+  font:600 10px/1.3 'Inter',sans-serif; letter-spacing:.06em; }
+.fd-profile-field input { width:100%; min-width:0; height:48px; padding:0 12px;
+  border:1px solid var(--line); border-radius:6px; background:var(--paper2);
+  color:var(--ink); font:600 16px/1.3 'Inter',sans-serif; }
+.fd-profile-field input[aria-invalid=true] { border-color:var(--clay); }
+.fd-profile-number-field { text-align:center; }
+.fd-profile-number-field input { padding:0; text-align:center;
+  font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:25px; }
+.fd-profile-number-error { margin-top:10px; padding:8px 10px;
+  border:1px solid var(--danger-line); border-radius:6px; background:var(--clay-tint);
+  color:var(--clay); font:600 12px/1.4 'Inter',sans-serif; }
+.fd-chip-picker { container-type:inline-size; }
+.fd-chip-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr));
+  gap:6px; margin-bottom:18px; }
+.fd-chip-patterns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
+@container (max-width:270px) {
+  .fd-chip-patterns { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media(prefers-reduced-motion:no-preference) {
+  .fd-pass-inner { transition:transform .65s cubic-bezier(.2,.75,.2,1); }
+  .fd-pass:hover .fd-pass-inner:not(.is-flipped) { transform:rotate(-1.5deg); }
+}

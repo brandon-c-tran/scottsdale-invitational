@@ -115,6 +115,12 @@ assert(r.ok && r.extra?.backupKey?.startsWith("m1:pre-reset:"),
 await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
+assert(a.state.live === false && b.state.live === false,
+  "the existing clean-slate reset leaves the weekend before play");
+{
+  const earlyDuel = await b.dispatch("sendDuel", { to:"Khoa", game:"quickdraw" });
+  assert(!earlyDuel.ok, "duels wait for the first game (rejected: " + earlyDuel.error + ")");
+}
 /* directed presentation is durable and independent from the tournament loop */
 r = await a.dispatch("startShowScene", { kind:"event-intro", eventId:"putt" });
 assert(r.ok, "GM starts a directed event scene");
@@ -160,12 +166,15 @@ assert(draw.roles?.length === 1 && draw.roles[0].player === "Evan" && draw.roles
   "excluded player has an explicit operational role");
 const br0 = b.state.brackets["8ball"];
 assert(br0 && br0.size === 6, "6-team bracket created");
+assert(b.state.live === false, "preparing a draw does not start the weekend");
 
 /* ── open betting ── */
 r = await a.dispatch("setOnDeck", { id: "8ball" });
 assert(r.ok, "GM opens betting (on deck)");
 await b.waitVersion(a.version);
 assert(b.state.onDeck === "8ball", "window B sees betting open");
+assert(a.state.live === true && b.state.live === true,
+  "opening the first game starts the weekend in both windows");
 
 /* ── wagers from both windows ── */
 const t0 = draw.teams[0];
@@ -306,16 +315,7 @@ assert(r.ok, "Brandon claims the first color (" + (r.error || "ok") + ")");
 r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
 assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 
-/* duels are a weekend thing: everyone sits on 1,000 until the board goes live */
-{
-  let r0 = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
-  assert(!r0.ok, "no duels before the weekend starts (rejected: " + r0.error + ")");
-  r0 = await a.dispatch("setLive", { on: true });
-  assert(r0.ok, "GM starts the weekend");
-  await b.waitVersion(a.version);
-}
-
-/* a duel settles into the standings, zero sum */
+/* The first game already opened the weekend; a duel settles zero sum. */
 {
   const before = computeStandings(a.state);
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));

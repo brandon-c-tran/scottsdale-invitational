@@ -1,0 +1,121 @@
+.fd-arrival {
+  color-scheme:dark;
+  width:100%; flex:1; padding:36px 40px 0; background:var(--bg); color:var(--ink);
+  font-family:Inter,sans-serif; min-height:100dvh;
+}
+.fd-arrival button, .fd-arrival input { font:inherit; }
+.fd-arrival button:focus-visible, .fd-arrival input:focus-visible, .fd-arrival a:focus-visible {
+  outline:3px solid var(--accent2); outline-offset:3px;
+}
+.fd-arrival-header { display:flex; gap:20px; justify-content:space-between; align-items:center; flex-wrap:wrap; padding-bottom:30px; }
+.fd-eyebrow, .fd-arrival-progress { font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; }
+.fd-arrival-progress { font-variant-numeric:tabular-nums; }
+.fd-arrival-progress-track { width:100%; display:flex; gap:6px; margin-top:-6px; }
+.fd-arrival-progress-track span { height:2px; flex:1; background:var(--line); }
+.fd-arrival-progress-track .is-complete { background:var(--accent); }
+.fd-arrival-layout { display:grid; grid-template-columns:minmax(0,.92fr) minmax(0,1fr); gap:64px; padding:22px 0 0; align-items:start; }
+.fd-arrival-aside { position:sticky; top:40px; }
+.fd-invitation-art { position:relative; color:var(--accent); }
+.fd-invitation-eyebrow { display:flex; justify-content:space-between; font-size:8px; font-weight:700; letter-spacing:.1em; margin-bottom:18px; }
+.fd-invitation-wordmark { font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-weight:400; font-size:clamp(70px,8.8vw,102px); letter-spacing:-.09em; line-height:.8; }
+.fd-invitation-wordmark > span { display:block; }
+.fd-invitation-wordmark > span + span { font-size:1.42em; margin-top:8px; letter-spacing:-.085em; }
+.fd-invitation-period { color:var(--fd-rust); }
+.fd-invitation-seal { position:absolute; width:96px; height:96px; right:-6px; top:98px; transform:rotate(12deg); color:var(--sun); }
+.fd-invitation-seal svg { width:100%; height:100%; filter:drop-shadow(1px 2px 0 var(--accent)); }
+.fd-invitation-seal > span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--ink0); }
+.fd-invitation-seal strong { font:700 48px/.9 'Barlow Condensed',sans-serif; letter-spacing:-.04em; }
+.fd-invitation-seal small { font-size:8px; font-weight:700; letter-spacing:.1em; margin-top:4px; }
+.fd-invitation-edition { display:flex; justify-content:space-between; align-items:start; border-top:2px solid var(--ink); margin-top:24px; padding-top:12px; font-size:10px; font-weight:700; line-height:1.5; text-transform:uppercase; }
+.fd-invitation-edition > span:last-child { text-align:right; }
+.fd-host-note { padding:28px 0 24px; max-width:300px; }
+.fd-host-note p { font-size:14px; line-height:1.7; margin:0 0 18px; }
+.fd-host-note > span { font-size:11px; line-height:1.5; }
+.fd-host-note em { font:italic 30px/1.4 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.06em; }
+.fd-arrival-heading h1 { font:700 clamp(32px,3.3vw,40px)/1.02 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.055em; margin:0; text-wrap:balance; outline:none; }
+.fd-arrival-heading:has(> h1:only-child) { margin-bottom:22px; }
+.fd-arrival-heading p { font-size:14px; line-height:1.6; color:var(--muted2); margin:14px 0 25px; text-wrap:pretty; }
+.fd-arrival-fields { border:0; padding:0; margin:0; min-width:0; }
+.fd-arrival-fields:disabled { opacity:.7; }
+.fd-guest-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.fd-guest-list button { display:flex; align-items:center; gap:10px; min-height:52px; padding:12px 11px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; font-size:13px; text-align:left; border-radius:10px; }
+.fd-guest-list button[aria-pressed="true"] { background:var(--sun); color:var(--ink0); border-color:var(--accent); }
+.fd-guest-index { font:600 15px 'Barlow Condensed',sans-serif; opacity:.65; }
+.fd-guest-check { margin-left:auto; font-size:18px; font-weight:400; }
+.fd-arrival-actions { position:sticky; bottom:0; background:var(--bg); padding:20px 0 max(20px, env(safe-area-inset-bottom)); margin-top:12px; z-index:2; }
+.fd-continue { display:flex; justify-content:space-between; gap:12px; width:100%; border:1px solid var(--accent); border-radius:10px; background:var(--sun); color:var(--ink0); padding:17px 19px; font-size:14px !important; font-weight:600 !important; cursor:pointer; min-height:56px; text-align:left; }
+.fd-continue > span:last-child { font-size:21px; line-height:1; }
+.fd-continue:disabled { cursor:default; background:var(--paper2); border-color:var(--line); color:var(--muted); }
+.fd-arrival-links { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; font-size:10px; color:var(--muted); min-height:24px; }
+.fd-text-button { background:none; color:var(--accent2); border:0; padding:8px 0; cursor:pointer; font-size:11px !important; font-weight:600 !important; }
+.fd-text-button:disabled { color:var(--muted); cursor:default; }
+.fd-save-error { border-left:3px solid var(--clay); padding:9px 12px; margin:0 0 12px; font-size:13px; line-height:1.5; color:var(--clay); background:var(--clay-tint); }
+.fd-arrival-chapter { padding:24px 0; border-top:1px solid var(--line); display:flex; flex-direction:column; }
+.fd-arrival-chapter > strong { font:400 220px/.95 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.12em; color:var(--accent); margin:30px 0 24px -8px; }
+.fd-chapter-name { font:700 34px 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.04em; }
+.fd-chapter-date { font-size:10px; letter-spacing:.04em; text-transform:uppercase; margin-top:30px; }
+.fd-starting-stack { background:var(--sun); color:var(--ink0); padding:26px; position:relative; border-radius:10px; }
+.fd-starting-stack > strong { display:block; font:700 100px/.95 'Barlow Condensed',sans-serif; letter-spacing:-.035em; margin-top:16px; }
+.fd-starting-stack > strong > span { display:inline-block; font:700 10px Inter,sans-serif; letter-spacing:.1em; margin-left:10px; color:var(--ink0); }
+.fd-starting-stack p { font-size:12px; line-height:1.6; margin:18px 0 0; }
+.fd-weekend-rules > div { display:flex; gap:18px; border-bottom:1px solid var(--line); padding:20px 0; }
+.fd-weekend-rules > div > span { font:600 14px 'Barlow Condensed',sans-serif; color:var(--accent2); margin-top:2px; }
+.fd-weekend-rules h2, .fd-details-panel h2 { font-size:16px; letter-spacing:-.025em; margin:0 0 7px; }
+.fd-weekend-rules p { font-size:13px; line-height:1.6; color:var(--muted2); margin:0; }
+.fd-arrival-map { margin-top:32px; }
+.fd-destination-note { border-top:1px solid var(--line); margin-top:20px; padding:18px 0; display:flex; flex-direction:column; gap:8px; }
+.fd-destination-note > span { font-size:10px; color:var(--muted2); letter-spacing:.05em; }
+.fd-destination-note strong { font:700 29px 'Barlow Condensed','Arial Narrow',sans-serif; }
+.fd-details-panel { border:1px solid var(--line); border-radius:10px; padding:18px; margin-top:20px; background:var(--paper); }
+.fd-details-panel h2 { margin-bottom:22px; }
+.fd-rating-status { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:11px; }
+.fd-rating-group { margin-top:25px; }
+.fd-rating-labels, .fd-rating-row { display:grid; grid-template-columns:95px minmax(0,1fr); gap:12px; align-items:center; }
+.fd-rating-labels > div, .fd-rating-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; }
+.fd-rating-labels > div { font-size:8px; text-align:center; color:var(--muted); margin:6px 0; }
+.fd-rating-row { padding:13px 0; border-bottom:1px solid var(--line); }
+.fd-rating-row strong { font-size:12px; display:block; }
+.fd-rating-row small { display:block; font-size:10px; color:var(--muted2); margin-top:4px; }
+.fd-rating-options button { min-width:0; min-height:38px; border:1px solid var(--line); background:var(--paper); color:var(--muted); border-radius:50%; cursor:pointer; padding:0; font-size:10px; }
+.fd-rating-options .is-filled { background:var(--sun); color:var(--ink0); border-color:var(--ink); }
+.fd-rating-options button[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--ink); }
+.fd-install { padding:20px; border:1px solid var(--line); }
+.fd-install p { font-size:12px; line-height:1.6; color:var(--muted2); }
+@media (hover:hover) { .fd-guest-list button:hover:not([aria-pressed="true"]) { background:var(--sun-tint); } .fd-continue:hover:not(:disabled) { background:var(--accent2); } }
+@media (prefers-reduced-motion:no-preference) {
+  .fd-arrival-main { animation:fd-arrive .28s ease-out both; }
+  .fd-guest-list button, .fd-continue { transition:background .16s, color .16s; }
+  @keyframes fd-arrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+}
+@media (max-width:759px) {
+  .fd-arrival { padding:calc(34px + env(safe-area-inset-top)) 22px 0; }
+  .fd-arrival-header { padding-bottom:22px; gap:17px; }
+  .fd-arrival-layout { display:block; padding-top:0; }
+  .fd-arrival-aside { position:static; }
+  .fd-arrival-chapter { display:none; }
+  .fd-invitation-eyebrow { margin-bottom:16px; }
+  .fd-invitation-wordmark { font-size:clamp(72px,24vw,113px); }
+  .fd-invitation-wordmark > span + span { font-size:1.25em; }
+  .fd-invitation-seal { right:9px; top:95px; width:89px; height:89px; }
+  .fd-invitation-edition { margin-top:22px; }
+  .fd-host-note { display:flex; align-items:end; gap:20px; padding:20px 0 28px; max-width:none; }
+  .fd-host-note p { font-size:12px; line-height:1.6; margin:0; flex:1; }
+  .fd-host-note > span { flex-shrink:0; font-size:9px; }
+  .fd-host-note em { font-size:25px; }
+  .fd-arrival-heading h1 { font-size:32px; }
+  .is-invitation .fd-arrival-heading h1 { font-size:27px; }
+  .fd-arrival-heading p { font-size:13px; margin:12px 0 20px; }
+  .fd-guest-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .fd-guest-list button { min-height:48px; padding:11px 9px; font-size:11px; gap:7px; }
+  .fd-guest-index { font-size:12px; }
+  .fd-guest-check { display:none; }
+  .fd-arrival-actions { padding-top:16px; }
+}
+@media (max-width:359px) {
+  .fd-arrival { padding-left:16px; padding-right:16px; }
+  .fd-guest-list button { padding:11px 7px; gap:5px; }
+  .fd-invitation-seal { width:77px; height:77px; top:88px; right:0; }
+  .fd-rating-row, .fd-rating-labels { grid-template-columns:82px minmax(0,1fr); gap:7px; }
+  .fd-rating-options button { min-height:34px; }
+}
+

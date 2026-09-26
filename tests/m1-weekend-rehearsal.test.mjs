@@ -16,6 +16,7 @@ import {
   pokerDenoms,
   pokerDistribution,
   resolveEventLifecycle,
+  resolveCurrentContest,
   resolveSlot,
   stageEntrantView,
   stageFinalists,
@@ -58,40 +59,26 @@ function configureEvent(state, event) {
   }
 }
 
-function finishCompetition(state, event) {
-  const bracket = state.brackets[event.id];
-  if (bracket) {
-    for (let round = 0; round < bracket.rounds.length; round++) {
-      for (let match = 0; match < bracket.rounds[round].length; match++) {
-        const current = bracket.rounds[round][match];
-        if (current.winner !== null && current.winner !== undefined) continue;
-        const winner = resolveSlot(bracket, current.a);
-        assert.notEqual(winner, null, `${event.id} bracket side is seated`);
-        act(state, "pickBracketWinner", {
-          evId:event.id,
-          r:round,
-          m:match,
-          teamIdx:winner,
-        });
-      }
-    }
-  }
+function contestRef(state, event) {
+  const contest = resolveCurrentContest(state, event);
+  assert.ok(contest, `${event.id} must have a current contest`);
+  return { contestId:contest.id, contestRevision:contest.revision };
+}
 
-  const stages = state.stages[event.id];
-  if (stages) {
-    for (let group = 0; group < stages.groups.length; group++) {
-      for (let index = 0; index < stages.advance; index++) {
-        act(state, "toggleThrough", {
-          evId:event.id,
-          g:group,
-          key:stages.groups[group].entrants[index],
-        });
-      }
-    }
-    act(state, "setFinalWinner", {
-      evId:event.id,
-      key:stageFinalists(stages)[0],
-    });
+function finishCompetition(state, event) {
+  let recorded = 0, contest;
+  while ((contest = resolveCurrentContest(state, event)) && contest.kind !== "ffa") {
+    assert.ok(recorded < 30, `${event.id} must finish its finite contest sequence`);
+    const ref = contestRef(state, event);
+    if (contest.phase === "betting-open")
+      act(state, "lockAndStart", { evId:event.id, ...ref });
+    assert.equal(resolveCurrentContest(state, event).phase, "in-progress");
+    const winner = contest.sides[0].key;
+    const qualifiers = contest.kind === "heat"
+      ? contest.sides.slice(0, state.stages[event.id].advance).map(side => side.key) : undefined;
+    act(state, "recordContestWinner", { evId:event.id, winner, ...ref,
+      ...(qualifiers ? { qualifiers } : {}) });
+    recorded += 1;
   }
 }
 
@@ -162,14 +149,14 @@ test("configured poker distribution is exact and legal for 12, 13, and 14 seats"
 
 test("deterministic rehearsal completes every event, locks the dealt board, and reverses poker exactly", () => {
   const state = structuredClone(EMPTY_STATE);
-  act(state, "setLive", { on:true });
+  assert.equal(state.live, false);
 
   const events = BUILTIN_EVENTS.filter(event => !event.finale);
   for (const event of events) {
     configureEvent(state, event);
-    act(state, "setOnDeck", { id:event.id });
-    act(state, "setOnDeck", { id:null });
-    act(state, "startEvent", { evId:event.id });
+    act(state, "announceEvent", { evId:event.id });
+    assert.equal(state.live, true, "Opening a game makes the weekend live");
+    act(state, "lockAndStart", { evId:event.id, ...contestRef(state, event) });
     finishCompetition(state, event);
     act(state, "beginResultEntry", { evId:event.id });
     act(state, "saveResult", {

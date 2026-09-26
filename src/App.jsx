@@ -1,14 +1,38 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from "react";
+import { HowToSheet } from "./features/weekend/HowToSheet.jsx";
+import { ContestPanel } from "./features/weekend/ContestPanel.jsx";
+import { CompetitionBracket } from "./features/weekend/CompetitionBracket.jsx";
+import { EventAnnouncement, DrawAnnouncement } from "./features/weekend/EventAnnouncement.jsx";
+import { DraftSheet, DraftEntry } from "./features/draft/DraftSheet.jsx";
+import { buildEventReveal } from "./features/weekend/drawReveal.js";
+import "./features/weekend/event-sheet.css";
+import { HomeDuels } from "./features/home/HomeDuels.jsx";
+import { GameMark } from "./ui/GameMark.jsx";
+import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
+import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
+import { GuestHome } from "./features/home/GuestHome.jsx";
+import { Board } from "./features/standings/Standings.jsx";
+import { Schedule } from "./features/weekend/Schedule.jsx";
+import { Guide } from "./features/weekend/Guide.jsx";
+import { Wagers, wagerPickLabel, RACK_DENOMS, mergeWagerLines } from "./features/wagers/Wagers.jsx";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useId, lazy, Suspense } from "react";
+import { PlayerIdentityProvider } from "./features/identity/PlayerIdentityContext.js";
+import { Avatar, AvatarStack, BankChip, BetChipCluster } from "./features/identity/PlayerIdentity.jsx";
+import { LogisticsEditor, SizeRow, TravelApparelSheet, TravelFields, VenueCard } from "./features/travel/Travel.jsx";
+import { ProfileEditor } from "./features/profile/ProfileEditor.jsx";
+import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
+import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
+import { InstallHint } from "./features/check-in/InstallHint.jsx";
+import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
-  DUEL_STAKE, DUEL_GAMES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
+  DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
-  AIRLINES, cleanLeg, legTime, legText, eventCapacity, validateEventParticipants,
+  cleanLeg, legTime, eventCapacity, validateEventParticipants,
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
-  resolveEventLifecycle, resolveWeekendOperation,
+  resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest,
   RESET_PROGRESS_CONFIRMATION,
 } from "../shared/core.js";
 import {
@@ -21,101 +45,28 @@ import {
   spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect,
   spotifyPlay, spotifyPause,
 } from "./lib/client.js";
-import PhotoCropper from "./PhotoCropper.jsx";
+
+import { Shell } from "./ui/Shell.jsx";
+import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/theme.js";
+import { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet } from "./ui/controls.jsx";
+
+const Onboarding = lazy(() => import("./features/check-in/Onboarding.jsx")
+  .then(module => ({ default:module.Onboarding })));
 
 
-/* PWA install: stash the browser's install prompt when offered. iOS never
-   fires it. Chrome usually fires AFTER first paint, so subscribers get a
-   nudge to re-render once the native button becomes possible. */
-let installEvt = null;
-const installSubs = new Set();
-const onInstallReady = fn => { installSubs.add(fn); return () => installSubs.delete(fn); };
-if (typeof window !== "undefined") {
-  window.addEventListener("beforeinstallprompt", e => {
-    e.preventDefault(); installEvt = e; installSubs.forEach(fn => fn());
-  });
-}
-const isStandalone = () => typeof window !== "undefined" &&
-  (window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
-const isIOS = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
-const isMobile = () => typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/.test(navigator.userAgent);
 const prefersReducedMotion = () => typeof window !== "undefined" &&
   !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-/* where onboarding opens. The install gate is step -1 and has to come BEFORE
-   check-in, because the installed app gets its own storage and anything done
-   in the browser first would be lost. Skip it only when there is nothing to
-   install: already standalone, or not a phone. Every entry point (first run,
-   a GM rerun, a local replay) must use this, or the gate silently disappears
-   for everyone who was re-onboarded. */
-const firstOnboardStep = () => (isStandalone() || !isMobile() ? 0 : -1);
 
-/* ─────────── visual system: FIELD DAY ───────────
-   Sun-faded rec-tournament at night. Barlow Condensed carries scores, ranks,
-   and event names; Inter carries everything functional. Full dark: warm
-   near-black surfaces, bone ink, sun-gold for what matters. */
-const DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
-const SANS = "'Inter',system-ui,sans-serif";
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const ord = n => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
-const BONE = "var(--bone)";
-const GOLD_GRAD = "var(--sun)";
-const EMBER_GRAD = "var(--accent)";
-const CARD_BG = "var(--paper)";
-const GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")";
-
-/* chip identity: color and skin come from claimed profiles (CHIP_COLORS in
-   core, first come first serve). Everyone starts gray until they pick.
-   App() syncs this module-level source each render before children read it. */
-let CHIP_PROFILES = {};
-const syncChips = profiles => { CHIP_PROFILES = profiles || {}; };
-const playerColor = p => {
-  const c = CHIP_PROFILES[p]?.color;
-  return CHIP_COLORS.find(x => x.hex === c) ? c : CHIP_GRAY;
-};
-const playerIsLight = p => !!CHIP_COLORS.find(x => x.hex === CHIP_PROFILES[p]?.color)?.light;
-const playerSkin = p => CHIP_SKINS.includes(CHIP_PROFILES[p]?.skin) ? CHIP_PROFILES[p].skin : "ticks";
-const playerNo = p => { const i = ROSTER.indexOf(p); return i < 0 ? null : i + 1; };
-const CHIP_SKIN_META = {
-  ticks: "Classic", plain: "Clean", dash: "Split", quad: "Four block",
-  dots: "Pips", ring: "Double ring", saw: "Zigzag", flame: "Petal",
-  star: "Starburst", bolt: "Chevron", wave: "Ripple", crown: "Crown",
-};
 
 /* the Field Day mark: a betting chip carrying the sun. Sun-gold chip, bone
    edge ticks like the BankChips on the board, geometric sun at dead center.
    One mark everywhere: header, wordmark, TV, onboarding, and the PWA icons
    (scripts/icons.mjs regenerates them from this same geometry).
    variant "night" swaps the outer ring to bone for dark surfaces. */
-function FDMark({ size=28, variant }) {
-  const ring = variant === "night" ? "var(--bone)" : "var(--ink0)";
-  const ticks = Array.from({ length: 8 }, (_, i) => {
-    const a = (i * 45 + 22.5) * Math.PI / 180;
-    return { x1: 32 + Math.cos(a) * 23.4, y1: 32 + Math.sin(a) * 23.4,
-             x2: 32 + Math.cos(a) * 28.2, y2: 32 + Math.sin(a) * 28.2 };
-  });
-  const rays = Array.from({ length: 8 }, (_, i) => {
-    const a = i * 45, pt = (r, deg) => {
-      const v = deg * Math.PI / 180;
-      return `${(32 + Math.cos(v) * r).toFixed(2)},${(32 + Math.sin(v) * r).toFixed(2)}`;
-    };
-    return `${pt(10.7, a - 8)} ${pt(17.8, a)} ${pt(10.7, a + 8)}`;
-  });
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink:0, display:"block" }}>
-      <circle cx="32" cy="32" r="29.5" fill="var(--sun)" stroke={ring} strokeWidth="3.5"/>
-      {ticks.map((t, i) => <line key={i} {...t} stroke="var(--bone)" strokeWidth="3.8" strokeLinecap="round"/>)}
-      <circle cx="32" cy="32" r="20.6" fill="none" stroke="var(--ink0)" strokeWidth="1.5" opacity="0.6"/>
-      {rays.map((points, i) => <polygon key={i} points={points} fill="var(--ink0)"/>)}
-      <circle cx="32" cy="32" r="8.4" fill="var(--ink0)"/>
-    </svg>
-  );
-}
-const IconTV = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="7" width="18" height="12" rx="2"/><path d="m8.5 2.5 3.5 3.5 3.5-3.5"/>
-  </svg>
-);
+
+
 const ArtTicket = () => (
   <svg width="58" height="42" viewBox="0 0 56 40" aria-hidden="true">
     <rect x="1.5" y="1.5" width="53" height="37" rx="6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="2"/>
@@ -215,126 +166,9 @@ function TrophyHero({ size = 190, plate = "FIELD DAY" }) {
 /* everything is real geography, projected once: x = (lon+125)/55, y = (49-lat)/24.
    The country is drawn as a dot field rather than a traced coastline, so it
    reads as a map at a glance without a hand-drawn outline to get wrong. */
-const geo = (lon, lat) => [(lon + 125) / 55 * 100, (49 - lat) / 24 * 100];
-const US_LL = [
-  [-124.7,48.4],[-124.2,43.3],[-122.4,37.8],[-120.6,34.5],[-117.1,32.5],[-114.7,32.7],
-  [-111.0,31.3],[-108.2,31.3],[-106.5,31.8],[-104.5,29.7],[-103.0,29.0],[-99.1,26.4],
-  [-97.1,25.9],[-95.0,29.0],[-93.8,29.7],[-91.0,29.2],[-89.0,29.2],[-88.0,30.3],
-  [-85.0,29.7],[-84.0,30.0],[-82.8,27.9],[-82.0,26.5],[-80.4,25.2],[-80.1,27.0],
-  [-81.4,30.7],[-79.2,33.0],[-77.0,35.0],[-75.5,37.0],[-75.5,39.0],[-74.0,40.5],
-  [-71.5,41.3],[-70.0,42.0],[-70.7,43.5],[-67.0,44.8],[-71.5,45.0],[-76.0,44.0],
-  [-79.0,43.3],[-83.0,42.0],[-83.5,45.8],[-88.0,48.2],[-95.0,49.0],[-104.0,49.0],
-  [-117.0,49.0],
-].map(([lo, la]) => geo(lo, la));
-const inUS = (x, y) => {
-  let hit = false;
-  for (let i = 0, j = US_LL.length - 1; i < US_LL.length; j = i++) {
-    const [xi, yi] = US_LL[i], [xj, yj] = US_LL[j];
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-};
-const US_DOTS = (() => {
-  const step = 2.6, out = [];
-  for (let y = 1; y < 100; y += step)
-    for (let x = 1; x < 100; x += step) if (inUS(x, y)) out.push([x, y]);
-  return out;
-})();
-const TRAVEL_CITIES = [
-  { n:"San Francisco", ll:[-122.4,37.8], dx:3.6,  dy:-4.2, a:"start" },
-  { n:"San Diego",     ll:[-117.2,32.7], dx:-1,   dy:6.6,  a:"middle" },
-  { n:"Tulsa",         ll:[-96.0,36.2],  dx:0,    dy:-4.6, a:"middle" },
-  { n:"Dallas",        ll:[-96.8,32.8],  dx:4,    dy:1.2,  a:"start" },
-  { n:"Austin",        ll:[-97.7,30.3],  dx:-4,   dy:1.2,  a:"end" },
-  { n:"Baton Rouge",   ll:[-91.2,30.5],  dx:4,    dy:1.2,  a:"start" },
-  { n:"New York",      ll:[-74.0,40.7],  dx:-4.5, dy:-4.6, a:"end" },
-].map(c => { const [x, y] = geo(...c.ll); return { ...c, x, y }; });
-const TRAVEL_DEST = (() => { const [x, y] = geo(-111.9, 33.5); return { x, y }; })();
-function TravelMap() {
-  const arc = c => {
-    const mx = (c.x + TRAVEL_DEST.x) / 2;
-    const lift = 9 + Math.abs(c.x - TRAVEL_DEST.x) * 0.3;
-    return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
-  };
-  return (
-    <svg viewBox="-5 -3 110 104" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
-      aria-hidden="true" style={{ display:"block", overflow:"hidden", maxWidth:"100%", maxHeight:"100%" }}>
-      <g style={{ animation:"si-fade .8s ease-out both" }}>
-        {US_DOTS.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="0.62" fill="var(--muted)" opacity="0.45" />)}
-      </g>
-      {TRAVEL_CITIES.map((c, i) => (
-        <path key={"r" + c.n} d={arc(c)} fill="none" stroke="var(--accent2)" strokeWidth="0.8"
-          strokeLinecap="round" strokeDasharray="140" pathLength="140"
-          style={{ "--len":140, animation:`si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }} />
-      ))}
-      {/* the travelling chips. animateMotion translates from the element's own
-          position, so these must stay at the origin (any cx/cy would double up
-          and throw them off the map). Hidden until their leg begins, or all
-          seven stack up in the corner waiting. */}
-      {TRAVEL_CITIES.map((c, i) => (
-        <circle key={"m" + c.n} r="1.7" fill="var(--sun)" stroke="var(--ink0)"
-          strokeWidth="0.5" opacity="0">
-          <set attributeName="opacity" to="1" begin={`${1.2 + i * 0.18}s`} />
-          <animateMotion dur="3.6s" begin={`${1.2 + i * 0.18}s`} repeatCount="indefinite" path={arc(c)} />
-        </circle>
-      ))}
-      {TRAVEL_CITIES.map((c, i) => (
-        <g key={c.n} style={{ animation:`si-in .4s ease-out ${i * 0.18}s both` }}>
-          <circle cx={c.x} cy={c.y} r="1.9" fill="var(--paper)" stroke="var(--bone)" strokeWidth="0.9"/>
-          <text x={c.x + c.dx} y={c.y + c.dy} textAnchor={c.a} fontFamily={SANS} fontWeight="700"
-            fontSize="3.4" fill="var(--muted2)" letterSpacing="0.15">{c.n.toUpperCase()}</text>
-        </g>
-      ))}
-      <circle cx={TRAVEL_DEST.x} cy={TRAVEL_DEST.y} r="4.6" fill="none" stroke="var(--sun)" strokeWidth="0.9"
-        style={{ animation:"si-land 2.2s ease-in-out infinite" }} />
-      <circle cx={TRAVEL_DEST.x} cy={TRAVEL_DEST.y} r="2.8" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="0.8"/>
-      <text x={TRAVEL_DEST.x} y={TRAVEL_DEST.y - 8} textAnchor="middle" fontFamily={DISPLAY} fontWeight="700"
-        fontSize="6" fill="var(--sun)" letterSpacing="0.3">SCOTTSDALE</text>
-    </svg>
-  );
-}
-const IconGM = ({ filled }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor"
-    strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
-    <path d="M12 3.2 14.6 8.5l5.9.8-4.3 4.1 1 5.9L12 16.5l-5.2 2.8 1-5.9L3.5 9.3l5.9-.8z"/>
-  </svg>
-);
 
-function Avatar({ state, p, size=34, ring, style }) {
-  const prof = state.profiles?.[p];
-  const src = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
-  const initials = (prof?.display || p).slice(0,2).toUpperCase();
-  const c = playerColor(p);
-  return (
-    <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      background: src ? "var(--paper2)" : c, position:"relative",
-      border: ring ? "2px solid var(--bone)" : "1.5px solid rgba(23,16,9,0.6)", ...style }}>
-      {src
-        ? <img src={src} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : <>
-            <div style={{ position:"absolute", inset:0,
-              background:"linear-gradient(135deg, transparent 40%, rgba(251,243,228,0.26) 40%, rgba(251,243,228,0.26) 62%, transparent 62%)" }} />
-            <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
-              fontSize:size*0.44, letterSpacing:"0.03em",
-              color: playerIsLight(p) ? "var(--ink0)" : BONE }}>{initials}</span>
-          </>}
-    </div>
-  );
-}
-function AvatarStack({ state, players, size=24, max=4 }) {
-  const show = players.slice(0, max);
-  const extra = players.length - show.length;
-  return (
-    <div style={{ display:"flex", alignItems:"center" }}>
-      {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
-      {extra > 0 && <div style={{ width:size, height:size, borderRadius:"50%", marginLeft:-size*0.32,
-        background:"var(--paper2)", border:"1.5px solid var(--line)", display:"flex",
-        alignItems:"center", justifyContent:"center", fontFamily:SANS, fontWeight:700,
-        fontSize:size*0.4, color:"var(--muted)", flexShrink:0 }}>+{extra}</div>}
-    </div>
-  );
-}
+
+
 function Confetti({ burst }) {
   if (!burst) return null;
   const colors = ["var(--accent2)","var(--accent)","var(--sun)","var(--bone)","var(--olive)"];
@@ -353,122 +187,8 @@ function Confetti({ burst }) {
     </div>
   );
 }
-const label = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.07em", color:"var(--muted)", textTransform:"uppercase" };
-function Tag({ children, tone="dim", style }) {
-  const tones = {
-    dim:   { color:"var(--muted)", background:"var(--ink-tint)" },
-    gold:  { color:"var(--accent2)", background:"var(--accent-tint)" },
-    flame: { color:"var(--live2)", background:"rgba(192,71,58,0.14)" },
-    green: { color:"var(--green)", background:"var(--green-tint)" },
-  };
-  return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-    padding:"3px 8px", borderRadius:6, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
-}
-/* Variant is hierarchy, not appearance: primary is the one next thing,
-   secondary is a real alternative, tertiary is quiet, destructive is the
-   outlined entry into a flow that loses something, commit is the filled
-   confirm step inside that flow. A destructive style never doubles as a
-   routine secondary. An async onClick gets one pending state and further
-   taps are ignored until it settles, so callers do not wire their own
-   duplicate-tap guards. */
-/* The whole system is two fills and one quiet shape. Sun fill is the one
-   next thing, clay fill is the confirm step of a destructive flow, and every
-   other action shares the same paper-and-line shape where only the ink
-   changes: ink for a real alternative, muted for a quiet out, clay for the
-   entry to a destructive flow. No competing stroke weights. */
-const ACTION_VARIANTS = {
-  primary:     { background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)" },
-  secondary:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
-  tertiary:    { background:"var(--paper)", color:"var(--muted2)", border:"1px solid var(--line)" },
-  destructive: { background:"var(--paper)", color:"var(--clay)", border:"1px solid var(--line)" },
-  commit:      { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
-};
-function ActionButton({ children, onClick, variant="primary", pending, disabled, compact, style, ...props }) {
-  const [busy, setBusy] = useState(false);
-  const waiting = !!pending || busy;
-  const off = disabled || waiting;
-  const handle = event => {
-    if (off || !onClick) return;
-    const result = onClick(event);
-    if (result && typeof result.then === "function") {
-      setBusy(true);
-      result.then(() => setBusy(false), () => setBusy(false));
-    }
-  };
-  return (
-    <button onClick={handle} disabled={disabled} aria-busy={waiting || undefined} {...props}
-      style={{ fontFamily:SANS, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase",
-      fontSize: compact ? 12 : 14, padding: compact ? "8px 11px" : "12px 16px",
-      borderRadius:10, minHeight: compact ? 36 : 44,
-      cursor: off ? "default" : "pointer", opacity: disabled ? 0.35 : waiting ? 0.6 : 1,
-      transition:"transform .1s, opacity .15s", ...ACTION_VARIANTS[variant], ...style }}>{children}</button>
-  );
-}
-/* Icon actions are commands too; the label is required so none ships unnamed. */
-function IconButton({ label, onClick, size=38, selected, disabled, style, children, ...props }) {
-  return (
-    <button onClick={onClick} disabled={disabled} aria-label={label} title={label} {...props}
-      style={{ width:size, height:size, borderRadius:10, flexShrink:0,
-      cursor: disabled ? "default" : "pointer",
-      background: selected ? "var(--sun)" : "transparent",
-      border:"1.5px solid " + (selected ? "var(--sun)" : "var(--ghost-line)"),
-      color: selected ? "var(--ink0)" : "var(--bone)",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      opacity: disabled ? 0.35 : 1, ...style }}>{children}</button>
-  );
-}
-/* Legacy alias: kind names described appearance; they now resolve to the
-   semantic variants so every existing call site shares one behavior. New
-   surfaces use ActionButton directly. */
-const BTN_KIND_VARIANT = { primary:"primary", dark:"secondary", ghost:"tertiary", danger:"destructive", flame:"commit" };
-function Btn({ kind="primary", ...props }) {
-  return <ActionButton variant={BTN_KIND_VARIANT[kind]} {...props} />;
-}
-/* A menu is not a button rack. Hierarchy in a menu comes from grouping and
-   order, so every row shares one quiet shape, the note carries the live fact,
-   and only a destructive row changes ink. */
-function MenuRow({ name, note, tone, onClick, disabled, last }) {
-  const [busy, setBusy] = useState(false);
-  const handle = () => {
-    if (busy || disabled || !onClick) return;
-    const result = onClick();
-    if (result && typeof result.then === "function") {
-      setBusy(true);
-      result.then(() => setBusy(false), () => setBusy(false));
-    }
-  };
-  return (
-    <button onClick={handle} disabled={disabled} aria-busy={busy || undefined}
-      style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left",
-      minHeight:48, padding:"12px 14px", background:"transparent", border:"none",
-      borderBottom: last ? "none" : "1px solid var(--line)",
-      cursor: disabled || busy ? "default" : "pointer",
-      opacity: disabled ? 0.35 : busy ? 0.6 : 1 }}>
-      <span style={{ flex:1, minWidth:0 }}>
-        <span style={{ display:"block", fontFamily:SANS, fontWeight:700, fontSize:13.5,
-          letterSpacing:"0.04em", textTransform:"uppercase",
-          color: tone === "destructive" ? "var(--clay)" : "var(--ink)" }}>{name}</span>
-        {note && <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)",
-          marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{note}</span>}
-      </span>
-      <span aria-hidden="true" style={{ fontFamily:SANS, fontWeight:700, fontSize:15,
-        color:"var(--muted)" }}>›</span>
-    </button>
-  );
-}
-function MenuGroup({ title, children }) {
-  const rows = React.Children.toArray(children).filter(Boolean);
-  if (!rows.length) return null;
-  return (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ ...label, marginBottom:7 }}>{title}</div>
-      <div style={{ border:"1px solid var(--line)", borderRadius:14, background:"var(--paper2)",
-        overflow:"hidden" }}>
-        {rows.map((row, i) => React.cloneElement(row, { last: i === rows.length - 1 }))}
-      </div>
-    </div>
-  );
-}
+
+
 /* The audio cue is a chip beside the pill, never a wire into a scene:
    playback happens only on this explicit tap, and its failure is a toast,
    not a scene problem. One chip per relevant player covers ties and teams. */
@@ -495,33 +215,7 @@ function CueChip({ state, player, track, notify }) {
     </button>
   );
 }
-function Sheet({ title, onClose, onBack, children, wide }) {
-  return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(23,16,9,0.55)",
-      backdropFilter:"blur(4px)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div onClick={e=>e.stopPropagation()} className="si-sheet" role="dialog" aria-modal="true"
-        aria-label={title} style={{ width:"100%", maxWidth: wide ? 780 : 540,
-        overflowY:"auto", background:"var(--paper)", borderRadius:"16px 16px 0 0",
-        border:"1.5px solid var(--ink)", borderBottom:"none",
-        padding:"0 0 calc(30px + env(safe-area-inset-bottom))", animation:"si-up .24s ease-out" }}>
-        {/* night title band ties every sheet to the chrome */}
-        <div style={{ position:"sticky", top:0, zIndex:5, display:"flex", alignItems:"center",
-          gap:10, background:"var(--night)", padding:"13px 18px 11px",
-          borderBottom:"1px solid var(--bone-line)", marginBottom:14 }}>
-          {onBack && <IconButton label="Back" onClick={onBack} size={36}
-            style={{ fontSize:18, marginLeft:-6 }}>‹</IconButton>}
-          <div style={{ flex:1, fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
-            textTransform:"uppercase", color:"var(--bone)", overflow:"hidden", textOverflow:"ellipsis",
-            whiteSpace:"nowrap" }}>{title}</div>
-          <IconButton label="Close" onClick={onClose} size={36} style={{ fontSize:14 }}>✕</IconButton>
-        </div>
-        <div style={{ padding:"0 18px" }}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
+
 /* A one-item final row should read as the end of a deliberate roster, not as
    a grid bug. Three-column player racks center it; two-column racks give it
    half width and center it across the row. */
@@ -542,7 +236,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", ...style }}>{name}</button>
   );
 }
-const pStyle = { fontFamily:SANS, fontSize:14, lineHeight:1.6, color:"var(--muted2)", marginBottom:14 };
+
 function Wordmark({ size=28 }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:size*0.4 }}>
@@ -558,7 +252,7 @@ function Wordmark({ size=28 }) {
 }
 /* two big teams side by side, broadcast style: each side gets a color band and a VS disc sits between */
 const SIDE_COLORS = ["var(--pool)", "var(--accent)"];
-function VersusDraw({ state, teams, size="md" }) {
+function VersusDraw({ state, teams, size="md", onPlayer }) {
   const av = size === "lg" ? 34 : 26;
   const f = size === "lg" ? 19 : 14;
   const tf = size === "lg" ? 26 : 17;
@@ -577,13 +271,16 @@ function VersusDraw({ state, teams, size="md" }) {
             textAlign: i === 0 ? "left" : "right", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {teamLabel(state, t)}</div>
           <div style={{ padding: size==="lg" ? "10px 14px" : "8px 11px" }}>
-            {t.players.map(p => (
-              <div key={p} style={{ display:"flex", alignItems:"center", gap:8, padding:"3px 0",
-                flexDirection: i === 0 ? "row" : "row-reverse" }}>
+            {t.players.map(p => React.createElement(onPlayer ? "button" : "div", {
+                key:p, type:onPlayer ? "button" : undefined,
+                onClick:onPlayer ? () => onPlayer(p) : undefined,
+                className:onPlayer ? "fd-player-link" : undefined,
+                style:{ display:"flex", alignItems:"center", gap:8, padding:"3px 0", width:"100%",
+                  flexDirection:i === 0 ? "row" : "row-reverse" } }, <>
                 <Avatar state={state} p={p} size={av} />
                 <span style={{ fontFamily:SANS, fontWeight:600, fontSize:f, color:"var(--ink)" }}>{disp(state, p)}</span>
-              </div>
-            ))}
+              </>)
+            )}
           </div>
         </div>
       ))}
@@ -593,17 +290,32 @@ function VersusDraw({ state, teams, size="md" }) {
 
 /* ═════════════════════════════ APP ═════════════════════════════ */
 export default function App() {
-  const { state, connected, ready, version, lastAction, environment, capabilities } = useTournament();
-  syncChips(state.profiles);
+  const tournament = useTournament();
+  return <PlayerIdentityProvider profiles={tournament.state.profiles}>
+    <TournamentApp tournament={tournament} />
+  </PlayerIdentityProvider>;
+}
+
+function TournamentApp({ tournament }) {
+  const { state, connected, ready, version, lastAction, environment, capabilities } = tournament;
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
     : firstOnboardStep());
-  const [tab, setTab] = useState("board");
+  const [tab, setActiveTab] = useState("board");
+  const [weekendSection, setWeekendSection] = useState("trip");
+  const tabScroll = useRef({});
+  const setTab = next => {
+    if (next === tab) { window.scrollTo({ top:0, behavior:"instant" }); return; }
+    tabScroll.current[tab] = window.scrollY;
+    setActiveTab(next);
+  };
+  useLayoutEffect(() => { window.scrollTo({ top:tabScroll.current[tab] || 0, behavior:"instant" }); }, [tab]);
   const [gm, setGm] = useState(() => localGet("si-gm") === "yes" && hasGmToken());
   const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
   const [guestLens, setGuestLens] = useState(false);
   const gmView = gm && !guestLens;
   const [sim, setSim] = useState(null);
+  const simRef = useRef({ running:false, cancel:false, fast:false });
   const [qaMin, setQaMin] = useState(() => localGet("si-qa-min") === "yes");
   const [qaTop, setQaTop] = useState(() => localGet("si-qa-pos") === "top");
   const [tv, setTv] = useState(() => typeof window !== "undefined" &&
@@ -614,9 +326,17 @@ export default function App() {
   const [modalStack, setModalStack] = useState([]);
   const modal = modalStack[modalStack.length - 1] || null;
   const setModal = next => setModalStack(next ? [next] : []);
-  const pushModal = next => setModalStack(stack => [...stack, next]);
+  const pushModal = next => {
+    const scrollTop = document.querySelector(".si-sheet")?.scrollTop || 0;
+    setModalStack(stack => [...stack.map((entry,index) => index === stack.length - 1
+      ? { ...entry, scrollTop } : entry), next]);
+  };
   const popModal = () => setModalStack(stack => stack.slice(0, -1));
   const modalBack = modalStack.length > 1 ? popModal : null;
+  useLayoutEffect(() => {
+    const sheet = document.querySelector(".si-sheet");
+    if (sheet && modal) sheet.scrollTop = modal.scrollTop || 0;
+  }, [modal]);
   const [intro, setIntro] = useState(null);
   const [burst, setBurst] = useState(0);
   const [toast, setToast] = useState(null);
@@ -654,7 +374,7 @@ export default function App() {
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
   const onDeckEv = state.onDeck && !state.frozen ? events.find(e => e.id === state.onDeck && !state.results[e.id]) : null;
   const wagerEv = useMemo(() => wagerBoardEvent(state, events), [state, events]);
-  const wagerMarketOpen = !!onDeckEv && onDeckEv.id === wagerEv?.id;
+  const wagerMarketOpen = !!wagerEv && resolveCurrentContest(state, wagerEv)?.phase === "betting-open";
   const qaStatus = useMemo(() => {
     const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
     const pendingWagers = (state.wagers || []).filter(w =>
@@ -801,11 +521,17 @@ export default function App() {
      handover is automatic: one GM tap plays both scenes in order, so nobody
      has to close a card to make the draw appear. If a device reconnects with
      several unseen ceremonies, older ones retire and only the latest plays. */
-  const INTRO_HOLD = prefersReducedMotion() ? 650 : 4200;
+  const INTRO_HOLD = prefersReducedMotion() ? 650 : 2800;
   const introAt = useRef(0);
+  const prevOnDeck = useRef("UNSET");
+  // An atomic draw + announcement reaches both effects in the same render.
+  // Reserve that render for the intro before the reveal can mount.
+  const announcementQueued = ready && prevOnDeck.current !== "UNSET" && !!state.onDeck
+    && state.onDeck !== prevOnDeck.current && !state.eventOps?.[state.onDeck]?.startedAt
+    && !(simRef.current.running && simRef.current.fast);
   useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
   useEffect(() => {
-    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready) return;
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready || announcementQueued) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -816,7 +542,7 @@ export default function App() {
       }
       return;
     }
-    const { staleIds } = coalescePendingReveals(state.draws, state.stages, seenReveals, intro);
+    const { staleIds, latest } = coalescePendingReveals(state.draws, state.stages, seenReveals, intro);
     if (staleIds.length) {
       const nx = [...seenReveals, ...staleIds].filter((id, index, all) => all.indexOf(id) === index).slice(-60);
       setSeenReveals(nx);
@@ -825,58 +551,8 @@ export default function App() {
     }
     /* built first and shown second: the intro can only be handed over once we
        know something is actually waiting behind it */
-    const build = () => {
-    const ordered = map => Object.entries(map || {}).sort(([a], [b]) =>
-      a === intro ? -1 : b === intro ? 1 : 0);
-    for (const [eid, draw] of ordered(state.draws)) {
-      if (draw && !seenReveals.includes(draw.id)) {
-        const ev = events.find(e => e.id === eid);
-        if (!ev) continue;
-        /* a bracket draw announces the matchups, not just the teams: each
-           first-round pairing is its own card, byes get named for what they skip */
-        const br = state.brackets[eid];
-        let groups = null;
-        if (draw.teams.length !== 2 && br) {
-          const names = ROUND_NAMES[br.size] || [];
-          const teamLine = t => ({ avatars: [...draw.teams[t].players], text: teamLabel(state, draw.teams[t]) });
-          const seated = new Set();
-          groups = [];
-          br.rounds[0].forEach((match, m) => {
-            const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
-            if (a === null || b === null) return;
-            seated.add(a); seated.add(b);
-            groups.push({ title: `${names[0] || "Round 1"}${br.rounds[0].length > 1 ? ` ${m + 1}` : ""}`,
-              vs: true, lines: [teamLine(a), teamLine(b)] });
-          });
-          const byes = draw.teams.map((_, i) => i).filter(i => !seated.has(i));
-          if (byes.length) groups.push({
-            title: names[1] ? `Straight to the ${names[1].toLowerCase()}` : "Bye",
-            lines: byes.map(teamLine) });
-        } else if (draw.teams.length !== 2) {
-          groups = draw.teams.map(t => ({ title: teamLabel(state, t), lines: t.players.map(p => ({ avatars:[p], text: disp(state, p) })) }));
-        }
-        return { id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups,
-          versus: draw.teams.length === 2 ? draw.teams : null, crew:draw.roles || [] };
-      }
-    }
-    for (const [eid, st] of ordered(state.stages)) {
-      if (st && !seenReveals.includes(st.id)) {
-        const ev = events.find(e => e.id === eid);
-        if (!ev) continue;
-        const groups = st.groups.map(g => ({
-          title: g.name,
-          lines: g.entrants.map(k => {
-            const v = stageEntrantView(state, st, k);
-            return { avatars: v.players, text: v.name };
-          }),
-        }));
-        return { id:st.id, evId:ev.id, title: st.kind === "heats" ? "The heats" : "The pools",
-          subtitle:ev.name, groups, versus:null, crew:[] };
-      }
-    }
-    return null;
-    };
-    const next = build();
+    const next = latest ? buildEventReveal(state, events.find(event => event.id === latest.evId), latest.kind) : null;
+
     if (!next) return;
     if (intro) {
       /* A solo announcement owns the screen until it closes. Only a reveal
@@ -888,7 +564,7 @@ export default function App() {
       return () => clearTimeout(t);
     }
     setReveal(next);
-  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready]); // eslint-disable-line
+  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued]); // eslint-disable-line
   const rememberReveal = useCallback(id => {
     if (!id) return;
     setSeenReveals(prev => {
@@ -927,10 +603,12 @@ export default function App() {
       if (!d?.pool?.length) continue;
       const cur = d.teams[snakeTeam(d.picks.length, d.teams.length)]?.captain;
       if (cur !== me) continue;
-      const key = `${eid}:${d.picks.length}`;
+      const key = `${d.id}:${d.revision || 0}:${d.picks.length}`;
       if (draftNudge.current === key) return;
       draftNudge.current = key;
-      notify(`You're on the clock for ${events.find(e => e.id === eid)?.name || "the draft"}`, null, "gold", me);
+      const draftEvent = events.find(e => e.id === eid);
+      notify(`Your pick · ${draftEvent?.name || "Draft"}`, draftEvent
+        ? { label:"Open draft", fn:() => { setModal({type:"draft",ev:draftEvent}); setToast(null); } } : null, "gold", me);
       return;
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
@@ -992,15 +670,13 @@ export default function App() {
      broadcast order is the game, then the teams, then the book: the intro
      fires the moment the event goes on deck, and the draw reveal below waits
      for it to close rather than landing on top of it. */
-  const prevOnDeck = useRef("UNSET");
   useEffect(() => {
     if (!ready) return;
-    if (prevOnDeck.current !== "UNSET" && state.onDeck && state.onDeck !== prevOnDeck.current
-        && !simRef.current.fast) {
+    if (announcementQueued) {
       /* A newer GM announcement supersedes any ceremony still hanging around
          for the previous event. Retire it so it cannot surface again later. */
-      if (reveal && reveal.evId !== state.onDeck) {
-        rememberReveal(reveal.id);
+      if (reveal) {
+        if (reveal.evId !== state.onDeck) rememberReveal(reveal.id);
         setReveal(null);
       }
       setIntro(state.onDeck);
@@ -1008,7 +684,7 @@ export default function App() {
       setIntro(null);
     }
     prevOnDeck.current = state.onDeck;
-  }, [state.onDeck, ready, reveal, rememberReveal]);
+  }, [state.onDeck, ready, reveal, rememberReveal, announcementQueued]);
 
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg, options) => dispatch(type, payload, options).then(r => {
@@ -1017,20 +693,22 @@ export default function App() {
     return r;
   });
 
-  const saveProfile = (p, prof) => {
-    const saved = act("saveProfile", { player: p, display: prof.display, num: prof.num, size: prof.size,
-      flightsBooked: prof.flightsBooked, flightIn: prof.flightIn, flightOut: prof.flightOut,
-      walkoutTrack:prof.walkoutTrack });
-    if (prof.photo) uploadPhoto(p, prof.photo).then(r => { if (!r?.ok) notify(r?.error || "Photo failed"); });
-    return saved;
+  const saveProfile = async (p, prof) => {
+    const result = await savePlayerProfile({ player:p, profile:prof,
+      save:(player, fields) => dispatch("saveProfile", { player, ...fields }), upload:uploadPhoto });
+    if (!result.ok) notify(result.error);
+    return result;
   };
-  const setLive = on => act("setLive", { on });
   const saveSeeds = r => act("saveSeeds", { player: me, ratings: r });
   const saveResult = (ev, slots, options = {}) =>
     act("saveResult", { evId:ev.id, slots, ...options });
   const clearResult = (ev, correctionReason) =>
     act("clearResult", { evId:ev.id, confirmClear:true, correctionReason });
-  const setOnDeck = id => act("setOnDeck", { id });
+  const contestRef = ev => {
+    const contest = ev && resolveCurrentContest(state, ev);
+    return contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
+  };
+  const setOnDeck = id => act("setOnDeck", { id, ...contestRef(events.find(ev => ev.id === (id || state.onDeck))) });
   const startShowScene = request =>
     act("startShowScene", request, null, { retry:true });
   const advanceShowScene = id =>
@@ -1039,17 +717,21 @@ export default function App() {
     act("endShowScene", { id, outcome }, null, { retry:true });
   const retryShowScene = id =>
     act("retryShowScene", { id }, null, { retry:true });
-  const startEvent = ev => act("startEvent", { evId:ev.id }, `${ev.name} is underway`);
-  const announceEvent = ev => act("announceEvent", { evId:ev.id }, `${ev.name} is on deck`);
+  const startEvent = ev => act("startEvent", { evId:ev.id, ...contestRef(ev) }, `${ev.name} is underway`);
+  const announceEvent = ev => act("announceEvent", { evId:ev.id, ...contestRef(ev) }, `${ev.name} is on deck`);
   const announceAndDraw = ev => act("announceAndDraw", { evId:ev.id });
-  const lockAndStart = ev => act("lockAndStart", { evId:ev.id }, `${ev.name} is underway`);
+  const lockAndStart = (ev, reference) => {
+    const contest = resolveCurrentContest(state, ev);
+    return act("lockAndStart", { evId:ev.id, contestId:contest?.id, contestRevision:contest?.revision, ...reference }, "Bets locked. Play starts.", { retry:true });
+  };
+  const recordContestWinner = (ev, result) => act("recordContestWinner", { evId:ev.id, ...result }, "Winner recorded", { retry:true });
   const openResultEntry = async ev => {
     if (!state.results[ev.id] && resolveEventLifecycle(state, ev).phase !== "result-entry") {
       const opened = await act("beginResultEntry", { evId:ev.id });
-      if (!opened.ok) return false;
+      if (!opened.ok) return opened;
     }
     setModal({ type:"result", ev });
-    return true;
+    return { ok:true };
   };
   const shelveEvent = (id, on) => act("shelve", { id, on });
   const addCustomEvent = ev => act("addEvent", { ev });
@@ -1069,11 +751,11 @@ export default function App() {
   const runDraw = (ev, players, roles = []) => act("runDraw", { evId: ev.id, players, roles });
   const clearDraw = ev => act("clearDraw", { evId: ev.id });
   const startDraft = (evId, captains, players, roles = []) =>
-    act("startDraft", { evId, captains, players, roles });
-  const pickDraftPlayer = (evId, player) => act("pickDraftPlayer", { evId, player });
-  const undoDraftPick = evId => act("undoDraftPick", { evId });
-  const finalizeDraft = evId => act("finalizeDraft", { evId });
-  const cancelDraft = evId => act("cancelDraft", { evId });
+    act("startDraft", { evId, captains, players, roles }, null, {retry:true});
+  const pickDraftPlayer = (evId, player, reference) => act("pickDraftPlayer", { evId, player, ...reference }, null, {retry:true});
+  const undoDraftPick = (evId, reference) => act("undoDraftPick", { evId, ...reference }, null, {retry:true});
+  const finalizeDraft = (evId, reference) => act("finalizeDraft", { evId, ...reference }, null, {retry:true});
+  const cancelDraft = (evId, reference) => act("cancelDraft", { evId, ...reference }, null, {retry:true});
   const runStages = (ev, cfg) => act("runStages", { evId: ev.id, cfg });
   const clearStages = ev => act("clearStages", { evId: ev.id });
   const toggleThrough = (evId, g, key) => act("toggleThrough", { evId, g, key });
@@ -1092,8 +774,8 @@ export default function App() {
   const playDuelRun = (id, ms, foul) => act("playDuel", { id, ms, foul });
   const declineDuel = id => act("declineDuel", { id }, "Declined");
   const voidDuel = id => act("voidDuel", { id }, "Duel voided");
-  const placeWager = w => act("placeWager", { wager: w }, "Chip down", { retry:true });
-  const retractWager = id => act("retractWager", { id }, "Chip back", { retry:true });
+  const placeWager = w => act("placeWager", { wager: w }, null, { retry:true });
+  const retractWager = (id, reference) => act("retractWager", { id, ...reference }, null, { retry:true });
   const voidWager = id => act("voidWager", { id });
   const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
   const setFrozen = f => act("setFrozen", { f });
@@ -1134,7 +816,6 @@ export default function App() {
      each player in turn, so every connected phone and the TV see exactly the
      broadcasts a live weekend would produce. Always re-claims your identity. */
   const stateRef = useRef(state); stateRef.current = state;
-  const simRef = useRef({ running:false, cancel:false, fast:false });
   const rnd = a => a[Math.floor(Math.random() * a.length)];
   const simWait = ms => new Promise((res, rej) => setTimeout(() =>
     simRef.current.cancel ? rej(new Error("stopped")) : res(), simRef.current.fast ? Math.min(ms, 120) : ms));
@@ -1201,51 +882,18 @@ export default function App() {
       const room = Math.min(maxRisk(pts) - exp, pts - exp);
       if (room < PT) continue;
       const stake = Math.min(Math.floor(room / PT) * PT, rnd([PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]));
-      const draw = s.draws[evId];
-      const br = s.brackets[evId];
-      const st = s.stages[evId];
-      const myIdx = draw ? draw.teams.findIndex(t => t.players.includes(p)) : -1;
-      let wager = null;
-      /* Bracket rehearsals deliberately split between matchups and the
-         outright board. This stress-tests crowded matchup pills and proves
-         their even-money settlement path instead of only betting champions. */
-      if (br && bettorIndex % 2 === 0) {
-        wager = qaBracketMatchWager(s, ev, p, bettorIndex, stake);
-      }
-      if (!wager && st && Math.random() < 0.5) {
-        /* group bet on an undecided heat or pool; inside your own group you
-           back yourself, mirroring the server's against-your-team rule */
-        let gi = null, pickKey = null;
-        for (const i of shuffle(st.groups.map((_, x) => x))) {
-          const g = st.groups[i];
-          if ((g.through || []).length >= st.advance) continue;
-          const open = g.entrants.filter(k => !(g.through || []).includes(k));
-          if (!open.length) continue;
-          if (st.entrantType === "team" && g.entrants.includes(myIdx)) {
-            if (open.includes(myIdx)) { gi = i; pickKey = myIdx; break; }
-            continue;
-          }
-          gi = i; pickKey = st.entrantType === "solo" && open.includes(p) ? p : rnd(open);
-          break;
-        }
-        if (gi === null) continue;
-        const v = stageEntrantView(s, st, pickKey);
-        wager = { kind:"stage", eventId:evId, evName:ev.name, stagesId:st.id, group:gi,
-          groupName:st.groups[gi].name, pickKey, final:false, pickPlayers:[...v.players],
-          pickTeam: st.entrantType === "team", stake };
-      } else if (!wager && ev.kind === "solo") {
-        const pick = rnd(ROSTER);
-        wager = { kind:"outright", eventId:evId, evName:ev.name, pick, pickPlayers:[pick], pickTeam:false, stake };
-      } else if (!wager && draw) {
-        /* in a 2-team draw the server forbids backing the other side */
-        const t = draw.teams.length === 2 && myIdx >= 0 ? myIdx : rnd(draw.teams.map((_, i) => i));
-        wager = { kind:"outright", eventId:evId, evName:ev.name, pickTeam:true,
-          pickPlayers:[...draw.teams[t].players], drawId:draw.id, stake };
-      } else if (!wager) continue;
+      const contest = resolveCurrentContest(s, ev);
+      if (contest?.phase !== "betting-open") continue;
+      const side = rnd(contest.sides.filter(item => contestBetEligibility(contest,p,item.key)));
+      if (!side) continue;
+      const wager = { eventId:evId, evName:ev.name, contestId:contest.id, contestRevision:contest.revision,
+        pickPlayers:[...side.players], pickTeam:!!contest.drawId, drawId:contest.drawId, stake };
+      if (contest.kind === "ffa") Object.assign(wager,{kind:"outright",pick:side.key});
+      else if (contest.kind === "match") Object.assign(wager,{kind:"match",match:contest.match,teamIdx:side.key});
+      else Object.assign(wager,{kind:contest.kind === "heat" ? "heat" : "stage", stagesId:contest.stagesId,
+        group:contest.group, groupName:contest.label, final:contest.kind === "stage-final", pickKey:side.key});
       await simDo("claim", { player: p });
-      await simTry("placeWager", { wager },
-        `${p} puts ${stake} on ${wager.kind === "stage" ? stageEntrantView(s, st, wager.pickKey).name
-          : wager.pickTeam ? teamLabel(s, { players: wager.pickPlayers }) : wager.pick}`);
+      await simTry("placeWager", { wager }, p + " puts " + stake + " on " + side.players.map(player=>disp(s,player)).join(" & "));
       await simWait(700);
     }
   };
@@ -1275,58 +923,32 @@ export default function App() {
       await simWait(600);
     }
   };
-  const simAdvanceStages = async ev => {
-    const st0 = stateRef.current.stages[ev.id];
-    if (!st0) return;
-    /* all groups first: toggleThrough resets the final winner */
-    for (let gi = 0; gi < st0.groups.length; gi++) {
-      for (;;) {
-        const st = stateRef.current.stages[ev.id];
-        const g = st?.groups?.[gi];
-        if (!g || (g.through || []).length >= st.advance) break;
-        const open = g.entrants.filter(k => !(g.through || []).includes(k));
-        if (!open.length) break;
-        await simDo("toggleThrough", { evId: ev.id, g: gi, key: rnd(open) },
-          `Advancing ${g.name}`);
-        await simWait(500);
-      }
-    }
-    const st = stateRef.current.stages[ev.id];
-    const finalists = stageFinalists(st);
-    if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) {
-      await simDo("setFinalWinner", { evId: ev.id, key: rnd(finalists) }, `Deciding the ${ev.name} final`);
-      await simWait(500);
-    }
-  };
   const simPlayEvent = async () => {
     await simCheckIn();
-    if (!stateRef.current.live) await simDo("setLive", { on: true }, "The weekend goes live");
     const s0 = stateRef.current;
     const ev = allEventsOf(s0).find(e => !s0.results[e.id] && !s0.shelved[e.id]);
     if (!ev) throw new Error("Nothing left to play");
     if (ev.game === "poker" && ev.finale) throw new Error("The finale is poker, run it from the table");
     const table = AWARDS[ev.value] || [0, 0, 0];
     await simEnsureFormat(ev);
-    await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
-    await simWait(600);
-    await simBetsRound();
-    await simDo("setOnDeck", { id:null }, `Betting locks on ${ev.name}`);
-    await simDo("startEvent", { evId:ev.id }, `${ev.name} is underway`);
-    let br = stateRef.current.brackets[ev.id];
-    if (br) {
-      for (let r = 0; r < br.rounds.length; r++) {
-        for (let m = 0; m < br.rounds[r].length; m++) {
-          const cur = stateRef.current.brackets[ev.id];
-          const match = cur.rounds[r][m];
-          if (match.winner !== null && match.winner !== undefined) continue;
-          const a = resolveSlot(cur, match.a), b = resolveSlot(cur, match.b);
-          if (a === null || b === null) continue;
-          await simDo("pickBracketWinner", { evId: ev.id, r, m, teamIdx: rnd([a, b]) }, `Advancing the ${ev.name} bracket`);
-          await simWait(900);
-        }
-      }
+    if (!stateRef.current.eventOps?.[ev.id]?.startedAt && stateRef.current.onDeck !== ev.id)
+      await simDo("setOnDeck", { id:ev.id }, "Betting opens on " + ev.name);
+    for (;;) {
+      const snapshot = stateRef.current;
+      const contest = resolveCurrentContest(snapshot,ev);
+      if (!contest || contest.phase === "awaiting-result") break;
+      const reference = { contestId:contest.id, contestRevision:contest.revision };
+      if (contest.phase === "betting-open") { await simWait(600); await simBetsRound(); }
+      if (["betting-open","betting-locked"].includes(contest.phase))
+        await simDo("lockAndStart", {evId:ev.id,...reference}, contest.label + " is underway");
+      if (contest.kind === "ffa") break;
+      const picks = shuffle(contest.sides.map(side=>side.key));
+      await simDo("recordContestWinner", {evId:ev.id,...reference,winner:picks[0],
+        qualifiers:picks.slice(0,contest.kind === "heat" ? snapshot.stages[ev.id].advance : 1)},
+        "Recording the " + contest.label + " winner");
+      await simWait(900);
     }
-    await simAdvanceStages(ev);
+    let br;
     const s1 = stateRef.current;
     const draw = s1.draws[ev.id];
     const st = s1.stages[ev.id];
@@ -1543,7 +1165,6 @@ export default function App() {
     { key:"betting", name:"Betting open", rank:2, note:"Live, first event on deck, bets down",
       run: async () => {
         await simCheckIn();
-        if (!stateRef.current.live) await simDo("setLive", { on:true }, "The weekend goes live");
         await simOpenBetting();
       } },
     { key:"midsat", name:"Mid-Saturday", rank:3, note:"Friday and Sat AM played, duels settled",
@@ -1597,7 +1218,7 @@ export default function App() {
   };
 
 
-  const DIRECTOR_SCENE_BEATS = ["advance-scene", "clear-scene", "start-opening",
+  const DIRECTOR_SCENE_BEATS = ["advance-scene", "clear-scene",
     "start-champion-scene", "replay-winner-scene"];
   const gmNext = (() => {
     if (!gmView || !ready) return null;
@@ -1610,7 +1231,6 @@ export default function App() {
     const run = {
       "advance-scene":() => advanceShowScene(nextAction.sceneId),
       "clear-scene":() => endShowScene(nextAction.sceneId, "cancelled"),
-      "start-opening":() => startShowScene({ kind:"opening" }),
       "start-champion-scene":() => startShowScene({ kind:"champion" }),
       "replay-winner-scene":() => startShowScene({ kind:"winner", eventId:nextAction.eventId }),
       "announce":() => announceEvent(ev),
@@ -1621,6 +1241,8 @@ export default function App() {
       "run-poker":() => setModal({type:"pokerResult"}),
       "post-poker-result":() => setModal({type:"pokerResult"}),
       "prepare-draw":() => setModal({type:"event", ev}),
+      "prepare-stages":() => setModal({type:"event", ev}),
+      "record-contest-winner":() => setModal({type:"event", ev}),
       "continue-draft":() => setModal({type:"event", ev}),
       "open-betting":() => setOnDeck(ev.id),
       "lock-betting":() => setOnDeck(null),
@@ -1639,8 +1261,9 @@ export default function App() {
       return { label:nextAction.blockers[0], run:route, blocked:true };
     }
     const note = nextAction.type === "lock-start" && ev && state.onDeck === ev.id ? (() => {
-      const bets = (state.wagers || []).filter(w => w.eventId === ev.id).length;
-      const openedAt = Number(state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
+      const contest = resolveCurrentContest(state, ev);
+      const bets = (state.wagers || []).filter(w => wagerMatchesContest(w, contest) && resolveWager(state,w,events).status === "pending").length;
+      const openedAt = Number(state.eventOps?.[ev.id]?.contest?.openedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
       const mins = openedAt ? Math.max(0, Math.round((Date.now() - openedAt) / 60000)) : null;
       return `${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`;
     })() : null;
@@ -1674,15 +1297,20 @@ export default function App() {
 
   if (onboardStep < 99) {
     return (
-      <Shell environment={environment}>
-        <Onboarding step={onboardStep} me={me} state={state} onTv={() => setTv(true)} onChip={pickChip}
-          pick={p => { setMe(p); saveMine("si-me", p); dispatch("claim", { player: p }); }}
+      <Shell arrival environment={environment}>
+        {ready ? <Suspense fallback={<LoadingScreen />}><Onboarding step={onboardStep} me={me} state={state} onTv={() => setTv(true)} onChip={pickChip}
+          pick={async p => {
+            const result = await dispatch("claim", { player:p });
+            if (result.ok) { setMe(p); saveMine("si-me", p); }
+            return result;
+          }}
           saveProfile={prof => saveProfile(me, prof)}
           submitSeeds={saveSeeds}
           next={() => setOnboardStep(s => s + 1)}
+          back={() => setOnboardStep(s => Math.max(0, s - 1))}
           done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
             saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
-            setTab("board"); setBurst(b => b + 1); }} />
+            setTab("board"); setBurst(b => b + 1); }} /></Suspense> : <LoadingScreen />}
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1690,102 +1318,48 @@ export default function App() {
 
   return (
     <Shell environment={environment}>
-      {/* header: night chrome framing the paper below */}
-      <div style={{ position:"sticky", top:0, zIndex:40, background:"var(--chrome)",
-        backdropFilter:"blur(14px)", borderBottom:"1px solid var(--chrome-line)",
-        paddingTop:"env(safe-area-inset-top)" }}>
-        <div style={{ padding:"10px 16px 9px", display:"flex", alignItems:"center", gap:10 }}>
-          <button onClick={() => setModal({type:"profile"})} aria-label="Your profile"
-            style={{ background:"none", border:"none", padding:0, cursor:"pointer" }}>
-            {me ? <Avatar state={state} p={me} size={38} /> : null}
-          </button>
-          <div style={{ flex:1, display:"flex", alignItems:"center", gap:9 }}>
-            <FDMark size={30} variant="night" />
-            <div style={{ lineHeight:1 }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.015em",
-                textTransform:"uppercase", color:"var(--bone)" }}>Field Day</div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10, letterSpacing:"0.14em",
-                color:"var(--night-text)", marginTop:2 }}>SCOTTSDALE · 2026</div>
-            </div>
-          </div>
-          <IconButton label="TV mode" onClick={() => setTv(true)}><IconTV /></IconButton>
-          <IconButton label="Commissioner" selected={gmView} onClick={() => !gm ? setModal({type:"pin"})
-            : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})}>
-            <IconGM filled={gmView} /></IconButton>
-        </div>
-        {!connected && loaded && (
-          <div role="status" aria-live="polite" style={{ display:"flex", alignItems:"center", gap:8, margin:"0 16px 10px",
-            padding:"7px 13px", borderRadius:10, background:"rgba(192,71,58,0.2)",
-            border:"1px solid rgba(192,71,58,0.5)" }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)", animation:"si-pulse 1.2s infinite" }} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.12em",
-              color:"var(--bone)", textTransform:"uppercase" }}>Reconnecting</span>
-          </div>
-        )}
-        {wagerEv && (
-          <button onClick={() => setTab("bets")}
-            style={{ display:"flex", alignItems:"center", gap:10, width:"calc(100% - 32px)", margin:"0 16px 10px",
-            padding:"9px 13px", borderRadius:14, border:"1px solid rgba(240,176,47,0.4)",
-            background:"rgba(240,176,47,0.14)", cursor:"pointer", textAlign:"left" }}>
-            <GameMark id={wagerEv.game} size={26} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em", color:"var(--sun)" }}>
-              {wagerMarketOpen ? "ON DECK" : "WAGER BOARD"}</span>
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--bone)", flex:1 }}>{wagerEv.name}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-              textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
-              color:wagerMarketOpen ? "var(--ink0)" : "var(--sun)",
-              background:wagerMarketOpen ? "var(--sun)" : "rgba(240,176,47,0.12)",
-              border:wagerMarketOpen ? "none" : "1px solid rgba(240,176,47,0.45)" }}>
-              {wagerMarketOpen ? "Betting open" : "Betting locked"}</span>
-          </button>
-        )}
-      </div>
+      <AppHeader state={state} me={me} onHome={() => setTab("board")}
+        onProfile={() => setModal({type:"profile"})} onMenu={() => setModal({type:"menu"})} gm={gmView}
+        onCommissioner={() => !gm ? setModal({type:"pin"})
+          : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})}
+        connected={connected} loaded={loaded} wagerEv={tab === "bets" || tab === "board" ? null : wagerEv} wagerMarketOpen={wagerMarketOpen}
+        onBets={() => setTab("bets")} GameMark={GameMark} />
 
-      <div style={{ flex:1, overflowY:"auto",
-        paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 12,
+      <main id="fd-main" className="fd-main" style={{
+        paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 0,
         paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
-        {tab === "board" && (<>
-          {me && !state.frozen && (
-            <div style={{ padding:"0 16px" }}>
-              <DuelStrip state={state} me={me} gm={gmView}
-                onPlay={id => setModal({type:"duelPlay", id})}
-                onDecline={declineDuel} onVoid={voidDuel} />
-            </div>
-          )}
-          {state.poker && !state.frozen && (
-            <div style={{ padding:"0 16px" }}>
-              <PokerCard state={state} standings={standings} me={me} gm={gmView}
+        {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark}
+          onEvents={() => setTab("sched")} onGuide={() => { setWeekendSection("rules"); setTab("guide"); }}
+          onHouse={() => { setWeekendSection("trip"); setTab("guide"); }} onOpen={ev => setModal({type:"event", ev})}
+          onRules={ev => setModal({type:"howto", ev})}
+          onDraft={ev => setModal({type:"draft", ev})} deltas={deltas}
+          onProfile={() => setModal({type:"profile"})} onPlayer={p => setModal({type:"player", p})}
+          onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
+          duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
+            onPlayer={p => setModal({type:"player", p})}
+            onPlay={id => setModal({type:"duelPlay", id})} onDecline={declineDuel} onVoid={voidDuel} />}
+          pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
                 onLevel={pokerLevelNudge} onBust={pokerBust} onUnbust={pokerUnbust}
-                onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />
-            </div>
-          )}
-          {state.live
-            ? <Board state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-                champion={champion} coChamps={coChamps} gm={gmView} events={events}
-                myAtRisk={me ? atRisk(state, me, events) : 0}
-                onOpen={ev => setModal({type:"event", ev})}
-                onAdjust={p => setModal({type:"adjust", player:p})}
-                onChallenge={p => setModal({type:"player", p})}
-                onFreeze={() => setModal({type:"freeze"})} onUnfreeze={() => setFrozen(false)}
-                finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
-            : <LockerRoom state={state} me={me}
-                onProfile={() => setModal({type:"profile"})}
-                onChallenge={p => setModal({type:"player", p})} />}
-
-        </>)}
-        {tab === "sched" && <Schedule state={state} events={events} gm={gmView}
+                onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />} />}
+        {tab === "sched" && <Schedule GameMark={GameMark} EventCrewCard={EventCrewCard} state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
+          onPlayer={p => setModal({type:"player", p})}
           onReorder={reorderEvents} />}
-        {tab === "bets" && <Wagers state={state} me={me} standings={standings} gm={gmView} events={events}
+        {tab === "bets" && <Wagers GameMark={GameMark} state={state} me={me} standings={standings} gm={gmView} events={events}
+          onEvent={ev => setModal({type:state.brackets?.[ev.id] ? "bracket" : "event", ev})}
           onDeckEv={onDeckEv} wagerEv={wagerEv}
           onEvents={() => setTab("sched")}
+          onPlayer={p => setModal({type:"player", p})}
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
-          onRetract={id => retractWager(id)}
+          onRetract={(id, reference) => retractWager(id, reference)}
           onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
-        {tab === "guide" && <Guide events={events} state={state} />}
-      </div>
+        {tab === "guide" && <Guide events={events} state={state} me={me}
+          section={weekendSection} onSection={setWeekendSection}
+          onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
+          GameMark={GameMark} HowToSheet={HowToSheet} />}
+      </main>
 
       {(() => {
         const cueTracks = gmView && audioDirectorAllowed && activeShowScene
@@ -1799,7 +1373,7 @@ export default function App() {
         return (
           <div style={{ position:"fixed", right:14, zIndex:56,
             bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
-              : tab === "bets" && me && onDeckEv && !state.frozen ? 148 : 74}px + env(safe-area-inset-bottom))`,
+              : tab === "bets" && me && onDeckEv && !state.frozen ? 232 : 84}px + env(safe-area-inset-bottom))`,
             display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
             {cueTracks.map(item => (
               <CueChip key={item.player} state={state} player={item.player}
@@ -1845,28 +1419,37 @@ export default function App() {
         onOpen={() => setModal({ type:"qa" })}
         onPlayNext={runSim(simPlayEvent)} />}
 
-      {/* tab bar: night chrome, sun pill marks the active tab */}
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, display:"flex", justifyContent:"center", zIndex:50 }}>
-        <div style={{ width:"100%", maxWidth:540, display:"flex", background:"var(--chrome)",
-          backdropFilter:"blur(16px)", borderTop:"1px solid var(--chrome-line)",
-          padding:"8px 10px calc(12px + env(safe-area-inset-bottom))" }}>
-          {[["board","Board"],["sched","Events"],["bets","Bets"],["guide","Rules"]].map(([id,lb]) => (
-            <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}
-              style={{ flex:1, background:"none", border:"none",
-              cursor:"pointer", padding:"7px 0" }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.04em",
-                textTransform:"uppercase",
-                color: tab===id ? "var(--ink0)" : "var(--night-text)",
-                background: tab===id ? "var(--sun)" : "transparent",
-                borderRadius:99, padding:"8px 14px", display:"inline-block" }}>{lb}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+      <AppNavigation tab={tab} onTab={setTab} live={state.live} />
 
       {/* modals */}
-      {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} unlock={unlockGm} />}
-      {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onChip={pickChip}
+      {modal?.type === "howto" && <HowToSheet gameId={modal.ev.game} variant={modal.ev.variant} onClose={() => setModal(null)} />}
+      {modal?.type === "standings" && <Sheet title={champion ? "Final standings" : "Standings"} onClose={() => setModal(null)} onBack={modalBack}>
+        <Board embedded GameMark={GameMark} StatPills={StatPills} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch}
+          state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
+          champion={champion} coChamps={coChamps} gm={gmView} events={events}
+          myAtRisk={me ? atRisk(state, me, events) : 0}
+          onOpen={ev => pushModal({type:"event", ev})} onAdjust={p => pushModal({type:"adjust", player:p})}
+          onPlayer={p => pushModal({type:"player", p})} onFreeze={() => pushModal({type:"freeze"})}
+          onUnfreeze={() => setFrozen(false)} finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
+      </Sheet>}
+      {modal?.type === "menu" && <Sheet title="Field Day" onClose={() => setModal(null)}>
+        <MenuGroup title="Your weekend">
+          <MenuRow name="Your profile" onClick={() => pushModal({type:"profile"})} />
+          <MenuRow name="Trip details" onClick={() => { setModal(null); setWeekendSection("trip"); setTab("guide"); }} />
+          <MenuRow name="Rules" onClick={() => { setModal(null); setWeekendSection("rules"); setTab("guide"); }} />
+        </MenuGroup>
+        <MenuGroup title="Event controls">
+          <MenuRow name="TV mode" onClick={() => { setModal(null); setTv(true); }} />
+          <MenuRow name="Commissioner" onClick={() => {
+            if (!gm) pushModal({type:"pin"});
+            else { setGuestLens(false); pushModal({type:"gmMenu"}); }
+          }} />
+        </MenuGroup>
+      </Sheet>}
+      {modal?.type === "house" && <Sheet title="Trip details" onClose={() => setModal(null)}><VenueCard lg={state.logistics || {}} /></Sheet>}
+      {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
+      {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
+        initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
         save={async prof => {
           const saved = await saveProfile(me, prof);
@@ -1874,7 +1457,7 @@ export default function App() {
           return saved;
         }} />}
       {modal?.type === "gmMenu" && (
-        <Sheet title="Commissioner" onClose={() => setModal(null)}>
+        <Sheet title="Commissioner" onClose={() => setModal(null)} onBack={modalBack}>
           {(showControlAllowed || audioDirectorAllowed) && (
             <MenuGroup title="The show">
               {showControlAllowed && <MenuRow name="Show Control"
@@ -1886,12 +1469,9 @@ export default function App() {
                 onClick={() => pushModal({type:"audioDirector"})} />}
             </MenuGroup>
           )}
-          <MenuGroup title="The weekend">
-            <MenuRow name={state.live ? "Back to the locker room" : "Start the weekend"}
-              onClick={() => { setLive(!state.live); setModal(null); }} />
-            {state.live && !state.frozen && <MenuRow name="Crown the champion"
-              onClick={() => pushModal({type:"freeze"})} />}
-          </MenuGroup>
+          {state.live && !state.frozen && <MenuGroup title="The weekend">
+            <MenuRow name="Crown the champion" onClick={() => pushModal({type:"freeze"})} />
+          </MenuGroup>}
           <MenuGroup title="Fix something">
             {state.onDeck && <MenuRow name="Close betting"
               note={`${onDeckEv?.name || "An event"} is on deck`}
@@ -1952,7 +1532,13 @@ export default function App() {
         </Sheet>
       )}
       {modal?.type === "event" && <EventSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state} gm={gmView}
+        me={me} onLock={reference => lockAndStart(modal.ev, reference)}
+        onWinner={result => recordContestWinner(modal.ev, result)}
+        onUndo={reference => act("undoLastContest", { evId:modal.ev.id, ...reference }, null, {retry:true})}
         onClose={() => setModal(null)}
+        onBack={modalBack}
+        onPlayer={p => pushModal({type:"player", p})}
+        onBets={wagerEv?.id === modal.ev.id ? () => { setModal(null); setTab("bets"); } : null}
         enterResult={() => openResultEntry(modal.ev)}
         clearRes={async reason => {
           const cleared = await clearResult(modal.ev, reason);
@@ -1962,9 +1548,9 @@ export default function App() {
           }
         }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
-        onDraw={(players, roles) => { runDraw(modal.ev, players, roles); setModal(null); }}
+        onDraw={(players, roles) => runDraw(modal.ev, players, roles)}
         onClearDraw={() => clearDraw(modal.ev)}
-        onStages={cfg => { runStages(modal.ev, cfg); setModal(null); }}
+        onStages={cfg => runStages(modal.ev, cfg)}
         onClearStages={() => clearStages(modal.ev)}
         onThrough={(g,k) => toggleThrough(modal.ev.id, g, k)}
         onFinal={k => setFinalWinner(modal.ev.id, k)}
@@ -1972,20 +1558,33 @@ export default function App() {
         onStart={() => startEvent(modal.ev)}
         onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
-        openBracket={() => setModal({type:"bracket", ev:modal.ev})}
+        openBracket={() => pushModal({type:"bracket", ev:modal.ev})}
+        onReplay={() => pushModal({type:"drawReplay", ev:modal.ev})}
         openDraft={(pool, roles) => setModal({type:"draft", ev:modal.ev, pool, roles})} />}
+      {modal?.type === "drawReplay" && buildEventReveal(state,modal.ev) && <DrawAnnouncement state={state}
+        reveal={buildEventReveal(state,modal.ev)} initialComplete={modal.completed} onClose={() => setModal(null)} onBack={modalBack}
+        onPlayer={p => setModalStack(stack => [...stack.slice(0,-1),{...modal,completed:true},{type:"player",p}])}
+        onBets={wagerEv?.id === modal.ev.id ? () => {setModal(null);setTab("bets");} : null}/>}
       {modal?.type === "bracket" && <BracketSheet ev={modal.ev} state={state} gm={gmView}
-        onClose={() => setModal({type:"event", ev:modal.ev})}
+        me={me}
+        onLock={reference => lockAndStart(modal.ev, reference)}
+        onWinner={result => recordContestWinner(modal.ev, result)}
+        onUndo={reference => act("undoLastContest", {evId:modal.ev.id,...reference}, null, {retry:true})}
+        onBets={wagerEv?.id === modal.ev.id ? () => {setModal(null);setTab("bets");} : null}
+        onCurrent={() => pushModal({type:"event", ev:modal.ev})}
+        onClose={() => setModal(null)} onBack={modalBack}
+        onPlayer={p => pushModal({type:"player", p})}
         onPick={(r,m,t) => pickBracketWinner(modal.ev.id, r, m, t)}
         onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool} roles={modal.roles}
         onClose={() => setModal({type:"event", ev:modal.ev})}
+        onPlayer={p => pushModal({type:"player", p})}
         onStart={(captains, players) => startDraft(modal.ev.id, captains, players, modal.roles)}
-        onPick={player => pickDraftPlayer(modal.ev.id, player)}
-        onUndo={() => undoDraftPick(modal.ev.id)}
-        onFinalize={() => { finalizeDraft(modal.ev.id); setModal(null); }}
-        onCancel={() => { cancelDraft(modal.ev.id); setModal({type:"event", ev:modal.ev}); }} />}
+        onPick={(player, reference) => pickDraftPlayer(modal.ev.id, player, reference)}
+        onUndo={reference => undoDraftPick(modal.ev.id, reference)}
+        onFinalize={reference => finalizeDraft(modal.ev.id, reference)}
+        onCancel={reference => cancelDraft(modal.ev.id, reference)} />}
       {modal?.type === "result" && <ResultSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev} state={state}
         onClose={() => setModal(null)}
         save={async (slots, options) => {
@@ -2004,10 +1603,11 @@ export default function App() {
         onClose={() => setModal(null)} onStart={() => { pokerStart(); setModal(null); }} />}
       {modal?.type === "pokerResult" && <PokerResultSheet state={state} onClose={() => setModal(null)}
         onCount={pokerCount} onBust={pokerBust} onUnbust={pokerUnbust}
-        onPost={() => { pokerResult(); setModal(null); }} />}
+        onPost={async () => { const result = await pokerResult(); if (result.ok) setModal(null); return result; }} />}
       {modal?.type === "player" && <PlayerSheet state={state} me={me} p={modal.p} standings={standings} events={events}
-        onClose={() => setModal(null)}
-        onDuel={stake => { sendDuel(modal.p, stake); setModal(null); }} />}
+        onClose={() => setModal(null)} onBack={modalBack}
+        onEdit={() => pushModal({type:"profile"})}
+        onDuel={stake => sendDuel(modal.p, stake)} />}
       {modal?.type === "duelPlay" && <QuickDrawGame state={state} me={me}
         duel={(state.duels || []).find(d => d.id === modal.id)}
         onSubmit={playDuelRun}
@@ -2090,12 +1690,17 @@ export default function App() {
         return iev && !state.results[iev.id] ? (
           <EventIntro state={state} ev={iev} handoff={introHasQueuedReveal} onClose={() => setIntro(null)}
             onBets={!introHasQueuedReveal && state.onDeck === iev.id
-              ? () => { setIntro(null); setTab("bets"); } : null} />
+              ? () => { setIntro(null); setModal(null); setTab("bets"); } : null} />
         ) : null;
       })()}
       {reveal && <Reveal key={reveal.id} state={state} reveal={reveal} onClose={closeReveal}
+        onPlayer={p => {
+          const ev = events.find(event => event.id === reveal.evId);
+          closeReveal();
+          setModalStack(stack => [...stack,...(ev ? [{type:"drawReplay",ev,completed:true}] : []),{type:"player",p}]);
+        }}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
-          ? () => { closeReveal(); setTab("bets"); } : null} />}
+          ? () => { closeReveal(); setModal(null); setTab("bets"); } : null} />}
       <Confetti burst={burst} />
       {!loaded && <LoadingScreen />}
     </Shell>
@@ -2115,8 +1720,10 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
     const t = setTimeout(() => closeRef.current(), prefersReducedMotion() ? 2200 : 7000);
     return () => clearTimeout(t);
   }, [auto]);
+  if (!big) return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets}
+    holdMs={prefersReducedMotion() ? 650 : 2800} visual={<GameMoment gameId={ev.game}/>}/>;
   return (
-    <div className="si-event-intro" onClick={auto ? undefined : onClose}
+    <div className="si-event-intro fd-night" onClick={auto ? undefined : onClose}
       style={{ position:"fixed", inset:0, zIndex:290, background:"rgba(23,16,9,0.985)",
         display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
         padding:"calc(28px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom))",
@@ -2160,288 +1767,12 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
 }
 
 /* ─────────── shell ─────────── */
-function Shell({ children, tv, environment = "production" }) {
-  return (
-    <div className="si-vh" style={{ background:"var(--bg)", display:"flex", justifyContent:"center" }}>
-      <style>{`
-        :root {
-          color-scheme:dark;
-          /* Field Day tokens, full night. Surfaces are warm near-black card
-             stock; --ink is now the primary TEXT color (bone). --ink0 is the
-             absolute brown-black for marks, chips, and anything on sun. */
-          --bg:#171009; --paper:#241B12; --paper2:#332619; --line:rgba(251,243,228,0.13);
-          --ink:#F4EAD9; --ink0:#2A2119; --muted:#A08F76; --muted2:#C9B896; --disabled:#6F5F4A;
-          /* phase + signal palette: pool (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale) */
-          --accent:#C25832; --accent2:#D97A50; --sun:#F0B02F; --pool:#4694A8;
-          --olive:#8A945C; --clay:#C0473A; --live2:#D45A48; --green:#6E9450;
-          /* night family: reveals, champion, TV, sheet bands */
-          --night:#251C14; --night2:#3A2C1E; --night-deep:#171009;
-          --bone:#FBF3E4; --night-text:#C9B896; --night-text2:#8D7A5F;
-          /* medals */
-          --silver:#8C99A4; --bronze:#C08454;
-          /* alpha tints, recomputed from the canonical hexes above */
-          --sun-tint:rgba(240,176,47,0.16); --clay-tint:rgba(192,71,58,0.18);
-          --green-tint:rgba(110,148,80,0.16); --accent-tint:rgba(194,88,50,0.16);
-          --ink-tint:rgba(251,243,228,0.05); --bone-line:rgba(251,243,228,0.16);
-          /* bone alphas with jobs: ghost button borders, chip skin marks,
-             night-card dividers; clay alpha for danger borders */
-          --ghost-line:rgba(251,243,228,0.3); --chip-mark:rgba(251,243,228,0.75);
-          --night-line:rgba(251,243,228,0.12); --danger-line:rgba(192,71,58,0.4);
-          /* deep warm shadow scale; never pure black */
-          --shadow-1:0 2px 10px rgba(10,6,3,0.5);
-          --shadow-2:0 8px 24px rgba(10,6,3,0.6);
-          --shadow-3:0 14px 40px rgba(10,6,3,0.7);
-          /* chrome: a shade deeper than the canvas */
-          --chrome:rgba(16,11,7,0.93); --chrome-line:rgba(251,243,228,0.13);
-        }
-        * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-        button:active:not(:disabled) { transform: scale(0.97); }
-        button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-          outline:3px solid var(--sun); outline-offset:3px;
-        }
-        input::placeholder { color:var(--muted); }
-        @keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
-        @keyframes si-pulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
-        @keyframes si-up { from { transform: translateY(26px); opacity:0; } to { transform:none; opacity:1; } }
-        @keyframes si-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
-        @keyframes si-fade { from { opacity:0; } to { opacity:1; } }
-        @keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
-        @keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
-        @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(194,88,50,0.22);} 50% { box-shadow:0 0 50px rgba(192,71,58,0.32);} }
-        @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
-        @keyframes si-intro-mark {
-          0% { opacity:0; transform:scale(0.78) rotate(-4deg); }
-          68% { opacity:1; transform:scale(1.025) rotate(0deg); }
-          100% { opacity:1; transform:scale(1); }
-        }
-        @keyframes si-intro-ring {
-          0% { opacity:0; transform:scale(0.66); }
-          28% { opacity:0.48; }
-          100% { opacity:0; transform:scale(1.45); }
-        }
-        @keyframes si-intro-rule {
-          from { opacity:0; transform:scaleX(0); }
-          to { opacity:0.62; transform:scaleX(1); }
-        }
-        @keyframes si-intro-copy {
-          from { opacity:0; transform:translateY(10px); }
-          to { opacity:1; transform:none; }
-        }
-        @keyframes si-event-dot {
-          0%, 58%, 100% { opacity:0.28; transform:translateY(0); }
-          28% { opacity:1; transform:translateY(-3px); }
-        }
-        .si-event-ring {
-          position:absolute; inset:19%; border:1px solid rgba(240,176,47,0.5);
-          border-radius:31%; animation:si-intro-ring 1.35s 0.08s ease-out both;
-        }
-        .si-event-ring-2 { inset:8%; animation-delay:0.22s; }
-        .si-event-rule {
-          position:absolute; top:50%; width:44px; height:1px; background:var(--sun);
-          animation:si-intro-rule 0.48s 0.32s ease-out both;
-        }
-        .si-event-rule-left { right:calc(50% + 66px); transform-origin:right; }
-        .si-event-rule-right { left:calc(50% + 66px); transform-origin:left; }
-        .si-event-mark { position:relative; z-index:1; animation:si-intro-mark 0.58s cubic-bezier(.2,.85,.28,1) both; }
-        .si-event-dot {
-          display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--sun);
-          animation:si-event-dot 1.05s ease-in-out infinite;
-        }
-        .si-event-dot-2 { animation-delay:0.13s; }
-        .si-event-dot-3 { animation-delay:0.26s; }
-        @keyframes si-die-arc {
-          0%   { transform: translate(0px,30px)   rotate(0deg); }
-          12%  { transform: translate(18px,2px)   rotate(80deg); }
-          24%  { transform: translate(38px,-12px) rotate(160deg); }
-          36%  { transform: translate(58px,-6px)  rotate(240deg); }
-          48%  { transform: translate(78px,12px)  rotate(310deg); }
-          56%  { transform: translate(90px,30px)  rotate(350deg); }
-          64%  { transform: translate(102px,14px) rotate(380deg); }
-          74%  { transform: translate(114px,10px) rotate(400deg); }
-          84%  { transform: translate(126px,24px) rotate(415deg); }
-          90%, 100% { transform: translate(132px,30px) rotate(420deg); }
-        }
-        @keyframes si-pong-arc {
-          0%   { transform: translate(0px,26px);   opacity:1; }
-          30%  { transform: translate(50px,-12px); opacity:1; }
-          55%  { transform: translate(96px,0px);   opacity:1; }
-          70%  { transform: translate(116px,16px); opacity:1; }
-          80%, 100% { transform: translate(121px,30px); opacity:0; }
-        }
-        @keyframes si-flip-cup {
-          0%, 14%   { transform: translate(0,0) rotate(0deg); }
-          44%       { transform: translate(0,-26px) rotate(-120deg); }
-          62%       { transform: translate(0,-6px) rotate(-180deg); }
-          70%       { transform: translate(0,0) rotate(-180deg); }
-          76%       { transform: translate(0,-4px) rotate(-180deg); }
-          82%, 100% { transform: translate(0,0) rotate(-180deg); }
-        }
-        @keyframes si-putt {
-          0%        { transform: translate(0,0); }
-          72%       { transform: translate(122px,0); }
-          84%       { transform: translate(126px,2px); }
-          92%, 100% { transform: translate(127px,12px); }
-        }
-        @keyframes si-cue {
-          0%, 12%   { transform: translate(0,0); }
-          42%, 100% { transform: translate(56px,0); }
-        }
-        @keyframes si-eight {
-          0%, 42%   { transform: translate(0,0); }
-          88%, 100% { transform: translate(64px,0); }
-        }
-        @keyframes si-bball {
-          0%, 10%   { transform: translate(0,0); }
-          48%       { transform: translate(66px,-42px); }
-          72%       { transform: translate(128px,-24px); }
-          84%       { transform: translate(133px,-6px); }
-          94%, 100% { transform: translate(134px,4px); }
-        }
-        @keyframes si-spike {
-          0%, 14%   { transform: translate(0,0); }
-          52%       { transform: translate(72px,38px); }
-          58%       { transform: translate(78px,34px); }
-          100%      { transform: translate(158px,-18px); }
-        }
-        @keyframes si-pingpong {
-          0%        { transform: translate(0,0); }
-          22%       { transform: translate(28px,-14px); }
-          46%       { transform: translate(56px,16px); }
-          64%       { transform: translate(84px,-16px); }
-          84%       { transform: translate(110px,14px); }
-          100%      { transform: translate(128px,-4px); }
-        }
-        @keyframes si-foosman {
-          0%, 30%   { transform: translate(0,0); }
-          40%       { transform: translate(0,-9px); }
-          48%, 100% { transform: translate(0,0); }
-        }
-        @keyframes si-foos {
-          0%, 46%   { transform: translate(0,0); }
-          72%, 100% { transform: translate(138px,0); }
-        }
-        @keyframes si-volley {
-          0%, 10%   { transform: translate(0,0); }
-          52%       { transform: translate(74px,-38px); }
-          82%       { transform: translate(134px,6px); }
-          90%       { transform: translate(142px,-2px); }
-          100%      { transform: translate(148px,6px); }
-        }
-        @keyframes si-pickle {
-          0%, 8%    { transform: translate(0,0); }
-          30%       { transform: translate(38px,6px); }
-          56%       { transform: translate(76px,-18px); }
-          82%       { transform: translate(110px,6px); }
-          100%      { transform: translate(126px,-2px); }
-        }
-        @keyframes si-kart {
-          0%        { transform: translate(-16px,0); }
-          30%       { transform: translate(38px,0); }
-          38%       { transform: translate(52px,-8px); }
-          46%       { transform: translate(66px,0); }
-          78%       { transform: translate(112px,0); }
-          100%      { transform: translate(148px,0); }
-        }
-        @keyframes si-rage {
-          0%        { transform: translate(0,0); }
-          38%       { transform: translate(48px,42px); }
-          52%       { transform: translate(56px,30px); }
-          72%       { transform: translate(72px,26px); }
-          88%, 100% { transform: translate(74px,32px); }
-        }
-        @keyframes si-deal1 {
-          0%        { transform: translate(-90px,-40px) rotate(-40deg); opacity:0; }
-          22%       { opacity:1; }
-          38%, 100% { transform: translate(0,0) rotate(0deg); opacity:1; }
-        }
-        @keyframes si-deal2 {
-          0%, 20%   { transform: translate(-110px,-40px) rotate(-40deg); opacity:0; }
-          40%       { opacity:1; }
-          58%, 100% { transform: translate(0,0) rotate(0deg); opacity:1; }
-        }
-        @keyframes si-chip-in {
-          0%, 55%   { transform: translate(0,0); }
-          80%       { transform: translate(112px,-2px); }
-          88%       { transform: translate(118px,0); }
-          100%      { transform: translate(118px,0); }
-        }
-        @keyframes si-gauntlet {
-          0%        { transform: translate(0,0); }
-          18%       { transform: translate(24px,-16px); }
-          30%       { transform: translate(40px,0); }
-          44%       { transform: translate(60px,-16px); }
-          54%       { transform: translate(78px,0); }
-          66%       { transform: translate(96px,-16px); }
-          76%       { transform: translate(112px,0); }
-          88%       { transform: translate(134px,-18px); }
-          100%      { transform: translate(152px,-2px); }
-        }
-        /* the prize: flat blades rotated around one axis read as a solid */
-        @keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
-        /* routes draw themselves in, then a chip runs the line */
-        @keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
-        @keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
-        @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
-        ::-webkit-scrollbar { width:0; height:0; }
-        /* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
-        .si-vh { min-height:100vh; min-height:100dvh; }
-        .si-sheet { max-height:90vh; max-height:90dvh; }
-      `}</style>
-      <div className="si-vh" style={{ width:"100%", maxWidth: tv ? "100%" : 540, display:"flex",
-        flexDirection:"column", position:"relative",
-        background:"radial-gradient(120% 50% at 50% -6%, var(--sun-tint) 0%, transparent 60%), var(--bg)" }}>
-        {!tv && <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:GRAIN, zIndex:1000, mixBlendMode:"screen", opacity:0.6 }} />}
-        {environment !== "production" && (
-          <div aria-label={`${environment} environment`} style={{ position:"fixed", top:"calc(6px + env(safe-area-inset-top))",
-            left:8, zIndex:2000, pointerEvents:"none", borderRadius:999, padding:"5px 9px",
-            background:"var(--clay)", color:"var(--bone)", border:"1px solid var(--bone)",
-            boxShadow:"var(--shadow-1)", fontFamily:SANS, fontWeight:800, fontSize:10,
-            letterSpacing:"0.14em", textTransform:"uppercase" }}>{environment}</div>
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}
+
 
 /* install UI: native prompt where the browser offers one, instructions where it never will */
-function InstallHint() {
-  const [, bump] = useState(0);
-  useEffect(() => onInstallReady(() => bump(x => x + 1)), []);
-  if (installEvt) return <Btn onClick={() => installEvt.prompt()} style={{ alignSelf:"flex-start" }}>Add to home screen</Btn>;
-  if (isIOS()) return (
-    <div>
-      {[["1","Tap the Share button in Safari"],["2","Tap Add to Home Screen"]].map(([n,t]) => (
-        <div key={n} style={{ display:"flex", gap:12, alignItems:"center", padding:"7px 0" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>{n}</span>
-          <span style={{ fontFamily:SANS, fontSize:16, color:"var(--ink)" }}>{t}</span>
-        </div>
-      ))}
-    </div>
-  );
-  return <div style={{ fontFamily:SANS, fontSize:16, color:"var(--ink)" }}>
-    In your browser menu, choose Add to Home Screen.</div>;
-}
+
 
 /* ─────────── onboarding ─────────── */
-const ONBOARD_STEPS = 6;
-function InviteProgress({ step, kicker }) {
-  return (
-    <div style={{ marginBottom:10 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ ...label, flex:1 }}>{kicker}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.1em",
-          textTransform:"uppercase", color:"var(--muted)" }}>{step} of {ONBOARD_STEPS}</div>
-      </div>
-      <div style={{ display:"flex", gap:5, marginTop:7 }} aria-hidden="true">
-        {Array.from({ length:ONBOARD_STEPS }, (_, i) => i + 1).map(i => <div key={i} style={{ height:3, borderRadius:9, flex:1,
-          background:i <= step ? "var(--accent)" : "var(--line)" }} />)}
-      </div>
-    </div>
-  );
-}
 
 function LoadingScreen() {
   return (
@@ -2451,774 +1782,50 @@ function LoadingScreen() {
       <div style={{ animation:"si-pulse 1.6s ease-in-out infinite" }}><Wordmark size={34} /></div>
       <div>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.04em",
-          textTransform:"uppercase", color:"var(--ink)" }}>Opening the invitation</div>
+          textTransform:"uppercase", color:"var(--ink)" }}>Opening Field Day</div>
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:5 }}>
-          Loading the latest trip details…</div>
+          Loading the latest weekend details…</div>
       </div>
-    </div>
-  );
-}
-
-/* The mechanics are the invitation's trailer. Four cards tell one escalating
-   story without creating a second onboarding flow: play, bet, challenge, then
-   carry the whole score into the finale. The next card stays visible at the
-   edge so the horizontal rail explains itself. */
-function OnboardingMechanics({ me }) {
-  const rival = ROSTER.find(p => p !== me);
-  const cards = [
-    {
-      n:"01", title:"Collect points",
-      body:"Everyone starts at 1,000. Win events and land bets. Whatever you have Saturday night becomes your poker stack.",
-      art:(
-        <div style={{ display:"flex", alignItems:"center" }}>
-          {["putting","pong","basketball"].map((id, i) => (
-            <span key={id} style={{ marginLeft:i ? -11 : 0, transform:`rotate(${(i - 1) * 5}deg)` }}>
-              <GameMark id={id} size={66} />
-            </span>
-          ))}
-        </div>
-      ),
-    },
-    {
-      n:"02", title:"Betting",
-      body:"Every event can be bet on. Only half your points can be at risk at one time.",
-      art:(
-        <div style={{ display:"flex", alignItems:"center" }}>
-          {[100,400,1000].map((v, i) => (
-            <span key={v} style={{ marginLeft:i ? -11 : 0, transform:`translateY(${i === 1 ? -9 : 0}px)` }}>
-              <BankChip p={me} size={62} val={v} />
-            </span>
-          ))}
-        </div>
-      ),
-    },
-    {
-      n:"03", title:"Duels",
-      body:"Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot.",
-      art:(
-        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-          <BankChip p={me} size={60} />
-          <svg width="34" height="53" viewBox="0 0 27 42" aria-hidden="true">
-            <path d="M16 2 5 23h7l-2 17 13-24h-8z" fill="var(--sun)"
-              stroke="var(--ink0)" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-          <BankChip p={rival} size={60} />
-        </div>
-      ),
-    },
-    {
-      n:"04", title:"The trophy",
-      body:"The winner of the poker finale is the Field Day champion and takes home the Scottsdale 2026 trophy.",
-      art:<TrophyHero size={170} plate="2026" />,
-    },
-  ];
-  return (
-    <div>
-      <div style={{ ...label, margin:"17px 2px 9px" }}>How it works</div>
-      <div role="list" aria-label="How Field Day works"
-        style={{ display:"flex", gap:9, overflowX:"auto", scrollSnapType:"x mandatory",
-          overscrollBehaviorX:"contain", scrollbarWidth:"none", margin:"0 -6px", padding:"0 6px 5px" }}>
-        {cards.map((c, i) => (
-          <div key={c.n} role="listitem" style={{ position:"relative", minWidth:"min(82vw, 294px)",
-            height:"clamp(240px, 35vh, 300px)", scrollSnapAlign:"start", overflow:"hidden", borderRadius:14,
-            padding:"13px 14px", background:i === 3
-              ? "radial-gradient(100% 100% at 85% 0%, var(--sun-tint), transparent 58%), var(--night)"
-              : "var(--paper)", border:i === 3 ? "1px solid rgba(240,176,47,.42)" : "1px solid var(--line)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:12, color:"var(--accent2)" }}>{c.n}</span>
-            </div>
-            <div style={{ position:"absolute", right:8, top:37, width:190, height:136,
-              display:"grid", placeItems:"center", transform:i === 3 ? "translateY(-3px)" : "none" }}>
-              {c.art}
-            </div>
-            <div style={{ position:"absolute", left:14, right:14, bottom:13 }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
-                textTransform:"uppercase", color:"var(--ink)", maxWidth:220 }}>{c.title}</div>
-              <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.42,
-                color:"var(--muted2)", marginTop:6, maxWidth:238 }}>{c.body}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, done, onTv, onChip }) {
-  const [ratings, setRatings] = useState({});
-  const [display, setDisplay] = useState("");
-  const [photo, setPhoto] = useState(null);
-  const [num, setNum] = useState("");
-  const [size, setSize] = useState(null);
-  const [flightsBooked, setFlightsBooked] = useState(null);
-  const [flightIn, setFlightIn] = useState(null);
-  const [flightOut, setFlightOut] = useState(null);
-  useEffect(() => {
-    if (!me) return;
-    const pr = state.profiles?.[me];
-    setDisplay(pr?.display || me);
-    setNum(pr?.num != null ? String(pr.num) : "");
-    setSize(pr?.size ?? null);
-    /* Check-in asks the question fresh, even on a replay. Keep saved legs so
-       choosing Yes reveals them, but do not pre-answer on the guest's behalf. */
-    setFlightsBooked(null);
-    setFlightIn(pr?.flightIn || null);
-    setFlightOut(pr?.flightOut || null);
-    /* a replay must not make anyone re-rate themselves from scratch: seed the
-       form with whatever they already sealed */
-    setRatings(state.seeds?.[me] ? { ...state.seeds[me] } : {});
-  }, [me]); // eslint-disable-line
-  /* install lives at step -1, BEFORE check-in: the installed app gets its own
-     fresh storage, so anything set up in the browser first would be lost */
-  const lg = state.logistics || {};
-  if (step === -1) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(48px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <div style={label}>Scottsdale · {EDITION.short}, 2026</div>
-      <div style={{ margin:"10px 0 26px" }}><Wordmark size={46} /></div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:34, lineHeight:1.05,
-        color:"var(--ink)", marginBottom:10 }}>Take Field Day with you</div>
-      <div style={{ fontFamily:SANS, color:"var(--muted2)", fontSize:16, lineHeight:1.6, marginBottom:22 }}>
-        Add it to your home screen for live scores, draws, bets, and alerts all weekend.
-      </div>
-      <InstallHint />
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:18, lineHeight:1.6 }}>
-        Open it from your home screen to finish your two-minute check-in.
-      </div>
-      <div style={{ marginTop:"auto" }}>
-        <Btn kind="ghost" onClick={next} style={{ width:"100%" }}>Skip, stay in the browser</Btn>
-      </div>
-    </div>
-  );
-  if (step === 0) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <InviteProgress step={1} kicker="Your invitation" />
-      <div style={{ margin:"8px 0 18px" }}><Wordmark size={44} /></div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, lineHeight:1.05,
-        color:"var(--ink)", marginBottom:7 }}>Claim your spot</div>
-      <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:18 }}>
-        Pick your name to unlock the trip details and give me the additional information I’ll need for logistics. It’ll only take ~2 minutes.
-      </div>
-      <div style={{ ...label, marginBottom:10 }}>Who are you?</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:"auto" }}>
-        {ROSTER.map((p, i) => <PlayerChip key={p} name={p} selected={me===p}
-          onClick={() => pick(p)} style={centeredGridCell(i, ROSTER.length)} />)}
-      </div>
-      <Btn disabled={!me} onClick={next} style={{ width:"100%", fontSize:16, padding:"15px" }}>
-        {me ? `Continue as ${me}` : "Pick your name"}</Btn>
-      {onTv && <button onClick={onTv} style={{ background:"none", border:"none", cursor:"pointer", marginTop:14,
-        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", alignSelf:"center" }}>
-        TV mode</button>}
-    </div>
-  );
-  /* The mechanics get a full beat of their own. The travel map follows on the
-     next screen so neither has to compete for attention. */
-  if (step === 1) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      height:"100dvh", minHeight:0, maxHeight:"100dvh",
-      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <InviteProgress step={2} kicker={EDITION.long} />
-      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 8px" }}>
-        <div style={{ margin:"6px 0 12px" }}><Wordmark size={39} /></div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:31, lineHeight:1.04,
-          color:"var(--ink)", marginBottom:8 }}>The bachelor party is a tournament</div>
-        <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
-          {ROSTER.length} players, {allEventsOf(state).filter(e => !e.finale).length} events, one board.
-          {" "}Win events and land bets to collect points all weekend,
-          then your points become your chips at the poker finale. Whoever wins the poker table is the Field Day champion.
-        </div>
-        <OnboardingMechanics me={me} />
-      </div>
-      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Continue</Btn>
-    </div>
-  );
-  if (step === 2) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      height:"100dvh", minHeight:0, maxHeight:"100dvh",
-      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <InviteProgress step={3} kicker="The roster" />
-      <div style={{ margin:"8px 0 2px" }}><Wordmark size={39} /></div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, lineHeight:1.04,
-        color:"var(--ink)", margin:"12px 0 8px" }}>Thank you for flying in for this!</div>
-      <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.55, color:"var(--muted2)" }}>
-        {ROSTER.length} players coming in from {TRAVEL_CITIES.length} cities.
-      </div>
-      <div style={{ flex:1, minHeight:0, minWidth:0, width:"100%", overflow:"hidden",
-        display:"flex", alignItems:"center", margin:"12px -6px 0", padding:"0 6px" }}>
-        <TravelMap />
-      </div>
-      <Btn onClick={next} style={{ width:"100%", fontSize:16, padding:"15px", marginTop:10 }}>Continue</Btn>
-    </div>
-  );
-  /* The address and flights live here. Size and travel
-     go straight to the roster so the host stops chasing texts */
-  if (step === 3) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <InviteProgress step={4} kicker="The details" />
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 14px" }}>
-        Getting there</div>
-      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
-        <VenueCard lg={lg} />
-        {/* everything above is Brandon telling you things; everything below is
-            you telling him. One panel, its own edge, so the switch is obvious */}
-        <div style={{ border:"1.5px solid var(--bone-line)", borderRadius:16, padding:"14px 14px 16px",
-          background:"var(--paper)", marginTop:4 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, letterSpacing:"0.02em",
-            textTransform:"uppercase", color:"var(--ink)", lineHeight:1.05, marginBottom:12 }}>
-            Information I need</div>
-          <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
-            flightIn={flightIn} setFlightIn={setFlightIn}
-            flightOut={flightOut} setFlightOut={setFlightOut} />
-          <SizeRow lb="T-shirt size" value={size} onPick={setSize} />
-        </div>
-      </div>
-      <div style={{ marginTop:12 }}>
-        <Btn disabled={!size || flightsBooked === null} onClick={() => { saveProfile({ display: (display || me).trim() || me,
-            size, flightsBooked, flightIn, flightOut }); next(); }}
-          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
-      </div>
-    </div>
-  );
-  if (step === 4) return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-      padding:"calc(40px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))" }}>
-      <InviteProgress step={5} kicker="Your card" />
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"6px 0 16px" }}>
-        Set up your profile</div>
-      <div style={{ flex:1, overflowY:"auto", margin:"0 -6px", padding:"0 6px 10px" }}>
-        <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-          num={num} setNum={setNum} showSize={false} onChip={onChip} />
-      </div>
-      <div style={{ marginTop:12 }}>
-        <Btn disabled={!display.trim() || !state.profiles?.[me]?.color} onClick={() => { saveProfile({ display: display.trim(),
-            num: num === "" ? null : Number(num), ...(photo ? {photo} : {}) }); next(); }}
-          style={{ width:"100%", fontSize:16, padding:"15px" }}>Continue</Btn>
-      </div>
-    </div>
-  );
-  if (step === 5) {
-    const complete = SPORTS.every(s => ratings[s.id] !== undefined);
-    const rated = SPORTS.filter(s => ratings[s.id] !== undefined).length;
-    const fillAverage = () => setRatings(Object.fromEntries(SPORTS.map(s => [s.id, 2])));
-    return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", animation:"si-in .3s ease-out",
-        padding:"calc(40px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom))" }}>
-        <InviteProgress step={6} kicker="Private scouting report" />
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, color:"var(--ink)", margin:"0 0 6px" }}>Rate yourself</div>
-        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--muted2)", lineHeight:1.55, marginBottom:11 }}>
-          These stay private. They’re only used to make fair teams.
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-          <div role="status" aria-live="polite" style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5,
-            color:complete ? "var(--green)" : "var(--muted)", flex:1 }}>{rated} of {SPORTS.length} rated</div>
-          {!complete && <button onClick={fillAverage} style={{ background:"none", border:"none", padding:"4px 0",
-            cursor:"pointer", fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.04em",
-            color:"var(--accent2)" }}>Mark all Average</button>}
-        </div>
-        <div style={{ flex:1, overflowY:"auto", marginBottom:14 }}>
-          {[["sport","Sports"],["drink","Drinking games"]].map(([gid, glabel]) => (
-          <div key={gid}>
-          <div style={{ ...label, margin: gid === "sport" ? "0 0 7px" : "18px 0 7px" }}>{glabel}</div>
-          <div aria-hidden="true" style={{ display:"grid", gridTemplateColumns:"88px minmax(0,1fr)", gap:10,
-            alignItems:"end", marginBottom:2 }}>
-            <span />
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-              {["Never","Rough","Avg","Solid","Elite"].map(x => <span key={x} style={{ fontFamily:SANS,
-                fontWeight:700, fontSize:8.5, letterSpacing:"0.02em", textAlign:"center",
-                color:"var(--muted)", whiteSpace:"nowrap" }}>{x}</span>)}
-            </div>
-          </div>
-          {SPORTS.filter(s => s.group === gid).map(s => {
-            const idx = RATINGS.findIndex(r => r.v === ratings[s.id]);
-            return (
-              <div key={s.id} style={{ display:"grid", gridTemplateColumns:"88px minmax(0,1fr)", alignItems:"center",
-                gap:10, padding:"10px 0",
-                borderBottom:"1px solid var(--line)" }}>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)",
-                    lineHeight:1.15 }}>{s.label}</div>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, marginTop:3,
-                    color:idx >= 0 ? "var(--accent2)" : "var(--muted)" }}>
-                    {idx >= 0 ? RATINGS[idx].label : "Not rated"}</div>
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-                  {RATINGS.map((r, i) => (
-                    <button key={r.v} onClick={() => setRatings(x => ({ ...x, [s.id]: r.v }))}
-                      aria-label={`${s.label}: ${r.label}`} aria-pressed={idx === i}
-                      style={{ width:"100%", aspectRatio:"1", minWidth:0, borderRadius:"50%", cursor:"pointer", padding:0,
-                        background: idx >= 0 && i <= idx ? "var(--sun)" : "var(--paper)",
-                        border: idx >= 0 && i <= idx ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
-                        transition:"background .12s" }} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          </div>
-          ))}
-        </div>
-        <Btn disabled={!complete} onClick={() => { submitSeeds(ratings); done(); }}
-          style={{ width:"100%", fontSize:16, padding:"15px" }}>Finish check-in</Btn>
-      </div>
-    );
-  }
-  return null;
-}
-
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
-  const fileRef = useRef(null);
-  const [cropSource, setCropSource] = useState(null);
-  const prof = state.profiles?.[me];
-  const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
-  const takenBy = num !== "" ? Object.entries(state.profiles || {})
-    .find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
-  const onFile = e => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => setCropSource(reader.result);
-    reader.readAsDataURL(f);
-    /* Allow choosing the same file again after cancelling the crop. */
-    e.target.value = "";
-  };
-  /* one field system: same label, same surface, same height everywhere */
-  const FIELD_H = 48;
-  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
-    color:"var(--ink)", outline:"none", height:FIELD_H };
-  return (
-    <div>
-      {/* Photo, name, number, and chip are one identity surface. The narrow
-          color rail carries the player's color without splitting the editor
-          into two competing image banners. */}
-      <div style={{ position:"relative", background:"var(--paper)", border:"1px solid var(--line)",
-        borderRadius:16, overflow:"hidden", boxShadow:"var(--shadow-1)" }}>
-        <div aria-hidden="true" style={{ height:4,
-          background:me ? playerColor(me) : "var(--accent)" }} />
-        <div style={{ padding:"12px 12px 13px",
-          background:"linear-gradient(180deg, var(--paper2), var(--paper))" }}>
-          <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:4 }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, lineHeight:1,
-              textTransform:"uppercase", color:"var(--ink)", flex:1 }}>Player identity</div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:9.5, letterSpacing:"0.12em",
-              textTransform:"uppercase", color:"var(--muted)" }}>Scottsdale · 2026</div>
-          </div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.45,
-            marginBottom:12 }}>How you’ll appear throughout Field Day.</div>
-          <div style={{ display:"flex", gap:12, alignItems:"flex-end" }}>
-            <button onClick={() => fileRef.current?.click()} aria-label="Change your photo"
-              style={{ background:"none", border:"none", padding:0, cursor:"pointer", position:"relative", flexShrink:0 }}>
-              {current
-                ? <img src={current} alt="" style={{ width:64, height:64, borderRadius:"50%", objectFit:"cover", border:"2px solid var(--paper)", outline:"2px solid var(--accent)", boxShadow:"var(--shadow-1)", display:"block" }} />
-                : me && <Avatar state={state} p={me} size={64} ring />}
-              <div style={{ position:"absolute", bottom:-2, right:-2, width:26, height:26, borderRadius:"50%",
-                background:"var(--sun)", border:"1.5px solid var(--ink0)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink0)" strokeWidth="2.2" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3.2L9 6h6l1.8 2H20v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display:"none" }} />
-            {cropSource && (
-              <PhotoCropper src={cropSource} onCancel={() => setCropSource(null)}
-                onConfirm={cropped => { setPhoto(cropped); setCropSource(null); }} />
-            )}
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ ...label, fontSize:10, marginBottom:5 }}>Display name</div>
-              <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16} aria-label="Display name"
-                style={{ ...field, width:"100%", padding:"0 12px", fontFamily:SANS, fontWeight:600, fontSize:16,
-                  background:"var(--paper)" }} />
-            </div>
-            <div style={{ width:62, flexShrink:0 }}>
-              <div style={{ ...label, fontSize:10, marginBottom:5, textAlign:"center" }}>No.</div>
-              <input value={num} inputMode="numeric" placeholder="00" aria-label="Player number"
-                onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
-                style={{ ...field, width:"100%", textAlign:"center", padding:0, background:"var(--paper)",
-                  border: takenBy ? "1.5px solid var(--clay)" : field.border,
-                  fontFamily:DISPLAY, fontWeight:700, fontSize:22 }} />
-            </div>
-          </div>
-          {takenBy && (
-            <div style={{ marginTop:10, padding:"8px 10px", border:"1px solid var(--danger-line)",
-              borderRadius:9, background:"var(--clay-tint)", fontFamily:SANS, fontWeight:600, fontSize:12,
-              color:"var(--clay)", lineHeight:1.4 }}>
-              {disp(state, takenBy[0])} already has {Number(num)}.
-            </div>
-          )}
-        </div>
-        {onChip && me && <ChipPicker state={state} me={me} onChip={onChip} num={num} embedded />}
-      </div>
-      {showSize && (
-        <>
-          <div style={{ marginTop:18 }}>
-            <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
-          </div>
-        </>
-      )}
     </div>
   );
 }
 
 /* The venue is a reveal, not a diagram. The real overhead shot communicates
    the house, pool, pickleball, basketball, and volleyball in one clean frame. */
-function HouseArt() {
-  return (
-    <div style={{ position:"relative", aspectRatio:"16 / 9", background:"var(--paper2)", overflow:"hidden" }}>
-      <img src="/airbnb-compound-field-day.webp" alt=""
-        width="1440" height="810" loading="eager" decoding="async"
-        style={{ width:"100%", height:"100%", display:"block", objectFit:"cover",
-          filter:"saturate(.94) contrast(1.02)" }} />
-      <div aria-hidden="true" style={{ position:"absolute", inset:0,
-        background:"linear-gradient(180deg, rgba(23,16,9,0.02) 45%, rgba(23,16,9,0.38) 100%)",
-        boxShadow:"inset 0 0 0 1px rgba(251,243,228,0.08)" }} />
-    </div>
-  );
-}
+
 
 /* Two cards, each one subject. The house owns its own check-in window, so
    nobody has to work out what those times belong to; travel owns the airport
    and the host's flights, since both are about getting there. */
-const CARD = { background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14,
-  marginBottom:12, overflow:"hidden" };
-/* the label-over-value pair, used by both split rows */
-function InfoCell({ lb, v, first }) {
-  return (
-    <div style={{ flex:1, minWidth:0, padding:"11px 14px",
-      borderLeft: first ? "none" : "1px solid var(--line)" }}>
-      <div style={{ ...label, fontSize:10, marginBottom:4 }}>{lb}</div>
-      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
-        lineHeight:1.35 }}>{v}</div>
-    </div>
-  );
-}
 
-function VenueCard({ lg }) {
-  const mapUrl = lg.venue
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lg.venue)}` : null;
-  const inL = cleanLeg(lg.hostIn), outL = cleanLeg(lg.hostOut);
-  const hostLegs = [
-    inL && ["Lands", inL.note || (legTime(inL.time) && `Fri ${legTime(inL.time)}`)],
-    outL && ["Leaves", outL.note || (legTime(outL.time) && `Sun ${legTime(outL.time)}`)],
-  ].filter(x => x && x[1]);
-  return (
-    <div>
-      <div style={CARD}>
-        <HouseArt />
-        <div style={{ padding:"12px 14px", borderTop:"1px solid var(--line)" }}>
-          <div style={{ ...label, marginBottom:5 }}>The house</div>
-          {/* the address ships in core, so there is no honest empty state to
-              write copy for: if it is somehow blank, say nothing */}
-          {lg.venue && <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15.5, lineHeight:1.45,
-            userSelect:"text", color:"var(--ink)" }}>{lg.venue}</div>}
-          {lg.venueNote && <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)", marginTop:5,
-            lineHeight:1.5 }}>{lg.venueNote}</div>}
-          {mapUrl && (
-            <a href={mapUrl} target="_blank" rel="noreferrer"
-              style={{ display:"inline-block", marginTop:10, fontFamily:SANS, fontWeight:700, fontSize:12.5,
-                letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--accent2)",
-                textDecoration:"none" }}>Open in maps ›</a>
-          )}
-        </div>
-        {(lg.checkIn || lg.checkOut) && (
-          <div style={{ display:"flex", borderTop:"1px solid var(--line)" }}>
-            <InfoCell lb="Check in" v={lg.checkIn || "TBD"} first />
-            <InfoCell lb="Checkout" v={lg.checkOut || "TBD"} />
-          </div>
-        )}
-      </div>
-      {(lg.airport || hostLegs.length > 0) && (
-        <div style={CARD}>
-          {lg.airport && (
-            <div style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 14px" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent2)" aria-hidden="true"
-                style={{ flexShrink:0 }}><path d="M2 4 22 12 2 20l4.6-8z"/></svg>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ ...label, fontSize:10, marginBottom:3 }}>Fly into</div>
-                <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>{lg.airportName}</div>
-              </div>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, letterSpacing:"0.06em",
-                color:"var(--sun)", lineHeight:1 }}>{lg.airport}</div>
-            </div>
-          )}
-          {hostLegs.length > 0 && (
-            /* the flight codes matter to nobody but Brandon; the times are how
-               people work out who they are sharing a ride with */
-            <div style={{ borderTop: lg.airport ? "1px solid var(--line)" : "none" }}>
-              <div style={{ ...label, fontSize:10, padding:"10px 14px 0" }}>My flights</div>
-              <div style={{ display:"flex" }}>
-                {hostLegs.map(([lb, v], i) => <InfoCell key={lb} lb={lb} v={v} first={i === 0} />)}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+/* the label-over-value pair, used by both split rows */
 
 /* The editable flight. Dressed as a boarding pass this read as something
    already filled in, so entry gets real bordered fields with captions under
    them: three boxes on a page of cards say "type here" without a word. */
-function FlightEntry({ leg: raw, dir, setLeg }) {
-  const leg = raw || {};
-  const set = patch => setLeg({ ...leg, ...patch });
-  const box = { background:"var(--paper)", border:"1.5px solid var(--line)", borderRadius:10,
-    height:46, display:"flex", alignItems:"center", padding:"0 10px", boxSizing:"border-box" };
-  const bare = { background:"none", border:"none", outline:"none", padding:0, minWidth:0,
-    width:"100%", boxSizing:"border-box", color:"var(--ink)" };
-  const cap = { ...label, fontSize:9, marginTop:5, color:"var(--muted)" };
-  return (
-    <div style={{ display:"flex", gap:8 }}>
-      <div style={{ width:74, flexShrink:0 }}>
-        <div style={box}>
-          <input value={leg.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
-            aria-label="Airline"
-            onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
-            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15, letterSpacing:"0.1em" }} />
-        </div>
-        <div style={cap}>Airline</div>
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={box}>
-          <input value={leg.num || ""} inputMode="numeric" placeholder="1885" aria-label="Flight number"
-            onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })}
-            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:15 }} />
-        </div>
-        <div style={cap}>Flight no.</div>
-      </div>
-      <div style={{ width:138, flexShrink:0 }}>
-        <div style={box}>
-          <input type="time" value={leg.time || ""} onChange={e => set({ time: e.target.value })}
-            aria-label={dir === "out" ? "Departure time" : "Landing time"}
-            style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:14,
-              color: leg.time ? "var(--ink)" : "var(--muted)" }} />
-        </div>
-        <div style={cap}>{dir === "out" ? "Takes off" : "Lands"}</div>
-      </div>
-    </div>
-  );
-}
+
 
 /* One boarding pass, read only: this is how a saved leg prints back */
-function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
-  if (edit) return <FlightEntry leg={raw} dir={dir} setLeg={setLeg} />;
-  const leg = cleanLeg(raw);
-  if (!leg) return null;
-  if (leg.note) return (
-    <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
-      color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
-  );
-  const t = legTime(leg.time);
-  const numSize = small ? 19 : 22;
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 11,
-      background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-      padding: small ? "9px 11px" : "11px 13px" }}>
-      <svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 24 24" fill="var(--muted)"
-        aria-hidden="true" style={{ flexShrink:0 }}>
-        <path d="M2 4 22 12 2 20l4.6-8z"/>
-      </svg>
-      <div style={{ display:"flex", alignItems:"baseline", gap:7, flex:1, minWidth:0 }}>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
-          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
-          color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
-      </div>
-      <div style={{ flexShrink:0, borderLeft:"1px dashed var(--line)", paddingLeft: small ? 10 : 12,
-        textAlign:"right" }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
-          color: t ? "var(--sun)" : "var(--muted)" }}>{t || "\u2014"}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
-          letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)", marginTop:2 }}>
-          {dir === "out" ? "Leaves Sun" : "Lands Fri"}</div>
-      </div>
-    </div>
-  );
-}
+
 
 /* label, a way out, and the pass */
-function LegField({ lb, dir, leg, setLeg }) {
-  const filled = leg && (leg.air || leg.num || leg.time);
-  return (
-    <div style={{ marginBottom:12 }}>
-      <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:6 }}>
-        <span style={label}>{lb}</span>
-        {filled && (
-          <button onClick={() => setLeg(null)} style={{ marginLeft:"auto", background:"none",
-            border:"none", cursor:"pointer", padding:0, fontFamily:SANS, fontWeight:700, fontSize:11,
-            letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--muted)" }}>Clear</button>
-        )}
-      </div>
-      <FlightPass leg={leg} dir={dir} edit setLeg={setLeg} />
-    </div>
-  );
-}
+
 
 /* the carrier list both editors share */
-function TravelLists() {
-  return <datalist id="fd-airlines">{AIRLINES.map(a => <option key={a} value={a} />)}</datalist>;
-}
+
 
 /* one apparel size. Brandon uses the T-shirt answer for the jersey too. */
-function SizeRow({ lb, value, onPick, allowClear }) {
-  return (
-    <div style={{ marginBottom:12 }}>
-      <div style={{ ...label, marginBottom:6 }}>{lb}</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
-        {SIZES.map(sz => (
-          <button key={sz} onClick={() => onPick(allowClear && value === sz ? null : sz)}
-            aria-label={`${lb}: ${sz}`} aria-pressed={value === sz}
-            style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
-              cursor:"pointer", background: value === sz ? GOLD_GRAD : "var(--paper2)",
-              color: value === sz ? "var(--ink0)" : "var(--ink)",
-              border: value === sz ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{sz}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 /* travel entry, shared by onboarding and the profile sheet. Ask the question
    outright and give it two equal answers: a quiet link next to a form reads
    as decoration, and whoever has not booked cannot tell it is meant for them.
    Nothing shows until you answer, so the question IS the instruction. */
-function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, setFlightOut }) {
-  const opt = on => ({ fontFamily:SANS, fontWeight:700, fontSize:14, height:48, padding:0,
-    borderRadius:10, cursor:"pointer",
-    background: on ? GOLD_GRAD : "var(--paper2)", color: on ? "var(--ink0)" : "var(--ink)",
-    border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" });
-  return (
-    <div>
-      <TravelLists />
-      {/* a field prompt, not a second headline: the panel title above is the
-          display face, so the questions inside it are set in the body face */}
-      <div style={{ fontFamily:SANS, fontWeight:600, fontSize:15, color:"var(--ink)",
-        marginBottom:8 }}>Booked your flights?</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:14 }}>
-        <button onClick={() => setBooked(true)} aria-pressed={booked === true} style={opt(booked === true)}>Yes</button>
-        <button onClick={() => { setBooked(false); setFlightIn(null); setFlightOut(null); }}
-          aria-pressed={booked === false} style={opt(booked === false)}>Not yet</button>
-      </div>
-      {booked === true && (
-        <>
-          <LegField lb="Landing Friday" dir="in" leg={flightIn} setLeg={setFlightIn} />
-          <LegField lb="Leaving Sunday" dir="out" leg={flightOut} setLeg={setFlightOut} />
-        </>
-      )}
-      {booked === false && (
-        <div style={{ fontFamily:SANS, fontSize:13.5, color:"var(--muted2)", lineHeight:1.55,
-          background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:12,
-          padding:"12px 14px", marginBottom:12 }}>
-          No problem. Once you book, tap your player icon in the top-left to add your flights.
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 /* chip claim: colors are first come first serve, live on the server the
    moment you tap. Skins repeat freely. Locked once the weekend starts. */
-function ChipPicker({ state, me, onChip, num, embedded = false }) {
-  const mine = state.profiles?.[me] || {};
-  /* the preview has to follow the number field, not the saved profile, or
-     picking a skin while changing your number shows you the old one */
-  const stamp = num !== undefined && num !== "" && num !== null ? Number(num) : mine.num;
-  const owner = hex => Object.entries(state.profiles || {}).find(([p, pr]) => pr?.color === hex)?.[0];
-  const locked = state.live;
-  const skin = playerSkin(me);
-  return (
-    <div style={{ background:"var(--paper)", border:embedded ? "none" : "1px solid var(--line)",
-      borderTop:embedded ? "1px solid var(--line)" : undefined,
-      borderRadius:embedded ? 0 : 14, padding:embedded ? "14px 12px 13px" : 12 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:15 }}>
-        <div style={{ position:"relative", width:80, height:80, flexShrink:0, display:"grid", placeItems:"center" }}>
-          <span aria-hidden="true" style={{ position:"absolute", inset:4, borderRadius:"50%",
-            background:"var(--sun-tint)", border:"1px solid var(--line)" }} />
-          <div style={{ position:"relative", filter:"drop-shadow(0 8px 10px rgba(42,33,25,.2))" }}>
-            <ChipFace p={me} size={70} stamp={stamp} />
-          </div>
-        </div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:10, letterSpacing:"0.16em",
-            textTransform:"uppercase", color:"var(--accent2)", marginBottom:4 }}>Chip design</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)" }}>Your chip</div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.45, marginTop:5 }}>
-            {mine.color ? `${CHIP_SKIN_META[skin] || "Classic"} pattern`
-              : "Choose your color and pattern below."}
-          </div>
-        </div>
-      </div>
-      {locked && (
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.5, marginBottom:10 }}>
-          Chips are locked for the weekend.
-        </div>
-      )}
-      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
-        marginBottom:8 }}>
-        <div style={{ ...label, fontSize:10 }}>Choose your color</div>
-        {!mine.color && <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)" }}>
-          First come, first served
-        </div>}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(8,1fr)", gap:6, marginBottom:18 }}>
-        {CHIP_COLORS.map(c => {
-          const by = owner(c.hex);
-          const isMine = by === me;
-          const taken = by && !isMine;
-          return (
-            <button key={c.hex} disabled={taken || locked}
-              onClick={() => onChip(isMine ? null : c.hex, undefined)}
-              aria-label={taken ? `Color taken by ${disp(state, by)}`
-                : isMine ? "Release selected chip color" : `Claim chip color ${c.hex}`}
-              aria-pressed={isMine}
-              title={taken ? `Taken by ${disp(state, by)}` : undefined}
-              style={{ position:"relative", width:"100%", aspectRatio:"1", borderRadius:"50%", padding:3,
-                display:"grid", placeItems:"center", cursor: taken || locked ? "default" : "pointer",
-                background:isMine ? "var(--sun-tint)" : "transparent",
-                border: isMine ? "2px solid var(--sun)" : "1px solid transparent",
-                opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1 }}>
-              <span style={{ position:"relative", display:"grid", placeItems:"center", width:"100%",
-                aspectRatio:"1", maxWidth:34, borderRadius:"50%", background:c.hex,
-                border:"1.5px solid rgba(251,243,228,.28)", boxShadow:"inset 0 1px 0 rgba(255,255,255,.18)" }}>
-                {taken && <span style={{ fontFamily:SANS, fontWeight:800, fontSize:8.5,
-                  color: c.light ? "var(--ink0)" : "var(--bone)" }}>
-                  {(disp(state, by) || "").slice(0, 2).toUpperCase()}</span>}
-                {isMine && (
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"
-                    stroke={c.light ? "var(--ink0)" : "var(--bone)"} strokeWidth="2.4"
-                    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="m3.2 8.3 3 3 6.6-6.6" />
-                  </svg>
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
-        marginBottom:8 }}>
-        <div style={{ ...label, fontSize:10 }}>Choose your pattern</div>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:7 }}>
-        {CHIP_SKINS.map(sk => (
-          <button key={sk} disabled={locked} onClick={() => onChip(undefined, sk)}
-            aria-label={`Chip pattern ${CHIP_SKIN_META[sk] || sk}`} aria-pressed={skin === sk}
-            style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-              gap:5, minHeight:72, padding:"7px 4px 6px",
-              borderRadius:10, cursor: locked ? "default" : "pointer",
-              background:skin === sk ? "var(--sun-tint)" : "var(--paper2)",
-              border: skin === sk ? "1.5px solid var(--sun)" : "1px solid var(--line)",
-              boxShadow:skin === sk ? "inset 0 -2px 0 var(--sun)" : "none",
-              opacity: locked && skin !== sk ? 0.55 : 1 }}>
-            <ChipFace p={me} size={42} skin={sk} stamp={stamp} />
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
-              color:skin === sk ? "var(--ink)" : "var(--muted2)", lineHeight:1.1 }}>
-              {CHIP_SKIN_META[sk] || sk}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 /* where a standings number came from, as marks rather than a run-on sentence:
    a cup for events won, a chip for the book, a bolt for duels, and your own
@@ -3231,7 +1838,7 @@ const PILL_ART = {
 };
 function StatPills({ row, atRisk = 0, onSun }) {
   const bits = [
-    row.wins > 0 && { k:"win", v: row.wins, tone: onSun ? "var(--ink0)" : "var(--sun)" },
+    row.wins > 0 && { k:"win", v: row.wins, tone: onSun ? "var(--ink0)" : "var(--signal-text)" },
     row.betNet !== 0 && { k:"bet", v: `${row.betNet > 0 ? "+" : ""}${fmt(row.betNet)}`,
       tone: onSun ? "var(--ink0)" : row.betNet > 0 ? "var(--green)" : "var(--clay)" },
     row.duelNet !== 0 && { k:"duel", v: `${row.duelNet > 0 ? "+" : ""}${fmt(row.duelNet)}`,
@@ -3259,203 +1866,13 @@ function StatPills({ row, atRisk = 0, onSun }) {
 /* everything Brandon orders and plans from, as tab-separated text: it pastes
    straight into a spreadsheet or a supplier form. Blanks stay blank, because
    a guessed size is worse than a missing one. */
-function sheetText(state) {
-  const head = ["Player", "Name", "No", "T-shirt / Jersey", "Flights booked", "Chip", "Skin", "Lands Fri", "Leaves Sun"];
-  const rows = ROSTER.map(p => {
-    const pr = state.profiles?.[p] || {};
-    /* the column already says which leg it is, so the cell is just the flight */
-    const t = leg => {
-      const l = cleanLeg(leg);
-      if (!l) return "";
-      if (l.note) return l.note;
-      return [[l.air, l.num].filter(Boolean).join(" "), legTime(l.time)].filter(Boolean).join(" ");
-    };
-    return [p, pr.display && pr.display !== p ? pr.display : "", pr.num ?? "", pr.size || "",
-      pr.flightsBooked === true ? "Yes" : pr.flightsBooked === false ? "No" : "",
-      pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut)];
-  });
-  return [head, ...rows].map(r => r.join("\t")).join("\n");
-}
+
 
 /* ─────────── locker room (pre-weekend roster wall; Board takes over when live) ─────────── */
 /* GM's weekend sheet: the address and host flights everyone reads during
    onboarding and in the guide. Saved as one action */
-const LOGI_FIELDS = [
-  { k:"venue", label:"House address", ph:"10848 North Aberdeen Road, Scottsdale, AZ",
-    autoComplete:"street-address" },
-  { k:"venueNote", label:"Arrival notes", ph:"Door code, parking, or anything guests need",
-    multiline:true, optional:true },
-  { k:"checkIn", label:"Check-in", ph:"Fri Oct 30, 4:00 PM" },
-  { k:"checkOut", label:"Checkout", ph:"Sun Nov 1, 10:00 AM" },
-];
-function LogisticsEditor({ state, onSave }) {
-  const lg = state.logistics || {};
-  const [form, setForm] = useState(() =>
-    Object.fromEntries(LOGI_FIELDS.map(f => [f.k, lg[f.k] || ""])));
-  const [hostIn, setHostIn] = useState(lg.hostIn || null);
-  const [hostOut, setHostOut] = useState(lg.hostOut || null);
-  const same = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
-  const dirty = LOGI_FIELDS.some(f => form[f.k] !== (lg[f.k] || ""))
-    || !same(hostIn, lg.hostIn) || !same(hostOut, lg.hostOut);
-  const field = { background:"var(--paper2)", border:"1.5px solid var(--line)", borderRadius:10,
-    color:"var(--ink)", outline:"none", width:"100%", padding:"12px 13px",
-    fontFamily:SANS, fontWeight:600, fontSize:15, boxSizing:"border-box" };
-  return (
-    <div>
-      <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.5, color:"var(--muted2)",
-        marginBottom:18 }}>
-        Guests see this during check-in and in Rules.
-      </div>
-      <div>
-        {LOGI_FIELDS.map(f => {
-          const inputProps = {
-            value:form[f.k],
-            placeholder:f.ph,
-            "aria-label":f.label,
-            maxLength:240,
-            autoComplete:f.autoComplete,
-            onChange:e => setForm(x => ({ ...x, [f.k]:e.target.value })),
-            style:{ ...field, minHeight:f.multiline ? 82 : 48,
-              resize:f.multiline ? "vertical" : undefined },
-          };
-          return (
-            <label key={f.k} style={{ display:"block", marginBottom:14 }}>
-              <span style={{ ...label, display:"block", marginBottom:6 }}>
-                {f.label}{f.optional && <span style={{ fontWeight:600, textTransform:"none",
-                  letterSpacing:0 }}> · optional</span>}
-              </span>
-              {f.multiline ? <textarea {...inputProps} /> : <input {...inputProps} />}
-            </label>
-          );
-        })}
-      </div>
-      <div style={{ borderTop:"1px solid var(--line)", paddingTop:16, marginTop:4 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
-          color:"var(--ink)", marginBottom:4 }}>Your flights</div>
-        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45, color:"var(--muted)",
-          marginBottom:14 }}>Shown to guests for airport coordination.</div>
-        <TravelLists />
-        <LegField lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
-        <LegField lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
-      </div>
-      <Btn disabled={!dirty} onClick={() => onSave({ ...form, hostIn, hostOut })}
-        style={{ width:"100%", marginTop:8 }}>Save trip details</Btn>
-    </div>
-  );
-}
 
-function TravelApparelSheet({ state, onSize, onNotify }) {
-  const copySheet = st => {
-    const txt = sheetText(st);
-    const fallback = () => {
-      try { window.prompt("Copy the sheet", txt); }
-      catch { onNotify?.("Could not copy"); }
-    };
-    if (!navigator.clipboard?.writeText) return fallback();
-    navigator.clipboard.writeText(txt)
-      .then(() => onNotify?.("Sheet copied"))
-      /* Clipboard is blocked outside HTTPS and in some in-app browsers. */
-      .catch(fallback);
-  };
-  const profs = state.profiles || {};
-  const checkedIn = ROSTER.filter(p => profs[p]).length;
-  const shirts = ROSTER.filter(p => profs[p]?.size).length;
-  const flights = ROSTER.filter(p => profs[p]?.flightsBooked === true
-    || profs[p]?.flightIn || profs[p]?.flightOut).length;
-  const stat = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-    padding:"9px 8px", textAlign:"center" };
-  return (
-    <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginBottom:12 }}>
-        {[["Checked in", checkedIn], ["Shirts", shirts], ["Flights", flights]].map(([lb, value]) => (
-          <div key={lb} style={stat}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, color:"var(--ink)",
-              lineHeight:1 }}>{value}/{ROSTER.length}</div>
-            <div style={{ ...label, fontSize:9, marginTop:4 }}>{lb}</div>
-          </div>
-        ))}
-      </div>
-      <Btn kind="ghost" onClick={() => copySheet(state)} style={{ width:"100%", marginBottom:14 }}>
-        Copy spreadsheet data</Btn>
-      <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px", gap:8,
-        padding:"0 8px 7px", borderBottom:"1px solid var(--line)" }}>
-        {["Player", "No.", "Shirt"].map(x => <span key={x} style={{ ...label,
-          textAlign:x === "Player" ? "left" : "center" }}>{x}</span>)}
-      </div>
-      {ROSTER.map(p => {
-        const pr = profs[p];
-        const legs = [pr?.flightIn && `In: ${legText(pr.flightIn, "in")}`,
-          pr?.flightOut && `Out: ${legText(pr.flightOut, "out")}`].filter(Boolean);
-        const travelStatus = legs.length ? legs.join(" · ")
-          : pr?.flightsBooked === false ? "Flights not booked" : "No flight response";
-        return (
-          <div key={p} style={{ padding:"10px 8px", borderBottom:"1px solid var(--line)" }}>
-            <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px",
-              gap:8, alignItems:"center" }}>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
-                color:pr ? "var(--ink)" : "var(--muted)" }}>{p}</span>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, textAlign:"center",
-                color:pr?.num != null ? "var(--accent2)" : "var(--muted)" }}>
-                {pr?.num != null ? `#${pr.num}` : "—"}</span>
-              <select value={pr?.size || ""} aria-label={`${p} shirt size`}
-                onChange={e => onSize(p, e.target.value || null)}
-                style={{ width:"100%", height:38, background:"var(--paper2)", border:"1px solid var(--line)",
-                  borderRadius:8, color:pr?.size ? "var(--ink)" : "var(--muted)", fontFamily:SANS,
-                  fontWeight:700, fontSize:13, textAlign:"center", outline:"none" }}>
-                <option value="">—</option>
-                {SIZES.map(size => <option key={size} value={size}>{size}</option>)}
-              </select>
-            </div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:5,
-              color:legs.length ? "var(--muted2)" : "var(--muted)" }}>{travelStatus}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
-function LockerRoom({ state, me, onProfile, onChallenge }) {
-  const profs = state.profiles || {};
-  const inCount = ROSTER.filter(p => profs[p]).length;
-  return (
-    <div style={{ padding:"0 16px" }}>
-      <div style={{ display:"flex", alignItems:"baseline", marginBottom:10 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, textTransform:"uppercase",
-          color:"var(--ink)", flex:1 }}>The roster</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--muted2)" }}>
-          {inCount} of {ROSTER.length} in</div>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
-        {ROSTER.map((p, i) => {
-          const pr = profs[p];
-          return (
-            <button key={p} onClick={p === me ? onProfile : me ? () => onChallenge(p) : undefined}
-              style={{ background:"var(--paper)", borderRadius:14, padding:"12px 6px 10px", textAlign:"center",
-                border: p === me ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
-                cursor: p === me || me ? "pointer" : "default", opacity: pr ? 1 : 0.45,
-                animation:"si-in .25s both", ...centeredGridCell(i, ROSTER.length) }}>
-              <div style={{ display:"flex", justifyContent:"center", marginBottom:9, position:"relative" }}>
-                <span style={{ position:"relative", display:"inline-block" }}>
-                  <Avatar state={state} p={p} size={54} ring={p === me} />
-                  {pr?.num != null && (
-                    <span style={{ position:"absolute", bottom:-6, left:"50%", transform:"translateX(-50%)",
-                      background:BONE, color:"var(--ink0)", border:"1.5px solid var(--ink0)", borderRadius:6,
-                      fontFamily:DISPLAY, fontWeight:700, fontSize:12.5, lineHeight:1,
-                      padding:"2px 7px" }}>{pr.num}</span>
-                  )}
-                </span>
-              </div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, p)}</div>
-            </button>
-          );
-        })}
-      </div>
-      {me && <Btn kind="ghost" onClick={onProfile} style={{ width:"100%", marginTop:12 }}>Edit your profile</Btn>}
-    </div>
-  );
-}
 
 /* ─────────── the board ─────────── */
 /* ─────────── the poker finale, on the board ───────────
@@ -3479,13 +1896,13 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   if (!pk || state.results[pk.id]) return null;
   const outIdx = pk.outs.findIndex(o => o.player === me);
   const myRow = standings.find(r => r.player === me);
-  const card = { marginBottom:12, borderRadius:14, overflow:"hidden", border:"1.5px solid var(--ink)",
-    background:"radial-gradient(120% 90% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)" };
+  const card = { marginBottom:12, borderRadius:5, overflow:"hidden", border:"1.5px solid var(--ink)",
+    background:"var(--night)" };
 
   if (!pk.startedAt) {
     const d = myRow ? pokerDenoms(myRow.pts) : null;
     return (
-      <div style={card}>
+      <div className="fd-night" style={card}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
           <GameMark id="poker" size={34} />
           <div style={{ flex:1, minWidth:0 }}>
@@ -3523,7 +1940,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   const countPhase = counting || (clk.last && clk.msLeft === 0) || counted.length > 0;
 
   return (
-    <div style={card}>
+    <div className="fd-night" style={card}>
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px" }}>
         <GameMark id="poker" size={30} />
         <div style={{ flex:1 }}>
@@ -3553,7 +1970,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
                 textTransform:"uppercase", padding:"4px 6px" }}>Recount</button>
             </div>
           ) : countPhase ? (
-            <ChipCounter start={pk.counts?.[me]} onDone={total => { onCount(me, total); setCounting(false); }} />
+            <ChipCounter start={pk.counts?.[me]} onDone={async total => { const result = await onCount(me, total); if (result?.ok) setCounting(false); return result; }} />
           ) : (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
@@ -3627,49 +2044,36 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
 
 /* count your stack by denomination; the app does the math. Values in chips. */
 function ChipCounter({ start, onDone }) {
-  const seed = v => {
+  const denominations = [1000,500,100,25];
+  const countId = useId(), saving = useRef(false);
+  const [counts,setCounts] = useState(()=>{
     let left = start || 0;
-    const out = {};
-    for (const d of [1000, 500, 100, 25]) { out[d] = Math.floor(left / d); left -= out[d] * d; }
-    return out[v];
-  };
-  const [n1000, set1000] = useState(() => seed(1000));
-  const [n500, set500] = useState(() => seed(500));
-  const [n100, set100] = useState(() => seed(100));
-  const [n25, set25] = useState(() => seed(25));
-  const total = n1000 * 1000 + n500 * 500 + n100 * 100 + n25 * 25;
-  const Step = ({ v, set, worth }) => (
-    <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
-      <button onClick={() => set(x => Math.max(0, x - 1))} style={{ width:30, height:30, borderRadius:10,
-        cursor:"pointer", background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>−</button>
-      <div style={{ textAlign:"center", minWidth:40 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:21, lineHeight:1, color:BONE }}>{v}</div>
-        <div style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.06em",
-          color:"var(--night-text2)" }}>x {worth}</div>
-      </div>
-      <button onClick={() => set(x => x + 1)} style={{ width:30, height:30, borderRadius:10,
-        cursor:"pointer", background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>+</button>
-    </div>
-  );
-  return (
-    <div>
-      <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)", marginBottom:8 }}>
-        Count your stack by chip.</div>
-      <div style={{ display:"flex", gap:10, marginBottom:8 }}>
-        <Step v={n1000} set={set1000} worth="1000" />
-        <Step v={n500} set={set500} worth="500" />
-      </div>
-      <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-        <Step v={n100} set={set100} worth="100" />
-        <Step v={n25} set={set25} worth="25" />
-        <div style={{ textAlign:"right", minWidth:60 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1, color:"var(--sun)" }}>{fmt(total)}</div>
-        </div>
-      </div>
-      <Btn onClick={() => onDone(total)} style={{ width:"100%", marginTop:10, padding:"10px 12px", fontSize:12.5 }}>
-        That is my count</Btn>
-    </div>
-  );
+    return Object.fromEntries(denominations.map(value=>{const n=Math.floor(left/value);left-=n*value;return [value,n];}));
+  });
+  const [pending,setPending] = useState(false), [error,setError] = useState("");
+  const total = denominations.reduce((sum,value)=>sum+Number(counts[value]||0)*value,0);
+  const set = (value,count)=>{if (!saving.current) setCounts(current=>({...current,[value]:count}));};
+  return <div className="fd-chip-counter">
+    <p>Count your stack by chip.</p>
+    {denominations.map(value=><div className="fd-chip-count-row" key={value}>
+      <label htmlFor={countId+value}>{fmt(value)} chips</label>
+      <button type="button" disabled={pending || !Number(counts[value])} aria-label={"Remove one "+value+" chip"}
+        onClick={()=>set(value,Math.max(0,Number(counts[value]||0)-1))}>−</button>
+      <input id={countId+value} aria-label={"Number of "+value+" chips"} inputMode="numeric" pattern="[0-9]*" value={counts[value]} disabled={pending}
+        onChange={event=>{if (/^\d*$/.test(event.target.value)) set(value,event.target.value);}}/>
+      <button type="button" disabled={pending} aria-label={"Add one "+value+" chip"} onClick={()=>set(value,Number(counts[value]||0)+1)}>+</button>
+    </div>)}
+    <div className="fd-chip-count-total"><span>Total</span><strong>{fmt(total)}</strong></div>
+    {error && <p role="alert">{error}</p>}
+    <ActionButton disabled={pending} onClick={async()=>{
+      if (saving.current) return;
+      saving.current = true;
+      setPending(true);setError("");
+      try {const result=await onDone(total);if(result?.ok !== true)setError(result?.error || "Count not saved. Try again.");}
+      catch(failure){setError(failure?.message || "Count not saved. Try again.");}
+      finally {saving.current=false;setPending(false);}
+    }} style={{width:"100%"}}>{pending ? "Saving…" : "That is my count"}</ActionButton>
+  </div>;
 }
 
 function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
@@ -3695,7 +2099,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
       })}
       <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0 14px" }}>
         <span style={{ ...label, flex:1 }}>Chips in play</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--sun)" }}>{fmt(pk.total)}</span>
+        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--signal-text)" }}>{fmt(pk.total)}</span>
       </div>
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Start the table</Btn>}
     </Sheet>
@@ -3706,6 +2110,18 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
   const [fixing, setFixing] = useState(null);
+  const [pending,setPending] = useState(false), [error,setError] = useState("");
+  const saving = useRef(false);
+  const act = async callback => {
+    if (saving.current) return {ok:false,error:"Saving…"};
+    saving.current=true;setPending(true);setError("");
+    try {
+      const result=await callback();
+      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+      return result;
+    } catch(failure) {const message=failure?.message || "Not saved. Try again.";setError(message);return {ok:false,error:message};}
+    finally {saving.current=false;setPending(false);}
+  };
   if (!pk) return null;
   const outSet = new Set(pk.outs.map(o => o.player));
   const alive = ROSTER.filter(p => !outSet.has(p));
@@ -3713,42 +2129,29 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
   return (
-    <Sheet title="The table" onClose={onClose}>
+    <Sheet title="The table" onClose={onClose} busy={pending}>
       <p style={pStyle}>Everyone counts their own stack from their phone. Tap a row to fix one.</p>
       {ROSTER.map(p => {
         const out = outSet.has(p);
         const c = pk.counts?.[p];
         return (
           <div key={p}>
-            <div onClick={() => !out && setFixing(f => f === p ? null : p)}
-              style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0",
-                borderBottom:"1px solid var(--line)", cursor: out ? "default" : "pointer",
-                opacity: out ? 0.55 : 1 }}>
-              <Avatar state={state} p={p} size={26} />
-              <span style={{ fontFamily:SANS, fontWeight:600, fontSize:13, color:"var(--ink)", flex:1,
-                minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {disp(state, p)}</span>
-              {out ? <Tag>Out</Tag>
-                : c !== undefined
-                  ? <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)" }}>{fmt(c)}</span>
-                  : <span style={{ fontFamily:SANS, fontSize:11.5, fontWeight:600, color:"var(--muted)" }}>counting</span>}
-              {!out && (
-                <button onClick={e => { e.stopPropagation(); onBust(p); setFixing(null); }}
-                  style={{ background:"none", border:"1px solid var(--danger-line)", borderRadius:10,
-                    color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:10.5, padding:"3px 8px",
-                    cursor:"pointer", textTransform:"uppercase" }}>Bust</button>
-              )}
-              {out && (
-                <button onClick={e => { e.stopPropagation(); onUnbust(p); }}
-                  style={{ background:"none", border:"none", color:"var(--muted)", fontFamily:SANS,
-                    fontWeight:700, fontSize:10.5, padding:"3px 6px", cursor:"pointer",
-                    textTransform:"uppercase" }}>Back in</button>
-              )}
+            <div className={"fd-poker-count-row"+(out ? " is-out" : "")}>
+              <button className="fd-poker-count-player" disabled={out || pending} aria-expanded={fixing===p}
+                aria-label={out ? `${disp(state,p)} is out` : `Edit ${disp(state,p)}'s chip count`}
+                onClick={() => {if (!saving.current) setFixing(f => f === p ? null : p);}}>
+                <Avatar state={state} p={p} size={28}/><span>{disp(state,p)}</span>
+                {out ? <Tag>Out</Tag> : c !== undefined ? <strong>{fmt(c)}</strong> : <small>counting</small>}
+              </button>
+              <button className="fd-poker-count-action" disabled={pending} aria-label={`${out ? "Bring back" : "Bust"} ${disp(state,p)}`}
+                onClick={()=>act(async()=>{const result=await (out ? onUnbust(p) : onBust(p));if(result?.ok) setFixing(null);return result;})}>
+                {out ? "Back in" : "Bust"}
+              </button>
             </div>
             {fixing === p && !out && (
-              <div style={{ padding:"10px 0", borderBottom:"1px solid var(--line)", background:"var(--night)",
-                margin:"0 -18px", paddingLeft:18, paddingRight:18 }}>
-                <ChipCounter start={c} onDone={total => { onCount(p, total); setFixing(null); }} />
+              <div className="fd-night" style={{ padding:"10px 0", borderBottom:"1px solid var(--line)", background:"var(--night)",
+                margin:"0 -16px", paddingLeft:16, paddingRight:16 }}>
+                <ChipCounter start={c} onDone={total => act(async()=>{ const result = await onCount(p, total); if (result?.ok) setFixing(null); return result; })} />
               </div>
             )}
           </div>
@@ -3765,7 +2168,8 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           {sum > pk.total ? `${fmt(sum - pk.total)} over` : `${fmt(pk.total - sum)} short`}. Chips get miscounted, you can still post.
         </div>
       )}
-      <Btn disabled={!allIn} onClick={onPost} style={{ width:"100%", marginTop:8 }}>
+      {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
+      <Btn disabled={!allIn || pending} onClick={()=>act(onPost)} style={{ width:"100%", marginTop:8 }}>
         {allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`}</Btn>
     </Sheet>
   );
@@ -3807,181 +2211,9 @@ function resultImpact(state, events, latest, standings) {
 
 /* the now zone: one slot above the standings. Live progress beats a fresh
    result beats the next event; betting-open already lives in the header. */
-function NowCard({ state, standings, events, me, onOpen }) {
-  const openEv = e => !state.results[e.id] && !state.shelved[e.id] && e.id !== state.onDeck;
-  const liveEv = events.find(e => openEv(e) && (state.brackets[e.id] || state.stages[e.id]));
-  const latest = useMemo(() => {
-    let l = null;
-    const byId = new Map(events.map(e => [e.id, e]));
-    Object.entries(state.results || {}).forEach(([eid, res]) => {
-      const ev = byId.get(eid);
-      if (ev && res?.slots?.[0]?.length && (!l || res.ts > l.res.ts)) l = { ev, res };
-    });
-    return l;
-  }, [state, events]);
-  /* the impact line recomputes standings on a cloned state: once per result */
-  const impactMemo = useMemo(() => latest && !latest.res.stacks
-    ? resultImpact(state, events, latest, standings) : "", [state, events, latest, standings]);
-  const card = { display:"block", width:"100%", textAlign:"left", cursor:"pointer", marginBottom:10,
-    background:"var(--paper)", border:"1px solid var(--line)", borderRadius:14, padding:"10px 13px" };
 
-  if (liveEv) {
-    const br = state.brackets[liveEv.id];
-    const st = state.stages[liveEv.id];
-    let progress = "", matchup = null;
-    if (br) {
-      const all = br.rounds.flat();
-      const done = all.filter(m => m.winner !== null && m.winner !== undefined).length;
-      progress = `${done} of ${all.length} decided`;
-      const nm = nextOpenMatch(br);
-      if (nm) matchup = { a: nm.a, b: nm.b, name: nm.roundName };
-    } else if (st) {
-      const done = st.groups.filter(g => (g.through || []).length >= st.advance).length;
-      progress = `${st.kind === "heats" ? "heats" : "pools"}: ${done} of ${st.groups.length} decided`;
-    }
-    const draw = state.draws[liveEv.id];
-    return (
-      <button onClick={() => onOpen(liveEv)} style={{ ...card, border:"1px solid rgba(192,71,58,0.45)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <GameMark id={liveEv.game} size={28} />
-          <span style={{ width:7, height:7, borderRadius:99, background:"var(--live2)", animation:"si-pulse 1.4s infinite" }} />
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
-            color:"var(--live2)", textTransform:"uppercase" }}>Live</span>
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{liveEv.name}</span>
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--muted)" }}>{progress}</span>
-        </div>
-        {matchup && draw && (
-          <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8, paddingTop:8,
-            borderTop:"1px solid var(--line)" }}>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.1em",
-              color:"var(--muted)", textTransform:"uppercase", flexShrink:0 }}>{matchup.name || "Up now"}</span>
-            <AvatarStack state={state} players={draw.teams[matchup.a].players} size={20} max={3} />
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--ink)", minWidth:0,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-              {teamLabel(state, draw.teams[matchup.a])}
-              <span style={{ color:"var(--muted)", fontWeight:700 }}> vs </span>
-              {teamLabel(state, draw.teams[matchup.b])}</span>
-            <AvatarStack state={state} players={draw.teams[matchup.b].players} size={20} max={3} />
-          </div>
-        )}
-      </button>
-    );
-  }
 
-  if (latest) {
-    const isStacks = !!latest.res.stacks;
-    const award = isStacks ? 0 : (AWARDS[latest.ev.value]?.[0] ?? 0);
-    const impact = isStacks
-      ? `Final counts are in. ${latest.res.slots[0].map(p => disp(state, p)).join(" and ")} leads the chips.`
-      : impactMemo;
-    return (
-      <button onClick={() => onOpen(latest.ev)} style={card}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <GameMark id={latest.ev.game} size={28} />
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, letterSpacing:"0.05em",
-            textTransform:"uppercase", padding:"3px 8px", borderRadius:6,
-            background:"var(--olive)", color:BONE }}>Final</span>
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latest.ev.name}</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:9, marginTop:8, paddingTop:8,
-          borderTop:"1px solid var(--line)" }}>
-          <AvatarStack state={state} players={latest.res.slots[0]} size={22} max={4} />
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {teamLabel(state, { players: latest.res.slots[0] })}</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--green)" }}>
-            {isStacks ? `${fmt(latest.res.stacks[latest.res.slots[0][0]] ?? 0)} chips` : `+${award} each`}</span>
-        </div>
-        {impact && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)", marginTop:5 }}>{impact}</div>}
-      </button>
-    );
-  }
 
-  const next = events.find(openEv);
-  if (!next) return null;
-  const ph = phaseOf(next);
-  const sess = SESSIONS.find(s => s.id === next.session);
-  return (
-    <button onClick={() => onOpen(next)} style={{ ...card, display:"flex", alignItems:"center", gap:10,
-      boxShadow:`inset 4px 0 0 ${ph.bg}` }}>
-      <GameMark id={next.game} size={26} />
-      <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.16em",
-        color:"var(--accent2)", textTransform:"uppercase" }}>Next</span>
-      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1, minWidth:0,
-        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{next.name}</span>
-      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--muted)" }}>
-        {sess ? `${sess.label}, ` : ""}{next.value ? `${next.value} pts` : "poker"}</span>
-    </button>
-  );
-}
-
-function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm, events, myAtRisk, onOpen, onAdjust, onChallenge, onFreeze, onUnfreeze, finaleDone }) {
-  return (
-    <div style={{ padding:"0 16px" }}>
-      {champion && <ChampionCard state={state} champion={champion} coChamps={coChamps} />}
-      {!champion && <NowCard state={state} standings={standings} events={events} me={me} onOpen={onOpen} />}
-      <div style={{ background:"var(--paper)", border:"1px solid rgba(251,243,228,0.2)", borderRadius:14,
-        overflow:"hidden", boxShadow:"var(--shadow-1)", animation:"si-in .25s both" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 12px",
-          borderBottom:"1.5px solid var(--ink)", background:"var(--paper2)" }}>
-          <span style={{ ...label, fontSize:11, width:26, textAlign:"center" }}>Pos</span>
-          <span style={{ ...label, fontSize:11, flex:1 }}>Player</span>
-          <span style={{ ...label, fontSize:11 }}>Pts</span>
-        </div>
-        {standings.map((r, i) => {
-          const isMe = r.player === me;
-          const first = r.rank === 1 && !allTied;
-          const medal = !allTied && r.rank === 2 ? "var(--silver)" : !allTied && r.rank === 3 ? "var(--bronze)" : null;
-          return (
-            <div key={r.player}
-              onClick={gm ? () => onAdjust(r.player)
-                : me && !isMe && !state.frozen ? () => onChallenge(r.player) : undefined}
-              style={{ display:"flex", alignItems:"center", gap:12, padding: first ? "11px 12px" : "8px 12px",
-                cursor: gm || (me && !isMe && !state.frozen) ? "pointer" : "default", position:"relative",
-                background: first ? "var(--sun)" : isMe ? "rgba(194,88,50,0.08)" : i % 2 ? "var(--ink-tint)" : "transparent",
-                borderTop: i > 0 ? "1px solid var(--line)" : "none",
-                boxShadow: isMe && !first ? "inset 3px 0 0 var(--accent)" : "none" }}>
-              <div style={{ width:26, textAlign:"center", fontFamily:DISPLAY, fontWeight:700,
-                fontSize: first ? 24 : 19, color: first ? "var(--ink0)" : medal || "var(--muted)" }}>
-                {allTied ? "·" : r.rank}</div>
-              <Avatar state={state} p={r.player} size={first ? 36 : 30} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize: first ? 16 : 14.5, color: first ? "var(--ink0)" : "var(--ink)",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {disp(state, r.player)}{isMe && <span style={{ opacity:0.55, fontWeight:600, fontSize:12.5 }}> (you)</span>}
-                  {state.poker?.startedAt && !state.results[state.poker.id]
-                    && state.poker.outs.some(o => o.player === r.player) && (
-                    <span style={{ marginLeft:6, fontFamily:SANS, fontWeight:700, fontSize:9.5,
-                      letterSpacing:"0.08em", padding:"2px 6px", borderRadius:6,
-                      background:"var(--clay-tint)", color:"var(--clay)" }}>OUT</span>
-                  )}
-                </div>
-                <StatPills row={r} atRisk={isMe ? myAtRisk : 0} onSun={first} />
-              </div>
-              {!allTied && deltas[r.player] && <div style={{ fontFamily:SANS, fontWeight:800, fontSize:12.5,
-                color: deltas[r.player] > 0 ? "var(--green)" : "var(--clay)" }}>
-                {deltas[r.player] > 0 ? `▲${deltas[r.player]}` : `▼${-deltas[r.player]}`}</div>}
-              <div key={r.pts} style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: first ? 30 : 24,
-                minWidth:36, textAlign:"right", color: first ? "var(--ink0)" : "var(--ink)", animation:"si-pop .5s ease-out" }}>{fmt(r.pts)}</div>
-            </div>
-          );
-        })}
-      </div>
-      {gm && !champion && (
-        <div style={{ padding:"14px 4px 8px", textAlign:"center" }}>
-          <Btn kind={finaleDone ? "primary" : "ghost"} onClick={onFreeze}>Crown the champion</Btn>
-        </div>
-      )}
-      {gm && champion && (
-        <div style={{ textAlign:"center", padding:"10px 0" }}>
-          <Btn kind="danger" onClick={onUnfreeze}>Unfreeze board</Btn>
-        </div>
-      )}
-    </div>
-  );
-}
 function ChampionCard({ state, champion, coChamps, big }) {
   return (
     <div style={{ padding: big ? "48px 30px" : "26px 18px", textAlign:"center", marginBottom:16,
@@ -4023,10 +2255,22 @@ const PHASE = {
 };
 const phaseOf = ev => PHASE[ev?.session] || { bg:"var(--paper2)", fg:"var(--ink)" };
 
-function EventCrewCard({ state, roles, compact=false }) {
+function PlayerLinks({ state, players, onPlayer, size=26 }) {
+  return <div className="fd-player-links">{players.map(p => <button type="button" key={p}
+    className="fd-player-link" onClick={() => onPlayer(p)} aria-label={`View ${disp(state,p)}'s player card`}>
+    <Avatar state={state} p={p} size={size} /><span>{disp(state,p)}</span>
+  </button>)}</div>;
+}
+
+function EventCrewCard({ state, roles, compact=false, onPlayer }) {
   const assignments = (roles || []).filter(item => item?.player);
   if (!assignments.length) return null;
   if (compact) {
+    if (onPlayer) return <div className="fd-event-crew-compact"><span style={label}>Event crew</span>
+      {assignments.map(item=><button type="button" key={item.player} onClick={()=>onPlayer(item.player)} aria-label={`View ${disp(state,item.player)}'s player card`}>
+        <Avatar state={state} p={item.player} size={24}/><span>{disp(state,item.player)}</span><small>{overflowRoleMeta(item.role).short}</small>
+      </button>)}
+    </div>;
     return (
       <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, marginTop:9, paddingTop:8,
         borderTop:"1px solid var(--line)" }}>
@@ -4054,6 +2298,12 @@ function EventCrewCard({ state, roles, compact=false }) {
       </div>
       {assignments.map((item, index) => {
         const meta = overflowRoleMeta(item.role);
+        if (onPlayer) return <button type="button" key={`${item.player}-${index}`} className="fd-crew-link"
+          onClick={() => onPlayer(item.player)} aria-label={`View ${disp(state,item.player)}'s player card`}>
+          <Avatar state={state} p={item.player} size={30} />
+          <span><strong>{disp(state,item.player)}</strong><small>{meta.detail}</small></span>
+          <small>{meta.label}</small>
+        </button>;
         return (
           <div key={`${item.player}-${index}`} style={{ display:"flex", alignItems:"center", gap:9,
             padding:index ? "8px 0 0" : "0", marginTop:index ? 8 : 0,
@@ -4079,127 +2329,10 @@ function EventCrewCard({ state, roles, compact=false }) {
   );
 }
 
-function Schedule({ state, events, gm, open, onAdd, onReorder }) {
-  const [reorderMode, setReorderMode] = useState(false);
-  const shelved = events.filter(e => state.shelved[e.id]);
-  const inSession = s => events.filter(e => e.session === s.id && !state.shelved[e.id]);
-  const extras = events.filter(e => !SESSIONS.find(s => s.id === e.session) && !state.shelved[e.id]);
-  const move = (ev, dir) => {
-    const ids = [...SESSIONS.map(s => inSession(s).map(e => e.id)), extras.map(e => e.id)];
-    for (const g of ids) {
-      const i = g.indexOf(ev.id);
-      if (i >= 0) {
-        const j = i + dir;
-        if (j < 0 || j >= g.length) return;
-        [g[i], g[j]] = [g[j], g[i]];
-        break;
-      }
-    }
-    onReorder(ids.flat());
-  };
-  const arrow = (ev, dir, edge) => (
-    <button disabled={edge} onClick={e => { e.stopPropagation(); move(ev, dir); }}
-      style={{ width:34, height:34, borderRadius:10, cursor: edge ? "default" : "pointer",
-        background:"var(--paper2)", border:"1px solid var(--line)", color: edge ? "var(--disabled)" : "var(--accent2)",
-        fontSize:12.5, flexShrink:0 }}>{dir < 0 ? "▲" : "▼"}</button>
-  );
-  const section = (evList, canMove) => evList.map((ev, i) => {
-    const res = state.results[ev.id];
-    const draw = state.draws[ev.id];
-    const st = state.stages[ev.id];
-    const deck = state.onDeck === ev.id;
-    const moving = reorderMode && gm && canMove;
-    const ph = phaseOf(ev);
-    return (
-      <button key={ev.id} onClick={moving ? undefined : () => open(ev)} style={{ display:"block", width:"100%", textAlign:"left",
-        background: deck ? "rgba(192,71,58,0.09)" : "var(--paper)",
-        border: deck ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-        boxShadow:`inset 4px 0 0 ${ph.bg}`,
-        borderRadius:14, padding:"11px 14px 11px 16px", marginBottom:7, cursor: moving ? "default" : "pointer" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <GameMark id={ev.game} size={30} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:600, fontSize:19, letterSpacing:"0.01em",
-              textTransform:"uppercase", color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {res && <span style={{ color:"var(--green)" }}>✓ </span>}{ev.name}
-              {ev.finale && <span style={{ color:"var(--accent)" }}> ★</span>}
-            </div>
-          </div>
-          {moving ? (
-            <>{arrow(ev, -1, i === 0)}{arrow(ev, 1, i === evList.length - 1)}</>
-          ) : (
-            <>
-              {deck && <Tag tone="flame">On deck</Tag>}
-              {!res && !deck && st && <Tag tone="green">{st.kind === "heats" ? "Heats live" : "Pools live"}</Tag>}
-              {!res && !deck && !st && draw && <Tag tone="green">Teams set</Tag>}
-              {!res && !deck && !st && !draw && <Tag>{ev.value ? `${ev.value} pts` : "Poker"}</Tag>}
-            </>
-          )}
-        </div>
-        {res && res.slots?.[0]?.length > 0 && (
-          <div style={{ marginTop:9, display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
-            {res.slots[0].map(p => (
-              <span key={p} style={{ display:"inline-flex", alignItems:"center", gap:6,
-                fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"3px 10px 3px 4px", borderRadius:99,
-                background:"rgba(194,88,50,0.14)", color:"var(--accent2)" }}>
-                <Avatar state={state} p={p} size={20} />{disp(state, p)}
-              </span>
-            ))}
-          </div>
-        )}
-        {!moving && draw?.roles?.length > 0 && (
-          <EventCrewCard state={state} roles={draw.roles} compact />
-        )}
-      </button>
-    );
-  });
-  return (
-    <div style={{ padding:"0 16px" }}>
-      {SESSIONS.map(s => {
-        const evs = inSession(s);
-        if (evs.length === 0) return null;
-        const ph = PHASE[s.id] || { bg:"var(--paper2)", fg:"var(--ink)" };
-        return (
-          <div key={s.id} style={{ marginBottom:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
-              borderRadius:10, background:ph.bg, color:ph.fg, border:"1.5px solid var(--ink)" }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.03em",
-                textTransform:"uppercase", flex:1 }}>{s.label}</span>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em" }}>{s.tag}</span>
-            </div>
-            {section(evs, true)}
-          </div>
-        );
-      })}
-      {extras.length > 0 && (
-        <div style={{ marginBottom:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"6px 12px", marginBottom:7,
-            borderRadius:10, background:"var(--paper2)", color:"var(--ink)", border:"1.5px solid var(--ink)" }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.03em",
-              textTransform:"uppercase", flex:1 }}>Added events</span>
-          </div>
-          {section(extras, true)}
-        </div>
-      )}
-      {gm && (
-        <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-          <Btn kind="ghost" onClick={onAdd} style={{ flex:1 }}>+ Add an event</Btn>
-          <Btn kind={reorderMode ? "primary" : "ghost"} onClick={() => setReorderMode(v => !v)}>
-            {reorderMode ? "Done" : "Reorder"}</Btn>
-        </div>
-      )}
-      {shelved.length > 0 && (
-        <div style={{ marginBottom:16, opacity:0.55 }}>
-          <div style={{ ...label, margin:"4px 2px 8px" }}>Shelved</div>
-          {section(shelved, false)}
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 /* ─────────── stage grid (event sheet + TV) ─────────── */
-function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
+function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size="md" }) {
   const st = state.stages[ev.id];
   if (!st) return null;
   const finalists = stageFinalists(st);
@@ -4220,6 +2353,11 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
           : (through || []).length >= st.advance;
         const dimmed = decided && !isThrough;
         const clickable = gm && (isFinal ? onFinal : onThrough);
+        if (!gm && onPlayer) return <div key={String(key)} style={{padding:dims.pad,
+          borderTop:"1px solid var(--line)",background:isThrough ? "var(--accent-tint)" : "transparent"}}>
+          <PlayerLinks state={state} players={v.players} onPlayer={onPlayer} size={dims.av} />
+          {isThrough && <small style={{color:"var(--accent2)"}}>{isFinal ? "Winner" : "Advanced"}</small>}
+        </div>;
         return (
           <button key={String(key)} disabled={!clickable}
             onClick={() => isFinal ? onFinal(key) : onThrough(gIdx, key)}
@@ -4254,8 +2392,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, size="md" }) {
 }
 
 /* ─────────── event sheet ─────────── */
-function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onDraw, onClearDraw,
-  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove, openBracket, openDraft }) {
+function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBack, onPlayer, onBets, enterResult, clearRes, onEdit, onDraw, onClearDraw,
+  onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove, openBracket, openDraft, onReplay }) {
   const res = state.results[ev.id];
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -4273,20 +2411,40 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const [more, setMore] = useState(false);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
-  const [eValue, setEValue] = useState(80);
+  const [eValue, setEValue] = useState(400);
   const [eSession, setESession] = useState(null);
   const openEdit = () => {
-    setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value ?? 40);
+    setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value ?? 400);
     setESession(SESSIONS.find(s => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
   const [outs, setOuts] = useState([]);
   const [outRoles, setOutRoles] = useState({});
   const [showOuts, setShowOuts] = useState(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState(!!ev.stageCfg);
   const [nGroups, setNGroups] = useState(null);
-  const [advance, setAdvance] = useState(1);
+  const [advance, setAdvance] = useState(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState(false);
+  const [contestPending, setContestPending] = useState(false);
+  const waitForContest = async callback => {
+    setContestPending(true);
+    try {return await callback();} finally {setContestPending(false);}
+  };
+  const [setupError, setSetupError] = useState("");
+  const setupBusy = useRef(false);
+  const saveSetup = async callback => {
+    if (setupBusy.current) return;
+    setupBusy.current = true; setSetupPending(true); setSetupError("");
+    try {
+      const result = await callback();
+      if (!result?.ok) setSetupError(result?.error || "Change not saved. Try again.");
+    } catch (error) { setSetupError(error?.message || "Change not saved. Try again."); }
+    finally { setupBusy.current = false; setSetupPending(false); }
+  };
   const lifecycle = resolveEventLifecycle(state, ev);
+  const contest = resolveCurrentContest(state, ev);
+  const contestActive = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
+  const setupAllowed = ["setup", "draw-pending", "draw-revealed", "scheduled"].includes(lifecycle.phase);
   const inPlayers = ROSTER.filter(p => !outs.includes(p));
   const participantFit = validateEventParticipants(ev, inPlayers, ROSTER);
   const overflowAssignments = outs.map(player => ({
@@ -4299,46 +2457,37 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
   const stageKind = canHeats ? "heats" : "pools";
   const stageEntrantCount = canHeats ? inPlayers.length : (draw?.teams?.length || 0);
   const suggestedGroups = Math.min(4, Math.max(2, Math.round(stageEntrantCount / (canHeats ? 4 : 3))));
-  const groupsChoice = nGroups ?? suggestedGroups;
+  const groupsChoice = nGroups ?? ev.stageCfg?.nGroups ?? suggestedGroups;
   return (
-    <Sheet title={ev.name} onClose={onClose}>
-      <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:12, flexWrap:"wrap" }}>
-        <GameMark id={ev.game} size={38} />
-        <Tag tone={ev.finale ? "flame" : "gold"}>{ev.value ? `${ev.value} pts` : "Poker"}</Tag>
-        <Tag>{ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"}</Tag>
-        <Tag tone={lifecycle.phase === "complete" ? "green"
-          : lifecycle.phase === "betting-open" || lifecycle.phase === "in-progress" ? "flame" : undefined}>
-          {lifecycle.label}</Tag>
-        {shelvedNow && <Tag>Shelved</Tag>}
-      </div>
-      {ev.desc && <p style={{ ...pStyle, marginBottom: GAMES[ev.game] ? 8 : 14 }}>{ev.desc}</p>}
-      {GAMES[ev.game]?.howto && (
-        <button onClick={() => setHowTo(true)} style={{ background:"none", border:"none", cursor:"pointer",
-          fontFamily:SANS, fontWeight:700, fontSize:12.5, letterSpacing:"0.02em", color:"var(--accent2)",
-          padding:"0 0 14px", display:"block" }}>How to play →</button>
-      )}
-      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={() => setHowTo(false)} />}
-      {table && <p style={{ ...pStyle, color:"var(--muted)", fontSize:12.5 }}>
-        Pays {table.map((v,i) => v>0 ? `${SLOT_META[i].label} +${v}` : null).filter(Boolean).join(", ")}
-      </p>}
-      {ev.game === "poker" && ev.finale && <p style={{ ...pStyle, color:"var(--muted)", fontSize:12.5 }}>
-        Pays nothing. Final chip counts are the final standings.
-      </p>}
+    <Sheet title={ev.name} onClose={onClose} onBack={onBack} wide={!!br} busy={setupPending || contestPending}
+      subtitle={[SESSIONS.find(s=>s.id===ev.session)?.label,ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" · ")}
+      headerActions={<>
+        {(draw || st) && onReplay && <button type="button" disabled={setupPending || contestPending} onClick={onReplay}>Replay draw</button>}
+        {GAMES[ev.game]?.howto && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
+      </>}>
+      <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
+        onLock={reference=>waitForContest(()=>onLock(reference))}
+        onWinner={result=>waitForContest(()=>onWinner(result))}
+        onUndo={reference=>waitForContest(()=>onUndo(reference))} onResult={()=>waitForContest(enterResult)} />
+      {br && !contestActive && <CompetitionBracket state={state} ev={ev} me={me} onPlayer={onPlayer}/>}
+      <details className="fd-event-info" open={!draw && !st && !contestActive || undefined}>
+        <summary><span>Event info</span>{table?.[0] > 0 && <small>{fmt(table[0])} chips to win</small>}</summary>
+        {ev.desc && <p>{ev.desc}</p>}
+        {table && <div className="fd-event-awards">{table.map((value,index)=>value > 0 && <span key={index}><small>{SLOT_META[index].label}</small><strong>+{fmt(value)}</strong></span>)}</div>}
+        {ev.game === "poker" && ev.finale && <p>Your final chip count is your final standing.</p>}
+      </details>
+      {!contestActive && onBets && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
+      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={()=>setHowTo(false)}/>}
 
       {draftLive && !draw && (
-        <div style={{ marginBottom:14 }}>
-          <div style={{ ...label, marginBottom:8 }}>Captains draft</div>
-          <Btn kind="dark" onClick={() => openDraft()} style={{ width:"100%" }}>
-            Open the draft board</Btn>
-          <EventCrewCard state={state} roles={draftLive.roles} />
-        </div>
+        <DraftEntry state={state} ev={ev} me={me} onOpen={() => openDraft()}/>
       )}
 
-      {draw && (
+      {draw && !br && !st && (
         <div style={{ marginBottom:14 }}>
           <div style={{ ...label, marginBottom:8 }}>The draw</div>
           {draw.teams.length === 2 ? (
-            <VersusDraw state={state} teams={draw.teams} />
+            <VersusDraw state={state} teams={draw.teams} onPlayer={onPlayer} />
           ) : (
             <div style={{ display:"grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap:8 }}>
               {draw.teams.map((t,i) => (
@@ -4348,31 +2497,29 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     ? { gridColumn:"1 / -1" } : {}) }}>
                   <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
                   <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                    {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
+                    {t.players.map(p => <button type="button" key={p} className="fd-player-link" aria-label={`View ${disp(state,p)}'s player card`} onClick={() => onPlayer?.(p)}><Avatar state={state} p={p} size={30} /></button>)}
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <EventCrewCard state={state} roles={draw.roles} />
-          {br && <Btn kind="dark" onClick={openBracket} style={{ width:"100%", marginTop:10 }}>View bracket</Btn>}
+          <EventCrewCard state={state} roles={draw.roles} onPlayer={onPlayer} />
+
         </div>
       )}
 
-      {st && (
-        <div style={{ marginBottom:14 }}>
-          <div style={{ ...label, marginBottom:8 }}>{st.kind === "heats" ? "Heats" : "Pools"}</div>
-          <StageGrid state={state} ev={ev} gm={gm && !state.frozen}
-            onThrough={onThrough} onFinal={onFinal} />
-        </div>
-      )}
+      {st && <details className="fd-event-info" open={!contestActive || undefined}>
+        <summary><span>All {st.kind === "heats" ? "heats" : "pools"}</span><small>{st.advance} through from each</small></summary>
+        <StageGrid state={state} ev={ev} gm={false} onPlayer={onPlayer}/>
+      </details>}
+      {(br || st) && <EventCrewCard state={state} roles={draw?.roles || st?.roles} compact onPlayer={onPlayer}/>}
 
       {res && res.slots && (
         <div style={{ marginBottom:14 }}>
           {res.slots.map((players, i) => players?.length > 0 && (
             <div key={i} style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
               <span style={{ color:SLOT_META[i].color, fontWeight:700 }}>{SLOT_META[i].label}:</span>{" "}
-              {players.map(p => disp(state,p)).join(", ")} <span style={{ color:"var(--muted)" }}>
+              {players.map(p => <button type="button" key={p} className="fd-player-link" onClick={() => onPlayer?.(p)}>{disp(state,p)}</button>)} <span style={{ color:"var(--muted)" }}>
                 {res.stacks ? `${fmt(res.stacks[players[0]] ?? 0)} chips` : `+${table?.[i] ?? 0} each`}</span>
             </div>
           ))}
@@ -4461,10 +2608,10 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                   : participantFit.error}
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                <Btn disabled={!participantFit.ok}
-                  onClick={() => onDraw(inPlayers, overflowAssignments)}
+                <Btn disabled={!participantFit.ok || setupPending}
+                  onClick={() => saveSetup(() => onDraw(inPlayers, overflowAssignments))}
                   style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
-                  Run the draw</Btn>
+                  {setupPending ? "Drawing…" : "Run the draw"}</Btn>
                 {ev.kind === "team" && (
                   <Btn kind="dark" disabled={!participantFit.ok}
                     onClick={() => openDraft(inPlayers, overflowAssignments)}
@@ -4475,7 +2622,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
             </>
             );
           })()}
-          {ev.teamCfg && draw && !res && (
+          {ev.teamCfg && draw && !res && setupAllowed && (
             confirmRedraw
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                   <Btn kind="danger" onClick={() => { onClearDraw(); setConfirmRedraw(false); }} style={{ flex:1 }}>Scrap the draw</Btn>
@@ -4485,7 +2632,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
           )}
 
           {/* heats / pools setup */}
-          {(canHeats || canPools) && !st && (
+          {(canHeats || canPools) && !st && setupAllowed && (
             !stageCfgOpen
               ? <Btn kind="dark" onClick={() => setStageCfgOpen(true)} style={{ width:"100%", marginBottom:10 }}>
                   {canHeats ? "Run heats" : "Set up pools"}</Btn>
@@ -4530,16 +2677,17 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
                     ))}
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
-                    <ActionButton disabled={canHeats && !participantFit.ok}
-                      onClick={() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
-                      players:inPlayers })} style={{ flex:1 }}>
-                      {canHeats ? "Draw heats" : "Draw pools"}</ActionButton>
+                    <ActionButton disabled={setupPending || canHeats && !participantFit.ok}
+                      onClick={() => saveSetup(() => onStages({ kind:stageKind, nGroups:groupsChoice, advance,
+                      players:inPlayers }))} style={{ flex:1 }}>
+                      {setupPending ? "Drawing…" : canHeats ? "Draw heats" : "Draw pools"}</ActionButton>
                     <ActionButton variant="tertiary" onClick={() => setStageCfgOpen(false)}>Cancel</ActionButton>
                   </div>
                 </div>
               )
           )}
-          {st && !res && (
+          {setupError && <p className="fd-contest-error" role="alert">{setupError}</p>}
+          {st && !res && setupAllowed && (
             confirmScrap
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                   <ActionButton variant="commit" onClick={() => { onClearStages(); setConfirmScrap(false); }} style={{ flex:1 }}>
@@ -4557,24 +2705,19 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
               <ActionButton variant="secondary" onClick={onDeckToggle}
                 style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Open betting</ActionButton>
             )}
-            {!res && lifecycle.nextAction?.type === "lock-betting" && (
+            {!res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && (
               <ActionButton variant="secondary" onClick={onDeckToggle}
                 style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Lock betting</ActionButton>
             )}
-            {!res && lifecycle.nextAction?.type === "start-event" && (
+            {!res && !contestActive && lifecycle.nextAction?.type === "start-event" && (
               <ActionButton onClick={onStart}
                 style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>Start event</ActionButton>
-            )}
-            {!res && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type) && (
-              <ActionButton disabled={!lifecycle.nextAction?.enabled} onClick={enterResult}
-                style={{ flex:1, whiteSpace:"nowrap", padding:"12px 8px" }}>
-                {lifecycle.nextAction.type === "enter-result" ? "Enter result" : "Post result"}</ActionButton>
             )}
             {res && !confirmClear && (
               <ActionButton variant="destructive" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</ActionButton>
             )}
           </div>
-          {!res && lifecycle.blockers?.length > 0 && (
+          {!res && !contestActive && lifecycle.blockers?.length > 0 && (
             <div style={{ ...pStyle, marginTop:8, color:"var(--muted)", fontSize:13 }}>
               Next: {lifecycle.blockers[0]}</div>
           )}
@@ -4636,7 +2779,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
             </div>
           ) : !more ? (
             <button onClick={() => setMore(true)} style={{ background:"none", border:"none", cursor:"pointer",
-              fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"10px 0 0",
+              fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", minHeight:44, padding:"8px 0",
               display:"block", marginLeft:"auto" }}>More options ▾</button>
           ) : (
             <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
@@ -4655,7 +2798,7 @@ function EventSheet({ ev, state, gm, onClose, enterResult, clearRes, onEdit, onD
 /* ─────────── add event ─────────── */
 function AddEventSheet({ state, onClose, save }) {
   const [name, setName] = useState("");
-  const [value, setValue] = useState(80);
+  const [value, setValue] = useState(400);
   const [fmt, setFmt] = useState("solo");
   const [sess, setSess] = useState(null);
   const [game, setGame] = useState(null);
@@ -4743,7 +2886,7 @@ function nextOpenMatch(br) {
   }
   return null;
 }
-function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
+function BracketGrid({ state, ev, gm, onPick, onPlayer, size="md", bet, hot }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
   if (!br || !draw) return null;
@@ -4774,6 +2917,11 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
                   /* bet mode: an open, fully-seated matchup takes a chip on tap */
                   const canBet = !!bet?.onBet && undecided && a !== null && b !== null && tIdx !== null;
                   const tappable = gm ? (onPick && tIdx !== null && a !== null && b !== null) : canBet;
+                  if (!gm && !canBet && onPlayer && t) return <div key={side} style={{padding:dims.pad,
+                    borderBottom:side === 0 ? "1px solid var(--line)" : "none",background:isWinner ? "var(--accent-tint)" : "transparent"}}>
+                    <PlayerLinks state={state} players={t.players} onPlayer={onPlayer} size={dims.av} />
+                    {isWinner && <small style={{color:"var(--accent2)"}}>Winner</small>}
+                  </div>;
                   return (
                     <button key={side} disabled={!tappable}
                       onClick={() => gm ? onPick && onPick(r, m, tIdx) : bet.onBet(r, m, tIdx, names[r])}
@@ -4801,147 +2949,33 @@ function BracketGrid({ state, ev, gm, onPick, size="md", bet, hot }) {
     </div>
   );
 }
-function BracketSheet({ ev, state, gm, onClose, onPick, onPostResult }) {
-  const br = state.brackets[ev.id];
-  const draw = state.draws[ev.id];
+function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onBets, onPostResult }) {
+  const [pending,setPending] = useState(false);
+  const waitFor = async callback => {setPending(true);try{return await callback();}finally{setPending(false);}};
+  const br = state.brackets[ev.id], draw = state.draws[ev.id];
   if (!br || !draw) return null;
-  const champ = bracketChampion(br);
-  return (
-    <Sheet title={`${ev.name} bracket`} onClose={onClose} wide>
-      {champ !== null && (
-        <div style={{ textAlign:"center", marginBottom:14, padding:"12px", borderRadius:14,
-          background:"rgba(194,88,50,0.1)", border:"1px solid rgba(194,88,50,0.4)" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--accent2)" }}>
-            {teamLabel(state, draw.teams[champ])} take it</span>
-        </div>
-      )}
-      <BracketGrid state={state} ev={ev} gm={gm} onPick={onPick} />
-      <EventCrewCard state={state} roles={draw.roles} compact />
-      {gm && champ !== null && !state.results[ev.id] && (
-        <Btn onClick={onPostResult} style={{ width:"100%", marginTop:12 }}>Post the result</Btn>
-      )}
-    </Sheet>
-  );
-}
-
-/* ─────────── captains draft (GM sets up + can override; on-clock captain picks) ─────────── */
-function DraftSheet({ ev, state, gm, me, standings, pool, roles, onClose, onStart, onPick, onUndo, onFinalize, onCancel }) {
-  const d = state.drafts?.[ev.id];
-  const N = ev.teamCfg?.teams || 2;
-  const seedVal = p => ev.sport
-    ? (state.seeds?.[p]?.[ev.sport] ?? 0)
-    : -(standings.findIndex(s => s.player === p) + 1 || 999);
-  const [capMethod, setCapMethod] = useState("pick");
-  const [captains, setCaptains] = useState([]);
-  if (!d && !pool) return <Sheet title="Captains draft" onClose={onClose}><p style={pStyle}>No draft to show.</p></Sheet>;
-
-  /* ── setup (GM only reaches this) ── */
-  if (!d) {
-    const applyMethod = mth => {
-      setCapMethod(mth);
-      if (mth === "seed") setCaptains([...pool].sort((a,b) => seedVal(b) - seedVal(a)).slice(0, N));
-      else if (mth === "random") setCaptains(shuffle(pool).slice(0, N));
-      else setCaptains([]);
-    };
-    const toggleCap = p => setCaptains(c =>
-      c.includes(p) ? c.filter(x => x !== p) : c.length < N ? [...c, p] : c);
-    const CAP_METHODS = [["pick","Pick them"],["seed", ev.sport ? "Top seeds" : "Top standings"],["random","Random"]];
-    return (
-      <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
-        <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-          {CAP_METHODS.map(([id,lb]) => (
-            <button key={id} onClick={() => applyMethod(id)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
-              borderRadius:10, fontFamily:SANS, fontWeight:700, fontSize:12.5,
-              background: capMethod===id ? GOLD_GRAD : "var(--paper)", color: capMethod===id ? "var(--ink0)" : "var(--ink)",
-              border: capMethod===id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{lb}</button>
-          ))}
-        </div>
-        <div style={{ ...label, marginBottom:8 }}>Captains {captains.length}/{N}</div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:6, marginBottom:14 }}>
-          {(pool || []).map((p, pi) => {
-            const i = captains.indexOf(p);
-            return <PlayerChip key={p} small name={i >= 0 ? `${disp(state,p)} (C${i+1})` : disp(state,p)}
-              selected={i >= 0} onClick={() => toggleCap(p)}
-              style={centeredGridCell(pi, (pool || []).length)} />;
-          })}
-        </div>
-        <EventCrewCard state={state} roles={roles} />
-        <Btn disabled={captains.length !== N} onClick={() => onStart(captains, pool)} style={{ width:"100%" }}>
-          Start the draft</Btn>
-      </Sheet>
-    );
-  }
-
-  /* ── live board ── */
-  const T = d.teams.length;
-  const poolEmpty = d.pool.length === 0;
-  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
-  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
-  const myTurn = cur && me === cur;
-  const canPick = !poolEmpty && (gm || myTurn);
-  const round = Math.floor(d.picks.length / T) + 1;
-  return (
-    <Sheet title={`${ev.name} draft`} onClose={onClose} wide>
-      <div style={{ textAlign:"center", marginBottom:14, padding:"11px", borderRadius:14,
-        background: poolEmpty ? "rgba(78,110,57,0.14)" : myTurn ? "rgba(240,176,47,0.35)" : "var(--paper2)",
-        border:"1.5px solid " + (poolEmpty ? "var(--green)" : myTurn ? "var(--ink)" : "var(--line)") }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, textTransform:"uppercase", color:"var(--ink)" }}>
-          {poolEmpty ? "Draft complete" : myTurn ? "You're on the clock" : `${disp(state, cur)} is on the clock`}</div>
-        {!poolEmpty && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginTop:2 }}>
-          Round {round}, {d.pool.length} left</div>}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns: T > 2 ? "1fr 1fr" : "1fr 1fr", gap:8, marginBottom:14 }}>
-        {d.teams.map((t, i) => (
-          <div key={i} style={{ background:"var(--paper)", borderRadius:14, padding:"9px 11px",
-            border: i === onClock ? "1.5px solid var(--ink)" : "1.5px solid var(--line)",
-            ...(i === T - 1 && T % 2 === 1 ? { gridColumn:"1 / -1" } : {}) }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-              <Tag tone="gold">C</Tag>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)",
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
-              <span style={{ flex:1 }} />
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, color:"var(--muted)" }}>{t.players.length}</span>
-            </div>
-            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-              {t.players.map(p => <Avatar key={p} state={state} p={p} size={26} />)}
-            </div>
-          </div>
-        ))}
-      </div>
-      <EventCrewCard state={state} roles={d.roles} />
-
-      {!poolEmpty && (
-        <>
-          <div style={{ ...label, marginBottom:8 }}>{canPick ? "Tap to draft" : "Still available"}</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:6, marginBottom:12 }}>
-            {d.pool.map((p, i) => <PlayerChip key={p} small name={disp(state,p)}
-              disabled={!canPick} onClick={() => canPick && onPick(p)}
-              style={centeredGridCell(i, d.pool.length)} />)}
-          </div>
-        </>
-      )}
-
-      {gm && (
-        <div style={{ display:"flex", gap:8 }}>
-          {poolEmpty
-            ? <Btn onClick={onFinalize} style={{ flex:2 }}>Lock in the teams</Btn>
-            : <Btn kind="dark" disabled={!d.picks.length} onClick={onUndo} style={{ flex:1 }}>Undo</Btn>}
-          <Btn kind="danger" onClick={onCancel} style={{ flex:1 }}>Cancel</Btn>
-        </div>
-      )}
-      {!gm && !poolEmpty && !myTurn && (
-        <p style={{ ...pStyle, textAlign:"center", marginBottom:0 }}>Waiting on {disp(state, cur)} to pick.</p>
-      )}
-    </Sheet>
-  );
+  const contest = resolveCurrentContest(state,ev);
+  const active = contest && ["betting-open","betting-locked","in-progress","awaiting-result"].includes(contest.phase);
+  return <Sheet title={ev.name} subtitle="Tournament" onClose={onClose} onBack={onBack} busy={pending} wide>
+    <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
+      onLock={reference=>waitFor(()=>onLock(reference))}
+      onWinner={result=>waitFor(()=>onWinner(result))}
+      onUndo={reference=>waitFor(()=>onUndo(reference))} onResult={()=>waitFor(onPostResult)}/>
+    {!active && <CompetitionBracket state={state} ev={ev} me={me} onPlayer={onPlayer}/>}
+    <EventCrewCard state={state} roles={draw.roles} compact onPlayer={onPlayer}/>
+  </Sheet>;
 }
 
 /* ─────────── result entry (GM, real names) ─────────── */
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
-  const table = AWARDS[ev.value] || [20, 0, 0];
+  const table = AWARDS[ev.value] || [400, 0, 0];
   const slotIdxs = table.map((v,i) => v>0 ? i : null).filter(i => i !== null);
+  const bracket = state.brackets[ev.id], stage = state.stages[ev.id];
+  const sequenced = !!state.eventOps?.[ev.id]?.contest;
+  const winnerKnown = sequenced && ((bracket && bracketChampion(bracket) !== null)
+    || (stage && stage.finalWinner !== null && stage.finalWinner !== undefined));
+  const editableSlots = slotIdxs.filter(index => !winnerKnown || index !== 0);
   const initial = useMemo(() => {
     if (existing?.slots) return existing.slots.map(s => [...(s||[])]);
     const br = state.brackets[ev.id], draw = state.draws[ev.id], st = state.stages[ev.id];
@@ -4962,32 +2996,50 @@ function ResultSheet({ ev, state, onClose, save }) {
     return [[],[],[]];
   }, []); // eslint-disable-line
   const [slots, setSlots] = useState(initial);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(editableSlots[0] ?? 0);
   const [byPlayer, setByPlayer] = useState(false);
   const [confirmCorrection, setConfirmCorrection] = useState(false);
   const [correctionReason, setCorrectionReason] = useState("");
+  const [pending,setPending] = useState(false), [error,setError] = useState("");
+  const saving = useRef(false);
+  const post = async options => {
+    if (saving.current) return;
+    saving.current=true;setPending(true);setError("");
+    try {const result=await save(slots,options);if(result?.ok !== true)setError(result?.error || "Result not saved. Try again.");}
+    catch(failure){setError(failure?.message || "Result not saved. Try again.");}
+    finally {saving.current=false;setPending(false);}
+  };
   const draw = state.draws[ev.id];
-  const teamMode = !!draw?.teams?.length && ev.kind !== "solo" && !byPlayer;
+  const teamMode = !!draw?.teams?.length && ev.kind !== "solo" && (!byPlayer || sequenced && active === 0);
   const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const taken = p => slots.findIndex(s => s.includes(p));
   const toggle = p => setSlots(prev => {
+    if (saving.current || (winnerKnown && prev[0].includes(p))) return prev;
     const nx = prev.map(s => [...s]);
     const w = nx.findIndex(s => s.includes(p));
+    if (sequenced && active === 0) return nx.map((slot,index)=>index === 0 ? (w === 0 ? [] : [p]) : slot.filter(player=>player !== p));
     if (w === active) nx[active] = nx[active].filter(x => x !== p);
     else { if (w >= 0) nx[w] = nx[w].filter(x => x !== p); nx[active].push(p); }
     return nx;
   });
   const teamSlot = t => slots.findIndex(s => t.players.length && t.players.every(p => s.includes(p)));
   const toggleTeam = t => setSlots(prev => {
+    if (saving.current || (winnerKnown && t.players.some(p=>prev[0].includes(p)))) return prev;
     const was = prev.findIndex(s => t.players.length && t.players.every(p => s.includes(p)));
     const nx = prev.map(s => s.filter(p => !t.players.includes(p)));
+    if (sequenced && active === 0) {nx[0] = was === 0 ? [] : [...t.players];return nx;}
     if (was !== active) nx[active] = [...nx[active], ...t.players];
     return nx;
   });
   return (
-    <Sheet title={`${ev.name} result`} onClose={onClose}>
+    <Sheet title={ev.name} subtitle="Official result" onClose={onClose} busy={pending}>
+      {winnerKnown && <div className="fd-result-winner">
+        <small>Winner</small><strong>{slots[0].map(player=>disp(state,player)).join(" & ")}</strong>
+        <span>+{fmt(table[0])}{slots[0].length > 1 ? " each" : " chips"}</span>
+      </div>}
+      {!!editableSlots.length && <fieldset disabled={pending} style={{border:0,padding:0,margin:0,minWidth:0}}>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        {slotIdxs.map(i => (
+        {editableSlots.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
             borderRadius:14, border:"1px solid " + (active===i ? "var(--accent)" : "var(--line)"),
             background: active===i ? "rgba(194,88,50,0.1)" : "var(--paper2)" }}>
@@ -4999,7 +3051,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       </div>
       {teamMode ? (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-          {draw.teams.map((t, i) => {
+          {draw.teams.filter(t=>!winnerKnown || !t.players.some(p=>slots[0].includes(p))).map((t, i) => {
             const w = teamSlot(t);
             return (
               <button key={i} onClick={() => toggleTeam(t)} style={{ display:"flex", alignItems:"center", gap:8,
@@ -5020,7 +3072,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         </div>
       ) : (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:10 }}>
-          {ROSTER.map((p, i) => {
+          {ROSTER.filter(p=>!winnerKnown || !slots[0].includes(p)).map((p, i) => {
             const w = taken(p);
             return <PlayerChip key={p} name={w>=0 && w!==active ? `${p} (${SLOT_META[w].label})` : p}
               selected={w===active} onClick={() => toggle(p)} small
@@ -5028,35 +3080,37 @@ function ResultSheet({ ev, state, onClose, save }) {
           })}
         </div>
       )}
-      {!!draw?.teams?.length && ev.kind !== "solo" && (
+      {!!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && (
         <button onClick={() => setByPlayer(v => !v)} style={{ background:"none", border:"none", cursor:"pointer",
-          fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", padding:"0 0 14px", display:"block" }}>
+          fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", minHeight:44, padding:"6px 0", display:"block" }}>
           {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
       )}
+      </fieldset>}
+      {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
       {!existing ? (
-        <ActionButton disabled={slots[0].length===0} onClick={() => save(slots)}
+        <ActionButton disabled={slots[0].length===0 || pending} onClick={() => post()}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
           Post official result</ActionButton>
       ) : !confirmCorrection ? (
-        <ActionButton disabled={slots[0].length===0 || unchanged} onClick={() => setConfirmCorrection(true)}
+        <ActionButton disabled={slots[0].length===0 || unchanged || pending} onClick={() => setConfirmCorrection(true)}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
           {unchanged ? `Official result · revision ${existing.revision || 1}` : "Review result correction"}</ActionButton>
       ) : (
         <div style={{ marginTop:4, padding:"12px 13px", background:"var(--paper2)",
           border:"1px solid var(--line)", borderRadius:14 }}>
           <div style={{ ...label, marginBottom:6 }}>Why is the official result changing?</div>
-          <input value={correctionReason} onChange={event => setCorrectionReason(event.target.value)}
+          <input value={correctionReason} disabled={pending} onChange={event => setCorrectionReason(event.target.value)}
             maxLength={100} placeholder="Example: 2nd and 3rd were reversed"
             style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)",
               borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
               fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
           <div style={{ display:"flex", gap:8 }}>
-            <ActionButton variant="commit" disabled={!correctionReason.trim()}
-              onClick={() => save(slots, {
+            <ActionButton variant="commit" disabled={!correctionReason.trim() || pending}
+              onClick={() => post({
                 confirmOverwrite:true,
                 correctionReason,
               })} style={{ flex:1 }}>Replace official result</ActionButton>
-            <ActionButton variant="tertiary" onClick={() => {
+            <ActionButton variant="tertiary" disabled={pending} onClick={() => {
               setConfirmCorrection(false);
               setCorrectionReason("");
             }} style={{ flex:1 }}>Keep current</ActionButton>
@@ -5182,123 +3236,15 @@ const MARKS = {
    2.4px line, and one terracotta signal. The former marks mixed illustrations,
    filled objects, and several optical scales; this family stays legible from
    the 26px schedule rail through the full-screen announcement. */
-function EventGlyph({ id }) {
-  const bone = "var(--bone)", accent = "var(--accent2)", sun = "var(--sun)";
-  const common = { fill:"none", stroke:bone, strokeWidth:2.4,
-    strokeLinecap:"round", strokeLinejoin:"round" };
-  switch (id) {
-    case "putting": return <g {...common}>
-      <path d="M15 37V11l16 5-16 5" />
-      <path d="M9 37c4-3 10-3 14 0-4 3-10 3-14 0Z" />
-      <circle cx="32" cy="35" r="2.6" fill={accent} stroke="none" />
-    </g>;
-    case "8ball": return <g {...common}>
-      <circle cx="24" cy="24" r="13" />
-      <circle cx="24" cy="21" r="3.2" />
-      <circle cx="24" cy="28" r="3.2" />
-      <path d="M14 12l-3-3M34 36l3 3" stroke={accent} />
-    </g>;
-    case "pong": return <g {...common}>
-      <path d="M15 20h18l-2.4 17H17.4L15 20Z" />
-      <path d="M16 20c4-2 12-2 16 0" />
-      <circle cx="25" cy="11" r="3.2" fill={sun} stroke={bone} />
-      <path d="M17 13l4 2" stroke={accent} />
-    </g>;
-    case "die": return <g {...common}>
-      <rect x="11" y="11" width="26" height="26" rx="7" />
-      {[[17,17],[31,17],[24,24],[17,31],[31,31]].map(([x,y]) =>
-        <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" fill={x === 24 ? accent : bone} stroke="none" />)}
-    </g>;
-    case "basketball": return <g {...common}>
-      <circle cx="24" cy="24" r="13" />
-      <path d="M11 24h26M24 11v26M15 14c5 5 5 15 0 20M33 14c-5 5-5 15 0 20" />
-      <path d="M34 12l4-4" stroke={accent} />
-    </g>;
-    case "spikeball": return <g {...common}>
-      <ellipse cx="24" cy="32" rx="14" ry="5.5" />
-      <path d="M14 32h20M24 26.5v11M15 35l-3 4M33 35l3 4" />
-      <circle cx="24" cy="15" r="4" fill={sun} stroke={bone} />
-      <path d="M18 11l-3-3" stroke={accent} />
-    </g>;
-    case "pingpong": return <g {...common}>
-      <circle cx="20" cy="20" r="9" />
-      <path d="M14 27l-6 8" />
-      <circle cx="35" cy="32" r="3.2" fill={accent} stroke={bone} />
-      <path d="M29 17l5-3" />
-    </g>;
-    case "foosball": return <g {...common}>
-      <path d="M8 15h32M8 31h32" />
-      <circle cx="24" cy="14" r="3.5" />
-      <path d="M24 18v10M18 22h12M24 28l-5 7M24 28l5 7" />
-      <circle cx="35" cy="37" r="2.8" fill={accent} stroke="none" />
-    </g>;
-    case "volleyball": return <g {...common}>
-      <path d="M30 12v27M30 19h10v20M30 24h10M30 29h10M30 34h10" />
-      <circle cx="17" cy="22" r="9" />
-      <path d="M17 13c4 5 4 13 0 18M9 20c6 1 12-1 16-5" />
-      <path d="M9 35l4-3" stroke={accent} />
-    </g>;
-    case "pickleball": return <g {...common}>
-      <circle cx="19" cy="19" r="9.5" />
-      <path d="M13 26l-5 9" />
-      <circle cx="35" cy="31" r="5" fill={sun} />
-      {[[33,29],[37,29],[35,33]].map(([x,y]) =>
-        <circle key={`${x}-${y}`} cx={x} cy={y} r=".8" fill={bone} stroke="none" />)}
-      <path d="M29 15l4-3" stroke={accent} />
-    </g>;
-    case "flipcup": return <g {...common}>
-      <path d="M15 15h15l-2 17H17l-2-17Z" transform="rotate(-28 22.5 23.5)" />
-      <path d="M10 34c6 5 19 5 27-1" />
-      <path d="M10 29c-3-7 0-13 6-17" stroke={accent} />
-      <path d="M13 11l3 1-1 3" stroke={accent} />
-    </g>;
-    case "beerio": return <g {...common}>
-      <circle cx="19" cy="24" r="11" />
-      <circle cx="19" cy="24" r="3" />
-      <path d="M19 13v8M10 29l6-3M28 29l-6-3" />
-      <path d="M33 18h8l-1 17h-6l-1-17Z" />
-      <path d="M34 18c2-1 4-1 6 0" />
-      <path d="M32 12l4 2" stroke={accent} />
-    </g>;
-    case "ragecage": return <g {...common}>
-      {[15,24,33].map(x => <path key={x} d={`M${x-4} 26h8l-1 11h-6l-1-11Z`} />)}
-      <path d="M20 14h8l-1 10h-6l-1-10Z" />
-      <circle cx="12" cy="15" r="3" fill={sun} stroke={bone} />
-      <path d="M8 20l-2 4" stroke={accent} />
-    </g>;
-    case "poker": return <g {...common}>
-      <rect x="10" y="11" width="15" height="21" rx="3" transform="rotate(-9 17.5 21.5)" />
-      <rect x="23" y="10" width="15" height="21" rx="3" transform="rotate(8 30.5 20.5)" />
-      <path d="M30 16l3 3-3 3-3-3 3-3Z" fill={accent} stroke="none" />
-      <circle cx="24" cy="36" r="6" fill="var(--paper2)" />
-      <path d="M20 36h8M24 32v8" stroke={sun} />
-    </g>;
-    case "gauntlet": return <g {...common}>
-      <path d="M9 34c0-12 8-19 18-18 6 1 9 5 9 11" />
-      {[[9,34],[12,23],[21,17],[31,19]].map(([x,y], i) =>
-        <circle key={i} cx={x} cy={y} r="2.8" fill={i === 0 ? accent : "var(--paper2)"} />)}
-      <path d="M36 27V11M36 11l7 3-7 3" />
-    </g>;
-    default: return <g {...common}>
-      <circle cx="24" cy="24" r="12" />
-      <path d="M24 15v18M15 24h18" stroke={accent} />
-    </g>;
-  }
-}
-function GameMark({ id, size=54, hero=false }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true"
-      style={{ flexShrink:0, display:"block", filter:hero ? "drop-shadow(0 14px 26px rgba(10,6,3,.32))" : "none" }}>
-      <rect x="1.5" y="1.5" width="45" height="45" rx="14"
-        fill={hero ? "var(--night2)" : "var(--paper2)"} stroke="var(--bone-line)" strokeWidth="1.5" />
-      <EventGlyph id={id} />
-      <circle cx="39.5" cy="8.5" r="2.4" fill="var(--accent2)" />
-    </svg>
-  );
-}
 
-/* One broadcast ident, with the event's own mark doing the differentiating.
-   Subtle rings and a single rule replace fifteen novelty mini-animations. */
+
+
+/* The original game moments are part of the reveal, on phones and the TV. */
+function GameMoment({ gameId }) {
+  const Hero = GAME_HEROES[gameId];
+  return <div className="fd-game-moment" aria-hidden="true">
+    {Hero && !prefersReducedMotion() ? <Hero/> : <GameMark id={gameId} size={72}/>}</div>;
+}
 function EventSpotlight({ gameId, big=false }) {
   const mark = big ? 150 : 112;
   const box = big ? 242 : 176;
@@ -5308,7 +3254,8 @@ function EventSpotlight({ gameId, big=false }) {
       <span className="si-event-ring si-event-ring-2" aria-hidden="true" />
       <span className="si-event-rule si-event-rule-left" aria-hidden="true" />
       <span className="si-event-rule si-event-rule-right" aria-hidden="true" />
-      <span className="si-event-mark"><GameMark id={gameId} size={mark} hero /></span>
+      <span className="si-event-mark" style={GAME_HEROES[gameId] ? {transform:big ? "scale(1.4)" : undefined} : undefined}>
+        {GAME_HEROES[gameId] ? <GameMoment gameId={gameId}/> : <GameMark id={gameId} size={mark} hero />}</span>
     </div>
   );
 }
@@ -5555,633 +3502,26 @@ const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
   pingpong: PingpongHero, foosball: FoosHero, volleyball: VolleyHero,
   pickleball: PickleHero, beerio: KartHero, ragecage: RageHero, gauntlet: GauntletHero, poker: PokerHero };
 /* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
-function HowToSheet({ gameId, variant, onClose }) {
-  const game = GAMES[gameId];
-  const variants = game?.variants || null;
-  const [vIdx, setVIdx] = useState(() => {
-    const i = variants ? variants.findIndex(v => v.id === variant) : -1;
-    return i < 0 ? 0 : i;
-  });
-  const h = variants ? variants[vIdx]?.howto : game?.howto;
-  const steps = h?.steps || [];
-  const rm = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  const [shown, setShown] = useState(rm ? steps.length : 0);
-  const [heroKey, setHeroKey] = useState(0);
-  useEffect(() => { setShown(rm ? steps.length : 0); }, [vIdx]); // eslint-disable-line
-  useEffect(() => {
-    if (shown >= steps.length) return;
-    const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 320 : 480);
-    return () => clearTimeout(t);
-  }, [shown, steps.length]);
-  if (!h) return null;
-  return (
-    <Sheet title="How to play" onClose={onClose}>
-      <div onClick={() => setHeroKey(k => k + 1)}
-        style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:82, marginBottom:6,
-          cursor:"pointer" }} aria-label={`Replay ${game.name} mark`}>
-        <span key={heroKey} style={{ animation:"si-intro-mark .55s cubic-bezier(.2,.85,.28,1) both" }}>
-          <GameMark id={gameId} size={76} hero />
-        </span>
-      </div>
-      <div style={{ ...label, textAlign:"center", marginBottom:5 }}>{game.name}</div>
-      {variants && (
-        <div style={{ display:"flex", justifyContent:"center", gap:6, marginBottom:12 }}>
-          {variants.map((v, i) => (
-            <button key={v.id} onClick={() => setVIdx(i)} style={{ fontFamily:DISPLAY, fontWeight:700,
-              fontSize:16, padding:"7px 18px", borderRadius:99, cursor:"pointer",
-              background: i === vIdx ? "var(--sun)" : "var(--paper)",
-              color: i === vIdx ? "var(--ink0)" : "var(--ink)",
-              border: i === vIdx ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{v.label}</button>
-          ))}
-        </div>
-      )}
-      {h.objective && <p style={{ ...pStyle, textAlign:"center", marginBottom:12 }}>{h.objective}</p>}
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom:16 }}>
-        {h.players && <Tag tone="gold">{h.players}</Tag>}
-        {(h.gear || []).map(g => <Tag key={g}>{g}</Tag>)}
-      </div>
-      <ol style={{ listStyle:"none", padding:0, margin:"0 0 16px" }}>
-        {steps.map((s, i) => (
-          <li key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"9px 0",
-            borderBottom: i < steps.length-1 ? "1px solid var(--line)" : "none",
-            visibility: i < shown ? "visible" : "hidden",
-            animation: i < shown ? "si-in .32s ease-out both" : "none" }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, lineHeight:1, color:"var(--accent2)",
-              minWidth:20, textAlign:"center" }}>{i+1}</span>
-            <span style={{ fontFamily:SANS, fontSize:14, lineHeight:1.5, color:"var(--muted2)" }}>{s}</span>
-          </li>
-        ))}
-      </ol>
-      <div style={{ background:"var(--paper2)", border:"1.5px solid var(--ink)", borderRadius:14,
-        padding:"11px 13px", marginBottom: h.house ? 10 : 0 }}>
-        <div style={{ ...label, fontSize:11, marginBottom:4 }}>To win</div>
-        <div style={{ fontFamily:SANS, fontSize:14, lineHeight:1.5, color:"var(--ink)" }}>{h.win}</div>
-      </div>
-      {h.house && (
-        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.5, color:"var(--muted)" }}>
-          <b style={{ color:"var(--accent2)" }}>House rule.</b> {h.house}
-        </div>
-      )}
-    </Sheet>
-  );
-}
+
 
 /* ─────────── wagers ─────────── */
-function wagerPickLabel(state, w, events) {
-  const ev = events.find(e => e.id === w.eventId);
-  const evName = ev?.name || "removed event";
-  const pickName = w.pickTeam || w.pickPlayers?.length > 1
-    ? teamLabel(state, { players: w.pickPlayers })
-    : disp(state, w.pickPlayers ? w.pickPlayers[0] : w.pick);
-  if (w.kind === "outright") return { pick: pickName, ctx: `to win ${evName}` };
-  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} in ${evName}` };
-  if (w.final) return { pick: pickName, ctx: `to win the Final in ${evName}` };
-  return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
-}
+
 
 /* rack denominations: 10 is the chip quantum, the bigger chips keep taps
    quick as stacks grow. Anything unaffordable sits gray in the rack */
-const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
+
 
 /* New wagers are aggregated by the server. This compatibility merge keeps
    older snapshots with separate same-pick records equally readable. w.ids
    carries every underlying record id for commissioner void actions. */
-function mergeWagerLines(list) {
-  const key = ({ w, r }) => [w.player, r.status, w.kind, w.eventId,
-    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick)
-      : w.kind === "match" ? "m:" + w.drawId + ":" + (w.match || []).join("-") + ":" + w.teamIdx
-      : "s:" + w.stagesId + ":" + (w.final ? "F" : w.group) + ":" + w.pickKey].join("|");
-  const out = new Map();
-  for (const x of list) {
-    const k = key(x), cur = out.get(k);
-    if (!cur) out.set(k, { w: { ...x.w, ids: [x.w.id] }, r: { ...x.r } });
-    else {
-      cur.w.stake += x.w.stake;
-      cur.w.ids.push(x.w.id);
-      if (typeof x.r.delta === "number") cur.r.delta = (cur.r.delta || 0) + x.r.delta;
-    }
-  }
-  return [...out.values()];
-}
-function Wagers({ state, me, standings, gm, events, onDeckEv, wagerEv, onEvents, onPick, onVoid, onRetract }) {
-  const [settledOpen, setSettledOpen] = useState(null);
-  /* the rack: pick a chip, then every tap on the board bets that chip */
-  const [denom, setDenom] = useState(PT);
-  const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
-    [state, events]);
-  const pending = resolved.filter(x => x.r.status === "pending");
-  /* One pending server record now represents the bettor's total on that pick;
-     legacy separate records are merged for the list below. */
-  const pendingLines = mergeWagerLines(pending);
-  const settledLines = mergeWagerLines(resolved.filter(x => x.r.status !== "pending"));
-  /* thirteen people betting several picks each turns the settled list into a
-     wall of near-identical cards. One line per bettor carrying their net, and
-     the picks behind it are one tap away. Nothing is dropped: the net is over
-     every settled bet, so the line always agrees with the board. */
-  const settledByPlayer = useMemo(() => {
-    const m = new Map();
-    for (const x of settledLines) {
-      const g = m.get(x.w.player) || { player:x.w.player, lines:[], net:0 };
-      g.lines.push(x);
-      g.net += x.r.delta || 0;
-      m.set(x.w.player, g);
-    }
-    return [...m.values()].sort((a, b) => b.net - a.net || a.player.localeCompare(b.player));
-  }, [settledLines]); // eslint-disable-line
-  const myExp = me ? atRisk(state, me, events) : 0;
-  const myPts = standings.find(r => r.player === me)?.pts ?? 0;
-  const myCap = maxRisk(myPts);
-  const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
 
-  /* a tap bets the selected chip, clamped down to what the cap leaves you;
-     when the room shrinks under the selected chip, snap to the biggest that fits */
-  useEffect(() => {
-    if (denom > PT && room >= PT && denom > room)
-      setDenom([...RACK_DENOMS].reverse().find(d => d <= room) || PT);
-  }, [room, denom]);
-  const tapStake = Math.max(PT, Math.min(denom, Math.floor(room / PT) * PT));
-  const bet = pick => onPick({ ...pick, stake: tapStake });
 
-  const ev = wagerEv;
-  const marketOpen = !!onDeckEv && onDeckEv.id === ev?.id;
-  const draw = ev ? state.draws[ev.id] : null;
-  const br = ev ? state.brackets[ev.id] : null;
-  const st = ev ? state.stages[ev.id] : null;
-
-  /* outright candidates */
-  let outrights = [];
-  if (ev) {
-    if (ev.kind === "solo") outrights = ROSTER.map(p => ({
-      key:p, players:[p], name: disp(state, p),
-      pick: { kind:"outright", eventId:ev.id, pick:p, pickPlayers:[p], pickTeam:false, evName:ev.name },
-    }));
-    else if (draw) outrights = draw.teams.map((t,i) => ({
-      key:"t"+i, players:t.players, name: teamLabel(state, t),
-      pick: { kind:"outright", eventId:ev.id, pickTeam:true, pickPlayers:[...t.players], drawId:draw.id, evName:ev.name },
-    }));
-  }
-  const bigTeams = outrights.length > 0 && outrights[0].players.length >= 3;
-
-  /* open stage groups + final */
-  let stageGroups = [], stageFinal = null;
-  if (ev && st) {
-    st.groups.forEach((g, gi) => {
-      if ((g.through || []).length < st.advance) {
-        const open = g.entrants.filter(k => !(g.through || []).includes(k));
-        if (open.length > 1) stageGroups.push({ gi, name:g.name, entrants:open });
-      }
-    });
-    const finalists = stageFinalists(st);
-    if (finalists && (st.finalWinner === null || st.finalWinner === undefined)) stageFinal = finalists;
-  }
-
-  /* One tap drops a chip. Ownership stays encoded by the customized chip
-     itself; there is no redundant bettor-name expansion under the pick. */
-  const PickRow = ({ players, name, onClick, wide, pred, cellStyle }) => {
-    const bets = pred ? pending.filter(x => pred(x.w)) : [];
-    const mineBets = bets.filter(x => x.w.player === me);
-    const mine = mineBets.reduce((s, x) => s + x.w.stake, 0);
-    const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
-    const canPick = marketOpen && room >= PT && typeof onClick === "function";
-    return (
-      <div style={{ minWidth:0, ...cellStyle }}>
-        <button onClick={canPick ? onClick : undefined}
-          style={{ display:"flex", alignItems:"center", gap:8, padding: wide ? "10px 12px" : "8px 10px",
-            borderRadius:14, width:"100%", minWidth:0, boxSizing:"border-box",
-            background:"var(--paper2)",
-            border:"1px solid " + (mine > 0 ? "rgba(194,88,50,0.55)" : "var(--line)"),
-            cursor: canPick ? "pointer" : "default",
-            opacity: marketOpen && room < PT && !mine ? 0.5 : 1, textAlign:"left" }}>
-          <AvatarStack state={state} players={players} size={wide ? 28 : 24} max={wide ? 5 : 3} />
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize: wide ? 14 : 12.5, color:"var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, minWidth:0 }}>{name}</span>
-          <BetChipCluster chips={chips} size={22} max={3} reserveAction={marketOpen}
-            onRetract={marketOpen && mine > 0
-              ? () => onRetract(mineBets[mineBets.length - 1].w.id)
-              : undefined} />
-        </button>
-      </div>
-    );
-  };
-
-  const Row = ({ x }) => {
-    const { w, r } = x;
-    const l = wagerPickLabel(state, w, events);
-    const win = w.kind === "outright" ? OUTRIGHT_MULT * w.stake : w.stake;
-    return (
-      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 13px",
-        borderRadius:14, background: r.status === "pending" ? CARD_BG : "var(--paper2)",
-        border:"1px solid " + (r.status === "pending" ? "var(--line)" : "var(--line)"), marginBottom:7 }}>
-        <Avatar state={state} p={w.player} size={30} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)" }}>
-            <b>{disp(state, w.player)}</b> put {w.stake} on <b style={{ color:"var(--accent2)" }}>{l.pick}</b>
-          </div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>{l.ctx}</div>
-        </div>
-        {r.status === "pending" && <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>to win +{win}</span>}
-        {r.status === "won" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--green)" }}>+{r.delta}</span>}
-        {r.status === "lost" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--clay)" }}>{r.delta}</span>}
-        {r.status === "void" && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:"var(--muted)" }}>VOID</span>}
-        {gm && r.status === "pending" && (
-          <button onClick={() => onVoid(w.ids || [w.id])} style={{ background:"none", border:"1px solid var(--danger-line)",
-            borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
-            cursor:"pointer", textTransform:"uppercase" }}>Void</button>
-        )}
-      </div>
-    );
-  };
-
-  /* one bettor, one line: name, how many bets are behind it, and the net */
-  const SettledRow = ({ g }) => {
-    const key = "st:" + g.player, open = settledOpen === key;
-    return (
-      <div style={{ marginBottom:7 }}>
-        <button onClick={() => setSettledOpen(current => current === key ? null : key)}
-          style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"9px 13px",
-            borderRadius:14, background:"var(--paper2)", border:"1px solid var(--line)",
-            cursor:"pointer", textAlign:"left" }}>
-          <Avatar state={state} p={g.player} size={26} />
-          <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", flex:1,
-            minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {disp(state, g.player)}</span>
-          <span style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
-            {g.lines.length} bet{g.lines.length === 1 ? "" : "s"}</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, minWidth:46, textAlign:"right",
-            color: g.net > 0 ? "var(--green)" : g.net < 0 ? "var(--clay)" : "var(--muted)" }}>
-            {g.net > 0 ? "+" : ""}{fmt(g.net)}</span>
-        </button>
-        {open && <div style={{ marginTop:6 }}>{g.lines.map(x => <Row key={x.w.id} x={x} />)}</div>}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ padding:"0 16px", paddingBottom: me && marketOpen ? 152 : 0 }}>
-      {!ev && !state.frozen && (
-        <div style={{ textAlign:"center", padding:"clamp(56px,15vh,120px) 24px 24px",
-          display:"flex", flexDirection:"column", alignItems:"center" }}>
-          <div style={{ opacity:0.82, marginBottom:18 }}><ArtTicket /></div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)", marginBottom:9 }}>
-            {state.live ? "Between events" : "Betting opens with the first event"}</div>
-          <div style={{ maxWidth:300, color:"var(--muted2)", fontFamily:SANS, fontSize:14, lineHeight:1.6 }}>
-            As each event starts, betting opens here.
-          </div>
-          <Btn kind="ghost" onClick={onEvents} style={{ marginTop:20 }}>Browse the events</Btn>
-        </div>
-      )}
-      {state.frozen && (
-        <div style={{ textAlign:"center", padding:"22px 20px", color:"var(--muted)", fontFamily:SANS, fontSize:14 }}>
-          The board is frozen.
-        </div>
-      )}
-
-      {ev && (
-        <div style={{ borderRadius:14, border:"1px solid rgba(251,243,228,0.2)", overflow:"hidden",
-          background:"var(--paper)", boxShadow:"var(--shadow-1)", marginBottom:16 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 13px",
-            background:marketOpen ? "var(--clay)" : "var(--night)", color:BONE }}>
-            <GameMark id={ev.game} size={26} />
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, letterSpacing:"0.02em",
-              textTransform:"uppercase", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ev.name}</span>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.06em",
-              color:marketOpen ? BONE : "var(--sun)" }}>
-              {marketOpen ? "BETTING OPEN" : "BETTING LOCKED"}</span>
-          </div>
-          <div style={{ padding:"12px 13px 8px" }}>
-
-          {/* the whiteboard: chips ride directly on the bracket. Tap a side
-              of any open matchup to drop one; your ✕ pulls the last back. */}
-          {br && draw && (
-            <div style={{ marginBottom:14, overflowX:"auto" }}>
-              <BracketGrid state={state} ev={ev} gm={false} bet={{
-                onBet: marketOpen ? (r2, m2, tIdx, roundName) => {
-                  if (room < PT) return;
-                  bet({ kind:"match", eventId:ev.id, teamIdx:tIdx,
-                    pickPlayers:[...draw.teams[tIdx].players], pickTeam:true, drawId:draw.id,
-                    match:[r2, m2], matchName: roundName, evName: ev.name });
-                } : undefined,
-                chips: (r2, m2, tIdx) => {
-                  const bets = pending.filter(x => x.w.kind === "match" && x.w.eventId === ev.id &&
-                    x.w.drawId === draw.id && x.w.match?.[0] === r2 && x.w.match?.[1] === m2 &&
-                    x.w.teamIdx === tIdx);
-                  if (!bets.length) return null;
-                  const chips = bets.map(x => ({ p: x.w.player, val: x.w.stake }));
-                  const mineBets = bets.filter(x => x.w.player === me);
-                  return <BetChipCluster chips={chips} size={20} max={3}
-                    reserveAction={marketOpen}
-                    onRetract={marketOpen && mineBets.length > 0
-                      ? () => onRetract(mineBets[mineBets.length - 1].w.id)
-                      : undefined} />;
-                },
-              }} />
-              <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", marginTop:6 }}>
-                {marketOpen
-                  ? "Matchups pay even. Tap a side to put a chip on it."
-                  : "Betting is locked. Chips stay on the bracket until each matchup settles."}</div>
-            </div>
-          )}
-          {st && !br && (
-            <div style={{ marginBottom:14 }}>
-              <StageGrid state={state} ev={ev} gm={false} />
-            </div>
-          )}
-
-          {outrights.length > 0 && (
-            <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-                <span style={{ ...label }}>Winner</span>
-                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays 2 to 1</span>
-              </div>
-              <div style={{ display: bigTeams ? "flex" : "grid", flexDirection:"column",
-                gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
-                {outrights.map((o, i) => (
-                  <PickRow key={o.key} players={o.players} name={o.name} wide={bigTeams}
-                    cellStyle={!bigTeams ? centeredGridCell(i, outrights.length, 2, 6) : undefined}
-                    pred={w => w.kind === "outright" && w.eventId === ev.id &&
-                      (o.pick.pickTeam
-                        ? w.pickTeam && w.drawId === o.pick.drawId && (w.pickPlayers||[]).join("|") === o.pick.pickPlayers.join("|")
-                        : !w.pickTeam && w.pick === o.key)}
-                    onClick={() => bet(o.pick)} />
-                ))}
-              </div>
-            </>
-          )}
-          {ev.kind !== "solo" && !draw && (
-            <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginBottom:10 }}>
-              Winner betting opens after the draw.
-            </div>
-          )}
-
-          {stageGroups.length > 0 && (
-            <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-                <span style={{ ...label }}>Advancing</span>
-                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays even</span>
-              </div>
-              {stageGroups.map(g => (
-                <div key={g.gi} style={{ marginBottom:10 }}>
-                  <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)", textTransform:"uppercase",
-                    letterSpacing:"0.12em", marginBottom:4 }}>{g.name}</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                    {g.entrants.map(k => {
-                      const v = stageEntrantView(state, st, k);
-                      return <PickRow key={String(k)} players={v.players} name={v.name}
-                        pred={w => w.kind === "stage" && w.stagesId === st.id && !w.final &&
-                          w.group === g.gi && w.pickKey === k}
-                        onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, group:g.gi,
-                          groupName:g.name, pickKey:k, pickPlayers:[...v.players],
-                          pickTeam: st.entrantType === "team", evName:ev.name })} />;
-                    })}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {stageFinal && (
-            <>
-              <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:8 }}>
-                <span style={{ ...label }}>The Final</span>
-                <span style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>pays even</span>
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:12 }}>
-                {stageFinal.map(k => {
-                  const v = stageEntrantView(state, st, k);
-                  return <PickRow key={String(k)} players={v.players} name={v.name}
-                    pred={w => w.kind === "stage" && w.stagesId === st.id && w.final && w.pickKey === k}
-                    onClick={() => bet({ kind:"stage", eventId:ev.id, stagesId:st.id, final:true,
-                      pickKey:k, pickPlayers:[...v.players], pickTeam: st.entrantType === "team", evName:ev.name })} />;
-                })}
-              </div>
-            </>
-          )}
-
-          {/* the cap case needs no sentence, the meter below is showing it */}
-          {me && myPts - myExp < PT && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", padding:"2px 0 6px" }}>
-            Not enough points until a wager settles.</div>}
-
-          </div>
-        </div>
-      )}
-
-      {/* the rack: fixed above the tab bar the whole time betting is open.
-          Pick a chip, tap the board. Exactly video roulette.
-          Above the chips, the rule as a picture instead of two loose words:
-          the bar is your WHOLE stack, the notch is how much of it may ride,
-          the gold is what is riding now. The gap between gold and notch is
-          what you have left, and you can see it can never cross. Shown even
-          when you are maxed out, because that is when it explains the most. */}
-      {me && ev && marketOpen && (
-        <div style={{ position:"fixed", bottom:"calc(72px + env(safe-area-inset-bottom))", zIndex:48,
-          left:"50%", transform:"translateX(-50%)", width:"min(92vw, 430px)",
-          display:"flex", flexDirection:"column", gap:10, padding:"11px 16px 12px", borderRadius:16,
-          background:"var(--paper)", border:"1px solid var(--line)", boxShadow:"var(--shadow-3)" }}>
-          <div>
-            <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:5 }}>
-              <span style={{ ...label, fontSize:9.5 }}>At risk</span>
-              <span style={{ marginLeft:"auto", fontFamily:DISPLAY, fontWeight:700, fontSize:17,
-                lineHeight:1, color: room >= PT ? "var(--ink)" : "var(--clay)" }}>{fmt(room)}</span>
-              <span style={{ fontFamily:SANS, fontSize:9.5, fontWeight:700, letterSpacing:"0.1em",
-                textTransform:"uppercase", color:"var(--muted)" }}>to bet</span>
-            </div>
-            <div style={{ position:"relative", height:9, borderRadius:99, background:"var(--paper2)",
-              border:"1px solid var(--line)" }}>
-              <div style={{ height:"100%", borderRadius:99, background:GOLD_GRAD,
-                width:`${myPts ? Math.min(100, (myExp / myPts) * 100) : 0}%`, transition:"width .2s ease" }} />
-              {/* the cap, standing on the stack it is half of */}
-              {/* below 1,000 the MAX_RISK floor gives you MORE than half, so
-                  the notch sits past the middle. Generous either way, and the
-                  exact numbers are on the line below */}
-              <div style={{ position:"absolute", top:-4, bottom:-4, width:2, borderRadius:2,
-                background:"var(--ink)", left:`${myPts ? Math.min(100, (myCap / myPts) * 100) : 100}%` }} />
-            </div>
-            <div style={{ display:"flex", marginTop:4, fontFamily:SANS, fontSize:10, color:"var(--muted)" }}>
-              <span>{fmt(myExp)} of {fmt(myCap)} max</span>
-              <span style={{ marginLeft:"auto" }}>stack {fmt(myPts)}</span>
-            </div>
-          </div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:13 }}>
-            {RACK_DENOMS.map(d => {
-              const ok = d <= room;
-              return (
-                <button key={d} disabled={!ok} onClick={() => setDenom(d)} aria-label={`Bet ${d} a tap`}
-                  style={{ background:"none", border:"none", padding:0, cursor: ok ? "pointer" : "default",
-                    transform: denom === d && ok ? "translateY(-7px) scale(1.14)" : "none",
-                    transition:"transform .16s ease", opacity: ok ? 1 : 0.28,
-                    filter: denom === d && ok ? "drop-shadow(0 5px 7px rgba(23,16,9,0.5))" : "none" }}>
-                  <BankChip p={me} size={42} val={d} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {pending.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
-        textTransform:"uppercase", background:"var(--paper2)", color:"var(--ink)", borderRadius:6,
-        padding:"3px 10px", margin:"4px 0 8px" }}>{pendingLines.length} open</div>}
-      {pendingLines.map(x => <Row key={x.w.id} x={x} />)}
-      {settledLines.length > 0 && <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.08em",
-        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)", borderRadius:6,
-        padding:"3px 10px", margin:"14px 0 8px", border:"1px solid var(--line)" }}>Settled</div>}
-      {settledByPlayer.map(g => <SettledRow key={g.player} g={g} />)}
-    </div>
-  );
-}
 
 
 /* ─────────── duels ───────────
-   Head-to-head phone games. The strip lives under the board; the game itself
+   Head-to-head phone games. Open challenges live on Home; the game itself
    takes the whole screen. Settlement is derived server-side from the runs. */
 const duelTime = r => (r.foul ? "foul" : `${r.ms}ms`);
-
-/* open duels involving you, and only you: a compact strip near the top of
-   the board. It only exists while a duel needs attention. Everything else
-   (history, other people's duels) lives in the ticker and player cards. */
-function DuelStrip({ state, me, gm, onPlay, onDecline, onVoid }) {
-  const mine = (state.duels || []).filter(d =>
-    d.status === "open" && !resolveDuel(d).settled && (d.from === me || d.to === me));
-  if (!mine.length) return null;
-  return (
-    <div style={{ marginBottom:10 }}>
-      {mine.map(d => {
-        const myTurn = !d.runs?.[me];
-        const other = d.from === me ? d.to : d.from;
-        return (
-          <div key={d.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 13px",
-            borderRadius:14, marginBottom:6,
-            background: myTurn ? "var(--sun-tint)" : "var(--paper)",
-            border:"1px solid " + (myTurn ? "rgba(240,176,47,0.45)" : "var(--line)") }}>
-            <BankChip p={other} size={18} />
-            <Avatar state={state} p={other} size={22} />
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--ink)", flex:1,
-              minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {myTurn
-                ? d.to === me ? `${disp(state, other)} challenged you` : `Your turn vs ${disp(state, other)}`
-                : `Waiting on ${disp(state, other)}`}
-            </span>
-            {myTurn && d.to === me && !Object.keys(d.runs || {}).length && (
-              <button onClick={() => onDecline(d.id)} style={{ background:"none", border:"none",
-                color:"var(--muted)", fontFamily:SANS, fontWeight:700, fontSize:11, cursor:"pointer",
-                textTransform:"uppercase", padding:"4px 6px", flexShrink:0 }}>Decline</button>
-            )}
-            {myTurn && (
-              <button onClick={() => onPlay(d.id)} style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
-                letterSpacing:"0.05em", textTransform:"uppercase", background:"var(--sun)", color:"var(--ink0)",
-                border:"1.5px solid var(--ink0)", borderRadius:10, padding:"6px 14px", cursor:"pointer",
-                flexShrink:0 }}>Play</button>
-            )}
-            {gm && (
-              <button onClick={() => onVoid(d.id)} style={{ background:"none", border:"1px solid var(--danger-line)",
-                borderRadius:10, color:"var(--clay)", fontFamily:SANS, fontWeight:700, fontSize:11, padding:"4px 8px",
-                cursor:"pointer", textTransform:"uppercase", flexShrink:0 }}>Void</button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* tapping any player opens their card first: who they are, how their weekend
-   is going, and only then the call-out. No surprise Quick Draw. */
-function PlayerSheet({ state, me, p, standings, events, onClose, onDuel }) {
-  const prof = state.profiles?.[p] || {};
-  const row = standings.find(r => r.player === p);
-  const duels = (state.duels || []).map(d => ({ d, r: resolveDuel(d) })).filter(x => x.r.settled && !x.r.push);
-  const dw = duels.filter(x => x.r.winner === p).length;
-  const dl = duels.filter(x => x.r.loser === p).length;
-  const busy = (state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled &&
-    ((d.from === me && d.to === p) || (d.from === p && d.to === me)));
-  const canDuel = me && p !== me && !state.frozen && state.live;
-  const legIn = cleanLeg(prof.flightIn), legOut = cleanLeg(prof.flightOut);
-  /* capitalised after the join, not before: with only a return leg the line
-     starts at "leaves Sun" and would open lowercase */
-  const travel = (() => {
-    const t = [
-      legIn && (legIn.note || (legTime(legIn.time) && `lands Fri ${legTime(legIn.time)}`)),
-      legOut && (legOut.note || (legTime(legOut.time) && `leaves Sun ${legTime(legOut.time)}`)),
-    ].filter(Boolean).join(", ");
-    return t && t[0].toUpperCase() + t.slice(1);
-  })();
-  /* the ante is bounded by whichever of the two can cover less, mirroring
-     sendDuel so the rack never offers a chip the server will refuse */
-  const spendable = q => {
-    const pts = standings.find(r => r.player === q)?.pts ?? 0;
-    const antes = (state.duels || [])
-      .filter(d => d.status === "open" && !resolveDuel(d).settled && (d.from === q || d.to === q))
-      .reduce((n, d) => n + d.stake, 0);
-    return Math.min(maxRisk(pts), pts - atRisk(state, q, events || []) - antes);
-  };
-  const anteMax = canDuel ? Math.min(spendable(me), spendable(p)) : 0;
-  const [ante, setAnte] = useState(PT);
-  useEffect(() => { if (ante > anteMax) setAnte(Math.max(PT, Math.floor(anteMax / PT) * PT)); }, [anteMax]); // eslint-disable-line
-  return (
-    <Sheet title={disp(state, p)} onClose={onClose}>
-      <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:14 }}>
-        <Avatar state={state} p={p} size={64} ring />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <BankChip p={p} size={20} />
-            {prof.num != null && <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
-              fontSize:19, color:"var(--muted2)" }}>#{prof.num}</span>}
-          </div>
-          {/* before the weekend every row is 1st on 1,000 with no wins, which
-              says nothing about anyone. Until the board means something, use
-              the line for the thing people actually want off each other
-              months out: when you land and when you go. */}
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
-            {state.live
-              ? <>{ord(row?.rank ?? 1)} on the board, {fmt(row?.pts ?? 0)} pts,{" "}
-                  {row?.wins ?? 0} win{(row?.wins ?? 0) === 1 ? "" : "s"}
-                  {(dw > 0 || dl > 0) && <>, duels {dw} and {dl}</>}</>
-              : travel || <span style={{ color:"var(--muted)" }}>No flights in yet</span>}
-          </div>
-        </div>
-      </div>
-      {canDuel && (
-        <div style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"12px 13px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, letterSpacing:"0.03em",
-              textTransform:"uppercase", color:"var(--ink)", flex:1 }}>Quick Draw</span>
-            <BankChip p={me} size={16} /><BankChip p={p} size={16} />
-          </div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.55, marginBottom:10 }}>
-            You both play on your own phone whenever you want. The screen flashes after a random
-            wait, tap it. Fastest tap wins the pot. Tapping early is a foul.
-          </div>
-          {busy
-            ? <div style={{ fontFamily:SANS, fontSize:12.5, fontWeight:600, color:"var(--muted)" }}>
-                A challenge between you two is already open.</div>
-            : (
-              <>
-                {/* you name the ante, capped by whichever of you can cover less */}
-                <div style={{ ...label, fontSize:10, marginBottom:6 }}>Ante, each</div>
-                <div style={{ display:"flex", alignItems:"flex-end", gap:11, marginBottom:11 }}>
-                  {RACK_DENOMS.map(d => {
-                    const okd = d <= anteMax;
-                    return (
-                      <button key={d} disabled={!okd} onClick={() => setAnte(d)} aria-label={`Ante ${d}`}
-                        style={{ background:"none", border:"none", padding:0, cursor: okd ? "pointer" : "default",
-                          transform: ante === d && okd ? "translateY(-6px) scale(1.12)" : "none",
-                          transition:"transform .16s ease", opacity: okd ? 1 : 0.28 }}>
-                        <BankChip p={me} size={38} val={d} />
-                      </button>
-                    );
-                  })}
-                </div>
-                <Btn onClick={() => onDuel(ante)} style={{ width:"100%" }}>
-                  Challenge {disp(state, p)} for {fmt(ante)}</Btn>
-              </>
-            )}
-        </div>
-      )}
-    </Sheet>
-  );
-}
 
 function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
   const myRun0 = duel?.runs?.[me] || null;
@@ -6211,7 +3551,7 @@ function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
     }
   };
   const wrap = kids => (
-    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.98)",
+    <div className="fd-night" style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       padding:"calc(30px + env(safe-area-inset-top)) 24px calc(30px + env(safe-area-inset-bottom))" }}>
       {kids}
@@ -6321,7 +3661,7 @@ function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,
       pointerEvents:"none",
       ...(top ? { top:"calc(64px + env(safe-area-inset-top))" }
               : { bottom:"calc(66px + env(safe-area-inset-bottom))" }) }}>
-      <div style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
+      <div className="fd-night" style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
         background:"rgba(23,16,9,0.97)", border:"1px solid rgba(194,88,50,0.4)", borderRadius:14,
         padding:"8px 10px", boxShadow:"var(--shadow-3)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
@@ -6551,10 +3891,10 @@ function AdjustSheet({ player, onClose, save }) {
     </Sheet>
   );
 }
-function PinSheet({ onClose, unlock }) {
+function PinSheet({ onClose, onBack, unlock }) {
   const [pin, setPin] = useState("");
   return (
-    <Sheet title="Commissioner" onClose={onClose}>
+    <Sheet title="Commissioner" onClose={onClose} onBack={onBack}>
       <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
         aria-label="Commissioner passcode"
         inputMode="numeric" placeholder="Passcode" autoFocus
@@ -6567,7 +3907,8 @@ function PinSheet({ onClose, unlock }) {
     </Sheet>
   );
 }
-function ProfileSheet({ state, me, onClose, save, onChip, spotifyCatalogEnabled }) {
+function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled }) {
+  const [section, setSection] = useState(initialSection);
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
   const [num, setNum] = useState(state.profiles?.[me]?.num != null ? String(state.profiles[me].num) : "");
@@ -6579,30 +3920,59 @@ function ProfileSheet({ state, me, onClose, save, onChip, spotifyCatalogEnabled 
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   const [walkoutTrack, setWalkoutTrack] = useState(
     state.profiles?.[me]?.walkoutTrack || null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const pending = useRef(null);
+  /* A chip claim and a profile/photo save share one guard. Keep the draft
+     fixed and the sheet open until every write in the operation settles. */
+  const submit = operation => {
+    if (pending.current) return pending.current;
+    setBusy(true); setError("");
+    pending.current = Promise.resolve().then(operation)
+      .catch(() => ({ ok:false, error:"Couldn't save your profile. Try again." }))
+      .then(result => {
+        if (result?.ok !== true) setError(result?.error || "Couldn't save your profile. Try again.");
+        return result;
+      })
+      .finally(() => { pending.current = null; setBusy(false); });
+    return pending.current;
+  };
+  const close = () => { if (!pending.current) onClose(); };
   if (!me) return null;
   return (
-    <Sheet title="Your profile" onClose={onClose}>
+    <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
+      <fieldset disabled={busy} aria-busy={busy}
+        style={{ border:0, padding:0, margin:0, minWidth:0 }}>
+      <div className="fd-profile-sections" role="group" aria-label="Profile sections">
+        {[["card","Card"],["travel","Travel"],["walkout","Walkout"]].map(([id,name]) =>
+          <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)}>{name}</button>)}
+      </div>
+      <div hidden={section !== "card"}>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
-        num={num} setNum={setNum} size={size} setSize={setSize} onChip={onChip} showSize={false} />
-      <div style={{ marginTop:20, paddingTop:18, borderTop:"1px solid var(--line)" }}>
+        num={num} setNum={setNum} size={size} setSize={setSize}
+        onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
+      </div>
+      <div hidden={section !== "travel"}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
           textTransform:"uppercase", color:"var(--ink)", marginBottom:12 }}>Information I need</div>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
           flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
         <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
-      <div style={{ marginTop:20, paddingTop:18, borderTop:"1px solid var(--line)" }}>
+      <div hidden={section !== "walkout"}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
           textTransform:"uppercase", color:"var(--ink)", marginBottom:5 }}>Walkout song</div>
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.45,
-          marginBottom:12 }}>Pick the moment that should hit when your name gets called.</div>
         <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
           enabled={spotifyCatalogEnabled} />
       </div>
-      <ActionButton disabled={!display.trim()} onClick={() => save({ display: display.trim(),
+      </fieldset>
+      <div className="fd-profile-save">
+      {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay)", marginTop:14 }}>{error}</div>}
+      <ActionButton disabled={busy || !display.trim()} pending={busy} onClick={() => submit(() => save({ display: display.trim(),
           num: num === "" ? null : Number(num), size, flightsBooked,
-          flightIn, flightOut, walkoutTrack, ...(photo ? {photo} : {}) })}
-        style={{ width:"100%", fontSize:16, padding:"14px", marginTop:16 }}>Save</ActionButton>
+          flightIn, flightOut, walkoutTrack, ...(photo ? {photo} : {}) }))}
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>Save</ActionButton>
+      </div>
     </Sheet>
   );
 }
@@ -6767,7 +4137,7 @@ function ShowControlSheet({
         <>
           <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden",
             marginBottom:14, background:"var(--paper2)" }}>
-            <div style={{ background:"var(--night)", padding:"12px 14px", display:"flex",
+            <div className="fd-night" style={{ background:"var(--night)", padding:"12px 14px", display:"flex",
               alignItems:"center", gap:10 }}>
               <Tag tone={scene.definition?.intensity === "major" ? "gold" : "dim"}>
                 {scene.definition?.intensity || "Scene"}</Tag>
@@ -7074,7 +4444,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
   );
 }
 
-function Reveal({ state, reveal, big, auto, onClose, onBets }) {
+function Reveal({ state, reveal, big, auto, onClose, onBets, onPlayer }) {
   const teamItems = reveal.versus ? 1 : (reveal.groups?.length || 0);
   const crew = reveal.crew || [];
   const items = teamItems + (crew.length ? 1 : 0);
@@ -7092,8 +4462,9 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
     const t = setTimeout(() => closeRef.current(), reducedMotion ? 2200 : 6000);
     return () => clearTimeout(t);
   }, [auto, doneAll, reducedMotion]);
+  if (!big) return <DrawAnnouncement state={state} reveal={reveal} onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
+    <div className="fd-night" style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
       padding:"calc(30px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom))",
       overflowY:"auto" }}>
@@ -7159,182 +4530,33 @@ function Reveal({ state, reveal, big, auto, onClose, onBets }) {
 /* ─────────── TV mode ─────────── */
 /* one point as a poker chip in the player's claimed color and skin;
    empty renders the open table spot it could fill */
-const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
-  const pt = (r, deg) => {
-    const a = deg * Math.PI / 180;
-    return [cx + Math.cos(a) * r, cx + Math.sin(a) * r];
-  };
-  const lines = (n, off, r1, r2, w) => Array.from({ length: n }, (_, i) => {
-    const [x1, y1] = pt(r1, i * (360 / n) + off), [x2, y2] = pt(r2, i * (360 / n) + off);
-    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={ink}
-      strokeWidth={w} strokeLinecap="round" />;
-  });
-  if (skin === "plain") return null;
-  if (skin === "dash") return <circle cx={cx} cy={cx} r={edge - 1.1} fill="none"
-    stroke={ink} strokeWidth="3" strokeDasharray="8.4 11.4" strokeLinecap="butt" />;
-  if (skin === "ring") return <>
-    <circle cx={cx} cy={cx} r={edge - 2.5} fill="none" stroke={ink} strokeWidth="1.15" />
-    <circle cx={cx} cy={cx} r={edge - 4.4} fill="none" stroke={ink} strokeWidth=".8" opacity=".8" />
-  </>;
-  if (skin === "quad") return lines(4, 0, edge - 3.6, edge + 0.6, 3.4);
-  if (skin === "dots") return Array.from({ length: 12 }, (_, i) => {
-    const [x, y] = pt(edge - 1.45, i * 30 + 15);
-    return <circle key={i} cx={x} cy={y} r="1.08" fill={ink} />;
-  });
-  /* the loud half of the rack. Still flat, still one ink, still an edge
-     treatment so the number in the middle stays readable at 18px */
-  const around = (n, d, r, spin = 0) => Array.from({ length: n }, (_, i) => {
-    const a = i * (360 / n) + spin, [x, y] = pt(r, a);
-    return <path key={i} d={d} fill={ink}
-      transform={`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${a + 90})`} />;
-  });
-  if (skin === "saw") {
-    const n = 11, p2 = [];
-    for (let i = 0; i < n * 2; i++) {
-      const [x, y] = pt(i % 2 ? edge - 3.6 : edge + 0.5, i * (180 / n) - 90);
-      p2.push(`${x.toFixed(2)},${y.toFixed(2)}`);
-    }
-    return <polygon points={p2.join(" ")} fill="none" stroke={ink}
-      strokeWidth="1.5" strokeLinejoin="round" />;
-  }
-  /* symmetric teardrop: the earlier version had an inner curl that read as a
-     comma once it was 3px on a phone */
-  if (skin === "flame") return around(6,
-    "M0 -3.9C1.9 -1.5 2.3 -0.5 2.3 0.6 2.3 2.1 1.3 3 0 3S-2.3 2.1 -2.3 0.6C-2.3-0.5-1.9-1.5 0-3.9Z",
-    edge - 0.6);
-  if (skin === "star") return around(6,
-    "M0 -3C0.35-0.9 0.55-0.7 2.7-0.35 0.55 0 0.35 0.2 0 2.3c-0.35-2.1-0.55-2.3-2.7-2.65C-0.55-0.7-0.35-0.9 0-3Z",
-    edge - 0.9);
-  if (skin === "bolt") return around(6, "M-2.7-2.4 0 .2 2.7-2.4 2.7.2 0 2.9-2.7.2 0-2.4Z", edge - 0.8);
-  if (skin === "wave") {
-    const n = 60, d = [];
-    for (let i = 0; i <= n; i++) {
-      const [x, y] = pt(edge - 1.9 + Math.sin(i / n * Math.PI * 14) * 1.5, i * (360 / n));
-      d.push(`${i ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`);
-    }
-    return <path d={d.join(" ")} fill="none" stroke={ink} strokeWidth="1.5" />;
-  }
-  /* the one asymmetric skin, and the only one that has to be read as an
-     object rather than a pattern, so it is filled. It rides the top edge:
-     every skin has to leave the middle of the chip clear, because the stamp
-     in there is the whole point of the chip. */
-  if (skin === "crown") return (
-    <path d="M-6.2 3.4 -5-3.6-2.1-0.9 0-5.2 2.1-0.9 5-3.6 6.2 3.4Z"
-      fill={ink} transform={`translate(${cx} ${cx - 8.3})`} />
-  );
-  return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
-};
-function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
-  color: colorOverride, isLight: lightOverride, valueRing=false }) {
-  const clipId = `chip-edge-${useId().replace(/:/g, "")}`;
-  if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
-    border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
-  const color = colorOverride || playerColor(p);
-  const light = lightOverride ?? playerIsLight(p);
-  const skin = skinOverride || playerSkin(p);
-  const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
-  const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
-  const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const num = CHIP_PROFILES[p]?.num ?? playerNo(p);
-  const stamp = stampOverride != null ? stampOverride : num;
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
-      style={{ flexShrink:0, display:"block",
-        filter:size >= 32 ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
-      <defs>
-        <clipPath id={clipId}><circle cx="16" cy="16" r="14.7" /></clipPath>
-      </defs>
-      <circle cx="16" cy="16" r="14.7" fill={color} stroke="var(--ink0)" strokeWidth="1.45"/>
-      <circle cx="16" cy="16" r="13.25" fill="none" stroke={inlayLine} strokeWidth=".65" opacity=".72" />
-      <g clipPath={`url(#${clipId})`}>{chipMarks(skin, 16, 12.4, skinInk)}</g>
-      <circle cx="16" cy="16" r="8.75" fill={inlay} stroke={inlayLine} strokeWidth=".8" />
-      <path d="M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4" fill="none"
-        stroke="rgba(255,255,255,.38)" strokeWidth=".75" strokeLinecap="round" opacity=".65" />
-      <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
-        stroke="rgba(23,16,9,.45)" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
-      {valueRing && <circle cx="16" cy="16" r="7.25" fill="none" strokeWidth=".8"
-        stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
-      {size >= 20 && stamp != null && (
-        <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
-          fontFamily={DISPLAY} fontWeight="700" fontSize={valueRing && stamp >= 100 ? 8.7 : 11.7}
-          fill={light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
-      )}
-    </svg>
-  );
-}
-function BankChip({ p, size=18, empty, val }) {
-  /* A bet chip carries its value; an identity chip carries the jersey number.
-     Color still says whose it is either way. */
-  return <ChipFace p={p} size={size} empty={empty} stamp={val} valueRing={val != null} />;
-}
+
 /* A chip pile gets one fixed well. More bettors increase the badge, never the
    width or height of the market pill carrying it. */
-function BetChipCluster({ chips, size=22, max=3, onRetract, reserveAction=false }) {
-  if (!chips?.length) return null;
-  const visible = chips.slice(0, max);
-  const step = Math.max(7, Math.round(size * 0.42));
-  const stackWidth = size + step * (max - 1);
-  const actionWidth = reserveAction ? 24 : 0;
-  return (
-    <span style={{ width:stackWidth + actionWidth, height:size + 4,
-      display:"flex", alignItems:"center", justifyContent:"flex-end", flexShrink:0,
-      cursor:"inherit" }}>
-      <span style={{ position:"relative", width:stackWidth, height:size, flexShrink:0 }}>
-        {visible.map((chip, index) => {
-          const left = stackWidth - size - (visible.length - 1 - index) * step;
-          return (
-            <span key={`${chip.p}:${index}`} style={{ position:"absolute", left, top:0,
-              width:size, height:size }}>
-              <BankChip p={chip.p} size={size} val={chip.val} />
-            </span>
-          );
-        })}
-        {chips.length > max && (
-          <span style={{ position:"absolute", right:-3, top:-5, minWidth:17, height:17,
-            padding:"0 4px", borderRadius:99, display:"flex", alignItems:"center",
-            justifyContent:"center", background:"var(--night)", border:"1px solid var(--paper)",
-            color:"var(--bone)", fontFamily:SANS, fontWeight:800, fontSize:9,
-            lineHeight:1, zIndex:max + 1 }}>+{chips.length - max}</span>
-        )}
-      </span>
-      {reserveAction && (onRetract ? (
-        <span onClick={e => { e.stopPropagation(); onRetract(); }} role="button"
-          aria-label="Retract last chip" style={{ width:20, height:20, borderRadius:99,
-            display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-            marginLeft:4, fontSize:10, background:"var(--ink-tint)",
-            color:"var(--muted2)", flexShrink:0 }}>✕</span>
-      ) : <span aria-hidden="true" style={{ width:24, height:20, flexShrink:0 }} />)}
-    </span>
-  );
-}
-/* TV betting scene: the open board. Every live pick is a felt cell and the
-   value chips sit on it; before any chips land, the game's hero plays. */
+
+/* The TV follows the current contest even before a chip lands. */
 function TVBettingBoard({ state, events, ev }) {
-  const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
-    .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
-  const chipsIn = open.reduce((n, x) => n + x.w.stake, 0) / PT;
-  if (!open.length) return (
-    <div style={{ height:"100%", display:"flex", flexDirection:"column", alignItems:"center",
-      justifyContent:"center", gap:6 }}>
-      <EventSpotlight gameId={ev.game} big />
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)",
-        textTransform:"uppercase", color:"var(--night-text)" }}>Betting is open. No chips in yet.</div>
+  const contest = resolveCurrentContest(state, ev);
+  if (!contest) return null;
+  const open = (state.wagers || []).filter(w => wagerMatchesContest(w,contest) && resolveWager(state,w,events).status === "pending");
+  const betting = contest.phase === "betting-open";
+  const keyOf = w => contest.kind === "match" ? w.teamIdx : contest.kind === "ffa"
+    ? (w.pickTeam ? contest.sides.find(side => side.players.length === w.pickPlayers?.length && side.players.every(p=>w.pickPlayers.includes(p)))?.key : w.pick) : w.pickKey;
+  return <div style={{display:"flex",flexDirection:"column",gap:18,height:"100%"}}>
+    <div style={{fontFamily:DISPLAY,fontWeight:700,fontSize:"clamp(22px,2.5vw,36px)",color:"var(--sun)"}}>{contest.label}</div>
+    <div style={{display:"grid",gridTemplateColumns:contest.sides.length === 2 ? "1fr 1fr" : "repeat(auto-fit,minmax(220px,1fr))",gap:14,alignContent:"start",flex:1,overflowY:"auto"}}>
+      {contest.sides.map(side=>{
+        const bets = open.filter(w=>keyOf(w) === side.key);
+        return <div key={String(side.key)} style={{padding:20,border:"1px solid var(--ghost-line)",borderRadius:14,background:"var(--night2)",minWidth:0}}>
+          <AvatarStack state={state} players={side.players} size={48} max={4}/>
+          <div style={{fontFamily:DISPLAY,fontSize:"clamp(22px,2.3vw,34px)",color:BONE,margin:"12px 0",overflowWrap:"anywhere"}}>{side.players.map(p=>disp(state,p)).join(" & ")}</div>
+          <BetChipCluster chips={bets.map(w=>({p:w.player,val:w.stake}))} size={42} max={5}/>
+          <div style={{fontFamily:SANS,fontSize:15,color:"var(--sun)",marginTop:10}}>{fmt(bets.reduce((n,w)=>n+w.stake,0))} in chips</div>
+        </div>;
+      })}
     </div>
-  );
-  return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
-      <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
-        <BetsBoard state={state} events={events} ev={ev} big />
-      </div>
-      <div style={{ display:"flex", alignItems:"center", gap:12, paddingTop:12 }}>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
-          textTransform:"uppercase", color:"var(--sun)" }}>
-          {fmt(chipsIn * PT)} in play</span>
-        <span style={{ fontFamily:SANS, fontSize:"clamp(12px,1.2vw,16px)", color:"var(--night-text)" }}>
-          winner pays 2 to 1, everything else even</span>
-      </div>
-    </div>
-  );
+    <div style={{fontFamily:SANS,fontSize:18,color:"var(--night-text)"}}>{betting ? "Betting open" : "Bets locked"} · Winner pays {contest.kind === "ffa" ? "2 to 1" : "1 to 1"}</div>
+  </div>;
 }
 
 /* the betting board: one cell per live pick, bets sit on it as chip stacks */
@@ -7950,7 +5172,9 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
               )}
             </div>
             <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
-              {activeBracketEv ? <BracketGrid state={state} ev={activeBracketEv} gm={false} size="lg"
+              {resolveCurrentContest(state, liveEv) && ["betting-open","betting-locked","in-progress"].includes(resolveCurrentContest(state, liveEv).phase)
+                ? <TVBettingBoard state={state} events={events} ev={liveEv} />
+                : activeBracketEv ? <BracketGrid state={state} ev={activeBracketEv} gm={false} size="lg"
                   bet={{ chips: tvBracketChips }} hot={upNext ? [upNext.r, upNext.m] : null} />
                 : activeStageEv ? <StageGrid state={state} ev={activeStageEv} gm={false} size="lg" />
                 : onDeckEv ? <TVBettingBoard state={state} events={events} ev={onDeckEv} />
@@ -7966,7 +5190,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                     </div>
                   )}
             </div>
-            {onDeckEv && (activeBracketEv || activeStageEv) && (
+            {onDeckEv && !resolveCurrentContest(state,liveEv) && (activeBracketEv || activeStageEv) && (
               <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
                 <BetsBoard state={state} events={events} ev={onDeckEv} />
               </div>
@@ -7992,7 +5216,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
             <img src={qrUrl} alt="Scan to join" style={{ width:"clamp(220px,24vw,340px)", display:"block",
               imageRendering:"pixelated" }} />
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
-              textTransform:"uppercase", color:"var(--ink)", marginTop:10 }}>Player check-in</div>
+              textTransform:"uppercase", color:"var(--ink0)", marginTop:10 }}>Player check-in</div>
           </div>
         </div>
       ) : scene === "next" && nextEv ? (
@@ -8130,169 +5354,4 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 }
 
 /* ─────────── rules ─────────── */
-function Guide({ events, state }) {
-  const [howToEv, setHowToEv] = useState(null);
-  const lg = state?.logistics || {};
-  const games = Object.entries(GAMES);
-  const awards = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
-    "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
-  const SectionTitle = ({ kicker, title, note }) => (
-    <div style={{ margin:"22px 2px 9px", minWidth:0 }}>
-      <div style={{ ...label, fontSize:10, marginBottom:3 }}>{kicker}</div>
-      <div style={{ display:"flex", alignItems:"baseline", gap:9, minWidth:0 }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, lineHeight:1,
-          textTransform:"uppercase", color:"var(--ink)", minWidth:0 }}>{title}</div>
-        {note && <div style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11.5,
-          color:"var(--muted)", flexShrink:0 }}>{note}</div>}
-      </div>
-    </div>
-  );
-  const Rule = ({ title, meta, children }) => (
-    <details style={{ background:"var(--paper)", border:"1px solid var(--line)",
-      borderRadius:12, marginBottom:7, overflow:"hidden", maxWidth:"100%" }}>
-      <summary style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 13px",
-        cursor:"pointer", listStyle:"none", minWidth:0 }}>
-        <span style={{ width:5, height:28, borderRadius:6, background:"var(--accent)", flexShrink:0 }} />
-        <span style={{ flex:1, minWidth:0 }}>
-          <span style={{ display:"block", fontFamily:DISPLAY, fontWeight:700, fontSize:18,
-            lineHeight:1, textTransform:"uppercase", color:"var(--ink)" }}>{title}</span>
-          <span style={{ display:"block", fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
-            marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{meta}</span>
-        </span>
-        <span aria-hidden="true" style={{ fontFamily:DISPLAY, fontWeight:700,
-          fontSize:20, color:"var(--accent2)" }}>+</span>
-      </summary>
-      <div style={{ borderTop:"1px solid var(--line)", padding:"11px 14px 13px 28px",
-        fontFamily:SANS, fontSize:13.5, lineHeight:1.58, color:"var(--muted2)" }}>{children}</div>
-    </details>
-  );
-  return (
-    <div style={{ padding:"0 16px 20px", maxWidth:"100%", overflowX:"hidden" }}>
-      <div style={{ background:"var(--paper)", border:"1.5px solid var(--ink)",
-        borderRadius:14, overflow:"hidden", marginBottom:4 }}>
-        <div style={{ padding:"13px 14px 12px" }}>
-          <div style={{ ...label, color:"var(--accent2)", marginBottom:5 }}>How Field Day works</div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)", maxWidth:360 }}>
-            Build one score. Bring it to poker.</div>
-          <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.55,
-            color:"var(--muted2)", marginTop:8 }}>
-            {ROSTER.length} players, {events.filter(e => !e.finale).length} events, one board.
-            {" "}Teams reshuffle every event.
-            Everyone starts at 1,000, and results, bets, and duels all move that same number.
-          </div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) auto minmax(0,1fr)",
-          alignItems:"center", gap:9, padding:"10px 13px", background:"var(--paper2)",
-          borderTop:"1px solid var(--line)" }}>
-          <div style={{ minWidth:0 }}>
-            <div style={{ ...label, fontSize:9.5 }}>All weekend</div>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--ink)",
-              textTransform:"uppercase", lineHeight:1.05 }}>Your points</div>
-          </div>
-          <div aria-hidden="true" style={{ color:"var(--accent2)", fontFamily:DISPLAY,
-            fontWeight:700, fontSize:22 }}>→</div>
-          <div style={{ minWidth:0, textAlign:"right" }}>
-            <div style={{ ...label, fontSize:9.5 }}>The finale</div>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, color:"var(--sun)",
-              textTransform:"uppercase", lineHeight:1.05 }}>Your chips</div>
-          </div>
-        </div>
-        <div style={{ padding:"11px 14px 13px", fontFamily:SANS, fontSize:12.5,
-          color:"var(--muted)", lineHeight:1.5 }}>
-          Whatever you have when the events end is the stack you are dealt at Championship Poker.
-          The winner of that table is the Field Day champion.
-        </div>
-      </div>
-
-      <SectionTitle kicker="The mechanics" title="Core rules" note="Tap to open" />
-      <Rule title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
-        Friday events pay 400. Saturday morning pays 800, afternoon 1,200, and night 1,600.
-        Solo events pay the podium. Team events pay every player on the placing team the full amount.
-        Ties are settled on the spot, and a championship tie is one pressure putt.
-      </Rule>
-      <Rule title="Betting" meta="One open event · 100 to 1,000 per tap">
-        Every event can be bet on. Betting opens when an event goes on deck and closes when the result posts.
-        Pick a chip, 100 to 1,000, and tap who you like. The outright winner pays 2 to 1.
-        Matchups, getting out of a heat or pool, and stage finals pay even. To limit the damage of one
-        bad decision, only half your points can be at risk at a time. Bets settle off the official result,
-        so correcting a result corrects the payouts. I can void any wager.
-      </Rule>
-      <Rule title="Duels" meta="Quick Draw · equal ante · three a day">
-        Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same.
-        You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait,
-        tap it. Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips.
-        One open challenge per pair, three a day.
-      </Rule>
-      <Rule title="Draws and brackets" meta="Balanced teams · live brackets, heats, and pools">
-        I run each draw, and it reveals on every phone at once. Teams balance from your ratings and your results
-        so far, and the later the weekend, the more the results count. Ratings are never shown. Some events are
-        captains drafting instead. Brackets, heats, and pools update here and on the TV as they are played.
-      </Rule>
-
-      <SectionTitle kicker="Saturday night" title="Awards" />
-      <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
-        borderRadius:14, padding:"12px 13px" }}>
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", marginBottom:9 }}>
-          Voted Saturday night.</div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-          {awards.map(x => <span key={x} style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
-            color:"var(--ink)", background:"var(--paper2)", border:"1px solid var(--line)",
-            borderRadius:99, padding:"6px 9px", maxWidth:"100%" }}>{x}</span>)}
-        </div>
-      </div>
-
-      <SectionTitle kicker="The house" title="Safety and respect" />
-      <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
-        borderRadius:14, padding:"11px 13px" }}>
-        <ul style={{ margin:0, paddingLeft:18, fontFamily:SANS, fontSize:13.5,
-          lineHeight:1.55, color:"var(--muted2)" }}>
-          <li style={{ marginBottom:5 }}>Alcohol is optional everywhere. NA equivalents carry no penalty. No forced participation.</li>
-          <li style={{ marginBottom:5 }}>Rack cups hold water. Drink from your own cup.</li>
-          <li style={{ marginBottom:5 }}>No hard contact. Respect the property.</li>
-          <li style={{ marginBottom:5 }}>Everyone knows when the 360 cam is rolling.</li>
-          <li>I can stop anything for safety.</li>
-        </ul>
-      </div>
-
-      {(lg.venue || lg.checkIn) && (
-        <>
-          <SectionTitle kicker={`${EDITION.short} · Scottsdale`} title="Trip details" />
-          <VenueCard lg={lg} />
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", margin:"-4px 2px 0" }}>
-            To update your flights, tap your player icon in the top-left.</div>
-        </>
-      )}
-      {!isStandalone() && (
-        <>
-          <SectionTitle kicker="On your phone" title="The app" />
-          <div style={{ background:"var(--paper)", border:"1px solid var(--line)",
-            borderRadius:14, padding:"12px 13px" }}><InstallHint /></div>
-        </>
-      )}
-
-      <SectionTitle kicker={`${games.length} games`} title="Learn the games" note="Tap one" />
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))",
-        gap:7, width:"100%", maxWidth:"100%" }}>
-        {games.map(([id, g]) => {
-          const objective = (g.howto || g.variants?.[0]?.howto)?.objective || "";
-          return (
-            <button key={id} onClick={() => setHowToEv(id)}
-              aria-label={objective ? `${g.name}. ${objective}` : g.name}
-              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", minWidth:0,
-                textAlign:"left", cursor:"pointer", background:"var(--paper)",
-                border:"1px solid var(--line)", borderRadius:12, padding:"8px 9px" }}>
-              <GameMark id={id} size={28} />
-              <span style={{ flex:1, minWidth:0, fontFamily:DISPLAY, fontWeight:700, fontSize:15.5,
-                color:"var(--ink)", textTransform:"uppercase", lineHeight:1.05,
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{g.name}</span>
-              <span aria-hidden="true" style={{ color:"var(--accent2)", fontFamily:DISPLAY,
-                fontWeight:700, fontSize:16, flexShrink:0 }}>›</span>
-            </button>
-          );
-        })}
-      </div>
-      {howToEv && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
-    </div>
-  );
-}
+export { EventSheet, BracketSheet, EventIntro, Reveal, ResultSheet, PokerResultSheet, ChipCounter };

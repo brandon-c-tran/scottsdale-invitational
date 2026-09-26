@@ -21,6 +21,7 @@ import {
   resolveSlot,
   rosterPlayers,
   resolveEventLifecycle,
+  resolveCurrentContest,
   resolveWeekendOperation,
   wagerBoardEvent,
   validateEventParticipants,
@@ -36,6 +37,11 @@ import {
 } from "../worker/snapshot.js";
 
 const gm = { isGm:true, player:"Brandon" };
+const contestRef = (state, evId) => {
+  const event = BUILTIN_EVENTS.find(item => item.id === evId);
+  const contest = event && resolveCurrentContest(state, event);
+  return contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
+};
 const eightBall = BUILTIN_EVENTS.find(event => event.id === "8ball");
 const longPutt = BUILTIN_EVENTS.find(event => event.id === "putt");
 const snapshotEntries = () => new Map([
@@ -203,11 +209,11 @@ test("shared lifecycle drives one guarded GM action from setup through completio
 
   assert.equal(applyAction(state, "setOnDeck", { evId:"ignored", id:"putt" }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, longPutt).phase, "betting-open");
-  assert.match(applyAction(state, "startEvent", { evId:"putt" }, gm).error, /lock betting/i);
+  assert.match(applyAction(state, "startEvent", { evId:"putt", ...contestRef(state, "putt") }, gm).error, /lock.*start|lock betting/i);
 
-  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
+  assert.equal(applyAction(state, "setOnDeck", { id:null, ...contestRef(state, state.onDeck) }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, longPutt).phase, "betting-locked");
-  assert.equal(applyAction(state, "startEvent", { evId:"putt" }, gm).ok, true);
+  assert.equal(applyAction(state, "startEvent", { evId:"putt", ...contestRef(state, "putt") }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, longPutt).phase, "in-progress");
   assert.equal(applyAction(state, "beginResultEntry", { evId:"putt" }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, longPutt).phase, "result-entry");
@@ -262,63 +268,47 @@ test("shared lifecycle drives one guarded GM action from setup through completio
   assert.equal(state.results.putt.revision, 3);
 });
 
-test("bracket progress is rejected until betting locks and play starts", () => {
+test("each current bracket matchup must lock and start before its winner is recorded", () => {
   const state = structuredClone(EMPTY_STATE);
   const players = ROSTER.slice(0, 12);
   assert.equal(applyAction(state, "runDraw", {
-    evId:"8ball",
-    players,
-    roles:[{ player:ROSTER[12], role:"scorekeeper" }],
+    evId:"8ball", players, roles:[{ player:ROSTER[12], role:"scorekeeper" }],
   }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, eightBall).phase, "draw-revealed");
   assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
-
   const bracket = state.brackets["8ball"];
-  const match = bracket.rounds[0][0];
-  const teamIdx = match.a.t;
-  assert.match(applyAction(state, "pickBracketWinner", {
-    evId:"8ball",
-    r:0,
-    m:0,
-    teamIdx,
-  }, gm).error, /lock betting/i);
-  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
-  assert.equal(applyAction(state, "startEvent", { evId:"8ball" }, gm).ok, true);
-  assert.equal(applyAction(state, "pickBracketWinner", {
-    evId:"8ball",
-    r:0,
-    m:0,
-    teamIdx,
-  }, gm).ok, true);
-  assert.equal(resolveEventLifecycle(state, eightBall).phase, "in-progress");
-  assert.match(applyAction(state, "beginResultEntry", { evId:"8ball" }, gm).error, /complete the bracket/i);
+  let contest = resolveCurrentContest(state, eightBall);
+  const initial = { evId:"8ball", winner:contest.sides[0].key, ...contestRef(state, "8ball") };
+  assert.match(applyAction(state, "recordContestWinner", initial, gm).error, /lock betting/i);
+  assert.equal(applyAction(state, "setOnDeck", { id:null, ...contestRef(state, "8ball") }, gm).ok, true);
+  assert.equal(applyAction(state, "startEvent", { evId:"8ball", ...contestRef(state, "8ball") }, gm).ok, true);
+  assert.equal(applyAction(state, "recordContestWinner", initial, gm).ok, true);
+  assert.equal(resolveEventLifecycle(state, eightBall).phase, "betting-open");
+  assert.match(applyAction(state, "beginResultEntry", { evId:"8ball" }, gm).error, /lock.*start/i);
 
-  for (let roundIndex = 0; roundIndex < bracket.rounds.length; roundIndex++) {
-    for (let matchIndex = 0; matchIndex < bracket.rounds[roundIndex].length; matchIndex++) {
-      const current = bracket.rounds[roundIndex][matchIndex];
-      if (current.winner !== null && current.winner !== undefined) continue;
-      const winner = resolveSlot(bracket, current.a);
-      assert.notEqual(winner, null);
-      assert.equal(applyAction(state, "pickBracketWinner", {
-        evId:"8ball",
-        r:roundIndex,
-        m:matchIndex,
-        teamIdx:winner,
-      }, gm).ok, true);
-    }
+  let recorded = 1;
+  while ((contest = resolveCurrentContest(state, eightBall))) {
+    assert.ok(recorded < 20, "The finite bracket must advance after each result");
+    assert.equal(contest.phase, "betting-open");
+    const ref = contestRef(state, "8ball");
+    assert.equal(applyAction(state, "lockAndStart", { evId:"8ball", ...ref }, gm).ok, true);
+    assert.equal(resolveCurrentContest(state, eightBall).phase, "in-progress");
+    assert.match(applyAction(state, "beginResultEntry", { evId:"8ball" }, gm).error, /complete the bracket/i);
+    const result = applyAction(state, "recordContestWinner", {
+      evId:"8ball", winner:contest.sides[0].key, ...ref,
+    }, gm);
+    assert.equal(result.ok, true, result.error);
+    recorded += 1;
   }
+  assert.equal(recorded, state.draws["8ball"].teams.length - 1);
   assert.equal(applyAction(state, "beginResultEntry", { evId:"8ball" }, gm).ok, true);
   assert.equal(resolveEventLifecycle(state, eightBall).phase, "result-entry");
   const final = bracket.rounds.at(-1)[0];
-  const alternate = resolveSlot(bracket, final.b);
-  assert.equal(applyAction(state, "pickBracketWinner", {
-    evId:"8ball",
-    r:bracket.rounds.length - 1,
-    m:0,
-    teamIdx:alternate,
-  }, gm).ok, true);
-  assert.equal(resolveEventLifecycle(state, eightBall).phase, "in-progress");
-  assert.equal(state.eventOps["8ball"].resultEntryAt, undefined);
+  const before = structuredClone(bracket);
+  assert.match(applyAction(state, "pickBracketWinner", {
+    evId:"8ball", r:bracket.rounds.length - 1, m:0, teamIdx:resolveSlot(bracket, final.b),
+  }, gm).error, /current contest controls/i);
+  assert.deepEqual(bracket, before);
 });
 
 test("weekend operation keeps the newest active event as the canonical next action", () => {
@@ -340,6 +330,7 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
     actionId,
   });
   const wager = (pick, stake) => ({
+    ...contestRef(state, "putt"),
     kind:"outright",
     eventId:"putt",
     evName:"Long Putt",
@@ -379,18 +370,18 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
   assert.equal(atRisk(state, "Evan", allEventsOf(state)), 400);
 
   const khoaWager = state.wagers.find(entry => entry.pick === "Khoa");
-  const retracted = applyAction(state, "retractWager", { id:khoaWager.id }, bettor("retract-1"));
+  const retracted = applyAction(state, "retractWager", { id:khoaWager.id, ...contestRef(state, "putt") }, bettor("retract-1"));
   assert.equal(retracted.ok, true);
   assert.equal(retracted.extra.removed, false);
   assert.equal(khoaWager.stake, 200);
   assert.equal(khoaWager.chips.length, 1);
-  const retractRetry = applyAction(state, "retractWager", { id:khoaWager.id }, bettor("retract-1"));
+  const retractRetry = applyAction(state, "retractWager", { id:khoaWager.id, ...contestRef(state, "putt") }, bettor("retract-1"));
   assert.equal(retractRetry.ok, true);
   assert.equal(retractRetry.extra.unchanged, true);
   assert.equal(khoaWager.stake, 200);
 
-  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
-  assert.equal(applyAction(state, "startEvent", { evId:"putt" }, gm).ok, true);
+  assert.equal(applyAction(state, "setOnDeck", { id:null, ...contestRef(state, state.onDeck) }, gm).ok, true);
+  assert.equal(applyAction(state, "startEvent", { evId:"putt", ...contestRef(state, "putt") }, gm).ok, true);
   assert.equal(applyAction(state, "beginResultEntry", { evId:"putt" }, gm).ok, true);
   assert.equal(applyAction(state, "saveResult", {
     evId:"putt",
@@ -428,6 +419,7 @@ test("locking betting keeps its bracket active after matchup chips settle", () =
 
   assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
   assert.equal(applyAction(state, "placeWager", { wager:{
+    ...contestRef(state, "8ball"),
     kind:"match",
     eventId:"8ball",
     evName:"8-Ball Doubles",
@@ -441,16 +433,13 @@ test("locking betting keeps its bracket active after matchup chips settle", () =
   } }, bettor).ok, true);
   assert.equal(wagerBoardEvent(state).id, "8ball");
 
-  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
+  assert.equal(applyAction(state, "setOnDeck", { id:null, ...contestRef(state, state.onDeck) }, gm).ok, true);
   assert.equal(state.onDeck, null);
   assert.equal(wagerBoardEvent(state).id, "8ball");
 
-  assert.equal(applyAction(state, "startEvent", { evId:"8ball" }, gm).ok, true);
-  assert.equal(applyAction(state, "pickBracketWinner", {
-    evId:"8ball",
-    r:0,
-    m:0,
-    teamIdx,
+  assert.equal(applyAction(state, "startEvent", { evId:"8ball", ...contestRef(state, "8ball") }, gm).ok, true);
+  assert.equal(applyAction(state, "recordContestWinner", {
+    evId:"8ball", winner:teamIdx, ...contestRef(state, "8ball"),
   }, gm).ok, true);
   assert.equal(wagerBoardEvent(state).id, "8ball");
 });
@@ -462,12 +451,12 @@ test("locking an empty market keeps its betting board visible until the result p
   assert.equal(applyAction(state, "setOnDeck", { id:"putt" }, gm).ok, true);
   assert.equal(wagerBoardEvent(state).id, "putt");
 
-  assert.equal(applyAction(state, "setOnDeck", { id:null }, gm).ok, true);
+  assert.equal(applyAction(state, "setOnDeck", { id:null, ...contestRef(state, state.onDeck) }, gm).ok, true);
   assert.equal(state.wagers.length, 0);
   assert.equal(resolveEventLifecycle(state, longPutt).phase, "betting-locked");
   assert.equal(wagerBoardEvent(state).id, "putt");
 
-  assert.equal(applyAction(state, "startEvent", { evId:"putt" }, gm).ok, true);
+  assert.equal(applyAction(state, "startEvent", { evId:"putt", ...contestRef(state, "putt") }, gm).ok, true);
   assert.equal(wagerBoardEvent(state).id, "putt");
   assert.equal(applyAction(state, "beginResultEntry", { evId:"putt" }, gm).ok, true);
   assert.equal(wagerBoardEvent(state).id, "putt");
@@ -479,7 +468,7 @@ test("locking an empty market keeps its betting board visible until the result p
   assert.equal(wagerBoardEvent(state), null);
 });
 
-test("QA bracket betting covers open matchups without backing a player's opponent", () => {
+test("QA bracket betting covers only the current matchup without backing a player's opponent", () => {
   const state = structuredClone(EMPTY_STATE);
   assert.equal(applyAction(state, "runDraw", {
     evId:"8ball",
@@ -487,12 +476,13 @@ test("QA bracket betting covers open matchups without backing a player's opponen
   }, gm).ok, true);
   const draw = state.draws["8ball"];
   const bracket = state.brackets["8ball"];
+  assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
   const picks = ROSTER.slice(0, 9).map((player, index) =>
     qaBracketMatchWager(state, eightBall, player, index, 100));
 
   assert.equal(picks.every(wager => wager?.kind === "match"), true);
-  assert.equal(new Set(picks.map(wager => wager.match.join(":"))).size, 2);
-  assert.equal(applyAction(state, "setOnDeck", { id:"8ball" }, gm).ok, true);
+  assert.equal(new Set(picks.map(wager => wager.match.join(":"))).size, 1);
+  assert.ok(picks.every(wager => wager.contestId === resolveCurrentContest(state, eightBall).id));
   for (let index = 0; index < picks.length; index++) {
     const player = ROSTER[index];
     const wager = picks[index];
@@ -814,7 +804,7 @@ test("pre-M1 state hydrates additively without rewriting persisted values", () =
   assert.equal(hydrated.results.putt.id, "r1");
   assert.equal(hydrated.logistics.venue, "Original venue");
   assert.equal(hydrated.legacyMarker, "keep-me");
-  assert.equal(hydrated.v, 8);
+  assert.equal(hydrated.v, EMPTY_STATE.v);
   assert.deepEqual(hydrated.eventOps, {});
   assert.deepEqual(hydrated.wagerOps, {});
   assert.deepEqual(hydrated.showControl, { active:null, history:[] });

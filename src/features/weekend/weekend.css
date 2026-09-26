@@ -1,0 +1,193 @@
+.fd-weekend { padding:0 22px 30px; color:var(--ink); font-family:var(--fd-body); min-width:0; }
+.fd-weekend *, .fd-weekend *::before, .fd-weekend *::after { box-sizing:border-box; }
+.fd-weekend button, .fd-weekend a { -webkit-tap-highlight-color:transparent; }
+.fd-weekend button:focus-visible, .fd-weekend a:focus-visible, .fd-weekend summary:focus-visible { outline:2px solid var(--accent2); outline-offset:4px; }
+.fd-weekend-micro { font-family:var(--fd-body); font-size:9px; line-height:1.4; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+.fd-weekend-progress { margin:0 0 16px; color:var(--muted2); font-size:12px; }
+.fd-weekend-host-tools { display:flex; gap:8px; margin-bottom:18px; }
+.fd-weekend-host-tools button { min-height:44px; padding:9px 13px; font:700 12px var(--fd-body); background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:7px; cursor:pointer; }
+.fd-weekend-host-tools button:first-child { margin-right:auto; }
+.fd-weekend-host-tools button[aria-pressed="true"] { background:var(--sun); color:var(--ink0); }
+.fd-weekend-host-tools button:disabled, .fd-weekend-reorder button:disabled { opacity:.3; cursor:default; }
+.fd-weekend-session { margin:0 0 24px; }
+.fd-weekend-session-heading { display:flex; gap:11px; align-items:center; padding:0 0 10px; }
+.fd-weekend-session-heading > div { min-width:0; flex:1; }
+.fd-weekend-session-heading p { margin:0 0 4px; color:var(--muted); font-size:8px; }
+.fd-weekend-session-heading h2 { font-family:var(--fd-display); font-size:23px; line-height:1.1; letter-spacing:-.025em; margin:0; font-weight:700; }
+.fd-weekend-session-number { align-self:stretch; display:flex; align-items:center; font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-size:37px; line-height:1; font-weight:500; color:var(--accent2); }
+.fd-weekend-session-value { color:var(--muted2); font-size:10px; line-height:1.4; font-weight:650; white-space:nowrap; }
+.fd-weekend-session-fin .fd-weekend-session-value { background:var(--sun); color:var(--ink0); border-color:var(--sun); }
+.fd-weekend-event-list { list-style:none; margin:0; padding:0; border-top:1px solid var(--line); }
+.fd-weekend-event { margin:0; padding:0; border-bottom:1px solid var(--line); position:relative; }
+.fd-weekend-event-line { display:flex; align-items:center; gap:4px; }
+.fd-weekend-event-open { display:flex; align-items:center; gap:12px; min-height:60px; padding:10px 0; border:0; background:transparent; width:100%; min-width:0; color:inherit; text-align:left; cursor:pointer; transition:transform .15s ease; }
+.fd-weekend-event-open:active:not(:disabled) { transform:translateX(3px); }
+.fd-weekend-event-open:disabled { cursor:default; opacity:1; }
+.fd-weekend-event-mark { display:grid; place-items:center; width:36px; height:36px; flex-shrink:0; color:var(--ink); font-family:'Barlow Condensed',sans-serif; font-size:26px; }
+.fd-weekend-event-name { display:flex; flex-direction:column; min-width:0; gap:5px; flex:1; }
+.fd-weekend-event-name > strong { font-size:14px; line-height:1.22; font-weight:750; overflow-wrap:anywhere; letter-spacing:-.035em; }
+.fd-weekend-event-status { font-size:11px; font-weight:500; color:var(--muted2); display:flex; align-items:center; gap:5px; }
+.fd-weekend-event-status.is-live { color:var(--accent2); }
+.fd-weekend-event-status i { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.fd-weekend-event-arrow { font-size:21px; font-weight:500; padding-left:6px; }
+.fd-weekend-event.is-on-deck { background:var(--sun-tint); padding-inline:12px; margin-inline:-12px; border-radius:8px; border-bottom-color:transparent; }
+.fd-weekend-event.is-finale .fd-weekend-event-mark { background:var(--sun); color:var(--ink0); }
+.fd-weekend-winners { display:flex; flex-wrap:wrap; gap:0 10px; align-items:center; padding:0 0 6px 48px; }
+.fd-weekend-winners > .fd-weekend-micro { font-size:10px; color:var(--muted); text-transform:none; letter-spacing:0; }
+.fd-weekend-winner { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:650; min-height:44px; border:0; padding:4px 0; background:transparent; color:var(--ink); cursor:pointer; }
+.fd-weekend-winner:disabled { cursor:default; }
+.fd-weekend-event-crew { padding:0 0 12px 53px; }
+.fd-weekend-reorder { display:flex; flex-shrink:0; gap:4px; }
+.fd-weekend-reorder button { width:44px; min-height:44px; border:1px solid var(--line); border-radius:6px; background:transparent; font:600 19px var(--fd-body); color:var(--ink); cursor:pointer; }
+.fd-weekend-shelved .fd-weekend-event { opacity:.65; }
+.fd-weekend-error { font-size:12px; line-height:1.4; color:var(--accent2); }
+.fd-weekend-primer { background:var(--paper2); border-radius:14px; padding:22px; overflow:hidden; }
+.fd-weekend-primer-top { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.fd-weekend-primer-chip { width:37px; height:37px; flex-shrink:0; display:grid; place-items:center; border:1px dashed currentColor; outline:1px solid currentColor; outline-offset:3px; border-radius:50%; font:700 12px var(--fd-display); transform:rotate(-12deg); }
+.fd-weekend-primer h2 { font:700 clamp(33px,9vw,45px)/.96 var(--fd-display); letter-spacing:-.055em; margin:20px 0 17px; }
+.fd-weekend-primer p { font-size:12px; line-height:1.6; margin:0; max-width:410px; }
+.fd-weekend-primer-path { margin:22px 0 17px; padding-top:17px; border-top:1px solid color-mix(in srgb,var(--ink) 22%,transparent); display:flex; gap:12px; align-items:center; }
+.fd-weekend-primer-path > div { display:flex; flex:1; flex-direction:column; gap:5px; }
+.fd-weekend-primer-path > div:last-child { text-align:right; }
+.fd-weekend-primer-path > div > span { font-size:8px; font-weight:750; text-transform:uppercase; letter-spacing:.05em; }
+.fd-weekend-primer-path strong { font:600 23px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }
+.fd-weekend-primer-path > span { font-size:25px; }
+.fd-weekend-primer p.fd-weekend-primer-finish { font-size:11px; line-height:1.55; }
+.fd-weekend-guide-index { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:17px 0 30px; border-block:1px solid var(--line); }
+.fd-weekend-guide-index a { display:flex; flex-wrap:wrap; gap:5px; align-items:center; padding:13px 0; text-decoration:none; color:var(--ink); font-size:9px; font-weight:700; }
+.fd-weekend-guide-index a + a { padding-left:12px; border-left:1px solid var(--line); }
+.fd-weekend-guide-index a > span:first-child { width:100%; color:var(--muted); font-size:8px; font-weight:500; }
+.fd-weekend-guide-index a > span:last-child { margin-left:auto; padding-right:9px; }
+.fd-weekend-guide-section { margin:0 0 22px; scroll-margin-top:80px; }
+.fd-weekend-rules { border-top:1px solid var(--line); }
+.fd-weekend-rule { border-bottom:1px solid var(--line); }
+.fd-weekend-rule summary { display:flex; gap:12px; align-items:center; min-height:56px; list-style:none; cursor:pointer; padding:12px 0; }
+.fd-weekend-rule summary::-webkit-details-marker { display:none; }
+.fd-weekend-rule-number { font:500 22px/1 'Barlow Condensed',sans-serif; color:var(--accent2); align-self:flex-start; padding-top:2px; min-width:19px; }
+.fd-weekend-rule summary > span:nth-child(2) { display:flex; flex-direction:column; gap:5px; flex:1; min-width:0; }
+.fd-weekend-rule summary strong { font-size:15px; line-height:1.2; font-weight:750; letter-spacing:-.025em; }
+.fd-weekend-rule summary small { font-size:10px; color:var(--muted); line-height:1.4; }
+.fd-weekend-rule-toggle { width:18px; height:18px; position:relative; flex-shrink:0; }
+.fd-weekend-rule-toggle::before, .fd-weekend-rule-toggle::after { content:""; width:11px; height:1px; position:absolute; left:3px; top:8px; background:var(--ink); }
+.fd-weekend-rule-toggle::after { transform:rotate(90deg); transition:transform .2s; }
+.fd-weekend-rule[open] .fd-weekend-rule-toggle::after { transform:rotate(0); }
+.fd-weekend-rule-body { font-size:12px; line-height:1.65; color:var(--muted2); padding:0 0 17px 31px; }
+.fd-weekend-rule-body > p { margin:0 0 12px; }
+.fd-weekend-rule-body > p:last-child { margin-bottom:0; }
+.fd-weekend-payouts { width:100%; margin:16px 0; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
+.fd-weekend-payouts caption { text-align:left; font-size:9px; color:var(--muted); margin-bottom:7px; }
+.fd-weekend-payouts th, .fd-weekend-payouts td { padding:7px 3px; border-bottom:1px solid var(--line); text-align:right; font-size:11px; }
+.fd-weekend-payouts th:first-child { width:34%; text-align:left; }
+.fd-weekend-payouts thead th { font-weight:600; font-size:9px; }
+.fd-weekend-payouts tbody th { font-weight:600; }
+.fd-weekend-payouts tbody td { font-family:'Barlow Condensed',sans-serif; font-size:17px; color:var(--ink); }
+.fd-weekend-odds { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border-block:1px solid var(--line); margin:16px 0; padding:13px 0; }
+.fd-weekend-odds > div { display:flex; flex-direction:column; gap:6px; }
+.fd-weekend-odds > div + div { padding-left:15px; border-left:1px solid var(--line); }
+.fd-weekend-odds strong { font:600 36px/.9 'Barlow Condensed',sans-serif; color:var(--ink); }
+.fd-weekend-odds span { font-size:10px; line-height:1.4; }
+.fd-weekend-game-directory { border-top:1px solid var(--line); }
+.fd-weekend-game-directory button { display:flex; width:100%; align-items:center; gap:10px; min-width:0; min-height:60px; padding:11px 0; background:transparent; border:0; border-bottom:1px solid var(--line); color:var(--ink); text-align:left; cursor:pointer; }
+.fd-weekend-game-index { font:500 17px/1 'Barlow Condensed',sans-serif; color:var(--muted); min-width:16px; }
+.fd-weekend-game-mark { width:39px; flex-shrink:0; display:grid; place-items:center; }
+.fd-weekend-game-title { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.fd-weekend-game-title strong { font-size:13px; line-height:1.2; font-weight:750; }
+.fd-weekend-game-title small { font-size:11px; line-height:1.5; color:var(--muted2); overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.fd-weekend-game-arrow { font-size:21px; margin-left:3px; }
+.fd-weekend-awards { color:var(--ink); margin-bottom:22px; }
+.fd-weekend-awards-heading { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; justify-content:space-between; margin-bottom:10px; }
+.fd-weekend-awards-heading>span { color:var(--muted2); font-size:11px; }
+.fd-weekend-awards h2 { font:700 25px/1.1 var(--fd-display); margin:0; }
+.fd-weekend-awards ul { list-style:none; padding:0; margin:0; }
+.fd-weekend-awards li { font-size:13px; font-weight:500; line-height:1.5; border-top:1px solid var(--line); padding:9px 0; }
+.fd-weekend-awards li:last-child { padding-bottom:0; }
+.fd-weekend-awards li > span { font:500 18px/1 'Barlow Condensed',sans-serif; color:var(--sun); }
+.fd-weekend-house-rules { list-style:none; margin:0; padding:0; border-top:1px solid var(--line); }
+.fd-weekend-house-rules li { padding:15px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:5px; }
+.fd-weekend-house-rules strong { font-size:13px; line-height:1.3; font-weight:750; }
+.fd-weekend-house-rules span { font-size:11px; line-height:1.6; color:var(--muted2); }
+.fd-weekend-small-note { font-size:11px; line-height:1.6; color:var(--muted); margin:12px 0 0; }
+.fd-weekend-install { border-top:1px solid var(--line); }
+.fd-weekend-install summary { display:flex; align-items:center; min-height:44px; color:var(--muted2); cursor:pointer; font-size:12px; }
+.fd-weekend-install summary::after { content:"+"; margin-left:auto; font-size:18px; }
+.fd-weekend-install[open] summary::after { content:"−"; }
+@media (min-width:500px) {
+  .fd-weekend-event-name > strong { font-size:16px; }
+  .fd-weekend-session-heading h2 { font-size:23px; }
+  .fd-weekend-game-title strong { font-size:14px; }
+  .fd-weekend-game-title small { font-size:11px; }
+  .fd-weekend-primer { padding:27px; }
+}
+@media (max-width:359px) {
+  .fd-weekend { padding-inline:18px; }
+  .fd-weekend-session-heading { gap:8px; }
+  .fd-weekend-session-heading h2 { font-size:21px; }
+  .fd-weekend-session-number { font-size:31px; }
+  .fd-weekend-session-value { font-size:10px; }
+  .fd-weekend-event-open { gap:9px; }
+  .fd-weekend-event-mark { width:35px; }
+  .fd-weekend-event-name > strong { font-size:13px; }
+  .fd-weekend-winners, .fd-weekend-event-crew { padding-left:44px; }
+  .fd-weekend-primer { padding:19px; }
+  .fd-weekend-primer h2 { font-size:33px; }
+  .fd-weekend-primer-path { gap:8px; }
+  .fd-weekend-primer-path strong { font-size:21px; }
+  .fd-weekend-rule-body { padding-left:0; }
+  .fd-weekend-game-directory button { gap:7px; }
+  .fd-weekend-game-index { display:none; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .fd-weekend-event-open, .fd-weekend-rule-toggle::after { transition:none; }
+}
+
+/* A pocket rulebook: immediate instructions, a clear format, one win condition. */
+.fd-weekend-howto { font-family:var(--fd-body); color:var(--ink); padding:0 0 8px; min-width:0; }
+.fd-weekend-howto * { box-sizing:border-box; }
+.fd-weekend-howto-header { display:flex; align-items:center; gap:15px; padding:3px 0 22px; }
+.fd-weekend-howto-header > div:first-child { flex:1; min-width:0; }
+.fd-weekend-howto-header .fd-weekend-micro { color:var(--muted); font-size:8px; margin:0 0 8px; }
+.fd-weekend-howto-header h2 { margin:0; font:700 clamp(25px,7vw,34px)/1.04 var(--fd-display); letter-spacing:-.05em; overflow-wrap:anywhere; }
+.fd-weekend-howto-mark { display:grid; place-items:center; width:84px; height:84px; border-radius:50%; flex-shrink:0; background:var(--paper2); }
+.fd-weekend-howto-variants { display:flex; gap:4px; background:var(--paper2); padding:4px; border-radius:8px; margin:0 0 16px; }
+.fd-weekend-howto-variants button { flex:1; min-width:0; min-height:44px; padding:8px; border:0; border-radius:5px; color:var(--ink); background:transparent; font:700 12px/1.2 var(--fd-body); cursor:pointer; }
+.fd-weekend-howto-variants button[aria-pressed="true"] { background:var(--sun); color:var(--ink0); }
+.fd-weekend-howto-objective { font-size:17px; line-height:1.45; font-weight:650; letter-spacing:-.025em; margin:0 0 15px; }
+.fd-weekend-howto-equipment { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 16px; }
+.fd-weekend-howto-equipment > span { max-width:100%; font-size:9px !important; line-height:1.4; }
+.fd-weekend-howto-section-label { display:flex; align-items:baseline; justify-content:space-between; padding:0 0 10px; border-bottom:1px solid var(--line); }
+.fd-weekend-howto-section-label h3 { margin:0; font:700 17px/1.2 var(--fd-display); letter-spacing:-.04em; }
+.fd-weekend-howto-section-label > span { font-size:9px; color:var(--muted); }
+.fd-weekend-howto-steps ol { list-style:none; margin:0 0 18px; padding:0; border-top:1px solid var(--line); }
+.fd-weekend-howto-steps li { display:flex; gap:14px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line); }
+.fd-weekend-howto-steps li > span { font:500 25px/1 'Barlow Condensed',sans-serif; color:var(--accent2); min-width:24px; padding-top:1px; }
+.fd-weekend-howto-steps li p { margin:0; font-size:13px; line-height:1.6; color:var(--muted2); }
+.fd-weekend-howto-win { padding:0; margin-bottom:16px; }
+.fd-weekend-howto-win h3 { font:700 21px/1 var(--fd-display); margin:0 0 10px; letter-spacing:-.04em; }
+.fd-weekend-howto-win p { font-size:13px; line-height:1.6; margin:0; }
+.fd-weekend-howto-house { display:flex; flex-direction:column; gap:5px; border-left:2px solid var(--accent2); padding:2px 0 2px 13px; }
+.fd-weekend-howto-house h3 { font-size:9px; font-weight:750; text-transform:uppercase; letter-spacing:.08em; margin:0; }
+.fd-weekend-howto-house p { margin:0; font-size:12px; line-height:1.6; color:var(--muted2); }
+@media(max-width:359px) {
+  .fd-weekend-howto-header { gap:10px; }
+  .fd-weekend-howto-mark { width:68px; height:68px; }
+  .fd-weekend-howto-mark svg { width:57px; height:57px; }
+  .fd-weekend-howto-objective { font-size:16px; }
+  .fd-weekend-howto-steps li { gap:10px; }
+}
+
+
+.fd-weekend-tabs { display:flex; gap:5px; padding:4px; border:1px solid var(--line); background:var(--paper); border-radius:10px; margin-bottom:16px; }
+.fd-weekend-tabs button { flex:1; min-height:44px; border:0; border-radius:6px; background:transparent; color:var(--muted2); font:700 13px var(--fd-body); cursor:pointer; }
+.fd-weekend-tabs button[aria-selected="true"] { background:var(--sun); color:var(--ink0); }
+.fd-weekend-overview { margin-bottom:18px; }
+.fd-weekend-overview h2, .fd-weekend-flights-heading h2 { margin:0 0 10px; font:700 25px/1.05 var(--fd-display); color:var(--ink); }
+.fd-weekend-overview p { font-size:13px; line-height:1.6; color:var(--muted2); margin:0 0 12px; }
+.fd-weekend-overview p:last-child { margin:0; }
+.fd-weekend-flights { padding:0; }
+.fd-weekend-flights-heading { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.fd-weekend-flights-heading h2 { flex:1; margin:0; }
+.fd-weekend-flights-heading button { min-height:44px; border:0; padding:8px 0 8px 12px; background:none; color:var(--ink); font:700 12px var(--fd-body); cursor:pointer; }
+.fd-weekend-flights > div + div { margin-top:10px; }
+.fd-weekend-house-rules li { font-size:13px; line-height:1.55; color:var(--muted2); }
+.fd-weekend [role="tabpanel"] > section:first-child > .fd-section-heading { margin-top:0; }
+.fd-weekend-install .fd-section-heading { margin-top:0; }

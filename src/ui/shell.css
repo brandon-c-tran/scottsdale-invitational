@@ -1,0 +1,200 @@
+/* Shared motion and browser foundations. Semantic colors live in experience.css. */
+
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+button:active:not(:disabled) { transform: scale(0.97); }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline:3px solid var(--sun); outline-offset:3px;
+}
+input::placeholder { color:var(--muted); }
+@keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
+@keyframes si-pulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+@keyframes si-up { from { transform: translateY(26px); opacity:0; } to { transform:none; opacity:1; } }
+@keyframes si-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes si-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
+@keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
+@keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(194,88,50,0.22);} 50% { box-shadow:0 0 50px rgba(192,71,58,0.32);} }
+@keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
+@keyframes si-intro-mark {
+  0% { opacity:0; transform:scale(0.78) rotate(-4deg); }
+  68% { opacity:1; transform:scale(1.025) rotate(0deg); }
+  100% { opacity:1; transform:scale(1); }
+}
+@keyframes si-intro-ring {
+  0% { opacity:0; transform:scale(0.66); }
+  28% { opacity:0.48; }
+  100% { opacity:0; transform:scale(1.45); }
+}
+@keyframes si-intro-rule {
+  from { opacity:0; transform:scaleX(0); }
+  to { opacity:0.62; transform:scaleX(1); }
+}
+@keyframes si-intro-copy {
+  from { opacity:0; transform:translateY(10px); }
+  to { opacity:1; transform:none; }
+}
+@keyframes si-event-dot {
+  0%, 58%, 100% { opacity:0.28; transform:translateY(0); }
+  28% { opacity:1; transform:translateY(-3px); }
+}
+.si-event-ring {
+  position:absolute; inset:19%; border:1px solid rgba(240,176,47,0.5);
+  border-radius:31%; animation:si-intro-ring 1.35s 0.08s ease-out both;
+}
+.si-event-ring-2 { inset:8%; animation-delay:0.22s; }
+.si-event-rule {
+  position:absolute; top:50%; width:44px; height:1px; background:var(--sun);
+  animation:si-intro-rule 0.48s 0.32s ease-out both;
+}
+.si-event-rule-left { right:calc(50% + 66px); transform-origin:right; }
+.si-event-rule-right { left:calc(50% + 66px); transform-origin:left; }
+.si-event-mark { position:relative; z-index:1; animation:si-intro-mark 0.58s cubic-bezier(.2,.85,.28,1) both; }
+.si-event-dot {
+  display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--sun);
+  animation:si-event-dot 1.05s ease-in-out infinite;
+}
+.si-event-dot-2 { animation-delay:0.13s; }
+.si-event-dot-3 { animation-delay:0.26s; }
+@keyframes si-die-arc {
+  0%   { transform: translate(0px,30px)   rotate(0deg); }
+  12%  { transform: translate(18px,2px)   rotate(80deg); }
+  24%  { transform: translate(38px,-12px) rotate(160deg); }
+  36%  { transform: translate(58px,-6px)  rotate(240deg); }
+  48%  { transform: translate(78px,12px)  rotate(310deg); }
+  56%  { transform: translate(90px,30px)  rotate(350deg); }
+  64%  { transform: translate(102px,14px) rotate(380deg); }
+  74%  { transform: translate(114px,10px) rotate(400deg); }
+  84%  { transform: translate(126px,24px) rotate(415deg); }
+  90%, 100% { transform: translate(132px,30px) rotate(420deg); }
+}
+@keyframes si-pong-arc {
+  0%   { transform: translate(0px,26px);   opacity:1; }
+  30%  { transform: translate(50px,-12px); opacity:1; }
+  55%  { transform: translate(96px,0px);   opacity:1; }
+  70%  { transform: translate(116px,16px); opacity:1; }
+  80%, 100% { transform: translate(121px,30px); opacity:0; }
+}
+@keyframes si-flip-cup {
+  0%, 14%   { transform: translate(0,0) rotate(0deg); }
+  44%       { transform: translate(0,-26px) rotate(-120deg); }
+  62%       { transform: translate(0,-6px) rotate(-180deg); }
+  70%       { transform: translate(0,0) rotate(-180deg); }
+  76%       { transform: translate(0,-4px) rotate(-180deg); }
+  82%, 100% { transform: translate(0,0) rotate(-180deg); }
+}
+@keyframes si-putt {
+  0%        { transform: translate(0,0); }
+  72%       { transform: translate(122px,0); }
+  84%       { transform: translate(126px,2px); }
+  92%, 100% { transform: translate(127px,12px); }
+}
+@keyframes si-cue {
+  0%, 12%   { transform: translate(0,0); }
+  42%, 100% { transform: translate(56px,0); }
+}
+@keyframes si-eight {
+  0%, 42%   { transform: translate(0,0); }
+  88%, 100% { transform: translate(64px,0); }
+}
+@keyframes si-bball {
+  0%, 10%   { transform: translate(0,0); }
+  48%       { transform: translate(66px,-42px); }
+  72%       { transform: translate(128px,-24px); }
+  84%       { transform: translate(133px,-6px); }
+  94%, 100% { transform: translate(134px,4px); }
+}
+@keyframes si-spike {
+  0%, 14%   { transform: translate(0,0); }
+  52%       { transform: translate(72px,38px); }
+  58%       { transform: translate(78px,34px); }
+  100%      { transform: translate(158px,-18px); }
+}
+@keyframes si-pingpong {
+  0%        { transform: translate(0,0); }
+  22%       { transform: translate(28px,-14px); }
+  46%       { transform: translate(56px,16px); }
+  64%       { transform: translate(84px,-16px); }
+  84%       { transform: translate(110px,14px); }
+  100%      { transform: translate(128px,-4px); }
+}
+@keyframes si-foosman {
+  0%, 30%   { transform: translate(0,0); }
+  40%       { transform: translate(0,-9px); }
+  48%, 100% { transform: translate(0,0); }
+}
+@keyframes si-foos {
+  0%, 46%   { transform: translate(0,0); }
+  72%, 100% { transform: translate(138px,0); }
+}
+@keyframes si-volley {
+  0%, 10%   { transform: translate(0,0); }
+  52%       { transform: translate(74px,-38px); }
+  82%       { transform: translate(134px,6px); }
+  90%       { transform: translate(142px,-2px); }
+  100%      { transform: translate(148px,6px); }
+}
+@keyframes si-pickle {
+  0%, 8%    { transform: translate(0,0); }
+  30%       { transform: translate(38px,6px); }
+  56%       { transform: translate(76px,-18px); }
+  82%       { transform: translate(110px,6px); }
+  100%      { transform: translate(126px,-2px); }
+}
+@keyframes si-kart {
+  0%        { transform: translate(-16px,0); }
+  30%       { transform: translate(38px,0); }
+  38%       { transform: translate(52px,-8px); }
+  46%       { transform: translate(66px,0); }
+  78%       { transform: translate(112px,0); }
+  100%      { transform: translate(148px,0); }
+}
+@keyframes si-rage {
+  0%        { transform: translate(0,0); }
+  38%       { transform: translate(48px,42px); }
+  52%       { transform: translate(56px,30px); }
+  72%       { transform: translate(72px,26px); }
+  88%, 100% { transform: translate(74px,32px); }
+}
+@keyframes si-deal1 {
+  0%        { transform: translate(-90px,-40px) rotate(-40deg); opacity:0; }
+  22%       { opacity:1; }
+  38%, 100% { transform: translate(0,0) rotate(0deg); opacity:1; }
+}
+@keyframes si-deal2 {
+  0%, 20%   { transform: translate(-110px,-40px) rotate(-40deg); opacity:0; }
+  40%       { opacity:1; }
+  58%, 100% { transform: translate(0,0) rotate(0deg); opacity:1; }
+}
+@keyframes si-chip-in {
+  0%, 55%   { transform: translate(0,0); }
+  80%       { transform: translate(112px,-2px); }
+  88%       { transform: translate(118px,0); }
+  100%      { transform: translate(118px,0); }
+}
+@keyframes si-gauntlet {
+  0%        { transform: translate(0,0); }
+  18%       { transform: translate(24px,-16px); }
+  30%       { transform: translate(40px,0); }
+  44%       { transform: translate(60px,-16px); }
+  54%       { transform: translate(78px,0); }
+  66%       { transform: translate(96px,-16px); }
+  76%       { transform: translate(112px,0); }
+  88%       { transform: translate(134px,-18px); }
+  100%      { transform: translate(152px,-2px); }
+}
+/* the prize: flat blades rotated around one axis read as a solid */
+@keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+/* routes draw themselves in, then a chip runs the line */
+@keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  * { animation:none !important; transition:none !important; }
+  /* SVG motion does not obey CSS animation:none. Keep the static route map. */
+  .fd-travel-motion { display:none; }
+}
+::-webkit-scrollbar { width:0; height:0; }
+/* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
+.si-vh { min-height:100vh; min-height:100dvh; }
+.si-sheet { max-height:90vh; max-height:90dvh; }

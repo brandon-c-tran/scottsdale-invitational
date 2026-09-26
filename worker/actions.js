@@ -5,10 +5,10 @@
 
 import {
   ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, PT, MAX_RISK, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
-  drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, resolveSlot, OUTRIGHT_MULT,
+  drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, draftTurn, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
   validateEventParticipants, normalizeOverflowRoles,
-  resolveEventLifecycle,
+  resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
 } from "../shared/core.js";
@@ -110,6 +110,8 @@ const wagerFingerprint = wager => JSON.stringify([
   wager?.group,
   !!wager?.final,
   wager?.pickKey,
+  ...(wager?.contestId === undefined && wager?.contestRevision === undefined
+    ? [] : [wager?.contestId, wager?.contestRevision]),
 ]);
 const wagerTargetKey = wager => wager?.targetKey || JSON.stringify([
   wager?.kind,
@@ -120,7 +122,7 @@ const wagerTargetKey = wager => wager?.targetKey || JSON.stringify([
       : ["player", wager?.pick])
     : wager?.kind === "match"
       ? ["match", wager?.drawId, wager?.match, wager?.teamIdx]
-      : ["stage", wager?.stagesId, !!wager?.final, wager?.group, wager?.pickKey],
+      : [wager?.kind, wager?.stagesId, !!wager?.final, wager?.group, wager?.pickKey],
 ]);
 const samePlayers = (left, right) => Array.isArray(left) && Array.isArray(right)
   && left.length === right.length
@@ -152,6 +154,9 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament",
 ]);
+const WEEKEND_START_ACTIONS = new Set([
+  "announceEvent", "announceAndDraw", "startEvent", "lockAndStart", "pokerStart",
+]);
 const pokerTableLocksBoard = state =>
   !!(state.poker && !state.results?.[state.poker.id]);
 const competitionLive = (state, ev) => {
@@ -164,6 +169,130 @@ const reopenCompetition = (state, evId) => {
   const op = eventOp(state, evId);
   delete op.resultEntryAt;
   delete op.completedAt;
+};
+const resetContestSetup = (state, evId) => {
+  const op = eventOp(state, evId);
+  delete op.contest;
+  delete op.lastContest;
+  delete op.bettingOpenedAt;
+  delete op.bettingLockedAt;
+};
+const eventHasBegun = (state, ev) => !!state.eventOps?.[ev?.id]?.startedAt
+  || ["in-progress", "result-entry"].includes(resolveEventLifecycle(state, ev).phase);
+const contestReferenceError = (state, ev, payload, required = false) => {
+  const contest = resolveCurrentContest(state, ev);
+  if (!contest) return err("No current contest");
+  const hasRef = payload.contestId !== undefined || payload.contestRevision !== undefined;
+  if ((required || state.eventOps?.[ev.id]?.contest || hasRef)
+      && (payload.contestId !== contest.id || payload.contestRevision !== contest.revision))
+    return err("Contest changed, refresh and try again");
+  return null;
+};
+const openContest = (state, ev, now = Date.now()) => {
+  const target = resolveCurrentContest(state, ev);
+  if (!target) return err("Set up the next contest first");
+  const op = eventOp(state, ev.id);
+  const revision = Number(op.contestRevision || 0) + 1;
+  op.contestRevision = revision;
+  op.contest = { id:target.id, revision, phase:"betting-open" };
+  op.bettingOpenedAt = now;
+  delete op.bettingLockedAt;
+  delete op.resultEntryAt;
+  state.onDeck = ev.id;
+  return ok({ contestId:target.id, contestRevision:revision });
+};
+const contestCommand = (ctx, type, payload) => ({
+  id:showCommandId(ctx) ? `command:${ctx.deviceId || "gm"}:${ctx.actionId}` : null,
+  fingerprint:JSON.stringify([type, payload.evId, payload.contestId, payload.contestRevision,
+    payload.winner, Array.isArray(payload.qualifiers) ? [...payload.qualifiers].sort() : null]),
+});
+const replayContestCommand = (state, evId, command) => {
+  if (!command.id) return null;
+  const previous = state.eventOps?.[evId]?.contestCommands?.[command.id];
+  if (!previous) return null;
+  return previous === command.fingerprint ? ok({ unchanged:true }) : err("Request id already used");
+};
+const rememberContestCommand = (state, evId, command) => {
+  if (!command.id) return;
+  const op = eventOp(state, evId);
+  op.contestCommands = { ...(op.contestCommands || {}), [command.id]:command.fingerprint };
+  const keys = Object.keys(op.contestCommands);
+  keys.slice(0, Math.max(0, keys.length - 128)).forEach(key => delete op.contestCommands[key]);
+};
+
+const draftCommand = (ctx, type, payload) => ({
+  id:wagerRequestKey(ctx),
+  actor:ctx.isGm ? "commissioner" : ctx.player,
+  fingerprint:JSON.stringify([type, payload.evId, payload.draftId, payload.pickIndex,
+    payload.draftRevision, payload.player, payload.captains, payload.players, payload.roles]),
+});
+const replayDraftCommand = (state, evId, command) => {
+  if (!command.id) return null;
+  const previous = state.eventOps?.[evId]?.draftCommands?.[command.id];
+  if (!previous) return null;
+  return previous.actor === command.actor && previous.fingerprint === command.fingerprint
+    ? ok({ ...previous.extra, unchanged:true }) : err("Request id already used");
+};
+const rememberDraftCommand = (state, evId, command, extra) => {
+  if (!command.id) return;
+  const op = eventOp(state, evId);
+  op.draftCommands = { ...(op.draftCommands || {}), [command.id]:{
+    actor:command.actor, fingerprint:command.fingerprint, extra,
+  } };
+  const keys = Object.keys(op.draftCommands);
+  keys.slice(0, Math.max(0, keys.length - 128)).forEach(key => delete op.draftCommands[key]);
+};
+const draftReferenceError = (draft, payload) => {
+  const turn = draftTurn(draft);
+  if (!turn) return err("Draft is incomplete, cancel it and start again");
+  const hasRef = payload.draftId !== undefined || payload.pickIndex !== undefined || payload.draftRevision !== undefined;
+  if ((draft.version || hasRef) && (payload.draftId !== turn.draftId
+      || payload.pickIndex !== turn.pickIndex || payload.draftRevision !== turn.draftRevision))
+    return err("Draft changed, refresh and try again");
+  return null;
+};
+const draftPreparationError = (state, ev) => {
+  if (!ev?.teamCfg || ev.kind !== "team") return err("Not a team event");
+  if (state.frozen) return err("The board is frozen");
+  if (stacksPosted(state)) return err("The finale is settled");
+  if (state.results[ev.id]) return err("Result already posted");
+  if (state.shelved[ev.id]) return err("That event is shelved");
+  if (eventHasBegun(state, ev)) return err("The event has already started");
+  const op = state.eventOps?.[ev.id];
+  if (state.onDeck === ev.id || op?.bettingOpenedAt || op?.bettingLockedAt || op?.contest)
+    return err("Betting has opened. Teams are locked");
+  return null;
+};
+const draftConfigurationError = ev => {
+  const cfg = ev?.teamCfg;
+  if (!cfg || !Number.isInteger(cfg.teams) || cfg.teams < 2
+      || !Number.isInteger(cfg.size) || cfg.size < 1 || cfg.teams * cfg.size > ROSTER.length)
+    return err("Invalid team setup");
+  if (cfg.bracket && (cfg.bracket !== cfg.teams || !makeBracket(cfg.bracket)))
+    return err(`Unsupported ${cfg.bracket}-team bracket`);
+  return null;
+};
+const draftDataError = (draft, ev) => {
+  const config = draftConfigurationError(ev); if (config) return config;
+  if (!draftTurn(draft) || draft.teams.length !== ev.teamCfg.teams)
+    return err("Draft does not match this event");
+  const captains = draft.teams.map(team => team.captain);
+  if (new Set(captains).size !== captains.length || captains.some(player => !ROSTER.includes(player)))
+    return err("Draft captains are invalid");
+  const expected = captains.map(player => [player]);
+  for (const [index, pick] of draft.picks.entries()) {
+    if (pick.team !== snakeTeam(index, captains.length)) return err("Draft order is invalid");
+    expected[pick.team].push(pick.player);
+  }
+  if (draft.teams.some((team, index) => !Array.isArray(team.players)
+      || team.players.length > ev.teamCfg.size || !slotsEqual(team.players, expected[index])))
+    return err("Draft teams do not match the picks");
+  const players = [...draft.teams.flatMap(team => team.players), ...draft.pool];
+  const valid = validateEventParticipants(ev, players, ROSTER);
+  if (!valid.ok) return err(valid.error);
+  if (players.length !== ev.teamCfg.teams * ev.teamCfg.size)
+    return err(`Select exactly ${ev.teamCfg.teams * ev.teamCfg.size} players`);
+  return null;
 };
 
 export const ACTIONS = {
@@ -371,13 +500,17 @@ export const ACTIONS = {
     const events = allEventsOf(state);
     const ev = events.find(e => e.id === wager.eventId);
     if (!ev) return err("No such event");
+    const contest = resolveCurrentContest(state, ev);
+    const refError = contestReferenceError(state, ev, wager); if (refError) return refError;
+    if (contest.phase !== "betting-open") return err("Betting is closed for this contest");
     if (state.onDeck !== ev.id) return err("Betting is closed for this event");
     if (state.results[ev.id]) return err("Result already posted");
     const stake = Math.floor(Number(wager.stake));
     if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
       return err("Stakes move in 100s");
-    if (!["outright", "match", "stage"].includes(wager.kind))
+    if (!["outright", "match", "stage", "heat"].includes(wager.kind))
       return err("Invalid wager");
+    if (!wagerMatchesContest(wager, contest)) return err("Bet on the current contest");
 
     /* Canonicalize every pick from current server state before affordability
        checks. A stale phone gets a useful "re-pick" response even when the
@@ -391,6 +524,7 @@ export const ACTIONS = {
       stake, status:"open", player,
       id:crypto.randomUUID(), ts:Date.now(),
       chips:[{ requestKey, stake, ts:Date.now() }],
+      contestId:contest.id, contestRevision:contest.revision,
     };
     if (wager.kind === "outright") {
       if (wager.pickTeam) {
@@ -427,7 +561,7 @@ export const ACTIONS = {
       clean.matchName = wager.matchName;
       clean.teamIdx = wager.teamIdx;
     }
-    if (wager.kind === "stage") {
+    if (wager.kind === "stage" || wager.kind === "heat") {
       const st = state.stages[ev.id];
       if (!st || st.id !== wager.stagesId) return err("Stage changed, re-pick");
       if (wager.final) {
@@ -460,28 +594,10 @@ export const ACTIONS = {
       clean.pickKey = wager.pickKey;
     }
 
-    /* back anyone, but never the side facing your own team */
-    const drawG = state.draws[ev.id];
-    const myTeamIdx = drawG ? drawG.teams.findIndex(t => t.players.includes(player)) : -1;
-    if (myTeamIdx >= 0) {
-      const AGAINST = "You can't bet against your own team";
-      if (clean.kind === "outright" && clean.pickTeam && drawG.teams.length === 2
-          && !clean.pickPlayers.includes(player))
-        return err(AGAINST);
-      if (clean.kind === "match" && clean.teamIdx !== myTeamIdx) {
-        const br = state.brackets[ev.id];
-        const mu = br?.rounds?.[clean.match?.[0]]?.[clean.match?.[1]];
-        if (mu && (resolveSlot(br, mu.a) === myTeamIdx || resolveSlot(br, mu.b) === myTeamIdx))
-          return err(AGAINST);
-      }
-      if (clean.kind === "stage" && state.stages[ev.id]?.entrantType === "team" && clean.pickKey !== myTeamIdx) {
-        const st = state.stages[ev.id];
-        const inPlay = clean.final
-          ? (stageFinalists(st) || []).includes(myTeamIdx)
-          : (st.groups?.[clean.group]?.entrants || []).includes(myTeamIdx);
-        if (inPlay) return err(AGAINST);
-      }
-    }
+    const sideKey = clean.kind === "outright" ? (clean.pickTeam ? clean.teamIdx : clean.pick)
+      : clean.kind === "match" ? clean.teamIdx : clean.pickKey;
+    if (!contestBetEligibility(contest, player, sideKey))
+      return err("You can only back yourself or your team in this contest");
 
     /* Exposure and balance remain server authoritative. */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
@@ -491,7 +607,7 @@ export const ACTIONS = {
       .reduce((s, d) => s + d.stake, 0);
     if (stake > pts - exp - antes) return err("Not enough points");
     const cap = maxRisk(pts);
-    if (exp + stake > cap) return err(`Max ${cap} at risk`);
+    if (exp + antes + stake > cap) return err(`Max ${cap} at risk`);
 
     const existing = state.wagers.find(w =>
       w.player === player
@@ -523,7 +639,7 @@ export const ACTIONS = {
     return ok({ wagerId:clean.id, stake:clean.stake, aggregated:false });
   },
   /* pull your own chip back while the market is still open */
-  retractWager(state, { id }, ctx) {
+  retractWager(state, { id, contestId, contestRevision }, ctx) {
     const actor = ctx.player || (ctx.isGm ? "commissioner" : null);
     const requestKey = wagerRequestKey(ctx);
     if (!requestKey) return err("This retraction is missing a request id");
@@ -535,6 +651,12 @@ export const ACTIONS = {
     if (w.player !== ctx.player && !ctx.isGm) return err("Not your wager");
     if (state.frozen) return err("The board is frozen");
     if (pokerLive(state)) return err("The finale is live");
+    if (stacksPosted(state)) return err("The finale is settled");
+    const ev = allEventsOf(state).find(event => event.id === w.eventId);
+    if (!ev) return err("No such event");
+    const contest = resolveCurrentContest(state, ev);
+    const refError = contestReferenceError(state, ev, { contestId, contestRevision }); if (refError) return refError;
+    if (contest.phase !== "betting-open" || !wagerMatchesContest(w, contest)) return err("Betting is closed for this contest");
     if (state.onDeck !== w.eventId) return err("Betting is closed");
     const r = resolveWager(state, w, allEventsOf(state));
     if (r.status !== "pending") return err("Already settled");
@@ -600,11 +722,12 @@ export const ACTIONS = {
     const events = allEventsOf(state);
     const rows = computeStandings(state);
     const ptsOf = p => rows.find(r => r.player === p)?.pts ?? 0;
-    const spendable = p => ptsOf(p) - atRisk(state, p, events)
-      - live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
+    const exposure = p => atRisk(state, p, events)
+      + live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
+    const spendable = p => ptsOf(p) - exposure(p);
     /* the wager cap covers duels too, or a duel would be a way around it */
-    if (stake > maxRisk(ptsOf(from))) return err(`Max ${maxRisk(ptsOf(from))} at risk`);
-    if (stake > maxRisk(ptsOf(to))) return err(`${disp(state, to)} can't cover that ante`);
+    if (exposure(from) + stake > maxRisk(ptsOf(from))) return err(`Max ${maxRisk(ptsOf(from))} at risk`);
+    if (exposure(to) + stake > maxRisk(ptsOf(to))) return err(`${disp(state, to)} can't cover that ante`);
     if (spendable(from) < stake) return err("Not enough points");
     if (spendable(to) < stake) return err(`${disp(state, to)} can't cover that ante`);
     state.duels.unshift({ id: "du" + Date.now() + Math.floor(Math.random() * 9999), game: g,
@@ -662,6 +785,19 @@ export const ACTIONS = {
       return ok({ unchanged:true, revision:existing.revision || 1 });
     const now = Date.now();
     const op = eventOp(state, evId);
+    if (op.contest) {
+      const readiness = resultReadiness(state, ev);
+      if (!readiness.ok) return err(readiness.blockers[0]);
+      const draw = state.draws[evId];
+      const br = state.brackets[evId];
+      const st = state.stages[evId];
+      const champion = br ? draw?.teams?.[bracketChampion(br)]?.players
+        : st ? (st.entrantType === "team" ? draw?.teams?.[st.finalWinner]?.players : [st.finalWinner]) : null;
+      if (champion && !samePlayers(champion, cleanSlots[0])) return err("First place must match the contest winner");
+      if (!champion && draw && !draw.teams.some(team => samePlayers(team.players, cleanSlots[0])))
+        return err("Choose one full team as the winner");
+      if (!champion && !draw && cleanSlots[0].length !== 1) return err("Choose one winner");
+    }
     if (existing) {
       const reason = cleanCorrectionReason(correctionReason);
       if (confirmOverwrite !== true) return err("Confirm replacing the official result");
@@ -734,13 +870,18 @@ export const ACTIONS = {
   },
 
   /* ── GM: slate ── */
-  setOnDeck(state, { id }, ctx) {
+  setOnDeck(state, { id, contestId, contestRevision }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (state.frozen) return err("The board is frozen");
     const events = allEventsOf(state);
     if (!id) {
       if (!state.onDeck) return ok({ unchanged:true });
       const closing = state.onDeck;
-      eventOp(state, closing).bettingLockedAt = Date.now();
+      const ev = events.find(event => event.id === closing);
+      const refError = contestReferenceError(state, ev, { contestId, contestRevision }); if (refError) return refError;
+      const op = eventOp(state, closing);
+      op.bettingLockedAt = Date.now();
+      if (op.contest) op.contest.phase = "betting-locked";
       state.onDeck = null;
       return ok({ eventId:closing });
     }
@@ -752,23 +893,34 @@ export const ACTIONS = {
     if (state.shelved[id]) return err("That event is shelved");
     if (state.results[id]) return err("Result already posted");
     if (state.onDeck && state.onDeck !== id) return err("Close the current betting market first");
-    if (state.onDeck === id) return ok({ unchanged:true });
+    if (state.onDeck === id) {
+      if (contestId !== undefined || contestRevision !== undefined) {
+        const refError = contestReferenceError(state, ev, { contestId, contestRevision }); if (refError) return refError;
+      }
+      return ok({ unchanged:true });
+    }
     if (ev.teamCfg && !state.draws[id]) return err("Set the teams before opening betting");
+    if (ev.stageCfg && !state.stages[id]) return err(`Set up ${ev.stageCfg.kind} first`);
+    if (eventHasBegun(state, ev) || state.eventOps?.[id]?.resultEntryAt) return err("The event has already started");
     const op = eventOp(state, id);
-    if (op.startedAt || op.resultEntryAt) return err("The event has already started");
-    op.bettingOpenedAt = Date.now();
-    delete op.bettingLockedAt;
-    state.onDeck = id;
-    return ok();
+    if (op.contest) {
+      const refError = contestReferenceError(state, ev, { contestId, contestRevision }); if (refError) return refError;
+    }
+    return openContest(state, ev);
   },
-  startEvent(state, { evId }, ctx) {
+  startEvent(state, payload, ctx) {
+    const { evId } = payload;
     const g = gmOnly(ctx); if (g) return g;
+    if (state.frozen) return err("The board is frozen");
     const ev = allEventsOf(state).find(event => event.id === evId);
     if (!ev) return err("No such event");
+    const refError = contestReferenceError(state, ev, payload); if (refError) return refError;
     const lifecycle = resolveEventLifecycle(state, ev);
     if (lifecycle.phase !== "betting-locked")
       return err(lifecycle.nextAction?.label || "Lock betting before starting");
-    eventOp(state, evId).startedAt = Date.now();
+    const op = eventOp(state, evId);
+    op.startedAt = op.startedAt || Date.now();
+    if (op.contest) op.contest.phase = "in-progress";
     return ok();
   },
 
@@ -777,9 +929,10 @@ export const ACTIONS = {
      discrete actions above survive for the manual path; these merge the
      routine pairs. Scenes start only on FRESH transitions so a retried
      composite never restarts a ceremony. */
-  announceEvent(state, { evId }, ctx) {
+  announceEvent(state, { evId, contestId, contestRevision }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const result = ACTIONS.setOnDeck(state, { id:evId }, ctx);
+    if (!evId) return err("No such event");
+    const result = ACTIONS.setOnDeck(state, { id:evId, contestId, contestRevision }, ctx);
     if (!result.ok || result.extra?.unchanged) return result;
     const scene = tryStartScene(state, ctx, { kind:"event-intro", eventId:evId });
     return ok({ ...(scene ? { sceneId:scene.id } : {}) });
@@ -790,6 +943,7 @@ export const ACTIONS = {
      legacy ceremony owns this moment on every screen. */
   announceAndDraw(state, { evId, players, roles }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (state.frozen) return err("The board is frozen");
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev?.teamCfg) return err("Not a team event");
     if (state.results[evId]) return err("Result already posted");
@@ -797,8 +951,8 @@ export const ACTIONS = {
     if (stacksPosted(state)) return err("The finale is settled");
     if (state.drafts[evId] && !state.draws[evId])
       return err("Finish or cancel the captains draft");
+    if (eventHasBegun(state, ev) || state.eventOps?.[evId]?.resultEntryAt) return err("The event has already started");
     const op = eventOp(state, evId);
-    if (op.startedAt || op.resultEntryAt) return err("The event has already started");
     if (state.onDeck && state.onDeck !== evId) return err("Close the current betting market first");
     let drew = false;
     if (!state.draws[evId]) {
@@ -820,20 +974,28 @@ export const ACTIONS = {
     }
     let announced = false;
     if (state.onDeck !== evId) {
-      op.bettingOpenedAt = Date.now();
-      delete op.bettingLockedAt;
-      state.onDeck = evId;
+      if (ev.stageCfg && !state.stages[evId]) {
+        const prepared = ACTIONS.runStages(state, { evId, cfg:ev.stageCfg }, ctx);
+        if (!prepared.ok) return prepared;
+      }
+      const opened = openContest(state, ev);
+      if (!opened.ok) return opened;
       announced = true;
     }
     if (!drew && !announced) return ok({ unchanged:true });
     return ok({ drew, announced });
   },
-  lockAndStart(state, { evId }, ctx) {
+  lockAndStart(state, payload, ctx) {
+    const { evId } = payload;
     const g = gmOnly(ctx); if (g) return g;
+    const command = contestCommand(ctx, "lockAndStart", payload);
+    const replay = replayContestCommand(state, evId, command); if (replay) return replay;
+    if (state.frozen) return err("The board is frozen");
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
+    const refError = contestReferenceError(state, ev, payload); if (refError) return refError;
     const op = eventOp(state, evId);
-    if (op.startedAt) return ok({ unchanged:true });
+    if (op.contest?.phase === "in-progress" || !op.contest && op.startedAt) return ok({ unchanged:true });
     const lifecycle = resolveEventLifecycle(state, ev);
     if (lifecycle.phase === "betting-open") {
       op.bettingLockedAt = Date.now();
@@ -841,7 +1003,9 @@ export const ACTIONS = {
     } else if (lifecycle.phase !== "betting-locked") {
       return err(lifecycle.nextAction?.label || "Open betting first");
     }
-    op.startedAt = Date.now();
+    op.startedAt = op.startedAt || Date.now();
+    if (op.contest) op.contest.phase = "in-progress";
+    rememberContestCommand(state, evId, command);
     /* the intro has said its piece; the game starting is the handoff */
     if (ctx.showControl) {
       const control = showControlOf(state);
@@ -854,6 +1018,83 @@ export const ACTIONS = {
     }
     return ok();
   },
+  recordContestWinner(state, payload, ctx) {
+    const { evId, winner, qualifiers } = payload;
+    const g = gmOnly(ctx); if (g) return g;
+    const command = contestCommand(ctx, "recordContestWinner", payload);
+    const replay = replayContestCommand(state, evId, command); if (replay) return replay;
+    if (state.frozen) return err("The board is frozen");
+    if (stacksPosted(state)) return err("The finale is settled");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    const refError = contestReferenceError(state, ev, payload, true); if (refError) return refError;
+    const contest = resolveCurrentContest(state, ev);
+    if (contest.phase !== "in-progress") return err("Lock betting and start this contest first");
+    if (contest.kind === "ffa") return err("Enter the event result instead");
+    if (!contest.sides.some(side => side.key === winner)) return err("Winner is not in this contest");
+    if (state.onDeck && state.onDeck !== evId) return err("Close the current betting market first");
+    let through;
+    if (contest.kind === "heat") {
+      const st = state.stages[evId];
+      through = qualifiers === undefined && st.advance === 1 ? [winner] : qualifiers;
+      if (!Array.isArray(through) || through.length !== st.advance || new Set(through).size !== through.length
+          || !through.includes(winner) || through.some(key => !contest.sides.some(side => side.key === key)))
+        return err(`Choose the winner and ${st.advance} qualifier${st.advance === 1 ? "" : "s"}`);
+    }
+    const op = eventOp(state, evId);
+    op.lastContest = { id:contest.id, kind:contest.kind, revision:contest.revision,
+      match:contest.match, group:contest.group, stagesId:contest.stagesId, drawId:contest.drawId,
+      previousWinner:contest.kind === "match"
+        ? state.brackets[evId].rounds[contest.match[0]][contest.match[1]].winner
+        : contest.kind === "heat" ? state.stages[evId].groups[contest.group].winner : state.stages[evId].finalWinner,
+      previousThrough:contest.kind === "heat" ? [...(state.stages[evId].groups[contest.group].through || [])] : undefined,
+      winner, decidedAt:Date.now() };
+    if (contest.kind === "match") state.brackets[evId].rounds[contest.match[0]][contest.match[1]].winner = winner;
+    else if (contest.kind === "heat") {
+      const group = state.stages[evId].groups[contest.group];
+      group.winner = winner;
+      group.through = [...through];
+    } else state.stages[evId].finalWinner = winner;
+    const next = resolveCurrentContest(state, ev);
+    if (next) openContest(state, ev);
+    else {
+      op.contest = { id:contest.id, revision:contest.revision, phase:"awaiting-result" };
+      op.contestRevision = contest.revision;
+      op.resultEntryAt = Date.now();
+      if (state.onDeck === evId) state.onDeck = null;
+    }
+    rememberContestCommand(state, evId, command);
+    return ok({ ...(next ? { contestId:op.contest.id, contestRevision:op.contest.revision } : { awaitingResult:true }) });
+  },
+  undoLastContest(state, payload, ctx) {
+    const { evId, contestId, contestRevision } = payload;
+    const g = gmOnly(ctx); if (g) return g;
+    const command = contestCommand(ctx, "undoLastContest", payload);
+    const replay = replayContestCommand(state, evId, command); if (replay) return replay;
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    const available = contestUndoAvailability(state, ev);
+    if (!available.enabled) return err(available.blocker);
+    if (contestId !== available.contestId || contestRevision !== available.contestRevision)
+      return err("Contest changed, refresh and try again");
+    const op = eventOp(state, evId), last = op.lastContest;
+    if (last.drawId && state.draws[evId]?.id !== last.drawId
+        || last.stagesId && state.stages[evId]?.id !== last.stagesId) return err("Draw changed, refresh and try again");
+    if (last.kind === "match") state.brackets[evId].rounds[last.match[0]][last.match[1]].winner = last.previousWinner ?? null;
+    else if (last.kind === "heat") {
+      const group = state.stages[evId].groups[last.group];
+      group.winner = last.previousWinner ?? null;
+      group.through = [...(last.previousThrough || [])];
+    } else state.stages[evId].finalWinner = last.previousWinner ?? null;
+    op.contestRevision = Number(op.contestRevision || 0) + 1;
+    op.contest = { id:last.id, revision:op.contestRevision, phase:"in-progress" };
+    op.bettingLockedAt = Date.now();
+    delete op.resultEntryAt;
+    delete op.lastContest;
+    if (state.onDeck === evId) state.onDeck = null;
+    rememberContestCommand(state, evId, command);
+    return ok({ contestId:op.contest.id, contestRevision:op.contest.revision });
+  },
   beginResultEntry(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(event => event.id === evId);
@@ -862,7 +1103,9 @@ export const ACTIONS = {
     if (lifecycle.phase === "result-entry") return ok({ unchanged:true });
     if (lifecycle.phase !== "in-progress" || lifecycle.nextAction?.type !== "enter-result")
       return err(lifecycle.blockers?.[0] || lifecycle.nextAction?.label || "Event is not ready for results");
-    eventOp(state, evId).resultEntryAt = Date.now();
+    const op = eventOp(state, evId);
+    op.resultEntryAt = Date.now();
+    if (op.contest) op.contest.phase = "awaiting-result";
     return ok();
   },
   shelve(state, { id, on }, ctx) {
@@ -956,7 +1199,8 @@ export const ACTIONS = {
     if (state.results[evId]) return err("Result already posted");
     if (state.shelved[evId]) return err("That event is shelved");
     if (state.onDeck === evId) return err("Close betting before changing the draw");
-    if (eventOp(state, evId).startedAt) return err("The event has already started");
+    if (state.drafts?.[evId]) return err("Finish or cancel the captains draft");
+    if (eventHasBegun(state, ev)) return err("The event has already started");
     const compatible = validateEventParticipants(ev, players, ROSTER);
     if (!compatible.ok) return err(compatible.error);
     players = compatible.players;
@@ -967,6 +1211,7 @@ export const ACTIONS = {
     draw.roles = normalizeOverflowRoles(players, ROSTER, roles, ev);
     state.draws[evId] = draw;
     delete state.stages[evId];
+    resetContestSetup(state, evId);
     if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
       state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
     else delete state.brackets[evId];
@@ -977,7 +1222,9 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     if (state.results[evId]) return err("Clear the result before the draw");
     if (state.onDeck === evId) return err("Lock betting before clearing the draw");
-    if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    if (eventHasBegun(state, ev)) return err("The event has already started");
     delete state.draws[evId]; delete state.brackets[evId]; delete state.stages[evId];
     /* only the draw's own lifecycle stamps go; revision and correction
        history outlive a redraw */
@@ -986,6 +1233,7 @@ export const ACTIONS = {
       delete op.drawRevealedAt;
       delete op.bettingOpenedAt;
       delete op.bettingLockedAt;
+      delete op.contest;
     }
     return ok();
   },
@@ -994,6 +1242,10 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(event => event.id === evId);
     if (!ev) return err("No such event");
     const live = competitionLive(state, ev); if (live) return live;
+    if (state.eventOps?.[evId]?.contest) return err("Use the current contest controls");
+    const current = resolveCurrentContest(state, ev);
+    if (current?.kind !== "match" || current.match[0] !== r || current.match[1] !== m)
+      return err("Record the current matchup first");
     const br = state.brackets[evId]; if (!br?.rounds?.[r]?.[m]) return err("No such matchup");
     const match = br.rounds[r][m];
     const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
@@ -1008,9 +1260,12 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
     if (state.results[evId]) return err("Result already posted");
-    if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
-    if (!cfg || !Number.isInteger(cfg.nGroups) || cfg.nGroups < 2 || cfg.nGroups > 4)
+    if (state.onDeck === evId) return err("Close betting before changing stages");
+    if (eventHasBegun(state, ev)) return err("The event has already started");
+    if (!cfg || !["heats", "pools"].includes(cfg.kind) || !Number.isInteger(cfg.nGroups) || cfg.nGroups < 2 || cfg.nGroups > 4)
       return err("Bad stage setup");
+    if (state.brackets[evId]) return err("This event uses a bracket");
+    if (ev.stageCfg && ev.stageCfg.kind !== cfg.kind) return err(`This event uses ${ev.stageCfg.kind}`);
     let entrantType, keys, drawId = null;
     if (cfg.kind === "heats") {
       const compatible = validateEventParticipants(ev, cfg.players, ROSTER);
@@ -1020,21 +1275,27 @@ export const ACTIONS = {
       const draw = state.draws[evId]; if (!draw) return err("Draw teams first");
       entrantType = "team"; keys = draw.teams.map((_, i) => i); drawId = draw.id;
     }
+    if (keys.length < cfg.nGroups * (cfg.advance === 2 ? 2 : 1)) return err("Not enough entrants for these groups");
     /* same live strength model as the team draw; teams average their players */
     const solo = strengthMap(state, entrantType === "solo" ? keys : ROSTER, ev.sport);
     const strength = entrantType === "solo" ? k => solo[k]
       : i => { const t = state.draws[evId].teams[i]; return t.players.reduce((s, p) => s + (solo[p] ?? 0.5), 0) / t.players.length; };
     const groups = splitIntoGroups(keys, cfg.nGroups, strength)
-      .map((entrants, i) => ({ name: cfg.kind === "heats" ? `Heat ${i + 1}` : `Pool ${"ABCD"[i] || i + 1}`, entrants, through: [] }));
-    state.stages[evId] = { id: "s" + Date.now(), eventId: evId, kind: cfg.kind, entrantType, drawId,
+      .map((entrants, i) => ({ name: cfg.kind === "heats" ? `Heat ${i + 1}` : `Pool ${"ABCD"[i] || i + 1}`, entrants, through: [], winner:null }));
+    state.stages[evId] = { id:`s${Date.now()}-${crypto.randomUUID()}`, eventId: evId, kind: cfg.kind, entrantType, drawId, contestVersion:1,
       advance: cfg.advance === 2 ? 2 : 1, groups, finalWinner: null, ts: Date.now() };
+    resetContestSetup(state, evId);
     return ok();
   },
   clearStages(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (state.results[evId]) return err("Clear the result before the stages");
-    if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
+    if (state.onDeck === evId) return err("Close betting before clearing stages");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    if (eventHasBegun(state, ev)) return err("The event has already started");
     delete state.stages[evId];
+    resetContestSetup(state, evId);
     return ok();
   },
   toggleThrough(state, { evId, g: gi, key }, ctx) {
@@ -1042,6 +1303,9 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(event => event.id === evId);
     if (!ev) return err("No such event");
     const live = competitionLive(state, ev); if (live) return live;
+    if (state.eventOps?.[evId]?.contest) return err("Use the current contest controls");
+    const current = resolveCurrentContest(state, ev);
+    if (current?.kind !== "heat" || current.group !== gi) return err("Record the current group first");
     const st = state.stages[evId]; const grp = st?.groups?.[gi];
     if (!grp) return err("No such group");
     if (!grp.entrants.includes(key)) return err("Not in this group");
@@ -1057,6 +1321,8 @@ export const ACTIONS = {
     const ev = allEventsOf(state).find(event => event.id === evId);
     if (!ev) return err("No such event");
     const live = competitionLive(state, ev); if (live) return live;
+    if (state.eventOps?.[evId]?.contest) return err("Use the current contest controls");
+    if (resolveCurrentContest(state, ev)?.kind !== "stage-final") return err("Finish the current group first");
     const st = state.stages[evId]; if (!st) return err("No stages");
     if (!(stageFinalists(st) || []).includes(key)) return err("Not a finalist");
     reopenCompetition(state, evId);
@@ -1065,72 +1331,157 @@ export const ACTIONS = {
   },
 
   /* ── captains draft (GM sets up + can override; on-clock captain picks) ── */
-  startDraft(state, { evId, captains, players, roles }, ctx) {
+  startDraft(state, payload, ctx) {
+    const { evId, captains, players, roles } = payload;
     const g = gmOnly(ctx); if (g) return g;
+    const command = draftCommand(ctx, "startDraft", payload);
+    const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
     const ev = allEventsOf(state).find(e => e.id === evId);
-    if (!ev?.teamCfg || ev.kind !== "team") return err("Not a team event");
-    if (state.results[evId]) return err("Result already posted");
-    if (state.shelved[evId]) return err("That event is shelved");
-    if (state.onDeck === evId) return err("Close betting before starting a draft");
-    if (state.eventOps?.[evId]?.startedAt) return err("The event has already started");
+    const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
+    const config = draftConfigurationError(ev); if (config) return config;
     if (state.draws[evId]) return err("Teams already set, clear them first");
     const compatible = validateEventParticipants(ev, players, ROSTER);
     if (!compatible.ok) return err(compatible.error);
+    if (compatible.players.length !== ev.teamCfg.teams * ev.teamCfg.size)
+      return err(`Select exactly ${ev.teamCfg.teams * ev.teamCfg.size} players`);
     if (!Array.isArray(captains) || captains.length !== ev.teamCfg.teams) return err("Pick one captain per team");
     if (new Set(captains).size !== captains.length) return err("A captain is listed twice");
     const pool = compatible.players;
     if (!captains.every(c => pool.includes(c))) return err("Captains must be in the playing pool");
+    const normalizedRoles = normalizeOverflowRoles(pool, ROSTER, roles, ev);
+    const existing = state.drafts?.[evId];
+    if (existing) {
+      if (!slotsEqual(existing.teams?.map(team => team.captain), captains)
+          || !samePlayers([...(existing.pool || []), ...(existing.teams || []).flatMap(team => team.players)], pool)
+          || !slotsEqual(existing.roles || [], normalizedRoles))
+        return err("A draft is running. Cancel it before changing captains");
+      const extra = draftTurn(existing);
+      if (command.id) {
+        rememberDraftCommand(state, evId, command, extra);
+        return ok(extra);
+      }
+      return ok({ ...extra, unchanged:true });
+    }
     state.drafts = state.drafts || {};
     state.drafts[evId] = {
-      id: "df" + Date.now(), method: "draft", ts: Date.now(),
+      id:`df${Date.now()}-${crypto.randomUUID()}`, method:"draft", version:1, revision:0, ts:Date.now(),
+      players:[...pool],
       teams: captains.map(c => ({ captain: c, players: [c] })),
       pool: pool.filter(p => !captains.includes(p)),
       picks: [],
-      roles: normalizeOverflowRoles(pool, ROSTER, roles, ev),
+      roles:normalizedRoles,
     };
-    return ok();
+    const extra = draftTurn(state.drafts[evId]);
+    rememberDraftCommand(state, evId, command, extra);
+    return ok(extra);
   },
-  pickDraftPlayer(state, { evId, player }, ctx) {
+  pickDraftPlayer(state, payload, ctx) {
+    const { evId, player } = payload;
+    if (!ctx.isGm && !isActivePlayer(ctx.player)) return err("Choose your player first");
+    const command = draftCommand(ctx, "pickDraftPlayer", payload);
+    const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
     const d = state.drafts?.[evId]; if (!d) return err("No draft running");
+    if (state.draws[evId]) return err("Teams already set");
+    const refError = draftReferenceError(d, payload); if (refError) return refError;
+    const dataError = draftDataError(d, ev); if (dataError) return dataError;
+    const turn = draftTurn(d);
+    if (turn.complete) return err("All players have been picked");
+    if (!ctx.isGm && ctx.player !== turn.captain) return err("Not your pick");
     if (!d.pool.includes(player)) return err("Player not available");
-    const team = snakeTeam(d.picks.length, d.teams.length);
-    const cur = d.teams[team].captain;
-    if (!ctx.isGm && ctx.player !== cur) return err("Not your pick");
+    const team = turn.teamIndex;
     d.teams[team].players.push(player);
     d.pool = d.pool.filter(p => p !== player);
     d.picks.push({ team, player });
-    return ok();
+    d.revision = turn.draftRevision + 1;
+    const extra = { ...draftTurn(d), pickedBy:turn.captain, player, team };
+    rememberDraftCommand(state, evId, command, extra);
+    return ok(extra);
   },
-  undoDraftPick(state, { evId }, ctx) {
+  undoDraftPick(state, payload, ctx) {
+    const { evId } = payload;
     const g = gmOnly(ctx); if (g) return g;
+    const command = draftCommand(ctx, "undoDraftPick", payload);
+    const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
     const d = state.drafts?.[evId]; if (!d) return err("No draft running");
-    const last = d.picks.pop(); if (!last) return err("Nothing to undo");
+    if (state.draws[evId]) return err("Teams already set");
+    const refError = draftReferenceError(d, payload); if (refError) return refError;
+    const dataError = draftDataError(d, ev); if (dataError) return dataError;
+    const last = d.picks.at(-1); if (!last) return err("Nothing to undo");
+    const revision = draftTurn(d).draftRevision;
+    d.picks.pop();
     d.teams[last.team].players = d.teams[last.team].players.filter(p => p !== last.player);
     d.pool.push(last.player);
-    return ok();
+    // Return a pick to its original place in the available-player list.
+    const order = d.players || ROSTER;
+    d.pool.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    d.revision = revision + 1;
+    const extra = { ...draftTurn(d), player:last.player, team:last.team };
+    rememberDraftCommand(state, evId, command, extra);
+    return ok(extra);
   },
-  finalizeDraft(state, { evId }, ctx) {
+  finalizeDraft(state, payload, ctx) {
+    const { evId } = payload;
     const g = gmOnly(ctx); if (g) return g;
+    const command = draftCommand(ctx, "finalizeDraft", payload);
+    const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
     const ev = allEventsOf(state).find(e => e.id === evId);
+    const existing = state.draws?.[evId];
+    if (payload.draftId && existing?.sourceDraftId === payload.draftId
+        && existing.draft?.revision === payload.draftRevision && existing.draft?.picks.length === payload.pickIndex)
+      return ok({ unchanged:true, draftId:payload.draftId, drawId:existing.id });
+    const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
     const d = state.drafts?.[evId]; if (!ev || !d) return err("No draft running");
+    if (existing) return err("Teams already set");
+    const refError = draftReferenceError(d, payload); if (refError) return refError;
+    const dataError = draftDataError(d, ev); if (dataError) return dataError;
     if (d.pool.length) return err("Pool not empty yet");
     if (d.teams.some(team => team.players.length !== ev.teamCfg.size))
       return err(`Teams must have exactly ${ev.teamCfg.size} players`);
     const mascots = (ev.teamCfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-    state.draws[evId] = { id: "d" + Date.now(), method: "draft", ts: Date.now(), roles:d.roles || [],
-      teams: d.teams.map((t, i) => mascots ? { players: t.players, name: mascots[i % mascots.length] } : { players: t.players }) };
+    const now = Date.now(), turn = draftTurn(d), drawId = `d${now}-${crypto.randomUUID()}`;
+    state.draws[evId] = { id:drawId, method:"draft", ts:now, sourceDraftId:d.id,
+      draft:{ id:d.id, revision:turn.draftRevision, picks:d.picks.map(pick => ({ ...pick })) },
+      roles:(d.roles || []).map(role => ({ ...role })),
+      teams:d.teams.map((team, index) => ({ captain:team.captain, players:[...team.players],
+        ...(mascots ? { name:mascots[index % mascots.length] } : {}) })) };
     delete state.stages[evId];
     if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)
       state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
     else delete state.brackets[evId];
-    eventOp(state, evId).drawRevealedAt = Date.now();
+    resetContestSetup(state, evId);
+    eventOp(state, evId).drawRevealedAt = now;
+    eventOp(state, evId).lastDraft = { ...turn, status:"finalized", drawId, endedAt:now };
     delete state.drafts[evId];
-    return ok();
+    const extra = { ...turn, drawId };
+    rememberDraftCommand(state, evId, command, extra);
+    return ok(extra);
   },
-  cancelDraft(state, { evId }, ctx) {
+  cancelDraft(state, payload, ctx) {
+    const { evId } = payload;
     const g = gmOnly(ctx); if (g) return g;
-    if (state.drafts) delete state.drafts[evId];
-    return ok();
+    const command = draftCommand(ctx, "cancelDraft", payload);
+    const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
+    const ev = allEventsOf(state).find(e => e.id === evId);
+    const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
+    const d = state.drafts?.[evId];
+    if (!d) {
+      const previous = state.eventOps?.[evId]?.lastDraft;
+      if (!payload.draftId || previous?.status === "cancelled" && previous.draftId === payload.draftId
+          && previous.pickIndex === payload.pickIndex && previous.draftRevision === payload.draftRevision)
+        return ok({ unchanged:true });
+      return err("Draft changed, refresh and try again");
+    }
+    if (state.draws[evId]) return err("Teams already set");
+    const refError = draftReferenceError(d, payload); if (refError) return refError;
+    const extra = draftTurn(d);
+    eventOp(state, evId).lastDraft = { ...extra, status:"cancelled", endedAt:Date.now() };
+    delete state.drafts[evId];
+    rememberDraftCommand(state, evId, command, extra);
+    return ok(extra);
   },
 
   /* ── the poker finale: the app runs the table, the cards stay physical ── */
@@ -1384,6 +1735,21 @@ export function applyAction(state, type, payload, ctx) {
   if (!handler) return { ok: false, error: `Unknown action: ${type}` };
   if (pokerTableLocksBoard(state) && !POKER_TABLE_ALLOWED_ACTIONS.has(type))
     return err("Cancel the poker table before changing the board");
-  try { return handler(state, payload || {}, ctx); }
+  try {
+    const result = handler(state, payload || {}, ctx);
+    // Opening the first game includes its betting window. Setup alone does
+    // not begin the weekend, and rejected actions never change its status.
+    if (result.ok && !state.live && (WEEKEND_START_ACTIONS.has(type)
+        || type === "setOnDeck" && !!payload?.id)) {
+      state.live = true;
+      // A legacy client may have opened a game without starting the weekend.
+      // This repair is a real write even if the game itself was unchanged.
+      if (result.extra?.unchanged) {
+        const { unchanged, ...extra } = result.extra;
+        return { ...result, extra };
+      }
+    }
+    return result;
+  }
   catch (e) { return { ok: false, error: "Action failed: " + (e?.message || e) }; }
 }

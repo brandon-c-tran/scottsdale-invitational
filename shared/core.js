@@ -98,8 +98,10 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
   { id:"spike", n:6, session:"sam", value:800, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
     teamCfg:{ teams:6, size:2 },
+    stageCfg:{ kind:"pools", nGroups:2, advance:1 },
     desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
   { id:"pingpong", n:7, session:"sam", value:800, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
+    stageCfg:{ kind:"heats", nGroups:3, advance:1 },
     desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
   { id:"foosball", n:8, session:"sam", value:800, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
     teamCfg:{ teams:6, size:2, bracket:6 },
@@ -111,6 +113,7 @@ const RAW_BUILTIN_EVENTS = [
   { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
     desc:"Nine holes, lowest total strokes. Max 5 per hole." },
   { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+    stageCfg:{ kind:"heats", nGroups:3, advance:1 },
     desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
   { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
@@ -120,6 +123,7 @@ const RAW_BUILTIN_EVENTS = [
     teamCfg:{ teams:2, size:6 },
     desc:"Best of 3. Flip clean, next teammate goes." },
   { id:"beerio", n:14, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+    stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
   { id:"bball5", n:15, session:"san", value:1600, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:5 },
@@ -371,7 +375,7 @@ function cleanLogistics(stored) {
   return out;
 }
 
-const EMPTY_STATE = { v:8, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
+const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, updatedAt:0 };
@@ -508,6 +512,19 @@ const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
 /* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
 const snakeTeam = (k, T) => { const r = Math.floor(k / T), p = k % T; return r % 2 === 0 ? p : T - 1 - p; };
+/* The draft's visible turn and write references travel together. Revision
+   also advances on undo, when the same pick index can be reached again. */
+function draftTurn(draft) {
+  if (!draft?.id || !Array.isArray(draft.teams) || !draft.teams.length
+      || !Array.isArray(draft.picks) || !Array.isArray(draft.pool)) return null;
+  const pickIndex = draft.picks.length, remaining = draft.pool.length;
+  const complete = remaining === 0;
+  const teamIndex = complete ? null : snakeTeam(pickIndex, draft.teams.length);
+  return { draftId:draft.id, pickIndex, draftRevision:Number(draft.revision || 0),
+    teamIndex, captain:teamIndex === null ? null : draft.teams[teamIndex].captain,
+    round:Math.floor(pickIndex / draft.teams.length) + 1,
+    totalPicks:pickIndex + remaining, remaining, complete };
+}
 
 /* mascot bank for teams of 3+; assigned at draw time, stable for the event */
 const TEAM_NAMES = ["The Sidewinders","The Javelinas","The Roadrunners","The Coyotes","The Scorpions",
@@ -565,7 +582,7 @@ function resolveWager(state, w, events) {
     const won = match.winner === w.teamIdx;
     return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
   }
-  if (w.kind === "stage") {
+  if (w.kind === "stage" || w.kind === "heat") {
     const st = state.stages[w.eventId];
     if (!st || st.id !== w.stagesId) return { status:"void", delta:0 };
     if (st.entrantType === "team") {
@@ -579,6 +596,11 @@ function resolveWager(state, w, events) {
     }
     const g = st.groups[w.group];
     if (!g) return { status:"void", delta:0 };
+    if (w.kind === "heat") {
+      if (g.winner === null || g.winner === undefined) return { status:"pending", delta:0 };
+      const won = g.winner === w.pickKey;
+      return { status:won ? "won" : "lost", delta:won ? w.stake : -w.stake };
+    }
     if ((g.through || []).length < st.advance) return { status:"pending", delta:0 };
     const won = g.through.includes(w.pickKey);
     return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
@@ -897,37 +919,23 @@ function resolveSlot(br, slot) {
   const src = br.rounds[slot.w[0]]?.[slot.w[1]];
   return src && src.winner !== null && src.winner !== undefined ? src.winner : null;
 }
-/* A deterministic QA matchup pick. It only returns fully seated, undecided
-   bracket matches and never backs the opponent facing the simulated player's
-   own team. Cycling `ordinal` spreads a rehearsal over both matches and sides. */
+/* The QA path uses the same current matchup and eligibility as real chips. */
 function qaBracketMatchWager(state, ev, player, ordinal = 0, stake = PT) {
   const draw = state.draws?.[ev?.id];
-  const bracket = state.brackets?.[ev?.id];
-  if (!draw || !bracket) return null;
-  const open = [];
-  for (let r = 0; r < bracket.rounds.length; r++) {
-    for (let m = 0; m < bracket.rounds[r].length; m++) {
-      const match = bracket.rounds[r][m];
-      if (match.winner !== null && match.winner !== undefined) continue;
-      const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
-      if (sides.every(teamIdx => teamIdx !== null && draw.teams[teamIdx]))
-        open.push({ r, m, sides });
-    }
-  }
-  if (!open.length) return null;
+  const contest = resolveCurrentContest(state, ev);
+  if (!draw || contest?.kind !== "match") return null;
+  const sides = contest.sides.filter(side => contestBetEligibility(contest, player, side.key));
+  if (!sides.length) return null;
   const index = Math.abs(Math.trunc(Number(ordinal) || 0));
-  const selected = open[index % open.length];
-  const myTeamIdx = draw.teams.findIndex(team => team.players.includes(player));
-  const teamIdx = selected.sides.includes(myTeamIdx)
-    ? myTeamIdx
-    : selected.sides[Math.floor(index / open.length) % selected.sides.length];
+  const teamIdx = sides[index % sides.length].key;
   return {
     kind:"match",
     eventId:ev.id,
     evName:ev.name,
     drawId:draw.id,
-    match:[selected.r, selected.m],
-    matchName:(ROUND_NAMES[bracket.size] || [])[selected.r] || "Match",
+    match:[...contest.match],
+    matchName:contest.label,
+    contestId:contest.id, contestRevision:contest.revision,
     teamIdx,
     pickPlayers:[...draw.teams[teamIdx].players],
     pickTeam:true,
@@ -966,6 +974,111 @@ const stagesStarted = st => !!st && (
   st.finalWinner !== null && st.finalWinner !== undefined
   || st.groups?.some(group => (group.through || []).length > 0)
 );
+const needsStageSetup = (state, ev) => !!ev.stageCfg && !state.stages?.[ev.id]
+  && !(!state.eventOps?.[ev.id]?.contest && (state.onDeck === ev.id
+    || state.eventOps?.[ev.id]?.startedAt || state.eventOps?.[ev.id]?.bettingOpenedAt
+    || state.eventOps?.[ev.id]?.bettingLockedAt || state.eventOps?.[ev.id]?.resultEntryAt));
+/* A contest is one wagerable decision. Only the first seated, unresolved
+   matchup/group is current. Old snapshots derive their phase without adding
+   a market or guessing a winner from historical advancement selections. */
+function contestTarget(state, ev) {
+  if (!ev || state.results?.[ev.id] || state.shelved?.[ev.id]
+      || ev.game === "poker" || (state.drafts?.[ev.id] && !state.draws?.[ev.id])) return null;
+  const draw = state.draws?.[ev.id];
+  if (ev.teamCfg && !draw) return null;
+  const br = state.brackets?.[ev.id];
+  if (ev.teamCfg?.bracket && !br) return null;
+  if (br) {
+    for (let r = 0; r < br.rounds.length; r++) {
+      for (let m = 0; m < br.rounds[r].length; m++) {
+        const match = br.rounds[r][m];
+        if (match.winner !== null && match.winner !== undefined) continue;
+        const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
+        if (keys.some(key => key === null || key === undefined || !draw?.teams?.[key])) continue;
+        return { id:`match:${ev.id}:${draw.id}:${r}:${m}`, kind:"match", match:[r,m], drawId:draw.id,
+          label:`${ROUND_NAMES[draw.teams.length]?.[r] || `Round ${r + 1}`} · Match ${m + 1}`,
+          sides:keys.map(key => ({ key, players:[...draw.teams[key].players] })) };
+      }
+    }
+    return null;
+  }
+  const st = state.stages?.[ev.id];
+  if (needsStageSetup(state, ev)) return null;
+  if (st) {
+    if (st.entrantType === "team" && (!draw || st.drawId !== draw.id)) return null;
+    const sides = keys => keys.map(key => ({ key, players:stageEntrantView(state, st, key).players }));
+    const group = st.groups.findIndex(g => (g.through || []).length < st.advance
+      || (st.contestVersion === 1 && (g.winner === null || g.winner === undefined)));
+    if (group >= 0) return { id:`heat:${ev.id}:${st.id}:${group}`, kind:"heat", group,
+      stagesId:st.id, drawId:st.drawId || null, label:st.groups[group].name, sides:sides(st.groups[group].entrants) };
+    const finalists = stageFinalists(st);
+    if (!finalists || st.finalWinner !== null && st.finalWinner !== undefined) return null;
+    return { id:`final:${ev.id}:${st.id}`, kind:"stage-final", stagesId:st.id, drawId:st.drawId || null,
+      label:"Final", sides:sides(finalists) };
+  }
+  return { id:`ffa:${ev.id}:${draw?.id || "solo"}`, kind:"ffa", drawId:draw?.id || null, label:ev.name,
+    sides:draw ? draw.teams.map((team, key) => ({ key, players:[...team.players] }))
+      : ROSTER.map(key => ({ key, players:[key] })) };
+}
+function resolveCurrentContest(state, ev) {
+  const target = contestTarget(state, ev);
+  if (!target) return null;
+  const op = eventOpOf(state, ev.id);
+  const stored = op.contest;
+  const same = stored?.id === target.id;
+  const legacy = !stored;
+  let phase;
+  if (same) phase = stored.phase;
+  else if (stored || op.resultEntryAt) phase = "awaiting-result";
+  else if (op.startedAt || bracketStarted(state.brackets?.[ev.id]) || stagesStarted(state.stages?.[ev.id]))
+    phase = "in-progress";
+  else if (state.onDeck === ev.id) phase = "betting-open";
+  else phase = op.bettingLockedAt ? "betting-locked" : "scheduled";
+  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock & start")
+    : phase === "betting-locked" ? lifecycleAction("start-event", "Start")
+      : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result")
+        : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting")
+        : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result")
+          : lifecycleAction("record-contest-winner", "Record winner");
+  return { ...target, eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
+    phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction };
+}
+function contestBetEligibility(contest, player, sideKey) {
+  const side = contest?.sides.find(item => item.key === sideKey);
+  if (!side || !isActivePlayer(player)) return false;
+  if (contest.kind === "ffa") return true;
+  return !contest.players.includes(player) || side.players.includes(player);
+}
+/* Shared canonical target check keeps legacy pending tickets readable while
+   preventing an old outright/advance ticket from becoming a new contest bet. */
+function wagerMatchesContest(wager, contest) {
+  if (!contest || wager.eventId !== contest.eventId) return false;
+  if (wager.contestId && wager.contestId !== contest.id) return false;
+  if (contest.kind === "ffa") return wager.kind === "outright"
+    && (!contest.drawId || wager.pickTeam && wager.drawId === contest.drawId);
+  if (contest.kind === "match") return wager.kind === "match" && wager.drawId === contest.drawId
+    && wager.match?.[0] === contest.match[0] && wager.match?.[1] === contest.match[1];
+  return wager.stagesId === contest.stagesId && (contest.kind === "heat"
+    ? wager.kind === "heat" && !wager.final && wager.group === contest.group
+    : wager.kind === "stage" && wager.final === true);
+}
+function contestUndoAvailability(state, ev) {
+  const op = eventOpOf(state, ev?.id);
+  const last = op.lastContest;
+  const response = blocker => ({ enabled:!blocker, blocker: blocker || null,
+    contestId:last?.id || null, contestRevision:Number(op.contestRevision || 0) });
+  if (!ev || !last) return response("No previous contest to correct");
+  if (state.frozen) return response("The board is frozen");
+  if (state.results?.[ev.id]) return response("The event result is already posted");
+  if (state.poker || stacksPosted(state)) return response("The finale is underway");
+  if (state.onDeck && state.onDeck !== ev.id) return response("Close the current betting market first");
+  const current = resolveCurrentContest(state, ev);
+  if (current && current.phase !== "betting-open") return response("The next contest is already locked or playing");
+  if (current && (state.wagers || []).some(wager => wagerMatchesContest(wager, current)
+      && resolveWager(state, wager, allEventsOf(state)).status === "pending"))
+    return response("Remove the next contest's chips before correcting the result");
+  return response(null);
+}
 function resultReadiness(state, ev) {
   const blockers = [];
   if (state.drafts?.[ev.id] && !state.draws?.[ev.id])
@@ -976,6 +1089,8 @@ function resultReadiness(state, ev) {
   if (bracket && bracketChampion(bracket) === null)
     blockers.push("Complete the bracket");
   const stages = state.stages?.[ev.id];
+  if (needsStageSetup(state, ev)) blockers.push(`Set up ${ev.stageCfg.kind} first`);
+  if (ev.teamCfg?.bracket && !bracket) blockers.push("Set up the bracket first");
   if (stages && (!stageFinalists(stages)
       || stages.finalWinner === null || stages.finalWinner === undefined))
     blockers.push(`Complete the ${stages.kind === "heats" ? "heats" : "pools"} and final`);
@@ -1040,24 +1155,30 @@ function resolveEventLifecycle(state, ev) {
     return response("draw-pending", lifecycleAction("continue-draft", `Continue the ${ev.name} draft`));
   if (ev.teamCfg && !draw)
     return response("draw-pending", lifecycleAction("prepare-draw", `Choose players and draw ${ev.name}`));
-  if (state.onDeck === ev.id)
+  if (needsStageSetup(state, ev))
+    return response("setup", lifecycleAction("prepare-stages", `Set up ${ev.stageCfg.kind}`));
+  if (op.contest) {
+    if (op.resultEntryAt)
+      return response("result-entry", lifecycleAction("post-result", `Post the ${ev.name} result`, finish.blockers), finish.blockers);
+    const contest = resolveCurrentContest(state, ev);
+    if (contest) return response(contest.phase === "awaiting-result" ? "result-entry" : contest.phase,
+      contest.nextAction, contest.phase === "in-progress" ? finish.blockers : []);
+    return response("in-progress", lifecycleAction("enter-result", `Enter the ${ev.name} result`, finish.blockers), finish.blockers);
+  }
+  const competitionStarted = !!op.startedAt
+    || bracketStarted(state.brackets?.[ev.id])
+    || stagesStarted(state.stages?.[ev.id]);
+  if (state.onDeck === ev.id && !competitionStarted)
     return response("betting-open", lifecycleAction("lock-betting", `Lock betting on ${ev.name}`));
   if (op.resultEntryAt)
     return response("result-entry",
       lifecycleAction("post-result", `Post the ${ev.name} result`, finish.blockers),
       finish.blockers);
 
-  const competitionStarted = !!op.startedAt
-    || bracketStarted(state.brackets?.[ev.id])
-    || stagesStarted(state.stages?.[ev.id]);
   if (competitionStarted) {
     let action;
-    if (!finish.ok && state.brackets?.[ev.id])
-      action = lifecycleAction("advance-bracket", `Advance the ${ev.name} bracket`, finish.blockers);
-    else if (!finish.ok && state.stages?.[ev.id])
-      action = lifecycleAction("advance-stages",
-        `Advance the ${state.stages[ev.id].kind === "heats" ? "heats" : "pools"}`,
-        finish.blockers);
+    if (resolveCurrentContest(state, ev)?.kind !== "ffa" && !finish.ok)
+      action = lifecycleAction("record-contest-winner", "Record winner");
     else action = lifecycleAction("enter-result", `Enter the ${ev.name} result`);
     return response("in-progress", action, finish.blockers);
   }
@@ -1111,12 +1232,12 @@ export {
   normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
-  allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
+  allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
   pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
-  resolveEventLifecycle, resolveWeekendOperation,
+  resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
 };

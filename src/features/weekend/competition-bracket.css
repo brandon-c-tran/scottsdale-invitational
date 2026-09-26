@@ -1,0 +1,36 @@
+.fd-competition-bracket { min-width:0; container-type:inline-size; }
+.fd-bracket-rounds { display:grid; gap:14px; }
+.fd-bracket-round { min-width:0; }
+.fd-bracket-round h4 { margin:0 0 6px; color:var(--muted2); font:600 11px/1.4 var(--fd-body); }
+.fd-bracket-matches { display:grid; gap:8px; }
+.fd-bracket-match { min-width:0; border:1px solid var(--line); border-radius:8px; background:var(--paper2); overflow:hidden; }
+.fd-bracket-match.is-current { border-color:var(--sun); }
+.fd-bracket-match-label { display:flex; align-items:center; justify-content:space-between; gap:4px; padding:4px 9px; color:var(--muted); font-size:10px; line-height:1.4; border-bottom:1px solid var(--line); }
+.fd-bracket-match-label strong { color:var(--sun); font-size:10px; font-weight:600; }
+.fd-bracket-team { display:flex; align-items:stretch; min-width:0; }
+.fd-bracket-team+.fd-bracket-team { border-top:1px solid var(--line); }
+.fd-bracket-pick { display:flex; align-items:center; gap:5px; flex:1; min-width:0; min-height:46px; padding:7px 9px; border:0; background:none; color:var(--ink); font:600 12px/1.35 var(--fd-body); text-align:left; overflow-wrap:anywhere; }
+.fd-bracket-pick:disabled { opacity:1; cursor:default; }
+.fd-bracket-pick:not(:disabled) { cursor:pointer; }
+.fd-bracket-pick:not(:disabled):hover { background:var(--sun-tint); }
+.fd-bracket-pick>span:first-child { flex:1; }
+.fd-bracket-pick-hint { color:var(--sun); font-size:10px; font-weight:600; }
+.fd-bracket-players { display:flex; align-items:center; flex-shrink:0; padding-right:2px; }
+.fd-bracket-players button { display:grid; place-items:center; width:44px; min-height:44px; padding:0; background:none; border:0; cursor:pointer; border-radius:4px; }
+.fd-bracket-players button:disabled { cursor:default; }
+.fd-bracket-pick:focus-visible,.fd-bracket-players button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
+.fd-bracket-team.is-winner { background:var(--accent-tint); }
+.fd-bracket-team.is-winner .fd-bracket-pick,.fd-bracket-outcome { color:var(--accent2); }
+.fd-bracket-team.is-loser .fd-bracket-pick { color:var(--muted); font-weight:400; }
+.fd-bracket-team.is-you .fd-bracket-pick { box-shadow:inset 3px 0 0 var(--accent2); }
+@container (min-width:460px) {
+  .fd-bracket-matches { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fd-bracket-round:last-child .fd-bracket-matches { grid-template-columns:minmax(0,1fr); max-width:calc(50% - 4px); margin:auto; }
+}
+@container (min-width:760px) {
+  .fd-bracket-rounds { grid-template-columns:repeat(var(--fd-round-count,3),minmax(0,1fr)); gap:18px; }
+  .fd-bracket-round { display:flex; flex-direction:column; }
+  .fd-bracket-matches { display:flex; flex:1; flex-direction:column; justify-content:space-around; gap:12px; }
+  .fd-bracket-round:last-child .fd-bracket-matches { max-width:none; margin:0; }
+  .fd-competition-bracket.is-large .fd-bracket-pick { font-size:16px; min-height:62px; }
+}

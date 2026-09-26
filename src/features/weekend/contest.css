@@ -1,0 +1,35 @@
+.fd-contest { margin-bottom:12px; min-width:0; }
+.fd-contest-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0 12px; }
+.fd-contest-toolbar>div { display:grid; gap:3px; min-width:0; }
+.fd-contest-toolbar strong { color:var(--ink); font:600 19px/1.15 var(--fd-display); }
+.fd-contest-toolbar span { color:var(--sun); font-size:11px; }
+.fd-contest-primary { display:flex; justify-content:center; align-items:center; gap:8px; min-height:44px; padding:9px 12px; border:0; border-radius:6px; background:var(--action-fill); color:var(--action-ink); font:600 12px/1.3 var(--fd-body); cursor:pointer; }
+.fd-contest-primary:disabled { opacity:.45; cursor:default; }
+.fd-contest-toolbar .fd-contest-primary { flex-shrink:0; max-width:60%; }
+.fd-contest-instruction { margin:0 0 10px; color:var(--muted2); font-size:12px; line-height:1.4; }
+.fd-contest-entrants { overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--paper2); }
+.fd-contest-entrant { display:flex; min-width:0; align-items:stretch; }
+.fd-contest-entrant+.fd-contest-entrant { border-top:1px solid var(--line); }
+.fd-contest-entrant-pick { display:flex; flex:1; align-items:center; gap:8px; min-width:0; min-height:48px; padding:10px 12px; background:none; color:var(--ink); border:0; font:600 13px/1.4 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-contest-entrant-pick>span { flex:1; overflow-wrap:anywhere; }
+.fd-contest-entrant-pick small { color:var(--sun); font-size:11px; font-weight:600; }
+.fd-contest-entrant-pick:disabled { opacity:1; cursor:default; }
+.fd-contest-entrant-pick:not(:disabled):hover { background:var(--sun-tint); }
+.fd-contest-entrant.is-you { box-shadow:inset 3px 0 0 var(--accent2); }
+.fd-contest-entrant.is-winner,.fd-contest-entrant-pick[aria-checked=true] { background:var(--accent-tint); }
+.fd-contest-entrant.is-winner .fd-contest-entrant-pick { color:var(--accent2); }
+.fd-contest-entrant-players { display:flex; align-items:center; padding-right:4px; }
+.fd-contest-entrant-players button { display:grid; place-items:center; padding:0; width:44px; min-height:44px; border:0; border-radius:4px; background:none; cursor:pointer; }
+.fd-contest-entrant-players button:disabled { cursor:default; }
+.fd-contest-primary:focus-visible,.fd-contest-secondary:focus-visible,.fd-contest-entrant-pick:focus-visible,.fd-contest-entrant-players button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
+.fd-contest-qualifier-actions { display:flex; justify-content:space-between; gap:8px; padding:8px; border-top:1px solid var(--line); }
+.fd-contest-secondary { min-height:44px; padding:8px; border:0; background:none; color:var(--muted2); font-size:12px; text-decoration:underline; cursor:pointer; }
+.fd-contest-failure { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+.fd-contest-error { font-size:12px; line-height:1.5; color:var(--live2); margin:8px 0; }
+.fd-contest-saving { margin:8px 0; color:var(--muted2); font-size:12px; }
+.fd-contest-correction { margin:0 0 12px; }
+.fd-contest-correction button { min-height:44px; padding:8px 0; border:0; background:none; color:var(--muted2); font-size:12px; text-decoration:underline; cursor:pointer; }
+.fd-contest-correction button:disabled { opacity:.5; cursor:default; }
+.fd-contest-correction p { margin:0; color:var(--muted); font-size:11px; line-height:1.4; }
+.fd-event-context { margin-bottom:14px; }
+.fd-event-context summary { min-height:44px; padding:12px 0; cursor:pointer; font:600 18px/1.1 var(--fd-display); color:var(--ink); }

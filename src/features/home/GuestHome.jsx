@@ -1,0 +1,140 @@
+import React from "react";
+import { EDITION, SESSIONS, AWARDS, disp, overflowRoleMeta } from "../../../shared/core.js";
+import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { SectionHeading } from "../../ui/layout.jsx";
+import { Leaderboard } from "../standings/Standings.jsx";
+import { deriveHomeModel } from "./homeModel.js";
+import { DraftEntry } from "../draft/DraftSheet.jsx";
+import "./home.css";
+
+const fmt = value => (value ?? 0).toLocaleString("en-US");
+const sessionOf = event => SESSIONS.find(session => session.id === event?.session)?.label;
+const Arrow = () => <span className="fd-home-arrow" aria-hidden="true">↗</span>;
+
+function People({ state, players, onPlayer }) {
+  return <span className="fd-home-player-links">{players.map(player => <button type="button" key={player}
+    onClick={() => onPlayer(player)} aria-label={`View ${disp(state, player)}'s player card`}>
+    <Avatar state={state} p={player} size={30} /><span>{disp(state, player)}</span>
+  </button>)}</span>;
+}
+
+function Assignment({ current, state, onPlayer }) {
+  const a = current.assignment;
+  if (!a || a.kind === "spectator") return null;
+  if (a.kind === "pending" || a.kind === "crew") return <div className="fd-home-assignment">
+    <small>{a.kind === "crew" ? "Your role" : "The draw"}</small><strong>{a.label}</strong>
+    {a.role && <p>{overflowRoleMeta(a.role).detail}</p>}
+  </div>;
+  if (a.kind === "solo" && !a.group) return null;
+  const status = { "up-now":"Your match", next:"Your next match", waiting:"Waiting for an opponent",
+    out:"Eliminated", won:"Winner", through:"Through to the final", final:"Final", playing:"Your group" }[a.status];
+  return <div className="fd-home-assignment">
+    {a.partners.length > 0 && <div><small>{a.label}</small>
+      <People state={state} players={a.partners} onPlayer={onPlayer} /></div>}
+    {a.opponents.length > 0 && <div><small>{status || "Against"}{a.match?.roundName ? ` · ${a.match.roundName}` : ""}</small>
+      <span className="fd-home-opponents"><span>vs</span><People state={state} players={a.opponents} onPlayer={onPlayer} /></span></div>}
+    {a.group && <div><small>{a.group.name || status}</small><People state={state}
+      players={a.group.players.filter(player => !a.players.includes(player))} onPlayer={onPlayer} /></div>}
+    {status && (!a.opponents.length || ["out", "won", "through"].includes(a.status))
+      && <p className="fd-home-assignment-status">{current.awaitingResult ? "Awaiting result" : status}</p>}
+  </div>;
+}
+
+function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameMark }) {
+  const current = model.current;
+  if (!current) return null;
+  const event = current.event;
+  const before = model.mode === "before";
+  const betHere = model.betting?.open && model.betting.event.id === event.id;
+  const bettingLabel = model.betting?.canPlace ? "Place chips" : "View bets";
+  const running = ["in-progress", "result-entry"].includes(current.lifecycle.phase);
+  return <section className={`fd-home-focus${running ? " is-running" : ""}`} aria-label={`${event.name}: ${current.status}`}>
+    <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{running && <i aria-hidden="true" />}{current.status}</span>
+      {before ? <span>{sessionOf(event)}</span> : <button type="button" className="fd-home-text-link"
+        aria-label={`${event.name} rules`} onClick={() => onRules(event)}>Rules <Arrow /></button>}</div>
+    <button type="button" className="fd-home-event-title" onClick={() => onOpen(event)} aria-label={`Open ${event.name}`}>
+      <span><h2>{event.name}</h2>{event.value && <small>{fmt(AWARDS[event.value]?.[0] ?? event.value)} chips to win</small>}</span>
+      <span className="fd-home-event-mark"><GameMark id={event.game} size={72} /></span>
+    </button>
+    {before && event.desc && <p className="fd-home-event-description">{event.desc}</p>}
+    {!before && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
+      ? <div className="fd-home-assignment"><div className="fd-home-contest-label">{current.contest.label}
+          {current.contest.players?.includes(me) && <span>You’re playing</span>}</div>
+          {current.contest.sides.map((side,index) => <React.Fragment key={String(side.key)}>
+            {index > 0 && current.contest.kind === "match" && <span className="fd-home-versus">vs</span>}
+            <People state={state} players={side.players} onPlayer={onPlayer} /></React.Fragment>)}
+          {current.assignment.kind === "crew" && <p>{current.assignment.label}</p>}
+        </div>
+      : !before && <Assignment current={current} state={state} onPlayer={onPlayer} />}
+    <div className="fd-home-event-actions">
+      {betHere && <button type="button" className="fd-home-primary" onClick={onBets}>{bettingLabel}<Arrow /></button>}
+      <button type="button" className={betHere ? "fd-home-secondary" : "fd-home-primary"} onClick={() => before ? onRules(event) : onOpen(event)}>
+        {before ? "How to play" : current.awaitingResult ? "View event" : "Open event"}<Arrow /></button>
+    </div>
+  </section>;
+}
+
+export function GuestHome({ state, me, events, standings, onProfile, onPlayer, onEvents, onGuide,
+  onHouse, onOpen, onRules = onOpen, onBets, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent }) {
+  const model = deriveHomeModel({ state, me, events, standings });
+  const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
+  const leaders = (standings || []).filter(row => row.rank === 1);
+  const latest = events.filter(event => state.results?.[event.id]?.slots?.[0]?.length && !state.shelved?.[event.id])
+    .sort((a, b) => (state.results[b.id].ts || 0) - (state.results[a.id].ts || 0))[0];
+  const bettingElsewhere = model.betting?.open && model.betting.event.id !== model.current?.event.id;
+
+  return <div className={`fd-home is-${model.mode}`}>
+    <div className="fd-home-heading"><div><span className="fd-home-eyebrow">{EDITION.short}</span>
+      <h1>{complete ? "Final standings" : finale ? "The finale" : "Scottsdale"}</h1></div></div>
+
+    {!finale && !complete && events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
+      && !state.shelved?.[event.id] && !state.results?.[event.id]).map(event =>
+      <DraftEntry key={event.id} state={state} ev={event} me={me} onOpen={() => (onDraft || onOpen)(event)}/>)}
+
+    {complete ? <section className="fd-home-finish" aria-label={state.frozen ? "Champion" : "Final chip counts"}>
+      <span className="fd-home-eyebrow">{state.frozen ? leaders.length > 1 ? "Tied for the championship" : "Champion" : "Final chip counts"}</span>
+      {leaders.map(row => <button type="button" key={row.player} onClick={() => onPlayer(row.player)}
+        className="fd-home-winner" aria-label={`View ${disp(state, row.player)}'s player card`}>
+        <Avatar state={state} p={row.player} size={68} /><strong>{disp(state, row.player)}</strong></button>)}
+      {leaders[0] && <p><strong>{fmt(leaders[0].pts)}</strong> chips</p>}
+      {state.frozen && leaders.length > 1 && <p>Tied. One pressure putt decides it.</p>}
+    </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
+      {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
+    </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onPlayer={onPlayer} GameMark={GameMark} />}
+
+    {model.mode === "live" && duelContent}
+    {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>
+      <GameMark id={model.betting.event.game} size={32} /><span><small>Betting open</small><strong>{model.betting.event.name}</strong></span>
+      <span>{model.betting.canPlace ? "Place chips" : "View bets"}<Arrow /></span></button>}
+
+    {!before && !finale && !complete && latest && <section className="fd-home-result" aria-label="Latest result">
+      <button type="button" className="fd-home-result-event" onClick={() => onOpen(latest)}>
+        <span><small>Latest result</small><strong>{latest.name}</strong></span><Arrow /></button>
+      <div><People state={state} players={state.results[latest.id].slots[0]} onPlayer={onPlayer} />
+        <span className="fd-home-result-award">+{fmt(AWARDS[latest.value]?.[0])}</span></div>
+    </section>}
+
+    <section className="fd-home-leaderboard" aria-label="Leaderboard">
+      <SectionHeading title="Leaderboard" action={<button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button>} />
+      {!!model.standing?.exposure && !finale && !complete && <div className="fd-home-exposure">
+        {!!model.standing.atRisk && <button type="button" onClick={onBets}>{fmt(model.standing.atRisk)} in bets ↗</button>}
+        {!!model.standing.duelAntes && <span>{fmt(model.standing.duelAntes)} in duels</span>}
+      </div>}
+      <Leaderboard state={state} standings={standings} me={me} onPlayer={onPlayer} starting={before} deltas={deltas}
+        scoreLabel={finale ? "STARTING CHIPS" : undefined} ariaLabel={finale ? "Poker starting stacks" : undefined} />
+      {me && <button type="button" className="fd-home-card-link" onClick={onProfile}>Edit your profile<Arrow /></button>}
+    </section>
+
+    {model.upcoming.length > 0 && <section className="fd-home-upcoming" aria-label="Coming up">
+      <SectionHeading title="Coming up" action={<button type="button" className="fd-home-text-link" onClick={onEvents}>All events <Arrow /></button>} />
+      {model.upcoming.slice(0, 2).map(event => <button type="button" key={event.id} className="fd-home-next" onClick={() => onOpen(event)}>
+        <GameMark id={event.game} size={34} /><span><strong>{event.name}</strong><small>{sessionOf(event)}</small></span>
+        <Arrow /></button>)}
+    </section>}
+
+    <nav className="fd-home-reference" aria-label="Weekend reference">
+      <button type="button" onClick={onGuide}>Rules<Arrow /></button>
+      <button type="button" onClick={onHouse}>Trip details<Arrow /></button>
+    </nav>
+  </div>;
+}

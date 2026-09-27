@@ -37,3 +37,18 @@ test("the per-viewer serializer applies the same duel redaction", () => {
   assert.deepEqual(duels[0].runs, { [evan]:{ played:true } });
   assert.equal(JSON.stringify(frame).includes('"ms":190,"foul"'), false);
 });
+
+test("legacy or unknown structures never carry a device id or replay key to any viewer", () => {
+  const state = stateWithHalfPlayedDuel();
+  state.contestMarkets = { m1:{ backing:{ [evan]:{ chips:[{ stake:100, requestKey:"request:device-abc:a1" }] } } } };
+  state.someFutureThing = { nested:[{ deviceId:"device-xyz", keep:1 }] };
+  const serialize = createStateSerializer(state);
+  for (const viewer of [{ player:null }, { player:khoa }, { player:evan, isGm:true }]) {
+    const frame = serialize(viewer);
+    assert.equal(frame.includes("device-abc"), false);
+    assert.equal(frame.includes("device-xyz"), false);
+    assert.equal(frame.includes("requestKey"), false);
+    assert.equal(JSON.parse(frame).someFutureThing.nested[0].keep, 1, "everything else still arrives");
+    assert.equal(JSON.stringify(publicState(state, viewer)).includes("device-"), false);
+  }
+});

@@ -18,7 +18,13 @@ import * as core from "../shared/core.js";
 
 const { isActivePlayer } = core;
 
-const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps"]);
+/* contestMarkets is a leftover of the reverted July betting experiment; some
+   stored states still carry it, with device ids inside its chips. */
+const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps", "contestMarkets"]);
+/* Last line of defence for anything the projection does not know about: no
+   frame ever carries a device id or a replay key, at any depth. */
+const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
+const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut"]);
 const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels"]);
@@ -100,7 +106,7 @@ function viewerProjection(state, viewer) {
 }
 
 function publicState(state, viewer) {
-  return { ...sharedProjection(state), ...viewerProjection(state, viewer) };
+  return JSON.parse(JSON.stringify({ ...sharedProjection(state), ...viewerProjection(state, viewer) }, scrub));
 }
 
 /* One serializer per broadcast: the shared part is stringified once and each
@@ -111,8 +117,8 @@ function createStateSerializer(state) {
   return viewer => {
     const key = viewerKey(viewer);
     if (cache.has(key)) return cache.get(key);
-    if (shared === null) shared = JSON.stringify(sharedProjection(state));
-    const own = JSON.stringify(viewerProjection(state, viewer));
+    if (shared === null) shared = JSON.stringify(sharedProjection(state), scrub);
+    const own = JSON.stringify(viewerProjection(state, viewer), scrub);
     const json = shared === "{}" ? own : `${shared.slice(0, -1)},${own.slice(1)}`;
     cache.set(key, json);
     return json;

@@ -5,6 +5,7 @@ import { SectionHeading } from "../../ui/layout.jsx";
 import { Leaderboard } from "../standings/Standings.jsx";
 import { deriveHomeModel } from "./homeModel.js";
 import { DraftEntry } from "../draft/DraftSheet.jsx";
+import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -73,7 +74,7 @@ export function personalLine({ current, state, model }) {
   return partner ? `You${partner}` : null;
 }
 
-function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameMark }) {
+function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPlayer, GameMark }) {
   const current = model.current;
   if (!current) return null;
   const event = current.event;
@@ -103,6 +104,9 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameM
           {mine && <p className="fd-home-personal">{mine}</p>}
         </div>
       : !before && <Assignment current={current} state={state} onPlayer={onPlayer} />}
+    {/* a bracket game shows its whole bracket while it is being played */}
+    {!before && onBracket && !state.results?.[event.id]
+      && <BracketPeek state={state} ev={event} me={me} onOpen={onBracket} />}
     <div className="fd-home-event-actions">
       {betHere && <button type="button" className="fd-home-primary" onClick={onBets}>{bettingLabel}<Arrow /></button>}
       <button type="button" className={betHere ? "fd-home-secondary" : "fd-home-primary"} onClick={() => before && rules ? onRules(event) : onOpen(event)}>
@@ -112,7 +116,7 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameM
 }
 
 export function GuestHome({ state, me, events, standings, onProfile, onPlayer, onEvents, onGuide,
-  onHouse, onOpen, onRules = onOpen, onBets, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
+  onHouse, onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
   since, onSince, onSinceDismiss }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
@@ -138,7 +142,7 @@ export function GuestHome({ state, me, events, standings, onProfile, onPlayer, o
       {state.frozen && leaders.length > 1 && <p>Tied. One pressure putt decides it.</p>}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
-    </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onPlayer={onPlayer} GameMark={GameMark} />}
+    </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
 
     {model.mode === "live" && duelContent}
     {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>

@@ -2353,10 +2353,10 @@ var init_install = __esm({
 });
 
 // src/features/check-in/InstallHint.jsx
-import React18, { useEffect as useEffect6, useState as useState11 } from "react";
+import React18, { useEffect as useEffect7, useState as useState11 } from "react";
 function InstallHint() {
   const [, bump] = useState11(0);
-  useEffect6(() => onInstallReady(() => bump((x) => x + 1)), []);
+  useEffect7(() => onInstallReady(() => bump((x) => x + 1)), []);
   if (installEvt) return /* @__PURE__ */ React18.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
   if (isIOS()) return /* @__PURE__ */ React18.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React18.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React18.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React18.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
   return /* @__PURE__ */ React18.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
@@ -2370,7 +2370,7 @@ var init_InstallHint = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React21, { useCallback, useEffect as useEffect8, useRef as useRef8, useState as useState14 } from "react";
+import React21, { useCallback, useEffect as useEffect9, useRef as useRef9, useState as useState14 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -2393,18 +2393,18 @@ function PhotoCropper({
   outputSize = 384,
   quality = 0.84
 }) {
-  const dialogRef = useRef8(null);
-  const cancelRef = useRef8(null);
-  const stageRef = useRef8(null);
-  const imageRef = useRef8(null);
-  const dragRef = useRef8(null);
+  const dialogRef = useRef9(null);
+  const cancelRef = useRef9(null);
+  const stageRef = useRef9(null);
+  const imageRef = useRef9(null);
+  const dragRef = useRef9(null);
   const [image, setImage] = useState14(null);
   const [stageSize, setStageSize] = useState14(0);
   const [view, setView] = useState14({ zoom: 1, x: 0, y: 0 });
   const [status, setStatus] = useState14("loading");
   const [error, setError] = useState14("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect8(() => {
+  useEffect9(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -2417,7 +2417,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect8(() => {
+  useEffect9(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -2453,10 +2453,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect8(() => {
+  useEffect9(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect8(() => {
+  useEffect9(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -2935,10 +2935,10 @@ var init_PlayerPass = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React23, { useId as useId2, useRef as useRef9, useState as useState16 } from "react";
+import React23, { useId as useId2, useRef as useRef10, useState as useState16 } from "react";
 function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
   const identity = usePlayerIdentity(me);
-  const fileRef = useRef9(null);
+  const fileRef = useRef10(null);
   const numberErrorId = useId2();
   const [cropSource, setCropSource] = useState16(null);
   const prof = state.profiles?.[me];
@@ -3232,7 +3232,7 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React29, { useEffect as useEffect13, useRef as useRef14, useState as useState22 } from "react";
+import React29, { useEffect as useEffect14, useRef as useRef15, useState as useState22 } from "react";
 function InvitationArt() {
   return /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React29.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React29.createElement("span", null, EDITION.year)), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("span", null, "FIELD"), /* @__PURE__ */ React29.createElement("span", null, "DAY", /* @__PURE__ */ React29.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React29.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React29.createElement("span", null, /* @__PURE__ */ React29.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React29.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React29.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React29.createElement("span", null, EDITION.short, /* @__PURE__ */ React29.createElement("br", null), "2026")));
 }
@@ -3271,10 +3271,10 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
   const [flightOut, setFlightOut] = useState22(null);
   const [busy, setBusy] = useState22(false);
   const [error, setError] = useState22("");
-  const submit = useRef14(createCheckInSubmission());
-  const heading = useRef14(null);
-  const hydratedPlayer = useRef14(null);
-  useEffect13(() => {
+  const submit = useRef15(createCheckInSubmission());
+  const heading = useRef15(null);
+  const hydratedPlayer = useRef15(null);
+  useEffect14(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -3287,7 +3287,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect13(() => {
+  useEffect14(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -3392,50 +3392,124 @@ function GameInstructions({ gameId, game, variant }) {
 // src/features/weekend/ContestPanel.jsx
 init_core();
 init_PlayerIdentity();
-import React5, { useEffect as useEffect2, useRef as useRef2, useState as useState4 } from "react";
+import React5, { useEffect as useEffect3, useRef as useRef3, useState as useState4 } from "react";
 
 // src/features/weekend/CompetitionBracket.jsx
 init_core();
 init_PlayerIdentity();
-import React4 from "react";
+import React4, { useEffect as useEffect2, useRef as useRef2 } from "react";
+function bracketLayout(bracket) {
+  const rounds = bracket?.rounds || [];
+  const centers = rounds.map((round) => round.map(() => null));
+  let cursor = 0;
+  const place = (r, m) => {
+    const match = rounds[r]?.[m];
+    if (!match) return cursor;
+    const side = (slot) => {
+      if (slot?.w) return place(slot.w[0], slot.w[1]);
+      const center2 = cursor + 0.25;
+      cursor += 0.5;
+      return center2;
+    };
+    const leaf = !match.a?.w && !match.b?.w;
+    let center;
+    if (leaf) {
+      center = cursor + 0.5;
+      cursor += 1;
+    } else center = (side(match.a) + side(match.b)) / 2;
+    centers[r][m] = center;
+    return center;
+  };
+  const last = rounds.length - 1;
+  if (last >= 0) rounds[last].forEach((_, m) => place(last, m));
+  rounds.forEach((round, r) => round.forEach((_, m) => {
+    if (centers[r][m] === null) {
+      centers[r][m] = cursor + 0.5;
+      cursor += 1;
+    }
+  }));
+  return { centers, units: Math.max(cursor, 1) };
+}
+var SIZES2 = {
+  full: { head: 22, row: 48, gap: 14, minCol: 210, colGap: 34 },
+  compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 }
+};
+var statusOf = (contest, isCurrent) => !isCurrent ? null : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : contest.phase === "awaiting-result" ? "Awaiting result" : "Up next";
 function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false }) {
   const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
-  if (!bracket || !draw) return null;
-  const contest = resolveCurrentContest(state, ev);
+  const scroller = useRef2(null);
+  const compact = size === "compact";
+  const contest = bracket && draw ? resolveCurrentContest(state, ev) : null;
   const active = contest?.kind === "match" ? contest.match : null;
+  useEffect2(() => {
+    const el = scroller.current;
+    if (!el || compact || !active || el.scrollWidth <= el.clientWidth) return;
+    const card = el.querySelector(".fd-bracket-match.is-current");
+    if (card) el.scrollLeft = Math.max(0, card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2);
+  }, [compact, active?.[0], active?.[1]]);
+  if (!bracket || !draw) return null;
+  const dims = SIZES2[compact ? "compact" : "full"];
+  const cardH = dims.head + dims.row * 2 + 1 + 2;
+  const unit = cardH + dims.gap;
+  const rounds = bracket.rounds;
+  const R = rounds.length;
+  const { centers, units } = bracketLayout(bracket);
+  const height = Math.ceil(units * unit);
+  const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
+  const colLeft = (r) => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
+  const topOf = (r, m) => centers[r][m] * unit - cardH / 2;
+  const rowY = (r, m, index) => topOf(r, m) + 1 + dims.head + dims.row / 2 + index * (dims.row + 1);
   const canRecord = gm && !!onPick && contest?.phase === "in-progress" && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
-  return /* @__PURE__ */ React4.createElement("section", { className: `fd-competition-bracket ${size === "lg" ? "is-large" : ""}`, style: { "--fd-round-count": bracket.rounds.length }, "aria-label": `${ev.name} bracket`, "aria-busy": pending }, /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-rounds" }, bracket.rounds.map((round, r) => /* @__PURE__ */ React4.createElement(
-    "section",
-    {
-      className: "fd-bracket-round",
-      key: r,
-      "aria-label": ROUND_NAMES[bracket.size]?.[r] || `Round ${r + 1}`
-    },
-    /* @__PURE__ */ React4.createElement("h4", null, ROUND_NAMES[bracket.size]?.[r] || `Round ${r + 1}`),
-    /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-matches" }, round.map((match, m) => {
-      const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
-      const isCurrent = active?.[0] === r && active?.[1] === m;
-      const highlighted = isCurrent || hot?.[0] === r && hot?.[1] === m;
-      const decided = match.winner !== null && match.winner !== void 0;
-      return /* @__PURE__ */ React4.createElement("div", { key: m, className: `fd-bracket-match ${highlighted ? "is-current" : ""}`, "aria-label": `Match ${m + 1}${isCurrent ? ", current matchup" : ""}` }, /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React4.createElement("span", null, "Match ", m + 1), isCurrent && /* @__PURE__ */ React4.createElement("strong", null, contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : "Up next"), decided && /* @__PURE__ */ React4.createElement("span", null, "Final")), sides.map((key, index) => {
+  const names = ROUND_NAMES[bracket.size] || [];
+  const connectors = [];
+  rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
+    if (!slot?.w) return;
+    const [fr, fm] = slot.w;
+    const y1 = centers[fr][fm] * unit, y2 = rowY(r, m, index);
+    const top = Math.min(y1, y2) - 1, h = Math.abs(y2 - y1) + 2;
+    const decided = rounds[fr][fm].winner !== null && rounds[fr][fm].winner !== void 0;
+    const a = (y1 - top) / h * 100, b = (y2 - top) / h * 100;
+    connectors.push(/* @__PURE__ */ React4.createElement(
+      "svg",
+      {
+        key: `${r}-${m}-${index}`,
+        className: `fd-bracket-line${decided ? " is-advanced" : ""}`,
+        "aria-hidden": "true",
+        viewBox: "0 0 100 100",
+        preserveAspectRatio: "none",
+        style: { left: `calc(${colLeft(fr)} + ${colW})`, width: dims.colGap, top, height: h }
+      },
+      /* @__PURE__ */ React4.createElement("path", { d: `M0 ${a} H50 V${b} H100`, vectorEffect: "non-scaling-stroke" })
+    ));
+  })));
+  const stage = /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-stage", style: {
+    height,
+    minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap
+  } }, connectors, rounds.map((round, r) => round.map((match, m) => {
+    const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
+    const isCurrent = active?.[0] === r && active?.[1] === m;
+    const highlighted = isCurrent || hot?.[0] === r && hot?.[1] === m;
+    const decided = match.winner !== null && match.winner !== void 0;
+    const status = statusOf(contest, isCurrent);
+    return /* @__PURE__ */ React4.createElement(
+      "div",
+      {
+        key: `${r}-${m}`,
+        className: `fd-bracket-match${highlighted ? " is-current" : ""}${decided ? " is-decided" : ""}`,
+        style: { left: colLeft(r), width: `calc(${colW})`, top: topOf(r, m), height: cardH },
+        "aria-label": `${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`
+      },
+      !compact && /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React4.createElement("span", null, round.length > 1 ? `${(names[r] || "Match").replace(/s$/, "")} ${m + 1}` : names[r] || "Match"), status && /* @__PURE__ */ React4.createElement("strong", null, status)),
+      sides.map((key, index) => {
         const team = key === null || key === void 0 ? null : draw.teams[key];
-        const won = decided && match.winner === key, lost = decided && team && !won;
+        const won = decided && match.winner === key, lost = decided && !!team && !won;
         const name = team ? teamLabel(state, team) : "TBD";
         const fullName = team?.players.map((player) => disp(state, player)).join(" & ");
+        const mine = !!team?.players.includes(me);
+        const className = `fd-bracket-team${won ? " is-winner" : ""}${lost ? " is-loser" : ""}${mine ? " is-you" : ""}${team ? "" : " is-empty"}`;
+        if (compact) return /* @__PURE__ */ React4.createElement("div", { key: index, className }, team && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-faces", "aria-hidden": "true" }, team.players.slice(0, 3).map((player) => /* @__PURE__ */ React4.createElement(Avatar, { key: player, state, p: player, size: 20 }))), /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-name" }, name), won && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, "\u2713"));
         const selectable = canRecord && isCurrent && !decided && sides.every((side) => side !== null && side !== void 0);
-        return /* @__PURE__ */ React4.createElement("div", { key: index, className: `fd-bracket-team ${won ? "is-winner" : ""} ${lost ? "is-loser" : ""} ${team?.players.includes(me) ? "is-you" : ""}` }, /* @__PURE__ */ React4.createElement(
-          "button",
-          {
-            type: "button",
-            className: "fd-bracket-pick",
-            disabled: !selectable || pending,
-            "aria-label": selectable ? `Winner: ${fullName}` : `${fullName || "To be determined"}${won ? ", winner" : ""}`,
-            onClick: () => selectable && onPick(r, m, key)
-          },
-          /* @__PURE__ */ React4.createElement("span", null, name),
-          won && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, "\u2713"),
-          selectable && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-pick-hint" }, pending ? "Saving\u2026" : "Win")
-        ), team && /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-players" }, team.players.map((player) => /* @__PURE__ */ React4.createElement(
+        return /* @__PURE__ */ React4.createElement("div", { key: index, className }, team && /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-players" }, team.players.map((player) => /* @__PURE__ */ React4.createElement(
           "button",
           {
             key: player,
@@ -3444,11 +3518,40 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
             disabled: pending || !onPlayer,
             onClick: () => onPlayer?.(player)
           },
-          /* @__PURE__ */ React4.createElement(Avatar, { state, p: player, size: 25 })
-        ))));
-      }));
-    }))
-  ))));
+          /* @__PURE__ */ React4.createElement(Avatar, { state, p: player, size: 26 })
+        ))), /* @__PURE__ */ React4.createElement(
+          "button",
+          {
+            type: "button",
+            className: "fd-bracket-pick",
+            disabled: !selectable || pending,
+            "aria-label": selectable ? `Winner: ${fullName}` : `${fullName || "To be determined"}${won ? ", winner" : ""}`,
+            onClick: () => selectable && onPick(r, m, key)
+          },
+          /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-name" }, name),
+          won && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, "\u2713"),
+          selectable && /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-pick-hint" }, pending ? "Saving\u2026" : "Win")
+        ));
+      })
+    );
+  })));
+  const heads = /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-heads", style: { minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap } }, rounds.map((_, r) => /* @__PURE__ */ React4.createElement("span", { key: r, style: { left: colLeft(r), width: `calc(${colW})` } }, names[r] || `Round ${r + 1}`)));
+  if (compact) return /* @__PURE__ */ React4.createElement("div", { className: "fd-competition-bracket is-compact", "aria-hidden": "true" }, /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-scroll" }, heads, stage));
+  return /* @__PURE__ */ React4.createElement("section", { className: "fd-competition-bracket", "aria-label": `${ev.name} bracket`, "aria-busy": pending }, /* @__PURE__ */ React4.createElement("div", { className: "fd-bracket-scroll", ref: scroller }, heads, stage));
+}
+function BracketPeek({ state, ev, me, onOpen, label: label2 = "Bracket", card = false }) {
+  if (!state.brackets?.[ev?.id] || !state.draws?.[ev.id]) return null;
+  return /* @__PURE__ */ React4.createElement(
+    "button",
+    {
+      type: "button",
+      className: `fd-bracket-peek${card ? " is-card" : ""}`,
+      onClick: () => onOpen(ev),
+      "aria-label": `Open the full ${ev.name} bracket`
+    },
+    /* @__PURE__ */ React4.createElement("span", { className: "fd-bracket-peek-head" }, /* @__PURE__ */ React4.createElement("span", null, label2), /* @__PURE__ */ React4.createElement("span", null, "Full bracket ", /* @__PURE__ */ React4.createElement("span", { "aria-hidden": "true" }, "\u2197"))),
+    /* @__PURE__ */ React4.createElement(CompetitionBracket, { state, ev, me, size: "compact" })
+  );
 }
 
 // src/features/weekend/ContestPanel.jsx
@@ -3457,7 +3560,7 @@ var UNDO_WINDOW_MS = 5e3;
 function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, onWinner, onResult, onPlayNext, onRecorded, operationBusy, onBusy, blocked }) {
   const [winner, setWinner] = useState4(null), [qualifiers, setQualifiers] = useState4([]);
   const [pending, setPending] = useState4(false), [error, setError] = useState4("");
-  const busy = useRef2(false), retry = useRef2(null);
+  const busy = useRef3(false), retry = useRef3(null);
   const open = contest.phase === "betting-open", locked = contest.phase === "betting-locked";
   const running = contest.phase === "in-progress" || contest.phase === "awaiting-result";
   const isFfa = contest.kind === "ffa", isBracket = contest.kind === "match";
@@ -3603,9 +3706,9 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
 }
 function ContestPanel(props) {
   const { state, ev, gm, onResult, onUndo } = props;
-  const operationBusy = useRef2(false), [blocked, onBusy] = useState4(false);
+  const operationBusy = useRef3(false), [blocked, onBusy] = useState4(false);
   const [recent, setRecent] = useState4(null);
-  useEffect2(() => {
+  useEffect3(() => {
     if (!recent) return;
     const timer = setTimeout(() => setRecent(null), Math.max(0, recent.at + UNDO_WINDOW_MS - Date.now()));
     return () => clearTimeout(timer);
@@ -3632,7 +3735,7 @@ function ContestPanel(props) {
 }
 function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   const [pending, setPending] = useState4(false), [error, setError] = useState4("");
-  const busy = useRef2(false);
+  const busy = useRef3(false);
   const run = async () => {
     if (busy.current || operationBusy.current) return;
     const undo = contestUndoAvailability(state, ev);
@@ -3708,7 +3811,7 @@ function ContestCorrection(props) {
 // src/features/weekend/EventAnnouncement.jsx
 init_core();
 init_controls();
-import React7, { useEffect as useEffect3, useRef as useRef3, useState as useState5 } from "react";
+import React7, { useEffect as useEffect4, useRef as useRef4, useState as useState5 } from "react";
 
 // src/ui/GameMark.jsx
 import React6 from "react";
@@ -3832,7 +3935,7 @@ function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 2800,
 }
 function useReducedMotion(override) {
   const [reduced, setReduced] = useState5(() => typeof window === "undefined" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-  useEffect3(() => {
+  useEffect4(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) return;
     const update = () => setReduced(media.matches);
@@ -3849,8 +3952,8 @@ function DrawAnnouncement({ state, reveal, onClose, onBets, onPlayer, onBack, in
   const [shown, setShown] = useState5(() => reducedMotion || initialComplete ? total : 0);
   const [run, setRun] = useState5(0);
   const animate = !reducedMotion && !(initialComplete && run === 0);
-  const playback = useRef3(null);
-  useEffect3(() => {
+  const playback = useRef4(null);
+  useEffect4(() => {
     const next = startDrawPlayback({ total, reducedMotion: !animate, onStep: setShown });
     playback.current = next;
     return () => next.stop();
@@ -3893,7 +3996,7 @@ init_core();
 init_controls();
 init_PlayerIdentity();
 init_playerIdentity();
-import React8, { useEffect as useEffect4, useRef as useRef4, useState as useState6 } from "react";
+import React8, { useEffect as useEffect5, useRef as useRef5, useState as useState6 } from "react";
 var identityStyle = (state, player) => ({ "--draft-color": resolvePlayerIdentity(state.profiles, player).color });
 var reference = (turn) => ({ draftId: turn.draftId, pickIndex: turn.pickIndex, draftRevision: turn.draftRevision });
 function PlayerLink({ state, player, onPlayer, children, disabled }) {
@@ -3947,7 +4050,7 @@ function DraftSheet({
   const [captains, setCaptains] = useState6([]), [method, setMethod] = useState6("pick");
   const [pending, setPending] = useState6(""), [error, setError] = useState6("");
   const [confirmCancel, setConfirmCancel] = useState6(false);
-  const saving = useRef4(false), board = useRef4(null), focusAfterPick = useRef4(false);
+  const saving = useRef5(false), board = useRef5(null), focusAfterPick = useRef5(false);
   const turn = draft ? draftTurn(draft) : null;
   const blocked = !!state.frozen || !!state.poker && !state.results?.[state.poker.id] || !!state.results?.[ev.id] || !!state.shelved?.[ev.id] || state.onDeck === ev.id || !!state.eventOps?.[ev.id]?.bettingOpenedAt || !!state.eventOps?.[ev.id]?.startedAt;
   const myTurn = !!turn?.captain && turn.captain === me;
@@ -3974,7 +4077,7 @@ function DraftSheet({
       setPending("");
     }
   };
-  useEffect4(() => {
+  useEffect5(() => {
     if (!pending && focusAfterPick.current) {
       board.current?.focus({ preventScroll: true });
       focusAfterPick.current = false;
@@ -4188,7 +4291,7 @@ import React10 from "react";
 
 // src/features/duels/DuelCard.jsx
 init_PlayerIdentity();
-import React9, { useRef as useRef5, useState as useState7 } from "react";
+import React9, { useRef as useRef6, useState as useState7 } from "react";
 
 // src/features/duels/duelView.js
 init_core();
@@ -4278,8 +4381,8 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
   const [pendingAction, setPendingAction] = useState7(null);
   const [error, setError] = useState7("");
   const [acknowledged, setAcknowledged] = useState7(null);
-  const pending = useRef5(null);
-  const finished = useRef5(false);
+  const pending = useRef6(null);
+  const finished = useRef6(false);
   const view = duelView(state, duel, me, now);
   const { other, name } = view;
   const busy = !!pendingAction;
@@ -4434,7 +4537,7 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
 
 // src/features/duels/useDuelClock.js
 init_core();
-import { useEffect as useEffect5, useState as useState8 } from "react";
+import { useEffect as useEffect6, useState as useState8 } from "react";
 
 // src/ui/AppChrome.jsx
 init_PlayerIdentity();
@@ -4480,7 +4583,7 @@ var SINCE_ABSENCE = 2 * 60 * 1e3;
 // src/features/weekend/Schedule.jsx
 init_core();
 init_PlayerIdentity();
-import React16, { useRef as useRef6, useState as useState9 } from "react";
+import React16, { useRef as useRef7, useState as useState9 } from "react";
 
 // src/features/weekend/Guide.jsx
 init_core();
@@ -4493,7 +4596,7 @@ init_install();
 init_core();
 init_theme();
 init_controls();
-import React20, { useEffect as useEffect7, useMemo as useMemo2, useRef as useRef7, useState as useState13 } from "react";
+import React20, { useEffect as useEffect8, useMemo as useMemo2, useRef as useRef8, useState as useState13 } from "react";
 init_PlayerIdentity();
 var fmt2 = (n) => (n ?? 0).toLocaleString("en-US");
 function wagerPickLabel(state, w, events) {
@@ -4549,13 +4652,13 @@ function MarketPick({
   const [pendingAction, setPendingAction] = useState13(null);
   const [actionError, setActionError] = useState13(null);
   const [checking, setChecking] = useState13(null);
-  const pendingRef = useRef7(false);
+  const pendingRef = useRef8(false);
   const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
     return latest(a) - latest(b);
   });
   const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
-  const live = useRef7({ state, mineTotal });
+  const live = useRef8({ state, mineTotal });
   live.current = { state, mineTotal };
   const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map((chip) => chip.stake) : [w.stake]);
   const otherBets = /* @__PURE__ */ new Map();
@@ -4563,7 +4666,7 @@ function MarketPick({
     otherBets.set(w.player, (otherBets.get(w.player) || 0) + w.stake);
   const otherChips = [...otherBets].map(([p, val]) => ({ p, val }));
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  useEffect7(() => {
+  useEffect8(() => {
     if (!checking || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal))
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
@@ -4796,8 +4899,8 @@ function Wagers({
 }) {
   const [settledOpen, setSettledOpen] = useState13(() => openSettled && me ? `st:${me}` : null);
   const [settledShown, setSettledShown] = useState13(!!openSettled);
-  const settledRef = useRef7(null);
-  useEffect7(() => {
+  const settledRef = useRef8(null);
+  useEffect8(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
@@ -4829,7 +4932,7 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect7(() => {
+  useEffect8(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
@@ -4873,6 +4976,7 @@ function Wagers({
   });
   if (contest?.kind === "ffa") picks.sort((a, b) => Number(!!b.roleLabel) - Number(!!a.roleLabel));
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result" ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
+  const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket" : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
   return /* @__PURE__ */ React20.createElement(
     "div",
@@ -4882,7 +4986,7 @@ function Wagers({
     },
     ev ? /* @__PURE__ */ React20.createElement("header", { className: "fd-wagers-event-heading" }, /* @__PURE__ */ React20.createElement("div", null, /* @__PURE__ */ React20.createElement("h1", null, ev.name), GameMark2 && /* @__PURE__ */ React20.createElement(GameMark2, { id: ev.game, size: 34 })), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React20.createElement("span", { className: `fd-wagers-status${marketOpen ? " is-open" : ""}` }, /* @__PURE__ */ React20.createElement("i", { "aria-hidden": "true" }), status), marketOpen && /* @__PURE__ */ React20.createElement("p", null, "Tap + to add. Tap your chips to remove."))) : /* @__PURE__ */ React20.createElement(PageHeading, { title: "Bets" }),
     !ev && /* @__PURE__ */ React20.createElement("section", { className: `fd-wagers-waiting${state.frozen ? " is-finished" : ""}` }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React20.createElement("h2", null, state.frozen ? "The board is frozen." : state.live ? "Between events" : "Betting opens with the first event"), !state.frozen && /* @__PURE__ */ React20.createElement("p", null, "Betting opens when an event goes on deck."), !state.frozen && /* @__PURE__ */ React20.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && /* @__PURE__ */ React20.createElement("section", { className: "fd-wagers-event" }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React20.createElement("div", null, /* @__PURE__ */ React20.createElement("h2", null, contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"), contest && /* @__PURE__ */ React20.createElement("p", null, evenMoney ? "Winner pays even" : "Pays 2 to 1")), onEvent && /* @__PURE__ */ React20.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React20.createElement("span", { "aria-hidden": "true" }, "\u2197"))), contest && picks.length > 0 ? /* @__PURE__ */ React20.createElement(
+    ev && /* @__PURE__ */ React20.createElement("section", { className: "fd-wagers-event" }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React20.createElement("div", null, /* @__PURE__ */ React20.createElement("h2", null, contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"), contest && /* @__PURE__ */ React20.createElement("p", null, evenMoney ? "Winner pays even" : "Pays 2 to 1")), onEvent && !peek && /* @__PURE__ */ React20.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React20.createElement("span", { "aria-hidden": "true" }, "\u2197"))), contest && picks.length > 0 ? /* @__PURE__ */ React20.createElement(
       "section",
       {
         className: `fd-wagers-market fd-wagers-contest is-${contest.kind}`,
@@ -4890,7 +4994,7 @@ function Wagers({
       },
       restriction && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-participant-note" }, restriction),
       /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-picks" }, picks.map((pick) => /* @__PURE__ */ React20.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
-    ) : /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available.")),
+    ) : /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React20.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
     pendingLines.length > 0 && /* @__PURE__ */ React20.createElement("details", { className: "fd-wagers-history", open: gm || !contest || void 0 }, /* @__PURE__ */ React20.createElement("summary", null, "Open bets ", /* @__PURE__ */ React20.createElement("span", null, pendingLines.length)), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React20.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer })))),
     settledLines.length > 0 && /* @__PURE__ */ React20.createElement(
       "details",
@@ -4953,13 +5057,13 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React30, { useState as useState23, useEffect as useEffect14, useLayoutEffect as useLayoutEffect2, useRef as useRef15, useMemo as useMemo4, useCallback as useCallback3, useId as useId3, lazy, Suspense } from "react";
+import React30, { useState as useState23, useEffect as useEffect15, useLayoutEffect as useLayoutEffect2, useRef as useRef16, useMemo as useMemo4, useCallback as useCallback3, useId as useId3, lazy, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React24, { useEffect as useEffect9, useRef as useRef10, useState as useState17 } from "react";
+import React24, { useEffect as useEffect10, useRef as useRef11, useState as useState17 } from "react";
 init_PlayerPass();
 var fmt3 = (n) => (n ?? 0).toLocaleString("en-US");
 var signed = (n) => `${n > 0 ? "+" : ""}${fmt3(n)}`;
@@ -4983,7 +5087,7 @@ function PlayerSheet({
   const [ante, setAnte] = useState17(PT);
   const [pending, setPending] = useState17(false);
   const [error, setError] = useState17("");
-  const sending = useRef10(false);
+  const sending = useRef11(false);
   const now = Date.now();
   const row = standings.find((item) => item.player === p);
   const duels = state.duels || [];
@@ -5002,10 +5106,10 @@ function PlayerSheet({
   const dailyLimit = !!me && duelsSentToday(state, me, now) >= DUEL_DAILY_LIMIT;
   const unavailable = dailyLimit ? "Three challenges a day, max." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
-  useEffect9(() => {
+  useEffect10(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect9(() => {
+  useEffect10(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
   }, [p]);
@@ -5075,7 +5179,7 @@ function PlayerSheet({
 init_InstallHint();
 
 // src/features/tv/TVMode.jsx
-import React25, { useEffect as useEffect11, useMemo as useMemo3, useRef as useRef11, useState as useState19 } from "react";
+import React25, { useEffect as useEffect12, useMemo as useMemo3, useRef as useRef12, useState as useState19 } from "react";
 
 // node_modules/qrcode-generator/dist/qrcode.mjs
 var qrcode = function(typeNumber, errorCorrectionLevel) {
@@ -6758,7 +6862,7 @@ init_core();
 var CUE_WINDOW_MS = 3 * 60 * 1e3;
 
 // src/features/tv/serverClock.js
-import { useEffect as useEffect10, useState as useState18 } from "react";
+import { useEffect as useEffect11, useState as useState18 } from "react";
 var MAX_PLAUSIBLE_OFFSET_MS = 12 * 60 * 60 * 1e3;
 
 // src/App.jsx
@@ -6770,13 +6874,13 @@ init_core();
 init_PlayerIdentity();
 init_controls();
 init_theme();
-import React26, { useCallback as useCallback2, useEffect as useEffect12, useLayoutEffect, useRef as useRef12, useState as useState20 } from "react";
+import React26, { useCallback as useCallback2, useEffect as useEffect13, useLayoutEffect, useRef as useRef13, useState as useState20 } from "react";
 var FOUL = Object.freeze({ ms: null, foul: true });
 
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React27, { useRef as useRef13, useState as useState21 } from "react";
+import React27, { useRef as useRef14, useState as useState21 } from "react";
 
 // src/ui/Shell.jsx
 import React28 from "react";
@@ -6877,9 +6981,9 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
   const ph = phaseOf(ev);
   const session = SESSIONS.find((s) => s.id === ev.session);
   const format = ev.finale ? "Finale" : ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Team event";
-  const closeRef = useRef15(onClose);
+  const closeRef = useRef16(onClose);
   closeRef.current = onClose;
-  useEffect14(() => {
+  useEffect15(() => {
     if (!auto) return;
     const t = setTimeout(() => closeRef.current(), prefersReducedMotion() ? 2200 : 7e3);
     return () => clearTimeout(t);
@@ -6986,7 +7090,7 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId3(), saving = useRef15(false);
+  const countId = useId3(), saving = useRef16(false);
   const [counts, setCounts] = useState23(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
@@ -7042,7 +7146,7 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const pk = state.poker;
   const [fixing, setFixing] = useState23(null);
   const [pending, setPending] = useState23(false), [error, setError] = useState23("");
-  const saving = useRef15(false);
+  const saving = useRef16(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -7382,7 +7486,7 @@ function EventSheet({
     }
   };
   const [setupError, setSetupError] = useState23("");
-  const setupBusy = useRef15(false);
+  const setupBusy = useRef16(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -7948,7 +8052,7 @@ function ResultSheet({ ev, state, onClose, save }) {
   const [correctionReason, setCorrectionReason] = useState23("");
   const [pending, setPending] = useState23(false), [error, setError] = useState23("");
   const [emptyCheck, setEmptyCheck] = useState23(null);
-  const saving = useRef15(false);
+  const saving = useRef16(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;
     if (!allowEmpty && emptyPaid.length) {
@@ -8238,15 +8342,15 @@ function Reveal({ state, reveal, big, auto, onClose, onBets, onPlayer }) {
   const items = teamItems + (crew.length ? 1 : 0);
   const reducedMotion = prefersReducedMotion();
   const [shown, setShown] = useState23(() => reducedMotion ? items : 0);
-  useEffect14(() => {
+  useEffect15(() => {
     if (shown >= items) return;
     const t = setTimeout(() => setShown((s) => s + 1), shown === 0 ? 900 : 1300);
     return () => clearTimeout(t);
   }, [shown, items]);
   const doneAll = shown >= items;
-  const closeRef = useRef15(onClose);
+  const closeRef = useRef16(onClose);
   closeRef.current = onClose;
-  useEffect14(() => {
+  useEffect15(() => {
     if (!auto || !doneAll) return;
     const t = setTimeout(() => closeRef.current(), reducedMotion ? 2200 : 6e3);
     return () => clearTimeout(t);

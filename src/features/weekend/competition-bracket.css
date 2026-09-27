@@ -1,36 +1,73 @@
-.fd-competition-bracket { min-width:0; container-type:inline-size; }
-.fd-bracket-rounds { display:grid; gap:14px; }
-.fd-bracket-round { min-width:0; }
-.fd-bracket-round h4 { margin:0 0 6px; color:var(--muted2); font:600 11px/1.4 var(--fd-body); }
-.fd-bracket-matches { display:grid; gap:8px; }
-.fd-bracket-match { min-width:0; border:1px solid var(--line); border-radius:8px; background:var(--paper2); overflow:hidden; }
-.fd-bracket-match.is-current { border-color:var(--sun); }
-.fd-bracket-match-label { display:flex; align-items:center; justify-content:space-between; gap:4px; padding:4px 9px; color:var(--muted); font-size:10px; line-height:1.4; border-bottom:1px solid var(--line); }
-.fd-bracket-match-label strong { color:var(--sun); font-size:10px; font-weight:600; }
-.fd-bracket-team { display:flex; align-items:stretch; min-width:0; }
+/* A printed bracket: rounds are columns, connector lines carry winners right.
+   Positions come from bracketLayout; this file only paints. */
+.fd-competition-bracket { min-width:0; }
+.fd-bracket-scroll { overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.fd-bracket-heads { position:relative; height:22px; margin-bottom:6px; }
+.fd-bracket-heads span { position:absolute; top:0; color:var(--muted2); font:600 11px/22px var(--fd-body);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-bracket-stage { position:relative; }
+
+/* connectors: flat, one ink; the path a winner took turns sun */
+.fd-bracket-line { position:absolute; overflow:visible; color:var(--ghost-line); pointer-events:none; }
+.fd-bracket-line path { fill:none; stroke:currentColor; stroke-width:1.5px; }
+.fd-bracket-line.is-advanced { color:var(--sun); }
+
+.fd-bracket-match { position:absolute; box-sizing:border-box; display:flex; flex-direction:column; min-width:0;
+  border:1px solid var(--line); border-radius:10px; background:var(--paper2); overflow:hidden; }
+.fd-bracket-match.is-current { border-color:var(--sun); box-shadow:0 0 0 1px var(--sun); }
+.fd-bracket-match-label { flex:0 0 22px; display:flex; align-items:center; justify-content:space-between; gap:4px;
+  padding:0 9px; color:var(--muted); font:500 10px/22px var(--fd-body); border-bottom:1px solid var(--line); white-space:nowrap; }
+.fd-bracket-match-label strong { color:var(--sun); font-weight:600; }
+
+.fd-bracket-team { flex:1 1 0; display:flex; align-items:center; min-width:0; }
 .fd-bracket-team+.fd-bracket-team { border-top:1px solid var(--line); }
-.fd-bracket-pick { display:flex; align-items:center; gap:5px; flex:1; min-width:0; min-height:46px; padding:7px 9px; border:0; background:none; color:var(--ink); font:600 12px/1.35 var(--fd-body); text-align:left; overflow-wrap:anywhere; }
+.fd-bracket-team.is-empty .fd-bracket-name { color:var(--disabled); font-weight:400; }
+.fd-bracket-team.is-winner { background:var(--sun-tint); }
+.fd-bracket-team.is-winner .fd-bracket-name,.fd-bracket-outcome { color:var(--sun); }
+.fd-bracket-team.is-loser .fd-bracket-name { color:var(--muted); font-weight:400; }
+.fd-bracket-team.is-loser .fd-bracket-players { opacity:.55; }
+.fd-bracket-team.is-you { box-shadow:inset 3px 0 0 var(--accent2); }
+
+.fd-bracket-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-bracket-pick { display:flex; align-items:center; gap:5px; flex:1; min-width:0; height:100%; min-height:44px;
+  padding:0 9px 0 4px; border:0; background:none; color:var(--ink); font:600 12.5px/1.2 var(--fd-body); text-align:left; }
 .fd-bracket-pick:disabled { opacity:1; cursor:default; }
 .fd-bracket-pick:not(:disabled) { cursor:pointer; }
 .fd-bracket-pick:not(:disabled):hover { background:var(--sun-tint); }
-.fd-bracket-pick>span:first-child { flex:1; }
-.fd-bracket-pick-hint { color:var(--sun); font-size:10px; font-weight:600; }
-.fd-bracket-players { display:flex; align-items:center; flex-shrink:0; padding-right:2px; }
-.fd-bracket-players button { display:grid; place-items:center; width:44px; min-height:44px; padding:0; background:none; border:0; cursor:pointer; border-radius:4px; }
+.fd-bracket-pick-hint { flex-shrink:0; padding:3px 7px; border-radius:99px; background:var(--sun); color:var(--ink0);
+  font-size:10.5px; font-weight:700; }
+.fd-bracket-players { display:flex; align-items:center; flex-shrink:0; padding-left:2px; }
+.fd-bracket-players button { display:grid; place-items:center; width:36px; min-width:36px; height:44px; padding:0;
+  background:none; border:0; cursor:pointer; border-radius:6px; }
+.fd-bracket-players button:first-child { width:44px; min-width:44px; }
 .fd-bracket-players button:disabled { cursor:default; }
 .fd-bracket-pick:focus-visible,.fd-bracket-players button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
-.fd-bracket-team.is-winner { background:var(--accent-tint); }
-.fd-bracket-team.is-winner .fd-bracket-pick,.fd-bracket-outcome { color:var(--accent2); }
-.fd-bracket-team.is-loser .fd-bracket-pick { color:var(--muted); font-weight:400; }
-.fd-bracket-team.is-you .fd-bracket-pick { box-shadow:inset 3px 0 0 var(--accent2); }
-@container (min-width:460px) {
-  .fd-bracket-matches { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .fd-bracket-round:last-child .fd-bracket-matches { grid-template-columns:minmax(0,1fr); max-width:calc(50% - 4px); margin:auto; }
+
+/* compact: a read-only picture that fits its column */
+.fd-competition-bracket.is-compact .fd-bracket-scroll { overflow:visible; padding:0; }
+.fd-competition-bracket.is-compact .fd-bracket-heads { height:16px; margin-bottom:4px; }
+.fd-competition-bracket.is-compact .fd-bracket-heads span { font-size:9.5px; line-height:16px; }
+.fd-competition-bracket.is-compact .fd-bracket-match { border-radius:7px; container-type:inline-size; }
+/* a narrow column shows faces, not names cut to three letters */
+@container (max-width:129px) {
+  .fd-competition-bracket.is-compact .fd-bracket-team:not(.is-empty) .fd-bracket-name { display:none; }
+  .fd-competition-bracket.is-compact .fd-bracket-team { justify-content:space-between; }
 }
-@container (min-width:760px) {
-  .fd-bracket-rounds { grid-template-columns:repeat(var(--fd-round-count,3),minmax(0,1fr)); gap:18px; }
-  .fd-bracket-round { display:flex; flex-direction:column; }
-  .fd-bracket-matches { display:flex; flex:1; flex-direction:column; justify-content:space-around; gap:12px; }
-  .fd-bracket-round:last-child .fd-bracket-matches { max-width:none; margin:0; }
-  .fd-competition-bracket.is-large .fd-bracket-pick { font-size:16px; min-height:62px; }
+.fd-competition-bracket.is-compact .fd-bracket-team { gap:4px; padding:0 5px; color:var(--ink); font:600 11px/1.2 var(--fd-body); }
+.fd-bracket-faces { display:flex; flex-shrink:0; }
+.fd-bracket-faces { gap:3px; }
+.fd-competition-bracket.is-compact .fd-bracket-outcome { font-size:10px; }
+
+@media (prefers-reduced-motion:no-preference) {
+  .fd-bracket-match,.fd-bracket-line { transition:border-color .2s ease, color .3s ease; }
 }
+
+/* the glance: one target around a compact bracket */
+.fd-bracket-peek { display:grid; gap:8px; width:100%; min-width:0; padding:12px 14px 14px; border:0; border-top:1px solid var(--line);
+  background:transparent; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.fd-bracket-peek:hover { background:var(--ink-tint); }
+.fd-bracket-peek:focus-visible { outline:2px solid var(--sun); outline-offset:-2px; }
+.fd-bracket-peek-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:20px; }
+.fd-bracket-peek-head>span:first-child { color:var(--muted2); font:600 11px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; }
+.fd-bracket-peek-head>span:last-child { color:var(--sun); font:600 12px/1.2 var(--fd-body); }
+.fd-bracket-peek.is-card { border:1px solid var(--line); border-radius:12px; background:var(--paper); }

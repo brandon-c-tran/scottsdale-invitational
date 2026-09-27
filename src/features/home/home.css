@@ -80,3 +80,4 @@
   .fd-home-event-actions { gap:7px; }
   .fd-home-primary,.fd-home-secondary { padding:11px; font-size:11px; }
 }
+.fd-home-focus .fd-bracket-peek { margin-top:12px; }

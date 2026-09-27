@@ -1459,7 +1459,7 @@ function TournamentApp({ tournament }) {
         {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark}
           onEvents={() => setTab("sched")} onGuide={() => { setWeekendSection("rules"); setTab("guide"); }}
           onHouse={() => { setWeekendSection("trip"); setTab("guide"); }} onOpen={ev => setModal({type:"event", ev})}
-          onRules={ev => setModal({type:"howto", ev})}
+          onRules={ev => setModal({type:"howto", ev})} onBracket={ev => setModal({type:"bracket", ev})}
           onDraft={ev => setModal({type:"draft", ev})} deltas={deltas}
           since={sinceText} onSince={() => { setSinceText(null); setSettledOpen(true); setTab("bets"); }}
           onSinceDismiss={() => setSinceText(null)}
@@ -1476,7 +1476,7 @@ function TournamentApp({ tournament }) {
                 onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />} />}
         {tab === "sched" && <Schedule GameMark={GameMark} EventCrewCard={EventCrewCard} state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
-          onPlayer={p => setModal({type:"player", p})}
+          onPlayer={p => setModal({type:"player", p})} onBracket={ev => setModal({type:"bracket", ev})}
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers GameMark={GameMark} state={state} me={me} standings={standings} gm={gmView} events={events}
           openSettled={settledOpen} onSettledSeen={() => setSettledOpen(false)}
@@ -3158,70 +3158,6 @@ function AddEventSheet({ state, onClose, save }) {
   );
 }
 
-/* ─────────── bracket ─────────── */
-function BracketGrid({ state, ev, gm, onPick, onPlayer, size="md", bet, hot }) {
-  const br = state.brackets[ev.id];
-  const draw = state.draws[ev.id];
-  if (!br || !draw) return null;
-  const names = ROUND_NAMES[br.size] || [];
-  const dims = {
-    md: { col:200, av:24, f:13.5, pad:"9px 11px", lbl:11 },
-    lg: { col:280, av:34, f:18,   pad:"13px 15px", lbl:14 },
-  }[size];
-  return (
-    <div style={{ display:"flex", gap: size==="lg" ? 22 : 14, overflowX:"auto", paddingBottom:6,
-      justifyContent: size==="lg" ? "center" : "flex-start" }}>
-      {br.rounds.map((round, r) => (
-        <div key={r} style={{ width:dims.col, minWidth:dims.col, display:"flex", flexDirection:"column",
-          justifyContent:"space-around", gap:12 }}>
-          <div style={{ ...label, fontSize:dims.lbl, textAlign:"center" }}>{names[r]}</div>
-          {round.map((match, m) => {
-            const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
-            const undecided = match.winner === null || match.winner === undefined;
-            const isHot = hot && hot[0] === r && hot[1] === m;
-            return (
-              <div key={m} style={{ borderRadius:14, overflow:"hidden",
-                border: isHot ? "1.5px solid var(--sun)" : "1px solid var(--line)",
-                background:"var(--paper2)", boxShadow: isHot ? "var(--shadow-2)" : "var(--shadow-1)" }}>
-                {[a,b].map((tIdx, side) => {
-                  const t = tIdx !== null ? draw.teams[tIdx] : null;
-                  const isWinner = match.winner !== null && match.winner === tIdx;
-                  const isLoser = match.winner !== null && match.winner !== tIdx && tIdx !== null;
-                  /* bet mode: an open, fully-seated matchup takes a chip on tap */
-                  const canBet = !!bet?.onBet && undecided && a !== null && b !== null && tIdx !== null;
-                  const tappable = gm ? (onPick && tIdx !== null && a !== null && b !== null) : canBet;
-                  if (!gm && !canBet && onPlayer && t) return <div key={side} style={{padding:dims.pad,
-                    borderBottom:side === 0 ? "1px solid var(--line)" : "none",background:isWinner ? "var(--accent-tint)" : "transparent"}}>
-                    <PlayerLinks state={state} players={t.players} onPlayer={onPlayer} size={dims.av} />
-                    {isWinner && <small style={{color:"var(--accent2)"}}>Winner</small>}
-                  </div>;
-                  return (
-                    <button key={side} disabled={!tappable}
-                      onClick={() => gm ? onPick && onPick(r, m, tIdx) : bet.onBet(r, m, tIdx, names[r])}
-                      style={{ display:"flex", alignItems:"center", gap:8, width:"100%", textAlign:"left",
-                        minWidth:0, boxSizing:"border-box", padding:dims.pad,
-                        cursor: tappable ? "pointer" : "default", border:"none",
-                        borderBottom: side === 0 ? "1px solid var(--line)" : "none",
-                        background: isWinner ? "var(--accent-tint)" : "transparent",
-                        opacity: isLoser ? 0.38 : 1 }}>
-                      {t && <AvatarStack state={state} players={t.players} size={dims.av} max={3} />}
-                      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.f, flex:1, minWidth:0,
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                        color: isWinner ? "var(--accent2)" : t ? "var(--ink)" : "var(--disabled)" }}>
-                        {t ? teamLabel(state, t) : "TBD"}{isWinner && " ✓"}
-                      </div>
-                      {bet && tIdx !== null && bet.chips(r, m, tIdx)}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
   const [pending,setPending] = useState(false);
   const waitFor = async callback => {setPending(true);try{return await callback();}finally{setPending(false);}};

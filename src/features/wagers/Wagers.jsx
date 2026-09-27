@@ -7,6 +7,7 @@ import { DISPLAY, SANS } from "../../ui/theme.js";
 import { ActionButton } from "../../ui/controls.jsx";
 import { PageHeading } from "../../ui/layout.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
+import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
 import "./wagers.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -341,6 +342,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   if (contest?.kind === "ffa") picks.sort((a, b) => Number(!!b.roleLabel) - Number(!!a.roleLabel));
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result"
     ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
+  /* a live bracket game shows the bracket itself, which replaces the link */
+  const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket"
     : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
 
@@ -368,7 +371,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       <div className="fd-wagers-contest-heading">
         <div><h2>{contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"}</h2>
           {contest && <p>{evenMoney ? "Winner pays even" : "Pays 2 to 1"}</p>}</div>
-        {onEvent && <button type="button" className="fd-wagers-context" onClick={() => onEvent(ev)}>
+        {onEvent && !peek && <button type="button" className="fd-wagers-context" onClick={() => onEvent(ev)}>
           {contextLabel}<span aria-hidden="true">↗</span>
         </button>}
       </div>
@@ -381,6 +384,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       </section> : <p className="fd-wagers-contest-waiting">{state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."}</p>}
       {me && marketOpen && myPts - myExp < PT
         && <p className="fd-wagers-limit" role="status">No chips available.</p>}
+      {peek && <BracketPeek state={state} ev={ev} me={me} onOpen={onEvent} card />}
     </section>}
 
     {pendingLines.length > 0 && <details className="fd-wagers-history" open={gm || !contest || undefined}>

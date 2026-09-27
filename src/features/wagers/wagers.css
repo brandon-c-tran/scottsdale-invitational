@@ -154,3 +154,4 @@
   .fd-wagers *,.fd-wagers *::before,.fd-wagers *::after { transition:none !important; animation:none !important; }
 }
 
+.fd-wagers-event .fd-bracket-peek.is-card { margin-top:14px; }

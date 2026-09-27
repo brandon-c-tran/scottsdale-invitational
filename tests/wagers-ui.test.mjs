@@ -187,7 +187,7 @@ test("match participants can manually back their team while opponents stay visib
   assert.equal(view.named(opponent).disabled, true);
   assert.equal(view.named(opponent).description, "You can only bet on your team in this match.");
   assert.deepEqual(view.picks, []);
-  view.click("Full bracket↗");
+  view.click(`Open the full ${pairs.name} bracket`);
   assert.deepEqual(opened, [pairs.id]);
   assert.deepEqual(view.picks, []);
   view.click(`Place a chip on ${teamLabel(state, draw.teams[0])}`);

@@ -6,7 +6,7 @@ import "./weekend.css";
 
 /* The program keeps the same event ordering contract as the tournament:
    reordering moves within a session, with unassigned events in their own group. */
-export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, GameMark, EventCrewCard }) {
+export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, onBracket, GameMark, EventCrewCard }) {
   const [reorderMode, setReorderMode] = useState(false);
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
@@ -59,6 +59,9 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
           </span>
           {!reordering && <span className="fd-weekend-event-arrow" aria-hidden="true">{result ? "✓" : "↗"}</span>}
         </button>
+        {!reordering && onBracket && state.brackets?.[event.id] && draw
+          && <button type="button" className="fd-weekend-event-bracket" onClick={() => onBracket(event)}
+            aria-label={`${event.name} bracket`}>Bracket</button>}
         {reordering && <div className="fd-weekend-reorder" aria-label={`Reorder ${event.name}`}>
           <button type="button" disabled={moving || index === 0} onClick={() => move(event, -1)}
             aria-label={`Move ${event.name} earlier`}>↑</button>

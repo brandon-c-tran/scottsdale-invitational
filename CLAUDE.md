@@ -119,6 +119,12 @@ pending-write guards, and at least 44px active controls.
 Event and draw announcement sheets keep compact operational content and the
 announcement/reveal sequence. Efficiency must not remove the anticipation,
 player-color motion, or acknowledgement feedback that makes a result legible.
+A bracket is drawn as a bracket: rounds are columns, each match sits between
+the matches that feed it, connector lines carry winners forward, and the live
+match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx). While
+a bracket game is live, a compact read-only bracket (`BracketPeek`, one target)
+sits under the current matchup on Home and under the board on Bets, and its
+Events row has its own Bracket entry; all open the full bracket sheet.
 Commissioner winner selection uses the actual bracket matchup or heat rows,
 with separate player-avatar targets for cards. Do not build a second copy of
 the teams just to choose a winner. Bets keeps one compact chip rack and a

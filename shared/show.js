@@ -2,7 +2,7 @@
    Scene records contain stable references and a step. Every player, result,
    and standings view is resolved from current authoritative state. */
 
-import { computeStandings, resolveWeekendOperation, resolveCurrentContest, validateEventParticipants, ROSTER } from "./core.js";
+import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants } from "./core.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -241,20 +241,33 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
   const ev = operation.event;
   if (!action || !ev) return { ...operation, scene:null };
   const contest = resolveCurrentContest(state, ev);
+  /* Skipping is the secondary beat beside an event that has not begun, so
+     the night can jump to the finale without hunting for Shelve. */
+  const secondary = !ev.finale && !state.eventOps?.[ev.id]?.startedAt
+    && SKIPPABLE_PHASES.includes(operation.lifecycle?.phase)
+    ? { type:"skip-event", label:`Skip ${ev.name}`, eventId:ev.id } : null;
+  const beat = nextAction => ({ ...operation, scene:null, nextAction, secondary });
   if (action.type === "open-betting")
-    return { ...operation, scene:null, nextAction:
-      { ...action, type:"announce", label:`Announce ${ev.name}` } };
-  if (action.type === "prepare-draw" && validateEventParticipants(ev, ROSTER, ROSTER).ok)
-    return { ...operation, scene:null, nextAction:
-      { ...action, type:"announce-draw", label:`Announce and draw ${ev.name}` } };
+    return beat({ ...action, type:"announce", label:`Announce ${ev.name}` });
+  /* A draw for the next event is announced in the same write, so every
+     screen plays the intro before the teams. The beat carries the default
+     crew (whoever has sat out least); the commissioner can change it. */
+  if (action.type === "prepare-draw"
+      || action.type === "prepare-stages" && (ev.stageCfg?.kind === "heats" || state.draws?.[ev.id])) {
+    const suggestion = state.draws?.[ev.id] ? { players:null, roles:null } : suggestParticipants(state, ev);
+    if (suggestion)
+      return beat({ ...action, type:"announce-draw", label:`Announce and draw ${ev.name}`,
+        players:suggestion.players, roles:suggestion.roles });
+  }
   if (action.type === "lock-betting")
-    return { ...operation, scene:null, nextAction:
-      { ...action, type:"lock-start", label:`Lock bets and start ${contest?.label || ev.name}` } };
+    return beat({ ...action, type:"lock-start", label:`Lock bets and start ${contest?.label || ev.name}` });
   if (action.type === "start-event")
-    return { ...operation, scene:null, nextAction:
-      { ...action, type:"lock-start", label:`Start ${contest?.label || ev.name}` } };
-  return { ...operation, scene:null };
+    return beat({ ...action, type:"lock-start", label:`Start ${contest?.label || ev.name}` });
+  if (action.type === "record-contest-winner" && contest && contest.kind !== "ffa")
+    return beat({ ...action, label:`Record ${contest.label} winner`, contestId:contest.id });
+  return { ...operation, scene:null, secondary };
 }
+const SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
 
 export {
   SHOW_HISTORY_LIMIT,

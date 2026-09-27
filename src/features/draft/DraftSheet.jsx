@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { disp, draftTurn, shuffle, snakeTeam, overflowRoleMeta } from "../../../shared/core.js";
+import { disp, draftTurn, shuffle, snakeTeam, overflowRoleMeta, playerStrength, teamFit } from "../../../shared/core.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
@@ -61,14 +61,17 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     }
   }, [pending, turn?.draftRevision]);
 
-  const n = ev.teamCfg?.teams || 2, size = ev.teamCfg?.size || 2;
+  /* a running draft keeps the shape it started with; setup reads the room */
+  const fit = draft?.fit || (pool ? teamFit(ev, pool.length + roles.length) : null) || ev.teamCfg;
+  const n = fit?.teams || 2, size = fit?.size || 2;
   const chooseMethod = next => {
     if (saving.current) return;
     setMethod(next);
     if (next === "random") setCaptains(shuffle(pool || []).slice(0, n));
-    else if (next === "seed") setCaptains([...(pool || [])].sort((a,b) => ev.sport
-      ? (state.seeds?.[b]?.[ev.sport] || 0) - (state.seeds?.[a]?.[ev.sport] || 0)
-      : standings.findIndex(row => row.player === a) - standings.findIndex(row => row.player === b)).slice(0, n));
+    /* the same live blend the balanced draw uses, never a raw self-rating */
+    else if (next === "seed") setCaptains([...(pool || [])].sort((a,b) =>
+      playerStrength(state, b, ev.sport, standings.length ? standings : undefined)
+        - playerStrength(state, a, ev.sport, standings.length ? standings : undefined)).slice(0, n));
     else setCaptains([]);
   };
   const toggleCaptain = player => {
@@ -86,7 +89,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     <div className="fd-draft-section-title"><h2>Choose {n} captains</h2><span>{n} teams of {size}</span></div>
     <p className="fd-draft-note">Captain order is pick order. It reverses each round.</p>
     <div className="fd-draft-methods" aria-label="Choose captains">
-      {[["pick","Choose"],["seed",ev.sport ? "Top seeds" : "Standings"],["random","Random"]].map(([id,text]) =>
+      {[["pick","Choose"],["seed","Balanced"],["random","Random"]].map(([id,text]) =>
         <button type="button" key={id} aria-pressed={method === id} disabled={!!pending}
           onClick={() => chooseMethod(id)}>{text}</button>)}
     </div>

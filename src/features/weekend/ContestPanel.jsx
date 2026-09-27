@@ -1,12 +1,15 @@
-import React, { useRef, useState } from "react";
-import { disp, resolveCurrentContest, resolveEventLifecycle, contestUndoAvailability } from "../../../shared/core.js";
+import React, { useEffect, useRef, useState } from "react";
+import { disp, resolveCurrentContest, resolveEventLifecycle, contestUndoAvailability, refundText,
+  allEventsOf, resolveWager, wagerMatchesContest, bracketOrder, bracketMatchOpen, ROUND_NAMES } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { CompetitionBracket } from "./CompetitionBracket.jsx";
 import "./contest.css";
 
 const nameOf = (state, side) => side.name || side.players.map(player => disp(state, player)).join(" & ");
+/* A recorded winner can be taken back with one tap for this long. */
+const UNDO_WINDOW_MS = 5000;
 
-function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, onWinner, onResult, operationBusy, onBusy, blocked }) {
+function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, onWinner, onResult, onPlayNext, onRecorded, operationBusy, onBusy, blocked }) {
   const [winner, setWinner] = useState(null), [qualifiers, setQualifiers] = useState([]);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const busy = useRef(false), retry = useRef(null);
@@ -25,8 +28,20 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
     } catch (failure) { setError(failure?.message || "Change not saved. Try again."); }
     finally { busy.current = false; operationBusy.current = false; onBusy(false); setPending(false); }
   };
-  const record = key => act(() => onWinner({ ...reference, winner:key, qualifiers:[key] }));
+  const sideName = key => { const side = contest.sides.find(item => item.key === key); return side ? nameOf(state, side) : ""; };
+  const recorded = key => async () => {
+    const result = await onWinner({ ...reference, winner:key, qualifiers:[key] });
+    if (result?.ok === true) onRecorded?.(sideName(key));
+    return result;
+  };
+  const record = key => act(recorded(key));
   const selectingQualifiers = advance > 1 && winner !== null;
+  /* another seated matchup can go first while this market is empty */
+  const bracket = isBracket ? state.brackets?.[ev.id] : null;
+  const chipsIn = open && (state.wagers || []).some(wager => wagerMatchesContest(wager, contest)
+    && resolveWager(state, wager, allEventsOf(state)).status === "pending");
+  const alternatives = gm && open && bracket && onPlayNext ? bracketOrder(bracket)
+    .filter(([r, m]) => bracketMatchOpen(bracket, r, m) && (r !== contest.match[0] || m !== contest.match[1])) : [];
   return <section className="fd-contest" aria-label="Current contest" aria-busy={pending}>
     <div className="fd-contest-toolbar">
       <div><strong>{isBracket ? "Bracket" : contest.label || ev.name}</strong>
@@ -68,9 +83,21 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         {gm && running && advance > 1 && selectingQualifiers && <div className="fd-contest-qualifier-actions">
           <button type="button" className="fd-contest-secondary" disabled={pending} onClick={() => { setWinner(null);setQualifiers([]); }}>Change winner</button>
           <button type="button" className="fd-contest-primary" disabled={pending || qualifiers.length !== advance - 1 || !onWinner}
-            onClick={() => act(() => onWinner({...reference,winner,qualifiers:[winner,...qualifiers]}))}>{pending ? "Saving…" : "Record winner"}</button>
+            onClick={() => act(async () => {
+              const result = await onWinner({...reference,winner,qualifiers:[winner,...qualifiers]});
+              if (result?.ok === true) onRecorded?.(sideName(winner));
+              return result;
+            })}>{pending ? "Saving…" : "Record winner"}</button>
         </div>}
       </div>}
+    {!!alternatives.length && <div className="fd-contest-reorder">
+      {alternatives.map(([r, m]) => {
+        const label = `${ROUND_NAMES[bracket.size]?.[r] || `Round ${r + 1}`} · Match ${m + 1}`;
+        return <button key={`${r}:${m}`} type="button" className="fd-contest-secondary" disabled={pending || blocked || chipsIn}
+          onClick={() => act(() => onPlayNext({ ...reference, match:[r, m] }))}>Play {label} next</button>;
+      })}
+      {chipsIn && <p>Chips are on this match. Reordering waits until they come off.</p>}
+    </div>}
     {error && <div className="fd-contest-failure"><p role="alert" className="fd-contest-error">{error}</p>
       <button type="button" className="fd-contest-secondary" disabled={pending} onClick={() => act(retry.current)}>Retry</button></div>}
     {pending && running && !isFfa && <p className="fd-contest-saving" role="status">Saving result…</p>}
@@ -78,17 +105,62 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
 }
 
 export function ContestPanel(props) {
-  const { state, ev, gm, onResult } = props;
+  const { state, ev, gm, onResult, onUndo } = props;
   const operationBusy = useRef(false), [blocked, onBusy] = useState(false);
+  /* the last one-tap winner, undoable for a few seconds */
+  const [recent, setRecent] = useState(null);
+  useEffect(() => {
+    if (!recent) return;
+    const timer = setTimeout(() => setRecent(null), Math.max(0, recent.at + UNDO_WINDOW_MS - Date.now()));
+    return () => clearTimeout(timer);
+  }, [recent]);
   const operations = { operationBusy, blocked, onBusy };
   if (state.results?.[ev.id] || state.shelved?.[ev.id] || state.frozen || ev.finale) return null;
+  const onRecorded = gm && onUndo ? name => setRecent({ name, at:Date.now() }) : null;
+  const undoRecent = recent && gm && onUndo
+    ? <RecentWinner {...props} {...operations} name={recent.name} onDone={() => setRecent(null)} /> : null;
+  /* while the quick Undo is up it is the one correction control shown */
+  const correction = undoRecent ? null : <ContestCorrection {...props} {...operations} />;
   const lifecycle = resolveEventLifecycle(state, ev), contest = resolveCurrentContest(state, ev);
   if (!contest || !["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase)) {
     return gm && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type)
-      ? <><ContestFinish key={ev.id} onResult={onResult} {...operations} /><ContestCorrection {...props} {...operations} /></>
-      : null;
+      ? <>{undoRecent}<ContestFinish key={ev.id} onResult={onResult} {...operations} />{correction}</>
+      : undoRecent;
   }
-  return <><CurrentContest key={`${ev.id}:${contest.id}:${contest.revision}:${contest.phase}`} {...props} {...operations} contest={contest} /><ContestCorrection {...props} {...operations} /></>;
+  return <>{undoRecent}<CurrentContest key={`${ev.id}:${contest.id}:${contest.revision}:${contest.phase}`} {...props} {...operations}
+    contest={contest} onRecorded={onRecorded} />{correction}</>;
+}
+
+/* Runs one correction behind the shared busy guard. */
+function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
+  const [pending,setPending] = useState(false), [error,setError] = useState("");
+  const busy = useRef(false);
+  const run = async () => {
+    if (busy.current || operationBusy.current) return;
+    const undo = contestUndoAvailability(state,ev);
+    busy.current = true; operationBusy.current = true; onBusy(true); setPending(true); setError("");
+    try {
+      const result = await onUndo({contestId:undo.contestId,contestRevision:undo.contestRevision});
+      if (!result?.ok) setError(result?.error || "Change not saved. Try again.");
+      else after?.();
+    } catch (failure) { setError(failure?.message || "Change not saved. Try again."); }
+    finally { busy.current = false; operationBusy.current = false; onBusy(false); setPending(false); }
+  };
+  return { pending, error, run };
+}
+
+function RecentWinner(props) {
+  const { state, ev, name, blocked, onDone } = props;
+  const undo = contestUndoAvailability(state, ev);
+  const correction = useCorrection(props, onDone);
+  if (!undo.enabled) return null;
+  const refunds = refundText(state, undo.refunds);
+  return <div className="fd-contest-recent" role="status">
+    <span>Winner recorded: {name}{refunds ? `. ${refunds}` : ""}</span>
+    <button type="button" disabled={correction.pending || blocked} onClick={correction.run}>
+      {correction.pending ? "Undoing…" : "Undo"}</button>
+    {correction.error && <p role="alert" className="fd-contest-error">{correction.error}</p>}
+  </div>;
 }
 
 function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
@@ -112,21 +184,24 @@ function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
   </section>;
 }
 
-function ContestCorrection({ state, ev, gm, onUndo, operationBusy, blocked, onBusy }) {
-  const [pending,setPending] = useState(false), [error,setError] = useState("");
-  const busy = useRef(false), undo = contestUndoAvailability(state,ev);
+/* Correcting the previous winner also returns any chips on the next market;
+   the confirm names who gets what back before anything moves. */
+function ContestCorrection(props) {
+  const { state, ev, gm, onUndo, blocked } = props;
+  const [confirming, setConfirming] = useState(false);
+  const correction = useCorrection(props, () => setConfirming(false));
+  const undo = contestUndoAvailability(state,ev);
   if (!gm || !onUndo || !state.eventOps?.[ev.id]?.lastContest) return null;
+  const refunds = refundText(state, undo.refunds);
+  const label = correction.pending ? "Opening result…" : "Correct previous result";
   return <div className="fd-contest-correction">
-    <button type="button" disabled={pending || blocked || !undo.enabled} onClick={async()=>{
-      if (busy.current || operationBusy.current) return;
-      busy.current = true; operationBusy.current = true; onBusy(true); setPending(true); setError("");
-      try {
-        const result = await onUndo({contestId:undo.contestId,contestRevision:undo.contestRevision});
-        if (!result?.ok) setError(result?.error || "Change not saved. Try again.");
-      } catch (failure) { setError(failure?.message || "Change not saved. Try again."); }
-      finally { busy.current = false; operationBusy.current = false; onBusy(false); setPending(false); }
-    }}>{pending ? "Opening result…" : "Correct previous result"}</button>
+    {confirming && refunds ? <div className="fd-contest-confirm">
+      <p>{refunds}</p>
+      <button type="button" disabled={correction.pending || blocked || !undo.enabled} onClick={correction.run}>{label}</button>
+      <button type="button" disabled={correction.pending} onClick={() => setConfirming(false)}>Keep it</button>
+    </div> : <button type="button" disabled={correction.pending || blocked || !undo.enabled}
+      onClick={() => refunds ? setConfirming(true) : correction.run()}>{label}</button>}
     {!undo.enabled && <p>{undo.blocker}</p>}
-    {error && <p role="alert" className="fd-contest-error">{error}</p>}
+    {correction.error && <p role="alert" className="fd-contest-error">{correction.error}</p>}
   </div>;
 }

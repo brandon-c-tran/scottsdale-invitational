@@ -56,8 +56,11 @@ const attemptGmUnlock = async ({ configuredPin, submittedPin }) => {
   const context = {
     blockConcurrencyWhile() {},
     storage:{
+      /* Deliberate change: each unlock mints a per-device token kept in
+         private storage instead of one shared "gmToken" key. */
       async put(key, value) {
-        if (key === "gmToken") storedToken = value;
+        if (key === "private:gm:tokens")
+          storedToken = Object.values(value).find(record => record.deviceId === "unlock-test-device")?.token;
       },
     },
   };
@@ -198,7 +201,9 @@ test("every shipped strict team format yields exact QA participants and group si
   }
   assert.ok(makeBracket(4));
   assert.ok(makeBracket(6));
-  assert.equal(makeBracket(5), null);
+  /* short rooms: a play-in seeds five teams into a four-team bracket */
+  assert.equal(makeBracket(5).rounds.length, 3);
+  assert.equal(makeBracket(7), null);
 });
 
 test("shared lifecycle drives one guarded GM action from setup through completion", () => {
@@ -317,7 +322,10 @@ test("weekend operation keeps the newest active event as the canonical next acti
   state.drafts.pong = { ts:100 };
   assert.equal(resolveWeekendOperation(state).event.id, "putt");
 
+  /* preparing a later event never outranks one being played */
   state.drafts.pong.ts = 300;
+  assert.equal(resolveWeekendOperation(state).event.id, "putt");
+  delete state.eventOps.putt;
   assert.equal(resolveWeekendOperation(state).event.id, "pong");
 });
 

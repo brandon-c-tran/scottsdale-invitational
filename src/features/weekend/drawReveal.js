@@ -1,5 +1,24 @@
 import { coalescePendingReveals, disp, ROUND_NAMES, resolveSlot, stageEntrantView, teamLabel } from "../../../shared/core.js";
 
+/* A draw prepared for a later event is held on every screen until that
+   event is announced, so nobody sees teams before they know the game. An
+   event that is on deck, has had a market, has started, or has a result
+   has been announced. */
+export function revealReady(state, evId) {
+  const op = state.eventOps?.[evId] || {};
+  return state.onDeck === evId || !!state.results?.[evId]
+    || !!(op.bettingOpenedAt || op.bettingLockedAt || op.startedAt || op.contest || op.resultEntryAt);
+}
+
+/* The ceremony a device owes next: only announced draws and stages, with
+   older unseen ones retired so a reconnect plays just the latest. Held
+   draws are neither played nor marked seen. */
+export function pendingReveal(state, events, seen, preferredEvId = null) {
+  const ready = map => Object.fromEntries(Object.entries(map || {}).filter(([evId]) => revealReady(state, evId)));
+  const { staleIds, latest } = coalescePendingReveals(ready(state.draws), ready(state.stages), seen, preferredEvId);
+  return { staleIds, next:latest ? buildEventReveal(state, events.find(event => event.id === latest.evId), latest.kind) : null };
+}
+
 // Presentation only. Replaying reads the saved assignment; it never runs a draw.
 export function buildEventReveal(state, ev, kind) {
   if (!ev) return null;

@@ -39,6 +39,11 @@ import {
 } from "./spotify.js";
 
 const tokenEncoder = new TextEncoder();
+/* One commissioner token per unlocked device, private (never exported in a
+   snapshot). The single shared token from before stays valid as the
+   "earlier unlock" entry until someone revokes it. */
+const GM_TOKENS_KEY = "private:gm:tokens";
+const GM_TOKEN_LIMIT = 20;
 const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
@@ -104,7 +109,39 @@ export class Tournament {
     this.state = hydrateStoredState(await this.ctx.storage.get("state"));
     this.version = (await this.ctx.storage.get("version")) || 0;
     this.gmToken = (await this.ctx.storage.get("gmToken")) || null;
+    this.gmTokens = (await this.ctx.storage.get(GM_TOKENS_KEY)) || {};
     this.claims = (await this.ctx.storage.get("claims")) || {}; // deviceId -> player
+  }
+
+  /* the id of the commissioner token presented, or null */
+  async gmTokenId(token) {
+    if (typeof token !== "string" || !token) return null;
+    for (const [id, record] of Object.entries(this.gmTokens || {}))
+      if (await secureTokenEqual(token, record?.token)) return id;
+    return this.gmToken && await secureTokenEqual(token, this.gmToken) ? "legacy" : null;
+  }
+
+  async revokeGmToken(id) {
+    if (id === "legacy") {
+      this.gmToken = null;
+      await this.ctx.storage.delete("gmToken");
+      return true;
+    }
+    if (!this.gmTokens?.[id]) return false;
+    const next = { ...this.gmTokens };
+    delete next[id];
+    await this.ctx.storage.put(GM_TOKENS_KEY, next);
+    this.gmTokens = next;
+    return true;
+  }
+
+  gmDeviceList(currentId) {
+    const devices = Object.entries(this.gmTokens || {})
+      .map(([id, record]) => ({ id, player:record?.player || null, createdAt:record?.createdAt || 0,
+        current:id === currentId }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+    if (this.gmToken) devices.push({ id:"legacy", player:null, createdAt:0, legacy:true, current:currentId === "legacy" });
+    return devices;
   }
 
   async fetch(req) {
@@ -139,7 +176,7 @@ export class Tournament {
         let body;
         try { body = await req.json(); } catch { return Response.json({ ok: false, error: "Bad photo" }, { status: 400 }); }
         const { dataUrl, deviceId, gmToken } = body || {};
-        const isGm = await secureTokenEqual(gmToken, this.gmToken);
+        const isGm = !!await this.gmTokenId(gmToken);
         if ((!isActivePlayer(player) || this.claims[deviceId] !== player) && !isGm)
           return Response.json({ ok: false, error: "Not your profile" }, { status: 403 });
         if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/") || dataUrl.length > 120000)
@@ -162,7 +199,7 @@ export class Tournament {
     const auth = req.headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ")
       ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
-    return secureTokenEqual(token, this.gmToken);
+    return !!await this.gmTokenId(token);
   }
 
   spotifyRateLimit(deviceId) {
@@ -411,10 +448,8 @@ export class Tournament {
   async adminAuthorized(req) {
     const auth = req.headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
-    const expected = this.environment === "production"
-      ? this.env.SNAPSHOT_ADMIN_TOKEN
-      : this.gmToken;
-    return secureTokenEqual(token, expected);
+    if (this.environment !== "production") return !!await this.gmTokenId(token);
+    return secureTokenEqual(token, this.env.SNAPSHOT_ADMIN_TOKEN);
   }
 
   async readBoundedJson(req) {
@@ -628,11 +663,33 @@ export class Tournament {
         return reply({ ok: false, error: "Wrong passcode" });
       }
       this.pinFails = 0;
-      if (!this.gmToken) {
-        this.gmToken = crypto.randomUUID();
-        await this.ctx.storage.put("gmToken", this.gmToken);
+      /* each unlock mints this device's own token and replaces its last one */
+      const token = crypto.randomUUID();
+      const kept = Object.entries(this.gmTokens || {})
+        .filter(([, record]) => record?.deviceId !== deviceId)
+        .sort((a, b) => (b[1]?.createdAt || 0) - (a[1]?.createdAt || 0))
+        .slice(0, GM_TOKEN_LIMIT - 1);
+      const nextTokens = { ...Object.fromEntries(kept), [crypto.randomUUID().slice(0, 8)]:{
+        token, deviceId:typeof deviceId === "string" ? deviceId.slice(0, 200) : null,
+        player:isActivePlayer(this.claims?.[deviceId]) ? this.claims[deviceId] : null, createdAt:now,
+      } };
+      await this.ctx.storage.put(GM_TOKENS_KEY, nextTokens);
+      this.gmTokens = nextTokens;
+      return reply({ ok: true, extra: { gmToken: token } });
+    }
+
+    if (type === "gmDevices" || type === "gmRevoke" || type === "gmExit") {
+      const currentId = await this.gmTokenId(gmToken);
+      if (type === "gmExit") {
+        if (currentId) await this.revokeGmToken(currentId);
+        return reply({ ok: true });
       }
-      return reply({ ok: true, extra: { gmToken: this.gmToken } });
+      if (!currentId) return reply({ ok: false, error: "Commissioner only" });
+      if (type === "gmRevoke") {
+        const id = typeof payload?.id === "string" ? payload.id : "";
+        if (!await this.revokeGmToken(id)) return reply({ ok: false, error: "That device is already signed out" });
+      }
+      return reply({ ok: true, extra: { devices: this.gmDeviceList(currentId) } });
     }
 
     if (type === "claim") {
@@ -644,7 +701,7 @@ export class Tournament {
       return reply({ ok: true });
     }
 
-    const isGm = await secureTokenEqual(gmToken, this.gmToken);
+    const isGm = !!await this.gmTokenId(gmToken);
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {

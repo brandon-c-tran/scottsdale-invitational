@@ -33,3 +33,12 @@
 .fd-contest-correction p { margin:0; color:var(--muted); font-size:11px; line-height:1.4; }
 .fd-event-context { margin-bottom:14px; }
 .fd-event-context summary { min-height:44px; padding:12px 0; cursor:pointer; font:600 18px/1.1 var(--fd-display); color:var(--ink); }
+.fd-contest-recent { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding:6px 6px 6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper2); color:var(--ink); font-size:12.5px; line-height:1.4; }
+.fd-contest-recent>span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.fd-contest-recent button { min-height:44px; min-width:64px; padding:8px 12px; border:1px solid var(--sun); border-radius:6px; background:none; color:var(--sun); font:600 12px/1.2 var(--fd-body); cursor:pointer; }
+.fd-contest-recent button:disabled { opacity:.5; cursor:default; }
+.fd-contest-confirm { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.fd-contest-confirm p { flex-basis:100%; color:var(--ink); font-size:12px; }
+.fd-contest-reorder { display:flex; flex-wrap:wrap; gap:4px 12px; margin:8px 0 0; }
+.fd-contest-reorder p { flex-basis:100%; margin:0; color:var(--muted); font-size:11px; line-height:1.4; }
+.fd-contest-recent button:focus-visible,.fd-contest-confirm button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }

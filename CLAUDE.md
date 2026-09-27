@@ -451,8 +451,9 @@ no specific question, poll, or new endpoint has been implemented yet.
   failed acknowledgements. No WebSocket, persistent storage, or remote data.
 
 The September 26 fix pass (every finding from the Sept 26 audit plus the
-Sept 7 FD list) passes 316 tests and the 138-check local e2e. It is not yet
-deployed; staging runs `7c2c9f15` (tag `staging-7c2c9f15`). The first
+Sept 7 FD list) passes 316 tests and the 138-check local e2e. It is deployed to
+staging as version `948ac22e-b6d6-48b9-af1e-0b20ed159dba` (build `bbbf234`); the
+previous staging build is tag `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet

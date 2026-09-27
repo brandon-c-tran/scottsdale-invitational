@@ -37,8 +37,17 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   returning home, events/weekend reference, live board, and wagering UI.
   `features/draft/` owns captain setup, the live snake draft, and its Home entry;
   `shared/core.js` supplies its turn and mutation references through `draftTurn`.
+  `features/duels/` owns Quick Draw, the duel card, the commissioner duel
+  list, and viewer-relative duel state. `features/tv/` owns TV mode
+  (`TVMode.jsx`, pure `tvModel.js`, `serverClock.js`), drawn on a fixed
+  1920x1080 letterboxed canvas with 24px minimum text.
   `ui/AppChrome.jsx` owns the persistent header/navigation; `ui/GameMark.jsx`
-  owns the shared game illustrations.
+  owns the shared game illustrations. `src/lib/client.js` treats the socket as
+  live only after a fresh state lands on it, replaces a socket whose ping goes
+  unanswered or that stays silent after the app returns to the foreground,
+  and reports a timed-out write as uncertain until the next state settles it.
+  Every frame carries a build id: the TV reloads between ceremonies and phones
+  offer Update ready.
 
 ## Current redesign direction
 
@@ -134,8 +143,8 @@ complete draw immediately. Replaying presentation never redraws teams or
 changes gameplay. Winner celebrations, TV draft cues, chip feedback, and Home
 rank-change arrows remain part of the experience.
 
-Captain setup makes pick order visible and supports manual, seeded/standings,
-and random selection. The live draft shows whose pick it is, upcoming snake
+Captain setup makes pick order visible and supports manual, Balanced (live
+`playerStrength`, never private self-ratings), and random selection. The live draft shows whose pick it is, upcoming snake
 order, available players, named teams, the last pick, and crew. A captain can
 pick only on their turn; the commissioner can pick for them, undo, confirm
 completed teams, or explicitly discard a draft. Other guests follow the draft
@@ -183,9 +192,12 @@ no specific question, poll, or new endpoint has been implemented yet.
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
    wager net + rulings, computed fresh from state every time. No stored
    balances.
-4. **Current-contest betting:** a free-for-all event winner pays 2:1
-   (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
-   winner pays even (1:1). The board exposes only that one current contest,
+4. **Current-contest betting:** a free-for-all with more than two sides pays
+   2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
+   winner pays even (1:1). Any contest with exactly two sides, including a
+   two-team game like Volleyball, Flip Cup or 5v5, is a matchup: even money,
+   and competitors may back only their own side. Every bettor holds one side
+   per contest. New outright tickets store their `mult`. The board exposes only that one current contest,
    never every unresolved bracket matchup or an event-wide outright market
    for an event being played as matches or stages. A competitor may optionally
    back themself or their own team in that contest; spectators may back any
@@ -193,15 +205,19 @@ no specific question, poll, or new endpoint has been implemented yet.
    automatic wager or required self-bet. Legacy outright and advancement
    tickets keep their original settlement and payout contracts; they are not
    converted to new winner bets. Awards pay 400/800/1200/1600 by
-   session (`AWARDS` keys ARE the legal event values) so winning games outweighs
-   betting. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
-   capped under 500 (`MAX_RISK`), and it bounds duel antes too or a duel would
-   be a way around it. Stake <= balance minus at-risk, stakes move in 100s. Betting UX
+   session (`AWARDS` keys ARE the legal event values). Crew (a draw's roles)
+   earn the event's 3rd-place award, and a bracket's two semifinal losers split
+   3rd, each share floored to 100s; `resultAwards` is the one derivation every
+   surface reads. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
+   capped under 500 (`MAX_RISK`), and it bounds duel antes too (accepted duels
+   plus your own waiting offer, `duelReserve`) or a duel would be a way around it. Stake <= balance minus at-risk, stakes move in 100s. Betting UX
    is video roulette: a fixed rack (100/200/500/1000, features/wagers/Wagers.jsx `RACK_DENOMS`)
    selects the tap stake and carries the only economy readout, a meter that
    DRAWS the cap instead of narrating it: the bar is your whole stack, the
-   notch is `maxRisk`, the gold is your exposure, and the gap between them is
-   what is left to bet. It stays up when you are maxed out, since that is when
+   notch is `maxRisk`, the gold is your bet exposure, an outlined segment is
+   duel antes, anything past the notch after a correction is drawn in the loss
+   color, and the gap between them is what is left to bet. When the cap binds,
+   + reads "Max N". It stays up when you are maxed out, since that is when
    it explains the most, and it is labelled with numbers, never a phrase.
    Tapping + on an eligible side of the current contest adds that chip, with
    its value stamped on its face. Tapping your stack retrieves its last chip.
@@ -210,11 +226,14 @@ no specific question, poll, or new endpoint has been implemented yet.
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
    also in the ticker and phone live strip), value chips ride the TV bracket
    and board cells, and bracket draw reveals announce first-round matchups.
-   A team event is ONE GM tap (`announceAndDraw`): draw, bracket seed, and
+   A team or heats event is ONE GM tap (`announceAndDraw`), confirmed from a
+   crew line prefilled with whoever has sat out least: draw, bracket seed, and
    betting open land in one server write and one broadcast, so every phone
    plays the intro then hands over to the reveal by itself after
    `INTRO_HOLD`. Drawing before the announcement put matchups on screen
-   before anyone knew the game, and a manual close made the GM tap twice.
+   before anyone knew the game, and a manual close made the GM tap twice. A
+   plain `runDraw` for a later event is held, unseen, on every screen until
+   that event is announced (`revealReady`).
    The GM pill reads `resolveDirector` (shared/show.js): every beat of the
    weekend is one server action that moves the tournament and points the TV
    in the same write (`announceEvent`, `lockAndStart`, winner scenes inside
@@ -224,9 +243,16 @@ no specific question, poll, or new endpoint has been implemented yet.
    Winner scenes stamp the result revision they played for, so corrections
    mark the scene stale and the director owes a replay at the new revision.
    Walkout audio is a cue chip beside the pill, played only by an explicit
-   GM tap, never fired from a scene or action (Spotify policy).
-5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once and
-   mints a server-held token; GM actions require it. The PIN must never enter a
+   GM tap, never fired from a scene or action (Spotify policy). Cues are also
+   offered for the current contest's players after lock-and-start and for the
+   seated players at the poker start; the chosen speaker persists in
+   `private:spotify:device`.
+5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once per
+   device and mints that device's token (`private:gm:tokens`); GM actions
+   require it. Exit GM revokes the device's token, the locker room lists
+   commissioner devices with Revoke, and a revoked socket loses the
+   commissioner view at once. The earlier shared token stays valid as a legacy
+   entry until revoked. The PIN must never enter a
    shared module, client bundle, checked-in vars, or documentation.
 6. Identity is a device claim (`claim` action), not auth. Fine for 13 friends.
    Onboarding doubles as the invite, sent months out. `firstOnboardStep()` is
@@ -240,6 +266,10 @@ no specific question, poll, or new endpoint has been implemented yet.
    payouts, wagers, duels and game rules live in Weekend's Rules and Games sections instead of a
    second onboarding chapter. Finishing ratings lands directly on the board.
    Mount the form after the first server snapshot and preserve saved answers.
+   A returning guest with no local check-in marker whose claim (or hello)
+   already has a saved name, color and ratings lands on Home; replays and
+   epoch reruns are never skipped. Once live, flights are optional for a
+   straggler and an uncolored guest may make one color claim.
    Claim, details, profile/photo, and ratings steps advance only after explicit
    success acknowledgements. Pending writes freeze edits and navigation;
    failures retain drafts for retry. Profile photos use their existing HTTP
@@ -287,17 +317,30 @@ no specific question, poll, or new endpoint has been implemented yet.
 7. **Duels are a weekend thing.** `sendDuel` is refused until `state.live`:
    everyone sits on exactly 1,000 until Friday, which is what the invite
    promises, and the pre-weekend locker room shows no points for a result to
-   land on. Play is unrestricted once live.
+   land on. Play is unrestricted once live. A challenge is an offer: only
+   the challenger's ante is held until the recipient (or, for an open
+   challenge, the first taker) accepts, which checks their cap then. Runs
+   happen only after acceptance. Decline stays available until the recipient
+   draws; the sender can withdraw before acceptance. Unanswered offers lapse
+   after `DUEL_LAPSE_MS` (10 minutes), derived from the record. Until a duel
+   settles, each viewer's frame carries only their own run time
+   (`redactDuelsForViewer`).
 8. **The poker finale settles on stacks.** There is NO buy-in conversion: the
    board is already in chips, so a stack of 2,900 sits down with 2,900 in front
    of it, dealt in real denominations 25/100/500/1000 (`pokerDenoms`, blind
    pack of eight 25s), blinds 25/50 to 600/1200. Counts are entered in chips
    (multiples of CHIP_MIN=25) and `pokerResult` counts BECOME the standings
    verbatim (chip leader = champion, elimination order breaks 0-count ties).
-   `pokerSetup` tops anyone under 600 up to 600 (a "Minimum stack" ruling) so
-   nobody sits out the finale, and requires every wager and duel settled or
-   voided first so dealt stacks always match the board (`pokerCancel` reverts
-   the Minimum stack grants). The whole economy freezes while cards are live
+   `pokerSetup` tops anyone under 600 up to 600 (a "Minimum stack" ruling; a
+   negative balance deals as 0) so nobody sits out the finale, requires every
+   wager settled or voided first, and voids unplayed duels in the same write,
+   so dealt stacks always match the board (`pokerCancel` reverts the Minimum
+   stack grants, and is refused once cards are live). Away players are not
+   seated; their board total carries as their stack. The deal lays a working
+   layer of small chips first and reports tray totals (`pokerInventory`). A
+   counted 0 is a bust, a count above the dealt total is refused, and the last
+   seat cannot bust. Post-count rulings carry the `pokerRevision` they correct.
+   The blind clock stores each level's start and an optional pause. The whole economy freezes while cards are live
    (`pokerLive`) and betting stays CLOSED once counts post (`stacksPosted`):
    no wagers, duels, or on-deck after the finale settles; rulings then move
    in 25s (chip units). Derived and reversible: `clearResult` re-arms the
@@ -326,6 +369,16 @@ no specific question, poll, or new endpoint has been implemented yet.
    without moving twice. Old in-progress events remain readable and preserve
    their draws, tickets, results, and original contracts. Results are revisioned;
    overwrites and clears require a reason, and identical retries are no-ops.
+   Commissioners can mark a player Away (`state.away`): they leave draws,
+   contest sides, heats and poker seats; chips and profile stay. Short rooms use
+   `teamFit`. Only one event is in play at a time: announcing another is
+   refused, and the operation ranks the poker table, then the open market, then
+   events being played, then a running draft, then slate order. "Play Match N
+   next" reorders an empty open market, "Swap in" replaces a player before
+   their contest starts without changing the draw id, Skip shelves an unplayed
+   event, and once stacks post the only operation is crowning the champion.
+   `rerunOnboarding` is refused while live, and `setLive(false)` once any
+   event has started.
 10. **The wager ledger is duplicate-safe.** State schema `v:7` adds
    `wagerOps`, keyed by device plus action id. The client may retry place and
    retract once using the same action id; the server acknowledges that retry
@@ -333,7 +386,14 @@ no specific question, poll, or new endpoint has been implemented yet.
    into the bettor's open record for the same pick. `chips` retains each
    intentional stake so retract removes only the most recent chip. Older
    separate-record wagers remain readable and settle through the same derived
-   resolver.
+   resolver. The ledger lives under its own storage key and never reaches a
+   client; rulings (`adjust`, `removeAdjustment`) share it for retries. Bets on
+   a shelved event count as void. When a correction, undo, void or ruling
+   leaves a player over min(cap, balance), their newest pending chips and duel
+   antes are voided in the same write and recorded on the correction entry.
+   One frozen-board guard covers every chip-moving commissioner action; voiding
+   a settled bet or duel needs a reason; an event's value cannot change after
+   its result; a draw cannot be redrawn or cleared while open bets reference it.
 11. **Production rehearsal tools are explicit capabilities.** QA and
    game-progress reset render only when their server capabilities are enabled
    and commissioner mode is unlocked. Reset requires the exact confirmation
@@ -350,19 +410,25 @@ no specific question, poll, or new endpoint has been implemented yet.
 13. **Provider credentials are private infrastructure state.** Spotify client
    credentials are Worker secrets. Application tokens stay in Worker memory;
    GM access and refresh tokens use `private:spotify:*` Durable Object keys.
-   Private keys, `gmToken`, and internal backups are excluded from portable
-   snapshots. Tournament state may contain only validated public walkout-track
+   Private keys, GM tokens, and internal backups are excluded from portable
+   snapshots. Clients never receive raw state: every socket gets a
+   `publicState` projection (worker/publicState.js). Ratings go to the GM and
+   their owner, sizes and flights to the GM and their owner, device ids and
+   replay keys to nobody; the TV route and unclaimed devices get the public
+   view. A socket is bound to the device id of its hello. Tournament state may contain only validated public walkout-track
    metadata, and Show Control never depends on playback success.
 14. **Previous-contest correction is explicit and guarded.**
    `contestUndoAvailability()` supplies the eligibility and explanation;
    `undoLastContest` validates the previous contest id and current revision.
-   Correction is allowed before the next contest locks or starts and only
-   after its pending chips have been removed. It is unavailable after the
+   Correction is allowed while the next contest is open, locked or in
+   progress but undecided; that contest's pending chips are voided in the same
+   write and named in the confirm ("Returns Evan 200"). The winner tap offers
+   a 5-second Undo. It is unavailable after the
    event result posts, while frozen, during the finale, or while another
    event's betting market is open. Restore the previous contest for winner
    entry with betting still locked and a fresh revision. Derived settlement
-   reverses the old winner's effects; never silently erase the next market's
-   wagers or reopen the corrected contest for fresh bets.
+   reverses the old winner's effects; never erase the next market's wagers
+   without naming them, or reopen the corrected contest for fresh bets.
 
 ## Commands
 
@@ -384,8 +450,11 @@ no specific question, poll, or new endpoint has been implemented yet.
   an existing mid-event scenario; switch guest/commissioner/player and simulate
   failed acknowledgements. No WebSocket, persistent storage, or remote data.
 
-The app-wide efficiency pass passed 162 tests and is deployed to staging as
-version `98cb2071-82db-4898-b8ba-99f690c5ddff`. See `docs/UX-REPAIR.md` for
+The September 26 fix pass (every finding from the Sept 26 audit plus the
+Sept 7 FD list) passes 316 tests and the 138-check local e2e. It is not yet
+deployed; staging runs `7c2c9f15` (tag `staging-7c2c9f15`). The first
+production deploy after it migrates `wagerOps` to its own storage key on the
+next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet
 preview is `/dev/efficiency-preview.html`; rebuild its transport-stubbed
 component bundle with `node scripts/build-efficiency-preview.mjs` after UI
@@ -448,7 +517,7 @@ edits. This preview never connects to the tournament and is not deployed.
   (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale).
   Flat scorecard components, chip identity for players (30 claimable colors
   plus 6 edge-tick skins, first come first serve, gray until claimed, locked
-  once the weekend goes live), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
+  once the weekend goes live except one first claim by a still-gray straggler), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
   edge ticks and a geometric sun at center; scripts/icons.mjs regenerates the
   PWA icons from the same geometry. The staging PWA keeps that mark but uses
   an electric-blue palette and an explicit STG badge, with its own manifest

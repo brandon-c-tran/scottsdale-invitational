@@ -23,6 +23,7 @@ import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
 import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
+import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
@@ -431,6 +432,29 @@ function TournamentApp({ tournament }) {
 
   /* re-claim identity on every (re)connect so the server knows who this device is */
   useEffect(() => { if (connected && me) dispatch("claim", { player: me }); }, [connected, me]);
+
+  /* A returning guest in a new storage context (reinstalled app, another
+     browser) already has every answer on the server. Their claim, or a hello
+     that already knows this device, lands them on Home (check-in/returning.js
+     decides; the install gate still comes first). */
+  const completeReturningGuest = player => {
+    setMe(player); saveMine("si-me", player);
+    saveMine(CHECK_IN_MARKER, "yes");
+    saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
+    setOnboardStep(99); setTab("board");
+  };
+  const serverYou = tournament.you || null;
+  useEffect(() => {
+    if (!ready) return;
+    const player = returningFromHello({ localMarker:localGet(CHECK_IN_MARKER), step:onboardStep,
+      you:serverYou, state });
+    if (player) completeReturningGuest(player);
+  }, [ready, onboardStep, serverYou, state]); // eslint-disable-line
+
+  /* The TV's update reload waits until no ceremony is on screen. */
+  useEffect(() => {
+    if (typeof window !== "undefined") window.__FD_CEREMONY__ = !!(intro || reveal || activeShowScene);
+  }, [intro, reveal, activeShowScene]);
 
   /* your own wagers settling deserve a moment: watch pending picks flip to won or lost */
   const prevWagerRes = useRef(null);
@@ -1343,8 +1367,12 @@ function TournamentApp({ tournament }) {
       <Shell arrival environment={environment}>
         {ready ? <Suspense fallback={<LoadingScreen />}><Onboarding step={onboardStep} me={me} state={state} onTv={() => setTv(true)} onChip={pickChip}
           pick={async p => {
+            const localMarker = localGet(CHECK_IN_MARKER);
             const result = await dispatch("claim", { player:p });
-            if (result.ok) { setMe(p); saveMine("si-me", p); }
+            if (result.ok) {
+              setMe(p); saveMine("si-me", p);
+              if (returningAfterClaim({ localMarker, result })) completeReturningGuest(p);
+            }
             return result;
           }}
           saveProfile={prof => saveProfile(me, prof)}

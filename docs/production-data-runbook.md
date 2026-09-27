@@ -29,6 +29,8 @@ The app currently uses the Durable Object KV API:
 - `state`
 - `version`
 - `claims`
+- `wagerOps` (the wager retry ledger; older states embed it in `state` and
+  migrate to this key on their next write, older snapshots restore either way)
 - `gmToken`
 - `photo:<player-id>`
 - private integration records such as `private:spotify:*`

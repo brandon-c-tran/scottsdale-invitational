@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { execSync } from "node:child_process";
 
 /* Link previews need ABSOLUTE urls: og:url especially is meaningless as a
    path, so the live domain is the default rather than something you have to
@@ -10,6 +11,19 @@ const ogUrl = () => ({
   name: "fd-og-url",
   transformIndexHtml: html => html.replaceAll("%SITE_URL%", SITE),
 });
+
+/* One id per build, shared by the client bundle and the Worker through
+   `define` (both Vite environments inherit it; shared/build.js reads it).
+   The Worker stamps it on every state frame, so a phone running an older
+   bundle knows to reload. FD_BUILD_ID overrides for a reproducible build. */
+const gitSha = () => {
+  try {
+    return execSync("git rev-parse --short HEAD", { stdio:["ignore", "pipe", "ignore"] })
+      .toString().trim();
+  } catch { return ""; }
+};
+const BUILD_ID = process.env.FD_BUILD_ID
+  || [gitSha(), Date.now().toString(36)].filter(Boolean).join("-");
 
 const appShell = mode => {
   const staging = mode === "staging";
@@ -41,5 +55,6 @@ export default defineConfig(({ mode }) => {
   else delete process.env.CLOUDFLARE_ENV;
   return {
     plugins: [react(), cloudflare(), appShell(mode), ogUrl()],
+    define: { __FD_BUILD_ID__: JSON.stringify(BUILD_ID) },
   };
 });

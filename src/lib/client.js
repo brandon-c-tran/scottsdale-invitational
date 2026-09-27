@@ -339,7 +339,8 @@ function tvReloadWhenIdle() {
 function noteServerBuild(build) {
   if (typeof build !== "string") return;
   snapshot.serverBuild = build;
-  const differs = buildsDiffer(BUILD_ID, build);
+  /* two reloads that still come back old cannot be fixed by a third: stop asking */
+  const differs = buildsDiffer(BUILD_ID, build) && reloadAttempts(build) < 2;
   if (differs === snapshot.updateReady) return;
   snapshot.updateReady = differs;
   if (differs && isTvRoute()) tvReloadWhenIdle();

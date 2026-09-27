@@ -39,7 +39,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false }) {
         aria-pressed={flipped}>
         <span className={`fd-pass-inner${flipped ? " is-flipped" : ""}`}>
           <span className="fd-pass-face fd-pass-front" aria-hidden={flipped}>
-            <span className="fd-pass-top"><span>FIELD DAY</span><span>SCOTTSDALE / 2026</span></span>
+            <span className="fd-pass-top"><span>FIELD DAY</span><span>{EDITION.name.toUpperCase()} / {EDITION.year}</span></span>
             <span className="fd-pass-art">
               <span className="fd-pass-orbit" />
               <span className="fd-pass-number">{number == null ? "FD" : String(number).padStart(2, "0")}</span>
@@ -53,14 +53,14 @@ export function PlayerPass({ state, p, display, num, photo, compact = false }) {
             <span className="fd-pass-foot"><span>{EDITION.short}</span><span>PLAYER / {number ?? "FD"}</span></span>
           </span>
           <span className="fd-pass-face fd-pass-back" aria-hidden={!flipped}>
-            <span className="fd-pass-top"><span>{name}</span><span>FIELD DAY / 2026</span></span>
+            <span className="fd-pass-top"><span>{name}</span><span>FIELD DAY / {EDITION.year}</span></span>
             <span className="fd-pass-back-title">PLAYER<br />{number == null ? "CARD" : String(number).padStart(2, "0")}</span>
             <span className="fd-pass-facts">
               <span><span>Scottsdale, Arizona</span><span>{EDITION.short}</span></span>
               {standing && <span><span>Current chips</span><strong>{standing.pts.toLocaleString("en-US")}</strong></span>}
               {profile.walkoutTrack?.name && <span><span>Walkout song</span><strong>{profile.walkoutTrack.name}</strong></span>}
             </span>
-            <span className="fd-pass-foot"><span>{name.toUpperCase()}</span><span>2026</span></span>
+            <span className="fd-pass-foot"><span>{name.toUpperCase()}</span><span>{EDITION.year}</span></span>
           </span>
         </span>
       </button>

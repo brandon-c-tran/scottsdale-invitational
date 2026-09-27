@@ -3,7 +3,7 @@
    on the same screen. Nothing here writes state. */
 
 import {
-  AWARDS, ROSTER, EDITION, ROUND_NAMES, bracketOrder,
+  AWARDS, ROSTER, EDITION, ROUND_NAMES, bracketOrder, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot,
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
@@ -123,11 +123,9 @@ export function resultPresentation(state, events, eventId) {
   const before = computeStandings(beforeState);
   const after = computeStandings(state);
   const beforeBy = Object.fromEntries(before.map(row => [row.player, row]));
-  const table = AWARDS[ev.value] || [0, 0, 0];
+  /* the same award split the board uses: a split 3rd and crew pay included */
   const awardOf = {};
-  (res.slots || []).forEach((players, index) => (players || []).forEach(p => {
-    awardOf[p] = (awardOf[p] || 0) + (table[index] || 0);
-  }));
+  if (!stacks) resultAwards(state, ev, res).forEach(({ player, pts }) => { awardOf[player] = (awardOf[player] || 0) + pts; });
   const betsOf = {};
   if (!stacks) eventWagers.forEach(w => {
     const r = resolveWager(state, w, events);
@@ -158,7 +156,7 @@ export function resultPresentation(state, events, eventId) {
     });
   } else {
     podium = (res.slots || []).slice(0, 3).map((players, index) => ({
-      place:index + 1, players:[...(players || [])], amount:table[index] || 0, unit:"award",
+      place:index + 1, players:[...(players || [])], amount:awardOf[players?.[0]] || 0, unit:"award",
     })).filter(item => item.players.length);
   }
   const leaderBefore = leadersOf(before), leaderAfter = leadersOf(after);
@@ -309,7 +307,7 @@ export function tickerItems({ state, events, standings, allTied, draftLive, live
   if (pokerLive(state)) {
     const clk = pokerClock(state.poker, now);
     items.push({ tag:"Poker", tone:"var(--accent)",
-      text:`Blinds ${fmt(clk.sb)} / ${fmt(clk.bb)}, ${ROSTER.length - state.poker.outs.length} still in` });
+      text:`Blinds ${fmt(clk.sb)} / ${fmt(clk.bb)}, ${(state.poker.seats || ROSTER).length - state.poker.outs.length} still in` });
   }
   const duel = latestSettledDuel(state.duels);
   if (duel) {
@@ -322,7 +320,7 @@ export function tickerItems({ state, events, standings, allTied, draftLive, live
           lRun?.foul ? ", on a foul" : `, ${wRun?.ms} to ${lRun?.ms}ms`}` });
     }
   }
-  const ruling = (state.adjustments || [])[0];
+  const ruling = (state.adjustments || []).find(item => !item.removedAt);
   if (ruling) items.push({ tag:"Ruling", tone:"var(--clay)", players:[ruling.player],
     text:`${disp(state, ruling.player)} ${signed(ruling.delta)}${ruling.reason ? `, ${ruling.reason}` : ""}` });
   if (!allTied && standings[0]) items.push({ tag:"Leader", tone:"var(--sun)", players:[standings[0].player],

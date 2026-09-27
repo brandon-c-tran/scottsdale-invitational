@@ -699,3 +699,14 @@ test("uploads, sheets and the rest of the transport keep their shapes", () => {
   assert.equal(typeof client.useTournament, "function");
   mock.timers.reset();
 });
+
+test("a revoked commissioner device loses the commissioner view at once", async () => {
+  const { tournament, sockets } = await weekendScene();
+  tournament.gmTokens = { second:{ token:"second-commissioner-token", player:BLAKE, createdAt:1 } };
+  await tournament.webSocketMessage(sockets.blake, JSON.stringify({
+    type:"hello", payload:{ nonce:2 }, deviceId:devices.blake, gmToken:"second-commissioner-token" }));
+  assert.deepEqual(Object.keys(lastState(sockets.blake).state.seeds).sort(), [ALEX, BLAKE].sort());
+  await say(tournament, sockets.gm, devices.gm, { type:"gmRevoke", payload:{ id:"second" } }, { gm:true });
+  assert.deepEqual(Object.keys(lastState(sockets.blake).state.seeds), [BLAKE]);
+  assert.deepEqual(Object.keys(lastState(sockets.gm).state.seeds).sort(), [ALEX, BLAKE].sort(), "the revoker keeps the view");
+});

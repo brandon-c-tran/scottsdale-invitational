@@ -1,12 +1,13 @@
 import React from "react";
 import { Avatar } from "../features/identity/PlayerIdentity.jsx";
+import { EDITION } from "../../shared/core.js";
 import { FDMark, IconGM } from "./Brand.jsx";
 import { IconButton } from "./controls.jsx";
 
 export function AppHeader({ state, me, onHome, onProfile, onMenu, onCommissioner, gm, connected, loaded, wagerEv, wagerMarketOpen, onBets, GameMark }) {
   return <header className="fd-header">
     <div className="fd-header-row">
-      <button className="fd-brand" onClick={onHome} aria-label="Field Day home"><FDMark size={30} /><span><strong>Field Day</strong><small>Scottsdale · 2026</small></span></button>
+      <button className="fd-brand" onClick={onHome} aria-label="Field Day home"><FDMark size={30} /><span><strong>Field Day</strong><small>{EDITION.label}</small></span></button>
       {gm && <IconButton label="Commissioner" size={44} selected onClick={onCommissioner}><IconGM filled /></IconButton>}
       {me && <button onClick={onProfile} aria-label="Your profile" className="fd-profile-link"><Avatar state={state} p={me} size={34} /></button>}
       <IconButton label="More options" size={44} onClick={onMenu}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle cx="4" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="16" cy="10" r="1.6" /></svg></IconButton>

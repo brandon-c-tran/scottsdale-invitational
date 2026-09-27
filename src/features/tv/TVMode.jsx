@@ -499,7 +499,7 @@ function TVPoker({ state, standings, now }) {
         <div className={`tv-clock${!clk.paused && !clk.final && clk.msLeft < 60000 ? " is-late" : ""}`}>
           {clk.paused ? "Paused" : clk.final ? "Final level" : mmss(clk.msLeft)}</div>
         {clk.paused && <div className="tv-body">{mmss(clk.msLeft)} left in this level</div>}
-        <div className="tv-body">{ROSTER.length - pk.outs.length} still in</div>
+        <div className="tv-body">{(pk.seats || ROSTER).length - pk.outs.length} still in</div>
       </div>
       <Rail state={state} standings={standings} poker />
     </>

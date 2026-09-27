@@ -1828,8 +1828,9 @@ function TournamentApp({ tournament }) {
         <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}>
           <p style={pStyle}>Shelves {modal.ev.name}. Open chips on it go back. Restore it from its event sheet.</p>
           <div style={{ display:"flex", gap:10 }}>
-            <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true);
-              if (result.ok) { setModal(null); notify(`${modal.ev.name} shelved`); } }}>Skip {modal.ev.name}</Btn>
+            <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
+              if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
+                notify(`${modal.ev.name} shelved${bets ? ` · ${bets} bet${bets === 1 ? "" : "s"} returned` : ""}`); } }}>Skip {modal.ev.name}</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
           </div>
         </Sheet>
@@ -2088,7 +2089,7 @@ function StatPills({ row, atRisk = 0, onSun }) {
 
 /* ─────────── the board ─────────── */
 /* ─────────── the poker finale, on the board ───────────
-   The app runs the table: buy-in sheet, blind clock, busts. Cards and chips
+   The app runs the table: starting stacks, blind clock, busts. Cards and chips
    stay physical. The clock is derived; this card re-derives every second. */
 const mmss = ms => {
   const t = Math.max(0, Math.round(ms / 1000));

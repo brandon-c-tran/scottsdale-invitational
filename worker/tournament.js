@@ -148,6 +148,7 @@ export class Tournament {
     if (id === "legacy") {
       this.gmToken = null;
       await this.ctx.storage.delete("gmToken");
+      this.dropGmSockets("legacy");
       return true;
     }
     if (!this.gmTokens?.[id]) return false;
@@ -155,7 +156,19 @@ export class Tournament {
     delete next[id];
     await this.ctx.storage.put(GM_TOKENS_KEY, next);
     this.gmTokens = next;
+    this.dropGmSockets(id);
     return true;
+  }
+
+  /* A revoked device stops receiving the commissioner view at once, not at
+     its next message. */
+  dropGmSockets(id) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      const meta = this.socketMeta(ws);
+      if (!meta.gm || meta.gmId !== id) continue;
+      this.setSocketMeta(ws, { ...meta, gm:false, gmId:null });
+      this.sendState(ws);
+    }
   }
 
   gmDeviceList(currentId) {
@@ -743,11 +756,13 @@ export class Tournament {
     let meta = null;
     try { meta = ws?.deserializeAttachment?.() ?? null; } catch {}
     if (!meta || typeof meta !== "object") meta = this.socketFallback.get(ws) || null;
-    return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true };
+    return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
+      gmId:typeof meta?.gmId === "string" ? meta.gmId : null };
   }
 
   setSocketMeta(ws, meta) {
-    const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true };
+    const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
+      gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null };
     try { ws?.serializeAttachment?.(clean); } catch {}
     if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
     return clean;
@@ -812,11 +827,8 @@ export class Tournament {
     const deviceId = meta.deviceId;
 
     if (type === "hello") {
-      meta = this.setSocketMeta(ws, {
-        ...meta,
-        tv:payload?.view === "tv",
-        gm:await this.messageIsGm(gmToken),
-      });
+      const gmId = await this.gmTokenId(gmToken);
+      meta = this.setSocketMeta(ws, { ...meta, tv:payload?.view === "tv", gm:!!gmId, gmId });
       const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       return;
@@ -886,11 +898,12 @@ export class Tournament {
       return reply({ ok: true, extra:{ player, checkedIn:checkInComplete(this.state, player) } });
     }
 
-    const isGm = !!await this.gmTokenId(gmToken);
+    const gmId = await this.gmTokenId(gmToken);
+    const isGm = !!gmId;
     /* A token that starts or stops matching changes this socket's view. */
     let viewChanged = false;
-    if (isGm !== meta.gm) {
-      meta = this.setSocketMeta(ws, { ...meta, gm:isGm });
+    if (isGm !== meta.gm || gmId !== meta.gmId) {
+      meta = this.setSocketMeta(ws, { ...meta, gm:isGm, gmId });
       viewChanged = !meta.tv;
     }
     const claimed = this.claims[deviceId];

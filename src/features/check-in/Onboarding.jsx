@@ -9,8 +9,8 @@ import "./arrival.css";
 const STAGES = ["Your invitation", "The tournament", "The roster", "The details", "Your card", "Private ratings"];
 
 function InvitationArt() {
-  return <div className="fd-invitation-art" aria-label="Field Day. Scottsdale, 2026.">
-    <div className="fd-invitation-eyebrow"><span>YOUR INVITATION</span><span>2026</span></div>
+  return <div className="fd-invitation-art" aria-label={`Field Day. ${EDITION.name}, ${EDITION.year}.`}>
+    <div className="fd-invitation-eyebrow"><span>YOUR INVITATION</span><span>{EDITION.year}</span></div>
     <div className="fd-invitation-wordmark" aria-hidden="true"><span>FIELD</span><span>DAY<span className="fd-invitation-period">.</span></span></div>
     <div className="fd-invitation-seal" aria-hidden="true">
       <svg viewBox="0 0 100 100"><path d="M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z" fill="currentColor" /></svg>
@@ -129,7 +129,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     <div className={`fd-arrival-layout${step <= 0 ? " is-invitation" : ""}`}>
       <aside className="fd-arrival-aside">
         {step <= 0 ? <InvitationArt /> : <div className="fd-arrival-chapter" aria-hidden="true">
-          <span className="fd-eyebrow">FIELD DAY / 2026</span><strong>{String(step + 1).padStart(2, "0")}</strong>
+          <span className="fd-eyebrow">FIELD DAY / {EDITION.year}</span><strong>{String(step + 1).padStart(2, "0")}</strong>
           <span className="fd-chapter-name">{STAGES[step]}</span><span className="fd-chapter-date">{EDITION.long}</span>
         </div>}
       </aside>
@@ -148,7 +148,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
               {[["01", "Collect points", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
                 ["02", "Betting", "Every event can be bet on. Only half your points can be at risk at one time."],
                 ["03", "Duels", "Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot."],
-                ["04", "The trophy", "The winner of the poker finale is the Field Day champion and takes home the Scottsdale 2026 trophy."]].map(([n, name, body]) =>
+                ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]].map(([n, name, body]) =>
                 <div key={n}><span>{n}</span><div><h2>{name}</h2><p>{body}</p></div></div>)}
             </div>
           </>}

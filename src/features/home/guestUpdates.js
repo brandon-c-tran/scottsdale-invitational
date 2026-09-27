@@ -1,4 +1,4 @@
-import { AWARDS, computeStandings, disp, resolveWager, teamLabel } from "../../../shared/core.js";
+import { computeStandings, disp, resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
 
 /* Everything here is derived from the broadcast state and the device's own
    memory of the last state it showed. No field is sent to the server. */
@@ -18,10 +18,11 @@ export function guestLedger(state, me, events, standings = computeStandings(stat
     if (!result) continue;
     results[evId] = resultKey(result);
     const event = events.find(item => item.id === evId);
-    const index = (result.slots || []).findIndex(slot => (slot || []).includes(me));
-    if (event && index >= 0 && !result.stacks) {
-      awards[evId] = (AWARDS[event.value] || [])[index] || 0;
-      places[evId] = index + 1;
+    /* the same award split the board uses: a split 3rd and crew pay included */
+    const mine = event && !result.stacks ? resultAwards(state, event, result).find(award => award.player === me) : null;
+    if (mine) {
+      awards[evId] = mine.pts;
+      places[evId] = mine.place === "crew" ? "crew" : mine.place + 1;
     }
   }
   const wagers = {};
@@ -91,7 +92,8 @@ export function summarizeUpdate(prev, next, { state, events }) {
   const parts = [];
   for (const evId of fresh) {
     const award = next.awards[evId] || 0;
-    if (award > 0) parts.push(`${ord(next.places[evId])} in ${eventName(events, evId)} ${signed(award)}`);
+    if (award > 0) parts.push(next.places[evId] === "crew" ? `Crew in ${eventName(events, evId)} ${signed(award)}`
+      : `${ord(next.places[evId])} in ${eventName(events, evId)} ${signed(award)}`);
   }
   if (settledCount) parts.push(`${settledCount === 1 ? "bet" : "bets"} ${signed(settledNet)}`);
   if (voidPart) parts.push(voidPart);

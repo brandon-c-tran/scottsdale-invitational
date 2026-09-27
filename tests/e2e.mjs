@@ -315,19 +315,23 @@ assert(r.ok, "Brandon claims the first color (" + (r.error || "ok") + ")");
 r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
 assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 
-/* The first game already opened the weekend; a duel settles zero sum. */
+/* The first game already opened the weekend; a duel settles zero sum. A
+   challenge is an offer: nobody draws until Khoa accepts. */
 {
   const before = computeStandings(a.state);
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
   r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
-  assert(r.ok, "Evan challenges Khoa");
-  await b.waitVersion(a.version);
-  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
-  r = await b.dispatch("playDuel", { id: duel.id, ms: 150 });
-  assert(r.ok, "Evan draws in 150ms");
+  assert(r.ok && r.extra?.id, "Evan challenges Khoa");
+  const id = r.extra.id;
+  r = await b.dispatch("playDuel", { id, ms: 150 });
+  assert(!r.ok, "no run before Khoa accepts (rejected: " + r.error + ")");
   r = await a.dispatch("claim", { player: "Khoa" });
   assert(r.ok, "window A speaks for Khoa");
-  r = await a.dispatch("playDuel", { id: duel.id, ms: 400 });
+  r = await a.dispatch("acceptDuel", { id });
+  assert(r.ok, "Khoa accepts");
+  r = await b.dispatch("playDuel", { id, ms: 150 });
+  assert(r.ok, "Evan draws in 150ms");
+  r = await a.dispatch("playDuel", { id, ms: 400 });
   assert(r.ok, "Khoa answers in 400ms");
   r = await a.dispatch("claim", { player: "Brandon" });
   assert(r.ok, "window A back to Brandon");
@@ -348,13 +352,16 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
   r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw", stake: 300 });
   assert(r.ok, "Evan challenges Khoa for 300");
+  const id = r.extra.id;
   await a.waitVersion(b.version);
-  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
+  const duel = b.state.duels.find(d => d.id === id);
   assert(duel.stake === 300, "the duel carries the chosen ante");
-  r = await b.dispatch("playDuel", { id: duel.id, ms: 200 });
-  assert(r.ok, "Evan runs 200ms");
   r = await a.dispatch("claim", { player: "Khoa" });
-  r = await a.dispatch("playDuel", { id: duel.id, ms: 500 });
+  r = await a.dispatch("acceptDuel", { id });
+  assert(r.ok, "Khoa accepts the 300");
+  r = await b.dispatch("playDuel", { id, ms: 200 });
+  assert(r.ok, "Evan runs 200ms");
+  r = await a.dispatch("playDuel", { id, ms: 500 });
   assert(r.ok, "Khoa runs 500ms");
   await b.waitVersion(a.version);
   const pts1 = Object.fromEntries(computeStandings(b.state).map(x => [x.player, x.pts]));

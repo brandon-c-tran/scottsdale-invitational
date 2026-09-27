@@ -268,9 +268,10 @@ const SLOT_META = [
 
 const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
 
-/* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
-   your own phone, the pot settles itself. The challenger names the ante
-   and both sides put up the same; DUEL_STAKE is only the default. */
+/* head-to-head phone duels: challenge one player or anyone, the other side
+   accepts, both play a 5-second minigame on their own phone, the pot settles
+   itself. The challenger names the ante and both sides put up the same;
+   DUEL_STAKE is only the default. The offer lifecycle lives by resolveDuel. */
 const DUEL_STAKE = PT;
 const DUEL_GAMES = {
   quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
@@ -755,16 +756,93 @@ function pokerDistribution(entries) {
   };
 }
 
+/* ─────────── duels: challenges are offers ───────────
+   A challenge written with `consent:true` is an offer. It reserves only the
+   challenger's ante until the recipient accepts (or, for an open challenge,
+   until the first eligible player takes it). An unaccepted offer lapses
+   DUEL_LAPSE_MS after `ts`; a lapsed offer reserves nothing and reads as void,
+   so no timer is needed. Records without `consent` predate the offer model:
+   both antes were reserved at send, so they read as accepted and settle
+   exactly as before. */
+const DUEL_LAPSE_MS = 10 * 60 * 1000;
+const duelAccepted = duel => !!duel && (!duel.consent || !!duel.acceptedAt);
+const duelLapsed = (duel, now = Date.now()) => !!duel && duel.status === "open"
+  && !duelAccepted(duel) && now - Number(duel.ts || 0) >= DUEL_LAPSE_MS;
+const duelLapsesAt = duel => duel?.consent ? Number(duel.ts || 0) + DUEL_LAPSE_MS : null;
+
 /* duel outcome is DERIVED from the two stored runs, never written. A foul
    loses to a clean draw; two fouls or identical times push, chips go back. */
 function resolveDuel(duel) {
   if (duel.status !== "open") return { settled:false, status:duel.status };
+  if (!duelAccepted(duel)) return { settled:false, status:"open" };
   const a = duel.runs?.[duel.from], b = duel.runs?.[duel.to];
   if (!a || !b) return { settled:false, status:"open" };
   const score = r => (r.foul ? Infinity : r.ms);
   if (score(a) === score(b)) return { settled:true, push:true };
   const winner = score(a) < score(b) ? duel.from : duel.to;
   return { settled:true, push:false, winner, loser: winner === duel.from ? duel.to : duel.from };
+}
+/* one lifecycle every surface reads:
+   offered | lapsed | live | settled | declined | withdrawn | void */
+function duelPhase(duel, now = Date.now()) {
+  if (!duel) return null;
+  if (duel.status !== "open")
+    return duel.status === "declined" || duel.status === "withdrawn" ? duel.status : "void";
+  if (resolveDuel(duel).settled) return "settled";
+  if (!duelAccepted(duel)) return duelLapsed(duel, now) ? "lapsed" : "offered";
+  return "live";
+}
+/* offered or live: the duels that still need someone */
+const duelOpen = (duel, now = Date.now()) => {
+  const phase = duelPhase(duel, now);
+  return phase === "offered" || phase === "live";
+};
+/* chips a player's duels hold back: every accepted, unsettled duel they sit
+   in, plus the challenger's own ante on an offer still waiting for an answer */
+function duelReserve(state, player, now = Date.now()) {
+  if (!player) return 0;
+  return (state?.duels || []).reduce((sum, duel) => {
+    const phase = duelPhase(duel, now);
+    const stake = Number(duel.stake) || 0;
+    if (phase === "live" && (duel.from === player || duel.to === player)) return sum + stake;
+    if (phase === "offered" && duel.from === player) return sum + stake;
+    return sum;
+  }, 0);
+}
+/* what a player can still put up: the same cap and balance a wager uses */
+function duelRoom(state, player, { events, rows, now = Date.now() } = {}) {
+  const standings = rows || computeStandings(state);
+  const pts = standings.find(row => row.player === player)?.pts ?? 0;
+  const exposure = atRisk(state, player, events || allEventsOf(state)) + duelReserve(state, player, now);
+  const cap = maxRisk(pts);
+  return { pts, cap, exposure, capRoom:cap - exposure, balanceRoom:pts - exposure,
+    room:Math.min(cap - exposure, pts - exposure) };
+}
+/* the offered or live duel two players already share, if any */
+const duelBetween = (state, a, b, now = Date.now()) => (state?.duels || []).find(duel =>
+  duelOpen(duel, now) && duel.to && ((duel.from === a && duel.to === b) || (duel.from === b && duel.to === a)))
+  || null;
+/* three challenges a day. Declined, withdrawn and lapsed offers do not count. */
+const DUEL_DAILY_LIMIT = 3;
+const duelsSentToday = (state, player, now = Date.now()) => (state?.duels || []).filter(duel =>
+  duel.from === player && Number(duel.ts || 0) > now - 24 * 60 * 60 * 1000
+  && !["declined", "withdrawn", "lapsed"].includes(duelPhase(duel, now))).length;
+/* Fairness: until a duel settles, a viewer may see only their own run. Other
+   runs keep the fact that someone drew and lose the time and foul. Pure; the
+   broadcast projection applies it per connection. */
+function redactDuelsForViewer(duels, viewerPlayer) {
+  if (!Array.isArray(duels)) return duels;
+  return duels.map(duel => {
+    if (!duel || typeof duel !== "object" || !duel.runs || typeof duel.runs !== "object") return duel;
+    if (resolveDuel(duel).settled) return duel;
+    let changed = false;
+    const runs = {};
+    for (const [player, run] of Object.entries(duel.runs)) {
+      if (player === viewerPlayer || !run) runs[player] = run;
+      else { runs[player] = { played:true }; changed = true; }
+    }
+    return changed ? { ...duel, runs } : duel;
+  });
 }
 
 function computeStandings(state) {
@@ -1133,10 +1211,7 @@ function resolveEventLifecycle(state, ev) {
         resolveWager(state, w, events).status === "pending").length;
       if (pendingWagers)
         blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
-      const openDuels = (state.duels || []).filter(d =>
-        d.status === "open" && !resolveDuel(d).settled).length;
-      if (openDuels)
-        blockers.push(`Settle ${openDuels} open duel${openDuels === 1 ? "" : "s"} first`);
+      /* unplayed duels never block the finale: pokerSetup voids them */
       if (computeStandings(state).some(row => row.pts < 0))
         blockers.push("Negative stacks, fix rulings first");
       return response("setup",
@@ -1233,7 +1308,9 @@ export {
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
+  resolveWager, wagerBoardEvent, resolveDuel, pokerLive,
+  DUEL_LAPSE_MS, DUEL_DAILY_LIMIT, duelAccepted, duelLapsed, duelLapsesAt, duelPhase, duelOpen,
+  duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
   pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,

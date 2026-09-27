@@ -6,7 +6,8 @@
 import {
   ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, PT, MAX_RISK, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, draftTurn, resolveSlot, OUTRIGHT_MULT,
-  DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
+  DUEL_STAKE, DUEL_GAMES, DUEL_DAILY_LIMIT, resolveDuel, duelAccepted, duelPhase, duelOpen, duelReserve, duelRoom,
+  duelBetween, duelsSentToday, pokerLive, stacksPosted, pokerLevels,
   validateEventParticipants, normalizeOverflowRoles,
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution,
@@ -24,6 +25,9 @@ import { validateSpotifyTrack } from "../shared/audio.js";
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
 const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
+const duelBoardClosed = state => state.frozen ? "The board is frozen"
+  : pokerLive(state) ? "The finale is live"
+    : stacksPosted(state) ? "The finale is settled" : null;
 const showOnly = ctx => (ctx.showControl ? null : err("Show Control is unavailable"));
 const showControlOf = state => {
   if (!state.showControl || typeof state.showControl !== "object")
@@ -602,9 +606,7 @@ export const ACTIONS = {
     /* Exposure and balance remain server authoritative. */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
-    const antes = (state.duels || [])
-      .filter(d => d.status === "open" && !resolveDuel(d).settled && (d.from === player || d.to === player))
-      .reduce((s, d) => s + d.stake, 0);
+    const antes = duelReserve(state, player);
     if (stake > pts - exp - antes) return err("Not enough points");
     const cap = maxRisk(pts);
     if (exp + antes + stake > cap) return err(`Max ${cap} at risk`);
@@ -689,83 +691,156 @@ export const ACTIONS = {
   },
 
   /* ── duels (players) ──
-     A duel is a phone minigame between two players. Both ante DUEL_STAKE at
-     send time; each plays a run whenever they want; settlement is derived from
-     the two runs in computeStandings, never stored. */
-  sendDuel(state, { to, game, stake: want }, ctx) {
+     A duel is a phone minigame between two players. A challenge is an offer:
+     sendDuel reserves only the challenger's ante, either for one player or
+     for anyone (open). The recipient, or the first eligible taker of an open
+     challenge, accepts and reserves their own ante at that moment. Runs are
+     allowed only after acceptance. An unanswered offer lapses by derivation
+     (duelPhase), so nothing has to expire it. Settlement is derived from the
+     two runs in computeStandings, never stored. Records without `consent`
+     predate offers and read as accepted. */
+  sendDuel(state, { to, game, stake: want, open }, ctx) {
     const from = ctx.player;
     if (!from) return err("Check in first");
-    if (state.frozen) return err("The board is frozen");
+    const closed = duelBoardClosed(state); if (closed) return err(closed);
     /* no duels before the weekend: everyone is on 1,000 until Friday, which is
        what the invite promises, and the locker room shows no points for a
        result to land on */
     if (!state.live) return err("Duels open when the weekend starts");
-    if (pokerLive(state)) return err("The finale is live");
-    if (stacksPosted(state)) return err("The finale is settled");
-    if (!ROSTER.includes(to)) return err("Unknown player");
-    if (to === from) return err("Pick someone else");
+    state.duels = state.duels || [];
+    /* a transport retry of the same tap acknowledges the challenge it made */
+    const sendKey = showCommandId(ctx);
+    if (sendKey) {
+      const sent = state.duels.find(d => d.from === from && d.sendKey === sendKey);
+      if (sent) return ok({ id:sent.id, unchanged:true });
+    }
+    const anyone = open === true;
+    if (anyone) {
+      if (to !== undefined && to !== null) return err("An open challenge has no opponent");
+    } else {
+      if (!ROSTER.includes(to)) return err("Unknown player");
+      if (to === from) return err("Pick someone else");
+    }
     const g = game || "quickdraw";
     if (!DUEL_GAMES[g]) return err("Unknown game");
-    state.duels = state.duels || [];
-    const live = state.duels.filter(d => d.status === "open" && !resolveDuel(d).settled);
-    if (live.find(d => (d.from === from && d.to === to) || (d.from === to && d.to === from)))
+    const now = Date.now();
+    if (!anyone && duelBetween(state, from, to, now))
       return err(`You already have a duel going with ${disp(state, to)}`);
-    const day = 24 * 60 * 60 * 1000;
-    if (state.duels.filter(d => d.from === from && d.status !== "declined" && d.ts > Date.now() - day).length >= 3)
+    if (anyone && state.duels.some(d => d.open && d.from === from && duelPhase(d, now) === "offered"))
+      return err("You already have an open challenge");
+    if (duelsSentToday(state, from, now) >= DUEL_DAILY_LIMIT)
       return err("Three challenges a day, max");
-    /* the challenger names the ante; both sides put up the same amount, so it
-       is bounded by whichever of the two can cover less */
+    /* the challenger names the ante; both sides put up the same amount */
     const stake = want === undefined ? DUEL_STAKE : Math.floor(Number(want));
     if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
       return err("Antes move in 100s");
-    /* both antes must be covered: points minus wager exposure minus live duel antes */
+    /* the wager cap covers duels too, or a duel would be a way around it */
     const events = allEventsOf(state);
     const rows = computeStandings(state);
-    const ptsOf = p => rows.find(r => r.player === p)?.pts ?? 0;
-    const exposure = p => atRisk(state, p, events)
-      + live.filter(d => d.from === p || d.to === p).reduce((s, d) => s + d.stake, 0);
-    const spendable = p => ptsOf(p) - exposure(p);
-    /* the wager cap covers duels too, or a duel would be a way around it */
-    if (exposure(from) + stake > maxRisk(ptsOf(from))) return err(`Max ${maxRisk(ptsOf(from))} at risk`);
-    if (exposure(to) + stake > maxRisk(ptsOf(to))) return err(`${disp(state, to)} can't cover that ante`);
-    if (spendable(from) < stake) return err("Not enough points");
-    if (spendable(to) < stake) return err(`${disp(state, to)} can't cover that ante`);
-    state.duels.unshift({ id: "du" + Date.now() + Math.floor(Math.random() * 9999), game: g,
-      from, to, stake, status: "open", runs: {}, ts: Date.now() });
-    return ok();
+    const mine = duelRoom(state, from, { events, rows, now });
+    if (mine.capRoom < stake) return err(`Max ${mine.cap} at risk`);
+    if (mine.balanceRoom < stake) return err("Not enough points");
+    /* nothing of theirs is reserved yet; this only keeps a challenge they
+       could not accept from being sent. Accept checks again. */
+    if (!anyone && duelRoom(state, to, { events, rows, now }).room < stake)
+      return err(`${disp(state, to)} can't cover that ante`);
+    const id = "du" + now + Math.floor(Math.random() * 9999);
+    state.duels.unshift({ id, game:g, from, to:anyone ? null : to, open:anyone, stake,
+      status:"open", runs:{}, ts:now, consent:true, acceptedAt:null,
+      ...(sendKey ? { sendKey } : {}) });
+    return ok({ id });
+  },
+  acceptDuel(state, { id }, ctx) {
+    const p = ctx.player;
+    if (!p) return err("Check in first");
+    const closed = duelBoardClosed(state); if (closed) return err(closed);
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (d.from === p) return err("That is your challenge");
+    /* an acknowledged retry, or a legacy duel that was accepted at send */
+    if (duelAccepted(d) && d.status === "open")
+      return d.to === p ? ok({ id:d.id, unchanged:true })
+        : err(d.open ? "Someone already took it" : "Not your duel");
+    const now = Date.now();
+    const phase = duelPhase(d, now);
+    if (phase === "lapsed") return err("This challenge lapsed");
+    if (phase !== "offered") return err("This challenge is closed");
+    if (!d.open && d.to !== p) return err("Not your duel");
+    if (d.open && duelBetween(state, d.from, p, now))
+      return err(`You already have a duel going with ${disp(state, d.from)}`);
+    const room = duelRoom(state, p, { now });
+    if (room.capRoom < d.stake) return err(`Max ${room.cap} at risk`);
+    if (room.balanceRoom < d.stake) return err("Not enough points");
+    d.to = p;
+    d.acceptedAt = now;
+    return ok({ id:d.id });
   },
   playDuel(state, { id, ms, foul }, ctx) {
     const p = ctx.player;
     if (!p) return err("Check in first");
-    if (state.frozen) return err("The board is frozen");
-    if (pokerLive(state)) return err("The finale is live");
-    if (stacksPosted(state)) return err("The finale is settled");
+    const closed = duelBoardClosed(state); if (closed) return err(closed);
     const d = (state.duels || []).find(x => x.id === id);
     if (!d) return err("No such duel");
     if (d.status !== "open") return err("Duel is closed");
     if (p !== d.from && p !== d.to) return err("Not your duel");
-    if (d.runs[p]) return err("You already drew");
+    if (!duelAccepted(d)) return err(p === d.from
+      ? d.open ? "Waiting for someone to accept" : `Waiting for ${disp(state, d.to)} to accept`
+      : "Accept the challenge first");
     const f = !!foul;
     const m = Math.round(Number(ms));
+    d.runs = d.runs || {};
+    /* one reaction per player: resending the same run is acknowledged, a
+       different one is refused, so a lost ack never buys a better retry */
+    const prior = d.runs[p];
+    if (prior) return prior.foul === f && (f || prior.ms === m)
+      ? ok({ unchanged:true }) : err("You already drew");
     if (!f && !(m >= 80 && m <= 5000)) return err("Bad time");
     d.runs[p] = { ms: f ? null : m, foul: f, ts: Date.now() };
     return ok();
   },
+  /* the recipient may say no until they have drawn */
   declineDuel(state, { id }, ctx) {
     const d = (state.duels || []).find(x => x.id === id);
     if (!d) return err("No such duel");
+    const mine = !!d.to && ctx.player === d.to;
+    if (d.status === "declined" && (mine || ctx.isGm)) return ok({ unchanged:true });
     if (d.status !== "open") return err("Already closed");
-    if (ctx.player !== d.to && !ctx.isGm) return err("Not your duel");
-    if (Object.keys(d.runs).length) return err("Already in play");
+    if (!mine && !ctx.isGm) return err("Not your duel");
+    if (resolveDuel(d).settled) return err("Already settled");
+    if (d.to && d.runs?.[d.to]) return err("Already in play");
     d.status = "declined";
+    d.declinedAt = Date.now();
+    return ok();
+  },
+  /* the challenger may take an offer back until someone accepts it */
+  withdrawDuel(state, { id }, ctx) {
+    const d = (state.duels || []).find(x => x.id === id);
+    if (!d) return err("No such duel");
+    if (!ctx.player || d.from !== ctx.player) return err("Not your challenge");
+    if (d.status === "withdrawn") return ok({ unchanged:true });
+    if (d.status !== "open") return err("Already closed");
+    if (duelAccepted(d)) return err(`${disp(state, d.to)} already accepted`);
+    d.status = "withdrawn";
+    d.withdrawnAt = Date.now();
     return ok();
   },
   voidDuel(state, { id }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const d = (state.duels || []).find(x => x.id === id);
     if (!d) return err("No such duel");
+    if (d.status === "void") return ok({ unchanged:true });
     d.status = "void";
+    d.voidedAt = Date.now();
     return ok();
+  },
+  /* one commissioner write for every duel still waiting on someone */
+  voidOpenDuels(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const now = Date.now();
+    const open = (state.duels || []).filter(d => duelOpen(d, now));
+    if (!open.length) return ok({ count:0, unchanged:true });
+    open.forEach(d => { d.status = "void"; d.voidedAt = now; });
+    return ok({ count:open.length });
   },
 
   /* ── GM: results ── */
@@ -1498,12 +1573,22 @@ export const ACTIONS = {
     const events = allEventsOf(state);
     if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
       return err("Settle or void the open wagers first");
-    if ((state.duels || []).some(d => d.status === "open" && !resolveDuel(d).settled))
-      return err("Settle or void the open duels first");
     const rows = computeStandings(state);
     if (rows.some(r => r.pts < 0)) return err("Negative stacks, fix rulings first");
     const distribution = pokerDistribution(rows);
     if (!distribution.ok) return err(distribution.errors[0] || "Invalid poker stacks");
+    /* an unplayed duel can no longer move the board, so it cannot block the
+       finale either: offers, lapsed offers, and accepted duels still waiting
+       on a draw are voided in this same write. Voiding moves no chips. */
+    const setupAt = Date.now();
+    let voidedDuels = 0;
+    (state.duels || []).forEach(d => {
+      if (d.status !== "open" || resolveDuel(d).settled) return;
+      d.status = "void";
+      d.voidedAt = setupAt;
+      d.voidReason = "finale";
+      voidedDuels++;
+    });
     /* nobody rails the finale: anyone under 600 is staked up to 600, logged
        as a ruling so the board shows where the chips came from. pokerCancel
        reverts these, so a cancel-and-reset never grants twice. */
@@ -1529,7 +1614,7 @@ export const ACTIONS = {
       counts:{},
       ts:Date.now(),
     };
-    return ok({ total:distribution.total, minimumCount:distribution.minimumCount });
+    return ok({ total:distribution.total, minimumCount:distribution.minimumCount, voidedDuels });
   },
   pokerStart(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;

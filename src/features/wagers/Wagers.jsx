@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   PT, OUTRIGHT_MULT, atRisk, disp, maxRisk, contestBetEligibility,
-  resolveCurrentContest, resolveDuel, resolveEventLifecycle, resolveWager, stacksPosted, teamLabel,
+  resolveCurrentContest, duelReserve, resolveEventLifecycle, resolveWager, stacksPosted, teamLabel,
 } from "../../../shared/core.js";
 import { DISPLAY, SANS } from "../../ui/theme.js";
 import { ActionButton } from "../../ui/controls.jsx";
@@ -219,9 +219,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   const wagerRisk = me ? atRisk(state, me, events) : 0;
   const myPts = standings.find(row => row.player === me)?.pts ?? 0;
   const myCap = maxRisk(myPts);
-  const duelAntes = me ? (state.duels || [])
-    .filter(duel => duel.status === "open" && !resolveDuel(duel).settled && (duel.from === me || duel.to === me))
-    .reduce((sum, duel) => sum + duel.stake, 0) : 0;
+  // Accepted duels, plus your own ante on a challenge still waiting for an answer.
+  const duelAntes = me ? duelReserve(state, me) : 0;
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   useEffect(() => {

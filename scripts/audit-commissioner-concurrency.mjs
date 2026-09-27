@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import {
   EMPTY_STATE, BUILTIN_EVENTS, ROSTER, RESET_PROGRESS_CONFIRMATION, defaultQaParticipants,
   draftTurn, resolveCurrentContest, contestUndoAvailability, resolveWager, allEventsOf, computeStandings, bracketChampion,
+  duelReserve,
 } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
 
@@ -346,6 +347,7 @@ try {
   await check("C18", "A duel play and decline cannot both change the same duel", async () => {
     await open(); await good("a", "sendDuel", { to:ROSTER[12], stake:100 });
     const id = api.state.duels[0].id;
+    await good("guest", "acceptDuel", { id });
     const acks = await race([["guest", "playDuel", { id, ms:200 }], ["b", "declineDuel", { id }]]);
     assert.equal(acks.filter(ack => ack.ok).length, 1);
     const duel = api.state.duels[0];
@@ -354,16 +356,19 @@ try {
     assert.equal((await send("a", "playDuel", { id, ms:150 })).ok, false);
     return { racingActionsAccepted:1, voided:true, playAfterVoidRejected:true };
   });
-  await check("C19", "Concurrent wagers and duel antes cannot exceed shared exposure", async () => {
+  await check("C19", "Concurrent wagers and accepted duel antes cannot exceed shared exposure", async () => {
+    /* offers reserve only the challenger's ante; the target's cap is checked
+       when they accept */
     await open(); const current = ref(api.state, "putt"), player = ROSTER[12];
     const acks = await race([["a", "sendDuel", { to:player, stake:300 }],
       ["b", "sendDuel", { to:player, stake:300 }],
       ["guest", "placeWager", { wager:{ kind:"outright", eventId:"putt", pick:ROSTER[5], stake:300, ...current } }]]);
-    assert.equal(acks.filter(ack => ack.ok).length, 1);
+    assert.equal(acks.filter(ack => ack.ok).length, 3);
+    const accepts = await race(api.state.duels.map(duel => ["guest", "acceptDuel", { id:duel.id }]));
+    assert.equal(accepts.filter(ack => ack.ok).length, 0);
     const wagerRisk = api.state.wagers.filter(w => w.player === player).reduce((sum, wager) => sum + wager.stake, 0);
-    const anteRisk = api.state.duels.filter(duel => duel.to === player).reduce((sum, duel) => sum + duel.stake, 0);
-    assert.equal(wagerRisk + anteRisk, 300);
-    return { accepted:1, exposure:300, cap:500 };
+    assert.equal(wagerRisk + duelReserve(api.state, player), 300);
+    return { offers:2, wager:1, acceptsRejected:2, exposure:300, cap:500 };
   });
   await check("C20", "Guest authority cannot invoke commissioner mutations", async () => {
     for (const [type, payload] of [["announceEvent", { evId:"putt" }], ["pokerSetup", {}],
@@ -396,6 +401,7 @@ try {
     await good("guest", "placeWager", { wager:{ kind:"outright", eventId:"putt", pick:player, stake:100, ...ref(api.state, "putt") } });
     await good("a", "sendDuel", { to:player, stake:100 });
     const duelId = api.state.duels[0].id;
+    await good("guest", "acceptDuel", { id:duelId });
     await race([["a", "playDuel", { id:duelId, ms:220 }], ["guest", "playDuel", { id:duelId, ms:180 }]]);
     assert.ok(api.state.duels[0].runs[player] && api.state.duels[0].runs[ROSTER[0]]);
     await good("b", "lockAndStart", { evId:"putt", ...ref(api.state, "putt") });

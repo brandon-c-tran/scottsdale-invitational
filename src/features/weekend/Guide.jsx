@@ -101,10 +101,10 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
             <p>Bets settle off the official result, so correcting a result corrects the payouts. I can void any wager.</p>
           </Rule>
           <Rule number="03" title="Duels" meta="Quick Draw · equal ante · three a day">
-            <p>Short on points? Challenge someone. Tap anyone on the board and name the ante. You both put up the same. Duels open when the weekend goes live.</p>
-            <p>You each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it.
+            <p>Short on points? Challenge someone. Tap anyone on the board and name the ante, or tap yourself to challenge anyone. You both put up the same once they accept. Duels open when the weekend goes live.</p>
+            <p>Once accepted, you each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it.
               {" "}Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips.</p>
-            <p>One open challenge per pair, three a day.</p>
+            <p>One challenge per pair, three a day. An unanswered challenge lapses after 10 minutes. Unplayed duels are void when the finale is dealt.</p>
           </Rule>
           <Rule number="04" title="Draws and brackets" meta="Balanced teams · live brackets, heats, and pools">
             <p>I run each draw, and it reveals on every phone at once. Teams balance from your ratings and your results

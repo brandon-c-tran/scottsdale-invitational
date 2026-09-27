@@ -26,15 +26,18 @@ import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
-  DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
+  DUEL_STAKE, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest,
-  RESET_PROGRESS_CONFIRMATION,
+  RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelOpen, duelPhase, duelRoom, duelsSentToday,
 } from "../shared/core.js";
+import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
+import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
+import { duelView } from "./features/duels/duelView.js";
 import {
   SHOW_SCENE_DEFINITIONS,
   resolveShowScene,
@@ -379,8 +382,7 @@ function TournamentApp({ tournament }) {
     const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
     const pendingWagers = (state.wagers || []).filter(w =>
       resolveWager(state, w, events).status === "pending").length;
-    const openDuels = (state.duels || []).filter(duel =>
-      duel.status === "open" && !resolveDuel(duel).settled).length;
+    const openDuels = (state.duels || []).filter(duel => duelOpen(duel)).length;
     return {
       environment,
       version,
@@ -521,6 +523,9 @@ function TournamentApp({ tournament }) {
      handover is automatic: one GM tap plays both scenes in order, so nobody
      has to close a card to make the draw appear. If a device reconnects with
      several unseen ceremonies, older ones retire and only the latest plays. */
+  /* A Quick Draw run in progress (Steady or the flash) holds every
+     announcement and draw ceremony until the tap lands or the run is left. */
+  const [duelHold, setDuelHold] = useState(false);
   const INTRO_HOLD = prefersReducedMotion() ? 650 : 2800;
   const introAt = useRef(0);
   const prevOnDeck = useRef("UNSET");
@@ -531,7 +536,7 @@ function TournamentApp({ tournament }) {
     && !(simRef.current.running && simRef.current.fast);
   useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
   useEffect(() => {
-    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready || announcementQueued) return;
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready || announcementQueued || duelHold) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -564,7 +569,7 @@ function TournamentApp({ tournament }) {
       return () => clearTimeout(t);
     }
     setReveal(next);
-  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued]); // eslint-disable-line
+  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued, duelHold]); // eslint-disable-line
   const rememberReveal = useCallback(id => {
     if (!id) return;
     setSeenReveals(prev => {
@@ -613,40 +618,56 @@ function TournamentApp({ tournament }) {
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
 
-  /* duels: nudge when a challenge lands on you, toast when one settles.
-     Skip the settle toast if the game overlay is up showing the same reveal. */
+  /* duels: nudge when a challenge lands on you or an open one appears, tell
+     the challenger when theirs is answered, toast when one settles. Nothing
+     toasts about the duel the Quick Draw layer is already showing. */
   const duelNudged = useRef(new Set());
   useEffect(() => {
     if (!me || !ready || onboardStep < 99) return;
     for (const d of state.duels || []) {
-      if (d.status !== "open" || d.to !== me || d.runs?.[me]) continue;
       if (duelNudged.current.has(d.id)) continue;
+      const view = duelView(state, d, me);
+      let msg = null, action = "View";
+      if (view.phase === "offered" && view.recipient)
+        msg = `Quick Draw: ${disp(state, d.from)} challenged you · ${fmt(d.stake)}`;
+      else if (view.phase === "offered" && view.takeable)
+        msg = `Quick Draw · ${fmt(d.stake)} · open ${view.minutesLeft} min`;
+      else if (view.phase === "live" && !d.consent && view.recipient && !view.myRun) {
+        msg = `Quick Draw: ${disp(state, d.from)} challenged you`;
+        action = "Play";
+      }
+      if (!msg) continue;
       duelNudged.current.add(d.id);
-      notify(`Quick Draw: ${disp(state, d.from)} challenged you`,
-        { label:"Play", fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } }, "gold", d.from);
+      if (modal?.type === "duelPlay" && modal.id === d.id) continue;
+      notify(msg, { label:action, fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } }, "gold", d.from);
       return;
     }
-  }, [state.duels, me, ready, onboardStep, notify, state]);
+  }, [state.duels, me, ready, onboardStep, notify, state, modal]);
   const prevDuelRes = useRef(null);
   useEffect(() => {
     if (!ready) return;
     const map = {};
     let msg = null;
     (state.duels || []).forEach(d => {
-      if (d.from !== me && d.to !== me) return;
+      if (!me || (d.from !== me && d.to !== me)) return;
       const r = resolveDuel(d);
-      const st = !r.settled ? "open" : r.push ? "push" : r.winner === me ? "won" : "lost";
+      const st = !r.settled ? duelPhase(d) : r.push ? "push" : r.winner === me ? "won" : "lost";
       map[d.id] = st;
-      if (prevDuelRes.current && prevDuelRes.current[d.id] === "open" && st !== "open"
-          && !(modal?.type === "duelPlay" && modal.id === d.id)) {
-        const oth = d.from === me ? d.to : d.from;
-        const other = disp(state, oth);
-        msg = st === "won" ? { t:`Quick Draw: you win +${d.stake}`, tone:"gold", chip:oth }
+      const before = prevDuelRes.current?.[d.id];
+      if (!before || before === st || (modal?.type === "duelPlay" && modal.id === d.id)) return;
+      const oth = d.from === me ? d.to : d.from;
+      const other = disp(state, oth);
+      if (before === "offered" && st === "live" && d.from === me)
+        msg = { t:`Quick Draw: ${other} accepted`, tone:"gold", chip:oth,
+          action:{ label:"Play", fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } } };
+      else if (st === "declined" && d.from === me)
+        msg = { t:`Quick Draw: ${other} declined`, chip:oth };
+      else if (before === "live" && (st === "won" || st === "lost" || st === "push"))
+        msg = st === "won" ? { t:`Quick Draw: you win +${fmt(d.stake)}`, tone:"gold", chip:oth }
           : st === "lost" ? { t:`Quick Draw: ${other} wins`, chip:oth }
           : { t:`Quick Draw: tied, chips returned`, chip:oth };
-      }
     });
-    if (msg && onboardStep >= 99) notify(msg.t, null, msg.tone, msg.chip);
+    if (msg && onboardStep >= 99) notify(msg.t, msg.action || null, msg.tone, msg.chip);
     prevDuelRes.current = map;
   }, [state.duels, me, ready, onboardStep, notify, state, modal]);
 
@@ -770,10 +791,25 @@ function TournamentApp({ tournament }) {
   const pokerResult = () => act("pokerResult", {}, "Counts posted");
   const pokerCount = (player, count) => act("pokerCount", { player, count });
   const pokerCancel = () => act("pokerCancel", {}, "Table cleared");
-  const sendDuel = (to, stake) => act("sendDuel", { to, game:"quickdraw", stake }, "Challenge sent");
-  const playDuelRun = (id, ms, foul) => act("playDuel", { id, ms, foul });
-  const declineDuel = id => act("declineDuel", { id }, "Declined");
-  const voidDuel = id => act("voidDuel", { id }, "Duel voided");
+  /* duel writes report their errors inline on the surface that made them.
+     The transport resends a lost request once; the server acknowledges a
+     resend without applying it twice. */
+  const duelAct = (type, payload) => dispatch(type, payload, { retry:true });
+  const openDuel = id => setModal({ type:"duelPlay", id });
+  const sendDuel = (to, stake, open = false) => duelAct("sendDuel",
+    open ? { open:true, game:"quickdraw", stake } : { to, game:"quickdraw", stake });
+  const duelSent = result => (result?.extra?.id ? openDuel(result.extra.id) : setModal(null));
+  const acceptDuel = id => duelAct("acceptDuel", { id }).then(r => { if (r.ok) openDuel(id); return r; });
+  const playDuelRun = (id, ms, foul) => duelAct("playDuel", { id, ms, foul });
+  const declineDuel = id => duelAct("declineDuel", { id });
+  const withdrawDuel = id => duelAct("withdrawDuel", { id });
+  const voidDuel = id => duelAct("voidDuel", { id });
+  const voidOpenDuels = () => duelAct("voidOpenDuels", {}).then(r => {
+    if (r.ok && r.extra?.count) notify(`${r.extra.count} open duel${r.extra.count === 1 ? "" : "s"} voided`);
+    return r;
+  });
+  const rematchDuel = duel => sendDuel(duel.from === me ? duel.to : duel.from, duel.stake)
+    .then(r => { if (r.ok) duelSent(r); return r; });
   const placeWager = w => act("placeWager", { wager: w }, null, { retry:true });
   const retractWager = (id, reference) => act("retractWager", { id, ...reference }, null, { retry:true });
   const voidWager = id => act("voidWager", { id });
@@ -1002,14 +1038,9 @@ function TournamentApp({ tournament }) {
   const simDuelPools = s => {
     const events2 = allEventsOf(s);
     const rows = computeStandings(s);
-    const live = (s.duels || []).filter(d => d.status === "open" && !resolveDuel(d).settled);
-    const day = 24 * 60 * 60 * 1000;
-    const spendable = p => (rows.find(r => r.player === p)?.pts ?? 0)
-      - atRisk(s, p, events2)
-      - live.filter(d => d.from === p || d.to === p).reduce((t, d) => t + d.stake, 0);
-    const canSend = p => p !== me && spendable(p) >= DUEL_STAKE
-      && (s.duels || []).filter(d => d.from === p && d.status !== "declined" && d.ts > Date.now() - day).length < 3;
-    const canFace = (a, b) => !live.find(d => (d.from === a && d.to === b) || (d.from === b && d.to === a));
+    const spendable = p => duelRoom(s, p, { events:events2, rows }).room;
+    const canSend = p => p !== me && spendable(p) >= DUEL_STAKE && duelsSentToday(s, p) < DUEL_DAILY_LIMIT;
+    const canFace = (a, b) => !duelBetween(s, a, b);
     return { spendable, canSend, canFace };
   };
   const simDuelRun = () => Math.random() < 0.1
@@ -1028,17 +1059,19 @@ function TournamentApp({ tournament }) {
       if (!from) return;
       await simDo("claim", { player: from });
       const r = await simTry("sendDuel", { to, game:"quickdraw" }, `${from} challenges ${to}`);
-      if (!r.ok) continue;
+      if (!r.ok || !r.extra?.id) continue;
+      const id = r.extra.id;
       await simWait(400);
-      const duel = (stateRef.current.duels || []).find(d =>
-        d.from === from && d.to === to && d.status === "open" && !d.runs?.[from]);
-      if (!duel) continue;
-      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${from} draws`);
       await simDo("claim", { player: to });
-      await simTry("playDuel", { id: duel.id, ...simDuelRun() }, `${to} plays`);
+      const accepted = await simTry("acceptDuel", { id }, `${to} accepts`);
+      if (!accepted.ok) continue;
+      await simTry("playDuel", { id, ...simDuelRun() }, `${to} draws`);
+      await simDo("claim", { player: from });
+      await simTry("playDuel", { id, ...simDuelRun() }, `${from} draws`);
       await simWait(600);
     }
   };
+  /* a sim player challenges you; after you accept and draw, they draw */
   const simDuelMe = async () => {
     if (!me) throw new Error("Pick who you are first");
     const s = stateRef.current;
@@ -1048,11 +1081,20 @@ function TournamentApp({ tournament }) {
     const from = rnd(ROSTER.filter(p => canSend(p) && canFace(p, me)));
     if (!from) throw new Error("Nobody can afford a challenge");
     await simDo("claim", { player: from });
-    await simDo("sendDuel", { to: me, game:"quickdraw" }, `${from} challenges you`);
-    await simWait(300);
-    const duel = (stateRef.current.duels || []).find(d =>
-      d.from === from && d.to === me && d.status === "open" && !d.runs?.[from]);
-    if (duel) await simTry("playDuel", { id: duel.id, ...simDuelRun() });
+    const sent = await simDo("sendDuel", { to: me, game:"quickdraw" }, `${from} challenges you`);
+    const id = sent.extra?.id;
+    await simDo("claim", { player: me });
+    if (!id) return;
+    for (let waited = 0; waited < 180; waited++) {
+      const duel = (stateRef.current.duels || []).find(d => d.id === id);
+      if (!duel || !duelOpen(duel)) return;
+      if (duelAccepted(duel) && duel.runs?.[me]) break;
+      await simWait(500);
+    }
+    const duel = (stateRef.current.duels || []).find(d => d.id === id);
+    if (!duel || !duelAccepted(duel) || !duel.runs?.[me]) return;
+    await simDo("claim", { player: from });
+    await simTry("playDuel", { id, ...simDuelRun() }, `${from} draws`);
   };
   /* clean book: void whatever is still pending so the poker gate opens */
   const simSettleBook = async () => {
@@ -1062,10 +1104,8 @@ function TournamentApp({ tournament }) {
       if (resolveWager(s, w, events2).status === "pending")
         await simDo("voidWager", { id: w.id }, "Voiding open wagers");
     }
-    for (const d of s.duels || []) {
-      if (d.status === "open" && !resolveDuel(d).settled)
-        await simDo("voidDuel", { id: d.id }, "Voiding open duels");
-    }
+    if ((s.duels || []).some(d => duelOpen(d)))
+      await simDo("voidOpenDuels", {}, "Voiding open duels");
     await simWait(300);
     for (const row of computeStandings(stateRef.current)) {
       if (row.pts < 0)
@@ -1266,6 +1306,9 @@ function TournamentApp({ tournament }) {
       const openedAt = Number(state.eventOps?.[ev.id]?.contest?.openedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
       const mins = openedAt ? Math.max(0, Math.round((Date.now() - openedAt) / 60000)) : null;
       return `${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`;
+    })() : nextAction.type === "setup-poker" ? (() => {
+      const open = openDuelsForDesk(state).length;
+      return open ? `Voids ${open} open duel${open === 1 ? "" : "s"}` : null;
     })() : null;
     return {
       label:nextAction.label,
@@ -1337,7 +1380,8 @@ function TournamentApp({ tournament }) {
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
             onPlayer={p => setModal({type:"player", p})}
-            onPlay={id => setModal({type:"duelPlay", id})} onDecline={declineDuel} onVoid={voidDuel} />}
+            onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
+            onWithdraw={withdrawDuel} onVoid={voidDuel} />}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
@@ -1355,6 +1399,7 @@ function TournamentApp({ tournament }) {
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={(id, reference) => retractWager(id, reference)}
           onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
+        {tab === "bets" && gmView && <DuelDesk state={state} onVoid={voidDuel} onVoidAll={voidOpenDuels} />}
         {tab === "guide" && <Guide events={events} state={state} me={me}
           section={weekendSection} onSection={setWeekendSection}
           onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
@@ -1607,10 +1652,12 @@ function TournamentApp({ tournament }) {
       {modal?.type === "player" && <PlayerSheet state={state} me={me} p={modal.p} standings={standings} events={events}
         onClose={() => setModal(null)} onBack={modalBack}
         onEdit={() => pushModal({type:"profile"})}
-        onDuel={stake => sendDuel(modal.p, stake)} />}
-      {modal?.type === "duelPlay" && <QuickDrawGame state={state} me={me}
+        onDuel={(stake, open) => sendDuel(modal.p, stake, open)} onSent={duelSent}
+        onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel} onWithdraw={withdrawDuel} />}
+      {modal?.type === "duelPlay" && <QuickDrawGame key={modal.id} state={state} me={me}
         duel={(state.duels || []).find(d => d.id === modal.id)}
-        onSubmit={playDuelRun}
+        onSubmit={playDuelRun} onAccept={acceptDuel} onDecline={declineDuel}
+        onWithdraw={withdrawDuel} onRematch={rematchDuel} onHold={setDuelHold}
         onClose={() => setModal(null)} />}
       {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
         save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
@@ -1685,7 +1732,7 @@ function TournamentApp({ tournament }) {
             textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
         </div>
       )}
-      {intro && onboardStep >= 99 && (() => {
+      {intro && onboardStep >= 99 && !duelHold && (() => {
         const iev = events.find(e => e.id === intro);
         return iev && !state.results[iev.id] ? (
           <EventIntro state={state} ev={iev} handoff={introHasQueuedReveal} onClose={() => setIntro(null)}
@@ -1693,7 +1740,7 @@ function TournamentApp({ tournament }) {
               ? () => { setIntro(null); setModal(null); setTab("bets"); } : null} />
         ) : null;
       })()}
-      {reveal && <Reveal key={reveal.id} state={state} reveal={reveal} onClose={closeReveal}
+      {reveal && !duelHold && <Reveal key={reveal.id} state={state} reveal={reveal} onClose={closeReveal}
         onPlayer={p => {
           const ev = events.find(event => event.id === reveal.evId);
           closeReveal();
@@ -3519,127 +3566,7 @@ const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
 
 
 /* ─────────── duels ───────────
-   Head-to-head phone games. Open challenges live on Home; the game itself
-   takes the whole screen. Settlement is derived server-side from the runs. */
-const duelTime = r => (r.foul ? "foul" : `${r.ms}ms`);
-
-function QuickDrawGame({ state, me, duel, onSubmit, onClose }) {
-  const myRun0 = duel?.runs?.[me] || null;
-  const [phase, setPhase] = useState(myRun0 ? "done" : "intro"); // intro | armed | go | done
-  const [run, setRun] = useState(myRun0);
-  const t0 = useRef(0);
-  const timer = useRef(null);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  if (!duel) return null;
-  const opp = duel.from === me ? duel.to : duel.from;
-  const oppRun = duel.runs?.[opp];
-  const res = resolveDuel(duel);
-  const arm = () => {
-    setPhase("armed");
-    timer.current = setTimeout(() => { t0.current = performance.now(); setPhase("go"); },
-      1500 + Math.random() * 2500);
-  };
-  const fire = () => {
-    if (phase === "armed") {
-      clearTimeout(timer.current);
-      setRun({ ms:null, foul:true }); setPhase("done");
-      onSubmit(duel.id, null, true);
-    } else if (phase === "go") {
-      const m = Math.round(performance.now() - t0.current);
-      setRun({ ms:m, foul:false }); setPhase("done");
-      onSubmit(duel.id, m, false);
-    }
-  };
-  const wrap = kids => (
-    <div className="fd-night" style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      padding:"calc(30px + env(safe-area-inset-top)) 24px calc(30px + env(safe-area-inset-bottom))" }}>
-      {kids}
-    </div>
-  );
-  if (phase === "armed") return (
-    <div onPointerDown={fire} style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", touchAction:"none" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:44, letterSpacing:"0.12em",
-        textTransform:"uppercase", color:"var(--night-text2)", animation:"si-pulse 2.2s infinite" }}>Steady</div>
-      <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text2)", marginTop:10 }}>tap when it flashes</div>
-    </div>
-  );
-  if (phase === "go") return (
-    <div onPointerDown={fire} style={{ position:"fixed", inset:0, zIndex:300, background:"var(--sun)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", touchAction:"none" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:96,
-        letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--ink0)" }}>Draw</div>
-    </div>
-  );
-  if (phase === "intro") return wrap(
-    <>
-      <div style={{ ...label, fontSize:11, color:"var(--sun)" }}>Duel</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:44, color:BONE, textTransform:"uppercase",
-        lineHeight:0.95, margin:"6px 0 22px" }}>Quick Draw</div>
-      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:22 }}>
-        <Avatar state={state} p={me} size={62} ring />
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:24, color:"var(--sun)" }}>VS</span>
-        <Avatar state={state} p={opp} size={62} ring />
-      </div>
-      <div style={{ fontFamily:SANS, fontSize:16, lineHeight:1.6, color:"var(--night-text)", textAlign:"center",
-        maxWidth:340, marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
-      <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text2)", marginBottom:26 }}>
-        {fmt(duel.stake)} each, winner takes the pot</div>
-      <Btn onClick={arm} style={{ fontSize:16, padding:"14px 40px" }}>Ready</Btn>
-      <button onClick={onClose} style={{ marginTop:18, background:"none", border:"none", color:"var(--night-text2)",
-        fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>Not now</button>
-    </>
-  );
-  /* done: my run is in; the verdict fills in live once the opponent draws */
-  const decided = res.settled && !res.push;
-  return wrap(
-    <>
-      <div style={{ ...label, fontSize:11, color:"var(--sun)" }}>Your draw</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: run.foul ? 56 : 76, color: run.foul ? "var(--live2)" : BONE,
-        textTransform:"uppercase", lineHeight:1, margin:"8px 0 4px", animation:"si-flag .5s both" }}>
-        {run.foul ? "Foul" : `${run.ms} ms`}</div>
-      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)" }}>Too early. That is a foul.</div>}
-      <div style={{ margin:"26px 0", width:"100%", maxWidth:360 }}>
-        {oppRun ? (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[[me, duel.runs?.[me] || run], [opp, oppRun]].map(([p, r2]) => (
-              <div key={p} style={{ background:CARD_BG, borderRadius:14, padding:"12px 10px", textAlign:"center",
-                border: decided && res.winner === p ? "2px solid var(--sun)" : "1px solid var(--line)",
-                opacity: decided && res.loser === p ? 0.65 : 1, animation:"si-flag .5s both" }}>
-                <div style={{ display:"flex", justifyContent:"center", marginBottom:7 }}>
-                  <Avatar state={state} p={p} size={38} /></div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--ink)" }}>
-                  {duelTime(r2)}</div>
-                <div style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted2)" }}>
-                  {disp(state, p)}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ textAlign:"center", fontFamily:SANS, fontSize:14, color:"var(--night-text)", lineHeight:1.6 }}>
-            Waiting on {disp(state, opp)}.<br/>It settles when they play.
-          </div>
-        )}
-      </div>
-      {res.settled && (
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, textTransform:"uppercase",
-          color: res.push ? "var(--night-text)" : res.winner === me ? "var(--sun)" : "var(--live2)",
-          marginBottom:22, animation:"si-flag .5s .15s both" }}>
-          {res.push ? "Tied. Chips returned."
-            : res.winner === me ? `You win, +${duel.stake}`
-            : `${disp(state, opp)} wins`}
-        </div>
-      )}
-      {duel.status === "void" && (
-        <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)", marginBottom:20 }}>
-          Voided by the commissioner. No chips move.</div>
-      )}
-      <Btn kind={res.settled ? "primary" : "ghost"} onClick={onClose}
-        style={{ fontSize:16, padding:"13px 34px" }}>Close</Btn>
-    </>
-  );
-}
+   Quick Draw lives in features/duels: offers, the run, and the result. */
 
 /* ─────────── QA bar (GM only, real names) ─────────── */
 function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,

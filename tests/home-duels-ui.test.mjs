@@ -89,13 +89,16 @@ test("opponent cards, play and decline have separate targets and preserve the du
   assert.match(view.html, /100/);
 });
 
-test("decline disappears after either player runs and waiting players cannot replay", () => {
+// Rule change (consent model): the recipient may decline until THEY draw,
+// even after the challenger has; the challenger's time is never shown.
+test("decline stays until the recipient runs and waiting players cannot replay", () => {
   const sender = controls({ ...fresh(), duels:[duel({ from:me, to:other })] });
   assert.ok(!sender.buttons.some(button => button.name.startsWith("Decline")));
   assert.match(sender.html, /Your turn/);
   const started = controls({ ...fresh(), duels:[duel({ runs:{ [other]:{ ms:180 } } })] });
-  assert.ok(!started.buttons.some(button => button.name.startsWith("Decline")));
+  assert.ok(started.buttons.some(button => button.name.startsWith("Decline")));
   assert.ok(started.buttons.some(button => button.name.startsWith("Play")));
+  assert.doesNotMatch(started.html, /180/);
   const waiting = controls({ ...fresh(), duels:[duel({ runs:{ [me]:{ ms:180 } } })] });
   assert.ok(!waiting.buttons.some(button => button.name.startsWith("Play")));
   assert.match(waiting.html, /Waiting for their turn/);

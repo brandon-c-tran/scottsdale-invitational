@@ -343,7 +343,9 @@ test("public player cards show saved identity and public results without persona
   assert.ok(!view.buttons.some(button => button.name === "Edit your profile"));
   const own = controls(PlayerSheet, state, { p:me });
   assert.ok(own.buttons.some(button => button.name === "Edit your profile"));
-  assert.doesNotMatch(own.html, /Quick Draw challenge/);
+  // Rule change: your own card hosts the open challenge (to anyone).
+  assert.ok(own.buttons.some(button => button.name === "Challenge anyone for 100"));
+  assert.ok(!own.buttons.some(button => button.name === `Challenge ${me} for 100`));
 });
 
 test("the board follows actual event progress rather than a prepared future bracket", () => {
@@ -409,9 +411,14 @@ test("a duel ante accounts for both balances, reserved antes, duplicate pairs, a
   reserved.duels = [{ id:"reserved", status:"open", from:me, to:ROSTER[2], stake:1000, runs:{} }];
   assert.match(controls(PlayerSheet, reserved).html, /Not enough chips for an ante/);
 
+  // Rule change: the card of someone you share a duel with carries that
+  // duel's actual controls instead of a dead "already open" line.
   const duplicate = fresh();
   duplicate.duels = [{ id:"existing", status:"open", from:other, to:me, stake:100, runs:{} }];
-  assert.match(controls(PlayerSheet, duplicate).html, /A challenge between you two is already open/);
+  const shared = controls(PlayerSheet, duplicate, { onPlay:noop, onDecline:noop });
+  assert.equal(shared.named(`Play Quick Draw with ${other}`).disabled, false);
+  assert.equal(shared.named(`Decline duel with ${other}`).disabled, false);
+  assert.ok(!shared.buttons.some(button => button.name.startsWith("Challenge ")));
 
   const daily = fresh();
   daily.duels = ROSTER.slice(2, 5).map((to, i) => ({

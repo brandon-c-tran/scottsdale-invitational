@@ -1,6 +1,6 @@
 import {
   PT, ROUND_NAMES, ROSTER, allEventsOf, atRisk, bracketChampion, computeStandings,
-  maxRisk, overflowRoleMeta, participationForEvent, resolveDuel,
+  duelReserve, maxRisk, overflowRoleMeta, participationForEvent,
   resolveEventLifecycle, resolveCurrentContest, resolveSlot, resolveWeekendOperation,
   stageEntrantView, stageFinalists, stacksPosted, wagerBoardEvent,
 } from "../../../shared/core.js";
@@ -145,10 +145,8 @@ export function deriveHomeModel({ state, me, events = allEventsOf(state), standi
 
   const ownRow = standings.find(row => row.player === me);
   const risk = ownRow ? atRisk(state, me, events) : 0;
-  const duelAntes = ownRow ? (state.duels || [])
-    .filter(duel => duel.status === "open" && !resolveDuel(duel).settled
-      && (duel.from === me || duel.to === me))
-    .reduce((sum, duel) => sum + duel.stake, 0) : 0;
+  // Accepted duels, plus your own ante on a challenge still waiting for an answer.
+  const duelAntes = ownRow ? duelReserve(state, me) : 0;
   const available = ownRow && mode === "live" ? Math.max(0, Math.floor(Math.min(
     maxRisk(ownRow.pts) - risk - duelAntes, ownRow.pts - risk - duelAntes,
   ) / PT) * PT) : 0;

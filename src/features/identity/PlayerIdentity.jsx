@@ -1,27 +1,26 @@
-import React, { useId } from "react";
+import React, { useId, useState } from "react";
 import { DISPLAY, SANS, BONE } from "../../ui/theme.js";
 import { usePlayerIdentity } from "./PlayerIdentityContext.js";
 
+/* A missing or failed photo falls back to initials on the player's color. */
 function Avatar({ state, p, size=34, ring, style }) {
   const prof = state.profiles?.[p];
-  const src = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
-  const initials = (prof?.display || p).slice(0,2).toUpperCase();
+  const photo = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
+  const [failed, setFailed] = useState(null);
+  const src = photo && failed !== photo ? photo : null;
+  const initials = (prof?.display || p || "").slice(0,2).toUpperCase();
   const identity = usePlayerIdentity(p);
   const c = identity.color;
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
       display:"flex", alignItems:"center", justifyContent:"center",
       background: src ? "var(--paper2)" : c, position:"relative",
-      border: ring ? "2px solid var(--bone)" : "1.5px solid rgba(23,16,9,0.6)", ...style }}>
+      border: ring ? "2px solid var(--bone)" : "1.5px solid var(--ink0)", ...style }}>
       {src
-        ? <img src={src} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : <>
-            <div style={{ position:"absolute", inset:0,
-              background:"linear-gradient(135deg, transparent 40%, rgba(251,243,228,0.26) 40%, rgba(251,243,228,0.26) 62%, transparent 62%)" }} />
-            <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
-              fontSize:size*0.44, letterSpacing:"0.03em",
-              color: identity.isLight ? "var(--ink0)" : BONE }}>{initials}</span>
-          </>}
+        ? <img src={src} alt="" onError={() => setFailed(photo)} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+        : <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
+            fontSize:size*0.44, letterSpacing:"0.03em",
+            color: identity.isLight ? "var(--ink0)" : BONE }}>{initials}</span>}
     </div>
   );
 }

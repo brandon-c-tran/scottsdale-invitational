@@ -80,6 +80,9 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   const crew = draft?.roles || roles;
   const shell = children => <Sheet title={ev.name} subtitle="Captains draft" onClose={onClose}
     busy={!!pending} wide className="fd-draft-sheet">{children}</Sheet>;
+  const confirmed = state.draws?.[ev.id];
+  if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(<ConfirmedTeams state={state}
+    draw={confirmed} me={me} size={size} onPlayer={onPlayer} />);
   if (!draft && (!pool || !gm)) return shell(<p>Draft closed.</p>);
 
   if (!draft) return shell(<div className="fd-draft">
@@ -211,6 +214,34 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       </div>}
     </div>}
   </div>);
+}
+
+/* After confirmation the sheet stays useful: every captain and player lands
+   on their own team first, with the rest of the teams and crew below. */
+function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
+  const order = draw.teams.map((team, index) => ({ team, index }))
+    .sort((a, b) => Number(b.team.players.includes(me)) - Number(a.team.players.includes(me)));
+  const role = (draw.roles || []).find(item => item.player === me);
+  return <div className="fd-draft">
+    <div className="fd-draft-section-title"><h2>Teams confirmed</h2><span>{draw.teams.length} teams of {size}</span></div>
+    {role && <p className="fd-draft-note">Your role · {overflowRoleMeta(role.role).label}</p>}
+    <div className="fd-draft-teams" style={{ "--draft-columns":Math.min(draw.teams.length, 3) }}>
+      {order.map(({ team, index }) => {
+        const captain = team.captain || team.players[0];
+        const yours = team.players.includes(me);
+        return <section key={captain} className={`fd-draft-team${yours ? " is-yours" : ""}`}
+          style={identityStyle(state, captain)} aria-label={yours ? "Your team" : `${disp(state, captain)}'s team`}>
+          <header><small>{yours ? "Your team" : team.name || `Team ${index + 1}`}</small><span>{team.players.length}/{size}</span></header>
+          {yours && team.name && <strong className="fd-draft-team-name">{team.name}</strong>}
+          <PlayerLink state={state} player={captain} onPlayer={onPlayer}/>
+          <small className="fd-draft-captain-label">Captain</small>
+          <ol>{team.players.filter(player => player !== captain).map(player =>
+            <li key={player} className="is-seated"><PlayerLink state={state} player={player} onPlayer={onPlayer}/></li>)}</ol>
+        </section>;
+      })}
+    </div>
+    {!!draw.roles?.length && <DraftCrew state={state} roles={draw.roles} onPlayer={onPlayer}/>}
+  </div>;
 }
 
 function DraftCrew({ state, roles, onPlayer, disabled }) {

@@ -9,6 +9,7 @@
 .fd-event-awards>span { display:flex; align-items:baseline; gap:6px; }
 .fd-event-awards small { color:var(--muted2); font-size:11px; }
 .fd-event-awards strong { font:700 21px/1 var(--fd-display); color:var(--sun); }
+.fd-event-correction { margin:6px 0 0; color:var(--muted2); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
 .fd-chip-counter { color:var(--ink); }
 .fd-chip-counter p { color:var(--muted2); font-size:12px; margin:0 0 10px; }
 .fd-chip-count-row { display:grid; grid-template-columns:1fr 44px 64px 44px; align-items:center; gap:4px; border-top:1px solid var(--line); min-height:56px; }

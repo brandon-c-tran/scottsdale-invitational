@@ -51,28 +51,55 @@ function mergeWagerLines(list) {
 
 /* The upper edge opens player cards. The lower area is the betting surface:
    the empty well adds a chip; the guest's own pile removes its last chip. */
+/* A timed-out write may still have landed. The transport may say so
+   explicitly (uncertain); older transports only report "No response". */
+export const isUncertainResult = result => result?.ok !== true && (result?.uncertain === true
+  || result?.status === "uncertain" || /no response/i.test(String(result?.error || "")));
+
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
-  roleLabel, unavailableReason, tapStake }) {
+  roleLabel, unavailableReason, tapStake, capLabel, capReason }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const [checking, setChecking] = useState(null);
   const pendingRef = useRef(false);
   const mine = bets.filter(x => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
     return latest(a) - latest(b);
   });
   const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
+  const live = useRef({ state, mineTotal });
+  live.current = { state, mineTotal };
   const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map(chip => chip.stake) : [w.stake]);
   const otherBets = new Map();
   for (const { w } of bets.filter(x => x.w.player !== me))
     otherBets.set(w.player, (otherBets.get(w.player) || 0) + w.stake);
   const otherChips = [...otherBets].map(([p, val]) => ({ p, val }));
+  const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
+  /* Checking… holds the pick until the next broadcast answers it: the chip
+     is there (done), or it is not (Not placed). */
+  useEffect(() => {
+    if (!checking || state === checking.state) return;
+    if (!landed(checking.kind, checking.before, mineTotal))
+      setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
+    pendingRef.current = false;
+    setChecking(null);
+  }, [state, mineTotal, checking]);
   const act = (kind, callback) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
+    const before = mineTotal;
     setPendingAction(kind);
     setActionError(null);
-    const finish = () => { pendingRef.current = false; setPendingAction(null); };
+    let holding = false;
+    const finish = () => { if (!holding) pendingRef.current = false; setPendingAction(null); };
     const check = result => {
+      if (isUncertainResult(result)) {
+        if (!landed(kind, before, live.current.mineTotal)) {
+          holding = true;
+          setChecking({ kind, before, state:live.current.state });
+        }
+        return result;
+      }
       if (result?.ok === false) setActionError(result.error || "Bet not saved.");
       return result;
     };
@@ -84,8 +111,9 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     try {
       const result = callback();
       if (result?.then) return Promise.resolve(result).then(check, fail).finally(finish);
+      const checked = check(result);
       finish();
-      return check(result);
+      return checked;
     } catch (error) { finish(); return fail(error); }
   };
   const stack = mineTotal > 0 && <>
@@ -98,7 +126,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     </span>
     <span className="fd-wagers-chip-total">{fmt(mineTotal)}</span>
   </>;
-  return <div className={`fd-wagers-pick${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${pendingAction ? ` is-pending-${pendingAction}` : ""}`}>
+  const busyKind = pendingAction || checking?.kind || null;
+  return <div className={`fd-wagers-pick${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}`}>
     <div className="fd-wagers-pick-identity">
       {roleLabel && <span className="fd-wagers-pick-role">{roleLabel}</span>}
       {players.length === 1 ? <button type="button" className="fd-wagers-player" disabled={!onPlayer}
@@ -113,16 +142,16 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         </button>)}</span>
       </>}
     </div>
-    <div className="fd-wagers-pick-surface" aria-busy={!!pendingAction}>
-      <button type="button" className="fd-wagers-pick-main" disabled={!canPick || !!pendingAction}
+    <div className="fd-wagers-pick-surface" aria-busy={!!busyKind}>
+      <button type="button" className={`fd-wagers-pick-main${capLabel ? " is-capped" : ""}`} disabled={!canPick || !!busyKind}
         onClick={() => act("place", onPick)} aria-label={canPick ? `Place a chip on ${name}` : name}
-        aria-description={unavailableReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
+        aria-description={unavailableReason || capReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
         {unavailableReason ? <span className="fd-wagers-pick-closed">Opponent</span> : marketOpen && players.length > 0 ? <>
           <span className="fd-wagers-chip-well" aria-hidden="true">+</span>
-          <span className="fd-wagers-pick-add">{fmt(tapStake)}</span>
+          <span className="fd-wagers-pick-add">{capLabel || fmt(tapStake)}</span>
         </> : <span className="fd-wagers-pick-closed">{players.length ? "Locked" : "Pending"}</span>}
       </button>
-      {mineTotal > 0 && (marketOpen ? <button type="button" className="fd-wagers-retract" disabled={!!pendingAction}
+      {mineTotal > 0 && (marketOpen ? <button type="button" className="fd-wagers-retract" disabled={!!busyKind}
         onClick={() => act("remove", () => onRetract(mine[mine.length - 1].w.id))}
         aria-label={`Retract your last chip on ${name}`}
         aria-description={`Remove ${fmt(mineChips[mineChips.length - 1])} chips; ${fmt(mineTotal)} total on this pick`}>
@@ -136,7 +165,40 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         <BankChip p={chip.p} size={25} val={chip.val} />
       </button>)}
     </div>}
-    {actionError && <p className="fd-wagers-pick-error" role="alert">{actionError}</p>}
+    {checking && <p className="fd-wagers-pick-checking" role="status">Checking…</p>}
+    {actionError && !checking && <p className="fd-wagers-pick-error" role="alert">{actionError}</p>}
+  </div>;
+}
+
+/* The bar is the whole stack, the notch is the cap, gold is what your bets
+   hold, hatching is what duels hold, and the gap to the notch is what is left
+   to bet. Anything past the notch (after a correction) is drawn as a loss. */
+function StackMeter({ pts, cap, bets, duels, room }) {
+  const exposure = bets + duels;
+  const scale = Math.max(pts, exposure, cap, 1);
+  const at = value => Math.max(0, Math.min(100, value / scale * 100));
+  const pct = value => `${at(value)}%`;
+  const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
+  const over = Math.max(0, exposure - cap);
+  const capped = room < PT && pts - exposure >= PT;
+  const gapMid = Math.min(92, Math.max(8, (at(Math.min(exposure, cap)) + at(Math.min(cap, pts))) / 2));
+  return <div className={`fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`} role="meter"
+    aria-label="Chips at risk" aria-valuemin={0} aria-valuemax={Math.max(cap, exposure)} aria-valuenow={exposure}
+    aria-valuetext={`${fmt(exposure)} at risk, ${fmt(cap)} maximum, ${fmt(pts)} in your stack${duels ? `, ${fmt(duels)} reserved for duels` : ""}`}>
+    <div className="fd-wagers-meter-top" aria-hidden="true">
+      <strong style={{ left:capped ? `${Math.min(92, Math.max(8, at(cap)))}%` : `${gapMid}%` }}>{fmt(room)}</strong>
+    </div>
+    <div className="fd-wagers-meter-bar" aria-hidden="true">
+      {betsIn > 0 && <span className="is-bets" style={{ left:0, width:pct(betsIn) }} />}
+      {duelsIn > 0 && <span className="is-duels" style={{ left:pct(betsIn), width:pct(duelsIn) }} />}
+      {over > 0 && <span className="is-over" style={{ left:pct(cap), width:pct(over) }} />}
+      <i className="fd-wagers-meter-notch" style={{ left:pct(cap) }} />
+    </div>
+    <div className="fd-wagers-meter-scale" aria-hidden="true">
+      {exposure > 0 && <span className="is-exposure">{fmt(exposure)}</span>}
+      <span className="is-cap" style={{ left:`${Math.min(92, Math.max(8, at(cap)))}%` }}>{fmt(cap)}</span>
+      {at(cap) <= 72 && <span className="is-stack">{fmt(pts)}</span>}
+    </div>
   </div>;
 }
 
@@ -198,8 +260,18 @@ function samePick(wager, pick) {
     && !!wager.final === !!pick.final && (pick.final || wager.group === pick.group);
 }
 
-function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, onPick, onVoid, onRetract, onPlayer, GameMark }) {
-  const [settledOpen, setSettledOpen] = useState(null);
+function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, onPick, onVoid, onRetract, onPlayer, GameMark,
+  openSettled = false, onSettledSeen }) {
+  const [settledOpen, setSettledOpen] = useState(() => openSettled && me ? `st:${me}` : null);
+  const [settledShown, setSettledShown] = useState(!!openSettled);
+  const settledRef = useRef(null);
+  useEffect(() => {
+    if (!openSettled) return;
+    setSettledShown(true);
+    if (me) setSettledOpen(`st:${me}`);
+    settledRef.current?.scrollIntoView?.({ block:"start" });
+    onSettledSeen?.();
+  }, [openSettled]); // eslint-disable-line
   const [denom, setDenom] = useState(PT);
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r:resolveWager(state, w, events) })),
     [state, events]);
@@ -224,6 +296,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     .reduce((sum, duel) => sum + duel.stake, 0) : 0;
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
+  /* the cap (not the balance) is what stops the next chip */
+  const capBinds = !!me && room < PT && myPts - myExp >= PT;
   useEffect(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find(value => value <= room) || PT);
@@ -253,8 +327,12 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
       unavailableReason:restricted && !eligible ? restriction : null,
       canPick:marketOpen && room >= PT && eligible,
+      capLabel:marketOpen && eligible && capBinds ? `Max ${fmt(myCap)}` : null,
+      capReason:marketOpen && eligible && capBinds ? `At your ${fmt(myCap)} limit` : null,
       onPick:() => onPick({ ...pick, stake:tapStake }) };
   });
+  /* free-for-all: your own name leads the board */
+  if (contest?.kind === "ffa") picks.sort((a, b) => Number(!!b.roleLabel) - Number(!!a.roleLabel));
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result"
     ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket"
@@ -305,7 +383,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
         <WagerLine key={x.w.id} x={x} state={state} events={events} gm={gm} onVoid={onVoid} onPlayer={onPlayer} />)}</div>
     </details>}
 
-    {settledLines.length > 0 && <details className="fd-wagers-history">
+    {settledLines.length > 0 && <details className="fd-wagers-history" ref={settledRef} open={settledShown}
+      onToggle={event => setSettledShown(event.currentTarget.open)}>
       <summary>Settled <span>{settledLines.length}</span></summary>
       <div className="fd-wagers-settled-list">{settledByPlayer.map(group => {
         const key = `st:${group.player}`, open = settledOpen === key;
@@ -331,13 +410,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     {/* One summary and one chip row keep the rack visible without covering
         the matchup. The meter expresses exposure against the actual cap. */}
     {me && ev && marketOpen && <section className="fd-wagers-rack fd-night" aria-label="Choose your betting chip">
-      <div className="fd-wagers-rack-top"><span><strong>{fmt(room)}</strong> to bet</span>
-        <span>{fmt(myExp)} / {fmt(myCap)} at risk</span></div>
-      <div className="fd-wagers-meter" role="meter" aria-label="Chips at risk"
-        aria-valuemin={0} aria-valuemax={Math.max(myCap, myExp)} aria-valuenow={myExp}
-        aria-valuetext={`${fmt(myExp)} at risk, ${fmt(myCap)} maximum, ${fmt(myPts)} in your stack${duelAntes ? `, ${fmt(duelAntes)} reserved for duels` : ""}`}>
-        <span style={{ width:`${myCap ? Math.min(100, myExp / myCap * 100) : 0}%` }} />
-      </div>
+      <StackMeter pts={myPts} cap={myCap} bets={wagerRisk} duels={duelAntes} room={room} />
       <div className="fd-wagers-denoms" role="group" aria-label="Chip value per tap">
         {RACK_DENOMS.map(value => {
           const affordable = value <= room;
@@ -348,7 +421,6 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
           </button>;
         })}
       </div>
-      {duelAntes > 0 && <p className="fd-wagers-duel-reserve">Includes {fmt(duelAntes)} in duels</p>}
     </section>}
   </div>;
 }

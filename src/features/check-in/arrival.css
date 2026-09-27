@@ -47,7 +47,7 @@
 .fd-continue > span:last-child { font-size:21px; line-height:1; }
 .fd-continue:disabled { cursor:default; background:var(--paper2); border-color:var(--line); color:var(--muted); }
 .fd-arrival-links { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; font-size:10px; color:var(--muted); min-height:24px; }
-.fd-text-button { background:none; color:var(--accent2); border:0; padding:8px 0; cursor:pointer; font-size:11px !important; font-weight:600 !important; }
+.fd-text-button { background:none; color:var(--accent2); border:0; padding:8px 0; min-height:44px; cursor:pointer; font-size:11px !important; font-weight:600 !important; }
 .fd-text-button:disabled { color:var(--muted); cursor:default; }
 .fd-save-error { border-left:3px solid var(--clay); padding:9px 12px; margin:0 0 12px; font-size:13px; line-height:1.5; color:var(--clay); background:var(--clay-tint); }
 .fd-arrival-chapter { padding:24px 0; border-top:1px solid var(--line); display:flex; flex-direction:column; }
@@ -76,7 +76,7 @@
 .fd-rating-row { padding:13px 0; border-bottom:1px solid var(--line); }
 .fd-rating-row strong { font-size:12px; display:block; }
 .fd-rating-row small { display:block; font-size:10px; color:var(--muted2); margin-top:4px; }
-.fd-rating-options button { min-width:0; min-height:38px; border:1px solid var(--line); background:var(--paper); color:var(--muted); border-radius:50%; cursor:pointer; padding:0; font-size:10px; }
+.fd-rating-options button { min-width:0; min-height:44px; border:1px solid var(--line); background:var(--paper); color:var(--muted); border-radius:99px; cursor:pointer; padding:0; font-size:10px; }
 .fd-rating-options .is-filled { background:var(--sun); color:var(--ink0); border-color:var(--ink); }
 .fd-rating-options button[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--ink); }
 .fd-install { padding:20px; border:1px solid var(--line); }
@@ -115,7 +115,13 @@
   .fd-arrival { padding-left:16px; padding-right:16px; }
   .fd-guest-list button { padding:11px 7px; gap:5px; }
   .fd-invitation-seal { width:77px; height:77px; top:88px; right:0; }
-  .fd-rating-row, .fd-rating-labels { grid-template-columns:82px minmax(0,1fr); gap:7px; }
-  .fd-rating-options button { min-height:34px; }
+}
+/* Narrow phones: the sport name sits above its five choices so each choice
+   keeps a full 44px target. */
+@media (max-width:419px) {
+  .fd-rating-row, .fd-rating-labels { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .fd-rating-labels > span { display:none; }
+  .fd-rating-labels > div { margin:0; }
+  .fd-rating-row strong, .fd-rating-row small { display:inline; margin:0 8px 0 0; }
 }
 

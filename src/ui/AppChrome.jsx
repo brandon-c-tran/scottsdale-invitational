@@ -30,11 +30,16 @@ function NavIcon({ name }) {
   return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }
 
-export function AppNavigation({ tab, onTab }) {
+/* badges: { bets, board } carry a short reason string when something there
+   is waiting on this guest (an open market with room, a duel or pick). */
+export function AppNavigation({ tab, onTab, badges = {} }) {
   return <div className="fd-nav-wrap"><nav className="fd-nav" aria-label="Primary">
-    {[["board","Home"],["sched","Events"],["bets","Bets"],["guide","Weekend"]].map(([id,name]) =>
-      <button key={id} onClick={() => onTab(id)} aria-current={tab === id ? "page" : undefined}>
-        <span className="fd-nav-icon"><NavIcon name={id} /></span><span>{name}</span>
-      </button>)}
+    {[["board","Home"],["sched","Events"],["bets","Bets"],["guide","Weekend"]].map(([id,name]) => {
+      const badge = tab !== id && badges[id];
+      return <button key={id} onClick={() => onTab(id)} aria-current={tab === id ? "page" : undefined}
+        aria-label={badge ? `${name}, ${badge}` : undefined}>
+        <span className="fd-nav-icon"><NavIcon name={id} />{badge && <i className="fd-nav-badge" aria-hidden="true" />}</span><span>{name}</span>
+      </button>;
+    })}
   </nav></div>;
 }

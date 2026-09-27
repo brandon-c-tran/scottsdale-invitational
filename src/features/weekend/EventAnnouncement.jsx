@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AWARDS, disp, resolveCurrentContest } from "../../../shared/core.js";
+import { AWARDS, disp, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
@@ -87,7 +87,7 @@ export function DrawAnnouncement({ state, reveal, onClose, onBets, onPlayer, onB
       </section>;
     })}</div>
     {!!reveal.crew?.length && <div className={`fd-draw-crew ${complete ? "is-revealed" : "is-covered"}`} aria-hidden={!complete}>
-      {reveal.crew.map(role=><div key={role.player}>{playerButton(role.player,complete)}<span>{role.role.replaceAll("-"," ")}</span></div>)}
+      {reveal.crew.map(role=><div key={role.player}>{playerButton(role.player,complete)}<span>{overflowRoleMeta(role.role).label}</span></div>)}
     </div>}
     <div className="fd-announcement-actions">
       {onBets && <ActionButton onClick={onBets}>Place chips</ActionButton>}

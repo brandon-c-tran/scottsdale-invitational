@@ -23,13 +23,17 @@ export function PlayerPass({ state, p, display, num, photo, compact = false }) {
   const profile = state.profiles?.[p] || {};
   const name = display?.trim() || profile.display || p;
   const number = num !== undefined && num !== null && num !== "" ? Number(num) : identity.num;
-  const portrait = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
+  const saved = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
+  const [failed, setFailed] = useState(null);
+  const portrait = saved && failed !== saved ? saved : null;
   const standing = state.live ? computeStandings(state).find(row => row.player === p) : null;
   if (!p) return null;
+  /* The name shrinks to fit its longest word instead of breaking mid-word. */
+  const longest = Math.max(4, ...name.split(/\s+/).map(word => word.length));
 
   return (
     <div className={`fd-pass-wrap${compact ? " fd-pass-compact" : ""}`}
-      style={{ "--pass-color":identity.color, "--pass-ink":cardInk(identity.color) }}>
+      style={{ "--pass-color":identity.color, "--pass-ink":cardInk(identity.color), "--pass-name-chars":longest }}>
       <button type="button" className="fd-pass" onClick={() => setFlipped(value => !value)}
         aria-label={`${name}'s player card. ${flipped ? "Show front" : "Turn over"}`}
         aria-pressed={flipped}>
@@ -39,7 +43,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false }) {
             <span className="fd-pass-art">
               <span className="fd-pass-orbit" />
               <span className="fd-pass-number">{number == null ? "FD" : String(number).padStart(2, "0")}</span>
-              {portrait && <img className="fd-pass-photo" src={portrait} alt="" />}
+              {portrait && <img className="fd-pass-photo" src={portrait} alt="" onError={() => setFailed(portrait)} />}
               <span className={`fd-pass-chip${portrait ? " with-photo" : ""}`}>
                 <ChipFace p={p} size={portrait ? 78 : 112} stamp={number == null ? undefined : String(number)} />
               </span>

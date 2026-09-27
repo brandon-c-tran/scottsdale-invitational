@@ -458,7 +458,7 @@ no specific question, poll, or new endpoint has been implemented yet.
 
 The September 26 fix pass (every finding from the Sept 26 audit plus the
 Sept 7 FD list) passes 316 tests and the 138-check local e2e. It is deployed to
-staging as version `c59ef786-82d3-4c09-8f42-571d65f1102b` (build `e2c99ff`); the
+staging as version `69ef6834-4e5d-485d-9276-977255e545c1` (build `b089c73`); the
 previous staging build is tag `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for

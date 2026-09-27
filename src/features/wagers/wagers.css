@@ -121,7 +121,8 @@
 .fd-wagers-meter-bar { position:relative; height:10px; border:1px solid var(--line); border-radius:3px; background:var(--bg); }
 .fd-wagers-meter-bar > span { position:absolute; top:0; bottom:0; transition:left .2s ease,width .2s ease; }
 .fd-wagers-meter-bar .is-bets { background:var(--sun); }
-.fd-wagers-meter-bar .is-duels { background:repeating-linear-gradient(135deg,var(--sun) 0 2px,transparent 2px 5px); }
+/* duel antes: an outlined segment, set apart from bet exposure without a gradient */
+.fd-wagers-meter-bar .is-duels { background:var(--sun-tint); box-shadow:inset 0 0 0 1.5px var(--sun); }
 .fd-wagers-meter-bar .is-over { background:var(--clay); }
 .fd-wagers-meter-notch { position:absolute; top:-5px; bottom:-5px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
 .fd-wagers-meter.is-capped .fd-wagers-meter-notch { width:4px; margin-left:-2px; background:var(--sun); }

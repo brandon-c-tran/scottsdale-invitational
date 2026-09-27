@@ -97,7 +97,7 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
       return <section key={session.id} className={`fd-weekend-session fd-weekend-session-${session.id}`} aria-labelledby={`fd-session-${session.id}`}>
         <header className="fd-weekend-session-heading">
           <div><h2 id={`fd-session-${session.id}`}>{session.label}</h2></div>
-          <span className="fd-weekend-session-value">{session.tag.replace("PTS", "CHIPS")}</span>
+          <span className="fd-weekend-session-value">{session.tag}</span>
         </header>
         <ol className="fd-weekend-event-list">{eventRows(list)}</ol>
       </section>;

@@ -70,10 +70,10 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
       .then(() => onSubmit(duelId, reaction.ms, reaction.foul))
       .then(result => {
         if (result?.ok) { clearCaptured(duelId, me); setSave({ status:"saved", error:"" }); }
-        else setSave({ status:"failed", error:result?.error || "Your draw didn't save." });
+        else setSave({ status:"failed", error:result?.error || "Draw not saved." });
         return result;
       }, () => {
-        setSave({ status:"failed", error:"Your draw didn't save." });
+        setSave({ status:"failed", error:"Draw not saved." });
         return { ok:false };
       })
       .finally(() => { inFlight.current = null; });
@@ -157,11 +157,11 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
     setActionError("");
     try {
       const result = await handler(key === "rematch" ? duel : duel.id);
-      if (!result?.ok) setActionError(result?.error || "That didn't go through. Try again.");
+      if (!result?.ok) setActionError(result?.error || "Not sent. Try again.");
       else after?.(result);
       return result;
     } catch {
-      setActionError("That didn't go through. Try again.");
+      setActionError("Not sent. Try again.");
       return { ok:false };
     } finally { setBusy(null); }
   };
@@ -229,7 +229,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
       {heading(duel.open ? "Open challenge" : "Duel")}
       {faceOff}
       <p style={{ ...lineStyle, marginBottom:8 }}>
-        {duel.open ? `${view.name} will take anyone` : `${view.name} challenged you`} · {view.minutesLeft} min</p>
+        {duel.open ? `${view.name} challenged anyone` : `${view.name} challenged you`} · {view.minutesLeft} min</p>
       <div style={{ ...lineStyle, fontSize:13, color:"var(--night-text2)", marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
       {stakeLine}
       <div style={{ display:"flex", gap:10, flexWrap:"wrap", justifyContent:"center" }}>
@@ -255,7 +255,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
     if (view.phase === "withdrawn") return closeOnly("Withdrawn. No chips move.");
     if (view.phase === "declined") return closeOnly("Declined. No chips move.");
     if (view.phase === "void") return closeOnly("Voided by the commissioner. No chips move.");
-    return closeOnly(view.phase === "offered" ? "This challenge is waiting for someone else." : "This duel is not yours to play.");
+    return closeOnly(view.phase === "offered" ? "This challenge is for someone else." : "This duel is not yours to play.");
   }
 
   /* done: my reaction is captured; the verdict fills in once the other side

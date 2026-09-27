@@ -100,7 +100,7 @@ for (const [evId, order] of [
 test("only the on-clock captain or commissioner can make a pick", () => {
   const state = started(), payload = { evId:"bball", player:state.drafts.bball.pool[0], ...refs(state) };
   rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Not your pick/, guest(ROSTER[1]));
-  rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Choose your player/, guest("unknown"));
+  rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Check in first/, guest("unknown"));
   rejectsWithoutMutation(state, "pickDraftPlayer", { ...payload, player:ROSTER[0] }, /not available/i, guest(ROSTER[0]));
   act(state, "pickDraftPlayer", payload, gm());
   assert.equal(state.drafts.bball.picks.length, 1, "The host may enter a captain's spoken choice");

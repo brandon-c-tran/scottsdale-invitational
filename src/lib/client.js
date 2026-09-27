@@ -243,7 +243,7 @@ function becomeUncertain(actionId, error, certainFailure = false) {
   let settle;
   const settled = new Promise(resolve => { settle = resolve; });
   const expiry = setTimeout(() => finishUncertain(actionId,
-    { ok:false, unknown:true, error:"Couldn't confirm. Check before trying again." }), UNCERTAIN_EXPIRY_MS);
+    { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }), UNCERTAIN_EXPIRY_MS);
   /* the first hello sent from here on is answered after this action */
   uncertain.set(actionId, { settle, boot:pending.boot, probe:helloSeq + 1, expiry });
   pending.resolve({ ok:false, uncertain:true, error, actionId, settled });
@@ -265,7 +265,7 @@ function settleUncertain(msg) {
     if (applied.includes(actionId)) { finishUncertain(actionId, { ok:true, late:true }); continue; }
     if (typeof msg.hello !== "number" || msg.hello < u.probe) continue;
     finishUncertain(actionId, u.boot && msg.boot && u.boot !== msg.boot
-      ? { ok:false, unknown:true, error:"Couldn't confirm. Check before trying again." }
+      ? { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }
       : { ok:false, error:"Not saved, try again" });
   }
 }

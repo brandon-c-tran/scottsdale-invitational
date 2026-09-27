@@ -721,7 +721,7 @@ export const ACTIONS = {
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
     const exp = atRisk(state, player, events);
     const antes = duelReserve(state, player);
-    if (stake > pts - exp - antes) return err("Not enough points");
+    if (stake > pts - exp - antes) return err("Not enough chips");
     const cap = maxRisk(pts);
     if (exp + antes + stake > cap) return err(`Max ${cap} at risk`);
 
@@ -863,7 +863,7 @@ export const ACTIONS = {
     const rows = computeStandings(state);
     const mine = duelRoom(state, from, { events, rows, now });
     if (mine.capRoom < stake) return err(`Max ${mine.cap} at risk`);
-    if (mine.balanceRoom < stake) return err("Not enough points");
+    if (mine.balanceRoom < stake) return err("Not enough chips");
     /* nothing of theirs is reserved yet; this only keeps a challenge they
        could not accept from being sent. Accept checks again. */
     if (!anyone && duelRoom(state, to, { events, rows, now }).room < stake)
@@ -894,7 +894,7 @@ export const ACTIONS = {
       return err(`You already have a duel going with ${disp(state, d.from)}`);
     const room = duelRoom(state, p, { now });
     if (room.capRoom < d.stake) return err(`Max ${room.cap} at risk`);
-    if (room.balanceRoom < d.stake) return err("Not enough points");
+    if (room.balanceRoom < d.stake) return err("Not enough chips");
     d.to = p;
     d.acceptedAt = now;
     return ok({ id:d.id });
@@ -1364,7 +1364,7 @@ export const ACTIONS = {
     const events = allEventsOf(state);
     if ((state.wagers || []).some(wager => wagerMatchesContest(wager, contest)
         && resolveWager(state, wager, events).status === "pending"))
-      return err("Chips are on this match. They come off first");
+      return err("Reorder once the chips on this match come off");
     br.next = [r, m];
     const opened = openContest(state, ev);
     if (!opened.ok) return opened;
@@ -1494,7 +1494,7 @@ export const ACTIONS = {
           || ev.kind === "pairs" && size !== 2)
         return err("Bad team setup");
       if (teams * size > ROSTER.length)
-        return err(`${teams} teams of ${size} needs ${teams * size} players; ${ROSTER.length} on the roster`);
+        return err(`${teams} teams of ${size} need ${teams * size} players; ${ROSTER.length} on the roster`);
       if (ev.teamCfg.bracket !== undefined && (ev.teamCfg.bracket !== teams || !makeBracket(teams)))
         return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
       teamCfg = { teams, size, ...(ev.teamCfg.bracket !== undefined ? { bracket:teams } : {}) };
@@ -1788,7 +1788,7 @@ export const ACTIONS = {
   },
   pickDraftPlayer(state, payload, ctx) {
     const { evId, player } = payload;
-    if (!ctx.isGm && !isActivePlayer(ctx.player)) return err("Choose your player first");
+    if (!ctx.isGm && !isActivePlayer(ctx.player)) return err("Check in first");
     const command = draftCommand(ctx, "pickDraftPlayer", payload);
     const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
     const ev = allEventsOf(state).find(e => e.id === evId);
@@ -2165,7 +2165,7 @@ export const ACTIONS = {
     if (!ruling) return err("No such ruling");
     if (ruling.removedAt) return ok({ unchanged:true });
     if (ruling.reason === "Minimum stack" || (state.poker?.minimumGrantIds || []).includes(id))
-      return err("Minimum stack grants go with the poker table");
+      return err("Cancel the poker table to remove a minimum stack");
     const why = cleanCorrectionReason(reason);
     if (!why) return err("Reason required");
     const frozen = frozenGuard(state); if (frozen) return frozen;

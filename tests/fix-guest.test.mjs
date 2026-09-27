@@ -112,12 +112,12 @@ test("home keeps the room's matchup and adds the viewer's own bracket position, 
   state.brackets[pairs.id].rounds[0][0].winner = 0;
   openCurrent(state, pairs);
   assert.equal(line(state, ROSTER[6]), "You’re out · betting open");
-  assert.equal(line(state, ROSTER[0]), `You: Final vs winner of Semifinal 2 · with ${ROSTER[1]}`);
+  assert.equal(line(state, ROSTER[0]), `Next: Final vs winner of Semifinal 2 · with ${ROSTER[1]}`);
 
   const view = render(ui.GuestHome, { state, me:ROSTER[0], events:[pairs], standings:computeStandings(state),
     GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop, onProfile:noop,
     onEvents:noop, onGuide:noop, onHouse:noop });
-  assert.match(view.html, /class="fd-home-personal">You: Final vs winner of Semifinal 2/);
+  assert.match(view.html, /class="fd-home-personal">Next: Final vs winner of Semifinal 2/);
   for (const player of [ROSTER[2], ROSTER[3], ROSTER[4], ROSTER[5]])
     assert.ok(view.buttons.some(button => button.name === `View ${player}'s player card`), "The room's matchup still renders");
 });

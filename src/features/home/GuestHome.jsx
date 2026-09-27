@@ -63,15 +63,15 @@ export function personalLine({ current, state, model }) {
   if (a.status === "out") return `You’re out${bettingOpen ? " · betting open" : ""}`;
   if (a.status === "won") return `You won${partner}`;
   if (a.status === "through") return `You’re through to the final${partner}`;
-  if (a.status === "final") return `You: Final${partner}`;
+  if (a.status === "final") return `You’re in the final${partner}`;
   if (a.status === "up-now") return partner ? `You’re up${partner}` : null;
   if (a.match) {
     if (a.opponents.length) return `Next: ${round} vs ${names(state, a.opponents)}${partner}`;
-    if (a.match.feeder) return `You: ${round} vs winner of ${a.match.feeder}${partner}`;
-    return `You: ${round}${partner}`;
+    if (a.match.feeder) return `Next: ${round} vs winner of ${a.match.feeder}${partner}`;
+    return `Next: ${round}${partner}`;
   }
-  if (a.group?.name) return `You: ${a.group.name}${partner}`;
-  return partner ? `You${partner}` : null;
+  if (a.group?.name) return `You’re in ${a.group.name}${partner}`;
+  return a.partners?.length ? `With ${names(state, a.partners)}` : null;
 }
 
 function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPlayer, GameMark }) {

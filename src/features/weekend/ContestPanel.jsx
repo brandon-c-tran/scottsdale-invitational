@@ -96,7 +96,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         return <button key={`${r}:${m}`} type="button" className="fd-contest-secondary" disabled={pending || blocked || chipsIn}
           onClick={() => act(() => onPlayNext({ ...reference, match:[r, m] }))}>Play {label} next</button>;
       })}
-      {chipsIn && <p>Chips are on this match. Reordering waits until they come off.</p>}
+      {chipsIn && <p>Reorder once the chips on this match come off.</p>}
     </div>}
     {error && <div className="fd-contest-failure"><p role="alert" className="fd-contest-error">{error}</p>
       <button type="button" className="fd-contest-secondary" disabled={pending} onClick={() => act(retry.current)}>Retry</button></div>}

@@ -92,18 +92,17 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
             <p>Ties are settled on the spot, and a championship tie is one pressure putt.</p>
           </Rule>
           <Rule number="02" title="Betting" meta="One contest at a time · 100 to 1,000 per tap">
-            <p>Bet on the winner. In a tournament, it’s the current matchup. In heats, it’s the current heat.
+            <p>Only the current contest takes bets: the matchup or heat being played, or the whole event if it is free-for-all.
               {" "}Bets lock before play. The winner settles the chips, then the next contest opens.
-              {" "}Pick a chip, 100 to 1,000, and tap who you like. Tap your chip stack to take the last one back.</p>
+              {" "}Pick a chip, 100 to 1,000, and tap who you like. Tap your stack to take the last one back.</p>
             <div className="fd-weekend-odds"><div><strong>2:1</strong><span>Free-for-all winner</span></div><div><strong>1:1</strong><span>Matchup, heat<br />or final winner</span></div></div>
-            <p>A two-team game is a matchup. Playing in the matchup or heat? Back yourself or your team, or sit the bet out. No automatic bets.
-              {" "}One side per contest.</p>
-            <p>To limit the damage of one bad decision, only half your points can be at risk at a time.
-              {" "}The limit rounds down to 100s, with a minimum of 500. You can never bet more chips than you have available.</p>
+            <p>Playing in the matchup or heat? Back yourself or your team, or sit it out. One side per contest.</p>
+            <p>To limit the damage of one bad decision, only half your chips can be at risk at a time.
+              {" "}The limit rounds down to 100s and is never under 500.</p>
             <p>Bets settle off the official result, so correcting a result corrects the payouts. I can void any wager.</p>
           </Rule>
           <Rule number="03" title="Duels" meta="Quick Draw · equal ante · three a day">
-            <p>Short on points? Challenge someone. Tap anyone on the board and name the ante, or tap yourself to challenge anyone. You both put up the same once they accept. Duels open when the weekend goes live.</p>
+            <p>Short on chips? Challenge someone. Tap anyone on the board and name the ante, or tap yourself to challenge anyone. You both put up the same once they accept. Duels open when the weekend goes live.</p>
             <p>Once accepted, you each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it.
               {" "}Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips.</p>
             <p>One challenge per pair, three a day. An unanswered challenge lapses after 10 minutes. Unplayed duels are void when the finale is dealt.</p>

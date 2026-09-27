@@ -43,7 +43,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   const myTurn = !!turn?.captain && turn.captain === me;
   const canPick = !!turn && !turn.complete && (gm || myTurn) && !blocked;
   const submit = async (name, action, after) => {
-    if (saving.current) return { ok:false, error:"A draft action is still saving." };
+    if (saving.current) return { ok:false, error:"Still saving." };
     saving.current = true; setPending(name); setError("");
     try {
       const result = await action();
@@ -137,8 +137,8 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
         <small>{turn.complete ? `${draft.teams.length} teams · ${size} players each` : `Round ${turn.round} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`}</small>
         <h2>{turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`}</h2>
         <p>{turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm."
-          : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player below."
-            : "Follow the picks here."}</p>
+          : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player."
+            : "Only captains pick."}</p>
       </div>
       <span className="fd-draft-turn-chip" key={`${draft.id}:${turn.captain || "done"}`} aria-hidden="true">
         <BankChip p={turn.captain || draft.teams[0].captain} size={64}/>
@@ -162,7 +162,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       <PlayerLink state={state} player={last.player} onPlayer={onPlayer} disabled={!!pending}/>
       <span>→ {disp(state,draft.teams[last.team].captain)}</span>
     </div>}
-    {blocked && <p className="fd-draft-error" role="status">Draft paused while the board is locked.</p>}
+    {blocked && <p className="fd-draft-error" role="status">Draft paused.</p>}
     {error && <p className="fd-draft-error" role="alert">{error}</p>}
     <div className={`fd-draft-body${turn.complete ? " is-complete" : ""}`}>
     {!turn.complete && <section className="fd-draft-available" aria-label="Available players">

@@ -258,7 +258,7 @@ test("custom 2, 3 and 4 team events floor their size, put the remainder on crew,
     assert.equal(state.draws[id].roles.length, 13 - teams * size);
     assert.equal(state.onDeck, id);
   }
-  refuse(fresh(), "addEvent", { ev:{ id:"big", name:"Too big", value:400, kind:"team", teamCfg:{ teams:4, size:4 } } }, /needs 16/);
+  refuse(fresh(), "addEvent", { ev:{ id:"big", name:"Too big", value:400, kind:"team", teamCfg:{ teams:4, size:4 } } }, /need 16 players/);
   /* a custom event that looks like poker is still a normal event */
   const state = fresh(["cash"]);
   act(state, "addEvent", { ev:{ id:"cash", name:"Cash game", value:400, kind:"solo", game:"poker", finale:true } });
@@ -308,7 +308,7 @@ test("preparing or announcing another event never hijacks one being played", () 
   const html = phone({ player }).render(state);
   assert.match(html, /Record Play-in · Match 1 winner/);
   assert.match(html, / vs /);
-  assert.match(html, /You are in this match\./);
+  assert.match(html, /You’re playing/);
   /* an explicit override is still possible */
   const forced = structuredClone(state);
   act(forced, "announceEvent", { evId:"putt", force:true });
@@ -329,7 +329,7 @@ test("Play Match N next moves the one open market to another seated matchup whil
   assert.equal(state.onDeck, "8ball");
   assert.deepEqual(bracketOrder(state.brackets["8ball"])[0], [0, 1]);
   act(state, "placeWager", { wager:chip(state, "8ball", moved.sides[0].key) }, guest("Jeremy"));
-  refuse(state, "playContestNext", { evId:"8ball", ...refs(moved), match:[0, 0] }, /Chips are on this match/);
+  refuse(state, "playContestNext", { evId:"8ball", ...refs(moved), match:[0, 0] }, /Reorder once the chips on this match come off/);
   act(state, "lockAndStart", { evId:"8ball", ...refs(moved) });
   act(state, "recordContestWinner", { evId:"8ball", ...refs(current(state, "8ball")), winner:moved.sides[0].key });
   assert.equal(state.brackets["8ball"].next, undefined);

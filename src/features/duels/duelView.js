@@ -35,7 +35,7 @@ export function duelView(state, duel, me, now = Date.now()) {
   if (offer) status = sender
     ? duel.open ? `Open to anyone · ${left} min` : `Waiting for ${name} to accept · ${left} min`
     : duel.open ? `Open challenge · ${left} min` : "Challenged you";
-  else if (live) status = myRun ? "Waiting for their turn"
+  else if (live) status = myRun ? `Waiting for ${name} to draw`
     : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you"
       : otherDrew ? `${name} has drawn` : "Your turn";
   return { phase, sender, recipient, other, name, myRun, otherDrew, takeable,

@@ -268,7 +268,7 @@ test("frozen, completed, shelved and poker-locked boards disable draft mutations
     state => { state.shelved.volley = true; }, state => { state.poker = { id:"poker" }; }]) {
     const { state, ev } = fixture(); block(state);
     const view = controls(state, ev);
-    assert.match(view.html, /Draft paused while the board is locked/);
+    assert.match(view.html, /Draft paused\./);
     assert.ok(view.buttons.filter(button => button.name.startsWith("Draft ")).every(button => button.disabled));
     assert.equal(view.named("Undo last pick").disabled, true);
     assert.equal(view.named("Cancel draft").disabled, true);

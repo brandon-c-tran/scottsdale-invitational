@@ -97,7 +97,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
   const intro = step === -1 ? "Add it to your home screen for live scores, draws, and bets all weekend."
     : ["Pick your name to unlock the trip details and give me the additional information I’ll need for logistics. It’ll only take ~2 minutes.",
-      `${ROSTER.length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board. Win events and land bets to collect points all weekend, then your points become your chips at the poker finale. Whoever wins the poker table is the Field Day champion.`,
+      `${ROSTER.length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board. Win events and land bets to collect chips all weekend, then play them at the poker finale. Whoever wins the poker table is the Field Day champion.`,
       `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
       "",
       "",
@@ -145,8 +145,8 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
           {step === 1 && <>
             <div className="fd-starting-stack"><span className="fd-eyebrow">EVERYONE STARTS AT</span><strong>1,000<span>CHIPS</span></strong></div>
             <div className="fd-weekend-rules">
-              {[["01", "Collect points", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
-                ["02", "Betting", "Every event can be bet on. Only half your points can be at risk at one time."],
+              {[["01", "Collect chips", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
+                ["02", "Betting", "Every event can be bet on. Only half your chips can be at risk at one time."],
                 ["03", "Duels", "Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot."],
                 ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]].map(([n, name, body]) =>
                 <div key={n}><span>{n}</span><div><h2>{name}</h2><p>{body}</p></div></div>)}

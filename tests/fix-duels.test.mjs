@@ -104,7 +104,7 @@ test("accept checks the recipient's cap and balance at that moment", () => {
   assert.ok(result);
   s.duels = s.duels.filter(d => d.id !== "legacy");
   s.adjustments.push({ id:"poor", player:khoa, delta:-800, reason:"test", ts:1 });
-  fail(s, "acceptDuel", { id }, guest(khoa), /Not enough points/);
+  fail(s, "acceptDuel", { id }, guest(khoa), /Not enough chips/);
   s.adjustments = [];
   act(s, "acceptDuel", { id }, guest(khoa));
 });

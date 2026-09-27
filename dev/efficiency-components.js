@@ -527,7 +527,7 @@ function resolveCurrentContest(state, ev) {
     phase = "in-progress";
   else if (state.onDeck === ev.id) phase = "betting-open";
   else phase = op.bettingLockedAt ? "betting-locked" : "scheduled";
-  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock & start") : phase === "betting-locked" ? lifecycleAction("start-event", "Start") : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result") : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting") : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result") : lifecycleAction("record-contest-winner", "Record winner");
+  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock bets and start") : phase === "betting-locked" ? lifecycleAction("start-event", "Start") : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result") : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting") : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result") : lifecycleAction("record-contest-winner", "Record winner");
   return {
     ...target,
     eventId: ev.id,
@@ -744,10 +744,10 @@ var init_core = __esm({
       { v: 4, label: "Elite" }
     ];
     SESSIONS = [
-      { id: "fri", label: "Friday Night", tag: "400 PTS" },
-      { id: "sam", label: "Saturday Morning", tag: "800 PTS" },
-      { id: "sap", label: "Saturday Afternoon", tag: "1200 PTS" },
-      { id: "san", label: "Saturday Night", tag: "1600 PTS" },
+      { id: "fri", label: "Friday Night", tag: "400 CHIPS" },
+      { id: "sam", label: "Saturday Morning", tag: "800 CHIPS" },
+      { id: "sap", label: "Saturday Afternoon", tag: "1200 CHIPS" },
+      { id: "san", label: "Saturday Night", tag: "1600 CHIPS" },
       { id: "fin", label: "The Finale", tag: "POKER" }
     ];
     RAW_BUILTIN_EVENTS = [
@@ -968,7 +968,7 @@ var init_core = __esm({
         kind: "solo",
         finale: true,
         game: "poker",
-        desc: "Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings."
+        desc: "Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings."
       }
     ];
     OVERFLOW_ROLES = ["referee", "scorekeeper", "photographer", "on-deck", "sit-out"];
@@ -1129,8 +1129,8 @@ var init_core = __esm({
       poker: { name: "Poker", howto: {
         players: "Everyone, one table",
         gear: ["Cards", "Chips", "The clock"],
-        objective: "Finish with the biggest stack. Your chips are your stack.",
-        steps: ["Your weekend chips are dealt to you from the starting stacks sheet.", "No-limit hold'em. Blinds rise on the clock, shown on the TV.", "Bust and you are out.", "When the last level ends, count your stack.", "Final chip counts are the final standings."],
+        objective: "Finish with the biggest stack.",
+        steps: ["Whatever you have Saturday night is the stack you start the finale with.", "No-limit hold'em. Blinds rise on the clock, shown on the TV.", "Bust and you are out.", "When the last level ends, count your stack.", "Final chip counts are the final standings."],
         win: "Chip leader takes the championship. Elimination order settles the busts.",
         house: "No wagers, duels, or rulings while cards are live."
       } },
@@ -3310,7 +3310,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
   const title = step === -1 ? "Take Field Day with you" : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
   const intro = step === -1 ? "Add it to your home screen for live scores, draws, and bets all weekend." : [
     "Pick your name to unlock the trip details and give me the additional information I\u2019ll need for logistics. It\u2019ll only take ~2 minutes.",
-    `${ROSTER.length} players, ${allEventsOf(state).filter((e) => !e.finale).length} events, one board. Win events and land bets to collect points all weekend, then your points become your chips at the poker finale. Whoever wins the poker table is the Field Day champion.`,
+    `${ROSTER.length} players, ${allEventsOf(state).filter((e) => !e.finale).length} events, one board. Win events and land bets to collect chips all weekend, then play them at the poker finale. Whoever wins the poker table is the Field Day champion.`,
     `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
     "",
     "",
@@ -3330,8 +3330,8 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     next();
   };
   return /* @__PURE__ */ React29.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React29.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React29.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React29.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React29.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React29.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React29.createElement(InvitationArt, null) : /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React29.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React29.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React29.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React29.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React29.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React29.createElement("p", null, intro)), /* @__PURE__ */ React29.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React29.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React29.createElement(InstallHint, null), /* @__PURE__ */ React29.createElement("p", null, "Open it from your home screen to finish your two-minute check-in.")), step === 0 && /* @__PURE__ */ React29.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React29.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React29.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React29.createElement("span", null, p), /* @__PURE__ */ React29.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React29.createElement(React29.Fragment, null, /* @__PURE__ */ React29.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React29.createElement("strong", null, "1,000", /* @__PURE__ */ React29.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React29.createElement("div", { className: "fd-weekend-rules" }, [
-    ["01", "Collect points", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
-    ["02", "Betting", "Every event can be bet on. Only half your points can be at risk at one time."],
+    ["01", "Collect chips", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
+    ["02", "Betting", "Every event can be bet on. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
   ].map(([n, name, body]) => /* @__PURE__ */ React29.createElement("div", { key: n }, /* @__PURE__ */ React29.createElement("span", null, n), /* @__PURE__ */ React29.createElement("div", null, /* @__PURE__ */ React29.createElement("h2", null, name), /* @__PURE__ */ React29.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React29.createElement(TravelMap, null), /* @__PURE__ */ React29.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React29.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React29.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React29.createElement(React29.Fragment, null, /* @__PURE__ */ React29.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React29.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React29.createElement("h2", null, "Information I need"), /* @__PURE__ */ React29.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React29.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React29.createElement(
@@ -3702,7 +3702,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       label2,
       " next"
     );
-  }), chipsIn && /* @__PURE__ */ React5.createElement("p", null, "Chips are on this match. Reordering waits until they come off.")), error && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => act(retry.current) }, "Retry")), pending && running && !isFfa && /* @__PURE__ */ React5.createElement("p", { className: "fd-contest-saving", role: "status" }, "Saving result\u2026"));
+  }), chipsIn && /* @__PURE__ */ React5.createElement("p", null, "Reorder once the chips on this match come off.")), error && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => act(retry.current) }, "Retry")), pending && running && !isFfa && /* @__PURE__ */ React5.createElement("p", { className: "fd-contest-saving", role: "status" }, "Saving result\u2026"));
 }
 function ContestPanel(props) {
   const { state, ev, gm, onResult, onUndo } = props;
@@ -4056,7 +4056,7 @@ function DraftSheet({
   const myTurn = !!turn?.captain && turn.captain === me;
   const canPick = !!turn && !turn.complete && (gm || myTurn) && !blocked;
   const submit = async (name, action, after) => {
-    if (saving.current) return { ok: false, error: "A draft action is still saving." };
+    if (saving.current) return { ok: false, error: "Still saving." };
     saving.current = true;
     setPending(name);
     setError("");
@@ -4182,7 +4182,7 @@ function DraftSheet({
       "aria-label": "Current pick",
       style: identityStyle(state, turn.captain || draft.teams[0].captain)
     },
-    /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React8.createElement("small", null, turn.complete ? `${draft.teams.length} teams \xB7 ${size} players each` : `Round ${turn.round} \xB7 Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`), /* @__PURE__ */ React8.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React8.createElement("p", null, turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm." : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player below." : "Follow the picks here.")),
+    /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React8.createElement("small", null, turn.complete ? `${draft.teams.length} teams \xB7 ${size} players each` : `Round ${turn.round} \xB7 Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`), /* @__PURE__ */ React8.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React8.createElement("p", null, turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm." : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player." : "Only captains pick.")),
     /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React8.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
     /* @__PURE__ */ React8.createElement(
       "div",
@@ -4196,7 +4196,7 @@ function DraftSheet({
       },
       /* @__PURE__ */ React8.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
     )
-  ), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React8.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order" }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React8.createElement("li", { key: pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React8.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React8.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React8.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React8.createElement("span", null, "\u2192 ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused while the board is locked."), error && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React8.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React8.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h3", null, canPick ? "Make your pick" : "Available"), /* @__PURE__ */ React8.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-pool" }, draft.pool.map((player) => /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-candidate", key: player, style: identityStyle(state, player) }, /* @__PURE__ */ React8.createElement(
+  ), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React8.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order" }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React8.createElement("li", { key: pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React8.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React8.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React8.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React8.createElement("span", null, "\u2192 ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React8.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React8.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h3", null, canPick ? "Make your pick" : "Available"), /* @__PURE__ */ React8.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-pool" }, draft.pool.map((player) => /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-candidate", key: player, style: identityStyle(state, player) }, /* @__PURE__ */ React8.createElement(
     "button",
     {
       type: "button",
@@ -4319,7 +4319,7 @@ function duelView(state, duel, me, now = Date.now()) {
   const left = offer ? minutesLeft(duel, now) : null;
   let status = "";
   if (offer) status = sender ? duel.open ? `Open to anyone \xB7 ${left} min` : `Waiting for ${name} to accept \xB7 ${left} min` : duel.open ? `Open challenge \xB7 ${left} min` : "Challenged you";
-  else if (live) status = myRun ? "Waiting for their turn" : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you" : otherDrew ? `${name} has drawn` : "Your turn";
+  else if (live) status = myRun ? `Waiting for ${name} to draw` : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you" : otherDrew ? `${name} has drawn` : "Your turn";
   return {
     phase,
     sender,
@@ -5181,7 +5181,7 @@ init_InstallHint();
 // src/features/tv/TVMode.jsx
 import React25, { useEffect as useEffect12, useMemo as useMemo3, useRef as useRef12, useState as useState19 } from "react";
 
-// node_modules/qrcode-generator/dist/qrcode.mjs
+// ../../../node_modules/qrcode-generator/dist/qrcode.mjs
 var qrcode = function(typeNumber, errorCorrectionLevel) {
   const PAD0 = 236;
   const PAD1 = 17;
@@ -7031,7 +7031,7 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
       fontSize: big ? 15 : 11,
       letterSpacing: "0.16em",
       textTransform: "uppercase"
-    } }, "On deck", session ? ` \xB7 ${session.label}` : "", ev.value ? ` \xB7 ${ev.value} pts` : "")),
+    } }, "On deck", session ? ` \xB7 ${session.label}` : "", ev.value ? ` \xB7 ${fmt5(ev.value)} chips` : "")),
     /* @__PURE__ */ React30.createElement("div", { style: { margin: big ? "18px 0 2px" : "10px 0 0" } }, /* @__PURE__ */ React30.createElement(EventSpotlight, { gameId: ev.game, big })),
     /* @__PURE__ */ React30.createElement("div", { style: {
       fontFamily: DISPLAY,
@@ -7989,7 +7989,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React30.createElement(Sheet, { title: ev.name, subtitle: "Tournament", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React30.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React30.createElement(
     ContestPanel,
     {
       state,

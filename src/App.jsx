@@ -684,7 +684,7 @@ function TournamentApp({ tournament }) {
       if (view.phase === "offered" && view.recipient)
         msg = `Quick Draw: ${disp(state, d.from)} challenged you · ${fmt(d.stake)}`;
       else if (view.phase === "offered" && view.takeable)
-        msg = `Quick Draw · ${fmt(d.stake)} · open ${view.minutesLeft} min`;
+        msg = `Quick Draw: ${disp(state, d.from)} challenged anyone · ${fmt(d.stake)}`;
       else if (view.phase === "live" && !d.consent && view.recipient && !view.myRun) {
         msg = `Quick Draw: ${disp(state, d.from)} challenged you`;
         action = "Play";
@@ -1384,7 +1384,7 @@ function TournamentApp({ tournament }) {
       const contest = resolveCurrentContest(state, ev);
       if (!contest || contest.kind === "ffa") return null;
       const sides = contest.sides.map(side => side.players.map(p => disp(state, p)).join(" & ")).join(" vs ");
-      return contest.players.includes(me) ? `${sides} · You are in this match.` : sides;
+      return contest.players.includes(me) ? `${sides} · You’re playing` : sides;
     })() : null;
     const secondary = director.secondary?.type === "skip-event" && ev
       ? { label:"Skip", run:() => setModal({ type:"skipEvent", ev }) } : null;
@@ -1826,7 +1826,7 @@ function TournamentApp({ tournament }) {
       )}
       {gmView && modal?.type === "skipEvent" && (
         <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}>
-          <p style={pStyle}>Shelves {modal.ev.name}. Open chips on it go back. Restore it from its event sheet.</p>
+          <p style={pStyle}>Shelves {modal.ev.name}. Open bets on it are returned. Restore it from its event sheet.</p>
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
@@ -1847,7 +1847,7 @@ function TournamentApp({ tournament }) {
       )}
       {gmView && modal?.type === "attendance" && (
         <Sheet title="Who is here" onClose={() => setModal(null)} onBack={modalBack}>
-          <p style={pStyle}>Away players sit out new draws, contests and poker seats. Chips and profiles stay.</p>
+          <p style={pStyle}>Away players sit out new draws, contests, and the poker table. Their chips stay.</p>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8 }}>
             {ROSTER.map(p => {
               const away = !!state.away?.[p];
@@ -1875,7 +1875,7 @@ function TournamentApp({ tournament }) {
             const names = leaders.map(row => disp(state, row.player));
             return <><b style={{color:"var(--accent2)"}}>{names.length > 1
               ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]}</b>{names.length > 1 ? " as co-champions" : ""}</>;
-          })()} at {fmt(standings[0]?.pts)} points. All betting closes.</p>
+          })()} at {fmt(standings[0]?.pts)} chips. All betting closes.</p>
           {!state.results[events.find(e => e.finale)?.id] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={() => { setFrozen(true); setModal(null); setTab("board"); }}>Freeze the board</Btn>
@@ -1947,7 +1947,7 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
         <span style={{ width:7, height:7, borderRadius:99, background:ph.bg }} />
         <span style={{ fontFamily:SANS, fontWeight:700, fontSize:big ? 15 : 11,
           letterSpacing:"0.16em", textTransform:"uppercase" }}>
-          On deck{session ? ` · ${session.label}` : ""}{ev.value ? ` · ${ev.value} pts` : ""}
+          On deck{session ? ` · ${session.label}` : ""}{ev.value ? ` · ${fmt(ev.value)} chips` : ""}
         </span>
       </div>
       <div style={{ margin:big ? "18px 0 2px" : "10px 0 0" }}>
@@ -1997,7 +1997,7 @@ function LoadingScreen() {
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, letterSpacing:"0.04em",
           textTransform:"uppercase", color:"var(--ink)" }}>Opening Field Day</div>
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:5 }}>
-          Loading the latest weekend details…</div>
+          Connecting…</div>
       </div>
     </div>
   );
@@ -3165,7 +3165,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state,ev);
   const active = contest && ["betting-open","betting-locked","in-progress","awaiting-result"].includes(contest.phase);
-  return <Sheet title={ev.name} subtitle="Tournament" onClose={onClose} onBack={onBack} busy={pending} wide>
+  return <Sheet title={ev.name} subtitle="Bracket" onClose={onClose} onBack={onBack} busy={pending} wide>
     <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
       onLock={reference=>waitFor(()=>onLock(reference))}
       onWinner={result=>waitFor(()=>onWinner(result))}
@@ -4114,7 +4114,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
             {device.player ? <Avatar state={state} p={device.player} size={30} /> : <FDMark size={30} variant="night" />}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-                {device.legacy ? "Earlier unlock, shared" : device.player ? disp(state, device.player) : "Unclaimed phone"}
+                {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unclaimed phone"}
                 {device.current ? " · this device" : ""}</div>
               {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
                 Unlocked {new Date(device.createdAt).toLocaleString("en-US", { weekday:"short", hour:"numeric", minute:"2-digit" })}</div>}

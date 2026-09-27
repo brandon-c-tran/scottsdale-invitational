@@ -75,10 +75,10 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"400 PTS" },
-  { id:"sam", label:"Saturday Morning",   tag:"800 PTS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"1200 PTS" },
-  { id:"san", label:"Saturday Night",     tag:"1600 PTS" },
+  { id:"fri", label:"Friday Night",       tag:"400 CHIPS" },
+  { id:"sam", label:"Saturday Morning",   tag:"800 CHIPS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"1200 CHIPS" },
+  { id:"san", label:"Saturday Night",     tag:"1600 CHIPS" },
   { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
@@ -140,7 +140,7 @@ const RAW_BUILTIN_EVENTS = [
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
   { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
-    desc:"Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
+    desc:"Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
 const OVERFLOW_ROLES = ["referee", "scorekeeper", "photographer", "on-deck", "sit-out"];
@@ -254,8 +254,8 @@ const GAMES = {
     steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it. Last player standing wins."],
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
-    objective:"Finish with the biggest stack. Your chips are your stack.",
-    steps:["Your weekend chips are dealt to you from the starting stacks sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
+    objective:"Finish with the biggest stack.",
+    steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
     win:"Chip leader takes the championship. Elimination order settles the busts.",
     house:"No wagers, duels, or rulings while cards are live." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
@@ -1303,7 +1303,7 @@ function resolveCurrentContest(state, ev) {
     phase = "in-progress";
   else if (state.onDeck === ev.id) phase = "betting-open";
   else phase = op.bettingLockedAt ? "betting-locked" : "scheduled";
-  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock & start")
+  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock bets and start")
     : phase === "betting-locked" ? lifecycleAction("start-event", "Start")
       : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result")
         : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting")

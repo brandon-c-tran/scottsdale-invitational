@@ -101,7 +101,7 @@ test("decline stays until the recipient runs and waiting players cannot replay",
   assert.doesNotMatch(started.html, /180/);
   const waiting = controls({ ...fresh(), duels:[duel({ runs:{ [me]:{ ms:180 } } })] });
   assert.ok(!waiting.buttons.some(button => button.name.startsWith("Play")));
-  assert.match(waiting.html, /Waiting for their turn/);
+  assert.match(waiting.html, /Waiting for [^<]+ to draw/);
 });
 
 test("all duel targets remain at least 44px high including the three-action commissioner state", async () => {

@@ -6,7 +6,7 @@
 import {
   ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, PT, MAX_RISK, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, draftTurn, resolveSlot, OUTRIGHT_MULT,
-  DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels,
+  DUEL_STAKE, DUEL_GAMES, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClockAnchor,
   validateEventParticipants, normalizeOverflowRoles,
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution,
@@ -16,6 +16,7 @@ import {
   SHOW_TERMINAL_OUTCOMES,
   createShowScene,
   finishShowScene,
+  retireFinishedShowScene,
   showDefinition,
   validateShowSceneRequest,
 } from "../shared/show.js";
@@ -76,6 +77,18 @@ const tryStartScene = (state, ctx, request, now = Date.now()) => {
     revision,
   });
   return control.active;
+};
+/* Official preparation and start writes retire a scene that is already on
+   its last step. Presentation only: never an error, never a tournament fact. */
+const SCENE_RETIRING_ACTIONS = new Set([
+  "runDraw", "clearDraw", "runStages", "clearStages",
+  "startDraft", "pickDraftPlayer", "undoDraftPick", "finalizeDraft", "cancelDraft",
+  "announceAndDraw", "lockAndStart", "startEvent", "pokerSetup", "pokerStart",
+]);
+const retireSceneAfter = (state, ctx, type) => {
+  if (!ctx?.showControl || !SCENE_RETIRING_ACTIONS.has(type)) return null;
+  if (!state.showControl?.active) return null;
+  return retireFinishedShowScene(showControlOf(state));
 };
 const eventOp = (state, evId) => {
   state.eventOps = state.eventOps || {};
@@ -150,7 +163,7 @@ const rememberWagerOp = (state, requestKey, record) => {
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
   "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
-  "pokerSetup", "pokerStart", "pokerLevel", "pokerBust", "pokerUnbust",
+  "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament",
 ]);
@@ -1535,7 +1548,13 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     if (!state.poker) return err("Set up the table first");
     if (state.poker.startedAt) return ok({ unchanged:true });
-    state.poker.startedAt = Date.now();
+    const now = Date.now();
+    state.poker.startedAt = now;
+    /* the level owns its clock: a nudge or pause rewrites these, never startedAt */
+    state.poker.levelIdx = 0;
+    state.poker.levelStartedAt = now;
+    state.poker.pausedAt = null;
+    state.poker.clockAt = now;
     state.onDeck = null;
     return ok();
   },
@@ -1543,8 +1562,38 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const pk = state.poker;
     if (!pk?.startedAt) return err("Clock is not running");
+    if (state.results[pk.id]) return err("Counts are posted");
+    const now = Date.now();
     const d = delta > 0 ? 1 : -1;
-    pk.levelOffset = Math.max(-(pk.levels.length - 1), Math.min(pk.levels.length - 1, (pk.levelOffset || 0) + d));
+    const { idx } = pokerClockAnchor(pk, now);
+    /* a nudged level starts fresh; a paused clock stays paused at its full time */
+    pk.levelIdx = Math.max(0, Math.min(pk.levels.length - 1, idx + d));
+    pk.levelStartedAt = now;
+    if (pk.pausedAt) pk.pausedAt = now;
+    pk.levelOffset = 0;
+    pk.clockAt = now;
+    return ok({ level:pk.levelIdx });
+  },
+  pokerPause(state, { paused }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const pk = state.poker;
+    if (!pk?.startedAt) return err("Clock is not running");
+    if (state.results[pk.id]) return err("Counts are posted");
+    const now = Date.now();
+    const want = paused === true;
+    if (want === !!pk.pausedAt) return ok({ unchanged:true });
+    if (!Number.isInteger(pk.levelIdx) || !Number.isFinite(pk.levelStartedAt)) {
+      const anchor = pokerClockAnchor(pk, now);
+      pk.levelIdx = anchor.idx;
+      pk.levelStartedAt = anchor.levelStartedAt;
+      pk.levelOffset = 0;
+    }
+    if (want) pk.pausedAt = now;
+    else {
+      pk.levelStartedAt += now - pk.pausedAt;
+      pk.pausedAt = null;
+    }
+    pk.clockAt = now;
     return ok();
   },
   /* busting is self-serve: you tap out on your own phone. GM can do anyone. */
@@ -1737,6 +1786,7 @@ export function applyAction(state, type, payload, ctx) {
     return err("Cancel the poker table before changing the board");
   try {
     const result = handler(state, payload || {}, ctx);
+    if (result.ok && !result.extra?.unchanged) retireSceneAfter(state, ctx, type);
     // Opening the first game includes its betting window. Setup alone does
     // not begin the weekend, and rejected actions never change its status.
     if (result.ok && !state.live && (WEEKEND_START_ACTIONS.has(type)

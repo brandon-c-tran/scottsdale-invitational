@@ -120,6 +120,20 @@ function finishShowScene(control, outcome, now = Date.now()) {
   return entry;
 }
 
+/* A scene that has already reached its last step has said everything it
+   has to say. The next official preparation or start write (a draw, stage,
+   draft, or the start of play) retires it as completed, so a leftover
+   standings card can never sit on top of the next team reveal. Earlier
+   steps are left alone: those still owe the host a Continue. */
+function sceneAtLastStep(active) {
+  const definition = showDefinition(active?.kind);
+  return !!definition && Number(active.step) >= definition.steps.length - 1;
+}
+function retireFinishedShowScene(control, now = Date.now()) {
+  if (!control?.active || !sceneAtLastStep(control.active)) return null;
+  return finishShowScene(control, "completed", now);
+}
+
 function resolveShowScene(state, events = []) {
   const active = state.showControl?.active;
   if (!active || typeof active !== "object") return null;
@@ -265,6 +279,8 @@ export {
   validateShowSceneRequest,
   createShowScene,
   finishShowScene,
+  sceneAtLastStep,
+  retireFinishedShowScene,
   resolveShowScene,
   resolveDirector,
 };

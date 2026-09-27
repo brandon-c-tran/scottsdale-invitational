@@ -22,6 +22,9 @@ import { ProfileEditor } from "./features/profile/ProfileEditor.jsx";
 import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
 import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
+import { TVMode } from "./features/tv/TVMode.jsx";
+import { nextOpenMatch, cueCandidates, cuePlayingUntil, tvSceneView } from "./features/tv/tvModel.js";
+import { serverNow, useServerClockSync } from "./features/tv/serverClock.js";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import qrcode from "qrcode-generator";
 import {
@@ -43,7 +46,7 @@ import {
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
   spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect,
-  spotifyPlay, spotifyPause,
+  spotifyPlay, spotifyPause, spotifyDevice,
 } from "./lib/client.js";
 
 import { Shell } from "./ui/Shell.jsx";
@@ -81,85 +84,6 @@ const ArtStar = () => (
   </svg>
 );
 
-/* ─────────── the prize ───────────
-   An actually-turned trophy: every part is a real solid of revolution built
-   from a ring of facets (rotateY out to the radius, tilted to the profile's
-   slant), with back faces culled so you only ever see the near half. Flat
-   facet tones come from color-mix on the palette, no gradient, no glow. */
-function trophyRing({ key, topR, botR, h, yTop, n, hue, lo = 0.72 }) {
-  const slant = Math.hypot(h, topR - botR);
-  const tilt = Math.atan2(topR - botR, h) * 180 / Math.PI;
-  const wTop = 2 * topR * Math.tan(Math.PI / n) + 0.6;
-  const wBot = 2 * botR * Math.tan(Math.PI / n) + 0.6;
-  const w = Math.max(wTop, wBot);
-  const rMid = (topR + botR) / 2;
-  const inset = t => 50 - 50 * (t / w);
-  return Array.from({ length: n }, (_, i) => {
-    /* facets are shaded by their own angle: a fixed tone band around the ring
-       that sweeps as the piece turns, so the facet edges read as volume */
-    const mix = Math.round(100 - (100 - lo * 100) * (1 - Math.cos(i * 2 * Math.PI / n)) / 2);
-    return (
-      <div key={`${key}${i}`} style={{
-        position:"absolute", left:"50%", top:0, width:w, height:slant, marginLeft:-w / 2,
-        backgroundColor:`var(${hue})`,
-        background:`color-mix(in srgb, var(${hue}) ${mix}%, var(--ink0))`,
-        backfaceVisibility:"hidden",
-        clipPath:`polygon(${inset(wTop)}% 0%, ${100 - inset(wTop)}% 0%, ${100 - inset(wBot)}% 100%, ${inset(wBot)}% 100%)`,
-        transform:`translateY(${yTop + h / 2 - slant / 2}px) rotateY(${i * 360 / n}deg) `
-          + `translateZ(${rMid}px) rotateX(${-tilt}deg)`,
-      }} />
-    );
-  });
-}
-function TrophyHero({ size = 190, plate = "FIELD DAY" }) {
-  const S = size;
-  const cupTop = 0.27 * S, cupBot = 0.115 * S;
-  const parts = [
-    /* rim, bowl, neck, stem, collar, plinth, block */
-    { key:"rim",  topR:0.285 * S, botR:0.275 * S, h:0.045 * S, yTop:0.04 * S, n:20, hue:"--sun", lo:0.8 },
-    { key:"cup",  topR:cupTop,    botR:cupBot,    h:0.29 * S,  yTop:0.085 * S, n:20, hue:"--sun" },
-    { key:"neck", topR:cupBot,    botR:0.045 * S, h:0.045 * S, yTop:0.375 * S, n:16, hue:"--sun", lo:0.62 },
-    { key:"stem", topR:0.042 * S, botR:0.042 * S, h:0.115 * S, yTop:0.42 * S,  n:14, hue:"--sun", lo:0.6 },
-    { key:"coll", topR:0.05 * S,  botR:0.15 * S,  h:0.05 * S,  yTop:0.535 * S, n:18, hue:"--sun", lo:0.68 },
-    { key:"base", topR:0.16 * S,  botR:0.16 * S,  h:0.045 * S, yTop:0.585 * S, n:20, hue:"--sun", lo:0.7 },
-    { key:"blk",  topR:0.185 * S, botR:0.185 * S, h:0.1 * S,   yTop:0.63 * S,  n:22, hue:"--accent", lo:0.66 },
-  ];
-  return (
-    <div style={{ width:S, height:S * 0.82, perspective:5.5 * S, flexShrink:0 }} aria-hidden="true">
-      <div data-trophy style={{ position:"relative", width:"100%", height:"100%", transformStyle:"preserve-3d",
-        transform:"rotateX(-8deg)", animation:"si-trophy 16s linear infinite" }}>
-        {parts.map(p => trophyRing(p))}
-        {/* the mouth of the cup, so you look into it rather than through it.
-            transform-origin is the element centre, so translate by half its
-            own height to land the disc exactly on the rim */}
-        <div style={{ position:"absolute", left:"50%", top:0, width:0.55 * S, height:0.55 * S,
-          marginLeft:-0.275 * S, borderRadius:"50%", backgroundColor:"var(--ink0)",
-          transform:`translateY(${0.045 * S - 0.275 * S}px) rotateX(90deg)` }} />
-        {/* handles are flat ribbons in one plane, exactly like the real thing:
-            broad from the front, edge-on from the side */}
-        {[1, -1].map(dir => (
-          <svg key={dir} width={S} height={S * 0.82} viewBox="0 0 100 82"
-            style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
-              fill="none" stroke="var(--ink0)" strokeWidth="6.4" strokeLinecap="round"/>
-            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
-              fill="none" stroke="var(--sun)" strokeWidth="3.4" strokeLinecap="round"/>
-          </svg>
-        ))}
-        {/* engraved on both faces so the name never comes around mirrored */}
-        {[0, 180].map(deg => (
-          <div key={deg} style={{ position:"absolute", left:"50%", top:0, width:0.3 * S, height:0.1 * S,
-            marginLeft:-0.15 * S, display:"flex", alignItems:"center", justifyContent:"center",
-            backfaceVisibility:"hidden", fontFamily:DISPLAY, fontWeight:700, fontSize:0.052 * S,
-            letterSpacing:"0.06em", color:"var(--bone)", whiteSpace:"nowrap",
-            transform:`translateY(${0.63 * S}px) rotateY(${deg}deg) translateZ(${0.187 * S}px)` }}>
-            {plate}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ─────────── everyone flies in ───────────
    Stylized US, positions from real longitude/latitude, every route drawing
    itself into Scottsdale and a chip running the line behind it. */
@@ -169,14 +93,15 @@ function TrophyHero({ size = 190, plate = "FIELD DAY" }) {
 
 
 
+const CONFETTI_COLORS = ["var(--accent2)","var(--accent)","var(--sun)","var(--bone)","var(--olive)"];
+/* pieces are drawn once per burst: a re-render mid-fall must not reshuffle them */
 function Confetti({ burst }) {
-  if (!burst) return null;
-  const colors = ["var(--accent2)","var(--accent)","var(--sun)","var(--bone)","var(--olive)"];
-  const pieces = Array.from({length:90}, (_,i) => ({
+  const pieces = useMemo(() => burst ? Array.from({length:90}, (_,i) => ({
     left: Math.random()*100, delay: Math.random()*0.5, dur: 2.4 + Math.random()*1.6,
-    color: colors[i % colors.length], size: 5 + Math.random()*8, rot: Math.random()*360,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length], size: 5 + Math.random()*8, rot: Math.random()*360,
     drift: (Math.random()-0.5)*180,
-  }));
+  })) : [], [burst]);
+  if (!burst) return null;
   return (
     <div key={burst} style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:400,overflow:"hidden"}}>
       {pieces.map((p,i) => (
@@ -190,30 +115,69 @@ function Confetti({ burst }) {
 
 
 /* The audio cue is a chip beside the pill, never a wire into a scene:
-   playback happens only on this explicit tap, and its failure is a toast,
-   not a scene problem. One chip per relevant player covers ties and teams. */
-function CueChip({ state, player, track, notify }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <button disabled={busy} aria-busy={busy || undefined}
-      onClick={async () => {
-        if (busy) return;
-        setBusy(true);
-        const result = await spotifyPlay({ uri:track.uri, positionMs:track.startMs || 0 });
-        setBusy(false);
-        if (result.ok) notify(`${disp(state, player)} cue playing`, null, "gold", player);
-        else notify(result.error || "Playback failed");
-      }}
-      style={{ display:"flex", alignItems:"center", gap:7, background:"var(--night)",
-        border:"1px solid var(--sun)", color:"var(--sun)", borderRadius:99,
-        padding:"8px 14px", cursor:busy ? "default" : "pointer", opacity:busy ? 0.6 : 1,
+   playback happens only on an explicit tap, and its failure is a toast,
+   not a scene problem. One chip per relevant player covers ties and teams.
+   While a cue sounds its chip becomes Stop. */
+/* survives the rack unmounting under a sheet, so Stop is still there after */
+const cueMemory = { playing:null, reconnect:false };
+function CueRack({ state, cues, notify, onAudio }) {
+  const [busy, setBusy] = useState("");
+  const [playing, setPlayingState] = useState(() =>
+    cueMemory.playing && cueMemory.playing.until > Date.now() ? cueMemory.playing : null);
+  const [reconnect, setReconnectState] = useState(cueMemory.reconnect);
+  const setPlaying = value => { cueMemory.playing = value; setPlayingState(value); };
+  const setReconnect = value => { cueMemory.reconnect = value; setReconnectState(value); };
+  useEffect(() => {
+    if (!playing) return undefined;
+    const t = setTimeout(() => setPlaying(null), Math.max(0, playing.until - Date.now()));
+    return () => clearTimeout(t);
+  }, [playing]);
+  const failed = (result, fallback) => {
+    if (result.code === "reauthorize") setReconnect(true);
+    notify(result.error || fallback);
+  };
+  const play = async item => {
+    if (busy) return;
+    setBusy(item.player);
+    const result = await spotifyPlay({ uri:item.track.uri, positionMs:item.track.startMs || 0 });
+    setBusy("");
+    if (result.ok) {
+      setReconnect(false);
+      setPlaying({ player:item.player, until:cuePlayingUntil(item.track, Date.now()) });
+      notify(`${disp(state, item.player)} cue playing`, null, "gold", item.player);
+    } else failed(result, "Playback failed");
+  };
+  const stop = async () => {
+    if (busy) return;
+    setBusy("stop");
+    const result = await spotifyPause();
+    setBusy("");
+    if (result.ok) setPlaying(null);
+    else failed(result, "Could not stop playback");
+  };
+  const chip = (key, { onClick, active = false, pending = false, glyph, text }) => (
+    <button key={key} type="button" disabled={!!busy} aria-busy={pending || undefined} onClick={onClick}
+      style={{ display:"flex", alignItems:"center", gap:7, minHeight:44, background:active ? "var(--sun)" : "var(--night)",
+        border:"1px solid var(--sun)", color:active ? "var(--ink0)" : "var(--sun)", borderRadius:99,
+        padding:"8px 14px", cursor:busy ? "default" : "pointer", opacity:busy && !pending ? 0.6 : 1,
         boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
-      <span aria-hidden="true" style={{ fontSize:13 }}>♪</span>
+      <span aria-hidden="true" style={{ fontSize:13 }}>{glyph}</span>
       <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, whiteSpace:"nowrap",
-        overflow:"hidden", textOverflow:"ellipsis" }}>
-        Play {disp(state, player)}&#39;s walkout</span>
+        overflow:"hidden", textOverflow:"ellipsis" }}>{text}</span>
     </button>
   );
+  if (reconnect) return chip("reconnect", { onClick:() => { setReconnect(false); onAudio?.(); },
+    glyph:"♪", text:"Reconnect Spotify in Audio Director" });
+  return cues.map(item => {
+    const sounding = playing?.player === item.player;
+    return chip(item.player, {
+      onClick:() => sounding ? stop() : play(item),
+      active:sounding,
+      pending:busy === item.player || (sounding && busy === "stop"),
+      glyph:sounding ? "■" : "♪",
+      text:`${sounding ? "Stop" : "Play"} ${disp(state, item.player)}'s walkout`,
+    });
+  });
 }
 
 /* A one-item final row should read as the end of a deliberate roster, not as
@@ -245,7 +209,7 @@ function Wordmark({ size=28 }) {
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:size*1.25, lineHeight:0.92,
           letterSpacing:"0.015em", textTransform:"uppercase", color:"var(--ink)" }}>Field Day</div>
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize:Math.max(9.5, size*0.34),
-          letterSpacing:"0.12em", color:"var(--accent2)", marginTop:3 }}>SCOTTSDALE · 2026</div>
+          letterSpacing:"0.12em", color:"var(--accent2)", marginTop:3, textTransform:"uppercase" }}>{EDITION.label}</div>
       </div>
     </div>
   );
@@ -298,6 +262,7 @@ export default function App() {
 
 function TournamentApp({ tournament }) {
   const { state, connected, ready, version, lastAction, environment, capabilities } = tournament;
+  useServerClockSync(tournament);
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
     : firstOnboardStep());
@@ -363,6 +328,17 @@ function TournamentApp({ tournament }) {
     () => showControlAllowed ? resolveShowScene(state, events) : null,
     [showControlAllowed, state, events],
   );
+  /* the TV's view of the active scene moves on its own (intro overlay, idle
+     fallback), so re-evaluate at its next boundary without a server write */
+  const [sceneTick, setSceneTick] = useState(0);
+  const tvSceneMode = useMemo(() => tv && activeShowScene ? tvSceneView(activeShowScene, serverNow()) : null,
+    [tv, activeShowScene, sceneTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!tvSceneMode?.until) return undefined;
+    const t = setTimeout(() => setSceneTick(n => n + 1), Math.max(50, tvSceneMode.until - serverNow() + 50));
+    return () => clearTimeout(t);
+  }, [tvSceneMode?.until]);
+  const tvCeremonyHold = !!tvSceneMode?.covers;
   const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
@@ -531,7 +507,8 @@ function TournamentApp({ tournament }) {
     && !(simRef.current.running && simRef.current.fast);
   useEffect(() => { if (intro) introAt.current = Date.now(); }, [intro]);
   useEffect(() => {
-    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready || announcementQueued) return;
+    if (seenReveals === null || (!tv && onboardStep < 99) || reveal || !ready || announcementQueued
+      || tvCeremonyHold) return;
     /* fast-forward sims should not stack reveal ceremonies; mark them seen silently */
     if (simRef.current.running && simRef.current.fast) {
       const ids = [...Object.values(state.draws || {}), ...Object.values(state.stages || {})]
@@ -564,7 +541,7 @@ function TournamentApp({ tournament }) {
       return () => clearTimeout(t);
     }
     setReveal(next);
-  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued]); // eslint-disable-line
+  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued, tvCeremonyHold]); // eslint-disable-line
   const rememberReveal = useCallback(id => {
     if (!id) return;
     setSeenReveals(prev => {
@@ -578,14 +555,15 @@ function TournamentApp({ tournament }) {
     if (reveal) rememberReveal(reveal.id);
     setReveal(null);
   }, [reveal, rememberReveal]);
-  /* While a directed scene owns the TV, legacy ceremonies are marked SEEN,
-     not merely unmounted, so a stale intro or reveal cannot pop the moment
-     the scene ends. Phones keep playing the legacy chain. */
+  /* While a directed scene covers the TV, legacy ceremonies WAIT: a reveal
+     that lands mid-scene is neither shown nor marked seen, and plays as soon
+     as the scene ends or hands the TV back. The event-intro scene is itself
+     the intro, so the legacy intro for that same event is dropped. Phones
+     keep playing the legacy chain. */
   useEffect(() => {
-    if (!tv || !activeShowScene) return;
-    if (reveal) closeReveal();
-    if (intro) setIntro(null);
-  }, [tv, activeShowScene, reveal, intro, closeReveal]);
+    if (!tv || !intro || tvSceneMode?.mode !== "intro-overlay") return;
+    if (tvSceneMode.eventId === intro) setIntro(null);
+  }, [tv, intro, tvSceneMode?.mode, tvSceneMode?.eventId]);
   /* Clearing or redrawing an event retires the visual for the old draw
      immediately; a replacement ID can then begin a fresh ceremony. */
   useEffect(() => {
@@ -658,7 +636,7 @@ function TournamentApp({ tournament }) {
     const iv = setInterval(() => {
       const s = stateRef.current;
       if (!pokerLive(s)) return;
-      const clk = pokerClock(s.poker, Date.now());
+      const clk = pokerClock(s.poker, serverNow());
       if (prevPokerLevel.current !== null && clk.idx > prevPokerLevel.current && onboardStep >= 99)
         notify(`Blinds up: ${fmt(clk.sb)} / ${fmt(clk.bb)}`, null, "gold");
       prevPokerLevel.current = clk.idx;
@@ -765,6 +743,7 @@ function TournamentApp({ tournament }) {
   const pokerSetup = () => act("pokerSetup", {});
   const pokerStart = () => act("pokerStart", {}, "Cards are live");
   const pokerLevelNudge = delta => act("pokerLevel", { delta });
+  const pokerPause = paused => act("pokerPause", { paused }, paused ? "Clock paused" : "Clock running");
   const pokerBust = player => act("pokerBust", { player });
   const pokerUnbust = player => act("pokerUnbust", { player });
   const pokerResult = () => act("pokerResult", {}, "Counts posted");
@@ -1281,14 +1260,16 @@ function TournamentApp({ tournament }) {
       <Shell tv environment={environment}>
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
+          rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
+          EventSpotlight={EventSpotlight} phaseOf={phaseOf}
           onExit={() => setTv(false)} />
-        {!activeShowScene && intro && (() => {
+        {!tvCeremonyHold && intro && (() => {
           const iev = events.find(e => e.id === intro);
           return iev && !state.results[iev.id]
             ? <EventIntro state={state} ev={iev} big auto handoff={introHasQueuedReveal}
                 onClose={() => setIntro(null)} /> : null;
         })()}
-        {!activeShowScene && reveal &&
+        {!tvCeremonyHold && reveal &&
           <Reveal key={reveal.id} state={state} reveal={reveal} big auto onClose={closeReveal} />}
         <Confetti burst={burst} />
       </Shell>
@@ -1341,7 +1322,7 @@ function TournamentApp({ tournament }) {
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
-                onLevel={pokerLevelNudge} onBust={pokerBust} onUnbust={pokerUnbust}
+                onLevel={pokerLevelNudge} onPause={pokerPause} onBust={pokerBust} onUnbust={pokerUnbust}
                 onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />} />}
         {tab === "sched" && <Schedule GameMark={GameMark} EventCrewCard={EventCrewCard} state={state} events={events} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
@@ -1362,11 +1343,9 @@ function TournamentApp({ tournament }) {
       </main>
 
       {(() => {
-        const cueTracks = gmView && audioDirectorAllowed && activeShowScene
-          && !activeShowScene.staleReason
-          && ["winner", "champion"].includes(activeShowScene.active?.kind)
-          ? (activeShowScene.players || [])
-              .map(player => ({ player, track:state.profiles?.[player]?.walkoutTrack }))
+        const cueTracks = gmView && audioDirectorAllowed
+          ? cueCandidates(state, events, { scene:activeShowScene, operationEvent:director.event, now:serverNow() })
+              .players.map(player => ({ player, track:state.profiles?.[player]?.walkoutTrack }))
               .filter(item => item.track)
           : [];
         if ((!gmNext && !cueTracks.length) || modal) return null;
@@ -1375,10 +1354,13 @@ function TournamentApp({ tournament }) {
             bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
               : tab === "bets" && me && onDeckEv && !state.frozen ? 232 : 84}px + env(safe-area-inset-bottom))`,
             display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-            {cueTracks.map(item => (
-              <CueChip key={item.player} state={state} player={item.player}
-                track={item.track} notify={notify} />
-            ))}
+            {!!cueTracks.length && (
+              <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-end", gap:8,
+                maxWidth:"78vw", maxHeight:"40vh", overflowY:"auto" }}>
+                <CueRack state={state} cues={cueTracks} notify={notify}
+                  onAudio={() => setModal({type:"audioDirector"})} />
+              </div>
+            )}
             {gmNext && (
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 {gmNext.skip && (
@@ -1882,14 +1864,14 @@ const mmss = ms => {
   const t = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
-function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onBust, onUnbust, onCount, onReview }) {
+function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onPause, onBust, onUnbust, onCount, onReview }) {
   const pk = state.poker;
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => serverNow());
   const [confirmOut, setConfirmOut] = useState(false);
   const [counting, setCounting] = useState(false);
   useEffect(() => {
     if (!pk?.startedAt) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(serverNow()), 1000);
     return () => clearInterval(t);
   }, [pk?.startedAt]);
   useEffect(() => { if (!confirmOut) return; const t = setTimeout(() => setConfirmOut(false), 4000); return () => clearTimeout(t); }, [confirmOut]);
@@ -1952,9 +1934,9 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         <div style={{ textAlign:"right" }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
             color: clk.msLeft < 60000 && !clk.last ? "var(--live2)" : "var(--sun)" }}>
-            {clk.last && clk.msLeft === 0 ? "LAST" : mmss(clk.msLeft)}</div>
+            {clk.paused ? mmss(clk.msLeft) : clk.final ? "LAST" : mmss(clk.msLeft)}</div>
           <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--night-text2)", marginTop:3 }}>
-            {clk.last && clk.msLeft === 0 ? "count them down" : "to the next level"}</div>
+            {clk.paused ? "paused" : clk.final ? "count them down" : "to the next level"}</div>
         </div>
       </div>
 
@@ -2030,6 +2012,10 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
             background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>−</button>
           <button onClick={() => onLevel(1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
             background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>+</button>
+          {onPause && <button onClick={() => onPause(!clk.paused)} style={{ minHeight:30, padding:"0 12px",
+            borderRadius:10, cursor:"pointer", background:"transparent", border:"1.5px solid var(--ghost-line)",
+            color:BONE, fontFamily:SANS, fontWeight:700, fontSize:11.5, textTransform:"uppercase" }}>
+            {clk.paused ? "Resume clock" : "Pause clock"}</button>}
           <span style={{ flex:1 }} />
           {!counted.length && (
             <button onClick={onReview} style={{ background:"none", border:"none", color:"var(--night-text)",
@@ -2213,36 +2199,6 @@ function resultImpact(state, events, latest, standings) {
    result beats the next event; betting-open already lives in the header. */
 
 
-
-function ChampionCard({ state, champion, coChamps, big }) {
-  return (
-    <div style={{ padding: big ? "48px 30px" : "26px 18px", textAlign:"center", marginBottom:16,
-      position:"relative", overflow:"hidden", borderRadius:14,
-      background:"radial-gradient(110% 80% at 50% 0%, var(--sun-tint) 0%, transparent 55%), var(--night)",
-      border:"1.5px solid var(--ink)" }}>
-      <div style={{ display:"flex", justifyContent:"center",
-        margin:big ? "-24px 0 -10px" : "-14px 0 -4px" }}>
-        <TrophyHero size={big ? 250 : 164} plate="FIELD DAY" />
-      </div>
-      <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14 }}>
-        {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={big ? 110 : 64}
-          style={{ border:"2.5px solid var(--sun)" }} />)}
-      </div>
-      <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
-        textTransform:"uppercase", background:"var(--sun)", color:"var(--night)",
-        fontSize: big ? 19 : 12.5, padding: big ? "5px 22px" : "3px 14px", borderRadius:6 }}>Champion</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", textTransform:"uppercase",
-        fontSize: big ? 104 : 46, lineHeight:0.95, margin:"10px 0 6px", color:"var(--sun)" }}>
-        {coChamps.map(c => disp(state, c.player)).join(" & ")}
-      </div>
-      <div style={{ fontFamily:SANS, fontWeight:600, color:"var(--night-text)", fontSize: big ? 19 : 13 }}>
-        {fmt(champion.pts)} points
-      </div>
-      {coChamps.length > 1 && <div style={{ fontFamily:SANS, marginTop:8, color:"var(--night-text)", fontSize: big ? 16 : 12.5 }}>
-        Tied. One pressure putt decides it.</div>}
-    </div>
-  );
-}
 
 /* ─────────── slate ─────────── */
 /* phase colors: each session of the weekend gets its own band */
@@ -2874,18 +2830,6 @@ function AddEventSheet({ state, onClose, save }) {
 }
 
 /* ─────────── bracket ─────────── */
-/* the next fully-seated, undecided matchup in bracket order: what plays now */
-function nextOpenMatch(br) {
-  if (!br) return null;
-  const names = ROUND_NAMES[br.size] || [];
-  for (let r = 0; r < br.rounds.length; r++) for (let m = 0; m < br.rounds[r].length; m++) {
-    const match = br.rounds[r][m];
-    if (match.winner !== null && match.winner !== undefined) continue;
-    const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
-    if (a !== null && b !== null) return { r, m, a, b, roundName: names[r] || "Match" };
-  }
-  return null;
-}
 function BracketGrid({ state, ev, gm, onPick, onPlayer, size="md", bet, hot }) {
   const br = state.brackets[ev.id];
   const draw = state.draws[ev.id];
@@ -3507,8 +3451,8 @@ const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
 /* ─────────── wagers ─────────── */
 
 
-/* rack denominations: 10 is the chip quantum, the bigger chips keep taps
-   quick as stacks grow. Anything unaffordable sits gray in the rack */
+/* rack denominations live in features/wagers (RACK_DENOMS): 100 is the chip
+   quantum (PT) and the bigger chips keep taps quick as stacks grow. */
 
 
 /* New wagers are aggregated by the server. This compatibility merge keeps
@@ -4237,8 +4181,17 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
     setPlayer(result);
     const devices = result.devices || [];
     setDeviceId(current => devices.some(device => device.id === current)
-      ? current : (devices.find(device => device.active) || devices[0])?.id || "");
+      ? current : (devices.find(device => device.active) || devices[0])?.id || current || "");
   }, []);
+  /* the chosen speaker is saved on the server and every cue is sent to it */
+  const chooseDevice = async id => {
+    setDeviceId(id);
+    if (!id) return;
+    const name = (player?.devices || []).find(device => device.id === id)?.name || "";
+    const result = await spotifyDevice({ deviceId:id, name });
+    if (!result.ok) setError(result.error || "Could not save the speaker");
+    else setStatus(current => current ? { ...current, device:result.device } : current);
+  };
 
   useEffect(() => {
     let active = true;
@@ -4246,6 +4199,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
       const result = await spotifyStatus();
       if (!active) return;
       setStatus(result);
+      if (result.device?.id) setDeviceId(result.device.id);
       if (!result.ok) setError(result.error || "Could not read Spotify setup");
       else if (result.connected) refreshPlayer();
     })();
@@ -4338,15 +4292,16 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
         </div>
       ) : !status.connected ? (
         <div>
-          <Tag tone="gold">Ready to authorize</Tag>
+          <Tag tone="gold">{status.reconnect ? "Reconnect needed" : "Ready to authorize"}</Tag>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
             textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
-            One commissioner session</div>
+            {status.reconnect ? "Reconnect Spotify" : "One commissioner session"}</div>
           <div style={{ ...pStyle, marginBottom:14 }}>
             Spotify will ask for playback access. Use the Premium account that will control
             the weekend speaker.</div>
           <Btn onClick={connect} disabled={!!busy}
-            style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…" : "Connect Spotify"}</Btn>
+            style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…"
+              : status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</Btn>
           <div style={{ ...label, margin:"18px 0 6px" }}>Registered callback</div>
           <div style={{ fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
             fontSize:10.5, overflowWrap:"anywhere", color:"var(--muted)" }}>{status.redirectUri}</div>
@@ -4361,8 +4316,10 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
                 color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis",
                 whiteSpace:"nowrap" }}>{status.account?.displayName || "Spotify"}</div>
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)" }}>
-                {status.account?.product || "account"}</div>
+              <div style={{ fontFamily:SANS, fontSize:11.5,
+                color:status.premium === false ? "var(--clay)" : "var(--muted)" }}>
+                {status.premium === false ? `${status.account?.product || "Free"} account · playback needs Premium`
+                  : status.account?.product || "account"}</div>
             </div>
             <Btn kind="danger" disabled={!!busy} onClick={disconnect}
               style={{ minHeight:38, padding:"8px 9px", fontSize:10.5 }}>Disconnect</Btn>
@@ -4370,12 +4327,13 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
 
           <div style={{ ...label, marginBottom:6 }}>Playback device</div>
           <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-            <select value={deviceId} onChange={event => setDeviceId(event.target.value)}
+            <select value={deviceId} onChange={event => chooseDevice(event.target.value)}
               aria-label="Spotify playback device"
               style={{ flex:1, minWidth:0, height:44, border:"1.5px solid var(--line)",
                 borderRadius:10, padding:"0 10px", background:"var(--paper2)", color:"var(--ink)",
                 fontFamily:SANS, fontWeight:600 }}>
-              {!(player?.devices || []).length && <option value="">No devices found</option>}
+              {!(player?.devices || []).length && <option value={deviceId}>
+                {status.device?.name || (deviceId ? "Saved speaker" : "No devices found")}</option>}
               {(player?.devices || []).map(device => (
                 <option key={device.id} value={device.id} disabled={device.restricted}>
                   {device.name}{device.active ? " · active" : ""}{device.restricted ? " · unavailable" : ""}
@@ -4523,832 +4481,6 @@ function Reveal({ state, reveal, big, auto, onClose, onBets, onPlayer }) {
       )}
       {!doneAll && !auto && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
         border:"none", color:"var(--night-text)", fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>skip</button>}
-    </div>
-  );
-}
-
-/* ─────────── TV mode ─────────── */
-/* one point as a poker chip in the player's claimed color and skin;
-   empty renders the open table spot it could fill */
-
-/* A chip pile gets one fixed well. More bettors increase the badge, never the
-   width or height of the market pill carrying it. */
-
-/* The TV follows the current contest even before a chip lands. */
-function TVBettingBoard({ state, events, ev }) {
-  const contest = resolveCurrentContest(state, ev);
-  if (!contest) return null;
-  const open = (state.wagers || []).filter(w => wagerMatchesContest(w,contest) && resolveWager(state,w,events).status === "pending");
-  const betting = contest.phase === "betting-open";
-  const keyOf = w => contest.kind === "match" ? w.teamIdx : contest.kind === "ffa"
-    ? (w.pickTeam ? contest.sides.find(side => side.players.length === w.pickPlayers?.length && side.players.every(p=>w.pickPlayers.includes(p)))?.key : w.pick) : w.pickKey;
-  return <div style={{display:"flex",flexDirection:"column",gap:18,height:"100%"}}>
-    <div style={{fontFamily:DISPLAY,fontWeight:700,fontSize:"clamp(22px,2.5vw,36px)",color:"var(--sun)"}}>{contest.label}</div>
-    <div style={{display:"grid",gridTemplateColumns:contest.sides.length === 2 ? "1fr 1fr" : "repeat(auto-fit,minmax(220px,1fr))",gap:14,alignContent:"start",flex:1,overflowY:"auto"}}>
-      {contest.sides.map(side=>{
-        const bets = open.filter(w=>keyOf(w) === side.key);
-        return <div key={String(side.key)} style={{padding:20,border:"1px solid var(--ghost-line)",borderRadius:14,background:"var(--night2)",minWidth:0}}>
-          <AvatarStack state={state} players={side.players} size={48} max={4}/>
-          <div style={{fontFamily:DISPLAY,fontSize:"clamp(22px,2.3vw,34px)",color:BONE,margin:"12px 0",overflowWrap:"anywhere"}}>{side.players.map(p=>disp(state,p)).join(" & ")}</div>
-          <BetChipCluster chips={bets.map(w=>({p:w.player,val:w.stake}))} size={42} max={5}/>
-          <div style={{fontFamily:SANS,fontSize:15,color:"var(--sun)",marginTop:10}}>{fmt(bets.reduce((n,w)=>n+w.stake,0))} in chips</div>
-        </div>;
-      })}
-    </div>
-    <div style={{fontFamily:SANS,fontSize:18,color:"var(--night-text)"}}>{betting ? "Betting open" : "Bets locked"} · Winner pays {contest.kind === "ffa" ? "2 to 1" : "1 to 1"}</div>
-  </div>;
-}
-
-/* the betting board: one cell per live pick, bets sit on it as chip stacks */
-function BetsBoard({ state, events, ev, big }) {
-  const open = (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) }))
-    .filter(x => x.r.status === "pending" && x.w.eventId === ev.id);
-  const cells = new Map();
-  open.forEach(x => {
-    const w = x.w;
-    const k = w.kind === "outright" ? "o:" + (w.pickTeam ? (w.pickPlayers || []).join("+") : w.pick)
-      : w.kind === "match" ? `m:${w.match?.join("-")}:${w.teamIdx}` : `s:${w.final ? "F" : w.group}:${w.pickKey}`;
-    if (!cells.has(k)) {
-      const l = wagerPickLabel(state, w, events);
-      cells.set(k, { name: l.pick, bets: [] });
-    }
-    cells.get(k).bets.push({ player: w.player, stake: w.stake });
-  });
-  const list = [...cells.values()];
-  if (!list.length) return (
-    <div style={{ fontFamily:SANS, fontSize: big ? "clamp(16px,1.8vw,24px)" : 15, color:"var(--night-text)",
-      textAlign:"center", padding:"30px 0" }}>Betting is open. No bets in yet.</div>
-  );
-  const chip = big ? 42 : 34;
-  const cellWidth = big ? 270 : 210;
-  const cellHeight = big ? 108 : 94;
-  return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:14,
-      justifyContent: big ? "center" : "flex-start", alignItems:"stretch" }}>
-      {list.map((cell, i) => {
-        const total = cell.bets.reduce((s, b) => s + b.stake, 0);
-        return (
-          <div key={i} style={{ background:CARD_BG, border:"1.5px solid var(--ink)",
-            borderRadius:14, padding:"10px 14px 12px", width:cellWidth, height:cellHeight,
-            boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:12, marginBottom:8, minWidth:0 }}>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(16px,1.6vw,22px)" : 16,
-                textTransform:"uppercase", color:"var(--ink)", whiteSpace:"nowrap", flex:1, minWidth:0,
-                overflow:"hidden", textOverflow:"ellipsis" }}>{cell.name}</span>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(15px,1.5vw,20px)" : 15,
-                color:"var(--sun)", flexShrink:0 }}>{fmt(total)}</span>
-            </div>
-            {/* The well stays one line tall. Overflow moves into the badge. */}
-            <div style={{ marginTop:"auto" }}>
-              <BetChipCluster chips={cell.bets.map(b => ({ p:b.player, val:b.stake }))}
-                size={chip} max={big ? 5 : 4} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-/* compact standings rail for live scenes */
-function TVMiniBoard({ state, standings, allTied }) {
-  return (
-    <div style={{ width:320, flexShrink:0, background:CARD_BG, border:"1px solid var(--line)",
-      borderRadius:14, overflow:"hidden", alignSelf:"flex-start" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.06em",
-        textTransform:"uppercase", background:"var(--paper2)", color:"var(--muted2)",
-        padding:"6px 14px", borderBottom:"1px solid var(--line)" }}>Standings</div>
-      {standings.map((r, i) => (
-        <div key={r.player} style={{ display:"flex", alignItems:"center", gap:10,
-          padding:"clamp(3px,0.55vh,7px) 14px", borderTop: i > 0 ? "1px solid var(--line)" : "none",
-          background: i === 0 && !allTied ? "var(--sun)" : "transparent" }}>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, width:20, textAlign:"center",
-            color: i === 0 && !allTied ? "var(--ink0)" : "var(--muted)" }}>{allTied ? "·" : r.rank}</span>
-          <Avatar state={state} p={r.player} size={24} />
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, flex:1, minWidth:0,
-            color: i === 0 && !allTied ? "var(--ink0)" : "var(--ink)",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
-          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19,
-            color: i === 0 && !allTied ? "var(--ink0)" : "var(--ink)" }}>{fmt(r.pts)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* the poker finale on the big screen: buy-in sheet until the cards go live,
-   then the blind clock with the board rail */
-function TVPoker({ state, standings }) {
-  const pk = state.poker;
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!pk?.startedAt) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [pk?.startedAt]);
-  if (!pk) return null;
-  if (!pk.startedAt) {
-    return (
-      <div key="scene-buyin" style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
-        padding:"6px 48px 16px", animation:"si-fade .6s ease-out" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:16 }}>
-          <GameMark id="poker" size={72} />
-          <div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(12px,1.1vw,16px)", letterSpacing:"0.07em",
-              color:"var(--night-text)", textTransform:"uppercase" }}>Championship Poker · buy-in</div>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-              textTransform:"uppercase", color:BONE }}>Your points are your chips.</div>
-          </div>
-          <div style={{ marginLeft:"auto", textAlign:"right" }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,3vw,48px)", color:"var(--sun)" }}>{fmt(pk.total)}</div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1vw,14px)", letterSpacing:"0.1em",
-              color:"var(--night-text2)", textTransform:"uppercase" }}>chips in play</div>
-          </div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, flex:1, minHeight:0,
-          alignContent:"start" }}>
-          {standings.map(r => {
-            const d = pokerDenoms(r.pts);
-            return (
-              <div key={r.player} style={{ display:"flex", alignItems:"center", gap:12, background:CARD_BG,
-                border:"1px solid var(--line)", borderRadius:14, padding:"10px 16px" }}>
-                <Avatar state={state} p={r.player} size={40} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.4vw,19px)", color:"var(--ink)",
-                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</div>
-                  <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.1vw,14px)", color:"var(--muted)" }}>
-                    {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</div>
-                </div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(22px,2.2vw,34px)", color:"var(--sun)" }}>{fmt(r.pts)}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-  const clk = pokerClock(pk, now);
-  const outSet = new Set(pk.outs.map(o => o.player));
-  return (
-    <div key="scene-poker" style={{ flex:1, display:"flex", gap:26, padding:"6px 44px 16px",
-      minHeight:0, animation:"si-fade .6s ease-out" }}>
-      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", alignItems:"center",
-        justifyContent:"center", gap:6 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <GameMark id="poker" size={54} />
-          <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.2vw,17px)", letterSpacing:"0.14em",
-            color:"var(--night-text)", textTransform:"uppercase" }}>Level {clk.idx + 1} of {pk.levels.length}</span>
-        </div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(80px,10vw,170px)", lineHeight:0.95,
-          color:BONE }}>{fmt(clk.sb)} / {fmt(clk.bb)}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.2vw,17px)", letterSpacing:"0.16em",
-          color:"var(--night-text2)", textTransform:"uppercase" }}>Blinds</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,96px)", lineHeight:1,
-          color: clk.last && clk.msLeft === 0 ? "var(--live2)" : clk.msLeft < 60000 ? "var(--live2)" : "var(--sun)",
-          marginTop:8 }}>{clk.last && clk.msLeft === 0 ? "LAST LEVEL" : mmss(clk.msLeft)}</div>
-        {pk.outs.length > 0 && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:18 }}>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(11px,1vw,14px)", letterSpacing:"0.1em",
-              color:"var(--night-text2)", textTransform:"uppercase" }}>Out</span>
-            {pk.outs.map(o => (
-              <span key={o.player} style={{ opacity:0.4, filter:"grayscale(1)" }}>
-                <Avatar state={state} p={o.player} size={34} /></span>
-            ))}
-          </div>
-        )}
-      </div>
-      <TVMiniBoard state={state} standings={standings.map(r => outSet.has(r.player) ? { ...r } : r)} allTied={false} />
-    </div>
-  );
-}
-
-/* the draft, broadcast style: on-the-clock captain up top, pick stamps slam in,
-   team columns fill live, the remaining pool waits at the bottom */
-function TVDraft({ state, ev, d }) {
-  const T = d.teams.length;
-  const poolEmpty = d.pool.length === 0;
-  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
-  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
-  const last = d.picks[d.picks.length - 1];
-  const round = Math.floor(d.picks.length / T) + 1;
-  return (
-    <div key="scene-draft" style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
-      padding:"6px 48px 16px", animation:"si-fade .6s ease-out" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:26, marginBottom:16 }}>
-        {poolEmpty ? (
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)",
-            textTransform:"uppercase", color:"var(--sun)" }}>Draft complete</div>
-        ) : (
-          <div style={{ display:"flex", alignItems:"center", gap:18 }}>
-            <span style={{ borderRadius:"50%", animation:"si-glow 2s infinite" }}>
-              <Avatar state={state} p={cur} size={84} ring />
-            </span>
-            <div>
-              <div style={{ ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"var(--night-text)" }}>{ev.name} draft</div>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3vw,48px)", lineHeight:1.05,
-                textTransform:"uppercase", color:BONE }}>{disp(state, cur)} is on the clock</div>
-              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.2vw,17px)", color:"var(--night-text)", marginTop:2 }}>
-                Round {round}, pick {d.picks.length + 1}</div>
-            </div>
-          </div>
-        )}
-        {last && (
-          <div key={d.picks.length} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
-            background:CARD_BG, border:"2px solid var(--ink)", borderRadius:14, padding:"12px 20px",
-            animation:"si-flag .55s ease-out both" }}>
-            <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)" }}>Pick {d.picks.length}</span>
-            <Avatar state={state} p={last.player} size={46} />
-            <div>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(19px,1.9vw,28px)", lineHeight:1,
-                textTransform:"uppercase", color:"var(--ink)" }}>{disp(state, last.player)}</div>
-              <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(12px,1.1vw,15px)", color:"var(--muted2)" }}>
-                to {disp(state, d.teams[last.team].captain)}</div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:`repeat(${T},1fr)`, gap:16, flex:1, minHeight:0 }}>
-        {d.teams.map((t, i) => (
-          <div key={i} style={{ background:CARD_BG, borderRadius:14, padding:"13px 15px", overflowY:"auto",
-            border: i === onClock ? "2px solid var(--sun)" : "1px solid var(--line)",
-            animation: i === onClock ? "si-glow 2s infinite" : "none" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:9, marginBottom:9,
-              borderBottom:"1.5px solid var(--ink)" }}>
-              <Avatar state={state} p={t.captain} size={34} />
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,1.6vw,24px)",
-                textTransform:"uppercase", color:"var(--ink)", flex:1, overflow:"hidden",
-                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
-              <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
-                color:"var(--muted)" }}>{t.players.length}</span>
-            </div>
-            {t.players.map(p => (
-              <div key={p} style={{ display:"flex", alignItems:"center", gap:10, padding:"5px 0",
-                animation:"si-in .3s ease-out both" }}>
-                <Avatar state={state} p={p} size={30} />
-                <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(13px,1.3vw,18px)",
-                  color:"var(--ink)" }}>{disp(state, p)}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-      {!poolEmpty && (
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:14 }}>
-          <span style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)", flexShrink:0 }}>
-            Still available</span>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            {d.pool.map(p => <Avatar key={p} state={state} p={p} size={38} />)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TVDirectedStandings({ state, standings, title = "Standings" }) {
-  return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
-      padding:"14px 7vw 26px", animation:"si-fade .45s ease-out" }}>
-      <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(12px,1.2vw,17px)",
-        textAlign:"center", marginBottom:4 }}>Field Day</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,92px)",
-        textTransform:"uppercase", color:"var(--bone)", textAlign:"center",
-        lineHeight:0.95, marginBottom:24 }}>{title}</div>
-      <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr",
-        gap:"8px 18px", alignContent:"center", maxWidth:1200, width:"100%", margin:"0 auto" }}>
-        {standings.slice(0, 8).map(row => (
-          <div key={row.player} style={{ display:"flex", alignItems:"center", gap:14,
-            minHeight:62, padding:"8px 16px", borderRadius:14,
-            border:row.rank === 1 ? "1.5px solid var(--sun)" : "1px solid var(--line)",
-            background:row.rank === 1 ? "var(--sun-tint)" : "var(--paper)" }}>
-            <div style={{ width:32, textAlign:"center", fontFamily:DISPLAY, fontWeight:700,
-              fontSize:28, color:row.rank === 1 ? "var(--sun)" : "var(--muted)" }}>{row.rank}</div>
-            <Avatar state={state} p={row.player} size={42} />
-            <div style={{ flex:1, fontFamily:SANS, fontWeight:700,
-              fontSize:"clamp(16px,1.8vw,25px)", color:"var(--ink)" }}>
-              {disp(state, row.player)}</div>
-            <div style={{ fontFamily:DISPLAY, fontWeight:800,
-              fontSize:"clamp(22px,2.4vw,34px)", color:"var(--ink)" }}>{fmt(row.pts)}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TVDirectedScene({ state, scene }) {
-  if (!scene.definition || scene.staleReason) {
-    return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-        justifyContent:"center", padding:50, textAlign:"center", animation:"si-fade .4s ease-out" }}>
-        <FDMark size={100} variant="night" />
-        <div style={{ ...label, color:"var(--sun)", fontSize:15, margin:"24px 0 8px" }}>Show Control</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(42px,5vw,76px)",
-          textTransform:"uppercase", color:"var(--bone)" }}>Scene unavailable</div>
-        <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(16px,1.7vw,23px)",
-          color:"var(--night-text)", marginTop:12 }}>
-          {scene.staleReason || "The commissioner can skip or cancel this scene."}</div>
-      </div>
-    );
-  }
-
-  if (scene.active.kind === "standings"
-      || (scene.active.kind === "winner" && scene.stepKey === "standings"))
-    return <TVDirectedStandings state={state} standings={scene.standings}
-      title={scene.active.kind === "winner" ? "Standings updated" : "Standings"} />;
-
-  if (scene.active.kind === "champion") {
-    const winner = scene.standings[0];
-    const coChamps = scene.standings.filter(row => row.rank === 1);
-    return (
-      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-        padding:"10px 60px 30px", animation:"si-fade .45s ease-out" }}>
-        <div style={{ width:"100%", maxWidth:1100 }}>
-          <ChampionCard state={state} champion={winner} coChamps={coChamps} big />
-        </div>
-      </div>
-    );
-  }
-
-  if (scene.active.kind === "opening") {
-    return (
-      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-        padding:50, animation:"si-fade .45s ease-out" }}>
-        <div style={{ textAlign:"center" }}>
-          <FDMark size={scene.stepKey === "title" ? 132 : 104} variant="night" />
-          <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(78px,10vw,150px)",
-            lineHeight:0.82, textTransform:"uppercase", color:"var(--sun)",
-            marginTop:24 }}>Field Day</div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.8vw,25px)",
-            letterSpacing:"0.16em", color:"var(--night-text)", marginTop:20 }}>
-            {scene.stepKey === "title" ? "SCOTTSDALE · 2026" : "THE WEEKEND STARTS HERE"}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (scene.active.kind === "event-intro") {
-    const event = scene.event;
-    return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-        justifyContent:"center", padding:"10px 50px 30px", textAlign:"center",
-        animation:"si-fade .45s ease-out" }}>
-        <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(13px,1.3vw,18px)",
-          marginBottom:18 }}>{scene.stepKey === "title" ? "Up next" : "Ready"}</div>
-        <GameMark id={event.game} size={124} />
-        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(60px,8vw,124px)",
-          lineHeight:0.9, textTransform:"uppercase", color:"var(--bone)", marginTop:18 }}>
-          {event.name}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,1.8vw,25px)",
-          color:"var(--night-text)", marginTop:18 }}>
-          {scene.stepKey === "title"
-            ? (event.value ? `${fmt(event.value)} points` : "The finale")
-            : event.desc}</div>
-      </div>
-    );
-  }
-
-  if (scene.active.kind === "winner") {
-    const winners = scene.players;
-    return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-        justifyContent:"center", padding:"10px 50px 30px", textAlign:"center",
-        animation:"si-fade .45s ease-out" }}>
-        <div style={{ ...label, color:"var(--sun)", fontSize:"clamp(13px,1.3vw,18px)",
-          marginBottom:8 }}>Final · {scene.event.name}</div>
-        <div style={{ display:"flex", justifyContent:"center", gap:14, margin:"16px 0 20px" }}>
-          {winners.map(player => <Avatar key={player} state={state} p={player} size={96} ring />)}
-        </div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(58px,7vw,112px)",
-          lineHeight:0.9, textTransform:"uppercase", color:"var(--sun)" }}>
-          {teamLabel(state, { players:winners })}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(16px,1.8vw,25px)",
-          color:"var(--night-text)", marginTop:18 }}>
-          +{fmt(AWARDS[scene.event.value]?.[0] || 0)} each</div>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps,
-  showControlEnabled, onExit }) {
-  const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
-  const showScene = useMemo(
-    () => showControlEnabled ? resolveShowScene(state, events) : null,
-    [showControlEnabled, state, events],
-  );
-  const operationEv = operation.event;
-  const operationLifecycle = operation.lifecycle;
-  const liveBracketEv = useMemo(() => {
-    const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
-    if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
-    return c[0] || null;
-  }, [events, state, onDeckEv]);
-  const liveStageEv = useMemo(() => {
-    const c = events.filter(e => state.stages[e.id] && !state.results[e.id]);
-    if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
-    return c[0] || null;
-  }, [events, state, onDeckEv]);
-  const draftLive = useMemo(() => {
-    for (const [eid, d] of Object.entries(state.drafts || {})) {
-      const ev = events.find(e => e.id === eid);
-      if (ev && d) return { ev, d };
-    }
-    return null;
-  }, [state.drafts, events]);
-  /* ambient broadcast data: the channel cycles through whatever is alive right now */
-  let latest = null;
-  Object.entries(state.results || {}).forEach(([eid, res]) => {
-    const ev = events.find(e => e.id === eid);
-    if (ev && res?.slots?.[0]?.length && (!latest || res.ts > latest.res.ts)) latest = { ev, res };
-  });
-  const tvImpact = useMemo(() => latest && !latest.res.stacks
-    ? resultImpact(state, events, latest, standings) : "", [state, events, latest, standings]);
-  const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== operationEv?.id);
-  const allW = useMemo(() => (state.wagers || []).map(w => ({ w, r: resolveWager(state, w, events) })),
-    [state, events]);
-  const openBook = mergeWagerLines(allW.filter(x => x.r.status === "pending")).slice(0, 9);
-  /* the ticker shows live blinds; tick once a second while cards are live */
-  const [, pokerTick] = useState(0);
-  useEffect(() => {
-    if (!pokerLive(state)) return;
-    const iv = setInterval(() => pokerTick(t => t + 1), 1000);
-    return () => clearInterval(iv);
-  }, [state.poker?.startedAt, state]);
-  const joinNeeded = Object.keys(state.profiles || {}).length < ROSTER.length;
-  const qrUrl = useMemo(() => {
-    try {
-      const qr = qrcode(0, "M");
-      qr.addData(window.location.origin);
-      qr.make();
-      return qr.createDataURL(8, 0);
-    } catch { return null; }
-  }, []);
-
-  const lifecycleLive = operationEv && ["betting-locked", "in-progress", "result-entry"]
-    .includes(operationLifecycle?.phase);
-  const liveEv = onDeckEv || liveBracketEv || liveStageEv || (lifecycleLive ? operationEv : null);
-  /* Once an event is explicitly on deck, an unfinished bracket from another
-     game must not leak into its TV scene. */
-  const activeBracketEv = liveEv && state.brackets[liveEv.id] && state.draws[liveEv.id] ? liveEv : null;
-  const activeStageEv = liveEv && state.stages[liveEv.id] ? liveEv : null;
-  const liveCrew = (liveEv && state.draws[liveEv.id]?.roles) || draftLive?.d.roles || [];
-  /* who steps up next: the first open, fully-seated matchup in the live bracket */
-  const upNext = useMemo(() => activeBracketEv ? nextOpenMatch(state.brackets[activeBracketEv.id]) : null,
-    [activeBracketEv, state]);
-  const upNextDraw = activeBracketEv ? state.draws[activeBracketEv.id] : null;
-  /* chips riding a TV bracket cell, value stamped, read-only */
-  const tvBracketChips = (r, m, tIdx) => {
-    const bets = allW.filter(x => x.r.status === "pending" && x.w.kind === "match" &&
-      x.w.eventId === activeBracketEv?.id && x.w.drawId === upNextDraw?.id &&
-      x.w.match?.[0] === r && x.w.match?.[1] === m && x.w.teamIdx === tIdx);
-    if (!bets.length) return null;
-    return (
-      <span style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
-        {bets.slice(0, 4).map((x, i) => <span key={i} style={{ marginLeft: i ? -8 : 0 }}>
-          <BankChip p={x.w.player} size={26} val={x.w.stake} /></span>)}
-        {bets.length > 4 && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:13,
-          color:"var(--muted2)", marginLeft:3 }}>+{bets.length - 4}</span>}
-      </span>
-    );
-  };
-  const scenes = useMemo(() => {
-    const s = ["board"];
-    if (champion) return s;
-    if (joinNeeded && qrUrl) s.push("join");
-    if (nextEv) s.push("next");
-    if (latest) s.push("latest");
-    if (openBook.length) s.push("book");
-    return s;
-  }, [champion, joinNeeded, qrUrl, nextEv, latest, openBook.length]);
-  const [sceneIdx, setSceneIdx] = useState(0);
-  const sceneKey = scenes.join("|");
-  const reducedMotion = prefersReducedMotion();
-  useEffect(() => { setSceneIdx(0); }, [sceneKey]);
-  useEffect(() => {
-    if (scenes.length < 2 || reducedMotion) return;
-    const t = setInterval(() => setSceneIdx(i => (i + 1) % scenes.length), 12000);
-    return () => clearInterval(t);
-  }, [sceneKey, scenes.length, reducedMotion]);
-  const scene = scenes[sceneIdx] || "board";
-  const sceneLabel = { ...label, fontSize:"clamp(12px,1.1vw,16px)", color:"var(--night-text)", marginBottom:6 };
-  const sceneTitle = { fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(28px,2.8vw,44px)",
-    textTransform:"uppercase", color:BONE, marginBottom:24 };
-
-  /* ticker: a handful of labeled, high-signal segments instead of a name dump */
-  const tickerItems = [];
-  if (draftLive && draftLive.d.pool.length) {
-    const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
-    if (cur) tickerItems.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
-      text:`${disp(state, cur)} is on the clock` });
-  }
-  if (liveCrew.length) tickerItems.push({
-    tag:"Event crew",
-    tone:"var(--accent2)",
-    players:liveCrew.map(item => item.player).slice(0, 4),
-    text:liveCrew.map(item =>
-      `${disp(state, item.player)}, ${overflowRoleMeta(item.role).label}`).join(" · "),
-  });
-  if (latest) tickerItems.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0,4),
-    text:`${latest.ev.name}: ${teamLabel(state, { players: latest.res.slots[0] })}` });
-  if (upNext && upNextDraw) tickerItems.push({ tag:"Up now", tone:"var(--sun)",
-    players:[...upNextDraw.teams[upNext.a].players, ...upNextDraw.teams[upNext.b].players].slice(0,4),
-    text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });
-  if (onDeckEv) {
-    const riding = allW.filter(x => x.r.status === "pending" && x.w.eventId === onDeckEv.id);
-    const ptsIn = riding.reduce((n, x) => n + x.w.stake, 0);
-    if (ptsIn > 0) tickerItems.push({ tag:"Betting", tone:"var(--accent2)",
-      players:[...new Set(riding.map(x => x.w.player))].slice(0,4),
-      text:`${fmt(ptsIn)} on ${onDeckEv.name}` });
-  }
-  mergeWagerLines(allW.filter(x => x.r.status === "won")).slice(0,2).forEach(x =>
-    tickerItems.push({ tag:"Won", tone:"var(--green)", players:[x.w.player],
-      text:`${disp(state, x.w.player)} +${x.r.delta}` }));
-  if (pokerLive(state)) {
-    const clk = pokerClock(state.poker, Date.now());
-    tickerItems.push({ tag:"Poker", tone:"var(--accent)",
-      text:`Blinds ${fmt(clk.sb)} / ${fmt(clk.bb)}, ${ROSTER.length - state.poker.outs.length} still in` });
-  }
-  const lastDuel = (state.duels || []).map(d => ({ d, r: resolveDuel(d) })).find(x => x.r.settled && !x.r.push);
-  if (lastDuel) {
-    const wRun = lastDuel.d.runs[lastDuel.r.winner], lRun = lastDuel.d.runs[lastDuel.r.loser];
-    tickerItems.push({ tag:"Duel", tone:"var(--accent)", players:[lastDuel.r.winner, lastDuel.r.loser],
-      text:`${disp(state, lastDuel.r.winner)} beat ${disp(state, lastDuel.r.loser)} in Quick Draw${
-        lRun.foul ? ", on a foul" : `, ${wRun.ms} to ${lRun.ms}ms`}` });
-  }
-  const lastRuling = (state.adjustments||[])[0];
-  if (lastRuling) tickerItems.push({ tag:"Ruling", tone:"var(--clay)", players:[lastRuling.player],
-    text:`${disp(state, lastRuling.player)} ${lastRuling.delta > 0 ? "+" : ""}${lastRuling.delta}${lastRuling.reason ? ", " + lastRuling.reason : ""}` });
-  if (!allTied && standings[0]) tickerItems.push({ tag:"Leader", tone:"var(--sun)", players:[standings[0].player],
-    text:`${disp(state, standings[0].player)}, ${fmt(standings[0].pts)} points` });
-  if (nextEv) tickerItems.push({ tag:"Next", tone:"var(--pool)",
-    text:`${nextEv.name}, ${nextEv.value ? `${nextEv.value} pts` : "the finale"}` });
-  if (!tickerItems.length) tickerItems.push({ tag:"Field Day", tone:"var(--accent)", text:"Scottsdale 2026" });
-
-  const leader = !allTied ? standings[0] : null;
-  const rest = leader ? standings.slice(1) : standings;
-  const half = Math.ceil(rest.length / 2);
-
-  return (
-    <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", zIndex:60,
-      background:"var(--night)", borderTop:"4px solid var(--sun)" }}>
-      <button onClick={onExit} style={{ position:"absolute", top:"calc(16px + env(safe-area-inset-top))", right:16, zIndex:70,
-        background:"var(--paper)", border:"1.5px solid var(--ghost-line)", color:"var(--ink)",
-        width:40, height:40, borderRadius:10, fontSize:16, cursor:"pointer" }}>✕</button>
-
-      {/* masthead */}
-      <div style={{ display:"flex", alignItems:"center", gap:22,
-        padding:"calc(26px + env(safe-area-inset-top)) 48px 14px" }}>
-        <FDMark size={46} variant="night" />
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(30px,3.4vw,50px)", lineHeight:1,
-          textTransform:"uppercase", letterSpacing:"0.015em", color:"var(--sun)" }}>
-          Field Day</div>
-        <div style={{ ...label, fontSize:"clamp(11px,1vw,14px)", color:"var(--night-text)" }}>Scottsdale · 2026</div>
-        <span style={{ display:"inline-flex", alignItems:"center", gap:7, ...label,
-          fontSize:"clamp(10px,0.9vw,13px)", color:state.live ? "var(--live2)" : "var(--night-text)" }}>
-          <span style={{ width:9, height:9, borderRadius:99,
-            background:state.live ? "var(--clay)" : "var(--muted)",
-            animation:state.live ? "si-pulse 1.6s infinite" : "none" }} />
-          {state.live ? "Weekend live" : "Check-in"}
-        </span>
-        <div style={{ flex:1 }} />
-        {onDeckEv && !champion && !showScene && (
-          <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 20px", borderRadius:14,
-            background:"var(--clay-tint)",
-            border:"1px solid rgba(192,71,58,0.45)", marginRight:56 }}>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
-              letterSpacing:"0.18em", color:"var(--live2)", textTransform:"uppercase" }}>On deck</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(17px,1.7vw,26px)", color:"var(--bone)" }}>
-              {onDeckEv.name}</span>
-            <Tag tone="gold" style={{ fontSize:"clamp(10px,0.9vw,13px)" }}>Betting open</Tag>
-          </div>
-        )}
-      </div>
-
-      {showScene ? (
-        <TVDirectedScene state={state} scene={showScene} />
-      ) : champion ? (
-        <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 60px" }}>
-          <div style={{ width:"100%", maxWidth:1100 }}>
-            <ChampionCard state={state} champion={champion} coChamps={coChamps} big />
-          </div>
-        </div>
-      ) : state.poker && !state.results[state.poker.id] ? (
-        <TVPoker state={state} standings={standings} />
-      ) : draftLive ? (
-        <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />
-      ) : liveEv ? (
-        <div key="scene-live" style={{ flex:1, display:"flex", gap:26, padding:"6px 44px 16px",
-          minHeight:0, animation:"si-fade .6s ease-out" }}>
-          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", minHeight:0, overflow:"hidden" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:14 }}>
-              <GameMark id={liveEv.game} size={72} />
-              <div>
-                <div style={{ ...sceneLabel, marginBottom:2, display:"flex", alignItems:"center", gap:9 }}>
-                  <span style={{ width:9, height:9, borderRadius:99, background:"var(--sun)",
-                    animation:"si-pulse 1.6s infinite" }} />
-                  {operationEv?.id === liveEv.id && operationLifecycle
-                    ? operationLifecycle.label
-                    : onDeckEv ? "Betting open" : activeBracketEv ? "Live bracket"
-                      : state.stages[activeStageEv?.id]?.kind === "heats" ? "Live heats" : "Live pools"}</div>
-                <div style={{ ...sceneTitle, marginBottom:0, fontSize:"clamp(26px,2.5vw,40px)" }}>{liveEv.name}</div>
-              </div>
-              {/* the call to the table: who plays next, straight off the bracket */}
-              {upNext && upNextDraw && (
-                <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14,
-                  padding:"12px 22px", borderRadius:14, background:"var(--sun-tint)",
-                  border:"1.5px solid var(--sun)", animation:"si-in .5s ease-out" }}>
-                  <span style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(10px,0.9vw,13px)",
-                    letterSpacing:"0.18em", color:"var(--sun)", textTransform:"uppercase" }}>
-                    Up now · {upNext.roundName}</span>
-                  <AvatarStack state={state} players={upNextDraw.teams[upNext.a].players} size={30} max={3} />
-                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,1.6vw,24px)", color:BONE }}>
-                    {teamLabel(state, upNextDraw.teams[upNext.a])}
-                    <span style={{ color:"var(--night-text)", padding:"0 8px" }}>vs</span>
-                    {teamLabel(state, upNextDraw.teams[upNext.b])}</span>
-                  <AvatarStack state={state} players={upNextDraw.teams[upNext.b].players} size={30} max={3} />
-                </div>
-              )}
-            </div>
-            <div style={{ flex:1, minHeight:0, overflowY:"auto" }}>
-              {resolveCurrentContest(state, liveEv) && ["betting-open","betting-locked","in-progress"].includes(resolveCurrentContest(state, liveEv).phase)
-                ? <TVBettingBoard state={state} events={events} ev={liveEv} />
-                : activeBracketEv ? <BracketGrid state={state} ev={activeBracketEv} gm={false} size="lg"
-                  bet={{ chips: tvBracketChips }} hot={upNext ? [upNext.r, upNext.m] : null} />
-                : activeStageEv ? <StageGrid state={state} ev={activeStageEv} gm={false} size="lg" />
-                : onDeckEv ? <TVBettingBoard state={state} events={events} ev={onDeckEv} />
-                  : (
-                    <div style={{ height:"100%", minHeight:260, display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", textAlign:"center", padding:36,
-                      border:"1px solid var(--ghost-line)", borderRadius:18, background:"var(--night2)" }}>
-                      <div style={{ ...sceneLabel }}>{operationLifecycle?.label}</div>
-                      <div style={{ ...sceneTitle, marginBottom:10 }}>{liveEv.name}</div>
-                      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(18px,2vw,28px)",
-                        color:"var(--night-text)" }}>
-                        {operationLifecycle?.nextAction?.label || "Waiting for the commissioner"}</div>
-                    </div>
-                  )}
-            </div>
-            {onDeckEv && !resolveCurrentContest(state,liveEv) && (activeBracketEv || activeStageEv) && (
-              <div style={{ marginTop:14, maxHeight:190, overflowY:"hidden" }}>
-                <BetsBoard state={state} events={events} ev={onDeckEv} />
-              </div>
-            )}
-          </div>
-          <TVMiniBoard state={state} standings={standings} allTied={allTied} />
-        </div>
-      ) : scene === "join" ? (
-        <div key="scene-join" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-          gap:"clamp(40px,6vw,110px)", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div>
-            <FDMark size={120} variant="night" />
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(64px,8vw,130px)", lineHeight:0.9,
-              textTransform:"uppercase", color:"var(--sun)", margin:"26px 0 8px" }}>Field<br/>Day</div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.5vw,22px)",
-              letterSpacing:"0.14em", color:"var(--night-text)" }}>SCOTTSDALE · 2026</div>
-            <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.4vw,20px)", color:BONE, marginTop:22, lineHeight:1.5 }}>
-              Scan to check in.
-            </div>
-          </div>
-          <div style={{ background:BONE, border:"2px solid var(--ink)", borderRadius:14,
-            padding:"clamp(14px,1.6vw,24px)", textAlign:"center" }}>
-            <img src={qrUrl} alt="Scan to join" style={{ width:"clamp(220px,24vw,340px)", display:"block",
-              imageRendering:"pixelated" }} />
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,1.5vw,22px)",
-              textTransform:"uppercase", color:"var(--ink0)", marginTop:10 }}>Player check-in</div>
-          </div>
-        </div>
-      ) : scene === "next" && nextEv ? (
-        <div key="scene-next" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={sceneLabel}>Next up</div>
-          <div style={{ marginBottom:18 }}><GameMark id={nextEv.game} size={110} /></div>
-          <div style={{ background:phaseOf(nextEv).bg, color:phaseOf(nextEv).fg, border:"2px solid var(--ink0)",
-            borderRadius:16, padding:"clamp(26px,4vh,50px) clamp(40px,5vw,90px)", textAlign:"center", maxWidth:1000 }}>
-            <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(48px,6vw,100px)", lineHeight:0.95,
-              textTransform:"uppercase" }}>{nextEv.name}</div>
-            <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,1.6vw,22px)", marginTop:14,
-              letterSpacing:"0.06em" }}>{nextEv.value ? `WORTH ${nextEv.value} PTS` : "THE FINALE"}</div>
-          </div>
-          {nextEv.desc && <div style={{ fontFamily:SANS, fontSize:"clamp(14px,1.5vw,20px)", color:"var(--night-text)",
-            marginTop:22, maxWidth:760, textAlign:"center", lineHeight:1.5 }}>{nextEv.desc}</div>}
-        </div>
-      ) : scene === "latest" && latest ? (
-        <div key="scene-latest" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={{ display:"inline-block", fontFamily:DISPLAY, fontWeight:700, letterSpacing:"0.14em",
-            textTransform:"uppercase", background:"var(--olive)", color:BONE,
-            fontSize:"clamp(14px,1.5vw,20px)", padding:"4px 18px", borderRadius:6, marginBottom:14 }}>Final</div>
-          <div style={sceneTitle}>{latest.ev.name}</div>
-          <div style={{ display:"flex", justifyContent:"center", gap:14, marginBottom:18 }}>
-            {latest.res.slots[0].map(p => <Avatar key={p} state={state} p={p} size={84} ring />)}
-          </div>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(36px,4.5vw,72px)",
-            textTransform:"uppercase", color:"var(--sun)", lineHeight:1, textAlign:"center" }}>
-            {teamLabel(state, { players: latest.res.slots[0] })}</div>
-          <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(15px,1.6vw,22px)", color:"var(--night-text)", marginTop:12 }}>
-            {latest.res.stacks
-              ? `${fmt(latest.res.stacks[latest.res.slots[0][0]] ?? 0)} chips`
-              : `+${AWARDS[latest.ev.value]?.[0] ?? 0} each`}</div>
-          {tvImpact ? <div style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.5vw,20px)",
-            color:"var(--sun)", marginTop:10 }}>{tvImpact}</div> : null}
-        </div>
-      ) : scene === "book" ? (
-        <div key="scene-book" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", padding:"10px 48px 20px", animation:"si-fade .6s ease-out" }}>
-          <div style={sceneLabel}>Betting</div>
-          <div style={sceneTitle}>{openBook.length} open wager{openBook.length === 1 ? "" : "s"}</div>
-          <div style={{ display:"grid", gridTemplateColumns: openBook.length > 4 ? "1fr 1fr 1fr" : "1fr",
-            gap:"10px 24px", width:"100%", maxWidth:1300 }}>
-            {openBook.map(x => {
-              const l = wagerPickLabel(state, x.w, events);
-              return (
-                <div key={x.w.id} style={{ display:"flex", alignItems:"center", gap:12,
-                  padding:"clamp(8px,1.2vh,14px) 16px", borderRadius:14, background:CARD_BG,
-                  border:"1px solid var(--line)" }}>
-                  <Avatar state={state} p={x.w.player} size={38} />
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(13px,1.7vh,19px)", color:"var(--ink)" }}>
-                      {disp(state, x.w.player)} put {x.w.stake} on {l.pick}</div>
-                    <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.4vh,15px)", color:"var(--muted)",
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
-                  </div>
-                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(15px,2vh,22px)", color:"var(--olive)" }}>
-                    +{x.w.kind === "outright" ? OUTRIGHT_MULT * x.w.stake : x.w.stake}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div key="scene-board" style={{ flex:1, display:"flex", flexDirection:"column",
-          padding:"6px 48px 16px", minHeight:0, animation:"si-fade .6s ease-out" }}>
-          {leader && (
-            <div style={{ display:"flex", alignItems:"center", gap:20, padding:"clamp(10px,1.6vh,20px) 26px",
-              marginBottom:12, borderRadius:14, position:"relative", overflow:"hidden",
-              background:GOLD_GRAD, border:"1px solid var(--accent2)", boxShadow:"var(--shadow-2)" }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(24px,3.4vh,42px)", color:"var(--ink)", width:46, textAlign:"center" }}>1</div>
-              <Avatar state={state} p={leader.player} size={56} />
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(20px,3vh,34px)", color:"var(--ink)", lineHeight:1.1 }}>
-                  {disp(state, leader.player)}</div>
-                <div style={{ fontFamily:SANS, fontSize:"clamp(11px,1.5vh,15px)", color:"rgba(30,22,8,0.6)" }}>
-                  {leader.wins} win{leader.wins===1?"":"s"}{leader.betNet !== 0 ? `, wagers ${leader.betNet>0?"+":""}${leader.betNet}` : ""}</div>
-              </div>
-              <div key={leader.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(30px,4.4vh,54px)", color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{fmt(leader.pts)}</div>
-            </div>
-          )}
-          <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px 22px", alignContent:"start", minHeight:0 }}>
-            {[rest.slice(0,half), rest.slice(half)].map((col, ci) => (
-              <div key={ci}>
-                {col.map(r => (
-                  <div key={r.player} style={{ display:"flex", alignItems:"center", gap:14,
-                    padding:"clamp(5px,0.9vh,11px) 16px", marginBottom:7, borderRadius:14,
-                    background:CARD_BG,
-                    border:"1px solid " + (r.rank===2 && !allTied ? "rgba(189,178,160,0.5)" : r.rank===3 && !allTied ? "rgba(192,122,75,0.5)" : "var(--line)") }}>
-                    <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(16px,2.2vh,26px)", width:36,
-                      color: !allTied && r.rank===2 ? "var(--silver)" : !allTied && r.rank===3 ? "var(--bronze)" : "var(--muted)",
-                      textAlign:"center" }}>{allTied ? "·" : r.rank}</div>
-                    <Avatar state={state} p={r.player} size={36} />
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:"clamp(14px,2vh,24px)", flex:1,
-                      color:"var(--ink)" }}>{disp(state, r.player)}</div>
-                    <div key={r.pts} style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:"clamp(18px,2.5vh,30px)",
-                      color:"var(--ink)", animation:"si-pop .5s ease-out" }}>{fmt(r.pts)}</div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* scene dots + ticker */}
-      {!showScene && scenes.length > 1 && !champion && !liveEv && (
-        <div style={{ display:"flex", justifyContent:"center", gap:8, paddingBottom:8 }}>
-          {scenes.map((s, i) => <div key={s} style={{ width:26, height:4, borderRadius:6,
-            background: i === sceneIdx ? "var(--accent)" : "var(--line)" }} />)}
-        </div>
-      )}
-      {!showScene && <div style={{ borderTop:"1px solid rgba(194,88,50,0.5)", background:"var(--paper2)", overflow:"hidden", padding:"9px 0" }}>
-        <div style={{ display:"inline-flex", whiteSpace:"nowrap", willChange:"transform", transform:"translateZ(0)",
-          animation:`si-tick ${Math.max(24, tickerItems.length * 9)}s linear infinite` }}>
-          {[0,1].map(k => (
-            <span key={k} style={{ display:"inline-flex", alignItems:"center" }}>
-              {tickerItems.map((it, i) => (
-                <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:11, paddingRight:84 }}>
-                  <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:"clamp(12px,1.1vw,15px)",
-                    letterSpacing:"0.1em", textTransform:"uppercase", borderRadius:6, padding:"3px 10px",
-                    background:it.tone, color: it.tone === "var(--sun)" ? "var(--ink0)" : BONE }}>{it.tag}</span>
-                  {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={27} />)}
-                  <span style={{ fontFamily:SANS, fontWeight:600, fontSize:"clamp(14px,1.4vw,19px)",
-                    color:"var(--ink)" }}>{it.text}</span>
-                </span>
-              ))}
-            </span>
-          ))}
-        </div>
-      </div>}
     </div>
   );
 }

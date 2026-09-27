@@ -29,6 +29,7 @@ import {
   compactSpotifyPlayback,
   exchangeAuthorizationCode,
   publicSpotifyError,
+  REAUTHORIZE_MESSAGE,
   refreshAuthorization,
   requestClientToken,
   searchSpotifyTracks,
@@ -41,6 +42,8 @@ import {
 const tokenEncoder = new TextEncoder();
 const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
+/* the weekend speaker: chosen once in Audio Director, sent with every cue */
+const SPOTIFY_DEVICE_KEY = "private:spotify:device";
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
 const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 const SPOTIFY_SEARCH_LIMIT = 12;
@@ -213,9 +216,28 @@ export class Tournament {
     if (!session?.refreshToken && !session?.accessToken)
       throw new SpotifyServiceError("Connect Spotify first",
         { status:401, code:"not_connected" });
+    if (session.reauthorize)
+      throw new SpotifyServiceError(REAUTHORIZE_MESSAGE, { status:401, code:"reauthorize" });
     if (forceRefresh || !(session.expiresAt > Date.now() + 30000)) {
-      session = await refreshAuthorization(this.env, session);
-      await this.ctx.storage.put(SPOTIFY_SESSION_KEY, session);
+      /* one refresh at a time: concurrent cue taps share it rather than
+         spending the same refresh token twice */
+      if (!this.spotifyRefreshing) {
+        const current = session;
+        this.spotifyRefreshing = (async () => {
+          try {
+            const refreshed = await refreshAuthorization(this.env, current);
+            await this.ctx.storage.put(SPOTIFY_SESSION_KEY, refreshed);
+            return refreshed;
+          } catch (error) {
+            if (error instanceof SpotifyServiceError && error.code === "reauthorize")
+              await this.ctx.storage.put(SPOTIFY_SESSION_KEY, { ...current, reauthorize:true });
+            throw error;
+          } finally {
+            this.spotifyRefreshing = null;
+          }
+        })();
+      }
+      session = await this.spotifyRefreshing;
     }
     return session;
   }
@@ -228,6 +250,38 @@ export class Tournament {
       if (!(error instanceof SpotifyServiceError) || error.status !== 401) throw error;
       session = await this.spotifySession({ forceRefresh:true });
       return spotifyApi(session.accessToken, path, init);
+    }
+  }
+
+  /* An explicit speaker becomes the saved one; otherwise the saved one plays. */
+  async spotifySpeaker(requested) {
+    const saved = await this.ctx.storage.get(SPOTIFY_DEVICE_KEY);
+    const id = typeof requested === "string" && requested && requested.length <= 160
+      ? requested : saved?.id || "";
+    if (id && id !== saved?.id)
+      await this.ctx.storage.put(SPOTIFY_DEVICE_KEY, { id, name:null, savedAt:Date.now() });
+    return id;
+  }
+
+  /* Always aim at the chosen speaker. Spotify answers 404 when nothing is
+     active; transfer playback to the speaker and try exactly once more. */
+  async spotifyPlayOnSpeaker(deviceId, body) {
+    const play = () => this.spotifyUserApi(
+      `/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
+      { method:"PUT", body:JSON.stringify(body) },
+    );
+    try {
+      return await play();
+    } catch (error) {
+      if (!(error instanceof SpotifyServiceError) || error.status !== 404) throw error;
+      if (!deviceId)
+        throw new SpotifyServiceError("Choose a speaker in Audio Director",
+          { status:409, code:"no_device" });
+      await this.spotifyUserApi("/me/player", {
+        method:"PUT",
+        body:JSON.stringify({ device_ids:[deviceId], play:false }),
+      });
+      return play();
     }
   }
 
@@ -304,14 +358,23 @@ export class Tournament {
       const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
       let redirectUri = null;
       try { redirectUri = spotifyRedirectUri(req, this.env); } catch {}
+      const hasTokens = !!(session?.refreshToken || session?.accessToken);
+      const device = hasTokens ? await this.ctx.storage.get(SPOTIFY_DEVICE_KEY) : null;
       return spotifyJson({
         ok:true,
         configured:spotifyConfigured(this.env),
-        connected:!!(session?.refreshToken || session?.accessToken),
+        /* a revoked grant is not a connection, whatever tokens remain */
+        connected:hasTokens && !session.reauthorize,
         account:session?.account || null,
         redirectUri,
         catalogEnabled:catalogFlag,
         playbackEnabled:playbackFlag,
+        ...(hasTokens ? {
+          reconnect:!!session.reauthorize,
+          ...(session.reauthorize ? { error:REAUTHORIZE_MESSAGE } : {}),
+          premium:session.account?.product ? session.account.product === "premium" : null,
+          device:device?.id ? { id:device.id, name:device.name || null } : null,
+        } : {}),
       });
     }
 
@@ -344,6 +407,18 @@ export class Tournament {
       return spotifyJson({ ok:true });
     }
 
+    if (url.pathname === "/api/spotify/device" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      const id = typeof body?.deviceId === "string" ? body.deviceId : "";
+      if (!id || id.length > 160)
+        return spotifyJson({ ok:false, error:"Choose a speaker" }, 400);
+      const device = { id, name:typeof body?.name === "string" ? body.name.slice(0, 100) : null,
+        savedAt:Date.now() };
+      await this.ctx.storage.put(SPOTIFY_DEVICE_KEY, device);
+      return spotifyJson({ ok:true, device:{ id:device.id, name:device.name } });
+    }
+
     if (url.pathname === "/api/spotify/player" && req.method === "GET") {
       try {
         const [deviceBody, playbackBody] = await Promise.all([
@@ -374,14 +449,10 @@ export class Tournament {
       const positionMs = Math.max(0, Math.min(12 * 60 * 60 * 1000,
         Math.floor(Number(body?.positionMs) || 0)));
       try {
-        await this.spotifyUserApi(
-          `/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
-          {
-            method:"PUT",
-            body:JSON.stringify(uri ? { uris:[uri], position_ms:positionMs } : {}),
-          },
-        );
-        return spotifyJson({ ok:true });
+        const speaker = await this.spotifySpeaker(deviceId);
+        await this.spotifyPlayOnSpeaker(speaker,
+          uri ? { uris:[uri], position_ms:positionMs } : {});
+        return spotifyJson({ ok:true, deviceId:speaker || null });
       } catch (error) {
         const failure = publicSpotifyError(error);
         return spotifyJson(failure.body, failure.status);
@@ -394,8 +465,9 @@ export class Tournament {
       const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
         ? body.deviceId : "";
       try {
+        const speaker = deviceId || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
         await this.spotifyUserApi(
-          `/me/player/pause${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
+          `/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
           { method:"PUT" },
         );
         return spotifyJson({ ok:true });

@@ -332,7 +332,8 @@ const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
 
 /* this edition's hard dates, in one place: every surface reads these instead
    of spelling the weekend out again and getting it wrong */
-const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
+const EDITION = { name:"Scottsdale", year:2026, label:"Scottsdale · 2026",
+  long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
 
 /* the weekend sheet ships with the real booking already in it, so nobody has
    to type it and the invite is correct the moment it goes out. GM can edit
@@ -671,18 +672,48 @@ const POKER_LEVELS = [
   { sb:600, bb:1200, mins:15 },
 ];
 const pokerLevels = () => POKER_LEVELS.map(l => ({ ...l }));
-/* pure clock walk; clients tick a 1s interval and re-derive */
+/* pure clock walk; clients tick a 1s interval and re-derive from a
+   server-anchored now. The current level carries its own start and an
+   optional pause, so a nudge starts the new level fresh and a pause holds
+   the remaining time exactly. Tables started before those fields existed
+   keep deriving from startedAt plus levelOffset. The last level has no end:
+   it counts down once and then reads as the final level, never 0:00. */
 function pokerClock(poker, now) {
   const levels = poker.levels || POKER_LEVELS;
-  if (!poker.startedAt) return { idx:0, ...levels[0], msLeft:levels[0].mins * 60000, running:false };
-  let elapsed = now - poker.startedAt;
-  let idx = 0;
-  while (idx < levels.length - 1 && elapsed >= levels[idx].mins * 60000) {
-    elapsed -= levels[idx].mins * 60000; idx++;
+  const lastIdx = levels.length - 1;
+  if (!poker.startedAt) return { idx:0, ...levels[0], msLeft:levels[0].mins * 60000,
+    running:false, paused:false, last:lastIdx === 0, final:false };
+  const paused = Number.isFinite(poker.pausedAt) && poker.pausedAt > 0;
+  const at = paused ? poker.pausedAt : now;
+  let idx, elapsed;
+  if (Number.isInteger(poker.levelIdx) && Number.isFinite(poker.levelStartedAt)) {
+    idx = Math.max(0, Math.min(lastIdx, poker.levelIdx));
+    elapsed = Math.max(0, at - poker.levelStartedAt);
+    while (idx < lastIdx && elapsed >= levels[idx].mins * 60000) {
+      elapsed -= levels[idx].mins * 60000; idx++;
+    }
+  } else {
+    elapsed = Math.max(0, at - poker.startedAt);
+    idx = 0;
+    while (idx < lastIdx && elapsed >= levels[idx].mins * 60000) {
+      elapsed -= levels[idx].mins * 60000; idx++;
+    }
+    const shifted = Math.max(0, Math.min(lastIdx, idx + (poker.levelOffset || 0)));
+    /* a legacy nudge moved the level but not its clock: never report a
+       shifted level as already expired */
+    if (shifted !== idx) elapsed = Math.min(elapsed, levels[shifted].mins * 60000 - 1000);
+    idx = shifted;
   }
-  idx = Math.max(0, Math.min(levels.length - 1, idx + (poker.levelOffset || 0)));
   const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
-  return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
+  const last = idx === lastIdx;
+  return { idx, ...levels[idx], msLeft, elapsed, running:!paused, paused, last,
+    final:last && msLeft === 0 };
+}
+/* the level a clock write starts from: the derived clock at the server's now */
+function pokerClockAnchor(poker, now) {
+  const clk = pokerClock(poker, now);
+  const levels = poker.levels || POKER_LEVELS;
+  return { idx:clk.idx, levelStartedAt:now - (levels[clk.idx].mins * 60000 - clk.msLeft) };
 }
 /* Physical dealing breakdown: reserve eight 25s for blinds when practical,
    then deal greedily. The final 25 pass keeps post-finale counts exact too. */
@@ -1233,7 +1264,7 @@ export {
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
+  resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor, pokerDenoms,
   pokerDistribution,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,

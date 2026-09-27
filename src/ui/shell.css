@@ -15,7 +15,6 @@ input::placeholder { color:var(--muted); }
 @keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
 @keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
 @keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@keyframes si-glow { 0%,100% { box-shadow:0 0 26px rgba(194,88,50,0.22);} 50% { box-shadow:0 0 50px rgba(192,71,58,0.32);} }
 @keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
 @keyframes si-intro-mark {
   0% { opacity:0; transform:scale(0.78) rotate(-4deg); }

@@ -20,7 +20,7 @@
     "APP_VERSION": "m2-audio-director-1",
     "QA_ENABLED": "true",
     "PROGRESS_RESET_ENABLED": "true",
-    "M2_SHOW_CONTROL_ENABLED": "false",
+    "M2_SHOW_CONTROL_ENABLED": "true",
     "M2_AUDIO_CATALOG_ENABLED": "false",
     "M2_AUDIO_PLAYBACK_ENABLED": "false"
   },

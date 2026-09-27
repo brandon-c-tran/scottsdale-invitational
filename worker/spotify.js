@@ -64,14 +64,20 @@ async function spotifyFetch(url, init = {}, fetchImpl = fetch) {
   return response;
 }
 
+const REAUTHORIZE_MESSAGE = "Reconnect Spotify in Audio Director";
+const PLAYER_MESSAGES = {
+  PREMIUM_REQUIRED:"Spotify Premium is required for playback",
+  NO_ACTIVE_DEVICE:"No active speaker. Choose one in Audio Director",
+};
 async function spotifyError(response, fallback) {
   let message = fallback;
   let code = "spotify_error";
   try {
     const body = await response.json();
     message = body?.error?.message || body?.error_description || fallback;
-    code = body?.error?.reason || body?.error || code;
+    code = body?.error?.reason || (typeof body?.error === "string" ? body.error : null) || code;
   } catch {}
+  if (PLAYER_MESSAGES[code]) message = PLAYER_MESSAGES[code];
   const retryAfter = response.headers.get("Retry-After");
   throw new SpotifyServiceError(message, {
     status:response.status === 429 ? 429 : response.status >= 500 ? 502 : response.status,
@@ -116,14 +122,23 @@ const exchangeAuthorizationCode = (env, { code, redirectUri }, fetchImpl) =>
     redirect_uri:redirectUri,
   }, fetchImpl);
 
+/* A revoked or expired refresh token (invalid_grant) cannot be retried: the
+   commissioner has to authorize again, and every surface says so. */
 async function refreshAuthorization(env, session, fetchImpl) {
   if (!session?.refreshToken)
-    throw new SpotifyServiceError("Reconnect Spotify to continue",
-      { status:401, code:"reauthorize" });
-  const refreshed = await requestSpotifyToken(env, {
-    grant_type:"refresh_token",
-    refresh_token:session.refreshToken,
-  }, fetchImpl);
+    throw new SpotifyServiceError(REAUTHORIZE_MESSAGE, { status:401, code:"reauthorize" });
+  let refreshed;
+  try {
+    refreshed = await requestSpotifyToken(env, {
+      grant_type:"refresh_token",
+      refresh_token:session.refreshToken,
+    }, fetchImpl);
+  } catch (error) {
+    if (error instanceof SpotifyServiceError
+        && (error.code === "invalid_grant" || error.code === "invalid_client"))
+      throw new SpotifyServiceError(REAUTHORIZE_MESSAGE, { status:401, code:"reauthorize" });
+    throw error;
+  }
   return {
     ...session,
     ...refreshed,
@@ -218,6 +233,7 @@ function publicSpotifyError(error) {
 }
 
 export {
+  REAUTHORIZE_MESSAGE,
   SPOTIFY_SCOPES,
   SpotifyServiceError,
   compactSpotifyDevice,

@@ -47,7 +47,7 @@ const app = await load("fix-guest-app.cjs", `export { ProfileSheet } from "./src
     const refuse=()=>{ throw new Error("transport must not run"); };
     export const dispatch=refuse, uploadPhoto=refuse, downloadSnapshot=refuse, spotifyStatus=refuse,
       spotifyPlayer=refuse, spotifySearch=refuse, spotifyAuthorize=refuse, spotifyDisconnect=refuse,
-      spotifyPlay=refuse, spotifyPause=refuse;` }));
+      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse;` }));
 } }]);
 
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");

@@ -396,9 +396,14 @@ export function reportClientError(report) {
   } catch { return Promise.resolve(null); }
 }
 
+/* A stuck audio request frees the cue chip after eight seconds. */
+const SPOTIFY_CLIENT_TIMEOUT_MS = 8000;
 async function spotifyRequest(path, { method = "GET", body, gm = false } = {}) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const deadline = controller ? setTimeout(() => controller.abort(), SPOTIFY_CLIENT_TIMEOUT_MS) : null;
   try {
     const response = await fetch(`/api/spotify/${path}`, {
+      ...(controller ? { signal:controller.signal } : {}),
       method,
       headers:{
         ...(body ? { "Content-Type":"application/json" } : {}),
@@ -412,7 +417,10 @@ async function spotifyRequest(path, { method = "GET", body, gm = false } = {}) {
       ? result
       : { ...result, ok:false, error:result.error || "Spotify request failed" };
   } catch {
-    return { ok:false, error:"Spotify is unavailable" };
+    return { ok:false, error:controller?.signal.aborted
+      ? "Spotify did not answer. Try again" : "Spotify is unavailable" };
+  } finally {
+    clearTimeout(deadline);
   }
 }
 
@@ -430,7 +438,9 @@ export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs
     gm:true,
     body:{ uri, deviceId:targetDevice, positionMs },
   });
-export const spotifyPause = ({ deviceId:targetDevice = "" } = {}) =>
+export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
+  spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });
+export const spotifyPause =({ deviceId:targetDevice = "" } = {}) =>
   spotifyRequest("pause", {
     method:"POST",
     gm:true,

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  PT, OUTRIGHT_MULT, atRisk, disp, maxRisk, contestBetEligibility,
+  PT, atRisk, disp, maxRisk, contestBetEligibility, contestMult, contestSideOf, wagerMult,
   resolveCurrentContest, resolveDuel, resolveEventLifecycle, resolveWager, stacksPosted, teamLabel,
 } from "../../../shared/core.js";
 import { DISPLAY, SANS } from "../../ui/theme.js";
@@ -33,7 +33,7 @@ const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
    carries every underlying record id for commissioner void actions. */
 function mergeWagerLines(list) {
   const key = ({ w, r }) => [w.player, r.status, w.kind, w.eventId,
-    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick)
+    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick) + ":x" + wagerMult(w)
       : w.kind === "match" ? "m:" + w.drawId + ":" + (w.match || []).join("-") + ":" + w.teamIdx
       : "s:" + w.stagesId + ":" + (w.final ? "F" : w.group) + ":" + w.pickKey].join("|");
   const out = new Map();
@@ -52,7 +52,7 @@ function mergeWagerLines(list) {
 /* The upper edge opens player cards. The lower area is the betting surface:
    the empty well adds a chip; the guest's own pile removes its last chip. */
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
-  roleLabel, unavailableReason, tapStake }) {
+  roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const pendingRef = useRef(false);
@@ -117,7 +117,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       <button type="button" className="fd-wagers-pick-main" disabled={!canPick || !!pendingAction}
         onClick={() => act("place", onPick)} aria-label={canPick ? `Place a chip on ${name}` : name}
         aria-description={unavailableReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
-        {unavailableReason ? <span className="fd-wagers-pick-closed">Opponent</span> : marketOpen && players.length > 0 ? <>
+        {unavailableReason ? <span className="fd-wagers-pick-closed">{unavailableLabel}</span> : marketOpen && players.length > 0 ? <>
           <span className="fd-wagers-chip-well" aria-hidden="true">+</span>
           <span className="fd-wagers-pick-add">{fmt(tapStake)}</span>
         </> : <span className="fd-wagers-pick-closed">{players.length ? "Locked" : "Pending"}</span>}
@@ -143,7 +143,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
 function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
   const { w, r } = x;
   const label = wagerPickLabel(state, w, events);
-  const win = w.kind === "outright" ? OUTRIGHT_MULT * w.stake : w.stake;
+  const win = wagerMult(w) * w.stake;
   return <article className={`fd-wagers-line is-${r.status}`}>
     <button type="button" className="fd-wagers-ledger-player" disabled={!onPlayer}
       onClick={() => onPlayer?.(w.player)} aria-label={`View ${disp(state, w.player)}'s player card`}>
@@ -236,23 +236,30 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     && !state.frozen && !state.results?.[ev?.id] && !stacksPosted(state)
     && !(state.poker && !state.results?.[state.poker.id]);
   const ownSide = contest?.sides.find(side => side.players.includes(me));
-  const restricted = !!ownSide && contest.kind !== "ffa";
-  const contestNoun = contest?.kind === "match" ? "match" : contest?.kind === "heat" ? "heat" : "final";
+  /* a two-sided contest is a matchup whatever its format: even money, own side only */
+  const evenMoney = contestMult(contest) === 1;
+  const restricted = !!ownSide && evenMoney;
+  const contestNoun = contest?.kind === "match" || contest?.kind === "ffa" ? "match" : contest?.kind === "heat" ? "heat" : "final";
   const restriction = restricted
     ? `You can only bet on ${ownSide.players.length > 1 ? "your team" : "yourself"} in this ${contestNoun}.`
     : null;
+  /* one side per contest: chips already down fix which side the rest can join */
+  const heldSide = me && contest ? contestSideOf(state, contest, me, events) : null;
   const picks = (contest?.sides || []).map(side => {
     const own = side.players.includes(me);
     const drawnTeam = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
     const name = side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawnTeam || { players:side.players });
     const pick = contestPick(contest, side, ev);
     const eligible = !!me && contestBetEligibility(contest, me, side.key);
+    const otherSide = eligible && heldSide !== null && heldSide !== side.key;
     return { key:side.key, state, me, players:side.players, name, marketOpen,
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
       onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
-      unavailableReason:restricted && !eligible ? restriction : null,
-      canPick:marketOpen && room >= PT && eligible,
+      unavailableReason:restricted && !eligible ? restriction
+        : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
+      unavailableLabel:restricted && !eligible ? "Opponent" : "Other side",
+      canPick:marketOpen && room >= PT && eligible && !otherSide,
       onPick:() => onPick({ ...pick, stake:tapStake }) };
   });
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result"
@@ -283,7 +290,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     {ev && <section className="fd-wagers-event">
       <div className="fd-wagers-contest-heading">
         <div><h2>{contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"}</h2>
-          {contest && <p>{contest.kind === "ffa" ? "Pays 2 to 1" : "Winner pays even"}</p>}</div>
+          {contest && <p>{evenMoney ? "Winner pays even" : "Pays 2 to 1"}</p>}</div>
         {onEvent && <button type="button" className="fd-wagers-context" onClick={() => onEvent(ev)}>
           {contextLabel}<span aria-hidden="true">↗</span>
         </button>}

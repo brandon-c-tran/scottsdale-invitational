@@ -82,7 +82,8 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
         <div className="fd-weekend-rules">
           <Rule number="01" title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
             <p>Friday events pay 400. Saturday morning pays 800, afternoon 1,200, and night 1,600.
-              {" "}Solo events pay the podium. Team events pay every player on the placing team the full amount.</p>
+              {" "}Solo events pay the podium. Team events pay every player on the placing team the full amount.
+              {" "}In a bracket, the two semifinal losers split 3rd. Event crew earn the 3rd-place award.</p>
             <table className="fd-weekend-payouts"><caption>Chips awarded per player</caption>
               <thead><tr><th scope="col">Session</th><th scope="col">1st</th><th scope="col">2nd</th><th scope="col">3rd</th></tr></thead>
               <tbody>{[[400, "Friday"], [800, "Sat AM"], [1200, "Sat PM"], [1600, "Sat night"]].map(([value, name]) =>
@@ -95,7 +96,8 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
               {" "}Bets lock before play. The winner settles the chips, then the next contest opens.
               {" "}Pick a chip, 100 to 1,000, and tap who you like. Tap your chip stack to take the last one back.</p>
             <div className="fd-weekend-odds"><div><strong>2:1</strong><span>Free-for-all winner</span></div><div><strong>1:1</strong><span>Matchup, heat<br />or final winner</span></div></div>
-            <p>Playing in the matchup or heat? Back yourself or your team, or sit the bet out. No automatic bets.</p>
+            <p>A two-team game is a matchup. Playing in the matchup or heat? Back yourself or your team, or sit the bet out. No automatic bets.
+              {" "}One side per contest.</p>
             <p>To limit the damage of one bad decision, only half your points can be at risk at a time.
               {" "}The limit rounds down to 100s, with a minimum of 500. You can never bet more chips than you have available.</p>
             <p>Bets settle off the official result, so correcting a result corrects the payouts. I can void any wager.</p>

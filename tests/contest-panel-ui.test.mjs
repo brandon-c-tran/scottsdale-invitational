@@ -283,19 +283,21 @@ test("correction carries previous contest refs, waits for acknowledgement, and r
   assert.equal(controls(state, ev).buttons.filter(button => button.name.startsWith("Winner: ") && !button.disabled).length, 2);
 });
 
-test("correction visibly blocks next-contest chips until the guest removes them", async () => {
+/* Deliberate change: next-contest chips no longer block a correction. The
+   confirm names the chips that go back, and the correction voids them. */
+test("correction names next-contest chips in its confirm and returns them in the same write", async () => {
   const { state, ev } = fixture("bracket", true);
   const first = resolveCurrentContest(state, ev);
   saved(state, "recordContestWinner", { evId:ev.id, ...ref(first), winner:first.sides[0].key });
   const next = resolveCurrentContest(state, ev), name = names(next.sides[0]);
   const onUndo = payload => act(state, "undoLastContest", { evId:ev.id, ...payload });
   assert.equal((await bettingControls(state, ev, me).click(`Place a chip on ${name}`)).ok, true);
-  const blocked = controls(state, ev, { onUndo });
-  assert.equal(blocked.named("Correct previous result").disabled, true);
-  assert.match(blocked.html, /Remove the next contest&#x27;s chips before correcting the result/);
-  assert.equal((await bettingControls(state, ev, me).click(`Retract your last chip on ${name}`)).ok, true);
-  await controls(state, ev, { onUndo }).click("Correct previous result");
+  const confirm = controls(state, ev, { onUndo }, ["Correct previous result"]);
+  assert.match(confirm.html, new RegExp(`Returns ${me} 100`));
+  assert.equal(state.eventOps[ev.id].lastContest.id, first.id, "Opening the confirm changes nothing");
+  await confirm.click("Correct previous result");
   assert.equal(resolveCurrentContest(state, ev).id, first.id);
+  assert.equal(state.wagers[0].status, "void");
 });
 
 test("a pending start also blocks the conflicting previous-result correction", async () => {

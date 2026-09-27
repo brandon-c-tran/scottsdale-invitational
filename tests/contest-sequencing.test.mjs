@@ -249,16 +249,26 @@ test("undo restores the prior contest locked at a fresh revision and keeps its w
   assert.equal(resolveWager(s,ticket,allEventsOf(s)).status,"lost");
 });
 
-test("undo is blocked by next-contest chips/start or posted podium, and supports heat qualifiers/final", () => {
+test("undo returns next-contest chips, works after the next contest starts, and supports heat qualifiers/final", () => {
+  /* Deliberate change: next-market chips and a started next contest no
+     longer block a correction. The chips are voided in the same write and
+     named before the tap. */
   const s=bracket(), id="8ball";
-  lock(s,id); win(s,id,current(s,id).sides[0].key);
-  let undo=contestUndoAvailability(s,event(s,id));
+  const opening=current(s,id);
+  lock(s,id); win(s,id,opening.sides[0].key);
   const c=current(s,id);
   act(s,"placeWager",{wager:chip(s,id,c.sides[0])},guest(ROSTER[12]));
-  fail(s,"undoLastContest",{evId:id,...undo},gm(),/chips/);
-  act(s,"retractWager",{id:s.wagers[0].id,...refs(c)},guest(ROSTER[12]));
+  let undo=contestUndoAvailability(s,event(s,id));
+  assert.equal(undo.enabled,true);
+  assert.deepEqual(undo.refunds,[{player:ROSTER[12],stake:100}]);
   lock(s,id);
-  fail(s,"undoLastContest",{evId:id,...undo},gm(),/locked or playing/);
+  undo=contestUndoAvailability(s,event(s,id));
+  assert.equal(undo.enabled,true);
+  const undone=act(s,"undoLastContest",{evId:id,contestId:undo.contestId,contestRevision:undo.contestRevision});
+  assert.deepEqual(undone.extra.refunds,[{player:ROSTER[12],stake:100}]);
+  assert.equal(s.wagers[0].status,"void");
+  assert.equal(current(s,id).id,opening.id);
+  assert.equal(current(s,id).phase,"in-progress");
   const h=fresh(), hid="pingpong";
   act(h,"runStages",{evId:hid,cfg:{kind:"heats",nGroups:2,advance:2,players:ROSTER}});
   act(h,"announceEvent",{evId:hid});

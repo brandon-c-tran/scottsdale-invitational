@@ -8,7 +8,7 @@ import {
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, draftTurn, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, DUEL_DAILY_LIMIT, resolveDuel, duelAccepted, duelPhase, duelOpen, duelReserve, duelRoom,
   duelBetween, duelsSentToday, pokerLive, stacksPosted, pokerLevels, pokerClockAnchor,
-  validateEventParticipants, normalizeOverflowRoles,
+  validateEventParticipants, normalizeOverflowRoles, presentPlayers, isAway, suggestParticipants, bracketMatchOpen, eventInPlay, GAMES,
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution, wagerMult, contestMult, contestSideOf,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
@@ -243,6 +243,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
 const WEEKEND_START_ACTIONS = new Set([
   "announceEvent", "announceAndDraw", "startEvent", "lockAndStart", "pokerStart",
 ]);
+/* legacy tables and full rooms seat the whole roster */
+const seatsOf = pk => Array.isArray(pk?.seats) ? pk.seats : ROSTER;
 const pokerTableLocksBoard = state =>
   !!(state.poker && !state.results?.[state.poker.id]);
 /* seats still holding chips: not busted and not counted at 0 */
@@ -351,18 +353,22 @@ const draftPreparationError = (state, ev) => {
     return err("Betting has opened. Teams are locked");
   return null;
 };
-const draftConfigurationError = ev => {
-  const cfg = ev?.teamCfg;
-  if (!cfg || !Number.isInteger(cfg.teams) || cfg.teams < 2
+/* A draft plays the shape the room had when it started (fewer teams when
+   people are away). Legacy drafts carry no fit and use the event format. */
+const draftFit = (draft, ev) => draft?.fit || ev?.teamCfg;
+const draftConfigurationError = (ev, fit = ev?.teamCfg) => {
+  const cfg = fit;
+  if (!ev?.teamCfg || !cfg || !Number.isInteger(cfg.teams) || cfg.teams < 2
       || !Number.isInteger(cfg.size) || cfg.size < 1 || cfg.teams * cfg.size > ROSTER.length)
     return err("Invalid team setup");
-  if (cfg.bracket && (cfg.bracket !== cfg.teams || !makeBracket(cfg.bracket)))
-    return err(`Unsupported ${cfg.bracket}-team bracket`);
+  if (ev.teamCfg.bracket && !makeBracket(cfg.teams))
+    return err(`Unsupported ${cfg.teams}-team bracket`);
   return null;
 };
 const draftDataError = (draft, ev) => {
-  const config = draftConfigurationError(ev); if (config) return config;
-  if (!draftTurn(draft) || draft.teams.length !== ev.teamCfg.teams)
+  const fit = draftFit(draft, ev);
+  const config = draftConfigurationError(ev, fit); if (config) return config;
+  if (!draftTurn(draft) || draft.teams.length !== fit.teams)
     return err("Draft does not match this event");
   const captains = draft.teams.map(team => team.captain);
   if (new Set(captains).size !== captains.length || captains.some(player => !ROSTER.includes(player)))
@@ -373,14 +379,30 @@ const draftDataError = (draft, ev) => {
     expected[pick.team].push(pick.player);
   }
   if (draft.teams.some((team, index) => !Array.isArray(team.players)
-      || team.players.length > ev.teamCfg.size || !slotsEqual(team.players, expected[index])))
+      || team.players.length > fit.size || !slotsEqual(team.players, expected[index])))
     return err("Draft teams do not match the picks");
   const players = [...draft.teams.flatMap(team => team.players), ...draft.pool];
-  const valid = validateEventParticipants(ev, players, ROSTER);
-  if (!valid.ok) return err(valid.error);
-  if (players.length !== ev.teamCfg.teams * ev.teamCfg.size)
-    return err(`Select exactly ${ev.teamCfg.teams * ev.teamCfg.size} players`);
+  if (new Set(players).size !== players.length || players.some(player => !ROSTER.includes(player)))
+    return err("Only confirmed players can participate");
+  if (players.length !== fit.teams * fit.size)
+    return err(`Select exactly ${fit.teams * fit.size} players`);
   return null;
+};
+/* One market and one game at a time: a new event cannot be announced while
+   another is being played. force is the explicit override. */
+const playingElsewhere = (state, evId, force) => {
+  if (force === true) return null;
+  const playing = allEventsOf(state).find(other => other.id !== evId && eventInPlay(state, other));
+  return playing ? err(`Finish ${playing.name} first`) : null;
+};
+const voidWagers = (state, ids, reason, now = Date.now()) => {
+  const wanted = new Set(ids);
+  state.wagers.forEach(wager => {
+    if (!wanted.has(wager.id)) return;
+    wager.status = "void";
+    wager.voidReason = reason;
+    wager.voidedAt = now;
+  });
 };
 
 export const ACTIONS = {
@@ -957,7 +979,7 @@ export const ACTIONS = {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.id === evId);
     if (!ev) return err("No such event");
-    if (ev.game === "poker" && ev.finale) return err("Enter chip counts instead");
+    if (ev.finale) return err("Enter chip counts instead");
     if (!Array.isArray(slots) || !slots[0]?.length) return err("Winners required");
     if (slots.length > 3 || !slots.every(s => Array.isArray(s) && s.every(p => ROSTER.includes(p))))
       return err("Bad slots");
@@ -1060,7 +1082,7 @@ export const ACTIONS = {
   },
 
   /* ── GM: slate ── */
-  setOnDeck(state, { id, contestId, contestRevision }, ctx) {
+  setOnDeck(state, { id, contestId, contestRevision, force }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (state.frozen) return err("The board is frozen");
     const events = allEventsOf(state);
@@ -1077,7 +1099,7 @@ export const ACTIONS = {
     }
     const ev = events.find(event => event.id === id);
     if (!ev) return err("No such event");
-    if (ev.game === "poker")
+    if (ev.finale)
       return err("No betting on the finale");
     if (stacksPosted(state)) return err("The finale is settled");
     if (state.shelved[id]) return err("That event is shelved");
@@ -1089,6 +1111,7 @@ export const ACTIONS = {
       }
       return ok({ unchanged:true });
     }
+    const busy = playingElsewhere(state, id, force); if (busy) return busy;
     if (ev.teamCfg && !state.draws[id]) return err("Set the teams before opening betting");
     if (ev.stageCfg && !state.stages[id]) return err(`Set up ${ev.stageCfg.kind} first`);
     if (eventHasBegun(state, ev) || state.eventOps?.[id]?.resultEntryAt) return err("The event has already started");
@@ -1119,10 +1142,10 @@ export const ACTIONS = {
      discrete actions above survive for the manual path; these merge the
      routine pairs. Scenes start only on FRESH transitions so a retried
      composite never restarts a ceremony. */
-  announceEvent(state, { evId, contestId, contestRevision }, ctx) {
+  announceEvent(state, { evId, contestId, contestRevision, force }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!evId) return err("No such event");
-    const result = ACTIONS.setOnDeck(state, { id:evId, contestId, contestRevision }, ctx);
+    const result = ACTIONS.setOnDeck(state, { id:evId, contestId, contestRevision, force }, ctx);
     if (!result.ok || result.extra?.unchanged) return result;
     const scene = tryStartScene(state, ctx, { kind:"event-intro", eventId:evId });
     return ok({ ...(scene ? { sceneId:scene.id } : {}) });
@@ -1131,33 +1154,40 @@ export const ACTIONS = {
      opens in ONE broadcast, so every phone plays intro then reveal by
      itself through the existing announce chain. No directed scene: the
      legacy ceremony owns this moment on every screen. */
-  announceAndDraw(state, { evId, players, roles }, ctx) {
+  announceAndDraw(state, { evId, players, roles, force, cfg }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (state.frozen) return err("The board is frozen");
     const ev = allEventsOf(state).find(e => e.id === evId);
-    if (!ev?.teamCfg) return err("Not a team event");
+    const heats = !ev?.teamCfg && ev?.stageCfg?.kind === "heats";
+    if (!ev?.teamCfg && !heats) return err("Nothing to draw for this event");
     if (state.results[evId]) return err("Result already posted");
     if (state.shelved[evId]) return err("That event is shelved");
     if (stacksPosted(state)) return err("The finale is settled");
     if (state.drafts[evId] && !state.draws[evId])
       return err("Finish or cancel the captains draft");
     if (eventHasBegun(state, ev) || state.eventOps?.[evId]?.resultEntryAt) return err("The event has already started");
-    const op = eventOp(state, evId);
     if (state.onDeck && state.onDeck !== evId) return err("Close the current betting market first");
+    if (state.onDeck !== evId) { const busy = playingElsewhere(state, evId, force); if (busy) return busy; }
+    const op = eventOp(state, evId);
+    /* No selection means the director's default: everyone present plays and
+       the overflow is whoever has sat out least. */
+    const chosen = Array.isArray(players) && players.length;
+    const suggestion = chosen ? null : suggestParticipants(state, ev);
+    const pick = chosen ? players : suggestion?.players || [];
+    const crew = chosen ? roles : suggestion?.roles || [];
+    const present = presentPlayers(state);
     let drew = false;
-    if (!state.draws[evId]) {
-      const roster = Array.isArray(players) && players.length ? players : ROSTER;
-      const compatible = validateEventParticipants(ev, roster, ROSTER);
+    if (ev.teamCfg && !state.draws[evId]) {
+      const compatible = validateEventParticipants(ev, pick, present);
       if (!compatible.ok) return err(compatible.error);
-      if (ev.teamCfg.bracket && !makeBracket(ev.teamCfg.bracket))
-        return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
-      const draw = drawTeams(ev, state, compatible.players);
+      if (ev.teamCfg.bracket && !makeBracket(compatible.fit?.teams || ev.teamCfg.bracket))
+        return err(`Unsupported ${compatible.fit?.teams || ev.teamCfg.bracket}-team bracket`);
+      const draw = drawTeams(ev, state, compatible.players, present);
       if (!draw) return err("Draw failed");
-      draw.roles = normalizeOverflowRoles(compatible.players, ROSTER, roles, ev);
+      draw.roles = normalizeOverflowRoles(compatible.players, present, crew, ev);
       state.draws[evId] = draw;
       delete state.stages[evId];
-      if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
-        state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
+      if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(draw.teams.length);
       else delete state.brackets[evId];
       op.drawRevealedAt = Date.now();
       drew = true;
@@ -1165,8 +1195,14 @@ export const ACTIONS = {
     let announced = false;
     if (state.onDeck !== evId) {
       if (ev.stageCfg && !state.stages[evId]) {
-        const prepared = ACTIONS.runStages(state, { evId, cfg:ev.stageCfg }, ctx);
+        /* the commissioner may pick the group count and advancers */
+        const shape = { ...ev.stageCfg,
+          ...(Number.isInteger(cfg?.nGroups) ? { nGroups:cfg.nGroups } : {}),
+          ...(cfg?.advance === 1 || cfg?.advance === 2 ? { advance:cfg.advance } : {}) };
+        const prepared = ACTIONS.runStages(state, { evId,
+          cfg:heats ? { ...shape, players:pick, roles:crew } : shape }, ctx);
         if (!prepared.ok) return prepared;
+        if (heats) { op.drawRevealedAt = Date.now(); drew = true; }
       }
       const opened = openContest(state, ev);
       if (!opened.ok) return opened;
@@ -1232,14 +1268,22 @@ export const ACTIONS = {
         return err(`Choose the winner and ${st.advance} qualifier${st.advance === 1 ? "" : "s"}`);
     }
     const op = eventOp(state, evId);
+    const by = ctx.player || "commissioner", decidedAt = Date.now();
     op.lastContest = { id:contest.id, kind:contest.kind, revision:contest.revision,
       match:contest.match, group:contest.group, stagesId:contest.stagesId, drawId:contest.drawId,
       previousWinner:contest.kind === "match"
         ? state.brackets[evId].rounds[contest.match[0]][contest.match[1]].winner
         : contest.kind === "heat" ? state.stages[evId].groups[contest.group].winner : state.stages[evId].finalWinner,
       previousThrough:contest.kind === "heat" ? [...(state.stages[evId].groups[contest.group].through || [])] : undefined,
-      winner, decidedAt:Date.now() };
-    if (contest.kind === "match") state.brackets[evId].rounds[contest.match[0]][contest.match[1]].winner = winner;
+      winner, by, decidedAt };
+    /* who recorded each decision, so a wrong tap can be traced */
+    op.contestLog = [...(Array.isArray(op.contestLog) ? op.contestLog : []),
+      { id:contest.id, winner, by, at:decidedAt }].slice(-40);
+    if (contest.kind === "match") {
+      const br = state.brackets[evId];
+      br.rounds[contest.match[0]][contest.match[1]].winner = winner;
+      if (br.next?.[0] === contest.match[0] && br.next?.[1] === contest.match[1]) delete br.next;
+    }
     else if (contest.kind === "heat") {
       const group = state.stages[evId].groups[contest.group];
       group.winner = winner;
@@ -1270,7 +1314,14 @@ export const ACTIONS = {
     const op = eventOp(state, evId), last = op.lastContest;
     if (last.drawId && state.draws[evId]?.id !== last.drawId
         || last.stagesId && state.stages[evId]?.id !== last.stagesId) return err("Draw changed, refresh and try again");
-    if (last.kind === "match") state.brackets[evId].rounds[last.match[0]][last.match[1]].winner = last.previousWinner ?? null;
+    /* chips already on the next market go back in this same write */
+    voidWagers(state, available.voidIds || [], "Previous result corrected");
+    if (last.kind === "match") {
+      const br = state.brackets[evId];
+      br.rounds[last.match[0]][last.match[1]].winner = last.previousWinner ?? null;
+      /* keep the corrected matchup current even if it was played out of order */
+      br.next = [last.match[0], last.match[1]];
+    }
     else if (last.kind === "heat") {
       const group = state.stages[evId].groups[last.group];
       group.winner = last.previousWinner ?? null;
@@ -1288,7 +1339,106 @@ export const ACTIONS = {
     if (voided.length) appendCorrection(state, evId, { type:"undo-contest", at:Date.now(), by:actorOf(ctx),
       reason:"Previous contest reopened", contestId:last.id, voided });
     rememberContestCommand(state, evId, command);
-    return ok({ contestId:op.contest.id, contestRevision:op.contest.revision, voided });
+    return ok({ contestId:op.contest.id, contestRevision:op.contest.revision, voided,
+      refunds:available.refunds || [] });
+  },
+  /* Play a different seated matchup first. Only while the current market is
+     open and empty, so exactly one market exists and no chip changes target. */
+  playContestNext(state, payload, ctx) {
+    const { evId, match } = payload;
+    const g = gmOnly(ctx); if (g) return g;
+    const command = contestCommand(ctx, "playContestNext", { ...payload, winner:JSON.stringify(match) });
+    const replay = replayContestCommand(state, evId, command); if (replay) return replay;
+    if (state.frozen) return err("The board is frozen");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    const refError = contestReferenceError(state, ev, payload, true); if (refError) return refError;
+    const contest = resolveCurrentContest(state, ev);
+    if (contest.kind !== "match") return err("Only bracket matches can be reordered");
+    if (contest.phase !== "betting-open") return err("Choose the next match before betting locks");
+    if (!Array.isArray(match) || match.length !== 2) return err("No such matchup");
+    const [r, m] = match;
+    if (contest.match[0] === r && contest.match[1] === m) return ok({ unchanged:true });
+    const br = state.brackets[evId];
+    if (!bracketMatchOpen(br, r, m)) return err("That match is not ready");
+    const events = allEventsOf(state);
+    if ((state.wagers || []).some(wager => wagerMatchesContest(wager, contest)
+        && resolveWager(state, wager, events).status === "pending"))
+      return err("Chips are on this match. They come off first");
+    br.next = [r, m];
+    const opened = openContest(state, ev);
+    if (!opened.ok) return opened;
+    rememberContestCommand(state, evId, command);
+    return opened;
+  },
+  /* Replace one drawn player before their contest starts. The draw id and
+     team indices stay, so match tickets on that team survive; only outright
+     tickets that name the player who left are voided. */
+  swapPlayer(state, { evId, out, into }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (state.frozen) return err("The board is frozen");
+    if (stacksPosted(state)) return err("The finale is settled");
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    if (state.results[evId]) return err("Result already posted");
+    if (out === into || !ROSTER.includes(out) || !ROSTER.includes(into)) return err("Choose two different players");
+    if (isAway(state, into)) return err(`${disp(state, into)} is marked away`);
+    const draw = state.draws[evId], st = state.stages[evId];
+    const contest = resolveCurrentContest(state, ev);
+    const started = key => contest && contest.sides.some(side => side.key === key)
+      && ["betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
+    const decided = value => value !== null && value !== undefined;
+    const events = allEventsOf(state);
+    const pending = state.wagers.filter(wager => wager.eventId === evId
+      && resolveWager(state, wager, events).status === "pending");
+    let voided = [];
+    if (draw) {
+      const teamIdx = draw.teams.findIndex(team => team.players.includes(out));
+      if (teamIdx < 0) return err(`${disp(state, out)} is not on a team`);
+      if (draw.teams.some(team => team.players.includes(into))) return err(`${disp(state, into)} is already playing`);
+      const br = state.brackets[evId];
+      if (br?.rounds.some(round => round.some(match => decided(match.winner)
+          && [resolveSlot(br, match.a), resolveSlot(br, match.b)].includes(teamIdx))))
+        return err("That team has already played");
+      if (st?.groups?.some(group => group.entrants.includes(teamIdx)
+          && ((group.through || []).length || decided(group.winner))))
+        return err("That team has already played");
+      if (started(teamIdx)) return err("Their contest has already started");
+      const team = draw.teams[teamIdx];
+      team.players = team.players.map(player => player === out ? into : player);
+      if (team.captain === out) team.captain = into;
+      draw.roles = (draw.roles || []).filter(item => item.player !== into);
+      voided = pending.filter(wager => wager.kind === "outright"
+        && (wager.pick === out || (wager.pickPlayers || []).includes(out)));
+      /* surviving team tickets settle by team index; refresh the names shown */
+      pending.filter(wager => wager.kind !== "outright" && wager.pickTeam
+          && (wager.kind === "match" ? wager.teamIdx : wager.pickKey) === teamIdx)
+        .forEach(wager => { wager.pickPlayers = [...team.players]; });
+    } else if (st?.entrantType === "solo") {
+      const group = st.groups.find(item => item.entrants.includes(out));
+      if (!group) return err(`${disp(state, out)} is not in a heat`);
+      if (st.groups.some(item => item.entrants.includes(into))) return err(`${disp(state, into)} is already playing`);
+      if ((group.through || []).length || decided(group.winner)) return err("That heat has already played");
+      if (started(out)) return err("Their contest has already started");
+      group.entrants = group.entrants.map(key => key === out ? into : key);
+      st.roles = (st.roles || []).filter(item => item.player !== into);
+      voided = pending.filter(wager => wager.pick === out || wager.pickKey === out);
+    } else return err("Nothing to swap in this event");
+    voidWagers(state, voided.map(wager => wager.id), `${disp(state, out)} swapped out`);
+    const op = eventOp(state, evId);
+    op.swaps = [...(Array.isArray(op.swaps) ? op.swaps : []),
+      { out, into, by:ctx.player || "commissioner", at:Date.now() }].slice(-20);
+    return ok({ voided:voided.length });
+  },
+  /* Reversible attendance mark. Chips and profile never change. */
+  setAway(state, { player, away }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ROSTER.includes(player)) return err("Unknown player");
+    if (typeof away !== "boolean") return err("Choose away or here");
+    state.away = state.away || {};
+    if (!!state.away[player] === away) return ok({ unchanged:true });
+    if (away) state.away[player] = true; else delete state.away[player];
+    return ok();
   },
   beginResultEntry(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1334,7 +1484,28 @@ export const ACTIONS = {
     if (typeof ev.id !== "string" || !ev.id) return err("Bad event");
     if (allEventsOf(state).find(e => e.id === ev.id)) return err("Event id taken");
     if (!AWARDS[ev.value]) return err("Bad value");
-    state.customEvents.push({ ...ev, name: String(ev.name).trim().slice(0, 28), custom: true });
+    if (!["solo", "pairs", "team"].includes(ev.kind)) return err("Choose a format");
+    /* the saved format must be playable by the room: equal teams, extras on
+       crew. A custom event never becomes the finale. */
+    let teamCfg = null;
+    if (ev.kind !== "solo") {
+      const teams = Number(ev.teamCfg?.teams), size = Number(ev.teamCfg?.size);
+      if (!Number.isInteger(teams) || !Number.isInteger(size) || teams < 2 || teams > 6 || size < 1
+          || ev.kind === "pairs" && size !== 2)
+        return err("Bad team setup");
+      if (teams * size > ROSTER.length)
+        return err(`${teams} teams of ${size} needs ${teams * size} players; ${ROSTER.length} on the roster`);
+      if (ev.teamCfg.bracket !== undefined && (ev.teamCfg.bracket !== teams || !makeBracket(teams)))
+        return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
+      teamCfg = { teams, size, ...(ev.teamCfg.bracket !== undefined ? { bracket:teams } : {}) };
+    }
+    const session = SESSIONS.find(item => item.id === ev.session)?.id;
+    const game = typeof ev.game === "string" && /^[a-z0-9-]{1,24}$/i.test(ev.game) ? ev.game : null;
+    state.customEvents.push({
+      id:ev.id, custom:true, name:String(ev.name).trim().slice(0, 28), value:ev.value,
+      desc:String(ev.desc || "").trim().slice(0, 300), kind:ev.kind,
+      ...(session ? { session } : {}), ...(game ? { game } : {}), ...(teamCfg ? { teamCfg } : {}),
+    });
     return ok();
   },
   removeEvent(state, { id }, ctx) {
@@ -1424,19 +1595,19 @@ export const ACTIONS = {
     if (state.drafts?.[evId]) return err("Finish or cancel the captains draft");
     if (eventHasBegun(state, ev)) return err("The event has already started");
     const bets = drawBetsError(state, evId); if (bets) return bets;
-    const compatible = validateEventParticipants(ev, players, ROSTER);
+    const present = presentPlayers(state);
+    const compatible = validateEventParticipants(ev, players, present);
     if (!compatible.ok) return err(compatible.error);
     players = compatible.players;
-    if (ev.teamCfg.bracket && !makeBracket(ev.teamCfg.bracket))
-      return err(`Unsupported ${ev.teamCfg.bracket}-team bracket`);
-    const draw = drawTeams(ev, state, players);
+    if (ev.teamCfg.bracket && !makeBracket(compatible.fit?.teams || ev.teamCfg.bracket))
+      return err(`Unsupported ${compatible.fit?.teams || ev.teamCfg.bracket}-team bracket`);
+    const draw = drawTeams(ev, state, players, present);
     if (!draw) return err("Draw failed");
-    draw.roles = normalizeOverflowRoles(players, ROSTER, roles, ev);
+    draw.roles = normalizeOverflowRoles(players, present, roles, ev);
     state.draws[evId] = draw;
     delete state.stages[evId];
     resetContestSetup(state, evId);
-    if (ev.teamCfg.bracket && draw.teams.length === ev.teamCfg.bracket)
-      state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
+    if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(draw.teams.length);
     else delete state.brackets[evId];
     eventOp(state, evId).drawRevealedAt = Date.now();
     return ok();
@@ -1492,11 +1663,17 @@ export const ACTIONS = {
       return err("Bad stage setup");
     if (state.brackets[evId]) return err("This event uses a bracket");
     if (ev.stageCfg && ev.stageCfg.kind !== cfg.kind) return err(`This event uses ${ev.stageCfg.kind}`);
-    let entrantType, keys, drawId = null;
+    let entrantType, keys, drawId = null, roles = null;
     if (cfg.kind === "heats") {
-      const compatible = validateEventParticipants(ev, cfg.players, ROSTER);
-      if (!compatible.ok) return err(compatible.error);
-      entrantType = "solo"; keys = compatible.players;
+      /* whoever is present and chosen plays, at least two to a heat; the
+         rest of the room is crew */
+      const present = presentPlayers(state), picked = cfg.players;
+      if (!Array.isArray(picked)) return err("Choose who is playing");
+      if (new Set(picked).size !== picked.length) return err("A player is selected twice");
+      if (picked.some(player => !present.includes(player))) return err("Only players who are here can play");
+      if (picked.length < cfg.nGroups * 2) return err("Heats need at least 2 players each");
+      entrantType = "solo"; keys = [...picked];
+      roles = normalizeOverflowRoles(keys, present, cfg.roles, ev);
     } else {
       const draw = state.draws[evId]; if (!draw) return err("Draw teams first");
       entrantType = "team"; keys = draw.teams.map((_, i) => i); drawId = draw.id;
@@ -1509,7 +1686,8 @@ export const ACTIONS = {
     const groups = splitIntoGroups(keys, cfg.nGroups, strength)
       .map((entrants, i) => ({ name: cfg.kind === "heats" ? `Heat ${i + 1}` : `Pool ${"ABCD"[i] || i + 1}`, entrants, through: [], winner:null }));
     state.stages[evId] = { id:`s${Date.now()}-${crypto.randomUUID()}`, eventId: evId, kind: cfg.kind, entrantType, drawId, contestVersion:1,
-      advance: cfg.advance === 2 ? 2 : 1, groups, finalWinner: null, ts: Date.now() };
+      advance: cfg.advance === 2 ? 2 : 1, groups, finalWinner: null, ts: Date.now(),
+      ...(roles?.length ? { roles } : {}) };
     resetContestSetup(state, evId);
     return ok();
   },
@@ -1567,17 +1745,19 @@ export const ACTIONS = {
     const replay = replayDraftCommand(state, evId, command); if (replay) return replay;
     const ev = allEventsOf(state).find(e => e.id === evId);
     const unavailable = draftPreparationError(state, ev); if (unavailable) return unavailable;
-    const config = draftConfigurationError(ev); if (config) return config;
+    const present = presentPlayers(state);
+    const compatible = validateEventParticipants(ev, players, present);
+    const fit = compatible.fit || ev.teamCfg;
+    const config = draftConfigurationError(ev, fit); if (config) return config;
     if (state.draws[evId]) return err("Teams already set, clear them first");
-    const compatible = validateEventParticipants(ev, players, ROSTER);
     if (!compatible.ok) return err(compatible.error);
-    if (compatible.players.length !== ev.teamCfg.teams * ev.teamCfg.size)
-      return err(`Select exactly ${ev.teamCfg.teams * ev.teamCfg.size} players`);
-    if (!Array.isArray(captains) || captains.length !== ev.teamCfg.teams) return err("Pick one captain per team");
+    if (compatible.players.length !== fit.teams * fit.size)
+      return err(`Select exactly ${fit.teams * fit.size} players`);
+    if (!Array.isArray(captains) || captains.length !== fit.teams) return err("Pick one captain per team");
     if (new Set(captains).size !== captains.length) return err("A captain is listed twice");
     const pool = compatible.players;
     if (!captains.every(c => pool.includes(c))) return err("Captains must be in the playing pool");
-    const normalizedRoles = normalizeOverflowRoles(pool, ROSTER, roles, ev);
+    const normalizedRoles = normalizeOverflowRoles(pool, present, roles, ev);
     const existing = state.drafts?.[evId];
     if (existing) {
       if (!slotsEqual(existing.teams?.map(team => team.captain), captains)
@@ -1599,6 +1779,8 @@ export const ACTIONS = {
       pool: pool.filter(p => !captains.includes(p)),
       picks: [],
       roles:normalizedRoles,
+      ...(fit.teams !== ev.teamCfg.teams || fit.size !== ev.teamCfg.size
+        ? { fit:{ teams:fit.teams, size:fit.size } } : {}),
     };
     const extra = draftTurn(state.drafts[evId]);
     rememberDraftCommand(state, evId, command, extra);
@@ -1668,9 +1850,10 @@ export const ACTIONS = {
     const refError = draftReferenceError(d, payload); if (refError) return refError;
     const dataError = draftDataError(d, ev); if (dataError) return dataError;
     if (d.pool.length) return err("Pool not empty yet");
-    if (d.teams.some(team => team.players.length !== ev.teamCfg.size))
-      return err(`Teams must have exactly ${ev.teamCfg.size} players`);
-    const mascots = (ev.teamCfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+    const fit = draftFit(d, ev);
+    if (d.teams.some(team => team.players.length !== fit.size))
+      return err(`Teams must have exactly ${fit.size} players`);
+    const mascots = (fit.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
     const now = Date.now(), turn = draftTurn(d), drawId = `d${now}-${crypto.randomUUID()}`;
     state.draws[evId] = { id:drawId, method:"draft", ts:now, sourceDraftId:d.id,
       draft:{ id:d.id, revision:turn.draftRevision, picks:d.picks.map(pick => ({ ...pick })) },
@@ -1678,8 +1861,7 @@ export const ACTIONS = {
       teams:d.teams.map((team, index) => ({ captain:team.captain, players:[...team.players],
         ...(mascots ? { name:mascots[index % mascots.length] } : {}) })) };
     delete state.stages[evId];
-    if (ev.teamCfg.bracket && state.draws[evId].teams.length === ev.teamCfg.bracket)
-      state.brackets[evId] = makeBracket(ev.teamCfg.bracket);
+    if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(state.draws[evId].teams.length);
     else delete state.brackets[evId];
     resetContestSetup(state, evId);
     eventOp(state, evId).drawRevealedAt = now;
@@ -1716,7 +1898,7 @@ export const ACTIONS = {
   /* ── the poker finale: the app runs the table, the cards stay physical ── */
   pokerSetup(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    const ev = allEventsOf(state).find(e => e.finale && e.game === "poker");
+    const ev = allEventsOf(state).find(e => e.finale);
     if (!ev) return err("No poker finale on the slate");
     if (state.shelved[ev.id]) return err("The finale is shelved");
     if (state.poker?.id === ev.id)
@@ -1728,7 +1910,11 @@ export const ACTIONS = {
     if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
       return err("Settle or void the open wagers first");
     const rows = computeStandings(state);
-    const distribution = pokerDistribution(rows);
+    /* away players are not dealt in; their board total carries as-is. A
+       negative balance deals as 0 through the minimum-stack grant. */
+    const seated = rows.filter(row => !isAway(state, row.player));
+    if (seated.length < 2) return err("Seat at least two players");
+    const distribution = pokerDistribution(seated);
     if (!distribution.ok) return err(distribution.errors[0] || "Invalid poker stacks");
     /* an unplayed duel can no longer move the board, so it cannot block the
        finale either: offers, lapsed offers, and accepted duels still waiting
@@ -1767,6 +1953,10 @@ export const ACTIONS = {
       outs:[],
       counts:{},
       ts:Date.now(),
+      ...(seated.length !== rows.length ? {
+        seats:seated.map(row => row.player),
+        unseated:Object.fromEntries(rows.filter(row => isAway(state, row.player)).map(row => [row.player, row.pts])),
+      } : {}),
     };
     return ok({ total:distribution.total, minimumCount:distribution.minimumCount, voidedDuels,
       inventory:distribution.inventory });
@@ -1829,6 +2019,7 @@ export const ACTIONS = {
     if (!pk?.startedAt) return err("Cards are not live");
     if (state.results[pk.id]) return err("Counts are posted");
     if (!ROSTER.includes(player)) return err("Unknown player");
+    if (!seatsOf(pk).includes(player)) return err("Not seated at the table");
     if (player !== ctx.player && !ctx.isGm) return err("Only you can bust yourself");
     if (pk.outs.find(o => o.player === player)) return err("Already out");
     if (!stillIn(pk).some(p => p !== player)) return err("Someone has to hold the chips");
@@ -1852,6 +2043,7 @@ export const ACTIONS = {
     if (!pk?.startedAt) return err("Cards are not live");
     if (state.results[pk.id]) return err("Counts are posted");
     if (!ROSTER.includes(player)) return err("Unknown player");
+    if (!seatsOf(pk).includes(player)) return err("Not seated at the table");
     if (player !== ctx.player && !ctx.isGm) return err("Count your own stack");
     const c = Math.floor(Number(count));
     if (pk.outs.find(o => o.player === player))
@@ -1887,13 +2079,16 @@ export const ACTIONS = {
     if (existing) return err("A non-poker result is already posted");
     const frozen = frozenGuard(state); if (frozen) return frozen;
     const outSet = new Set(pk.outs.map(o => o.player));
-    const missing = ROSTER.filter(p => !outSet.has(p) && pk.counts?.[p] === undefined);
+    const seats = seatsOf(pk);
+    const missing = seats.filter(p => !outSet.has(p) && pk.counts?.[p] === undefined);
     if (missing.length) return err(`Waiting on ${missing.map(p => disp(state, p)).join(", ")}`);
     const clean = {};
-    ROSTER.forEach(p => { clean[p] = outSet.has(p) ? 0 : pk.counts[p]; });
-    const max = Math.max(...Object.values(clean));
+    ROSTER.forEach(p => {
+      clean[p] = seats.includes(p) ? (outSet.has(p) ? 0 : pk.counts[p]) : Number(pk.unseated?.[p] || 0);
+    });
+    const max = Math.max(...seats.map(p => clean[p]));
     if (max <= 0) return err("Every count is 0");
-    const leaders = ROSTER.filter(p => clean[p] === max);
+    const leaders = seats.filter(p => clean[p] === max);
     const now = Date.now();
     const op = eventOp(state, pk.id);
     const revision = Math.max(0, Number(op.revision || 0)) + 1;
@@ -1999,6 +2194,7 @@ export const ACTIONS = {
      `signedUp` is also handed back so the GM sees who it costs. */
   rerunOnboarding(state, { force }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (state.live) return err("The weekend is live. Check-in stays closed");
     const signedUp = ROSTER.filter(p => {
       const pr = state.profiles?.[p];
       return !!(pr && (pr.size || pr.flightsBooked !== undefined || pr.flightIn || pr.flightOut || pr.color || pr.skin
@@ -2017,6 +2213,11 @@ export const ACTIONS = {
   },
   setLive(state, { on }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    /* once a game has started, the weekend cannot be taken back to the
+       locker room: that would reopen chip claims mid-weekend */
+    if (!on && (Object.keys(state.results || {}).length || state.poker
+        || Object.values(state.eventOps || {}).some(op => op?.startedAt)))
+      return err("Events have started. The weekend stays live");
     state.live = !!on;
     return ok();
   },

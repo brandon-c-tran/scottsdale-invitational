@@ -104,12 +104,13 @@ test("setup requires the commissioner and preserves the selected captain order",
 });
 
 test("setup methods choose valid ordered captains and manual removal allows replacement", async () => {
-  for (const method of ["Top seeds", "Random", "Standings"]) {
+  /* Deliberate change: seeded captains come from the draw's live strength
+     blend (labelled Balanced), not from raw private self-ratings. */
+  for (const method of ["Balanced", "Random"]) {
     const { state, ev } = fixture(false);
-    state.seeds = Object.fromEntries(pool.map((player,index) => [player, { [ev.sport]:index + 1 }]));
+    state.seeds = Object.fromEntries(pool.map((player,index) => [player, { [ev.sport]:1 + index * 0.25 }]));
     let chosen;
-    const displayedEvent = method === "Standings" ? { ...ev, sport:null } : ev;
-    const view = controls(state, displayedEvent, { standings:pool.map(player => ({ player })).reverse(),
+    const view = controls(state, ev, {
       onStart:captainOrder => { chosen = captainOrder; return { ok:true }; } }, [method]);
     await view.click("Start the draft");
     assert.equal(new Set(chosen).size, 2);

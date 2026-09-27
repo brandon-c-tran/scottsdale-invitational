@@ -29,6 +29,11 @@ const ALL_PLAYERS = rosterPlayers(ROSTER_CONFIG, ROSTER_STATUSES);
 const ROSTER = rosterPlayers();
 const rosterRecord = id => ROSTER_CONFIG.find(player => player.id === id) || null;
 const isActivePlayer = id => ROSTER.includes(id);
+/* Away is a reversible commissioner mark for someone not at the venue right
+   now. It only removes them from new draws, contest sides and poker seats;
+   their chips, claims and profile are untouched. */
+const isAway = (state, id) => !!state?.away?.[id];
+const presentPlayers = state => ROSTER.filter(player => !isAway(state, player));
 
 /* the chip quantum: every point value in the economy is a multiple of PT and
    one rendered BankChip is worth PT points. The board is denominated in
@@ -381,7 +386,7 @@ function cleanLogistics(stored) {
 }
 
 const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
+  stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
@@ -416,11 +421,34 @@ function allEventsOf(state) {
   }
   return evs;
 }
-function eventCapacity(ev) {
+/* The shape a team event actually plays with the people present. A full
+   room plays the configured format with any extras on crew. A short room
+   keeps pairs as pairs and brackets as brackets with fewer teams (5 teams
+   seed a play-in into a 4-team bracket), while two-sided team games keep
+   both sides and shrink them evenly. Remainders go to crew. */
+function teamFit(ev, count = ROSTER.length) {
+  const cfg = ev?.teamCfg;
+  if (!cfg || !Number.isInteger(cfg.teams) || !Number.isInteger(cfg.size)
+      || cfg.teams < 2 || cfg.size < 1) return null;
+  if (count >= cfg.teams * cfg.size)
+    return { teams:cfg.teams, size:cfg.size, bracket:cfg.bracket || null, reduced:false };
+  if (cfg.bracket || ev.kind === "pairs" || ev.stageCfg) {
+    const teams = Math.floor(count / cfg.size);
+    return teams >= 2 ? { teams, size:cfg.size, bracket:cfg.bracket ? teams : null, reduced:true } : null;
+  }
+  const size = Math.floor(count / cfg.teams);
+  return size >= 1 ? { teams:cfg.teams, size, bracket:null, reduced:true } : null;
+}
+function eventCapacity(ev, count) {
   const policy = participationForEvent(ev);
-  if (policy.type === "strict-teams")
+  if (policy.type === "strict-teams") {
+    if (count !== undefined && ev?.teamCfg) {
+      const fit = teamFit(ev, count);
+      return fit ? fit.teams * fit.size : null;
+    }
     return Number.isInteger(policy.teams) && Number.isInteger(policy.size)
       ? policy.teams * policy.size : null;
+  }
   if (policy.type === "fixed") return Number.isInteger(policy.entrants) ? policy.entrants : null;
   return null;
 }
@@ -436,7 +464,10 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
   if (players.some(player => !activeSet.has(player)))
     return { ok:false, code:"inactive-player", error:"Only confirmed players can participate" };
 
-  const capacity = eventCapacity(ev);
+  const fit = policy.type === "strict-teams" && ev?.teamCfg ? teamFit(ev, activeUnique.length) : null;
+  const capacity = policy.type === "strict-teams" && ev?.teamCfg
+    ? (fit ? fit.teams * fit.size : ev.teamCfg.teams * ev.teamCfg.size)
+    : eventCapacity(ev);
   if (policy.type === "all") {
     if (players.length !== activeUnique.length || activeUnique.some(player => !players.includes(player)))
       return { ok:false, code:"all-required", error:`All ${activeUnique.length} confirmed players are required`,
@@ -444,6 +475,9 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
   } else if (policy.type === "strict-teams" || policy.type === "fixed") {
     if (!capacity || capacity < 1)
       return { ok:false, code:"bad-policy", error:"Event participation is not configured" };
+    if (ev?.teamCfg && !fit)
+      return { ok:false, code:"roster-short", error:`This event needs ${2 * ev.teamCfg.size} players; ${activeUnique.length} present`,
+        selectedCount:players.length, activeCount:activeUnique.length, required:2 * ev.teamCfg.size };
     if (activeUnique.length < capacity)
       return { ok:false, code:"roster-short", error:`This event needs ${capacity} players; ${activeUnique.length} confirmed`,
         selectedCount:players.length, activeCount:activeUnique.length, required:capacity };
@@ -476,9 +510,36 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
     players,
     overflow,
     capacity,
+    fit,
     selectedCount:players.length,
     activeCount:activeUnique.length,
     policy,
+  };
+}
+/* The commissioner's one-tap default: everyone present plays, and the
+   overflow goes to whoever has sat out least so crew duty rotates. Ties go
+   to whoever sat out longest ago, then the end of the roster. */
+function suggestParticipants(state, ev) {
+  if (!ev) return null;
+  const present = presentPlayers(state);
+  if (!ev.teamCfg) return ev.stageCfg?.kind === "heats" ? { players:present, roles:[], fit:null } : null;
+  const fit = teamFit(ev, present.length);
+  if (!fit) return null;
+  const counts = {}, last = {};
+  const tally = (roles, at) => (Array.isArray(roles) ? roles : []).forEach(item => {
+    if (!item?.player) return;
+    counts[item.player] = (counts[item.player] || 0) + 1;
+    last[item.player] = Math.max(last[item.player] || 0, Number(at) || 0);
+  });
+  Object.entries(state.draws || {}).forEach(([id, draw]) => { if (id !== ev.id) tally(draw?.roles, draw?.ts); });
+  Object.entries(state.stages || {}).forEach(([id, stage]) => { if (id !== ev.id) tally(stage?.roles, stage?.ts); });
+  const order = [...present].sort((a, b) => (counts[a] || 0) - (counts[b] || 0)
+    || (last[a] || 0) - (last[b] || 0) || ROSTER.indexOf(b) - ROSTER.indexOf(a));
+  const crew = order.slice(0, present.length - fit.teams * fit.size);
+  return {
+    players:present.filter(player => !crew.includes(player)),
+    roles:crew.map((player, index) => ({ player, role:OVERFLOW_ROLES[index % OVERFLOW_ROLES.length] })),
+    fit,
   };
 }
 function normalizeOverflowRoles(selected, active = ROSTER, roles = [], ev = null) {
@@ -1061,16 +1122,17 @@ function seedSnake(keys, nGroups, strengthOf) {
   return groups;
 }
 
-function drawTeams(ev, state, players) {
+function drawTeams(ev, state, players, active = presentPlayers(state)) {
   const cfg = ev.teamCfg; if (!cfg) return null;
-  const compatibility = validateEventParticipants(ev, players);
+  const compatibility = validateEventParticipants(ev, players, active);
   if (!compatibility.ok) return null;
+  const fit = compatibility.fit || cfg;
   const s = strengthMap(state, players, ev.sport);
-  const nTeams = cfg.teams;
+  const nTeams = fit.teams;
   const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
   if (participationForEvent(ev).type === "strict-teams"
-      && groups.some(group => group.length !== cfg.size)) return null;
-  const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+      && groups.some(group => group.length !== fit.size)) return null;
+  const mascots = (fit.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
   /* two draws in one millisecond must not share an id: tickets key on it */
   return { id:`d${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, method:"balanced", ts:Date.now(),
     teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
@@ -1081,6 +1143,18 @@ function splitIntoGroups(keys, nGroups, strengthOf) {
 }
 
 function makeBracket(n) {
+  if (n === 2) return { size:2, rounds:[
+    [ {a:{t:0},b:{t:1},winner:null} ],
+  ]};
+  if (n === 3) return { size:3, rounds:[
+    [ {a:{t:1},b:{t:2},winner:null} ],
+    [ {a:{t:0},b:{w:[0,0]},winner:null} ],
+  ]};
+  if (n === 5) return { size:5, rounds:[
+    [ {a:{t:3},b:{t:4},winner:null} ],
+    [ {a:{t:0},b:{w:[0,0]},winner:null}, {a:{t:1},b:{t:2},winner:null} ],
+    [ {a:{w:[1,0]},b:{w:[1,1]},winner:null} ],
+  ]};
   if (n === 4) return { size:4, rounds:[
     [ {a:{t:0},b:{t:3},winner:null}, {a:{t:1},b:{t:2},winner:null} ],
     [ {a:{w:[0,0]},b:{w:[0,1]},winner:null} ],
@@ -1092,12 +1166,29 @@ function makeBracket(n) {
   ]};
   return null;
 }
-const ROUND_NAMES = { 4:["Semifinals","Final"], 6:["Play-in","Semifinals","Final"] };
+const ROUND_NAMES = { 2:["Final"], 3:["Semifinal","Final"], 4:["Semifinals","Final"],
+  5:["Play-in","Semifinals","Final"], 6:["Play-in","Semifinals","Final"] };
 function resolveSlot(br, slot) {
   if (!slot) return null;
   if (slot.t !== undefined) return slot.t;
   const src = br.rounds[slot.w[0]]?.[slot.w[1]];
   return src && src.winner !== null && src.winner !== undefined ? src.winner : null;
+}
+/* The commissioner may play a different seated matchup first while its
+   market is still empty. The choice rides on the bracket so every reader of
+   what plays now agrees, and it lapses once that matchup is decided. */
+function bracketMatchOpen(br, r, m) {
+  const match = br?.rounds?.[r]?.[m];
+  if (!match || match.winner !== null && match.winner !== undefined) return false;
+  return resolveSlot(br, match.a) !== null && resolveSlot(br, match.b) !== null;
+}
+function bracketOrder(br) {
+  const order = [];
+  (br?.rounds || []).forEach((round, r) => round.forEach((_, m) => order.push([r, m])));
+  const next = Array.isArray(br?.next) ? br.next : null;
+  if (next && bracketMatchOpen(br, next[0], next[1]))
+    return [[next[0], next[1]], ...order.filter(([r, m]) => r !== next[0] || m !== next[1])];
+  return order;
 }
 /* The QA path uses the same current matchup and eligibility as real chips. */
 function qaBracketMatchWager(state, ev, player, ordinal = 0, stake = PT) {
@@ -1163,22 +1254,20 @@ const needsStageSetup = (state, ev) => !!ev.stageCfg && !state.stages?.[ev.id]
    a market or guessing a winner from historical advancement selections. */
 function contestTarget(state, ev) {
   if (!ev || state.results?.[ev.id] || state.shelved?.[ev.id]
-      || ev.game === "poker" || (state.drafts?.[ev.id] && !state.draws?.[ev.id])) return null;
+      || ev.finale || (state.drafts?.[ev.id] && !state.draws?.[ev.id])) return null;
   const draw = state.draws?.[ev.id];
   if (ev.teamCfg && !draw) return null;
   const br = state.brackets?.[ev.id];
   if (ev.teamCfg?.bracket && !br) return null;
   if (br) {
-    for (let r = 0; r < br.rounds.length; r++) {
-      for (let m = 0; m < br.rounds[r].length; m++) {
-        const match = br.rounds[r][m];
-        if (match.winner !== null && match.winner !== undefined) continue;
-        const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
-        if (keys.some(key => key === null || key === undefined || !draw?.teams?.[key])) continue;
-        return { id:`match:${ev.id}:${draw.id}:${r}:${m}`, kind:"match", match:[r,m], drawId:draw.id,
-          label:`${ROUND_NAMES[draw.teams.length]?.[r] || `Round ${r + 1}`} · Match ${m + 1}`,
-          sides:keys.map(key => ({ key, players:[...draw.teams[key].players] })) };
-      }
+    for (const [r, m] of bracketOrder(br)) {
+      const match = br.rounds[r][m];
+      if (match.winner !== null && match.winner !== undefined) continue;
+      const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
+      if (keys.some(key => key === null || key === undefined || !draw?.teams?.[key])) continue;
+      return { id:`match:${ev.id}:${draw.id}:${r}:${m}`, kind:"match", match:[r,m], drawId:draw.id,
+        label:`${ROUND_NAMES[draw.teams.length]?.[r] || `Round ${r + 1}`} · Match ${m + 1}`,
+        sides:keys.map(key => ({ key, players:[...draw.teams[key].players] })) };
     }
     return null;
   }
@@ -1198,7 +1287,7 @@ function contestTarget(state, ev) {
   }
   return { id:`ffa:${ev.id}:${draw?.id || "solo"}`, kind:"ffa", drawId:draw?.id || null, label:ev.name,
     sides:draw ? draw.teams.map((team, key) => ({ key, players:[...team.players] }))
-      : ROSTER.map(key => ({ key, players:[key] })) };
+      : presentPlayers(state).map(key => ({ key, players:[key] })) };
 }
 function resolveCurrentContest(state, ev) {
   const target = contestTarget(state, ev);
@@ -1276,13 +1365,21 @@ function contestUndoAvailability(state, ev) {
   if (state.results?.[ev.id]) return response("The event result is already posted");
   if (state.poker || stacksPosted(state)) return response("The finale is underway");
   if (state.onDeck && state.onDeck !== ev.id) return response("Close the current betting market first");
+  /* The next contest is undecided by definition, so a mis-tapped winner can
+     be taken back whether its market is open, locked or already playing.
+     Chips on that next market go back in the same write, named up front. */
   const current = resolveCurrentContest(state, ev);
-  if (current && current.phase !== "betting-open") return response("The next contest is already locked or playing");
-  if (current && (state.wagers || []).some(wager => wagerMatchesContest(wager, current)
-      && resolveWager(state, wager, allEventsOf(state)).status === "pending"))
-    return response("Remove the next contest's chips before correcting the result");
-  return response(null);
+  const events = allEventsOf(state);
+  const voided = current ? (state.wagers || []).filter(wager => wagerMatchesContest(wager, current)
+    && resolveWager(state, wager, events).status === "pending") : [];
+  const totals = new Map();
+  voided.forEach(wager => totals.set(wager.player, (totals.get(wager.player) || 0) + Number(wager.stake || 0)));
+  return { ...response(null), voidIds:voided.map(wager => wager.id),
+    refunds:[...totals].map(([player, stake]) => ({ player, stake })) };
 }
+/* One line a confirm can say out loud: "Returns Evan 200, Khoa 100". */
+const refundText = (state, refunds = []) => refunds.length
+  ? `Returns ${refunds.map(item => `${disp(state, item.player)} ${item.stake}`).join(", ")}` : "";
 function resultReadiness(state, ev) {
   const blockers = [];
   if (state.drafts?.[ev.id] && !state.draws?.[ev.id])
@@ -1328,7 +1425,7 @@ function resolveEventLifecycle(state, ev) {
   if (state.shelved?.[ev.id]) return response("shelved");
   if (result) return response("complete");
 
-  if (ev.game === "poker" && ev.finale) {
+  if (ev.finale) {
     if (!state.poker) {
       /* the board must be still before stacks are dealt; name what moves */
       const blockers = [];
@@ -1388,47 +1485,52 @@ function resolveEventLifecycle(state, ev) {
     return response("draw-revealed", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
   return response("setup", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
 }
+/* An event is in play once its competition has started and until its
+   result posts: a locked market, a contest being played, or result entry. */
+function eventInPlay(state, ev) {
+  if (!ev || state.results?.[ev.id] || state.shelved?.[ev.id]) return false;
+  if (ev.finale) return state.poker?.id === ev.id && !!state.poker.startedAt;
+  const phase = resolveEventLifecycle(state, ev).phase;
+  if (phase === "in-progress" || phase === "result-entry") return true;
+  return phase === "betting-locked" && !!state.eventOps?.[ev.id]?.bettingLockedAt;
+}
 function resolveWeekendOperation(state, events = allEventsOf(state)) {
-  const open = events.filter(ev => !state.results?.[ev.id] && !state.shelved?.[ev.id]);
-  if (!open.length) return {
+  const crown = {
     event:null,
     lifecycle:null,
     nextAction:state.frozen ? null : lifecycleAction("crown-champion", "Crown the champion"),
   };
+  /* once the final counts are the standings, nothing else can be announced */
+  if (stacksPosted(state)) return crown;
+  const open = events.filter(ev => !state.results?.[ev.id] && !state.shelved?.[ev.id]);
+  if (!open.length) return crown;
 
-  let event = open.find(ev => ev.id === state.onDeck);
-  if (!event) {
-    /* Pick the most recently touched active operation. This prevents a draft
-       prepared for a later game from hiding an event already underway. */
-    const active = open
-      .map(ev => {
-        const op = eventOpOf(state, ev.id);
-        const draft = state.drafts?.[ev.id];
-        const poker = state.poker?.id === ev.id ? state.poker : null;
-        const at = Math.max(
-          op.resultEntryAt || 0,
-          op.startedAt || 0,
-          op.bettingLockedAt || 0,
-          poker?.startedAt || poker?.ts || 0,
-          draft?.ts || 0,
-        );
-        return { ev, at };
-      })
-      .filter(item => item.at > 0)
-      .sort((a, b) => b.at - a.at);
-    event = active[0]?.ev;
-  }
+  const activity = ev => {
+    const op = eventOpOf(state, ev.id);
+    return Math.max(op.resultEntryAt || 0, op.startedAt || 0, op.bettingLockedAt || 0, op.bettingOpenedAt || 0);
+  };
+  /* Precedence: the dealt poker table, the one open market, anything being
+     played, a running captains draft, then slate order. Preparing a later
+     event (a draw, a draft) never outranks play. */
+  let event = state.poker && !state.results?.[state.poker.id]
+    ? open.find(ev => ev.id === state.poker.id) : null;
+  if (!event) event = open.find(ev => ev.id === state.onDeck);
+  if (!event) event = open.filter(ev => eventInPlay(state, ev))
+    .sort((a, b) => activity(b) - activity(a))[0];
+  if (!event) event = open.filter(ev => state.drafts?.[ev.id] && !state.draws?.[ev.id])
+    .sort((a, b) => Number(state.drafts[b.id].ts || 0) - Number(state.drafts[a.id].ts || 0))[0];
   if (!event) event = open[0];
   const lifecycle = resolveEventLifecycle(state, event);
   return { event, lifecycle, nextAction:lifecycle.nextAction };
 }
 
 export {
-  ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
+  ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer, isAway, presentPlayers,
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
+  teamFit, suggestParticipants,
   normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
@@ -1440,8 +1542,9 @@ export {
   resultAwards, awardPlan, postCountRuling,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
-  makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion,
+  makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion, bracketMatchOpen, bracketOrder,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
   contestMult, wagerSide, contestSideOf,
+  refundText, eventInPlay,
 };

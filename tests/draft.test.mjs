@@ -190,8 +190,10 @@ test("draft setup validates exact participants, captain membership, and supporte
     [{ ...valid, evId:"8ball" }, /Not a team event/],
   ]) rejectsWithoutMutation(fresh(), "startDraft", payload, message);
   const invalid = fresh();
-  invalid.customEvents.push({ ...event("bball"), id:"bad-teams", teamCfg:{ teams:3, size:4, bracket:3 } });
-  rejectsWithoutMutation(invalid, "startDraft", { ...valid, evId:"bad-teams", captains:valid.captains.slice(0, 3) }, /Unsupported/);
+  /* 2-, 3- and 5-team brackets are supported for short rooms; 7 is not */
+  invalid.customEvents.push({ ...event("bball"), id:"bad-teams", teamCfg:{ teams:7, size:1, bracket:7 } });
+  rejectsWithoutMutation(invalid, "startDraft", { ...valid, evId:"bad-teams", players:ROSTER.slice(0, 7),
+    captains:ROSTER.slice(0, 7) }, /Unsupported/);
 });
 
 test("finalization rejects incomplete or corrupted teams without dropping the draft", () => {

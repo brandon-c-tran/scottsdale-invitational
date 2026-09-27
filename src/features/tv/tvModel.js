@@ -3,7 +3,7 @@
    on the same screen. Nothing here writes state. */
 
 import {
-  AWARDS, ROSTER, EDITION, ROUND_NAMES,
+  AWARDS, ROSTER, EDITION, ROUND_NAMES, bracketOrder,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot,
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
@@ -80,7 +80,8 @@ export const ambientIndex = (count, now, period = TV_AMBIENT_MS) =>
 export function nextOpenMatch(br) {
   if (!br) return null;
   const names = ROUND_NAMES[br.size] || [];
-  for (let r = 0; r < br.rounds.length; r++) for (let m = 0; m < br.rounds[r].length; m++) {
+  /* same order as the current contest, including a match chosen to go first */
+  for (const [r, m] of bracketOrder(br)) {
     const match = br.rounds[r][m];
     if (match.winner !== null && match.winner !== undefined) continue;
     const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);

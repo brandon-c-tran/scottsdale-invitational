@@ -457,15 +457,10 @@ assert(r.ok, "clearResult re-arms the table");
 await b.waitVersion(a.version);
 assert(computeStandings(b.state)[0].pts !== pokerTotal, "board restored pre-poker");
 r = await a.dispatch("pokerCancel", {});
-assert(r.ok, "cleared finale can be canceled");
-await b.waitVersion(a.version);
-assert(JSON.stringify(computeStandings(b.state).map(row => ({ player:row.player, pts:row.pts })))
-    === JSON.stringify(prePokerRows),
-  "cancel removes only this table's minimum grants and restores the exact prior board");
-const cancelVersion = a.version;
-r = await a.dispatch("pokerCancel", {});
-assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
-  "retrying poker cancel is a no-op");
+assert(!r.ok && /cards are live/i.test(r.error), "a started table cannot be canceled (rejected: " + r.error + ")");
+assert(computeStandings(b.state).every(row => row.pts === b.state.poker.startingStacks[row.player]),
+  "a cleared finale shows the dealt stacks while the table is re-armed");
+void prePokerRows;
 
 /* Phone and TV reconnects receive the same full authoritative version/state. */
 {

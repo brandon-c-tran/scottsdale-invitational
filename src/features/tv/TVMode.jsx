@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, OUTRIGHT_MULT,
+  ROSTER, wagerMult,
   disp, teamLabel, snakeTeam, resolveWager, resolveCurrentContest, wagerMatchesContest,
   resolveWeekendOperation, pokerClock, pokerDenoms, stageEntrantView,
 } from "../../../shared/core.js";
@@ -784,7 +784,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
                 <div className="tv-denoms" style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
               </div>
               <span className="tv-display" style={{ fontSize:34, color:"var(--olive)" }}>
-                +{fmt(x.w.kind === "outright" ? OUTRIGHT_MULT * x.w.stake : x.w.stake)}</span>
+                +{fmt(wagerMult(x.w) * x.w.stake)}</span>
             </div>
           );
         })}

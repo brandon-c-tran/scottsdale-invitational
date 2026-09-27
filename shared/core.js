@@ -266,7 +266,10 @@ const SLOT_META = [
   { label:"3rd", team:"3rd place",  color:"var(--bronze)" },
 ];
 
-const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
+const OUTRIGHT_MULT = 2; // a wide field's winner pays 2:1; everything else pays even
+/* A ticket keeps the payout it was placed at. Outright tickets written before
+   two-sided events paid even carry no mult and stay 2:1. */
+const wagerMult = w => w?.kind === "outright" ? (Number.isInteger(w.mult) ? w.mult : OUTRIGHT_MULT) : 1;
 
 /* head-to-head phone duels: challenge one player or anyone, the other side
    accepts, both play a 5-second minigame on their own phone, the pot settles
@@ -561,6 +564,8 @@ function resolveWager(state, w, events) {
   if (w.status === "void") return { status:"void", delta:0 };
   const ev = events.find(e => e.id === w.eventId);
   if (!ev) return { status:"void", delta:0 };
+  /* a shelved event returns its chips; restoring it restores the tickets */
+  if (state.shelved?.[w.eventId]) return { status:"void", delta:0 };
   if (w.kind === "outright") {
     if (w.pickTeam) {
       const draw = state.draws[w.eventId];
@@ -572,7 +577,7 @@ function resolveWager(state, w, events) {
     const won = w.pickTeam
       ? w.pickPlayers.every(p => winners.includes(p))
       : winners.includes(w.pick);
-    return { status: won ? "won" : "lost", delta: won ? OUTRIGHT_MULT * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
   if (w.kind === "match") {
     const draw = state.draws[w.eventId];
@@ -665,6 +670,8 @@ const POKER_CONFIG = Object.freeze({
   rounding:"exact",
   denominations:Object.freeze([1000, 500, 100, 25]),
   blindPack:Object.freeze({ denomination:25, count:8, minimumStack:400 }),
+  /* small chips to play with before any 1000 is dealt */
+  workingLayer:Object.freeze([Object.freeze({ v:100, n:10 }), Object.freeze({ v:500, n:2 })]),
 });
 /* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
 const POKER_LEVELS = [
@@ -717,7 +724,9 @@ function pokerClockAnchor(poker, now) {
   return { idx:clk.idx, levelStartedAt:now - (levels[clk.idx].mins * 60000 - clk.msLeft) };
 }
 /* Physical dealing breakdown: reserve eight 25s for blinds when practical,
-   then deal greedily. The final 25 pass keeps post-finale counts exact too. */
+   then a working layer (up to ten 100s and two 500s) so nobody opens with a
+   stack of 1000s they cannot bet with, then greedily. The final 25 pass keeps
+   post-finale counts exact too. */
 function pokerDenoms(pts) {
   const value = Number(pts);
   if (!Number.isInteger(value) || value < 0 || value % POKER_CONFIG.countQuantum !== 0)
@@ -735,6 +744,11 @@ function pokerDenoms(pts) {
   const pack = POKER_CONFIG.blindPack;
   add(pack.denomination, pack.count);
   chips -= pack.denomination * pack.count;
+  for (const { v, n:most } of POKER_CONFIG.workingLayer) {
+    const n = Math.min(most, Math.floor(chips / v));
+    add(v, n);
+    chips -= n * v;
+  }
   for (const v of POKER_CONFIG.denominations.filter(v => v !== pack.denomination)) {
     const n = Math.floor(chips / v);
     add(v, n);
@@ -759,11 +773,13 @@ function pokerDistribution(entries) {
     const before = Number(entry?.pts);
     if (seen.has(player)) errors.push(`Duplicate poker seat: ${player}`);
     seen.add(player);
-    if (!Number.isInteger(before) || before < 0)
+    if (!Number.isInteger(before))
       errors.push(`Invalid stack for ${player}`);
     else if (before % POKER_CONFIG.stackQuantum !== 0)
       errors.push(`${player}'s stack must be exact ${POKER_CONFIG.stackQuantum}s`);
-    const legalBefore = Number.isInteger(before) && before >= 0 ? before : 0;
+    /* a correction can leave a balance under zero; it deals as zero, so the
+       minimum stack covers it and the grant brings the board up to the stack */
+    const legalBefore = Number.isInteger(before) ? before : 0;
     const uncapped = Math.max(POKER_CONFIG.minimumStack, legalBefore);
     const stack = POKER_CONFIG.maxStack === null
       ? uncapped : Math.min(POKER_CONFIG.maxStack, uncapped);
@@ -784,7 +800,15 @@ function pokerDistribution(entries) {
     rows,
     total:rows.reduce((sum, row) => sum + row.stack, 0),
     minimumCount:rows.filter(row => row.grant > 0).length,
+    inventory:pokerInventory(rows.map(row => row.stack)),
   };
+}
+/* the tray: how many of each chip the whole table is dealt */
+function pokerInventory(stacks) {
+  const totals = new Map();
+  (Array.isArray(stacks) ? stacks : Object.values(stacks || {})).forEach(stack =>
+    pokerDenoms(stack).forEach(({ v, n }) => totals.set(v, (totals.get(v) || 0) + n)));
+  return POKER_CONFIG.denominations.filter(v => totals.has(v)).map(v => ({ v, n:totals.get(v) }));
 }
 
 /* ─────────── duels: challenges are offers ───────────
@@ -876,21 +900,63 @@ function redactDuelsForViewer(duels, viewerPlayer) {
   });
 }
 
+/* Each place pays AWARDS per player. A bracket has no 3rd-place game, so the
+   two semifinal losers split 3rd: each side's share is floored to 100s, and an
+   award that cannot split evenly in 100s rounds down rather than invent chips.
+   Event crew (a draw's players left off every team) earn the 3rd-place award.
+   Value-less events (the poker finale) pay nothing. */
+const splitThird = (each, sides) => sides > 1 ? Math.floor(each / sides / PT) * PT : each;
+function resultAwards(state, ev, res) {
+  const table = AWARDS[ev?.value] || [0, 0, 0];
+  const draw = state.draws?.[ev?.id];
+  const bracket = !!state.brackets?.[ev?.id] && !!draw?.teams;
+  const out = [];
+  (res?.slots || []).forEach((players, place) => {
+    let each = table[place] || 0;
+    if (place === 2 && bracket)
+      each = splitThird(each, new Set((players || []).map(p =>
+        draw.teams.findIndex(team => team.players?.includes(p)))).size);
+    (players || []).forEach(player => out.push({ player, place, pts:each }));
+  });
+  if (!res?.stacks && table[2] > 0) {
+    const placed = new Set(out.map(award => award.player));
+    (draw?.roles || []).forEach(({ player }) => {
+      if (player && !placed.has(player)) out.push({ player, place:"crew", pts:table[2] });
+    });
+  }
+  return out;
+}
+/* what an event pays before anyone plays it, for the event sheet */
+function awardPlan(ev, draw = null) {
+  const table = AWARDS[ev?.value] || [0, 0, 0];
+  const crew = draw ? (draw.roles || []).length > 0
+    : Number.isInteger(eventCapacity(ev)) && eventCapacity(ev) < ROSTER.length;
+  return [
+    ...table.map((pts, place) => ({ place,
+      pts:place === 2 && ev?.teamCfg?.bracket ? splitThird(pts, 2) : pts,
+      split:place === 2 && !!ev?.teamCfg?.bracket })),
+    ...(crew ? [{ place:"crew", pts:table[2] }] : []),
+  ].filter(row => row.pts > 0);
+}
+/* a ruling made after the finale counts corrects that count: it carries the
+   poker result revision, applies only on top of posted stacks, and never
+   leaks into the pre-poker board. Older rulings fall back to time. */
+const postCountRuling = (a, stacksRes = null) => a.pokerRevision !== undefined
+  || !!stacksRes && a.ts > stacksRes.ts;
+
 function computeStandings(state) {
   const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
   ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
-    /* value-less events (the poker finale) award nothing here; slots[0] still
-       counts as a win so the chip leader carries one */
-    const table = AWARDS[ev.value] || [0, 0, 0];
-    (res.slots || []).forEach((players, i) => (players || []).forEach(p => {
-      if (pts[p] === undefined) return;
-      pts[p] += table[i] || 0;
-      awardPts[p] += table[i] || 0;
-      if (i === 0) wins[p] += 1;
-    }));
+    /* slots[0] counts as a win even at the finale, so the chip leader carries one */
+    resultAwards(state, ev, res).forEach(({ player, place, pts:award }) => {
+      if (pts[player] === undefined) return;
+      pts[player] += award;
+      awardPts[player] += award;
+      if (place === 0) wins[player] += 1;
+    });
   });
   (state.wagers || []).forEach(w => {
     const r = resolveWager(state, w, evs);
@@ -904,22 +970,26 @@ function computeStandings(state) {
     if (pts[r.winner] !== undefined) { pts[r.winner] += d.stake; duelNet[r.winner] += d.stake; }
     if (pts[r.loser] !== undefined) { pts[r.loser] -= d.stake; duelNet[r.loser] -= d.stake; }
   });
-  (state.adjustments || []).forEach(a => { if (pts[a.player] !== undefined) pts[a.player] += a.delta; });
+  const rulings = (state.adjustments || []).filter(a => !a.removedAt);
+  rulings.forEach(a => {
+    if (pts[a.player] !== undefined && !postCountRuling(a)) pts[a.player] += a.delta;
+  });
   /* poker finale override: final chip stacks BECOME the totals. Only rulings
-     made after the count applies on top; everything earlier is already in
-     the physical chips. Elimination order (embedded in the result) breaks
-     ties among busted players: later bust ranks higher. */
+     made on the count apply on top; everything earlier is already in the
+     physical chips. Elimination order (embedded in the result) breaks ties
+     among busted players: later bust ranks higher, and a 0 that never busted
+     (older results) ranks below every bust. */
   let stacksRes = null;
   Object.values(state.results || {}).forEach(res => { if (res?.stacks) stacksRes = res; });
   if (stacksRes) {
     ROSTER.forEach(p => { pts[p] = stacksRes.stacks[p] ?? 0; });
-    (state.adjustments || []).forEach(a => {
-      if (a.ts > stacksRes.ts && pts[a.player] !== undefined) pts[a.player] += a.delta;
+    rulings.forEach(a => {
+      if (postCountRuling(a, stacksRes) && pts[a.player] !== undefined) pts[a.player] += a.delta;
     });
   }
   const outRank = p => {
     const i = (stacksRes?.outs || []).indexOf(p);
-    return i < 0 ? Infinity : i;
+    return i >= 0 ? i : stacksRes?.stacks?.[p] === 0 ? -1 : Infinity;
   };
   const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
     .sort((x,y) => y.pts - x.pts
@@ -1001,7 +1071,8 @@ function drawTeams(ev, state, players) {
   if (participationForEvent(ev).type === "strict-teams"
       && groups.some(group => group.length !== cfg.size)) return null;
   const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-  return { id:"d"+Date.now(), method:"balanced", ts:Date.now(),
+  /* two draws in one millisecond must not share an id: tickets key on it */
+  return { id:`d${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, method:"balanced", ts:Date.now(),
     teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
 }
 
@@ -1152,11 +1223,35 @@ function resolveCurrentContest(state, ev) {
   return { ...target, eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
     phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction };
 }
+/* Any contest with exactly two sides is a matchup, whatever its format: it
+   pays even and a competitor may back only their own side. Only a wider
+   free-for-all pays 2:1 and leaves every side open to everyone. */
+const wideField = contest => contest?.kind === "ffa" && contest.sides.length > 2;
+const contestMult = contest => wideField(contest) ? OUTRIGHT_MULT : 1;
 function contestBetEligibility(contest, player, sideKey) {
   const side = contest?.sides.find(item => item.key === sideKey);
   if (!side || !isActivePlayer(player)) return false;
-  if (contest.kind === "ffa") return true;
+  if (wideField(contest)) return true;
   return !contest.players.includes(player) || side.players.includes(player);
+}
+/* the side a ticket backs, in the contest's own side keys */
+function wagerSide(state, w) {
+  if (w.kind === "match") return w.teamIdx;
+  if (w.kind !== "outright") return w.pickKey;
+  if (!w.pickTeam) return w.pick;
+  if (Number.isInteger(w.teamIdx)) return w.teamIdx;
+  const teams = state.draws?.[w.eventId]?.teams || [];
+  const want = [...(w.pickPlayers || [])].sort().join("|");
+  const index = teams.findIndex(team => [...team.players].sort().join("|") === want);
+  return index < 0 ? null : index;
+}
+/* Outside a wide field a bettor holds one side per contest, so no ticket pair
+   can cover both outcomes. Returns the side this player already backs. */
+function contestSideOf(state, contest, player, events = allEventsOf(state)) {
+  if (!contest || wideField(contest)) return null;
+  const held = (state.wagers || []).find(w => w.player === player && wagerMatchesContest(w, contest)
+    && resolveWager(state, w, events).status === "pending");
+  return held ? wagerSide(state, held) : null;
 }
 /* Shared canonical target check keeps legacy pending tickets readable while
    preventing an old outright/advance ticket from becoming a new contest bet. */
@@ -1242,9 +1337,8 @@ function resolveEventLifecycle(state, ev) {
         resolveWager(state, w, events).status === "pending").length;
       if (pendingWagers)
         blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
-      /* unplayed duels never block the finale: pokerSetup voids them */
-      if (computeStandings(state).some(row => row.pts < 0))
-        blockers.push("Negative stacks, fix rulings first");
+      /* unplayed duels never block the finale (pokerSetup voids them), and a
+         negative balance deals as 0 through the minimum-stack grant */
       return response("setup",
         lifecycleAction("setup-poker", "Set up the poker table", blockers), blockers);
     }
@@ -1339,13 +1433,15 @@ export {
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
   allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, wagerBoardEvent, resolveDuel, pokerLive,
+  resolveWager, wagerMult, wagerBoardEvent, resolveDuel, pokerLive,
   DUEL_LAPSE_MS, DUEL_DAILY_LIMIT, duelAccepted, duelLapsed, duelLapsesAt, duelPhase, duelOpen,
   duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor, pokerDenoms,
-  pokerDistribution,
+  pokerDistribution, pokerInventory,
+  resultAwards, awardPlan, postCountRuling,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   playerStrength, strengthMap, refineTeams,
   makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
+  contestMult, wagerSide, contestSideOf,
 };

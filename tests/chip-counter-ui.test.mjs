@@ -229,13 +229,15 @@ test("a direct team contest returns to whole-team winners after lower-place play
   assert.equal(applyAction(state,"beginResultEntry",{evId:ev.id},gm).ok,true);
   const teams=state.draws[ev.id].teams;
   assert.doesNotMatch(resultControls(state,ev).html,/Pick player by player/);
+  /* a paid place left empty stops the post, so runners-up are filled first */
   const view=resultControls(state,ev,[
-    {buttonPrefix:"Runners-up"}, "Pick player by player instead", {buttonPrefix:"Winners"},
-    teamLabel(state,teams[0]), teamLabel(state,teams[1]),
+    {buttonPrefix:"Runners-up"}, "Pick player by player instead", ...teams[0].players, {buttonPrefix:"Winners"},
+    teamLabel(state,teams[1]),
   ]);
   assert.doesNotMatch(view.html,/Pick player by player|Back to teams/);
   view.post();
   assert.deepEqual(view.saved[0][0],teams[1].players);
+  assert.deepEqual(view.saved[0][1],teams[0].players);
   const saved=applyAction(state,"saveResult",{evId:ev.id,slots:view.saved[0]},gm);
   assert.equal(saved.ok,true,saved.error);
 });

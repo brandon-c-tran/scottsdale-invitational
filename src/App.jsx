@@ -32,9 +32,9 @@ import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, SIZES, GAMES,
-  DUEL_STAKE, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
-  pokerLive, pokerClock, pokerDenoms,
+  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
+  DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
+  pokerLive, pokerClock, pokerDenoms, pokerInventory, resultAwards, awardPlan, stacksPosted,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
@@ -805,7 +805,7 @@ function TournamentApp({ tournament }) {
     setModal({ type:"result", ev });
     return { ok:true };
   };
-  const shelveEvent = (id, on) => act("shelve", { id, on });
+  const shelveEvent = (id, on, confirmReturn) => act("shelve", { id, on, ...(confirmReturn ? { confirmReturn:true } : {}) });
   const addCustomEvent = ev => act("addEvent", { ev });
   const editEvent = (id, patch) => act("editEvent", { id, patch }, "Saved");
   const reorderEvents = ids => act("reorderEvents", { ids });
@@ -865,7 +865,7 @@ function TournamentApp({ tournament }) {
   const placeWager = w => act("placeWager", { wager: w }, null, { retry:true });
   const retractWager = (id, reference) => act("retractWager", { id, ...reference }, null, { retry:true });
   const voidWager = id => act("voidWager", { id });
-  const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason });
+  const addAdjust = (player, delta, reason) => act("adjust", { player, delta, reason }, null, { retry:true });
   const setFrozen = f => act("setFrozen", { f });
   const resetGame = () => act("resetTournament", {
     confirm:RESET_PROGRESS_CONFIRMATION,
@@ -1158,12 +1158,8 @@ function TournamentApp({ tournament }) {
     }
     if ((s.duels || []).some(d => duelOpen(d)))
       await simDo("voidOpenDuels", {}, "Voiding open duels");
+    /* a negative stack needs no ruling: the finale deals it as 0 */
     await simWait(300);
-    for (const row of computeStandings(stateRef.current)) {
-      if (row.pts < 0)
-        await simDo("adjust", { player: row.player, delta: Math.ceil(-row.pts / PT) * PT, reason: "QA" },
-          "Clearing negative stacks");
-    }
   };
   const simPokerAlive = () => ROSTER.filter(q =>
     !(stateRef.current.poker?.outs || []).some(o => o.player === q));
@@ -1270,7 +1266,7 @@ function TournamentApp({ tournament }) {
         await simDuels(3);
         await simOpenBetting();
       } },
-    { key:"tableset", name:"Table set", rank:4, note:"Everything played, no open wagers, buy-ins posted",
+    { key:"tableset", name:"Table set", rank:4, note:"Everything played, no open wagers, starting stacks dealt",
       run: () => simPokerNight({ through:"setup" }) },
     { key:"pokerlive", name:"Poker live", rank:5, note:"Clock running, busts in, counts started",
       run: () => simPokerNight({ through:"live" }) },
@@ -1663,7 +1659,10 @@ function TournamentApp({ tournament }) {
         onFinal={k => setFinalWinner(modal.ev.id, k)}
         onDeckToggle={() => { setOnDeck(state.onDeck === modal.ev.id ? null : modal.ev.id); }}
         onStart={() => startEvent(modal.ev)}
-        onShelve={on => { shelveEvent(modal.ev.id, on); setModal(null); }}
+        onShelve={async (on, confirmReturn) => {
+          const shelved = await shelveEvent(modal.ev.id, on, confirmReturn);
+          if (shelved.ok) setModal(null);
+        }}
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
         openBracket={() => pushModal({type:"bracket", ev:modal.ev})}
         onReplay={() => pushModal({type:"drawReplay", ev:modal.ev})}
@@ -1721,8 +1720,13 @@ function TournamentApp({ tournament }) {
         onSubmit={playDuelRun} onAccept={acceptDuel} onDecline={declineDuel}
         onWithdraw={withdrawDuel} onRematch={rematchDuel} onHold={setDuelHold}
         onClose={() => setModal(null)} />}
-      {modal?.type === "adjust" && <AdjustSheet player={modal.player} onClose={() => setModal(null)}
-        save={(d,r) => { addAdjust(modal.player, d, r); setModal(null); notify(`${modal.player} ${d>0?"+":""}${d}`); }} />}
+      {modal?.type === "adjust" && <AdjustSheet state={state} player={modal.player} onClose={() => setModal(null)}
+        save={async (d,r) => {
+          const saved = await addAdjust(modal.player, d, r);
+          if (saved.ok) { setModal(null); notify(`${disp(state, modal.player)} ${d>0?"+":""}${d}`); }
+          return saved;
+        }}
+        onRemove={(id, reason) => act("removeAdjustment", { id, reason }, "Ruling removed", { retry:true })} />}
       {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens}
         onSwitch={player => switchPlayer(player, false)}
@@ -2011,7 +2015,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
               textTransform:"uppercase", color:"var(--sun)" }}>Championship Poker</div>
             {myRow && d ? (
               <div style={{ fontFamily:SANS, fontSize:12.5, color:BONE, marginTop:2 }}>
-                Your buy-in: <b>{fmt(myRow.pts)}</b>
+                Starting stack: <b>{fmt(myRow.pts)}</b>
                 {d.length ? `, take ${d.map(x => `${x.n} x ${x.v}`).join(" + ")}` : ""}
               </div>
             ) : (
@@ -2075,7 +2079,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
           ) : (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
-                Your stack: <b style={{ color:BONE }}>{fmt(myRow?.pts ?? 0)}</b> at the buy-in</span>
+                Starting stack: <b style={{ color:BONE }}>{fmt(pk.startingStacks?.[me] ?? myRow?.pts ?? 0)}</b></span>
               <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
                 color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
                 textTransform:"uppercase", padding:"4px 6px" }}>Count</button>
@@ -2185,8 +2189,8 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   const pk = state.poker;
   if (!pk) return null;
   return (
-    <Sheet title="Buy-in" onClose={onClose}>
-      <p style={pStyle}>Your points are your chips. Everyone takes their own stack from the tray.</p>
+    <Sheet title="Starting stacks" onClose={onClose}>
+      <p style={pStyle}>Everyone takes their own stack from the tray.</p>
       {standings.map(r => {
         const d = pokerDenoms(r.pts);
         return (
@@ -2206,6 +2210,11 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
         <span style={{ ...label, flex:1 }}>Chips in play</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--signal-text)" }}>{fmt(pk.total)}</span>
       </div>
+      {gm && <div style={{ display:"flex", alignItems:"center", gap:10, padding:"0 0 14px" }}>
+        <span style={{ ...label, flex:1 }}>The tray</span>
+        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>
+          {pokerInventory(pk.startingStacks || standings.map(r => r.pts)).map(x => `${x.n} x ${x.v}`).join(" + ")}</span>
+      </div>}
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Start the table</Btn>}
     </Sheet>
   );
@@ -2290,7 +2299,9 @@ function resultImpact(state, events, latest, standings) {
   const before = computeStandings(prev);
   const rank = rows => Object.fromEntries(rows.map(r => [r.player, r.rank]));
   const rb = rank(before), ra = rank(standings);
-  const awarded = (latest.res.slots || []).flat();
+  const awards = resultAwards(state, latest.ev, latest.res);
+  const awarded = awards.map(award => award.player);
+  const crew = awards.filter(award => award.place === "crew");
   let climb = null;
   awarded.forEach(p => {
     const d = (rb[p] ?? 99) - (ra[p] ?? 99);
@@ -2308,6 +2319,7 @@ function resultImpact(state, events, latest, standings) {
   if (leadAfter !== leadBefore)
     parts.push(`${standings.filter(r => r.rank === 1).map(r => disp(state, r.player)).join(" and ")} take${leadAfter.includes("+") ? "" : "s"} the lead`);
   else if (climb) parts.push(`${disp(state, climb.p)} up ${climb.d} to ${ord(ra[climb.p])}`);
+  if (crew.length) parts.push(`Crew ${crew.map(award => disp(state, award.player)).join(", ")} +${fmt(crew[0].pts)}`);
   if (paid && lost) parts.push(`Bets paid ${fmt(paid)} and lost ${fmt(lost)}`);
   else if (paid) parts.push(`Bets paid ${fmt(paid)}`);
   else if (lost) parts.push(`Bets lost ${fmt(lost)}`);
@@ -2481,6 +2493,9 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearReason, setClearReason] = useState("");
   const [confirmScrap, setConfirmScrap] = useState(false);
+  const [confirmShelve, setConfirmShelve] = useState(false);
+  const openBets = (state.wagers || []).filter(w => w.eventId === ev.id
+    && resolveWager(state, w, allEventsOf(state)).status === "pending");
   const [editOpen, setEditOpen] = useState(false);
   const [howTo, setHowTo] = useState(false);
   const [more, setMore] = useState(false);
@@ -2548,7 +2563,9 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
       <details className="fd-event-info" open={!draw && !st && !contestActive || undefined}>
         <summary><span>Event info</span>{table?.[0] > 0 && <small>{fmt(table[0])} chips to win</small>}</summary>
         {ev.desc && <p>{ev.desc}</p>}
-        {table && <div className="fd-event-awards">{table.map((value,index)=>value > 0 && <span key={index}><small>{SLOT_META[index].label}</small><strong>+{fmt(value)}</strong></span>)}</div>}
+        {table && <div className="fd-event-awards">{awardPlan(ev, draw).map(row => <span key={row.place}>
+          <small>{row.place === "crew" ? "Crew" : SLOT_META[row.place].label}{row.split ? " (each side)" : ""}</small>
+          <strong>+{fmt(row.pts)}</strong></span>)}</div>}
         {ev.game === "poker" && ev.finale && <p>Your final chip count is your final standing.</p>}
       </details>
       {!contestActive && onBets && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
@@ -2589,15 +2606,23 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
       </details>}
       {(br || st) && <EventCrewCard state={state} roles={draw?.roles || st?.roles} compact onPlayer={onPlayer}/>}
 
-      {res && res.slots && (
-        <div style={{ marginBottom:14 }}>
+      {res && res.slots && (() => {
+        const awards = resultAwards(state, ev, res);
+        const crew = awards.filter(award => award.place === "crew");
+        return <div style={{ marginBottom:14 }}>
           {res.slots.map((players, i) => players?.length > 0 && (
             <div key={i} style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
               <span style={{ color:SLOT_META[i].color, fontWeight:700 }}>{SLOT_META[i].label}:</span>{" "}
               {players.map(p => <button type="button" key={p} className="fd-player-link" onClick={() => onPlayer?.(p)}>{disp(state,p)}</button>)} <span style={{ color:"var(--muted)" }}>
-                {res.stacks ? `${fmt(res.stacks[players[0]] ?? 0)} chips` : `+${table?.[i] ?? 0} each`}</span>
+                {res.stacks ? `${fmt(res.stacks[players[0]] ?? 0)} chips`
+                  : `+${fmt(awards.find(award => award.place === i)?.pts ?? 0)} each`}</span>
             </div>
           ))}
+          {crew.length > 0 && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
+            <span style={{ fontWeight:700 }}>Crew:</span>{" "}
+            {crew.map(({ player }) => <button type="button" key={player} className="fd-player-link" onClick={() => onPlayer?.(player)}>{disp(state,player)}</button>)}
+            {" "}<span style={{ color:"var(--muted)" }}>+{fmt(crew[0].pts)} each</span>
+          </div>}
           {(() => {
             const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
             const reason = res.correctionReason || correction?.reason;
@@ -2605,8 +2630,8 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
             return reason && (res.correctedAt || correction) ? <p className="fd-event-correction">
               Corrected · {reason}{voided ? ` · ${voided} ${voided === 1 ? "bet" : "bets"} voided` : ""}</p> : null;
           })()}
-        </div>
-      )}
+        </div>;
+      })()}
 
       {gm && !state.frozen && (
         <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
@@ -2647,7 +2672,9 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                       </div>
                       <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.4, color:"var(--muted2)",
                         marginBottom:9 }}>
-                        These jobs keep the event moving. Crew do not compete or score in this one.
+                        {table?.[2] > 0
+                          ? `These jobs keep the event moving. Crew do not compete and earn the 3rd-place award, +${fmt(table[2])}.`
+                          : "These jobs keep the event moving. Crew do not compete or score in this one."}
                       </div>
                       {outs.map((player, index) => {
                         const role = outRoles[player] || "sit-out";
@@ -2833,10 +2860,10 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
                   padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
                   marginBottom:12, outline:"none", resize:"vertical" }} />
-              <div style={{ ...label, marginBottom:6 }}>Worth</div>
+              <div style={{ ...label, marginBottom:6 }}>Worth{res ? ". Clear the result to change it" : ""}</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[400,800,1200,1600].map(v => (
-                  <button key={v} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
+                  <button key={v} disabled={!!res} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:res ? "default" : "pointer",
                     fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                     background: eValue===v ? GOLD_GRAD : "var(--paper)",
                     color: eValue===v ? "var(--ink0)" : "var(--ink)",
@@ -2854,7 +2881,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                 ))}
               </div>
               <div style={{ display:"flex", gap:8 }}>
-                <Btn disabled={!eName.trim()} onClick={() => { onEdit({ name:eName, desc:eDesc, value:eValue, session:eSession }); setEditOpen(false); }}
+                <Btn disabled={!eName.trim()} onClick={() => { onEdit({ name:eName, desc:eDesc, ...(res ? {} : { value:eValue }), session:eSession }); setEditOpen(false); }}
                   style={{ flex:1 }}>Save</Btn>
                 <Btn kind="ghost" onClick={() => setEditOpen(false)}>Cancel</Btn>
               </div>
@@ -2866,7 +2893,13 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           ) : (
             <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
               <Btn kind="ghost" onClick={openEdit} style={{ flex:1 }}>Edit details</Btn>
-              {!res && <Btn kind="ghost" onClick={() => onShelve(!shelvedNow)} style={{ flex:1 }}>{shelvedNow ? "Restore" : "Shelve"}</Btn>}
+              {!res && !confirmShelve && <Btn kind="ghost" onClick={() => shelvedNow || !openBets.length
+                ? onShelve(!shelvedNow) : setConfirmShelve(true)} style={{ flex:1 }}>{shelvedNow ? "Restore" : "Shelve"}</Btn>}
+              {!res && confirmShelve && <>
+                <Btn kind="danger" onClick={() => { setConfirmShelve(false); onShelve(true, true); }} style={{ flex:1 }}>
+                  Shelve. Returns {openBets.length} bet{openBets.length === 1 ? "" : "s"}, {fmt(openBets.reduce((sum, w) => sum + w.stake, 0))} chips</Btn>
+                <Btn kind="ghost" onClick={() => setConfirmShelve(false)}>Keep</Btn>
+              </>}
               {ev.custom && !confirmRemove && <Btn kind="danger" onClick={() => setConfirmRemove(true)}>Remove</Btn>}
               {ev.custom && confirmRemove && <Btn kind="danger" onClick={onRemove}>Confirm remove</Btn>}
             </div>
@@ -3046,6 +3079,9 @@ function ResultSheet({ ev, state, onClose, save }) {
   const winnerKnown = sequenced && ((bracket && bracketChampion(bracket) !== null)
     || (stage && stage.finalWinner !== null && stage.finalWinner !== undefined));
   const editableSlots = slotIdxs.filter(index => !winnerKnown || index !== 0);
+  /* what one player in each place is paid: a bracket's split 3rd included */
+  const paysEach = index => resultAwards(state, ev, { slots })
+    .find(award => award.place === index)?.pts ?? table[index];
   const initial = useMemo(() => {
     if (existing?.slots) return existing.slots.map(s => [...(s||[])]);
     const br = state.brackets[ev.id], draw = state.draws[ev.id], st = state.stages[ev.id];
@@ -3055,13 +3091,21 @@ function ResultSheet({ ev, state, onClose, save }) {
         const final = br.rounds[br.rounds.length-1][0];
         const a = resolveSlot(br, final.a), b = resolveSlot(br, final.b);
         const runner = champ === a ? b : a;
+        /* no 3rd-place game: both semifinal losers share 3rd */
+        const semis = br.rounds[br.rounds.length - 2] || [];
+        const losers = semis.map(match => [resolveSlot(br, match.a), resolveSlot(br, match.b)]
+          .find(side => side !== null && side !== match.winner)).filter(side => side !== undefined && draw.teams[side]);
         return [[...draw.teams[champ].players],
-          table[1] > 0 && runner !== null ? [...draw.teams[runner].players] : [], []];
+          table[1] > 0 && runner !== null ? [...draw.teams[runner].players] : [],
+          table[2] > 0 ? losers.flatMap(side => draw.teams[side].players) : []];
       }
     }
     if (st && st.finalWinner !== null && st.finalWinner !== undefined) {
       const v = stageEntrantView(state, st, st.finalWinner);
-      return [[...v.players], [], []];
+      const finalists = stageFinalists(st) || [];
+      const runner = finalists.length === 2 ? finalists.find(key => key !== st.finalWinner) : undefined;
+      return [[...v.players],
+        table[1] > 0 && runner !== undefined ? [...stageEntrantView(state, st, runner).players] : [], []];
     }
     return [[],[],[]];
   }, []); // eslint-disable-line
@@ -3071,15 +3115,22 @@ function ResultSheet({ ev, state, onClose, save }) {
   const [confirmCorrection, setConfirmCorrection] = useState(false);
   const [correctionReason, setCorrectionReason] = useState("");
   const [pending,setPending] = useState(false), [error,setError] = useState("");
+  /* a paid place left empty is a decision, not an oversight */
+  const [emptyCheck, setEmptyCheck] = useState(null);
   const saving = useRef(false);
-  const post = async options => {
+  const post = async (options, allowEmpty = false) => {
     if (saving.current) return;
+    if (!allowEmpty && emptyPaid.length) { setEmptyCheck(options || {}); return; }
+    setEmptyCheck(null);
     saving.current=true;setPending(true);setError("");
     try {const result=await save(slots,options);if(result?.ok !== true)setError(result?.error || "Result not saved. Try again.");}
     catch(failure){setError(failure?.message || "Result not saved. Try again.");}
     finally {saving.current=false;setPending(false);}
   };
   const draw = state.draws[ev.id];
+  /* only a place some side could still fill: two teams have no 3rd */
+  const sidesInPlay = draw?.teams?.length && ev.kind !== "solo" ? draw.teams.length : ROSTER.length;
+  const emptyPaid = slotIdxs.filter(index => index > 0 && index < sidesInPlay && !slots[index].length);
   const teamMode = !!draw?.teams?.length && ev.kind !== "solo" && (!byPlayer || sequenced && active === 0);
   const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const taken = p => slots.findIndex(s => s.includes(p));
@@ -3115,10 +3166,12 @@ function ResultSheet({ ev, state, onClose, save }) {
             background: active===i ? "rgba(194,88,50,0.1)" : "var(--paper2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
-            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>+{table[i]} each, {slots[i].length} in</div>
+            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>+{fmt(paysEach(i))} each, {slots[i].length} in</div>
           </button>
         ))}
       </div>
+      {table[2] > 0 && !!draw?.roles?.length && <p style={{ ...pStyle, fontSize:12.5, color:"var(--muted)", margin:"-6px 0 12px" }}>
+        Event crew +{fmt(table[2])} each: {draw.roles.map(role => disp(state, role.player)).join(", ")}</p>}
       {teamMode ? (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
           {draw.teams.filter(t=>!winnerKnown || !t.players.some(p=>slots[0].includes(p))).map((t, i) => {
@@ -3157,6 +3210,17 @@ function ResultSheet({ ev, state, onClose, save }) {
       )}
       </fieldset>}
       {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
+      {emptyCheck && emptyPaid.length > 0 && <div role="alert" style={{ marginBottom:10, padding:"12px 13px",
+        background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14 }}>
+        {emptyPaid.map(i => <p key={i} style={{ ...pStyle, margin:"0 0 6px" }}>
+          {SLOT_META[i].label} place pays {fmt(paysEach(i))}. Nobody selected.</p>)}
+        <div style={{ display:"flex", gap:8, marginTop:8 }}>
+          <ActionButton variant="commit" disabled={pending} onClick={() => post(emptyCheck, true)}
+            style={{ flex:1 }}>Leave empty</ActionButton>
+          <ActionButton variant="tertiary" disabled={pending} onClick={() => { setActive(emptyPaid[0]); setEmptyCheck(null); }}
+            style={{ flex:1 }}>Choose</ActionButton>
+        </div>
+      </div>}
       {!existing ? (
         <ActionButton disabled={slots[0].length===0 || pending} onClick={() => post()}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
@@ -3822,22 +3886,73 @@ function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfi
 }
 
 /* ─────────── GM sheets ─────────── */
-function AdjustSheet({ player, onClose, save }) {
-  const [delta, setDelta] = useState(PT);
+/* One pending write at a time, success only on the server's ack. After the
+   finale counts post, rulings move in 25s; the number field takes any size. */
+function AdjustSheet({ state, player, onClose, save, onRemove }) {
+  const step = stacksPosted(state) ? CHIP_MIN : PT;
+  const [delta, setDelta] = useState(step);
   const [reason, setReason] = useState("");
+  const [removing, setRemoving] = useState(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [pending, setPending] = useState(false), [error, setError] = useState("");
+  const busy = useRef(false);
+  const run = async callback => {
+    if (busy.current) return;
+    busy.current = true; setPending(true); setError("");
+    try {
+      const result = await callback();
+      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+      return result;
+    } catch (failure) { setError(failure?.message || "Not saved. Try again."); }
+    finally { busy.current = false; setPending(false); }
+  };
+  const rulings = (state.adjustments || []).filter(a => a.player === player && !a.removedAt);
+  const legal = Number.isInteger(delta) && delta !== 0 && delta % step === 0;
+  const field = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
+    padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, outline:"none" };
   return (
-    <Sheet title={`Ruling for ${player}`} onClose={onClose}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:16 }}>
-        <Btn kind="dark" onClick={() => setDelta(d => d - PT)} style={{ fontSize:19, width:54 }}>−</Btn>
-        <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:44, width:84, textAlign:"center",
-          color: delta >= 0 ? "var(--green)" : "var(--clay)" }}>{delta>0?"+":""}{delta}</div>
-        <Btn kind="dark" onClick={() => setDelta(d => d + PT)} style={{ fontSize:19, width:54 }}>+</Btn>
+    <Sheet title={`Ruling for ${disp(state, player)}`} onClose={onClose} busy={pending}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:12 }}>
+        <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) - step)} style={{ fontSize:19, width:54 }}
+          aria-label={`Minus ${step}`}>−</Btn>
+        <input value={delta > 0 ? `+${delta}` : String(delta)} inputMode="numeric" disabled={pending}
+          aria-label="Ruling chips" onChange={e => {
+            const v = e.target.value.replace(/[^\d-]/g, "");
+            setDelta(v === "" || v === "-" ? 0 : Math.trunc(Number(v)) || 0);
+          }}
+          style={{ ...field, width:130, textAlign:"center", fontFamily:DISPLAY, fontWeight:800, fontSize:34, padding:"6px 8px",
+            color: delta >= 0 ? "var(--green)" : "var(--clay)" }} />
+        <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) + step)} style={{ fontSize:19, width:54 }}
+          aria-label={`Plus ${step}`}>+</Btn>
       </div>
-      <input value={reason} onChange={e => setReason(e.target.value)} maxLength={50} aria-label="Ruling reason"
-        placeholder="Reason, e.g. pressure putt"
-        style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
-          padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, marginBottom:14, outline:"none" }} />
-      <Btn disabled={delta === 0} onClick={() => save(delta, reason.trim())} style={{ width:"100%", fontSize:16, padding:"14px" }}>Apply</Btn>
+      {!legal && delta !== 0 && <p style={{ ...pStyle, color:"var(--clay)", textAlign:"center" }}>Rulings move in {step}s.</p>}
+      <input value={reason} disabled={pending} onChange={e => setReason(e.target.value)} maxLength={80} aria-label="Ruling reason"
+        placeholder="Reason, e.g. pressure putt" style={{ ...field, width:"100%", marginBottom:14 }} />
+      {error && <p role="alert" style={{ color:"var(--clay)", fontSize:13 }}>{error}</p>}
+      <Btn disabled={!legal || pending} onClick={() => run(() => save(delta, reason.trim()))}
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>{pending ? "Saving…" : "Apply"}</Btn>
+      {rulings.length > 0 && <div style={{ marginTop:18 }}>
+        <div style={{ ...label, marginBottom:6 }}>Rulings</div>
+        {rulings.map(a => (
+          <div key={a.id} style={{ borderTop:"1px solid var(--line)", padding:"8px 0" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, minHeight:44 }}>
+              <strong style={{ fontFamily:DISPLAY, fontSize:19, minWidth:64,
+                color:a.delta >= 0 ? "var(--green)" : "var(--clay)" }}>{a.delta > 0 ? "+" : ""}{fmt(a.delta)}</strong>
+              <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>{a.reason || "No reason"}</span>
+              {a.reason !== "Minimum stack" && removing !== a.id && <Btn kind="ghost" disabled={pending}
+                onClick={() => { setRemoving(a.id); setRemoveReason(""); }}>Remove</Btn>}
+            </div>
+            {removing === a.id && <div style={{ display:"flex", gap:8, marginTop:6 }}>
+              <input value={removeReason} disabled={pending} onChange={e => setRemoveReason(e.target.value)} maxLength={100}
+                aria-label="Why is this ruling removed" placeholder="Why remove it" style={{ ...field, flex:1, minWidth:0 }} />
+              <Btn kind="danger" disabled={!removeReason.trim() || pending}
+                onClick={() => run(async () => { const result = await onRemove(a.id, removeReason.trim());
+                  if (result?.ok) setRemoving(null); return result; })}>Remove</Btn>
+              <Btn kind="ghost" disabled={pending} onClick={() => setRemoving(null)}>Keep</Btn>
+            </div>}
+          </div>
+        ))}
+      </div>}
     </Sheet>
   );
 }

@@ -106,10 +106,13 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   const event = BUILTIN_EVENTS.find(item => item.id === "volley");
   const teamState = fresh(event), draw = withTeams(teamState, event);
   draw.teams = draw.teams.slice(0, 2);
-  const teams = controls(teamState, event), team = draw.teams[1];
+  /* two teams are a matchup: an observer may back either side at even money */
+  const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
+  assert.match(teams.html, /Winner pays even/);
   teams.click(`Place a chip on ${teamLabel(teamState, team)}`);
   assert.deepEqual(teams.picks, [{ kind:"outright", eventId:event.id, pickTeam:true,
     pickPlayers:team.players, drawId:draw.id, evName:event.name, stake:100, ...refs(teamState, event) }]);
+  assert.equal(controls(teamState, event).named(teamLabel(teamState, team)).disabled, true);
 });
 
 test("observers bet only the current bracket matchup, then its successor and final", () => {
@@ -160,8 +163,10 @@ test("large teams retain their drawn names and every player target alongside man
     view.click(`View ${member}'s player card`);
   assert.deepEqual(viewed, ROSTER.slice(0, 12));
   assert.deepEqual(view.picks, []);
-  view.click("Place a chip on The Coyotes");
-  assert.deepEqual(view.picks[0].pickPlayers, draw.teams[1].players);
+  /* a Sidewinder backs only the Sidewinders */
+  assert.equal(view.named("The Coyotes").disabled, true);
+  view.click("Place a chip on The Sidewinders");
+  assert.deepEqual(view.picks[0].pickPlayers, draw.teams[0].players);
   assert.equal(view.picks[0].drawId, draw.id);
   assert.equal(view.picks[0].stake, 100);
   view.click("Retract your last chip on The Sidewinders");

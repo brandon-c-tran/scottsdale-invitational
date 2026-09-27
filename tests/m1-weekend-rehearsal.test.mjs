@@ -209,6 +209,16 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     correctionReason:"Must be blocked",
   }, gm).error, /cancel the poker table/i);
 
+  /* an undealt table reverses exactly; once cards are live it cannot be cancelled */
+  act(state, "pokerCancel");
+  const cancelRetry = act(state, "pokerCancel");
+  assert.equal(cancelRetry.extra.unchanged, true);
+  assert.equal(state.poker, null);
+  assert.ok(state.adjustments.some(adjustment => adjustment.id === unrelatedMinimumRuling.id));
+  assert.deepEqual(computeStandings(state).map(row => ({ player:row.player, pts:row.pts })),
+    beforePoker);
+  act(state, "pokerSetup");
+
   act(state, "pokerStart");
   const startRetry = act(state, "pokerStart");
   assert.equal(startRetry.extra.unchanged, true);
@@ -243,11 +253,7 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     confirmClear:true,
     correctionReason:"Rehearsal verifies exact reversal",
   });
-  act(state, "pokerCancel");
-  const cancelRetry = act(state, "pokerCancel");
-  assert.equal(cancelRetry.extra.unchanged, true);
-  assert.equal(state.poker, null);
-  assert.ok(state.adjustments.some(adjustment => adjustment.id === unrelatedMinimumRuling.id));
-  assert.deepEqual(computeStandings(state).map(row => ({ player:row.player, pts:row.pts })),
-    beforePoker);
+  assert.match(applyAction(state, "pokerCancel", {}, gm).error, /cards are live/i);
+  assert.deepEqual(Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts])),
+    state.poker.startingStacks);
 });

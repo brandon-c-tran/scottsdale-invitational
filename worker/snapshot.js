@@ -10,6 +10,7 @@ const INTERNAL_BACKUP_PREFIXES = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const MAX_ENTRIES = 256;
 const MAX_PHOTO_LENGTH = 120000;
+const MAX_WAGER_OPS = 8192;
 
 const utf8Size = value => new TextEncoder().encode(value).byteLength;
 
@@ -139,6 +140,15 @@ function validateSnapshot(snapshot) {
   const claims = entryMap.get("claims");
   if (!claims || typeof claims !== "object" || Array.isArray(claims))
     errors.push("Claims entry must be an object");
+  /* Optional: the wager retry ledger has its own key since it left "state".
+     Older snapshots embed it in state and carry no such entry. */
+  if (entryMap.has("wagerOps")) {
+    const ops = entryMap.get("wagerOps");
+    if (!ops || typeof ops !== "object" || Array.isArray(ops))
+      errors.push("Wager ledger entry must be an object");
+    else if (Object.keys(ops).length > MAX_WAGER_OPS)
+      errors.push("Wager ledger entry has too many records");
+  }
 
   for (const [key, value] of entryMap) {
     if (!key.startsWith("photo:")) continue;

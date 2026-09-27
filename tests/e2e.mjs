@@ -485,9 +485,17 @@ assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
   const tv = await hello(`tv-${crypto.randomUUID()}`);
   assert(tv.message.you === null || tv.message.you === undefined,
     "TV reconnect remains unclaimed and read-only");
+  /* Every connection gets its own projection: the board is identical, the
+     private parts (ratings, sizes, flights, device ids) are not. */
   assert(tv.message.environment === "local" && tv.message.version === b.version
-      && JSON.stringify(tv.message.state) === JSON.stringify(b.state),
-    "TV reconnect receives the same complete state and environment");
+      && JSON.stringify(tv.message.state.results) === JSON.stringify(b.state.results)
+      && JSON.stringify(tv.message.state.wagers) === JSON.stringify(b.state.wagers)
+      && JSON.stringify(computeStandings(tv.message.state)) === JSON.stringify(computeStandings(b.state)),
+    "TV reconnect receives the same board, standings, and environment");
+  assert(Object.keys(tv.message.state.seeds || {}).length === 0
+      && !("wagerOps" in tv.message.state)
+      && ![a.deviceId, b.deviceId].some(id => JSON.stringify(tv.message).includes(id)),
+    "TV reconnect receives no private ratings, retry ledger, or device ids");
   tv.socket.close();
 }
 

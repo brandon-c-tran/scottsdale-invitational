@@ -11,8 +11,11 @@
 import {
   ALL_PLAYERS, ROSTER, isActivePlayer,
 } from "../shared/core.js";
+import { checkInComplete } from "../shared/checkin.js";
+import { BUILD_ID } from "../shared/build.js";
 import { applyAction } from "./actions.js";
-import { hydrateStoredState } from "./state.js";
+import { createStateSerializer } from "./publicState.js";
+import { WAGER_OPS_KEY, hydrateStoredState, splitStoredState } from "./state.js";
 import {
   INTERNAL_BACKUP_PREFIX,
   INTERNAL_RESET_BACKUP_PREFIX,
@@ -39,6 +42,13 @@ import {
 } from "./spotify.js";
 
 const tokenEncoder = new TextEncoder();
+/* The Durable Object value limit is 2 MB; warn well before it. */
+const STATE_WARN_BYTES = 1.5 * 1024 * 1024;
+const STATE_WARN_EVERY_MS = 60 * 1000;
+const MAX_DEVICE_ID_LENGTH = 200;
+const APPLIED_ACTION_LIMIT = 24;
+const validDeviceId = value => typeof value === "string" && value.length > 0
+  && value.length <= MAX_DEVICE_ID_LENGTH ? value : null;
 const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
@@ -70,6 +80,12 @@ export class Tournament {
   constructor(ctx, env) {
     this.ctx = ctx;
     this.env = env;
+    /* A fresh id per instance. Hibernation or eviction rebuilds the object
+       and empties the in-memory applied-action lists, so clients can tell a
+       missing id apart from an action that never landed. */
+    this.bootId = crypto.randomUUID();
+    this.appliedActions = new Map();
+    this.socketFallback = new WeakMap();
     ctx.blockConcurrencyWhile(async () => this.hydrateFromStorage());
   }
 
@@ -101,7 +117,11 @@ export class Tournament {
   }
 
   async hydrateFromStorage() {
-    this.state = hydrateStoredState(await this.ctx.storage.get("state"));
+    const storedWagerOps = await this.ctx.storage.get(WAGER_OPS_KEY);
+    this.state = hydrateStoredState(await this.ctx.storage.get("state"), storedWagerOps);
+    /* What the separate key holds now. A state still carrying its embedded
+       ledger migrates on the next write, in the same atomic put. */
+    this.persistedWagerOps = storedWagerOps === undefined ? null : JSON.stringify(storedWagerOps);
     this.version = (await this.ctx.storage.get("version")) || 0;
     this.gmToken = (await this.ctx.storage.get("gmToken")) || null;
     this.claims = (await this.ctx.storage.get("claims")) || {}; // deviceId -> player
@@ -427,14 +447,23 @@ export class Tournament {
     catch { throw new Error("Malformed JSON"); }
   }
 
-  async createSnapshot() {
-    const entries = await this.ctx.storage.list();
-    /* Fresh local objects may not have written their default state yet. The
-       in-memory authority still has a complete logical value for each required
-       key, so export it without mutating storage. */
-    if (!entries.has("state")) entries.set("state", this.state);
+  /* Fresh local objects may not have written their default state yet. The
+     in-memory authority still has a complete logical value for each required
+     key, so export it (in its stored shape) without mutating storage. */
+  withInMemoryDefaults(entries) {
+    if (!entries.has("state")) {
+      const split = splitStoredState(this.state);
+      entries.set("state", split.state);
+      if (!entries.has(WAGER_OPS_KEY) && Object.keys(split.wagerOps).length)
+        entries.set(WAGER_OPS_KEY, split.wagerOps);
+    }
     if (!entries.has("version")) entries.set("version", this.version);
     if (!entries.has("claims")) entries.set("claims", this.claims);
+    return entries;
+  }
+
+  async createSnapshot() {
+    const entries = this.withInMemoryDefaults(await this.ctx.storage.list());
     return buildSnapshot(entries, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -444,10 +473,7 @@ export class Tournament {
 
   async restoreValidatedSnapshot(snapshot, checked) {
     const current = await this.ctx.storage.list();
-    const backupSource = new Map(current);
-    if (!backupSource.has("state")) backupSource.set("state", this.state);
-    if (!backupSource.has("version")) backupSource.set("version", this.version);
-    if (!backupSource.has("claims")) backupSource.set("claims", this.claims);
+    const backupSource = this.withInMemoryDefaults(new Map(current));
     const backup = buildSnapshot(backupSource, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -602,16 +628,90 @@ export class Tournament {
     return new Response("Not found", { status: 404 });
   }
 
+  /* ── connection identity ──
+     A socket is bound to the device id it first presents (its hello). The
+     binding lives in the hibernation attachment so it survives eviction; the
+     WeakMap covers test sockets and runtimes without attachments. */
+  socketMeta(ws) {
+    let meta = null;
+    try { meta = ws?.deserializeAttachment?.() ?? null; } catch {}
+    if (!meta || typeof meta !== "object") meta = this.socketFallback.get(ws) || null;
+    return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true };
+  }
+
+  setSocketMeta(ws, meta) {
+    const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true };
+    try { ws?.serializeAttachment?.(clean); } catch {}
+    if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
+    return clean;
+  }
+
+  /* The one place a connection's commissioner view is decided. It mirrors the
+     action check below; if GM tokens change shape, change both together. */
+  async messageIsGm(gmToken) {
+    return secureTokenEqual(gmToken, this.gmToken);
+  }
+
+  viewerFor(meta) {
+    if (meta?.tv) return { isGm:false, player:null };
+    const claimed = meta?.deviceId ? this.claims[meta.deviceId] : null;
+    return { isGm:meta?.gm === true, player:isActivePlayer(claimed) ? claimed : null };
+  }
+
+  rememberApplied(deviceId, actionId) {
+    if (!deviceId || typeof actionId !== "string" || !actionId || actionId.length > 120) return;
+    const list = (this.appliedActions.get(deviceId) || []).filter(id => id !== actionId);
+    list.push(actionId);
+    this.appliedActions.set(deviceId, list.slice(-APPLIED_ACTION_LIMIT));
+  }
+
+  stateFrame(ws, serialize, extra = {}, shared = null) {
+    const meta = this.socketMeta(ws);
+    const viewer = this.viewerFor(meta);
+    const head = JSON.stringify({
+      type:"state",
+      version:this.version,
+      ...extra,
+      you:viewer.player,
+      environment:shared?.environment ?? this.environment,
+      capabilities:shared?.capabilities ?? this.capabilities,
+      build:BUILD_ID,
+      boot:this.bootId,
+      applied:meta.deviceId ? this.appliedActions.get(meta.deviceId) || [] : [],
+    });
+    return `${head.slice(0, -1)},"state":${serialize(viewer)}}`;
+  }
+
+  sendState(ws, extra = {}) {
+    try { ws.send(this.stateFrame(ws, createStateSerializer(this.state), extra)); } catch {}
+  }
+
   async webSocketMessage(ws, raw) {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
-    const { actionId, type, payload, deviceId, gmToken } = msg;
+    if (!msg || typeof msg !== "object" || Array.isArray(msg)) return;
+    const { actionId, type, payload, gmToken } = msg;
     const reply = obj => { try { ws.send(JSON.stringify({ type: "ack", actionId, ...obj })); } catch {} };
 
+    /* Trust only the device id this socket was bound to. A different id on a
+       later message is someone else's identity, never a re-bind. */
+    let meta = this.socketMeta(ws);
+    const presented = validDeviceId(msg.deviceId);
+    if (meta.deviceId && presented && presented !== meta.deviceId) {
+      if (type === "hello" || type === "ping") return;
+      return reply({ ok:false, error:"This connection belongs to another device. Reload." });
+    }
+    if (!meta.deviceId && presented) meta = this.setSocketMeta(ws, { ...meta, deviceId:presented });
+    const deviceId = meta.deviceId;
+
     if (type === "hello") {
-      try { ws.send(JSON.stringify({ type: "state", version: this.version, state: this.state,
-        you: isActivePlayer(this.claims[deviceId]) ? this.claims[deviceId] : null,
-        environment: this.environment, capabilities: this.capabilities })); } catch {}
+      meta = this.setSocketMeta(ws, {
+        ...meta,
+        tv:payload?.view === "tv",
+        gm:await this.messageIsGm(gmToken),
+      });
+      const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
+      this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       return;
     }
     if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong" })); } catch {} return; }
@@ -638,13 +738,32 @@ export class Tournament {
     if (type === "claim") {
       const player = payload?.player;
       if (!ROSTER.includes(player)) return reply({ ok: false, error: "Pick a player" });
-      const nextClaims = { ...this.claims, [deviceId]:player };
-      await this.ctx.storage.put("claims", nextClaims);
-      this.claims = nextClaims;
-      return reply({ ok: true });
+      if (!deviceId) return reply({ ok:false, error:"Reload and try again" });
+      const previous = this.claims[deviceId];
+      if (previous !== player) {
+        const nextClaims = { ...this.claims, [deviceId]:player };
+        await this.ctx.storage.put("claims", nextClaims);
+        this.claims = nextClaims;
+        /* The claim changes what this device may see (its own ratings and
+           travel answers), so its sockets get their view before the ack. */
+        const serialize = createStateSerializer(this.state);
+        for (const socket of this.ctx.getWebSockets?.() || []) {
+          if (this.socketMeta(socket).deviceId !== deviceId) continue;
+          try { socket.send(this.stateFrame(socket, serialize)); } catch {}
+        }
+      }
+      /* A returning guest in a new browser or reinstalled app already has
+         every answer on the server; the client skips the rest of check-in. */
+      return reply({ ok: true, extra:{ player, checkedIn:checkInComplete(this.state, player) } });
     }
 
     const isGm = await secureTokenEqual(gmToken, this.gmToken);
+    /* A token that starts or stops matching changes this socket's view. */
+    let viewChanged = false;
+    if (isGm !== meta.gm) {
+      meta = this.setSocketMeta(ws, { ...meta, gm:isGm });
+      viewChanged = !meta.tv;
+    }
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
@@ -656,22 +775,74 @@ export class Tournament {
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
     });
-    if (!result.ok) return reply(result);
+    if (!result.ok) {
+      if (viewChanged) this.sendState(ws);
+      return reply(result);
+    }
     /* Explicit no-ops make retried result/transition actions idempotent:
        acknowledge them without incrementing the transport version or
        broadcasting a state that did not change. */
-    if (result.extra?.unchanged)
+    if (result.extra?.unchanged) {
+      this.rememberApplied(deviceId, actionId);
+      if (viewChanged) this.sendState(ws);
       return reply({ ...result, version:this.version });
-    const persisted = await this.persistAndBroadcast(type, nextState, {
-      backupPrefix:type === "resetTournament" ? INTERNAL_RESET_BACKUP_PREFIX : null,
-    });
+    }
+    let persisted;
+    try {
+      persisted = await this.persist(nextState, {
+        backupPrefix:type === "resetTournament" ? INTERNAL_RESET_BACKUP_PREFIX : null,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({ event:"persist-failed", action:type,
+        error:String(error?.message || error).slice(0, 300) }));
+      if (viewChanged) this.sendState(ws);
+      return reply({ ok:false, error:"Couldn't save. Try again." });
+    }
+    this.rememberApplied(deviceId, actionId);
+    /* The actor's ack is not held up by the broadcast. Its own socket gets
+       the new board first (a resolved dispatch has always meant the state
+       it produced is already on screen), then the ack, then every other
+       socket. Each frame carries the applied id. */
+    const serialize = createStateSerializer(this.state);
+    const shared = { environment:this.environment, capabilities:this.capabilities };
+    try { ws.send(this.stateFrame(ws, serialize, { lastAction:type }, shared)); } catch {}
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
+    this.broadcastState(type, { serialize, shared, skip:ws });
   }
 
-  async persistAndBroadcast(lastAction, nextState = this.state, { backupPrefix = null } = {}) {
+  async persistAndBroadcast(lastAction, nextState = this.state, options = {}) {
+    const persisted = await this.persist(nextState, options);
+    this.broadcastState(lastAction);
+    return persisted;
+  }
+
+  /* Stored shape: "state" without the wager retry ledger, which has its own
+     key and is written only when it changed. */
+  storageWrite(nextState, nextVersion) {
+    const split = splitStoredState(nextState);
+    const write = { state:split.state, version:nextVersion };
+    const opsJson = JSON.stringify(split.wagerOps);
+    if (opsJson !== this.persistedWagerOps) write[WAGER_OPS_KEY] = split.wagerOps;
+    this.warnIfLarge(split.state, opsJson);
+    return { write, opsJson };
+  }
+
+  warnIfLarge(storedState, opsJson) {
+    let bytes = 0;
+    try { bytes = JSON.stringify(storedState).length; } catch { return; }
+    if (bytes <= STATE_WARN_BYTES) return;
+    const now = Date.now();
+    if (this.lastSizeWarning && now - this.lastSizeWarning < STATE_WARN_EVERY_MS) return;
+    this.lastSizeWarning = now;
+    console.warn(JSON.stringify({ event:"state-size", stateBytes:bytes,
+      wagerOpsBytes:opsJson.length, limitBytes:2 * 1024 * 1024 }));
+  }
+
+  async persist(nextState = this.state, { backupPrefix = null } = {}) {
     const nextVersion = this.version + 1;
     nextState.updatedAt = Date.now();
+    const { write, opsJson } = this.storageWrite(nextState, nextVersion);
     /* Persist first, cache second. The atomic map write keeps state/version
        aligned, and a failed write cannot leak an uncommitted in-memory board. */
     let backupKey = null;
@@ -693,22 +864,28 @@ export class Tournament {
         });
         for (let index = 0; index < backupEntries.length; index++)
           await txn.put(`${backupKey}:entry:${index}`, backupEntries[index].value);
-        await txn.put({ state:nextState, version:nextVersion });
+        await txn.put(write);
       });
     } else {
-      await this.ctx.storage.put({ state:nextState, version:nextVersion });
+      await this.ctx.storage.put(write);
     }
+    this.persistedWagerOps = opsJson;
     this.state = nextState;
     this.version = nextVersion;
-    this.broadcastState(lastAction);
     return backupKey ? { backupKey } : null;
   }
 
-  broadcastState(lastAction) {
-    const frame = JSON.stringify({ type: "state", version: this.version, state: this.state, lastAction,
-      environment: this.environment, capabilities: this.capabilities });
+  /* Every socket gets its own projection (publicState.js). Sockets with the
+     same viewer share one serialized state; only the small frame head is
+     per socket. */
+  broadcastState(lastAction, {
+    serialize = createStateSerializer(this.state),
+    shared = { environment:this.environment, capabilities:this.capabilities },
+    skip = null,
+  } = {}) {
     for (const ws of this.ctx.getWebSockets()) {
-      try { ws.send(frame); } catch {}
+      if (ws === skip) continue;
+      try { ws.send(this.stateFrame(ws, serialize, { lastAction }, shared)); } catch {}
     }
   }
 

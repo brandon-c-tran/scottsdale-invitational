@@ -102,14 +102,17 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
       "",
       "",
       "These stay private. They’re only used to make fair teams."][step];
-  const canContinue = step === 0 ? !!selected : step === 3 ? !!size && flightsBooked !== null
+  /* Once the weekend is live a straggler is already here: flights become
+     optional, the shirt size is still needed. */
+  const canContinue = step === 0 ? !!selected : step === 3 ? !!size && (flightsBooked !== null || !!state.live)
     : step === 4 ? !!display.trim() && !!state.profiles?.[me]?.color
     : step === 5 ? SPORTS.every(s => ratings[s.id] !== undefined) : true;
   const continueLabel = step === -1 ? "Skip, stay in the browser" : step === 0 ? selected ? `Continue as ${selected}` : "Pick your name"
     : step === 5 ? "Finish check-in" : "Continue";
   const go = () => {
     if (step === 0) return saveAndGo(() => pick(selected));
-    if (step === 3) return saveAndGo(() => saveProfile({ display:(display || me).trim() || me, size, flightsBooked, flightIn, flightOut }));
+    if (step === 3) return saveAndGo(() => saveProfile({ display:(display || me).trim() || me, size,
+      ...(flightsBooked === null ? {} : { flightsBooked, flightIn, flightOut }) }));
     if (step === 4) return saveAndGo(() => saveProfile({ display:display.trim(), num:num === "" ? null : Number(num), ...(photo ? { photo } : {}) }));
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();

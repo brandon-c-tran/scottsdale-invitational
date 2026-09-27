@@ -1,5 +1,5 @@
 import React from "react";
-import { EDITION, SESSIONS, AWARDS, disp, overflowRoleMeta } from "../../../shared/core.js";
+import { EDITION, SESSIONS, AWARDS, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { SectionHeading } from "../../ui/layout.jsx";
 import { Leaderboard } from "../standings/Standings.jsx";
@@ -40,17 +40,54 @@ function Assignment({ current, state, onPlayer }) {
   </div>;
 }
 
+/* Added events may have no game. Their rules are the event description,
+   which the event sheet already carries, so no dead Rules target renders. */
+export const hasGameRules = event => {
+  const game = GAMES[event?.game];
+  return !!(game?.howto || game?.variants?.some(variant => variant.howto));
+};
+
+const names = (state, players) => players.map(player => disp(state, player)).join(" & ");
+
+/* One line of personal state under the room's matchup: where you stand in
+   this event even when the contest on screen is someone else's. */
+export function personalLine({ current, state, model }) {
+  const a = current?.assignment;
+  if (!a) return null;
+  if (a.kind === "crew") return `Your role · ${a.label}`;
+  if (a.kind !== "team" && a.kind !== "solo") return null;
+  const partner = a.partners?.length ? ` · with ${names(state, a.partners)}` : "";
+  const bettingOpen = !!model?.betting?.open && model.betting.event.id === current.event.id;
+  const round = a.match?.roundName?.replace(/s$/, "");
+  if (a.status === "out") return `You’re out${bettingOpen ? " · betting open" : ""}`;
+  if (a.status === "won") return `You won${partner}`;
+  if (a.status === "through") return `You’re through to the final${partner}`;
+  if (a.status === "final") return `You: Final${partner}`;
+  if (a.status === "up-now") return partner ? `You’re up${partner}` : null;
+  if (a.match) {
+    if (a.opponents.length) return `Next: ${round} vs ${names(state, a.opponents)}${partner}`;
+    if (a.match.feeder) return `You: ${round} vs winner of ${a.match.feeder}${partner}`;
+    return `You: ${round}${partner}`;
+  }
+  if (a.group?.name) return `You: ${a.group.name}${partner}`;
+  return partner ? `You${partner}` : null;
+}
+
 function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameMark }) {
   const current = model.current;
   if (!current) return null;
   const event = current.event;
   const before = model.mode === "before";
+  const rules = hasGameRules(event);
   const betHere = model.betting?.open && model.betting.event.id === event.id;
   const bettingLabel = model.betting?.canPlace ? "Place chips" : "View bets";
   const running = ["in-progress", "result-entry"].includes(current.lifecycle.phase);
+  /* in the contest on screen, "You're playing" already says it */
+  const mine = !before && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
+    && !current.contest.players?.includes(me) ? personalLine({ current, state, model }) : null;
   return <section className={`fd-home-focus${running ? " is-running" : ""}`} aria-label={`${event.name}: ${current.status}`}>
     <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{running && <i aria-hidden="true" />}{current.status}</span>
-      {before ? <span>{sessionOf(event)}</span> : <button type="button" className="fd-home-text-link"
+      {before ? <span>{sessionOf(event)}</span> : rules && <button type="button" className="fd-home-text-link"
         aria-label={`${event.name} rules`} onClick={() => onRules(event)}>Rules <Arrow /></button>}</div>
     <button type="button" className="fd-home-event-title" onClick={() => onOpen(event)} aria-label={`Open ${event.name}`}>
       <span><h2>{event.name}</h2>{event.value && <small>{fmt(AWARDS[event.value]?.[0] ?? event.value)} chips to win</small>}</span>
@@ -63,19 +100,20 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onPlayer, GameM
           {current.contest.sides.map((side,index) => <React.Fragment key={String(side.key)}>
             {index > 0 && current.contest.kind === "match" && <span className="fd-home-versus">vs</span>}
             <People state={state} players={side.players} onPlayer={onPlayer} /></React.Fragment>)}
-          {current.assignment.kind === "crew" && <p>{current.assignment.label}</p>}
+          {mine && <p className="fd-home-personal">{mine}</p>}
         </div>
       : !before && <Assignment current={current} state={state} onPlayer={onPlayer} />}
     <div className="fd-home-event-actions">
       {betHere && <button type="button" className="fd-home-primary" onClick={onBets}>{bettingLabel}<Arrow /></button>}
-      <button type="button" className={betHere ? "fd-home-secondary" : "fd-home-primary"} onClick={() => before ? onRules(event) : onOpen(event)}>
-        {before ? "How to play" : current.awaitingResult ? "View event" : "Open event"}<Arrow /></button>
+      <button type="button" className={betHere ? "fd-home-secondary" : "fd-home-primary"} onClick={() => before && rules ? onRules(event) : onOpen(event)}>
+        {before ? rules ? "How to play" : "Open event" : current.awaitingResult ? "View event" : "Open event"}<Arrow /></button>
     </div>
   </section>;
 }
 
 export function GuestHome({ state, me, events, standings, onProfile, onPlayer, onEvents, onGuide,
-  onHouse, onOpen, onRules = onOpen, onBets, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent }) {
+  onHouse, onOpen, onRules = onOpen, onBets, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
+  since, onSince, onSinceDismiss }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
@@ -116,6 +154,12 @@ export function GuestHome({ state, me, events, standings, onProfile, onPlayer, o
 
     <section className="fd-home-leaderboard" aria-label="Leaderboard">
       <SectionHeading title="Leaderboard" action={<button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button>} />
+      {since && <div className="fd-home-since">
+        <button type="button" onClick={onSince} aria-label={`${since}. View settled bets`}>
+          <span>{since}</span><Arrow /></button>
+        {onSinceDismiss && <button type="button" className="fd-home-since-dismiss" onClick={onSinceDismiss}
+          aria-label="Dismiss">✕</button>}
+      </div>}
       {!!model.standing?.exposure && !finale && !complete && <div className="fd-home-exposure">
         {!!model.standing.atRisk && <button type="button" onClick={onBets}>{fmt(model.standing.atRisk)} in bets ↗</button>}
         {!!model.standing.duelAntes && <span>{fmt(model.standing.duelAntes)} in duels</span>}

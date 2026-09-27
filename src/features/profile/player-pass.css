@@ -26,8 +26,10 @@
 .fd-pass-chip { position:absolute; right:5%; top:25%; display:block; transform:rotate(12deg); }
 .fd-pass-chip.with-photo { top:auto; bottom:12%; right:0; transform:rotate(-9deg); }
 .fd-pass-edition { position:absolute; bottom:12%; left:2%; font-size:9px; letter-spacing:.12em; line-height:1.6; }
+.fd-pass-front { container-type:inline-size; }
 .fd-pass-name { display:block; font-family:'Barlow Condensed',sans-serif; font-size:clamp(40px,12vw,58px);
-  text-transform:uppercase; line-height:1; font-weight:700; letter-spacing:-.025em; overflow-wrap:anywhere; }
+  font-size:min(clamp(40px,12vw,58px), calc(100cqw / (var(--pass-name-chars,8) * .58)));
+  text-transform:uppercase; line-height:1; font-weight:700; letter-spacing:-.025em; overflow-wrap:normal; word-break:normal; white-space:normal; }
 .fd-pass-foot { border-top:1px solid currentColor; margin-top:15px; padding-top:10px; }
 .fd-pass-back { transform:rotateY(180deg); }
 .fd-pass-back-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:clamp(38px,10vw,50px); line-height:1.02;
@@ -74,6 +76,7 @@
 .fd-chip-picker { container-type:inline-size; }
 .fd-chip-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr));
   gap:6px; margin-bottom:18px; }
+.fd-chip-late-note { margin:10px 0 16px; color:var(--muted2); font-size:12px; line-height:1.45; }
 .fd-chip-patterns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
 @container (max-width:270px) {
   .fd-chip-patterns { grid-template-columns:repeat(3,minmax(0,1fr)); }

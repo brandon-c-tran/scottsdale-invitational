@@ -1,5 +1,29 @@
 import { coalescePendingReveals, disp, ROUND_NAMES, resolveSlot, stageEntrantView, teamLabel } from "../../../shared/core.js";
 
+/* A draw reveal only matters while its event is still ahead. Events that
+   started, posted, or were shelved retire their ceremony silently; an
+   unannounced event's draw plays only if it is current, on deck, or fresh.
+   Anything else stays pending (not seen) so its announcement can still play
+   it. Replay draw on the event sheet is unaffected. */
+export const REVEAL_FRESH_MS = 2 * 60 * 1000;
+const revealTime = (state, evId, item) => Number(item.ts) || Number(state.eventOps?.[evId]?.drawRevealedAt)
+  || parseInt(String(item.id).replace(/^\D+/, ""), 10) || 0;
+export function filterRevealCandidates(state, { seen = [], now = Date.now(), current = null } = {}) {
+  const seenIds = new Set(seen), retire = [], draws = {}, stages = {};
+  const sort = (map, out) => Object.entries(map || {}).forEach(([evId, item]) => {
+    if (!item?.id || seenIds.has(item.id)) return;
+    if (state.results?.[evId] || state.shelved?.[evId] || state.eventOps?.[evId]?.startedAt) {
+      retire.push(item.id);
+      return;
+    }
+    if (evId === state.onDeck || evId === current || now - revealTime(state, evId, item) <= REVEAL_FRESH_MS)
+      out[evId] = item;
+  });
+  sort(state.draws, draws);
+  sort(state.stages, stages);
+  return { draws, stages, retire };
+}
+
 // Presentation only. Replaying reads the saved assignment; it never runs a draw.
 export function buildEventReveal(state, ev, kind) {
   if (!ev) return null;
@@ -12,7 +36,7 @@ export function buildEventReveal(state, ev, kind) {
     groups:stage.groups.map(group => ({ title:group.name, lines:group.entrants.map(key => {
       const entrant = stageEntrantView(state, stage, key);
       return { avatars:[...entrant.players], text:entrant.name };
-    }) })), versus:null, crew:[],
+    }) })), versus:null, crew:stage.roles || (stage.drawId && draw?.id === stage.drawId ? draw.roles : null) || [],
   };
   if (source !== "draw" || !draw) return null;
   const bracket = state.brackets?.[ev.id];

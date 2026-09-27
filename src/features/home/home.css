@@ -27,6 +27,11 @@
 .fd-home-assignment>strong { font-size:14px; }
 .fd-home-assignment p { margin:0; color:var(--muted2); font-size:12px; line-height:1.5; }
 .fd-home-assignment .fd-home-assignment-status { color:var(--accent2); }
+.fd-home-assignment .fd-home-personal { padding:4px 0 0; color:var(--ink); font-weight:600; overflow-wrap:anywhere; }
+.fd-home-since { display:flex; align-items:stretch; gap:4px; margin:0 0 6px; border:1px solid var(--line); border-radius:8px; background:var(--paper2); }
+.fd-home-since>button:first-child { display:flex; flex:1; min-width:0; min-height:44px; align-items:center; justify-content:space-between; gap:10px; padding:8px 4px 8px 12px; border:0; background:none; color:var(--ink); font-size:12px; line-height:1.4; text-align:left; cursor:pointer; }
+.fd-home-since>button:first-child>span:first-child { overflow-wrap:anywhere; }
+.fd-home-since-dismiss { flex:0 0 44px; min-height:44px; border:0; border-left:1px solid var(--line); background:none; color:var(--muted2); font-size:12px; cursor:pointer; }
 .fd-home-player-links { display:flex; flex-wrap:wrap; gap:3px 12px; }
 .fd-home-player-links button { display:inline-flex; align-items:center; gap:7px; max-width:100%; min-height:44px; padding:3px 0; border:0; background:none; color:var(--ink); text-align:left; font-size:12px; cursor:pointer; }
 .fd-home-player-links button>span { overflow-wrap:anywhere; }

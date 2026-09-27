@@ -92,8 +92,16 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
      picking a skin while changing your number shows you the old one */
   const stamp = num !== undefined && num !== "" && num !== null ? Number(num) : mine.num;
   const owner = hex => Object.entries(state.profiles || {}).find(([p, pr]) => pr?.color === hex)?.[0];
-  const locked = state.live;
-  const { skin } = usePlayerIdentity(me);
+  /* Once live, an established chip is locked. A guest who never claimed a
+     color still gets one claim: the pattern is chosen here, and the color tap
+     saves both together. */
+  const lateClaim = !!state.live && !mine.color;
+  const locked = !!state.live && !lateClaim;
+  const { skin:savedSkin } = usePlayerIdentity(me);
+  const [draftSkin, setDraftSkin] = useState(null);
+  const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
+  const patterns = <PatternPicker me={me} skin={skin} locked={locked} stamp={stamp}
+    onPick={sk => lateClaim ? setDraftSkin(sk) : onChip(undefined, sk)} />;
   if (locked) return <div className="fd-profile-chip-locked">
     <ChipFace p={me} size={48} stamp={stamp} />
     <div><strong>{CHIP_SKIN_META[skin] || "Classic"} pattern</strong><p>Chips are locked for the weekend.</p></div>
@@ -120,6 +128,8 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           </div>
         </div>
       </div>}
+      {lateClaim && patterns}
+      {lateClaim && <p className="fd-chip-late-note">Claiming a color locks your chip for the weekend.</p>}
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
         marginBottom:8 }}>
         <div style={{ ...label, fontSize:10 }}>Choose your color</div>
@@ -134,7 +144,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           const taken = by && !isMine;
           return (
             <button type="button" key={c.hex} disabled={taken || locked}
-              onClick={() => onChip(isMine ? null : c.hex, undefined)}
+              onClick={() => lateClaim ? onChip(c.hex, skin) : onChip(isMine ? null : c.hex, undefined)}
               aria-label={taken ? `Color taken by ${disp(state, by)}`
                 : isMine ? "Release selected chip color" : `Claim chip color ${c.hex}`}
               aria-pressed={isMine}
@@ -162,13 +172,21 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           );
         })}
       </div>
+      {!lateClaim && patterns}
+    </div>
+  );
+}
+
+function PatternPicker({ me, skin, locked, stamp, onPick }) {
+  return (
+    <>
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
         marginBottom:8 }}>
         <div style={{ ...label, fontSize:10 }}>Choose your pattern</div>
       </div>
       <div className="fd-chip-patterns">
         {CHIP_SKINS.map(sk => (
-          <button type="button" key={sk} disabled={locked} onClick={() => onChip(undefined, sk)}
+          <button type="button" key={sk} disabled={locked} onClick={() => onPick(sk)}
             aria-label={`Chip pattern ${CHIP_SKIN_META[sk] || sk}`} aria-pressed={skin === sk}
             style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
               gap:5, minHeight:72, padding:"7px 4px 6px",
@@ -185,7 +203,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           </button>
         ))}
       </div>
-    </div>
+    </>
   );
 }
 

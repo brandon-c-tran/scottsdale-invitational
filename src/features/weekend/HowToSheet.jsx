@@ -5,9 +5,12 @@ import "./weekend.css";
 
 /* Instructions are a reference, so every step is readable immediately.
    The keyed content also resets a variant when another game is opened. */
-export function HowToSheet({ gameId, variant, onClose }) {
+export function HowToSheet({ gameId, variant, ev, onClose }) {
   const game = GAMES[gameId];
-  if (!game) return null;
+  /* An added event without a game falls back to its own description. */
+  if (!game) return ev?.desc ? <Sheet title={ev.name} onClose={onClose}>
+    <article className="fd-weekend-howto"><p className="fd-weekend-howto-objective">{ev.desc}</p></article>
+  </Sheet> : null;
   return <Sheet title={game.name} onClose={onClose}>
     <GameInstructions key={`${gameId}:${variant || ""}`} gameId={gameId} game={game} variant={variant} />
   </Sheet>;

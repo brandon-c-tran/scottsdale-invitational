@@ -9,7 +9,10 @@ import { HomeDuels } from "./features/home/HomeDuels.jsx";
 import { GameMark } from "./ui/GameMark.jsx";
 import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
 import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
-import { GuestHome } from "./features/home/GuestHome.jsx";
+import { GuestHome, hasGameRules } from "./features/home/GuestHome.jsx";
+import { deriveHomeModel } from "./features/home/homeModel.js";
+import { guestLedger, summarizeUpdate, freshResults, resultMarkers, sinceLine, sinceSnapshot, SINCE_KEY } from "./features/home/guestUpdates.js";
+import { filterRevealCandidates } from "./features/weekend/drawReveal.js";
 import { Board } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
@@ -33,7 +36,7 @@ import {
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
-  resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest,
+  resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, draftTurn,
   RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelOpen, duelPhase, duelRoom, duelsSentToday,
 } from "../shared/core.js";
 import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
@@ -63,6 +66,18 @@ const prefersReducedMotion = () => typeof window !== "undefined" &&
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const ord = n => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
+
+const readJson = key => { try { return JSON.parse(localGet(key) || "null"); } catch { return null; } };
+function usePageVisible() {
+  const [visible, setVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const update = () => setVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+  return visible;
+}
 
 /* the Field Day mark: a betting chip carrying the sun. Sun-gold chip, bone
    edge ticks like the BankChips on the board, geometric sun at dead center.
@@ -301,7 +316,7 @@ export default function App() {
 }
 
 function TournamentApp({ tournament }) {
-  const { state, connected, ready, version, lastAction, environment, capabilities } = tournament;
+  const { state, connected, ready, version, environment, capabilities } = tournament;
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
     : firstOnboardStep());
@@ -352,7 +367,6 @@ function TournamentApp({ tournament }) {
   const [deltas, setDeltas] = useState({});
   const undoRef = useRef(null);
   const toastTimer = useRef(null);
-  const prevVersion = useRef(0);
   const loaded = ready;
   const saveMine = (k, v) => localSet(k, v);
   const qaAllowed = capabilities.qa === true;
@@ -400,6 +414,15 @@ function TournamentApp({ tournament }) {
       blockers:weekendOperation.lifecycle?.blockers || [],
     };
   }, [environment, version, state, events, weekendOperation]);
+  /* nav badges: something on that tab is waiting on this guest */
+  const homeModel = useMemo(() => deriveHomeModel({ state, me, events, standings }), [state, me, events, standings]);
+  const navBadges = {
+    bets:homeModel.betting?.canPlace ? "betting open" : null,
+    board:me && ((state.duels || []).some(duel => duel.status === "open" && !resolveDuel(duel).settled
+        && (duel.to === me || duel.from === me) && !duel.runs?.[me])
+      || Object.values(state.drafts || {}).some(draft => { const turn = draftTurn(draft); return turn && !turn.complete && turn.captain === me; }))
+      ? "your turn" : null,
+  };
   const champion = state.frozen ? standings[0] : null;
   const coChamps = state.frozen ? standings.filter(r => r.rank === 1) : [];
   const introHasQueuedReveal = !!intro && (
@@ -456,27 +479,27 @@ function TournamentApp({ tournament }) {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = !!(intro || reveal || activeShowScene);
   }, [intro, reveal, activeShowScene]);
 
-  /* your own wagers settling deserve a moment: watch pending picks flip to won or lost */
-  const prevWagerRes = useRef(null);
-  const settleToastV = useRef(0);
+  /* One summary per broadcast for this device's player, built from a
+     before/after diff of their own row split by source. Several results in
+     one update join into one line instead of replacing each other. */
+  const ledgerRef = useRef(null);
+  const resultsSeenRef = useRef(null);
+  const frozenRef = useRef(null);
   useEffect(() => {
     if (!ready) return;
-    const map = {};
-    let delta = 0, any = false;
-    (state.wagers || []).forEach(w => {
-      if (w.player !== me) return;
-      const r = resolveWager(state, w, events);
-      map[w.id] = r.status;
-      if (prevWagerRes.current && prevWagerRes.current[w.id] === "pending" &&
-          (r.status === "won" || r.status === "lost")) { any = true; delta += r.delta; }
-    });
-    if (any && onboardStep >= 99) {
-      notify(delta > 0 ? `Won +${delta}` : delta < 0 ? `Lost ${delta}` : "Wagers settled even",
-        null, delta > 0 ? "gold" : undefined, me);
-      settleToastV.current = version;
-    }
-    prevWagerRes.current = map;
-  }, [state, events, me, ready, onboardStep, notify, version]);
+    const markers = resultMarkers(state);
+    /* confetti only for a fresh first result, never for a correction */
+    if (resultsSeenRef.current && (freshResults(resultsSeenRef.current, state).length
+        || (state.frozen && frozenRef.current === false))) setBurst(b => b + 1);
+    resultsSeenRef.current = markers;
+    frozenRef.current = !!state.frozen;
+    const next = me ? guestLedger(state, me, events, standings) : null;
+    const prev = ledgerRef.current;
+    ledgerRef.current = next;
+    if (onboardStep < 99) return;
+    const summary = summarizeUpdate(prev, next, { state, events });
+    if (summary) notify(summary.msg, null, summary.tone, summary.chip);
+  }, [state, standings, events, me, ready, onboardStep, notify]);
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it
      finished. A device that finished before it ever stored one adopts the
@@ -491,46 +514,9 @@ function TournamentApp({ tournament }) {
     if ((state.onboardEpoch || 0) > Number(seen)) setOnboardStep(firstOnboardStep());
   }, [ready, state.onboardEpoch, onboardStep]); // eslint-disable-line
 
-  /* celebrate on broadcasts so every phone pops, not just the GM's;
-     tell people plainly when their own points moved and why */
+  /* rank deltas: arrows show what moved in the last update, then clear once
+     they have been on screen long enough to be seen */
   useEffect(() => {
-    if (version > prevVersion.current && prevVersion.current > 0) {
-      if (lastAction === "saveResult" || lastAction === "pokerResult" || (lastAction === "setFrozen" && state.frozen)) setBurst(b => b + 1);
-      if (me && settleToastV.current !== version) {
-        if (lastAction === "saveResult") {
-          let latest = null;
-          Object.entries(state.results || {}).forEach(([eid, res]) => {
-            if (!latest || res.ts > latest.res.ts) latest = { eid, res };
-          });
-          const ev = latest && events.find(e => e.id === latest.eid);
-          const idx = latest ? latest.res.slots.findIndex(s => (s || []).includes(me)) : -1;
-          const award = ev && idx >= 0 ? (AWARDS[ev.value]?.[idx] ?? 0) : 0;
-          if (award > 0) notify(`You took ${ord(idx + 1)}, +${award}`, null, "gold", me);
-        }
-        if (lastAction === "adjust") {
-          const a = state.adjustments?.[0];
-          if (a?.player === me) notify(`Ruling: ${a.delta > 0 ? "+" : ""}${a.delta}${a.reason ? ", " + a.reason : ""}`,
-            null, a.delta > 0 ? "gold" : undefined, a.player);
-        }
-      }
-    }
-    prevVersion.current = version;
-  }, [version, lastAction, state, me, events, notify]);
-
-  /* rank deltas plus lead-change detection: when the top of the board flips,
-     every phone announces it */
-  const prevLeaders = useRef(null);
-  useEffect(() => {
-    if (ready) {
-      const key = allTied ? "__tied__" : standings.filter(r => r.rank === 1).map(r => r.player).join("+");
-      if (!allTied && !state.frozen && prevLeaders.current && prevLeaders.current !== key) {
-        const names = standings.filter(r => r.rank === 1).map(p => p.player === me ? "You" : disp(state, p.player));
-        notify(names.length > 1 ? `${names.join(" and ")} share the lead`
-          : `${names[0]} ${names[0] === "You" ? "take" : "takes"} the lead`, null, "gold",
-          standings.find(r => r.rank === 1)?.player);
-      }
-      prevLeaders.current = key;
-    }
     if (allTied) return;
     const d = {};
     standings.forEach(r => {
@@ -540,7 +526,46 @@ function TournamentApp({ tournament }) {
     if (Object.keys(d).length) setDeltas(d);
     const map = {}; standings.forEach(r => map[r.player] = r.rank);
     prevRanks.current = map;
-  }, [standings, allTied, ready, state, me, notify]);
+  }, [standings, allTied]);
+  const pageVisible = usePageVisible();
+  const deltasShown = !!Object.keys(deltas).length && pageVisible
+    && ((tab === "board" && onboardStep >= 99) || modal?.type === "standings");
+  useEffect(() => {
+    if (!deltasShown) return;
+    const timer = setTimeout(() => setDeltas({}), 8000);
+    return () => clearTimeout(timer);
+  }, [deltasShown, deltas]);
+
+  /* "Since you looked": one line after an absence, from this device's own
+     memory of the last board it showed. */
+  const [sinceText, setSinceText] = useState(null);
+  const [settledOpen, setSettledOpen] = useState(false);
+  const sinceLive = useRef({});
+  sinceLive.current = { state, me, events, standings, version };
+  const sinceLoaded = useRef(null);
+  useEffect(() => {
+    if (!ready || !me || onboardStep < 99 || typeof document === "undefined") return;
+    if (sinceLoaded.current !== me) {
+      sinceLoaded.current = me;
+      setSinceText(sinceLine(readJson(SINCE_KEY), state, me, events, standings));
+    }
+    if (document.visibilityState !== "hidden")
+      localSet(SINCE_KEY, JSON.stringify(sinceSnapshot(state, me, events, standings, version)));
+  }, [ready, me, onboardStep, state, events, standings, version]);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisible = () => {
+      const live = sinceLive.current;
+      if (!live.me || sinceLoaded.current !== live.me) return;
+      if (document.visibilityState !== "hidden") {
+        const text = sinceLine(readJson(SINCE_KEY), live.state, live.me, live.events, live.standings);
+        if (text) setSinceText(text);
+      }
+      localSet(SINCE_KEY, JSON.stringify(sinceSnapshot(live.state, live.me, live.events, live.standings, live.version)));
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   /* reveal detection: team draws and stage draws reveal on every phone.
      The intro announces the game first and the reveal comes second, but the
@@ -571,7 +596,11 @@ function TournamentApp({ tournament }) {
       }
       return;
     }
-    const { staleIds, latest } = coalescePendingReveals(state.draws, state.stages, seenReveals, intro);
+    /* finished, started or shelved events never replay their draw; older
+       prepared draws wait (unseen) for their event's announcement */
+    const candidates = filterRevealCandidates(state, { seen:seenReveals, current:weekendOperation.event?.id || null });
+    const { staleIds:olderIds, latest } = coalescePendingReveals(candidates.draws, candidates.stages, seenReveals, intro);
+    const staleIds = [...candidates.retire, ...olderIds];
     if (staleIds.length) {
       const nx = [...seenReveals, ...staleIds].filter((id, index, all) => all.indexOf(id) === index).slice(-60);
       setSeenReveals(nx);
@@ -593,7 +622,8 @@ function TournamentApp({ tournament }) {
       return () => clearTimeout(t);
     }
     setReveal(next);
-  }, [state.draws, state.stages, seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued, duelHold]); // eslint-disable-line
+  }, [state.draws, state.stages, state.onDeck, state.results, state.shelved, state.eventOps, weekendOperation,
+    seenReveals, onboardStep, reveal, intro, events, ready, announcementQueued, duelHold]); // eslint-disable-line
   const rememberReveal = useCallback(id => {
     if (!id) return;
     setSeenReveals(prev => {
@@ -641,6 +671,25 @@ function TournamentApp({ tournament }) {
       return;
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
+
+  /* a drafted player hears it from the captain who picked them, once */
+  const draftPicksSeen = useRef(null);
+  useEffect(() => {
+    if (!ready) return;
+    const seen = new Set();
+    let picked = null;
+    for (const [eid, d] of Object.entries(state.drafts || {})) {
+      (d?.picks || []).forEach((pick, index) => {
+        const key = `${d.id}:${index}:${pick.player}`;
+        seen.add(key);
+        if (draftPicksSeen.current && !draftPicksSeen.current.has(key) && me && pick.player === me)
+          picked = { captain:d.teams?.[pick.team]?.captain, ev:events.find(e => e.id === eid) };
+      });
+    }
+    draftPicksSeen.current = seen;
+    if (picked?.captain && onboardStep >= 99)
+      notify(`${disp(state, picked.captain)} picked you${picked.ev ? ` · ${picked.ev.name}` : ""}`, null, "gold", picked.captain);
+  }, [state.drafts, me, events, ready, onboardStep, notify]); // eslint-disable-line
 
   /* duels: nudge when a challenge lands on you or an open one appears, tell
      the challenger when theirs is answered, toast when one settles. Nothing
@@ -1404,6 +1453,8 @@ function TournamentApp({ tournament }) {
           onHouse={() => { setWeekendSection("trip"); setTab("guide"); }} onOpen={ev => setModal({type:"event", ev})}
           onRules={ev => setModal({type:"howto", ev})}
           onDraft={ev => setModal({type:"draft", ev})} deltas={deltas}
+          since={sinceText} onSince={() => { setSinceText(null); setSettledOpen(true); setTab("bets"); }}
+          onSinceDismiss={() => setSinceText(null)}
           onProfile={() => setModal({type:"profile"})} onPlayer={p => setModal({type:"player", p})}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
@@ -1420,6 +1471,7 @@ function TournamentApp({ tournament }) {
           onPlayer={p => setModal({type:"player", p})}
           onReorder={reorderEvents} />}
         {tab === "bets" && <Wagers GameMark={GameMark} state={state} me={me} standings={standings} gm={gmView} events={events}
+          openSettled={settledOpen} onSettledSeen={() => setSettledOpen(false)}
           onEvent={ev => setModal({type:state.brackets?.[ev.id] ? "bracket" : "event", ev})}
           onDeckEv={onDeckEv} wagerEv={wagerEv}
           onEvents={() => setTab("sched")}
@@ -1492,10 +1544,10 @@ function TournamentApp({ tournament }) {
         onOpen={() => setModal({ type:"qa" })}
         onPlayNext={runSim(simPlayEvent)} />}
 
-      <AppNavigation tab={tab} onTab={setTab} live={state.live} />
+      <AppNavigation tab={tab} onTab={setTab} live={state.live} badges={navBadges} />
 
       {/* modals */}
-      {modal?.type === "howto" && <HowToSheet gameId={modal.ev.game} variant={modal.ev.variant} onClose={() => setModal(null)} />}
+      {modal?.type === "howto" && <HowToSheet gameId={modal.ev.game} variant={modal.ev.variant} ev={modal.ev} onClose={() => setModal(null)} />}
       {modal?.type === "standings" && <Sheet title={champion ? "Final standings" : "Standings"} onClose={() => setModal(null)} onBack={modalBack}>
         <Board embedded GameMark={GameMark} StatPills={StatPills} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch}
           state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
@@ -1633,7 +1685,7 @@ function TournamentApp({ tournament }) {
         onRemove={() => { setModal(null); removeCustomEvent(modal.ev); }}
         openBracket={() => pushModal({type:"bracket", ev:modal.ev})}
         onReplay={() => pushModal({type:"drawReplay", ev:modal.ev})}
-        openDraft={(pool, roles) => setModal({type:"draft", ev:modal.ev, pool, roles})} />}
+        openDraft={(pool, roles) => pushModal({type:"draft", ev:modal.ev, pool, roles})} />}
       {modal?.type === "drawReplay" && buildEventReveal(state,modal.ev) && <DrawAnnouncement state={state}
         reveal={buildEventReveal(state,modal.ev)} initialComplete={modal.completed} onClose={() => setModal(null)} onBack={modalBack}
         onPlayer={p => setModalStack(stack => [...stack.slice(0,-1),{...modal,completed:true},{type:"player",p}])}
@@ -1651,7 +1703,7 @@ function TournamentApp({ tournament }) {
         onPostResult={() => openResultEntry(modal.ev)} />}
       {modal?.type === "draft" && <DraftSheet ev={events.find(e => e.id === modal.ev.id) || modal.ev}
         state={state} gm={gmView} me={me} standings={standings} pool={modal.pool} roles={modal.roles}
-        onClose={() => setModal({type:"event", ev:modal.ev})}
+        onClose={modalBack || (() => setModal(null))}
         onPlayer={p => pushModal({type:"player", p})}
         onStart={(captains, players) => startDraft(modal.ev.id, captains, players, modal.roles)}
         onPick={(player, reference) => pickDraftPlayer(modal.ev.id, player, reference)}
@@ -1739,25 +1791,17 @@ function TournamentApp({ tournament }) {
       )}
 
       {toast && (
-        <div role="status" aria-live="polite" style={{ position:"fixed", bottom:"calc(98px + env(safe-area-inset-bottom))", left:"50%", transform:"translateX(-50%)", zIndex:150,
-          display:"flex", alignItems:"center", gap:10,
-          background:"var(--night2)",
-          border:"1px solid " + (toast.tone === "gold" ? "rgba(240,176,47,0.45)" : "var(--bone-line)"), borderRadius:99,
-          color: toast.tone === "gold" ? "var(--sun)" : "var(--bone)", padding:"8px 16px 8px 9px", fontFamily:SANS, fontWeight:600, fontSize:14,
-          whiteSpace:"nowrap", boxShadow:"var(--shadow-3)", animation:"si-up .2s ease-out" }}>
+        <div role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
           {toast.chip ? (
-            <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span className="fd-toast-mark">
               <BankChip p={toast.chip} size={26} />
               {state.profiles?.[toast.chip]?.num != null && (
-                <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:16,
-                  color:"var(--night-text)" }}>#{state.profiles[toast.chip].num}</span>
+                <span className="fd-toast-number">#{state.profiles[toast.chip].num}</span>
               )}
             </span>
-          ) : <FDMark size={24} variant="night" />}
-          {toast.msg}
-          {toast.action && <button onClick={toast.action.fn} style={{ background:"none", border:"none",
-            color:"var(--sun)", fontFamily:SANS, fontWeight:700, fontSize:14, cursor:"pointer",
-            textTransform:"uppercase", letterSpacing:"0.08em", padding:0 }}>{toast.action.label}</button>}
+          ) : <span className="fd-toast-mark"><FDMark size={24} variant="night" /></span>}
+          <span className="fd-toast-msg">{toast.msg}</span>
+          {toast.action && <button type="button" className="fd-toast-action" onClick={toast.action.fn}>{toast.action.label}</button>}
         </div>
       )}
       {intro && onboardStep >= 99 && !duelHold && (() => {
@@ -2538,7 +2582,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
       subtitle={[SESSIONS.find(s=>s.id===ev.session)?.label,ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" · ")}
       headerActions={<>
         {(draw || st) && onReplay && <button type="button" disabled={setupPending || contestPending} onClick={onReplay}>Replay draw</button>}
-        {GAMES[ev.game]?.howto && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
+        {hasGameRules(ev) && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
       </>}>
       <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
         onLock={reference=>waitForContest(()=>onLock(reference))}
@@ -2598,6 +2642,13 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                 {res.stacks ? `${fmt(res.stacks[players[0]] ?? 0)} chips` : `+${table?.[i] ?? 0} each`}</span>
             </div>
           ))}
+          {(() => {
+            const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
+            const reason = res.correctionReason || correction?.reason;
+            const voided = Array.isArray(correction?.voided) ? correction.voided.length : 0;
+            return reason && (res.correctedAt || correction) ? <p className="fd-event-correction">
+              Corrected · {reason}{voided ? ` · ${voided} ${voided === 1 ? "bet" : "bets"} voided` : ""}</p> : null;
+          })()}
         </div>
       )}
 
@@ -3892,14 +3943,39 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
       .finally(() => { pending.current = null; setBusy(false); });
     return pending.current;
   };
-  const close = () => { if (!pending.current) onClose(); };
+  /* A save carries only what this sheet changed, so a commissioner edit made
+     while it was open (a size, a flight) is never overwritten by the stale
+     copy the sheet opened with. The server requires a name on every save. */
+  const opened = useRef(null);
+  if (!opened.current) opened.current = { display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack };
+  const changedFields = () => {
+    const base = opened.current, same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    const fields = { display:display.trim() === (base.display || "").trim()
+      ? state.profiles?.[me]?.display || display.trim() : display.trim() };
+    if (num !== base.num) fields.num = num === "" ? null : Number(num);
+    if (!same(size, base.size)) fields.size = size;
+    if (flightsBooked !== base.flightsBooked) fields.flightsBooked = flightsBooked;
+    if (!same(flightIn, base.flightIn)) fields.flightIn = flightIn;
+    if (!same(flightOut, base.flightOut)) fields.flightOut = flightOut;
+    if (!same(walkoutTrack, base.walkoutTrack)) fields.walkoutTrack = walkoutTrack;
+    return { ...fields, ...(photo ? { photo } : {}) };
+  };
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const close = () => {
+    if (pending.current) return;
+    if (photo && !confirmDiscard) { setConfirmDiscard(true); return; }
+    onClose();
+  };
+  const walkoutSaved = state.profiles?.[me]?.walkoutTrack;
+  const walkoutTab = spotifyCatalogEnabled || !!walkoutSaved;
+  const sections = [["card","Card"],["travel","Travel"],...(walkoutTab ? [["walkout","Walkout"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
       <fieldset disabled={busy} aria-busy={busy}
         style={{ border:0, padding:0, margin:0, minWidth:0 }}>
       <div className="fd-profile-sections" role="group" aria-label="Profile sections">
-        {[["card","Card"],["travel","Travel"],["walkout","Walkout"]].map(([id,name]) =>
+        {sections.map(([id,name]) =>
           <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)}>{name}</button>)}
       </div>
       <div hidden={section !== "card"}>
@@ -3914,18 +3990,21 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
           flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
         <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
-      <div hidden={section !== "walkout"}>
+      {walkoutTab && <div hidden={section !== "walkout"}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
           textTransform:"uppercase", color:"var(--ink)", marginBottom:5 }}>Walkout song</div>
-        <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
-          enabled={spotifyCatalogEnabled} />
-      </div>
+        {spotifyCatalogEnabled ? <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
+          enabled={spotifyCatalogEnabled} /> : <SpotifyTrackCard track={walkoutSaved} />}
+      </div>}
       </fieldset>
       <div className="fd-profile-save">
+      {confirmDiscard && <div className="fd-profile-discard" role="alert">
+        <p>Your new photo is not saved.</p>
+        <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
+          <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
+      </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay)", marginTop:14 }}>{error}</div>}
-      <ActionButton disabled={busy || !display.trim()} pending={busy} onClick={() => submit(() => save({ display: display.trim(),
-          num: num === "" ? null : Number(num), size, flightsBooked,
-          flightIn, flightOut, walkoutTrack, ...(photo ? {photo} : {}) }))}
+      <ActionButton disabled={busy || !display.trim()} pending={busy} onClick={() => submit(() => save(changedFields()))}
         style={{ width:"100%", fontSize:16, padding:"14px" }}>Save</ActionButton>
       </div>
     </Sheet>
@@ -3961,7 +4040,7 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
             textDecoration:"none" }}>Open in Spotify</a>
       </div>
       {action && <Btn kind="ghost" onClick={action}
-        style={{ minHeight:38, padding:"8px 10px", fontSize:11, flexShrink:0 }}>{actionLabel}</Btn>}
+        style={{ minHeight:44, padding:"8px 10px", fontSize:11, flexShrink:0 }}>{actionLabel}</Btn>}
     </div>
   );
 }
@@ -4001,7 +4080,7 @@ function WalkoutTrackPicker({ value, onChange, enabled }) {
               aria-label="Walkout song start point" style={{ width:"100%", accentColor:"var(--accent)" }} />
           </div>
           <Btn kind="danger" onClick={() => onChange(null)}
-            style={{ width:"100%", marginTop:8, minHeight:40, padding:"9px 12px" }}>
+            style={{ width:"100%", marginTop:8, minHeight:44, padding:"9px 12px" }}>
             Remove song</Btn>
         </div>
       )}
@@ -5310,3 +5389,4 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
 
 /* ─────────── rules ─────────── */
 export { EventSheet, BracketSheet, EventIntro, Reveal, ResultSheet, PokerResultSheet, ChipCounter };
+export { ProfileSheet };

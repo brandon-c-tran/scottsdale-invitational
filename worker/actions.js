@@ -356,8 +356,12 @@ export const ACTIONS = {
     if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your chip");
     const prof = { ...(state.profiles[player] || {}) };
+    /* A late guest with no color yet makes one first claim while live: a free
+       color and a pattern together. Established chips stay locked. */
+    const firstClaim = state.live && !ctx.isGm && !prof.color;
+    if (firstClaim && (typeof color !== "string" || !color)) return err("Choose a chip color");
     if (color !== undefined) {
-      if (state.live && !ctx.isGm && color !== prof.color) return err("Chips locked for the weekend");
+      if (state.live && !ctx.isGm && !firstClaim && color !== prof.color) return err("Chips locked for the weekend");
       if (color === null) delete prof.color;
       else {
         if (!CHIP_COLORS.find(c => c.hex === color)) return err("Bad color");
@@ -366,8 +370,9 @@ export const ACTIONS = {
         prof.color = color;
       }
     }
-    if (skin !== undefined) {
-      if (state.live && !ctx.isGm && skin !== prof.skin) return err("Chips locked for the weekend");
+    if (firstClaim && (skin === undefined || skin === null)) prof.skin = prof.skin || CHIP_SKINS[0];
+    else if (skin !== undefined) {
+      if (state.live && !ctx.isGm && !firstClaim && skin !== prof.skin) return err("Chips locked for the weekend");
       if (skin === null) delete prof.skin;
       else if (!CHIP_SKINS.includes(skin)) return err("Bad skin");
       else prof.skin = skin;

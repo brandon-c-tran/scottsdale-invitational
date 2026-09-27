@@ -25,10 +25,15 @@ function bracketAssignment(bracket, draw, teamIndex) {
   const opponentIndex = next.a === teamIndex ? next.b : next.a;
   const awaitingOpponent = opponentIndex === null;
   const isCurrent = !!current && current.r === next.r && current.m === next.m;
+  /* The undecided side names the match whose winner fills it. */
+  const rawOpponent = bracket.rounds[next.r][next.m][next.a === teamIndex ? "b" : "a"];
+  const feederRound = rawOpponent?.w ? (ROUND_NAMES[bracket.size] || [])[rawOpponent.w[0]] : null;
+  const feeder = awaitingOpponent && rawOpponent?.w
+    ? `${(feederRound || "Round").replace(/s$/, "")} ${rawOpponent.w[1] + 1}` : null;
   return {
     match:{ r:next.r, m:next.m, a:next.a, b:next.b,
       roundName:(ROUND_NAMES[bracket.size] || [])[next.r] || "Match",
-      isCurrent, awaitingOpponent },
+      isCurrent, awaitingOpponent, ...(feeder ? { feeder } : {}) },
     opponents:awaitingOpponent ? [] : [...(draw.teams[opponentIndex]?.players || [])],
     status:isCurrent ? "up-now" : awaitingOpponent ? "waiting" : "next",
   };

@@ -10,7 +10,7 @@ import {
   resolveWeekendOperation,
 } from "../shared/core.js";
 import { resolveDirector, resolveShowScene } from "../shared/show.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 const events = BUILTIN_EVENTS;
 const contestRef = (state, evId) => {
@@ -49,8 +49,9 @@ test("the director upgrades lifecycle beats and keeps scene beats capability-gat
     "announce");
 
   /* scene beats never exist when the capability is off */
+  /* the event intro is one step (C13), so the two-step opening holds Continue */
   state.showControl.active = {
-    id:"show-a", kind:"event-intro", eventId:"putt", step:0,
+    id:"show-a", kind:"opening", eventId:null, step:0,
     startedAt:1, updatedAt:1, retryOf:null, revision:null, commands:[],
   };
   assert.equal(resolveDirector(state, events, { showControl:false }).nextAction.type,
@@ -127,7 +128,8 @@ test("lockAndStart merges lock and start and retires the intro as skipped", () =
   assert.ok(state.eventOps.putt.startedAt > 0);
   assert.equal(state.showControl.active, null);
   assert.equal(state.showControl.history[0].kind, "event-intro");
-  assert.equal(state.showControl.history[0].outcome, "skipped");
+  /* the one-step intro has said its piece by the time play starts (C13) */
+  assert.equal(state.showControl.history[0].outcome, "completed");
 
   const retried = applyAction(state, "lockAndStart", { evId:"putt", ...contestRef(state, "putt") }, gm("ls-3"));
   assert.equal(retried.ok, true);
@@ -162,20 +164,19 @@ test("posting a result carries its ceremony; corrections mark it stale and owe a
   assert.equal(corrected.ok, true);
   assert.equal(state.showControl.active.revision, 1);
   assert.match(resolveShowScene(state, events).staleReason, /corrected/i);
-  assert.equal(resolveDirector(state, events, { showControl:true }).nextAction.type,
-    "clear-scene");
-
-  /* after clearing, the director owes the ceremony at the new revision */
-  applyAction(state, "endShowScene",
-    { id:state.showControl.active.id, outcome:"cancelled" }, gm("wr-6"));
+  /* one beat (C14): replay retires the stale scene and starts the new one */
   const replay = resolveDirector(state, events, { showControl:true });
   assert.equal(replay.nextAction.type, "replay-winner-scene");
   assert.equal(replay.nextAction.eventId, "putt");
+  assert.equal(replay.nextAction.label, "Replay Long Putt winner");
+  assert.equal(replay.secondary.type, "skip-replay");
 
-  /* playing it manually stamps the revision, which settles the debt */
-  assert.equal(applyAction(state, "startShowScene",
-    { kind:"winner", eventId:"putt" }, gm("wr-7")).ok, true);
+  /* playing it stamps the revision, which settles the debt */
+  const staleId = state.showControl.active.id;
+  assert.equal(applyAction(state, "replayWinnerScene", { eventId:"putt" }, gm("wr-7")).ok, true);
   assert.equal(state.showControl.active.revision, 2);
+  assert.equal(state.showControl.history[0].id, staleId);
+  assert.equal(state.showControl.history[0].outcome, "cancelled");
   applyAction(state, "advanceShowScene",
     { id:state.showControl.active.id }, gm("wr-8"));
   applyAction(state, "advanceShowScene",

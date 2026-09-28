@@ -41,8 +41,13 @@ if (!deviceId) { deviceId = newDeviceId(); localSet("si-device", deviceId); }
 export const getDeviceId = () => deviceId;
 
 let gmToken = localGet("si-gm-token") || null;
+/* hellos older than this were answered for a different token */
+let gmHelloFloor = 0;
 export const setGmToken = t => {
   gmToken = t; localSet("si-gm-token", t || "");
+  /* unknown until the server answers a hello carrying the new token */
+  snapshot.gm = null;
+  gmHelloFloor = helloSeq + 1;
   /* the server decides each connection's view at hello: ask again */
   if (ws?.readyState === 1) sendHello();
 };
@@ -75,6 +80,9 @@ const snapshot = {
   capabilities: { ...DEFAULT_CAPABILITIES },
   /* the roster player the server has for this device, or null */
   you: null,
+  /* whether the server treats this connection as the commissioner: true,
+     false, or null until a hello on this socket has been answered */
+  gm: null,
   build: BUILD_ID,
   serverBuild: null,
   /* the Worker runs a newer build than this bundle */
@@ -159,6 +167,8 @@ function connect() {
     /* fresh socket, fresh baseline: if the server was ever reset, its
        version restarts and a stale high-water mark would wedge us */
     snapshot.version = 0;
+    snapshot.gm = null;
+    gmHelloFloor = helloSeq + 1;
     snapshot.socketOpen = true; freshSinceOpen = false;
     lastInbound = Date.now();
     syncConnected(); emit();
@@ -197,6 +207,12 @@ function receiveState(msg) {
     snapshot.capabilities = msg.capabilities || { ...DEFAULT_CAPABILITIES };
     if ("you" in msg) snapshot.you = msg.you || null;
   }
+  /* A frame sent before the server read this socket's token says nothing
+     about it: the view is learned from the answer to our latest hello, and
+     later frames (a revocation) keep it current. */
+  if (typeof msg.gm === "boolean"
+      && (typeof msg.hello === "number" ? msg.hello >= gmHelloFloor : snapshot.gm !== null))
+    snapshot.gm = msg.gm;
   freshSinceOpen = true;
   snapshot.stale = false;
   clearTimeout(probeTimer);

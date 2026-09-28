@@ -14,7 +14,7 @@ import {
   resolveShowScene,
   validateShowSceneRequest,
 } from "../shared/show.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { hydrateStoredState } from "../worker/state.js";
 import { buildSnapshot, validateSnapshot } from "../worker/snapshot.js";
 
@@ -57,7 +57,8 @@ test("show definitions are finite and validate their official context", () => {
 
 test("Show Control is GM-only, capability-gated, retry-safe, and recoverable", () => {
   const state = structuredClone(EMPTY_STATE);
-  const request = { kind:"event-intro", eventId:"putt" };
+  /* the event intro is one step now (C13); the opening is the two-step scene */
+  const request = { kind:"opening" };
 
   const guest = applyAction(state, "startShowScene", request, {
     isGm:false,
@@ -75,7 +76,7 @@ test("Show Control is GM-only, capability-gated, retry-safe, and recoverable", (
   const started = applyAction(state, "startShowScene", request, gm("start-1"));
   assert.equal(started.ok, true);
   const firstId = state.showControl.active.id;
-  assert.equal(state.showControl.active.kind, "event-intro");
+  assert.equal(state.showControl.active.kind, "opening");
   assert.equal(state.showControl.active.step, 0);
 
   const replayedStart = applyAction(state, "startShowScene", request, gm("start-1"));

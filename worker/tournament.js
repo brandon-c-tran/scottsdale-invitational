@@ -795,6 +795,9 @@ export class Tournament {
       version:this.version,
       ...extra,
       you:viewer.player,
+      /* whether this connection currently holds a commissioner view, so a
+         phone whose token was revoked leaves its commissioner screens */
+      ...(meta.deviceId ? { gm:viewer.isGm } : {}),
       environment:shared?.environment ?? this.environment,
       capabilities:shared?.capabilities ?? this.capabilities,
       build:BUILD_ID,

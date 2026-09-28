@@ -21,7 +21,7 @@ import {
   stageEntrantView,
   stageFinalists,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 const gm = { isGm:true, player:"Brandon" };
 const originalRandom = Math.random;

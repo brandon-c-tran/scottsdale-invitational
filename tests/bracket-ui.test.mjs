@@ -6,7 +6,7 @@ import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, ROSTER, makeBracket, allEventsOf, computeStandings, resolveCurrentContest } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 /* The bracket is drawn as a bracket: rounds are columns, every fed match sits
    between its feeders, and the live bracket game shows it on Home, Bets and

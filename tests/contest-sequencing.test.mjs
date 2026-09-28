@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { EMPTY_STATE, ROSTER, allEventsOf, resolveCurrentContest, resolveEventLifecycle,
   resolveWager, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
   computeStandings, atRisk, makeBracket } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { hydrateStoredState } from "../worker/state.js";
 
 let serial = 0;

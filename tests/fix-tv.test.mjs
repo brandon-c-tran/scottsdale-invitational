@@ -12,7 +12,7 @@ import {
   resolveCurrentContest, pokerClock,
 } from "../shared/core.js";
 import { resolveShowScene, resolveDirector, retireFinishedShowScene } from "../shared/show.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { Tournament } from "../worker/tournament.js";
 import {
   TV_INTRO_OVERLAY_MS, TV_SCENE_IDLE_MS, tvSceneView, ambientIndex, resultPresentation,
@@ -109,10 +109,10 @@ test("a stale scene never blocks the TV and the director still offers the replay
   const view = tvSceneView(scene, Date.now());
   assert.equal(view.mode, "stale");
   assert.equal(view.covers, false);
+  /* one beat (C14): the replay retires the stale scene in its own write */
   const beat = resolveDirector(state, events, { showControl:true }).nextAction;
-  assert.equal(beat.type, "clear-scene");
-  act(state, "endShowScene", { id:beat.sceneId, outcome:"cancelled" });
-  assert.equal(resolveDirector(state, events, { showControl:true }).nextAction.type, "replay-winner-scene");
+  assert.equal(beat.type, "replay-winner-scene");
+  assert.equal(beat.sceneId, scene.active.id);
 });
 
 /* ── 4. production result moment ── */

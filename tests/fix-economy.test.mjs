@@ -10,7 +10,7 @@ import {
   atRisk, maxRisk, makeBracket, resolveSlot, defaultQaParticipants, contestMult, resultAwards, awardPlan,
   pokerDenoms, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 /* Economy regressions: every scenario runs the real actions against in-memory
    state. No transport, no storage. */
@@ -170,14 +170,15 @@ test("event crew earn the 3rd-place award and bracket semifinal losers split 3rd
   const third = semis.flatMap(side => teams[side].players);
   const awards = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, teams[runner].players, third] });
   assert.deepEqual([...new Set(awards.filter(a => a.place === 2).map(a => a.pts))], [200]);
-  assert.equal(awards.filter(a => a.place === "crew")[0].pts, 400);
+  /* deliberate change (C7): crew earn what a 3rd-place player actually gets */
+  assert.equal(awards.filter(a => a.place === "crew")[0].pts, 200);
   const oneSide = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, [], teams[semis[0]].players] });
   assert.deepEqual([...new Set(oneSide.filter(a => a.place === 2).map(a => a.pts))], [400]);
   const threeSides = resultAwards(pb, event(pb, "pickleball"),
     { slots:[teams[champ].players, [], [...third, ...teams[runner].players]] });
   assert.deepEqual([...new Set(threeSides.filter(a => a.place === 2).map(a => a.pts))], [100], "400 over 3 floors to 100");
   const plan = awardPlan(event(pb, "pickleball"), pb.draws.pickleball);
-  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 1200], [1, 800], [2, 200], ["crew", 400]]);
+  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 1200], [1, 800], [2, 200], ["crew", 200]]);
 });
 
 /* ── 5. corrections never strand a negative board ── */
@@ -228,7 +229,7 @@ test("undoing a contest voids duel antes that the restored balance cannot cover"
   assert.equal(undo.extra.voided[0].type, "duel", "the newest commitment goes first");
   assert.ok(!undo.extra.voided.some(item => item.player === spectator), "the restored ticket fits once the ante is gone");
   assert.equal(s.duels[0].status, "void");
-  assert.equal(s.eventOps["8ball"].corrections.at(-1).type, "undo-contest");
+  assert.equal(s.eventOps["8ball"].corrections.at(-1).type, "correct-contest");
   const exposure = atRisk(s, spectator, allEventsOf(s));
   assert.ok(exposure <= Math.min(maxRisk(pts(s)[spectator]), pts(s)[spectator]));
 });
@@ -334,7 +335,11 @@ test("post-count rulings follow the poker result through a clear and repost, and
   assert.equal(pts(s)[ROSTER[2]], 1000, "the 25 does not leak into the dealt board");
   fail(s, "pokerCancel", {}, gm(), /Cards are live/);
   act(s, "pokerResult", { noScene:true });
-  assert.equal(pts(s)[ROSTER[2]], 1025, "reposting keeps the ruling");
+  /* deliberate change (C6): a repost is a new count, and a ruling made on the
+     old count stops applying; it stays in the ledger with its count */
+  assert.equal(s.results.poker.revision, 2);
+  assert.equal(pts(s)[ROSTER[2]], 1000, "a ruling on count 1 does not apply to count 2");
+  assert.equal(s.adjustments[0].pokerRevision, 1);
 });
 
 test("the table always keeps a chip holder, a counted 0 is a bust, and no count exceeds the table", () => {

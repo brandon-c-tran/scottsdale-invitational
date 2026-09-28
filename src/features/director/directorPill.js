@@ -54,12 +54,10 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   const ev = director.event || null;
   const contest = ev ? resolveCurrentContest(state, ev) : null;
   const reference = contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
-  const weekend = (run, ofEv = ev) => run?.write && !state.live && WEEKEND_WRITES.includes(run.write)
-    ? { ...run, confirm:run.write === "pokerStart"
-        ? "Starts the weekend on every phone. Chip colors lock."
-        : `Opens betting on ${ofEv?.name || "the first event"} on every phone. Chip colors lock.`,
-      confirmLabel:run.write === "pokerStart" ? "Start" : "Open betting" }
-    : run;
+  /* the first weekend-starting write is confirmed by the App's act(), which
+     the pill's writes go through; startsWeekend only marks it */
+  const weekend = run => run?.write && !state.live && WEEKEND_WRITES.includes(run.write)
+    ? { ...run, startsWeekend:true } : run;
   const matchup = contest && contest.kind !== "ffa" && contest.sides.length === 2
     ? contest.sides.map(side => sideName(state, side)).join(" vs ") : "";
   const lines = [];
@@ -81,7 +79,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       run = { write:"startShowScene", payload:{ kind:"champion" } };
       break;
     case "replay-winner-scene":
-      run = { write:"startShowScene", payload:{ kind:"winner", eventId:beat.eventId } };
+      run = { write:"replayWinnerScene", payload:{ eventId:beat.eventId } };
       break;
     case "start-opening-scene":
       run = { write:"startShowScene", payload:{ kind:"opening" } };
@@ -173,6 +171,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     extras.push({ label:"Skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
   if (director.secondary?.type === "skip-event" && ev)
     extras.push({ label:"Skip", run:{ open:"skipEvent", evId:ev.id } });
+  if (director.secondary?.type === "skip-replay")
+    extras.push({ label:"Skip", run:{ write:"skipWinnerReplay", payload:{ eventId:director.secondary.eventId } } });
 
   return { type:beat.type, label:beat.label, lines, run:weekend(run), sides, extras:extras.map(extra => ({ ...extra, run:weekend(extra.run) })),
     blocked:false, evId:ev?.id || null };

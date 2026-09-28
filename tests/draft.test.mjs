@@ -4,7 +4,7 @@ import {
   EMPTY_STATE, BUILTIN_EVENTS, ROSTER, defaultQaParticipants, draftTurn,
   computeStandings, resolveCurrentContest, resolveEventLifecycle,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 const fresh = () => structuredClone(EMPTY_STATE);
 const event = id => BUILTIN_EVENTS.find(ev => ev.id === id);

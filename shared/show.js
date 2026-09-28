@@ -14,11 +14,15 @@ const SHOW_SCENE_DEFINITIONS = Object.freeze({
     intensity:"major",
     steps:Object.freeze(["title", "room"]),
   }),
+  /* one step: the intro says its piece and the next official write (lock
+     and start, the next announcement) retires it, so an announcement never
+     costs the host a Continue. Stored scenes from the two-step era clamp to
+     this step. */
   "event-intro": Object.freeze({
     label:"Event intro",
     intensity:"normal",
     requiresEvent:true,
-    steps:Object.freeze(["title", "ready"]),
+    steps:Object.freeze(["title"]),
   }),
   winner: Object.freeze({
     label:"Winner",
@@ -78,11 +82,24 @@ function validateShowSceneRequest(state, request, events = []) {
   };
 }
 
+/* who the champion scene is for: rank 1 on the board, sorted, so a re-crown
+   with a different champion owes the room a new scene */
+function championIdentity(state) {
+  return computeStandings(state).filter(row => row.rank === 1).map(row => row.player).sort();
+}
+const sameIdentity = (left, right) => Array.isArray(left) && Array.isArray(right)
+  && left.length === right.length && [...left].sort().every((item, index) => item === [...right].sort()[index]);
+/* a champion record played for this champion; legacy records carry no
+   identity and count as played */
+const championShownFor = (record, champion) => record?.kind === "champion"
+  && (!Array.isArray(record.champion) || sameIdentity(record.champion, champion));
+
 function createShowScene(request, {
   id,
   now,
   retryOf = null,
   revision = null,
+  champion = null,
 } = {}) {
   const timestamp = Number(now) || Date.now();
   return {
@@ -97,6 +114,7 @@ function createShowScene(request, {
        correction marks the scene stale and the replay beat can tell a
        ceremony that already ran from one the corrected result still owes. */
     revision:revision ?? null,
+    ...(Array.isArray(champion) ? { champion:[...champion] } : {}),
     commands:[],
   };
 }
@@ -113,6 +131,7 @@ function finishShowScene(control, outcome, now = Date.now()) {
     outcome,
     retryOf:active.retryOf || null,
     revision:active.revision ?? null,
+    ...(Array.isArray(active.champion) ? { champion:[...active.champion] } : {}),
     commands:Array.isArray(active.commands) ? active.commands.slice(-8) : [],
   };
   control.active = null;
@@ -331,46 +350,63 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
 
   if (showControl) {
     const scene = resolveShowScene(state, events);
+    /* One beat owes the room a winner ceremony: it retires whatever is on
+       the TV (a stale scene included) and starts the new one in one write.
+       Skip settles the debt without playing it. */
+    const replayBeat = (eventId, sceneId = null) => {
+      const event = events.find(item => item.id === eventId);
+      const revision = Number(state.results?.[eventId]?.revision || 1);
+      return { ...operation, scene, extras:[], nextAction:directorBeat("replay-winner-scene",
+        revision > 1 ? "Replay winner" : "Play winner scene",
+        { eventId, revision, subject:event.name, ...(sceneId ? { sceneId } : {}) }),
+      secondary:{ type:"skip-replay", label:"Skip", eventId, revision } };
+    };
     if (scene) {
-      if (scene.staleReason)
+      if (scene.staleReason) {
+        if (scene.active.kind === "winner" && scene.staleReason === "The result was corrected"
+            && scene.event && !state.shelved?.[scene.event.id])
+          return replayBeat(scene.event.id, scene.active.id);
         return only(scene, directorBeat("clear-scene", "End scene",
           { sceneId:scene.active.id, subject:scene.staleReason }));
+      }
       if (scene.stepIndex < scene.stepCount - 1)
         return only(scene, directorBeat("advance-scene",
           ADVANCE_LABELS[scene.active.kind]?.[scene.stepKey] || "Continue",
           { sceneId:scene.active.id,
             subject:`On TV: ${scene.definition.label}, ${scene.stepIndex + 1} of ${scene.stepCount}` }));
       /* A scene on its last step never holds Continue: the next official
-         composite retires it, so the chain cannot dead-end on ceremony. */
+         composite retires it, so the chain cannot dead-end on ceremony. It
+         also never hides a ceremony the room is still owed. */
     }
 
-    if (!control?.active) {
-      /* the room gets its title card before the first announcement */
-      if (!state.live && !Object.keys(state.results || {}).length
-          && !history.some(entry => entry.kind === "opening")
-          && ["announce", "announce-draw"].includes(base.nextAction?.type))
-        return { ...base, secondary:null, then:base.nextAction,
-          extras:[{ type:"skip-opening", label:"Skip opening" }],
-          nextAction:directorBeat("start-opening-scene", "Opening", { subject:"Field Day title on the TV" }) };
+    const active = scene?.active || null;
+    /* the room gets its title card before the first announcement */
+    if (!active && !state.live && !Object.keys(state.results || {}).length
+        && !history.some(entry => entry.kind === "opening")
+        && ["announce", "announce-draw"].includes(base.nextAction?.type))
+      return { ...base, secondary:null, then:base.nextAction,
+        extras:[{ type:"skip-opening", label:"Skip opening" }],
+        nextAction:directorBeat("start-opening-scene", "Opening", { subject:"Field Day title on the TV" }) };
 
-      const latest = Object.entries(state.results || {})
-        .map(([eventId, result]) => ({ eventId, result }))
-        .filter(item => item.result?.slots?.[0]?.length)
-        .sort((a, b) => Number(b.result.ts) - Number(a.result.ts))[0] || null;
-      if (latest && now - Number(latest.result.ts) < REPLAY_WINDOW_MS) {
-        const event = events.find(item => item.id === latest.eventId);
-        const played = history.some(entry => entry.kind === "winner"
-          && entry.eventId === latest.eventId
-          && Number(entry.revision ?? 0) === Number(latest.result.revision || 1));
-        if (event && !played && !state.shelved?.[latest.eventId])
-          return only(null, directorBeat("replay-winner-scene", "Play winner scene",
-            { eventId:latest.eventId, subject:event.name }));
-      }
+    const latest = Object.entries(state.results || {})
+      .map(([eventId, result]) => ({ eventId, result }))
+      .filter(item => item.result?.slots?.[0]?.length)
+      .sort((a, b) => Number(b.result.ts) - Number(a.result.ts))[0] || null;
+    if (latest && now - Number(latest.result.ts) < REPLAY_WINDOW_MS) {
+      const event = events.find(item => item.id === latest.eventId);
+      const playedFor = entry => entry?.kind === "winner" && entry.eventId === latest.eventId
+        && Number(entry.revision ?? 0) === Number(latest.result.revision || 1);
+      const played = history.some(playedFor) || playedFor(active);
+      if (event && !played && !state.shelved?.[latest.eventId])
+        return { ...replayBeat(latest.eventId), scene:null };
+    }
 
-      if (state.frozen && !history.some(entry => entry.kind === "champion"))
+    if (state.frozen) {
+      const champion = championIdentity(state);
+      if (champion.length && !history.some(entry => championShownFor(entry, champion))
+          && !championShownFor(active, champion))
         return only(null, directorBeat("start-champion-scene", "Show the champion",
           { subject:"Final standings on the TV" }));
-
     }
   }
 
@@ -389,6 +425,8 @@ export {
   finishShowScene,
   sceneAtLastStep,
   retireFinishedShowScene,
+  championIdentity,
+  championShownFor,
   resolveShowScene,
   resolveDirector,
   contestName,

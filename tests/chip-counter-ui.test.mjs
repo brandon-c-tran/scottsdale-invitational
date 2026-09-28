@@ -6,7 +6,7 @@ import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, BUILTIN_EVENTS, ROSTER, makeBracket, resolveSlot, bracketChampion, teamLabel, defaultQaParticipants, resolveCurrentContest } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 const root=fileURLToPath(new URL("../",import.meta.url));
 const blocked=names=>names.map(name=>`export const ${name}=()=>{throw new Error("Transport must not run in a ChipCounter test");};`).join("\n");

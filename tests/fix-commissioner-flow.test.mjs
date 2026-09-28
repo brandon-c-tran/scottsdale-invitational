@@ -89,10 +89,20 @@ function render(Component, props, select = []) {
 }
 
 /* ── the director pill, driven as the commissioner would drive it ── */
-function pill(state, { me = "Brandon", showControl = false, writes = [], opens = [] } = {}) {
+/* onWrite stands in for App's act(): a refusal asking to confirm the weekend
+   start is one more tap (the confirm), then the same write with the flag */
+function pill(state, { me = "Brandon", showControl = false, writes = [], opens = [], confirms = [] } = {}) {
   const events = allEventsOf(state);
   const model = directorPill(state, events, director(state, showControl), { me });
-  const onWrite = async (type, payload) => { writes.push({ type, payload }); return applyAction(state, type, payload, gm({ showControl })); };
+  const onWrite = async (type, payload) => {
+    writes.push({ type, payload });
+    let result = applyAction(state, type, payload, gm({ showControl }));
+    if (!result.ok && result.extra?.needsStartConfirm) {
+      confirms.push(`${result.extra.event} starts the weekend.`);
+      result = applyAction(state, type, { ...payload, startWeekend:true }, gm({ showControl }));
+    }
+    return result;
+  };
   return { model, props:{ model, state, events, onWrite, onOpen:run => opens.push(run), onPlayer:() => {} } };
 }
 const mainPill = button => button.className.includes("fd-director-pill");
@@ -104,16 +114,12 @@ async function drive(state, done, { me = "Brandon", sheets = {}, between = () =>
   while (!done(state)) {
     assert.ok(taps.length < limit, `Tap limit reached: ${taps.join(", ")}`);
     if (between(state)) continue;
-    const writes = [], opens = [];
-    const { model, props } = pill(state, { me, writes, opens });
+    const writes = [], opens = [], confirms = [];
+    const { model, props } = pill(state, { me, writes, opens, confirms });
     assert.ok(model, "The pill always has a next step");
     if (model.sides) {
       await render(DirectorPill, props).click(`Winner: ${model.sides[0].name}`);
       taps.push(`${model.label} · ${model.lines[0]}`);
-    } else if (model.run.confirm) {
-      const view = render(DirectorPill, props, [mainPill]);
-      await view.click(model.run.confirmLabel);
-      taps.push(model.label, model.run.confirmLabel);
     } else {
       await render(DirectorPill, props).click(mainPill);
       taps.push(model.label);
@@ -123,6 +129,7 @@ async function drive(state, done, { me = "Brandon", sheets = {}, between = () =>
         taps.push(await sheet(state));
       }
     }
+    taps.push(...confirms);
     for (const write of writes) assert.ok(write, "Each write was acknowledged");
   }
   return taps;
@@ -259,7 +266,7 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   assert.deepEqual(model.lines, ["Pickleball", "Crew: Jeremy · Event official"]);
   assert.deepEqual(model.extras.map(extra => extra.label), ["Change crew", "Skip"]);
   assert.equal(model.run.write, "announceAndDraw");
-  assert.equal(model.run.confirm, "Opens betting on Pickleball on every phone. Chip colors lock.");
+  assert.equal(model.run.startsWeekend, true, "The App's act() confirms the weekend start");
 
   /* Show Control on, before the weekend: the Opening beat, skippable */
   const opening = director(state, true);
@@ -309,24 +316,21 @@ test("C20: a match in progress puts both sides on the pill; faces open cards; Un
     winner:side.key, qualifiers:[side.key] } }]);
 });
 
-test("C21: the first weekend write asks inline, then goes out with startWeekend", async () => {
-  const state = fresh(["putt"]), writes = [];
-  const { model, props } = pill(state, { writes });
+test("C21: the first weekend write goes through the one App confirm, never a second pill confirm", async () => {
+  const state = fresh(["putt"]), writes = [], confirms = [];
+  const { model, props } = pill(state, { writes, confirms });
   assert.equal(model.label, "Announce");
-  const asking = render(DirectorPill, props, [mainPill]);
-  assert.match(asking.html, /Opens betting on Long Putt on every phone\. Chip colors lock\./);
-  assert.deepEqual(writes, [], "Nothing is written before the confirm");
-  await asking.click("Open betting");
-  assert.equal(writes[0].type, "announceEvent");
-  assert.equal(writes[0].payload.startWeekend, true);
+  assert.equal(model.run.startsWeekend, true);
+  const view = render(DirectorPill, props);
+  assert.equal((await view.click(mainPill)).ok, true);
+  assert.deepEqual(writes.map(write => write.type), ["announceEvent"], "One write from the pill");
+  assert.deepEqual(confirms, ["Long Putt starts the weekend."]);
   assert.equal(state.live, true);
-  /* a server that refuses without the flag gets the same confirm */
-  const refusals = [];
-  const refused = render(DirectorPill, { ...props, model:{ ...model, run:{ ...model.run, confirm:undefined } },
-    onWrite:async (type, payload) => { refusals.push(payload);
-      return payload.startWeekend ? { ok:true } : { ok:false, error:"Confirm", extra:{ needsStartConfirm:true } }; } });
-  await refused.click(mainPill);
-  assert.equal(refusals.length, 1);
+  /* a declined confirm leaves the pill as it was, with no second confirm */
+  const declined = render(DirectorPill, { ...props,
+    onWrite:async () => ({ ok:false, error:"Starts the weekend", extra:{ needsStartConfirm:true } }) });
+  await declined.click(mainPill);
+  assert.doesNotMatch(render(DirectorPill, props).html, /starts the weekend|Chip colors/i);
 });
 
 test("C15: Fix names the previous contest, its teams, and the refunds before anything moves", async () => {
@@ -378,7 +382,7 @@ test("C11/C27 sheets: Starting stacks writes only on Deal and start; Crown names
   act(state, "adjust", { player:"Evan", delta:-600, reason:"test" });
   act(state, "setAway", { player:"Khoa", away:true });
   const preview = pokerSetupPreview(state);
-  assert.deepEqual(preview.away, ["Khoa"]);
+  assert.deepEqual(preview.away.map(item => item.player), ["Khoa"]);
   assert.equal(preview.rows.find(row => row.player === "Evan").grant, 200);
   const before = structuredClone(state);
   let deals = 0;

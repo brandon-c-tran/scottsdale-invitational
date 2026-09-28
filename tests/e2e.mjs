@@ -170,6 +170,9 @@ assert(b.state.live === false, "preparing a draw does not start the weekend");
 
 /* ── open betting ── */
 r = await a.dispatch("setOnDeck", { id: "8ball" });
+assert(!r.ok && r.extra?.needsStartConfirm && r.extra.event === "8-Ball Doubles",
+  "the first opening asks to confirm that it starts the weekend");
+r = await a.dispatch("setOnDeck", { id: "8ball", startWeekend: true });
 assert(r.ok, "GM opens betting (on deck)");
 await b.waitVersion(a.version);
 assert(b.state.onDeck === "8ball", "window B sees betting open");

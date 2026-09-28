@@ -41,9 +41,12 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
     inventory:pokerInventory(dealt.startingStacks || {}),
     voidDuels:0,
   } : pokerSetupPreview(state);
-  const away = (preview.away || []).map(item => typeof item === "string" ? item : item?.player).filter(Boolean);
-  const voids = Array.isArray(preview.voidDuels) ? preview.voidDuels.length : Number(preview.voidDuels) || 0;
   const board = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
+  const away = (preview.away || []).map(item => typeof item === "string" ? { player:item, pts:board[item] } : item)
+    .filter(item => item?.player);
+  const duels = Array.isArray(preview.voidDuels) ? preview.voidDuels : [];
+  const voids = Array.isArray(preview.voidDuels) ? duels.length : Number(preview.voidDuels) || 0;
+  const blocker = preview.ok === false ? preview.blockers?.[0] : null;
   const grants = preview.rows.filter(row => row.grant > 0);
   return <Sheet title="Starting stacks" subtitle={`${preview.rows.length} seats · ${fmt(preview.total)} chips`}
     onClose={onClose} onBack={onBack} busy={commit.pending}>
@@ -54,18 +57,20 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
         {row.grant > 0 && <small className="is-grant">Topped up {fmt(row.grant)} to the minimum</small>}</span>
       <strong>{fmt(row.stack)}</strong>
     </div>)}
-    {away.map(player => <div className="fd-stack-row is-away" key={player}>
+    {away.map(({ player, pts }) => <div className="fd-stack-row is-away" key={player}>
       <Avatar state={state} p={player} size={30} />
       <span><b>{disp(state, player)}</b><small>Away, not dealt in</small></span>
-      <strong>{fmt(dealt?.unseated?.[player] ?? board[player])}</strong>
+      <strong>{fmt(dealt?.unseated?.[player] ?? pts)}</strong>
     </div>)}
     <div className="fd-stack-summary">
       <div><span>The tray</span><strong>{(preview.inventory || []).map(chip => `${chip.n} x ${fmt(chip.v)}`).join(" + ")}</strong></div>
       {grants.length > 0 && <div><span>Minimum stack</span><strong>{grants.length} topped up</strong></div>}
-      {voids > 0 && <div><span>Voids {voids} open duel{voids === 1 ? "" : "s"}</span></div>}
+      {voids > 0 && <div><span>Voids {voids} open duel{voids === 1 ? "" : "s"}</span>
+        {duels.length > 0 && <strong>{duels.map(duel => duel.label).join(", ")}</strong>}</div>}
     </div>
+    {blocker && <p role="alert" className="fd-contest-error">{blocker}</p>}
     {commit.error && <p role="alert" className="fd-contest-error">{commit.error}</p>}
-    <ActionButton disabled={commit.pending || !onDeal} style={{ width:"100%" }}
+    <ActionButton disabled={commit.pending || !onDeal || !!blocker} style={{ width:"100%" }}
       onClick={() => commit.run(onDeal)}>{commit.pending ? "Dealing…" : "Deal and start"}</ActionButton>
   </Sheet>;
 }

@@ -10,11 +10,11 @@ const UNDO_WINDOW_MS = 5000;
 /* The commissioner's next step. The label is the verb, the lines say what
    it acts on, and both wrap instead of truncating. A match being played
    shows its two sides as the winner targets; faces beside them open player
-   cards. Writes wait for acknowledgement; the first write of the weekend
-   asks once, inline, before it opens betting on every phone. */
+   cards. Writes wait for acknowledgement and go through onWrite, which owns
+   the weekend-start confirm. */
 export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer }) {
   const [pending, setPending] = useState(false), [error, setError] = useState("");
-  const [confirm, setConfirm] = useState(null), [recent, setRecent] = useState(null);
+  const [recent, setRecent] = useState(null);
   const busy = useRef(false);
   useEffect(() => {
     if (!recent) return undefined;
@@ -25,19 +25,12 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer }
   const undo = recent && ev ? lastWinnerUndo(state, ev) : null;
   if (!model && !(undo?.enabled)) return null;
 
-  const write = async (run, startWeekend = false) => {
+  const write = async run => {
     if (busy.current) return undefined;
     busy.current = true; setPending(true); setError("");
     try {
-      const payload = startWeekend ? { ...run.payload, startWeekend:true } : run.payload;
-      const result = await onWrite(run.write, payload);
-      if (!startWeekend && result?.extra?.needsStartConfirm) {
-        setConfirm({ ...run, confirm:run.confirm || "Opens betting on every phone. Chip colors lock.",
-          confirmLabel:run.confirmLabel || "Open betting" });
-        return result;
-      }
+      const result = await onWrite(run.write, run.payload);
       if (result?.ok !== true) { setError(result?.error || "Not saved. Try again."); return result; }
-      setConfirm(null);
       if (run.recorded) setRecent({ name:run.recorded, evId:run.payload.evId, at:Date.now(),
         posted:!!result.extra?.posted });
       return result;
@@ -48,10 +41,7 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer }
   };
   const perform = run => {
     if (!run || busy.current) return undefined;
-    if (!run.write) return onOpen?.(run);
-    /* the first weekend-starting write says what it does before it does it */
-    if (run.confirm) { setError(""); setConfirm(run); return undefined; }
-    return write(run);
+    return run.write ? write(run) : onOpen?.(run);
   };
   const takeBack = () => write({ write:"undoLastContest",
     payload:{ evId:recent.evId, contestId:undo.contestId, contestRevision:undo.contestRevision } })
@@ -62,20 +52,12 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer }
       <span>Winner recorded: {recent.name}{recent.posted ? ". Result posted." : ""}</span>
       <button type="button" disabled={pending} onClick={takeBack}>{pending ? "Undoing…" : "Undo"}</button>
     </div>}
-    {confirm && <div className="fd-director-confirm" role="group" aria-label="Confirm">
-      <p>{confirm.confirm}</p>
-      <div>
-        <button type="button" className="is-primary" disabled={pending}
-          onClick={() => write(confirm, true)}>{pending ? "Opening…" : confirm.confirmLabel}</button>
-        <button type="button" disabled={pending} onClick={() => setConfirm(null)}>Not yet</button>
-      </div>
-    </div>}
     {error && <p className="fd-director-error" role="alert">{error}</p>}
-    {model && !confirm && !!model.extras.length && <div className="fd-director-extras">
+    {model && !!model.extras.length && <div className="fd-director-extras">
       {model.extras.map(extra => <button type="button" key={extra.label} disabled={pending}
         onClick={() => perform(extra.run)}>{extra.label}</button>)}
     </div>}
-    {model && !confirm && (model.sides
+    {model && (model.sides
       ? <section className="fd-director-card" aria-label={`${model.label}. ${model.lines.join(". ")}`}>
           <div className="fd-director-head"><strong>{model.label}</strong>
             {model.lines.map(line => <span key={line}>{line}</span>)}</div>

@@ -27,7 +27,8 @@
 .fd-contest-failure { display:flex; align-items:center; gap:10px; justify-content:space-between; }
 .fd-contest-error { font-size:12px; line-height:1.5; color:var(--live2); margin:8px 0; }
 .fd-contest-saving { margin:8px 0; color:var(--muted2); font-size:12px; }
-.fd-contest-correction { margin:0 0 12px; }
+.fd-contest-correction { display:flex; flex-wrap:wrap; align-items:center; gap:0 18px; margin:0 0 12px; }
+.fd-contest-correction > p, .fd-contest-correction > .fd-contest-confirm { flex-basis:100%; }
 .fd-contest-correction button { min-height:44px; padding:8px 0; border:0; background:none; color:var(--muted2); font-size:12px; text-decoration:underline; cursor:pointer; }
 .fd-contest-correction button:disabled { opacity:.5; cursor:default; }
 .fd-contest-correction p { margin:0; color:var(--muted); font-size:11px; line-height:1.4; }

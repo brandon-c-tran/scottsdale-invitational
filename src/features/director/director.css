@@ -27,14 +27,10 @@
 .fd-director-faces { display:flex; align-items:center; padding-right:6px; }
 .fd-director-faces button { display:grid; place-items:center; width:44px; min-height:44px; padding:0; border:0; background:none; cursor:pointer; }
 
-.fd-director-recent, .fd-director-confirm { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; width:100%; padding:8px 8px 8px 14px; border:1px solid var(--bone-line); border-radius:12px; background:var(--night); color:var(--bone); box-shadow:var(--shadow-2); font:600 12.5px/1.4 var(--fd-body); }
+.fd-director-recent { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; width:100%; padding:8px 8px 8px 14px; border:1px solid var(--bone-line); border-radius:12px; background:var(--night); color:var(--bone); box-shadow:var(--shadow-2); font:600 12.5px/1.4 var(--fd-body); }
 .fd-director-recent span { flex:1; min-width:0; overflow-wrap:anywhere; }
-.fd-director-confirm p { flex-basis:100%; margin:0; padding-top:2px; }
-.fd-director-confirm div { display:flex; gap:8px; margin-left:auto; }
-.fd-director-recent button, .fd-director-confirm button { min-height:44px; min-width:64px; padding:8px 14px; border:1px solid var(--bone-line); border-radius:6px; background:none; color:var(--bone); font:700 12.5px/1.2 var(--fd-body); cursor:pointer; }
-.fd-director-recent button { border-color:var(--sun); color:var(--sun); }
-.fd-director-confirm button.is-primary { border-color:var(--sun); background:var(--sun); color:var(--ink0); }
-.fd-director-recent button:disabled, .fd-director-confirm button:disabled { opacity:.5; cursor:default; }
+.fd-director-recent button { min-height:44px; min-width:64px; padding:8px 14px; border:1px solid var(--sun); border-radius:6px; background:none; color:var(--sun); font:700 12.5px/1.2 var(--fd-body); cursor:pointer; }
+.fd-director-recent button:disabled { opacity:.5; cursor:default; }
 .fd-director-error { margin:0; padding:6px 12px; border-radius:8px; background:var(--night); color:var(--live2); font:600 12px/1.4 var(--fd-body); box-shadow:var(--shadow-1); }
 .fd-director button:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
 

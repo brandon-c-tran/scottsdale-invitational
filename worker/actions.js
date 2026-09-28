@@ -12,15 +12,21 @@ import {
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution, wagerMult, contestMult, contestSideOf, stageEntrantView, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
+  enforceExposure, refundTotals, voidWagerRecords, contestStackOf, contestEntryLabel, applyContestCorrection,
+  contestCorrectionAvailability, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview, wagerSide,
 } from "../shared/core.js";
 import {
+  SHOW_HISTORY_LIMIT,
   SHOW_TERMINAL_OUTCOMES,
   createShowScene,
   finishShowScene,
   retireFinishedShowScene,
+  sceneAtLastStep,
   showDefinition,
   validateShowSceneRequest,
   postedFinalUndo,
+  resolveShowScene,
+  championIdentity,
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
 
@@ -73,15 +79,34 @@ const tryStartScene = (state, ctx, request, now = Date.now()) => {
     const atLast = definition && control.active.step >= definition.steps.length - 1;
     finishShowScene(control, atLast ? "completed" : "skipped", now);
   }
-  const revision = checked.definition.requiresResult
-    ? Number(state.results?.[checked.request.eventId]?.revision || 1)
-    : null;
   control.active = createShowScene(checked.request, {
     id:`show-${now}-${crypto.randomUUID()}`,
     now,
-    revision,
+    ...sceneStamp(state, checked),
   });
   return control.active;
+};
+/* what a scene is FOR, stamped at start: the result revision a winner scene
+   plays, the champion a champion scene crowns */
+const sceneStamp = (state, checked) => ({
+  revision:checked.definition.requiresResult
+    ? Number(state.results?.[checked.request.eventId]?.revision || 1) : null,
+  ...(checked.request.kind === "champion" ? { champion:championIdentity(state) } : {}),
+});
+/* A manual start may replace a scene that has nothing left to say: one on
+   its last step retires as completed, a stale one as cancelled. A scene
+   still mid-sequence has to be finished or cancelled first. */
+const clearFinishedScene = (state, control, now) => {
+  if (!control.active) return true;
+  if (resolveShowScene(state, allEventsOf(state))?.staleReason) {
+    finishShowScene(control, "cancelled", now);
+    return true;
+  }
+  if (sceneAtLastStep(control.active)) {
+    finishShowScene(control, "completed", now);
+    return true;
+  }
+  return false;
 };
 /* Official preparation and start writes retire a scene that is already on
    its last step. Presentation only: never an error, never a tournament fact. */
@@ -110,7 +135,6 @@ const appendCorrection = (state, evId, entry) => {
    board: a crowned board stays crowned until someone unfreezes it */
 const frozenGuard = state => state.frozen ? err("The board is frozen") : null;
 const actorOf = ctx => ctx?.player || "commissioner";
-const openDuel = d => d.status === "open" && !resolveDuel(d).settled;
 const pendingWagers = (state, test = () => true, events = allEventsOf(state)) =>
   (state.wagers || []).filter(w => test(w) && resolveWager(state, w, events).status === "pending");
 const openBetsError = (count, what) => count
@@ -122,58 +146,8 @@ const drawBetsError = (state, evId, what = "draw") => {
   return openBetsError(pendingWagers(state, w => w.eventId === evId
     && (!!draw && w.drawId === draw.id || !!st && w.stagesId === st.id)).length, what);
 };
-/* A correction, undo, void or ruling can shrink a stack under chips it
-   already has riding. In the same write, void each player's newest pending
-   chips and duel antes until exposure fits min(maxRisk, balance) again.
-   Tickets keep their record; settlement stays derived. Returns what went. */
-const enforceExposure = (state, now = Date.now()) => {
-  if (pokerLive(state) || stacksPosted(state)) return [];
-  const events = allEventsOf(state);
-  const rows = computeStandings(state);
-  const voided = [];
-  for (const { player, pts } of rows) {
-    const limit = Math.max(0, Math.min(maxRisk(pts), pts));
-    const items = [];
-    for (const w of pendingWagers(state, w => w.player === player, events)) {
-      const chips = Array.isArray(w.chips) && w.chips.length ? w.chips : null;
-      if (!chips) items.push({ w, stake:w.stake, ts:w.updatedAt || w.ts || 0, order:0 });
-      else chips.forEach((chip, index) => items.push({ w, chip, stake:Number(chip.stake) || 0,
-        ts:chip.ts || w.ts || 0, order:index }));
-    }
-    /* only antes a duel actually holds count: accepted duels for both sides,
-       a waiting offer for its sender (the same rule as duelReserve) */
-    for (const d of state.duels || []) {
-      const phase = duelPhase(d, now);
-      if ((phase === "live" && (d.from === player || d.to === player)) || (phase === "offered" && d.from === player))
-        items.push({ d, stake:d.stake, ts:d.acceptedAt || d.ts || 0, order:0 });
-    }
-    let exposure = items.reduce((sum, item) => sum + item.stake, 0);
-    items.sort((a, b) => b.ts - a.ts || b.order - a.order);
-    for (const item of items) {
-      if (exposure <= limit) break;
-      if (item.d) {
-        if (!openDuel(item.d)) continue;
-        item.d.status = "void";
-        Object.assign(item.d, { voidedAt:now, voidedBy:"exposure" });
-        voided.push({ type:"duel", id:item.d.id, players:[item.d.from, item.d.to], stake:item.d.stake });
-      } else if (item.chip && item.w.chips.length > 1 && item.w.chips.at(-1) === item.chip) {
-        item.w.chips.pop();
-        item.w.stake = Math.max(0, item.w.stake - item.stake);
-        item.w.updatedAt = now;
-        item.w.voidedChips = [...(item.w.voidedChips || []), { ...item.chip, voidedAt:now }];
-        voided.push({ type:"chip", id:item.w.id, player, eventId:item.w.eventId, stake:item.stake });
-      } else {
-        if (item.w.status === "void") continue;
-        item.w.status = "void";
-        Object.assign(item.w, { voidedAt:now, voidedBy:"exposure" });
-        voided.push({ type:"wager", id:item.w.id, player, eventId:item.w.eventId, stake:item.w.stake });
-        exposure -= item.w.stake - item.stake;
-      }
-      exposure -= item.stake;
-    }
-  }
-  return voided;
-};
+/* enforceExposure lives in core so a correction preview can run it on a
+   clone and name exactly what the write will void. */
 const WAGER_OP_LIMIT = 2048;
 const wagerRequestKey = ctx => {
   if (typeof ctx?.deviceId !== "string" || !ctx.deviceId || ctx.deviceId.length > 200
@@ -244,6 +218,9 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
 const WEEKEND_START_ACTIONS = new Set([
   "announceEvent", "announceAndDraw", "startEvent", "lockAndStart", "pokerStart",
 ]);
+/* opening betting (or starting play) before the weekend is live starts it */
+const startsWeekend = (state, type, payload) => !state.live
+  && (WEEKEND_START_ACTIONS.has(type) || type === "setOnDeck" && !!payload?.id);
 /* legacy tables and full rooms seat the whole roster */
 const seatsOf = pk => Array.isArray(pk?.seats) ? pk.seats : ROSTER;
 const pokerTableLocksBoard = state =>
@@ -265,6 +242,7 @@ const resetContestSetup = (state, evId) => {
   const op = eventOp(state, evId);
   delete op.contest;
   delete op.lastContest;
+  delete op.contestStack;
   delete op.bettingOpenedAt;
   delete op.bettingLockedAt;
 };
@@ -433,15 +411,6 @@ const playingElsewhere = (state, evId, force) => {
   const playing = allEventsOf(state).find(other => other.id !== evId && eventInPlay(state, other));
   return playing ? err(`Finish ${playing.name} first`) : null;
 };
-const voidWagers = (state, ids, reason, now = Date.now()) => {
-  const wanted = new Set(ids);
-  state.wagers.forEach(wager => {
-    if (!wanted.has(wager.id)) return;
-    wager.status = "void";
-    wager.voidReason = reason;
-    wager.voidedAt = now;
-  });
-};
 
 export const ACTIONS = {
   /* ── identity / profile ── */
@@ -555,18 +524,69 @@ export const ACTIONS = {
     const fingerprint = showCommandFingerprint(request?.kind, request?.eventId || null);
     const replay = showCommandReplay(control, commandId, "start", fingerprint);
     if (replay) return replay;
-    if (control.active) return err("Finish or cancel the current scene first");
     const checked = validateShowSceneRequest(state, request, allEventsOf(state));
     if (!checked.ok) return err(checked.error);
     const now = Date.now();
+    if (!clearFinishedScene(state, control, now)) return err("Finish or cancel the current scene first");
     control.active = createShowScene(checked.request, {
       id:`show-${now}-${crypto.randomUUID()}`,
       now,
-      revision:checked.definition.requiresResult
-        ? Number(state.results?.[checked.request.eventId]?.revision || 1) : null,
+      ...sceneStamp(state, checked),
     });
     rememberShowCommand(control.active, commandId, "start", fingerprint);
     return ok({ sceneId:control.active.id });
+  },
+  /* The director's one replay beat: whatever is on the TV (the stale scene
+     a correction left behind, or a finished one) retires and the winner
+     scene for the current result revision starts, in one write. */
+  replayWinnerScene(state, { eventId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint("winner", eventId || null);
+    const replay = showCommandReplay(control, commandId, "replay", fingerprint);
+    if (replay) return replay;
+    const checked = validateShowSceneRequest(state, { kind:"winner", eventId }, allEventsOf(state));
+    if (!checked.ok) return err(checked.error);
+    const now = Date.now();
+    if (control.active) {
+      const stale = resolveShowScene(state, allEventsOf(state))?.staleReason;
+      finishShowScene(control, stale ? "cancelled" : sceneAtLastStep(control.active) ? "completed" : "skipped", now);
+    }
+    control.active = createShowScene(checked.request, {
+      id:`show-${now}-${crypto.randomUUID()}`,
+      now,
+      ...sceneStamp(state, checked),
+    });
+    rememberShowCommand(control.active, commandId, "replay", fingerprint);
+    return ok({ sceneId:control.active.id, revision:control.active.revision });
+  },
+  /* Skip the ceremony a result still owes: a stale scene for it clears and
+     the history records this revision as skipped, so the beat stops asking. */
+  skipWinnerReplay(state, { eventId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const enabled = showOnly(ctx); if (enabled) return enabled;
+    const control = showControlOf(state);
+    const commandId = showCommandId(ctx);
+    if (!commandId) return err("This show command is missing a request id");
+    const fingerprint = showCommandFingerprint("skip-winner", eventId || null);
+    const replay = showCommandReplay(control, commandId, "skip", fingerprint);
+    if (replay) return replay;
+    const result = state.results?.[eventId];
+    if (!result?.slots?.[0]?.length) return err("Post the official result first");
+    const revision = Number(result.revision || 1);
+    const now = Date.now();
+    if (control.active?.kind === "winner" && control.active.eventId === eventId) {
+      const stale = resolveShowScene(state, allEventsOf(state))?.staleReason;
+      finishShowScene(control, stale ? "cancelled" : "skipped", now);
+    }
+    const entry = { id:`show-${now}-${crypto.randomUUID()}`, kind:"winner", eventId, startedAt:now, endedAt:now,
+      outcome:"skipped", retryOf:null, revision, commands:[] };
+    rememberShowCommand(entry, commandId, "skip", fingerprint);
+    control.history = [entry, ...control.history].slice(0, SHOW_HISTORY_LIMIT);
+    return ok({ sceneId:entry.id, revision });
   },
   advanceShowScene(state, { id }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -630,8 +650,7 @@ export const ACTIONS = {
       id:`show-${now}-${crypto.randomUUID()}`,
       now,
       retryOf:prior.id,
-      revision:checked.definition.requiresResult
-        ? Number(state.results?.[checked.request.eventId]?.revision || 1) : null,
+      ...sceneStamp(state, checked),
     });
     rememberShowCommand(control.active, commandId, "retry", fingerprint);
     return ok({ sceneId:control.active.id, retryOf:prior.id });
@@ -883,6 +902,9 @@ export const ACTIONS = {
       if (!ROSTER.includes(to)) return err("Unknown player");
       if (to === from) return err("Pick someone else");
     }
+    /* someone who is not at the venue cannot play a phone duel */
+    if (isAway(state, from)) return err(`${disp(state, from)} is away`);
+    if (!anyone && isAway(state, to)) return err(`${disp(state, to)} is away`);
     const g = game || "quickdraw";
     if (!DUEL_GAMES[g]) return err("Unknown game");
     const now = Date.now();
@@ -928,6 +950,8 @@ export const ACTIONS = {
     if (phase === "lapsed") return err("This challenge lapsed");
     if (phase !== "offered") return err("This challenge is closed");
     if (!d.open && d.to !== p) return err("Not your duel");
+    if (isAway(state, p)) return err(`${disp(state, p)} is away`);
+    if (isAway(state, d.from)) return err(`${disp(state, d.from)} is away`);
     if (d.open && duelBetween(state, d.from, p, now))
       return err(`You already have a duel going with ${disp(state, d.from)}`);
     const room = duelRoom(state, p, { now });
@@ -1313,13 +1337,18 @@ export const ACTIONS = {
     }
     const op = eventOp(state, evId);
     const by = ctx.player || "commissioner", decidedAt = Date.now();
-    op.lastContest = { id:contest.id, kind:contest.kind, revision:contest.revision,
+    const entry = { id:contest.id, kind:contest.kind, revision:contest.revision,
       match:contest.match, group:contest.group, stagesId:contest.stagesId, drawId:contest.drawId,
       previousWinner:contest.kind === "match"
         ? state.brackets[evId].rounds[contest.match[0]][contest.match[1]].winner
         : contest.kind === "heat" ? state.stages[evId].groups[contest.group].winner : state.stages[evId].finalWinner,
       previousThrough:contest.kind === "heat" ? [...(state.stages[evId].groups[contest.group].through || [])] : undefined,
       winner, by, decidedAt };
+    entry.short = contestEntryLabel(state, ev, entry);
+    /* every recorded contest stays correctable: the stack keeps what each
+       one replaced, and lastContest mirrors its top for older readers */
+    op.contestStack = [...contestStackOf(state, evId), entry].slice(-40);
+    op.lastContest = entry;
     /* who recorded each decision, so a wrong tap can be traced */
     op.contestLog = [...(Array.isArray(op.contestLog) ? op.contestLog : []),
       { id:contest.id, winner, by, at:decidedAt }].slice(-40);
@@ -1351,67 +1380,66 @@ export const ACTIONS = {
         const saved = ACTIONS.saveResult(state, { evId, slots, noScene:payload.noScene }, ctx);
         if (!saved.ok) return saved;
         posted = saved.extra || {};
+        /* the recorded entry remembers the result it posted, for its Undo */
         op.lastContest.postedRevision = posted.revision;
+        const top = op.contestStack?.at(-1);
+        if (top && top.id === op.lastContest.id) top.postedRevision = posted.revision;
       }
     }
     rememberContestCommand(state, evId, command);
     if (posted) return ok({ posted:true, revision:posted.revision, ...(posted.sceneId ? { sceneId:posted.sceneId } : {}) });
     return ok({ ...(next ? { contestId:op.contest.id, contestRevision:op.contest.revision } : { awaitingResult:true }) });
   },
-  undoLastContest(state, payload, ctx) {
+  /* Correct any recorded contest of this event. The contest and every one
+     recorded after it rewind in this write: chips on the rewound contests
+     and on the next market go back, the undone winnings return to pending,
+     and exposure is enforced. Betting stays locked; the corrected contest is
+     current again at a fresh revision. contestId names the recorded contest,
+     contestRevision is the event's current revision (the stale-phone guard). */
+  correctContest(state, payload, ctx) {
     const { evId, contestId, contestRevision } = payload;
     const g = gmOnly(ctx); if (g) return g;
-    const command = contestCommand(ctx, "undoLastContest", payload);
+    const command = contestCommand(ctx, "correctContest", payload);
     const replay = replayContestCommand(state, evId, command); if (replay) return replay;
     const ev = allEventsOf(state).find(event => event.id === evId);
     if (!ev) return err("No such event");
-    /* a final that posted the result is undone with the result it posted */
-    const postedFinal = postedFinalUndo(state, ev);
-    const available = postedFinal || contestUndoAvailability(state, ev);
-    if (!available.enabled) return err(available.blocker);
-    if (contestId !== available.contestId || contestRevision !== available.contestRevision)
+    if (typeof contestId !== "string" || !contestStackOf(state, evId).some(entry => entry.id === contestId))
       return err("Contest changed, refresh and try again");
-    const op = eventOp(state, evId), last = op.lastContest;
-    if (last.drawId && state.draws[evId]?.id !== last.drawId
-        || last.stagesId && state.stages[evId]?.id !== last.stagesId) return err("Draw changed, refresh and try again");
+    /* a final whose winner posted the result is corrected with that result */
+    const postedFinal = contestStackOf(state, evId).at(-1)?.id === contestId ? postedFinalUndo(state, ev) : null;
+    const available = postedFinal || contestCorrectionAvailability(state, ev, contestId);
+    if (!available.enabled) return err(available.blocker);
+    if (contestRevision !== available.contestRevision)
+      return err("Contest changed, refresh and try again");
+    const now = Date.now();
     if (postedFinal) {
-      const existing = state.results[evId], at = Date.now();
+      const existing = state.results[evId];
       delete state.results[evId];
-      delete op.completedAt;
-      appendCorrection(state, evId, { type:"clear", at, by:actorOf(ctx), reason:"Final winner undone",
+      delete eventOp(state, evId).completedAt;
+      appendCorrection(state, evId, { type:"clear", at:now, by:actorOf(ctx), reason:"Final winner undone",
         fromRevision:Number(existing.revision || 1),
         previousSlots:(existing.slots || []).map(slot => [...(slot || [])]) });
       /* the ceremony for a result that no longer exists leaves the TV */
       const active = state.showControl?.active;
-      if (active?.kind === "winner" && active.eventId === evId) finishShowScene(showControlOf(state), "cancelled", at);
+      if (active?.kind === "winner" && active.eventId === evId) finishShowScene(showControlOf(state), "cancelled", now);
     }
-    /* chips already on the next market go back in this same write */
-    voidWagers(state, available.voidIds || [], "Previous result corrected");
-    if (last.kind === "match") {
-      const br = state.brackets[evId];
-      br.rounds[last.match[0]][last.match[1]].winner = last.previousWinner ?? null;
-      /* keep the corrected matchup current even if it was played out of order */
-      br.next = [last.match[0], last.match[1]];
-    }
-    else if (last.kind === "heat") {
-      const group = state.stages[evId].groups[last.group];
-      group.winner = last.previousWinner ?? null;
-      group.through = [...(last.previousThrough || [])];
-    } else state.stages[evId].finalWinner = last.previousWinner ?? null;
-    op.contestRevision = Number(op.contestRevision || 0) + 1;
-    op.contest = { id:last.id, revision:op.contestRevision, phase:"in-progress" };
-    op.bettingLockedAt = Date.now();
-    delete op.resultEntryAt;
-    delete op.lastContest;
-    if (state.onDeck === evId) state.onDeck = null;
-    /* the undone winner's payouts return to pending; anything they were
-       already backing elsewhere has to fit the restored balance */
-    const voided = enforceExposure(state);
-    if (voided.length) appendCorrection(state, evId, { type:"undo-contest", at:Date.now(), by:actorOf(ctx),
-      reason:"Previous contest reopened", contestId:last.id, voided });
+    const moved = applyContestCorrection(state, ev, contestId, now);
+    if (moved.voidIds.length || moved.voided.length || moved.rewinds.length)
+      appendCorrection(state, evId, { type:"correct-contest", at:now, by:actorOf(ctx),
+        reason:"Previous contest reopened", contestId, rewinds:moved.rewinds,
+        returned:moved.voidIds, ...(moved.voided.length ? { voided:moved.voided } : {}) });
     rememberContestCommand(state, evId, command);
-    return ok({ contestId:op.contest.id, contestRevision:op.contest.revision, voided,
-      refunds:available.refunds || [] });
+    return ok(moved);
+  },
+  /* The most recent recorded contest only: the quick Undo. */
+  undoLastContest(state, payload, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const replay = replayContestCommand(state, payload.evId, contestCommand(ctx, "correctContest", payload));
+    if (replay) return replay;
+    const top = contestStackOf(state, payload.evId).at(-1);
+    if (!top) return err("No previous contest to correct");
+    if (payload.contestId !== top.id) return err("Contest changed, refresh and try again");
+    return ACTIONS.correctContest(state, payload, ctx);
   },
   /* Play a different seated matchup first. Only while the current market is
      open and empty, so exactly one market exists and no chip changes target. */
@@ -1495,21 +1523,47 @@ export const ACTIONS = {
       st.roles = (st.roles || []).filter(item => item.player !== into);
       voided = pending.filter(wager => wager.pick === out || wager.pickKey === out);
     } else return err("Nothing to swap in this event");
-    voidWagers(state, voided.map(wager => wager.id), `${disp(state, out)} swapped out`);
+    const now = Date.now();
+    const outReturned = voidWagerRecords(state, voided.map(wager => wager.id), `${disp(state, out)} swapped out`, now);
+    /* the player coming in is now a competitor: chips they already had on
+       another side of the contest they joined go back in the same write */
+    const joined = resolveCurrentContest(state, ev);
+    const conflicts = joined ? pending.filter(wager => wager.player === into && wager.status !== "void"
+      && wagerMatchesContest(wager, joined) && !contestBetEligibility(joined, into, wagerSide(state, wager))) : [];
+    const intoReturned = voidWagerRecords(state, conflicts.map(wager => wager.id), `${disp(state, into)} swapped in`, now);
     const op = eventOp(state, evId);
     op.swaps = [...(Array.isArray(op.swaps) ? op.swaps : []),
-      { out, into, by:ctx.player || "commissioner", at:Date.now() }].slice(-20);
-    return ok({ voided:voided.length });
+      { out, into, by:ctx.player || "commissioner", at:now }].slice(-20);
+    const returned = [...outReturned, ...intoReturned];
+    return ok({ voided:returned.length, voidIds:returned.map(item => item.id), refunds:refundTotals(returned) });
   },
-  /* Reversible attendance mark. Chips and profile never change. */
+  /* Reversible attendance mark. Chips and profile never change, but a
+     player marked away stops being a side of an open free-for-all market:
+     chips on their side go back in the same write, named in the ack, and
+     the contest revision moves so every phone re-reads the sides. */
   setAway(state, { player, away }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!ROSTER.includes(player)) return err("Unknown player");
     if (typeof away !== "boolean") return err("Choose away or here");
     state.away = state.away || {};
     if (!!state.away[player] === away) return ok({ unchanged:true });
+    const events = allEventsOf(state);
+    const markets = events.map(ev => ({ ev, contest:resolveCurrentContest(state, ev) }))
+      .filter(({ contest }) => contest?.kind === "ffa" && !contest.drawId
+        && ["betting-open", "betting-locked"].includes(contest.phase));
     if (away) state.away[player] = true; else delete state.away[player];
-    return ok();
+    const now = Date.now();
+    const returned = [];
+    for (const { ev, contest } of markets) {
+      const backed = away ? (state.wagers || []).filter(wager => wagerMatchesContest(wager, contest)
+        && wager.kind === "outright" && !wager.pickTeam && wager.pick === player
+        && resolveWager(state, wager, events).status === "pending") : [];
+      returned.push(...voidWagerRecords(state, backed.map(wager => wager.id), `${disp(state, player)} is away`, now));
+      const op = eventOp(state, ev.id);
+      op.contestRevision = Number(op.contestRevision || 0) + 1;
+      if (op.contest?.id === contest.id) op.contest.revision = op.contestRevision;
+    }
+    return ok({ voidIds:returned.map(item => item.id), refunds:refundTotals(returned) });
   },
   beginResultEntry(state, { evId }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1544,10 +1598,43 @@ export const ACTIONS = {
       return ok(returns);
     }
     delete state.shelved[id];
-    const voided = enforceExposure(state);
-    if (voided.length) appendCorrection(state, id, { type:"restore", at:Date.now(), by:actorOf(ctx),
-      reason:"Event restored", voided });
-    return ok({ voided });
+    /* An event that never started comes back unannounced: the chips it held
+       when it was skipped go back for good, and its old market and betting
+       stamps clear, so no phantom market survives the restore. */
+    const now = Date.now();
+    let returned = [];
+    if (!eventHasBegun(state, ev) && !state.eventOps?.[id]?.startedAt && !state.eventOps?.[id]?.resultEntryAt
+        && !contestStackOf(state, id).length) {
+      returned = voidWagerRecords(state, pendingWagers(state, w => w.eventId === id).map(w => w.id),
+        "Event restored", now);
+      resetContestSetup(state, id);
+      if (state.onDeck === id) state.onDeck = null;
+    }
+    const voided = enforceExposure(state, now);
+    if (voided.length || returned.length) appendCorrection(state, id, { type:"restore", at:now, by:actorOf(ctx),
+      reason:"Event restored", ...(returned.length ? { returned:returned.map(item => item.id) } : {}), voided });
+    return ok({ voided, voidIds:returned.map(item => item.id), refunds:refundTotals(returned) });
+  },
+  /* Take a mis-announced event back while nothing has been played: chips on
+     it return, its stored contest and betting stamps clear, nothing is on
+     deck, and the event reads as unannounced. A draw or heats stay. */
+  takeBackAnnouncement(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const ev = allEventsOf(state).find(event => event.id === evId);
+    if (!ev) return err("No such event");
+    const available = announcementTakeBack(state, ev);
+    if (available.blocker === "Not announced") return ok({ unchanged:true });
+    if (!available.enabled) return err(available.blocker);
+    const now = Date.now();
+    const returned = voidWagerRecords(state, available.voidIds, "Announcement taken back", now);
+    resetContestSetup(state, evId);
+    if (state.onDeck === evId) state.onDeck = null;
+    const control = state.showControl;
+    if (ctx.showControl && control?.active?.kind === "event-intro" && control.active.eventId === evId)
+      finishShowScene(showControlOf(state), "cancelled", now);
+    appendCorrection(state, evId, { type:"take-back", at:now, by:actorOf(ctx),
+      reason:"Announcement taken back", returned:returned.map(item => item.id) });
+    return ok({ event:ev.name, voidIds:returned.map(item => item.id), refunds:refundTotals(returned) });
   },
   addEvent(state, { ev }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -1974,31 +2061,31 @@ export const ACTIONS = {
     if (state.shelved[ev.id]) return err("The finale is shelved");
     if (state.poker?.id === ev.id)
       return ok({ unchanged:true, total:state.poker.total });
-    if (state.results[ev.id]) return err("Result already posted");
     /* the buy-in snapshot must match the board exactly: nothing may still be
-       able to move points after stacks are dealt */
-    const events = allEventsOf(state);
-    if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
-      return err("Settle or void the open wagers first");
-    const rows = computeStandings(state);
-    /* away players are not dealt in; their board total carries as-is. A
+       able to move points after stacks are dealt. pokerSetupPreview is the
+       same deal the commissioner reviews first, so the write cannot differ.
+       Away players are not dealt in; their board total carries as-is. A
        negative balance deals as 0 through the minimum-stack grant. */
+    const preview = pokerSetupPreview(state);
+    if (!preview.ok) return err(preview.blockers[0]);
+    const rows = computeStandings(state);
     const seated = rows.filter(row => !isAway(state, row.player));
-    if (seated.length < 2) return err("Seat at least two players");
     const distribution = pokerDistribution(seated);
-    if (!distribution.ok) return err(distribution.errors[0] || "Invalid poker stacks");
     /* an unplayed duel can no longer move the board, so it cannot block the
        finale either: offers, lapsed offers, and accepted duels still waiting
-       on a draw are voided in this same write. Voiding moves no chips. */
+       on a draw are voided in this same write. Voiding moves no chips, and a
+       cancel restores exactly these. */
     const setupAt = Date.now();
-    let voidedDuels = 0;
+    const voidedDuelIds = [];
+    const wanted = new Set(preview.voidDuels.map(duel => duel.id));
     (state.duels || []).forEach(d => {
-      if (d.status !== "open" || resolveDuel(d).settled) return;
+      if (!wanted.has(d.id)) return;
       d.status = "void";
       d.voidedAt = setupAt;
       d.voidReason = "finale";
-      voidedDuels++;
+      voidedDuelIds.push(d.id);
     });
+    const voidedDuels = voidedDuelIds.length;
     /* nobody rails the finale: anyone under 600 (a negative balance deals as
        0) is staked up to 600, logged as a ruling so the board shows where the
        chips came from. pokerCancel reverts these, so a cancel-and-reset never
@@ -2018,6 +2105,7 @@ export const ACTIONS = {
       total:distribution.total,
       startingStacks:Object.fromEntries(distribution.rows.map(row => [row.player, row.stack])),
       minimumGrantIds,
+      voidedDuelIds,
       startedAt:null,
       levels:pokerLevels(),
       levelOffset:0,
@@ -2030,7 +2118,7 @@ export const ACTIONS = {
       } : {}),
     };
     return ok({ total:distribution.total, minimumCount:distribution.minimumCount, voidedDuels,
-      inventory:distribution.inventory });
+      voidedDuelIds, inventory:distribution.inventory });
   },
   pokerStart(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
@@ -2165,8 +2253,11 @@ export const ACTIONS = {
     const revision = Math.max(0, Number(op.revision || 0)) + 1;
     /* a 0 saved before counting 0 meant busting went out first, unordered */
     const zeroes = ROSTER.filter(p => !outSet.has(p) && clean[p] === 0);
+    /* seats ride on the result: the champion is the chip leader among the
+       players dealt in, never an away player's carried total */
     state.results[pk.id] = { slots: [[...leaders], [], []], stacks: clean,
-      outs: [...zeroes, ...pk.outs.map(o => o.player)], ts:now, confirmedAt:now, revision };
+      outs: [...zeroes, ...pk.outs.map(o => o.player)], ts:now, confirmedAt:now, revision,
+      ...(Array.isArray(pk.seats) ? { seats:[...pk.seats] } : {}) };
     op.revision = revision;
     op.completedAt = now;
     const scene = noScene !== true
@@ -2179,17 +2270,30 @@ export const ACTIONS = {
   pokerCancel(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!state.poker) return ok({ unchanged:true });
+    const frozen = frozenGuard(state); if (frozen) return frozen;
     if (state.results[state.poker.id]) return err("Clear the result first");
     if (state.poker.startedAt) return err("Cards are live. Post or correct the counts instead");
     /* the table stakes grants belonged to this table */
     const grantIds = new Set(state.poker.minimumGrantIds || []);
     state.adjustments = state.adjustments.filter(a =>
       grantIds.size ? !grantIds.has(a.id) : a.reason !== "Minimum stack");
+    /* the duels this setup voided come back exactly as they were */
+    const duelIds = new Set(state.poker.voidedDuelIds || []);
+    const restoredDuels = [];
+    (state.duels || []).forEach(d => {
+      if (!duelIds.has(d.id) || d.status !== "void" || d.voidReason !== "finale") return;
+      d.status = "open";
+      delete d.voidedAt;
+      delete d.voidReason;
+      restoredDuels.push(d.id);
+    });
     const op = eventOp(state, state.poker.id);
     delete op.resultEntryAt;
     delete op.completedAt;
     state.poker = null;
-    return ok();
+    /* without the minimum grants a restored ante may no longer fit */
+    const voided = enforceExposure(state);
+    return ok({ restoredDuels, voided });
   },
 
   /* ── GM: board ── */
@@ -2250,10 +2354,19 @@ export const ACTIONS = {
       fingerprint, wagerId:id, stake:ruling.delta });
     return ok({ adjustmentId:id, voided });
   },
+  /* Crowning freezes the board and, with Show Control on, points the TV at
+     the champion in the same write: a finished scene retires and the
+     champion scene starts. The scene is best effort and never fails the
+     crown. */
   setFrozen(state, { f }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
+    if (state.frozen === !!f) return ok({ unchanged:true });
     state.frozen = !!f;
-    return ok();
+    if (!state.frozen || !ctx?.showControl) return ok();
+    const now = Date.now();
+    if (state.showControl?.active) retireFinishedShowScene(showControlOf(state), now);
+    const scene = tryStartScene(state, ctx, { kind:"champion" }, now);
+    return ok(scene ? { sceneId:scene.id } : undefined);
   },
   /* One confirmed commissioner write names the champion and freezes the
      board. The confirm carries the names it showed, so a board that moved
@@ -2308,6 +2421,29 @@ export const ACTIONS = {
     state.live = !!on;
     return ok();
   },
+  /* Undo starting the weekend, only while nothing has happened: no result,
+     no bet, no duel, no game started, no poker table. Any announced event
+     goes back to unannounced with it. */
+  returnToLockerRoom(state, {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!state.live) return ok({ unchanged:true });
+    const available = lockerRoomAvailability(state);
+    if (!available.enabled) return err(available.blocker);
+    const reset = [];
+    for (const ev of allEventsOf(state)) {
+      const op = state.eventOps?.[ev.id];
+      if (state.onDeck === ev.id || op?.contest || op?.bettingOpenedAt || op?.bettingLockedAt) {
+        resetContestSetup(state, ev.id);
+        reset.push(ev.name);
+      }
+    }
+    state.onDeck = null;
+    const control = state.showControl;
+    if (ctx.showControl && control?.active?.kind === "event-intro")
+      finishShowScene(showControlOf(state), "cancelled");
+    state.live = false;
+    return ok({ reset });
+  },
   /* Reset only the rehearsal/gameplay layer. Guest input, trip information,
      and the configured event slate survive, while every derived or live
      tournament fact returns to a clean board. The explicit capability and
@@ -2361,12 +2497,22 @@ export function applyAction(state, type, payload, ctx) {
   if (pokerTableLocksBoard(state) && !POKER_TABLE_ALLOWED_ACTIONS.has(type))
     return err("Cancel the poker table before changing the board");
   try {
+    /* The first game-opening write starts the weekend, so it has to say so:
+       without payload.startWeekend the server answers "Starts the weekend"
+       and names the event, changing nothing. The handler runs on a copy
+       first, so a write that would fail anyway reports its own error. */
+    if (startsWeekend(state, type, payload) && payload?.startWeekend !== true) {
+      const probe = handler(structuredClone(state), payload || {}, ctx);
+      if (!probe.ok) return probe;
+      const evId = type === "setOnDeck" ? payload?.id : type === "pokerStart" ? state.poker?.id : payload?.evId;
+      const ev = allEventsOf(state).find(item => item.id === evId);
+      return err("Starts the weekend", { needsStartConfirm:true, event:ev?.name || null });
+    }
     const result = handler(state, payload || {}, ctx);
     if (result.ok && !result.extra?.unchanged) retireSceneAfter(state, ctx, type);
     // Opening the first game includes its betting window. Setup alone does
     // not begin the weekend, and rejected actions never change its status.
-    if (result.ok && !state.live && (WEEKEND_START_ACTIONS.has(type)
-        || type === "setOnDeck" && !!payload?.id)) {
+    if (result.ok && startsWeekend(state, type, payload)) {
       state.live = true;
       // A legacy client may have opened a game without starting the weekend.
       // This repair is a real write even if the game itself was unchanged.

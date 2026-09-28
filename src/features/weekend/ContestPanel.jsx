@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { disp, resolveCurrentContest, resolveEventLifecycle, contestUndoAvailability, refundText, AWARDS,
-  allEventsOf, resolveWager, wagerMatchesContest, bracketOrder, bracketMatchOpen, resolveSlot, stageFinalists,
-  stageEntrantView } from "../../../shared/core.js";
+import { disp, resolveCurrentContest, resolveEventLifecycle, contestCorrectionAvailability, contestCorrections,
+  correctionText, contestStackOf, AWARDS, allEventsOf, resolveWager, wagerMatchesContest, bracketOrder, bracketMatchOpen,
+  resolveSlot, stageFinalists, stageEntrantView } from "../../../shared/core.js";
 import { contestName } from "../../../shared/show.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { CompetitionBracket } from "./CompetitionBracket.jsx";
@@ -158,13 +158,15 @@ export function ContestPanel(props) {
     contest={contest} onRecorded={onRecorded} />{correction}</>;
 }
 
-/* Runs one correction behind the shared busy guard. */
+/* Runs one correction behind the shared busy guard. With no contest id it
+   corrects the most recent recorded contest. */
 function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   const [pending,setPending] = useState(false), [error,setError] = useState("");
   const busy = useRef(false);
-  const run = async () => {
+  const run = async (contestId = null) => {
     if (busy.current || operationBusy.current) return;
-    const undo = lastWinnerUndo(state, ev);
+    /* no id: the most recent winner, including a final that posted the result */
+    const undo = contestId ? contestCorrectionAvailability(state, ev, contestId) : lastWinnerUndo(state, ev);
     busy.current = true; operationBusy.current = true; onBusy(true); setPending(true); setError("");
     try {
       const result = await onUndo({contestId:undo.contestId,contestRevision:undo.contestRevision});
@@ -181,10 +183,10 @@ function RecentWinner(props) {
   const undo = lastWinnerUndo(state, ev);
   const correction = useCorrection(props, onDone);
   if (!undo.enabled) return null;
-  const refunds = refundText(state, undo.refunds);
+  const moved = correctionText(state, undo);
   return <div className="fd-contest-recent" role="status">
-    <span>Winner recorded: {name}{posted ? ". Result posted" : ""}{refunds ? `. ${refunds}` : ""}</span>
-    <button type="button" disabled={correction.pending || blocked} onClick={correction.run}>
+    <span>Winner recorded: {name}{posted ? ". Result posted" : ""}{moved ? `. ${moved}` : ""}</span>
+    <button type="button" disabled={correction.pending || blocked} onClick={() => correction.run()}>
       {correction.pending ? "Undoing…" : "Undo"}</button>
     {correction.error && <p role="alert" className="fd-contest-error">{correction.error}</p>}
   </div>;
@@ -211,7 +213,7 @@ function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
   </section>;
 }
 
-/* The previous contest by its real name, its sides, and who won it. */
+/* A recorded contest by its real name, its sides, and who won it. */
 export function lastContestView(state, ev, last) {
   if (!last) return null;
   const draw = state.draws?.[ev.id], stages = state.stages?.[ev.id];
@@ -229,27 +231,33 @@ export function lastContestView(state, ev, last) {
     matchup:sides.length === 2 ? sides.join(" vs ") : sides.join(", "), winner:named(last.winner) };
 }
 
-/* Correcting the previous winner also returns any chips on the next market;
-   the confirm names the teams and who gets what back before anything moves. */
+/* Any recorded contest can be corrected, newest first: "Fix Play-in 1".
+   The confirm names the teams, who loses the win, and everything else the
+   write moves (later contests rewound, chips returned, duels voided). */
 function ContestCorrection(props) {
   const { state, ev, gm, onUndo, blocked } = props;
-  const [confirming, setConfirming] = useState(false);
-  const correction = useCorrection(props, () => setConfirming(false));
-  const last = state.eventOps?.[ev.id]?.lastContest;
-  if (!gm || !onUndo || !last) return null;
-  const undo = contestUndoAvailability(state,ev);
-  const view = lastContestView(state, ev, last);
-  const refunds = refundText(state, undo.refunds);
+  const [confirming, setConfirming] = useState(null);
+  const correction = useCorrection(props, () => setConfirming(null));
+  const options = contestCorrections(state, ev);
+  if (!gm || !onUndo || !options.length) return null;
+  const stack = contestStackOf(state, ev.id);
   return <div className="fd-contest-correction">
-    {confirming ? <div className="fd-contest-confirm">
-      <p>Reopens {view.name}{view.matchup ? `: ${view.matchup}` : ""}. {view.winner ? `${view.winner} loses the win.` : ""}
-        {refunds ? ` ${refunds}.` : ""}</p>
-      <button type="button" disabled={correction.pending || blocked || !undo.enabled} onClick={correction.run}>
-        {correction.pending ? "Undoing…" : `Reopen ${view.name}`}</button>
-      <button type="button" disabled={correction.pending} onClick={() => setConfirming(false)}>Keep it</button>
-    </div> : <button type="button" disabled={correction.pending || blocked || !undo.enabled}
-      onClick={() => setConfirming(true)}>Fix {view.name}</button>}
-    {!undo.enabled && <p>{undo.blocker}</p>}
+    {options.map(option => {
+      const view = lastContestView(state, ev, stack.find(entry => entry.id === option.contestId));
+      const name = view?.name || option.contest;
+      const moved = correctionText(state, option);
+      return <React.Fragment key={option.contestId}>
+        {confirming === option.contestId ? <div className="fd-contest-confirm">
+          <p>Reopens {name}{view?.matchup ? `: ${view.matchup}` : ""}.{view?.winner ? ` ${view.winner} loses the win.` : ""}
+            {moved ? ` ${moved}` : ""}</p>
+          <button type="button" disabled={correction.pending || blocked || !option.enabled}
+            onClick={() => correction.run(option.contestId)}>{correction.pending ? "Undoing…" : `Reopen ${name}`}</button>
+          <button type="button" disabled={correction.pending} onClick={() => setConfirming(null)}>Keep it</button>
+        </div> : <button type="button" disabled={correction.pending || blocked || !option.enabled}
+          onClick={() => setConfirming(option.contestId)}>Fix {name}</button>}
+      </React.Fragment>;
+    })}
+    {!options[0].enabled && <p>{options[0].blocker}</p>}
     {correction.error && <p role="alert" className="fd-contest-error">{correction.error}</p>}
   </div>;
 }

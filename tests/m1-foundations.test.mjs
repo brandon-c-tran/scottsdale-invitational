@@ -26,7 +26,7 @@ import {
   wagerBoardEvent,
   validateEventParticipants,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { hydrateStoredState } from "../worker/state.js";
 import { Tournament } from "../worker/tournament.js";
 import {

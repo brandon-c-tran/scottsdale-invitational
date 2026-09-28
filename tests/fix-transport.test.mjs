@@ -50,7 +50,7 @@ const {
   bracketChampion, contestBetEligibility, defaultQaParticipants, resolveCurrentContest,
   resolveEventLifecycle, resolveSlot, stageEntrantView, stageFinalists,
 } = core;
-const { applyAction } = await import("../worker/actions.js");
+const { applyAction, confirmStart } = await import("./support/confirmed-start.mjs");
 const { Tournament } = await import("../worker/tournament.js");
 const { publicState, createStateSerializer } = await import("../worker/publicState.js");
 const { splitStoredState, hydrateStoredState } = await import("../worker/state.js");
@@ -111,7 +111,8 @@ let actionSeq = 0;
 const say = (tournament, ws, deviceId, message, { gm = false } = {}) => {
   const actionId = message.actionId || `t${++actionSeq}`;
   return tournament.webSocketMessage(ws, JSON.stringify({
-    actionId, ...message, deviceId, ...(gm ? { gmToken:GM_TOKEN } : {}),
+    actionId, ...message, ...(message.type ? { payload:confirmStart(message.type, message.payload) } : {}),
+    deviceId, ...(gm ? { gmToken:GM_TOKEN } : {}),
   })).then(() => actionId);
 };
 const ackFor = (ws, actionId) => ws.frames.find(frame => frame.type === "ack" && frame.actionId === actionId);
@@ -691,6 +692,23 @@ test("the TV reloads for a new build once no ceremony is playing", () => {
   mock.timers.tick(5000);
   assert.equal(reloads.length, before + 1);
   window.location.pathname = "/";
+});
+
+test("C10: the client learns its commissioner view from its own hello and follows a revocation", () => {
+  const ws = current();
+  if (ws.readyState !== 1) ws.open();
+  client.setGmToken("token-c10");
+  assert.equal(snap().gm, null, "unknown until the server answers the new token");
+  const hello = lastHello(ws);
+  ws.receive(stateFrame({ gm:false, hello:hello.payload.nonce - 1 }));
+  assert.equal(snap().gm, null, "an older hello was answered for another token");
+  ws.receive(stateFrame({ gm:false }));
+  assert.equal(snap().gm, null, "a broadcast before the answer says nothing");
+  ws.receive(stateFrame({ gm:true, hello:hello.payload.nonce }));
+  assert.equal(snap().gm, true);
+  ws.receive(stateFrame({ gm:false }));
+  assert.equal(snap().gm, false, "a revocation lands on the next frame");
+  client.setGmToken(null);
 });
 
 test("uploads, sheets and the rest of the transport keep their shapes", () => {

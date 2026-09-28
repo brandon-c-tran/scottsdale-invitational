@@ -1,0 +1,5 @@
+/* X8: one line per contest side, what its win does to the standings */
+.fd-win-line { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:var(--muted2); font:500 11px/1.35 var(--fd-body); }
+.fd-win-line.is-rank { color:var(--sun); }
+.fd-wagers-pick .fd-wagers-win { padding:1px 8px 3px; white-space:normal; }

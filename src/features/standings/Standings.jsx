@@ -1,6 +1,9 @@
-import React, { useMemo } from "react";
-import { AWARDS, SESSIONS, computeStandings, disp, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AWARDS, SESSIONS, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { EASE, MOTION, signedChips, useCountUp, useFreshChange } from "../../lib/motion.js";
+import { BOARD_BEATS, barScale, chipBar, rowMoves, soleLeader } from "./boardModel.js";
 import { ActionButton } from "../../ui/controls.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
 import "./standings.css";
@@ -122,47 +125,169 @@ function ChampionPanel({ state, champion, coChamps, onPlayer }) {
   </section>;
 }
 
+/* X1: one unit per 100 chips (a coarser unit once the leader is far ahead)
+   in the player's identity color. Your own chips riding on bets are the
+   gold outlined units at the end of your bar, duel antes the muted ones:
+   what is at risk is what would leave it. */
+export function ChipBar({ p, pts, scale, bets = 0, duels = 0 }) {
+  const identity = usePlayerIdentity(p);
+  const bar = chipBar({ pts, scale, bets, duels });
+  return <svg className="fd-chip-bar" viewBox={`0 0 ${bar.slots} 1`} preserveAspectRatio="none"
+    aria-hidden="true" focusable="false">
+    {bar.cells.map(cell => cell.kind === "held"
+      ? <rect key={cell.x} x={cell.x} y={0} width={cell.w} height={1} fill={identity.color} />
+      : <rect key={cell.x} x={cell.x + 0.05} y={0.1} width={Math.max(0.1, cell.w - 0.1)} height={0.8}
+        className={cell.kind === "bets" ? "is-bets" : "is-duels"} vectorEffect="non-scaling-stroke" />)}
+  </svg>;
+}
+
+/* M2: a fresh rank change rolls the old digits out and the new ones in,
+   once the rows have landed */
+function RankCell({ label, text, roll, index }) {
+  return <span className="fd-standing-position" aria-label={label}>
+    {roll ? <span className={`fd-rank-roll${roll.up ? " is-up" : " is-down"}`} key={roll.id} aria-hidden="true"
+      style={{ "--roll-delay":`${BOARD_BEATS.roll + index * BOARD_BEATS.rollStagger}ms` }}>
+      <span className="fd-rank-old">{roll.from}</span><span className="fd-rank-new">{text}</span>
+    </span> : text}
+  </span>;
+}
+
+const rankText = (row, starting, tied) => starting || tied ? "·" : String(row.rank).padStart(2, "0");
+
+function BoardRow({ state, row, index, me, starting, tied, deltas, out, adjustment, scoreLabel, scale,
+  onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef }) {
+  const isMe = row.player === me;
+  const leading = !starting && row.rank === 1 && !tied;
+  /* M2: the total counts in 100s and the change rises off it */
+  const count = useCountUp(row.pts, { key:row.player, delay:BOARD_BEATS.count });
+  const text = rankText(row, starting, tied);
+  const rankChange = useFreshChange(text, row.player);
+  const [roll, setRoll] = useState(null);
+  useLayoutEffect(() => {
+    if (!rankChange.animate || rankChange.from === rankChange.to) return undefined;
+    const up = rankChange.from === "·" || Number(rankChange.to) < Number(rankChange.from);
+    setRoll({ id:rankChange.changeId, from:rankChange.from, up });
+    const timer = setTimeout(() => setRoll(current => current?.id === rankChange.changeId ? null : current),
+      BOARD_BEATS.settle);
+    return () => clearTimeout(timer);
+  }, [rankChange.changeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const delta = !starting && !tied && deltas?.[row.player];
+  const chipDescription = starting || scoreLabel === "STARTING CHIPS" ? "starting chips" : "chips";
+  const rise = count.delta && count.delta.amount !== 0 ? count.delta : null;
+  return <li ref={rowRef} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}`}>
+    {newLeader && <i className="fd-lead-sweep" key={newLeader} aria-hidden="true" />}
+    <button type="button" onClick={() => onPlayer(row.player)} className="fd-standings-row"
+      data-new-leader={newLeader ? "" : undefined}
+      aria-label={`View ${disp(state, row.player)}'s player card, ${fmt(row.pts)} ${chipDescription}`}>
+      <RankCell label={starting ? "Not started" : tied ? "Tied" : `Position ${row.rank}`} text={text} roll={roll} index={index} />
+      <Avatar state={state} p={row.player} size={28} />
+      <span className="fd-standing-player">
+        <span className="fd-standing-line"><span className="fd-standing-name">{disp(state, row.player)}</span>
+          {(isMe || out) && <span className="fd-standing-flags">
+            {isMe && <span className="fd-standing-you">YOU</span>}
+            {out && <span className="fd-standing-out">OUT</span>}
+          </span>}
+          {!starting && StatPills && <span className="fd-standing-stats"><StatPills row={row} atRisk={isMe ? myAtRisk : 0} /></span>}
+        </span>
+        <ChipBar p={row.player} pts={count.value} scale={scale}
+          bets={isMe ? myAtRisk : 0} duels={isMe ? myDuels : 0} />
+      </span>
+      <span className="fd-standing-score"><strong>{fmt(count.value)}</strong>
+        {rise && <span key={rise.id} aria-hidden="true"
+          className={`fd-motion-delta fd-standing-rise ${rise.amount > 0 ? "is-up" : "is-down"}`}>{signedChips(rise.amount)}</span>}
+        {!!delta && <span className={`fd-standing-delta${delta < 0 ? " is-down" : ""}${roll ? " is-popping" : ""}`}
+          aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} positions`}>
+          <span aria-hidden="true">{delta > 0 ? "↑" : "↓"}</span>{Math.abs(delta)}
+        </span>}
+      </span>
+    </button>
+    {adjustment && <button type="button" className="fd-standing-adjust" onClick={() => onAdjust(row.player)}
+      aria-label={`Adjust chips for ${disp(state, row.player)}`}>Adjust</button>}
+  </li>;
+}
+
+/* M3: after a fresh change the rows slide to their new places (FLIP) once
+   the numbers have counted, risers lifted over fallers. Until then each row
+   holds its old place; a first load, reconnect or correction just lands. */
+const mapOf = ref => ref.current instanceof Map ? ref.current : (ref.current = new Map());
+function useRowSlide(order, key) {
+  const els = useRef(new Map());
+  const tops = useRef(new Map());
+  const played = useRef(0);
+  const move = useFreshChange(order, key);
+  useLayoutEffect(() => {
+    const next = new Map();
+    mapOf(els).forEach((el, player) => { if (el?.isConnected) next.set(player, el.offsetTop); });
+    if (move.animate && played.current !== move.changeId) {
+      played.current = move.changeId;
+      const moves = rowMoves(String(move.from || "").split("|"), String(move.to || "").split("|"));
+      for (const [player, { from, to }] of Object.entries(moves)) {
+        const el = mapOf(els).get(player);
+        const was = mapOf(tops).get(player), now = next.get(player);
+        if (!el || was === undefined || now === undefined || was === now || typeof el.animate !== "function") continue;
+        const dy = was - now, rising = to < from;
+        const classes = ["is-moving", rising ? "is-rising" : "is-falling"];
+        const done = () => el.classList.remove(...classes);
+        el.classList.add(...classes);
+        try {
+          el.animate([
+            { transform:`translateY(${dy}px)` },
+            { transform:`translateY(${(dy / 2).toFixed(1)}px) scale(${rising ? 1.015 : 1})`, offset:0.5 },
+            { transform:"none" },
+          ], { duration:MOTION.rowSlide, delay:BOARD_BEATS.slide + to * MOTION.rowStagger,
+            easing:EASE.out, fill:"backwards" }).finished.then(done, done);
+        } catch { done(); }
+      }
+    }
+    tops.current = next;
+  });
+  const refs = useRef(new Map());
+  return useCallback(player => {
+    if (!mapOf(refs).has(player)) mapOf(refs).set(player, el => {
+      if (el) mapOf(els).set(player, el); else mapOf(els).delete(player);
+    });
+    return mapOf(refs).get(player);
+  }, []);
+}
+
+/* M2: a new sole leader's row warms to gold once, after the rows land. */
+function useNewLeader(leader) {
+  const change = useFreshChange(leader, "leader");
+  const [shown, setShown] = useState(null);
+  useLayoutEffect(() => {
+    if (!change.animate || !change.to || change.to === change.from) return undefined;
+    setShown({ player:change.to, id:change.changeId });
+    const timer = setTimeout(() => setShown(current => current?.id === change.changeId ? null : current),
+      BOARD_BEATS.settle + 400);
+    return () => clearTimeout(timer);
+  }, [change.changeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  return shown;
+}
+
 /* Home and the full standings sheet share player rows. The surrounding screen
    owns event/champion content and decides whether commissioner actions exist. */
 export function Leaderboard({ state, standings = computeStandings(state), me, deltas, allTied,
   onPlayer, onAdjust, StatPills, myAtRisk = 0, starting = false, scoreLabel, ariaLabel }) {
   const tied = allTied ?? standings.every(row => row.pts === standings[0]?.pts);
   const adjustment = !!onAdjust;
+  const scale = barScale(standings);
+  /* your exposure is drawn only while the economy moves */
+  const economy = !starting && !!state.live && !state.frozen;
+  const myDuels = me && economy ? duelReserve(state, me) : 0;
+  const bets = economy ? myAtRisk : 0;
+  const order = standings.map(row => row.player).join("|");
+  const refFor = useRowSlide(order, starting ? "starting" : "board");
+  const leader = useNewLeader(soleLeader(standings, starting || tied));
   return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}`}>
     <div className="fd-standings-column-head" aria-hidden="true"><span>POS.</span><span>PLAYER</span>
       <span>{scoreLabel || (starting ? "STARTING CHIPS" : "CHIPS")}</span></div>
     <ol className="fd-standings-list" aria-label={ariaLabel || (starting ? "Starting chips" : "Tournament standings")}>
-      {standings.map(row => {
-        const isMe = row.player === me;
-        const leading = !starting && row.rank === 1 && !tied;
-        const out = state.poker?.startedAt && !state.results?.[state.poker.id]
-          && state.poker.outs?.some(item => item.player === row.player);
-        const delta = !starting && !tied && deltas?.[row.player];
-        const chipDescription = starting || scoreLabel === "STARTING CHIPS" ? "starting chips" : "chips";
-        return <li key={row.player} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}`}>
-          <button type="button" onClick={() => onPlayer(row.player)} className="fd-standings-row"
-            aria-label={`View ${disp(state, row.player)}'s player card, ${fmt(row.pts)} ${chipDescription}`}>
-            <span className="fd-standing-position" aria-label={starting ? "Not started" : tied ? "Tied" : `Position ${row.rank}`}>
-              {starting || tied ? "·" : String(row.rank).padStart(2, "0")}</span>
-            <Avatar state={state} p={row.player} size={34} />
-            <span className="fd-standing-player"><span className="fd-standing-name">{disp(state, row.player)}</span>
-              {(isMe || out) && <span className="fd-standing-flags">
-                {isMe && <span className="fd-standing-you">YOU</span>}
-                {out && <span className="fd-standing-out">OUT</span>}
-              </span>}
-            </span>
-            <span className="fd-standing-score"><strong key={row.pts}>{fmt(row.pts)}</strong>
-              {!!delta && <span className={`fd-standing-delta${delta < 0 ? " is-down" : ""}`}
-                aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} positions`}>
-                <span aria-hidden="true">{delta > 0 ? "↑" : "↓"}</span>{Math.abs(delta)}
-              </span>}
-            </span>
-            {!starting && StatPills && <span className="fd-standing-stats"><StatPills row={row} atRisk={isMe ? myAtRisk : 0} /></span>}
-          </button>
-          {adjustment && <button type="button" className="fd-standing-adjust" onClick={() => onAdjust(row.player)}
-            aria-label={`Adjust chips for ${disp(state, row.player)}`}>Adjust</button>}
-        </li>;
-      })}
+      {standings.map((row, index) => <BoardRow key={row.player} rowRef={refFor(row.player)} state={state} row={row}
+        index={index} me={me} starting={starting} tied={tied} deltas={deltas} adjustment={adjustment}
+        scoreLabel={scoreLabel} scale={scale} onPlayer={onPlayer} onAdjust={onAdjust} StatPills={StatPills}
+        myAtRisk={bets} myDuels={myDuels} newLeader={leader?.player === row.player ? leader.id : null}
+        out={!!(state.poker?.startedAt && !state.results?.[state.poker.id]
+          && state.poker.outs?.some(item => item.player === row.player))} />)}
     </ol>
   </div>;
 }

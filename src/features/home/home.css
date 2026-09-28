@@ -4,25 +4,47 @@
 .fd-home-heading h1 { margin:5px 0 0; font:700 42px/.95 var(--fd-display); letter-spacing:-.01em; text-transform:uppercase; }
 .fd-home-text-link { display:inline-flex; align-items:center; justify-content:space-between; gap:9px; min-height:44px; padding:6px 0; border:0; background:none; color:var(--ink); font-size:12px; cursor:pointer; }
 .fd-home-arrow { flex-shrink:0; font:400 18px/1 var(--fd-body); }
-.fd-home-focus { border:1px solid var(--line); background:var(--paper); border-radius:12px; overflow:hidden; }
-.fd-home-focus-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; min-height:44px; padding:0 17px; border-bottom:1px solid var(--line); }
-.fd-home-focus-top>span:last-child { color:var(--muted); font-size:10px; }
-.fd-home-focus-top .fd-home-eyebrow { display:flex; align-items:center; gap:7px; color:var(--sun); }
+/* X1: the current contest as one compact card above the table */
+.fd-home-focus { position:relative; border:1px solid var(--line); background:var(--paper); border-radius:14px; overflow:hidden; }
+.fd-home-focus-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:4px 14px 0 12px; }
+.fd-home-focus-top .fd-home-text-link { flex-shrink:0; color:var(--muted2); font-weight:600; }
+.fd-home-eyebrow { display:flex; align-items:center; gap:6px; }
+.fd-home-focus-top .fd-home-eyebrow { color:var(--sun); font-weight:700; }
 .fd-home-eyebrow i { width:6px; height:6px; border-radius:50%; background:var(--sun); }
-.fd-home-event-title { display:flex; align-items:center; gap:12px; width:100%; min-height:72px; border:0; padding:14px 16px; background:none; color:var(--ink); text-align:left; cursor:pointer; }
-.fd-home-event-title>span:first-child { flex:1; min-width:0; }
-.fd-home-event-title h2 { font:700 clamp(32px,8.5vw,42px)/1.02 var(--fd-display); text-transform:uppercase; margin:0 0 6px; overflow-wrap:anywhere; }
+.fd-home-event-title { display:flex; align-items:center; gap:11px; flex:1; min-width:0; min-height:64px; border:0; padding:8px 0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-event-text { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+.fd-home-event-title h2 { font:700 clamp(24px,7vw,28px)/1 var(--fd-display); text-transform:uppercase; letter-spacing:.01em; margin:0; overflow-wrap:anywhere; }
 .fd-home-event-title small { font-size:11px; color:var(--muted2); }
-.fd-home-event-mark { flex-shrink:0; width:68px; height:68px; display:grid; place-items:center; transform:rotate(-7deg); }
-.fd-home-event-mark svg { width:64px; height:64px; }
-.fd-home-event-description { margin:0; padding:0 17px 4px; color:var(--muted2); font-size:12px; line-height:1.65; }
-.fd-home-contest-label { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--ink); font:600 18px/1.2 var(--fd-display); }
-.fd-home-contest-label span { color:var(--accent2); font:500 10px/1.3 var(--fd-body); }
-.fd-home-event-actions { display:flex; gap:9px; padding:12px 16px 16px; }
-.fd-home-primary,.fd-home-secondary { min-height:46px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; border:1px solid transparent; border-radius:7px; padding:12px 14px; font-size:12px; font-weight:600; text-align:left; cursor:pointer; }
+.fd-home-event-mark { flex-shrink:0; width:44px; height:44px; display:grid; place-items:center; border:1px solid var(--line); border-radius:10px; background:var(--paper2); }
+.fd-home-event-mark svg { width:36px; height:36px; }
+.fd-home-event-description { margin:0; padding:0 14px 4px; color:var(--muted2); font-size:12px; line-height:1.6; }
+.fd-home-contest-label { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--muted2); font:600 12px/1.3 var(--fd-body); }
+.fd-home-contest-label span { color:var(--sun); font:700 10px/1.3 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; }
+/* each side is one row: its players (each opens their card), what is bet
+   on it, and under them what its win does to the standings */
+.fd-home-sides { display:grid; gap:4px; }
+.fd-home-sides .fd-home-side { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:8px;
+  min-width:0; padding:0 10px; border:1px solid var(--line); border-radius:10px; }
+.fd-home-sides .fd-home-side.is-mine { border-color:var(--sun); }
+.fd-home-sides .fd-home-player-links { gap:0 14px; min-width:0; }
+.fd-home-sides .fd-home-player-links button { font-weight:600; }
+.fd-home-side-win { grid-column:1/-1; margin:-6px 0 7px; }
+.fd-home-sides .fd-home-versus { justify-self:center; margin:-2px 0; color:var(--accent2); font:italic 700 13px/1 var(--fd-display); }
+.fd-home-pot { flex-shrink:0; color:var(--muted2); font-size:10px; white-space:nowrap; }
+.fd-home-pot strong { color:var(--sun); font:700 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-home-own-win { padding:8px 14px 0; }
+/* M10: your match is up. One gold sweep over the card, the label stamps in */
+.fd-home-sweep { position:absolute; left:0; right:0; top:0; z-index:1; height:2px; background:var(--sun);
+  transform-origin:left center; opacity:0; pointer-events:none;
+  animation:fd-home-sweep 900ms var(--ease-out) both; }
+@keyframes fd-home-sweep { 0% { opacity:1; transform:scaleX(0); } 55% { opacity:1; transform:scaleX(1); } 100% { opacity:0; transform:scaleX(1); } }
+.fd-home-contest-label span.is-stamping { display:inline-block; animation:fd-home-stamp var(--motion-stamp) var(--ease-land) 380ms both; }
+@keyframes fd-home-stamp { from { opacity:0; transform:scale(1.7); } to { opacity:1; transform:none; } }
+.fd-home-event-actions { display:flex; gap:8px; padding:10px 14px 14px; }
+.fd-home-primary,.fd-home-secondary { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; border:1px solid transparent; border-radius:7px; padding:12px 14px; font-size:12px; font-weight:600; text-align:left; cursor:pointer; }
 .fd-home-primary { color:var(--action-ink); background:var(--action-fill); }
 .fd-home-secondary { color:var(--ink); background:transparent; border-color:var(--line); }
-.fd-home-assignment { display:grid; gap:6px; padding:12px 16px 0; border-top:1px solid var(--line); }
+.fd-home-assignment { display:grid; gap:6px; padding:10px 14px 0; border-top:1px solid var(--line); }
 .fd-home-assignment small,.fd-home-result small,.fd-home-betting small { display:block; font-size:10px; color:var(--muted); margin-bottom:4px; }
 .fd-home-assignment>strong { font-size:14px; }
 .fd-home-assignment p { margin:0; color:var(--muted2); font-size:12px; line-height:1.5; }
@@ -38,8 +60,9 @@
 .fd-home-player-links button>span { overflow-wrap:anywhere; }
 .fd-home-opponents { display:flex; align-items:center; gap:10px; }
 .fd-home-opponents>span:first-child { color:var(--accent2); font:600 12px/1 var(--fd-body); }
-.fd-home-exposure { display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:100%; font-size:12px; color:var(--muted2); }
-.fd-home-exposure button { background:transparent; border:0; padding:6px 0; color:var(--sun); cursor:pointer; min-height:44px; }
+.fd-home-board-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:0 14px; }
+.fd-home-exposure { display:inline-flex; align-items:center; min-height:44px; font-size:12px; color:var(--muted2); white-space:nowrap; }
+button.fd-home-exposure { background:transparent; border:0; padding:0; color:var(--sun); cursor:pointer; }
 .fd-home-betting { display:flex; width:100%; align-items:center; gap:11px; border:1px solid var(--line); border-radius:8px; padding:12px; margin:16px 0; background:var(--paper2); color:var(--ink); text-align:left; cursor:pointer; }
 .fd-home-betting>span:nth-child(2) { flex:1; min-width:0; }
 .fd-home-betting strong { display:block; font-size:12px; }
@@ -55,7 +78,7 @@
 .fd-home-next>span:nth-child(2) { flex:1; min-width:0; }
 .fd-home-next strong { display:block; font-size:13px; font-weight:500; }
 .fd-home-next small { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
-.fd-home-leaderboard { margin-top:12px; }
+.fd-home-leaderboard { margin-top:16px; }
 .fd-home-leaderboard .fd-section-heading { margin:0 0 6px; }
 .fd-home-finish { padding:22px 18px 18px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
 .fd-home-finish>.fd-home-eyebrow { color:var(--accent2); }
@@ -70,7 +93,7 @@
 .fd-home-side { display:flex; align-items:center; gap:10px; min-width:0; }
 .fd-home-side .fd-home-versus { flex-shrink:0; color:var(--accent2); font:600 12px/1 var(--fd-body); }
 .fd-home-personal small { display:block; margin-top:2px; color:var(--muted2); font-weight:400; }
-.fd-home-path { display:flex; align-items:center; justify-content:space-between; gap:10px; width:calc(100% - 32px); min-height:44px; margin:12px 16px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper2); color:var(--ink); font-size:12px; line-height:1.4; text-align:left; cursor:pointer; }
+.fd-home-path { display:flex; align-items:center; justify-content:space-between; gap:10px; width:calc(100% - 28px); min-height:44px; margin:10px 14px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper2); color:var(--ink); font-size:12px; line-height:1.4; text-align:left; cursor:pointer; }
 .fd-home-path>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .fd-home-path-link { display:flex; flex-shrink:0; align-items:center; gap:6px; color:var(--sun); white-space:nowrap; }
 .fd-home-path-link .fd-home-arrow { font-size:14px; }
@@ -89,13 +112,10 @@
 .fd-home-finish .fd-home-own-finish { display:inline-block; margin:14px 0 0; padding:7px 12px; border-radius:99px; background:var(--finish-color); color:var(--finish-ink); font:600 14px/1.2 var(--fd-body); }
 @media(hover:hover) {
   .fd-home-event-title:hover h2,.fd-home-text-link:hover,.fd-home-player-links button:hover>span { text-decoration:underline; text-underline-offset:4px; }
-  .fd-home-event-title:hover .fd-home-event-mark { transform:rotate(0); }
 }
 @media(max-width:350px) {
   .fd-home { padding-left:15px; padding-right:15px; }
   .fd-home-heading h1 { font-size:37px; }
-  .fd-home-event-mark { width:66px; height:66px; }
-  .fd-home-event-mark svg { width:62px; height:62px; }
   .fd-home-event-actions { gap:7px; }
   .fd-home-primary,.fd-home-secondary { padding:11px; font-size:11px; }
 }

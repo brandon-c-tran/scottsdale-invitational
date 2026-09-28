@@ -11,6 +11,8 @@ import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
 import { BetStacks, ChipStack } from "./BetStacks.jsx";
 import { orderStacks, stacksTotal, settledStacks } from "./betStacks.js";
+import { contestWinLines, winLineFor } from "../standings/winImpact.js";
+import { WinLine } from "../standings/WinLine.jsx";
 import "./wagers.css";
 
 /* a phone stack's chip, px across: a 44px target still carries it */
@@ -64,7 +66,7 @@ export const isUncertainResult = result => result?.ok !== true && (result?.uncer
   || result?.status === "uncertain" || /no response/i.test(String(result?.error || "")));
 
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
-  roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason }) {
+  roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
@@ -161,6 +163,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         </button>)}</span>
       </>}
     </div>
+    <WinLine line={winLine} className="fd-wagers-win" />
     {/* the felt: the well places a chip, your stack (sun ring) takes the
         last one back, anyone else's stack opens their card; the side's
         total sits at its head */}
@@ -383,6 +386,9 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     : null;
   /* one side per contest: chips already down fix which side the rest can join */
   const heldSide = me && contest ? contestSideOf(state, contest, me, events) : null;
+  /* X8: what each side's win does to the standings */
+  const winLines = useMemo(() => contest && ev ? contestWinLines(state, ev, contest, { events }) : [],
+    [state, ev?.id, contest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const picks = (contest?.sides || []).map(side => {
     const own = side.players.includes(me);
     const drawnTeam = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
@@ -392,7 +398,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     const otherSide = eligible && heldSide !== null && heldSide !== side.key;
     return { key:side.key, state, me, players:side.players, name, marketOpen,
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
-      onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)),
+      onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)), winLine:winLineFor(winLines, side.key),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
       unavailableReason:restricted && !eligible ? restriction
         : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,

@@ -25,6 +25,7 @@ import {
   ChampionMoment, TVBracket, StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
   TrophyCard,
 } from "./TVCards.jsx";
+import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { DesertBand } from "./DesertBand.jsx";
 import { constellationStars, isDaySky, isNightSky } from "./desertModel.js";
 import { weekendPhase } from "../../ui/phase.js";
@@ -287,6 +288,8 @@ export function compactStackSize(lines, budget) {
 }
 function ContestBoard({ state, events, ev, contest }) {
   const stacks = contestStacks(state, events, contest);
+  /* X8: a wide field's rows have no room for the line */
+  const winLines = useContestWinLines(state, ev, contest.sides.length > 4 ? null : contest, events);
   const betting = contest.phase === "betting-open";
   const n = contest.sides.length;
   const h2h = n === 2;
@@ -332,6 +335,7 @@ function ContestBoard({ state, events, ev, contest }) {
           </div>
           <div className="tv-side-name">{view.name}</div>
         </div>
+        <TVWinLine lines={winLines} sideKey={side.key} />
         <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
           {total}
           {pile || <span className="tv-felt-empty">{betting ? "No chips yet" : "No bets"}</span>}

@@ -11,8 +11,24 @@ import {
   fmt, signed, editionLabel, readableInk, phaseBand, placeName, stackRace, weekendProgress, duelBoard,
   playerWeekendStats,
 } from "./tvModel.js";
+import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 
 export { TrophyHero };
+
+/* X8 on the live scene: under each side, what its win does to the
+   standings ("Win: Sahil to 1st"). The lines come from the same pure
+   model the phones read; a side whose win changes nothing shows none. */
+export function useContestWinLines(state, ev, contest, events) {
+  return React.useMemo(() => contest && ev ? contestWinLines(state, ev, contest, { events }) : [],
+    [state, ev?.id, contest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+export function TVWinLine({ lines, sideKey }) {
+  const line = winLineFor(lines, sideKey);
+  if (!line) return null;
+  return <div className="tv-win-line" style={{ font:"600 28px/1.15 var(--fd-body)", minWidth:0,
+    color:line.kind === "rank" ? "var(--sun)" : "var(--night-text)",
+    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{line.text}</div>;
+}
 
 /* The champion, full frame, in their own identity color the way their
    player card wears it: the trophy under the night sky of the weekend's

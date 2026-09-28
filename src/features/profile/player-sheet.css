@@ -7,6 +7,9 @@
 .fd-player-sheet .fd-pass-back-title { font-size:28px; }
 .fd-player-sheet .fd-pass-edition { font-size:8px; }
 .fd-player-sheet .fd-pass-facts { font-size:10px; }
+.fd-player-sheet .fd-pass-season-title { font-size:27px; }
+.fd-player-sheet .fd-pass-season-ghost { font-size:36px; }
+.fd-player-sheet>.fd-player-rematch { width:100%; margin:-4px 0 16px; }
 .fd-player-sheet h2 { margin:0; color:var(--ink); font:700 20px/1.1 var(--fd-display); text-transform:uppercase; }
 .fd-player-stats { display:grid; grid-template-columns:1fr 1.4fr 1fr; margin:0 0 12px;
   padding:12px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }

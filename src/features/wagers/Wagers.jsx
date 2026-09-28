@@ -5,6 +5,7 @@ import {
 } from "../../../shared/core.js";
 import { DISPLAY, SANS } from "../../ui/theme.js";
 import { ActionButton } from "../../ui/controls.jsx";
+import { haptic } from "../../lib/haptics.js";
 import { PageHeading } from "../../ui/layout.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
@@ -111,7 +112,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
           setChecking({ kind, before, state:live.current.state, settled });
           if (settled) result.settled.then(outcome => outcome, () => ({ ok:false })).then(outcome => {
             if (!alive.current) return;
-            if (outcome?.ok !== true && !landed(kind, before, live.current.mineTotal))
+            if (outcome?.ok === true) haptic(kind === "place" ? "place" : "retract");
+            else if (!landed(kind, before, live.current.mineTotal))
               setActionError(kind === "place" ? "Not placed" : "Not removed");
             pendingRef.current = false;
             setChecking(null);
@@ -120,6 +122,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         return result;
       }
       if (result?.ok === false) setActionError(result.error || "Bet not saved.");
+      else if (result?.ok === true) haptic(kind === "place" ? "place" : "retract");
       return result;
     };
     const fail = error => {

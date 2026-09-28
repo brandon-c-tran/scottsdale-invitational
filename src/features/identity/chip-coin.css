@@ -1,0 +1,34 @@
+/* Your Chip, Turned. Flat tones only: the rim is one darker band of the
+   chip's own color, the skin inserts are one ink. No gradient, no sheen. */
+.fd-coin { position:relative; display:block; flex-shrink:0; touch-action:pan-y;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; cursor:grab; }
+.fd-coin.is-static { cursor:inherit; touch-action:auto; }
+.fd-coin:active { cursor:grabbing; }
+.fd-coin-drop, .fd-coin-spin { position:absolute; inset:0; display:block; transform-style:preserve-3d; }
+.fd-coin-spin { transform:rotateY(0deg); }
+.fd-coin-face { position:absolute; inset:0; display:block;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.fd-coin-face.is-front { transform:translateZ(calc(var(--coin-h) / 2)); }
+.fd-coin-face.is-back { transform:rotateY(180deg) translateZ(calc(var(--coin-h) / 2)); }
+/* one rim facet: a flat strip the chip's thickness deep, stood on the
+   chip's outline at its own angle */
+.fd-coin-facet { position:absolute; display:block; width:var(--coin-chord); height:var(--coin-h);
+  left:calc(50% - var(--coin-chord) / 2); top:calc(50% - var(--coin-h) / 2);
+  transform:rotateZ(calc(var(--i) * var(--coin-step))) translateY(calc(var(--coin-apothem) * -1)) rotateX(90deg);
+  background:color-mix(in srgb, var(--coin-color) 68%, var(--ink0));
+  backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.fd-coin-facet.is-ink { background:color-mix(in srgb, var(--bone) 82%, var(--coin-color)); }
+.fd-coin.is-light .fd-coin-facet.is-ink { background:var(--ink0); }
+
+/* Minted: drops in, turns twice, lands with one small hop. */
+@keyframes fd-coin-mint {
+  0% { transform:translateY(-70%) rotateY(0deg); opacity:0; }
+  12% { opacity:1; }
+  68% { transform:translateY(0) rotateY(720deg); }
+  80% { transform:translateY(-7%) rotateY(720deg); }
+  100% { transform:translateY(0) rotateY(720deg); opacity:1; }
+}
+.fd-coin-drop.is-minting { animation:fd-coin-mint 1000ms cubic-bezier(.3,.7,.35,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .fd-coin-drop.is-minting { animation:none; }
+}

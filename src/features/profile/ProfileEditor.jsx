@@ -1,8 +1,9 @@
-import React, { useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { CHIP_COLORS, CHIP_SKINS, disp } from "../../../shared/core.js";
 import { DISPLAY, SANS, label } from "../../ui/theme.js";
 import PhotoCropper from "../../PhotoCropper.jsx";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { ChipCoin } from "../identity/ChipCoin.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { SizeRow } from "../travel/Travel.jsx";
 import { PlayerPass } from "./PlayerPass.jsx";
@@ -33,8 +34,8 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   return (
     <div className="fd-profile-editor">
       {me && (state.live ? <details className="fd-profile-preview"><summary>Player card preview</summary>
-        <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact />
-      </details> : <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact />)}
+        <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact mint />
+      </details> : <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact mint />)}
       <div className="fd-profile-controls">
         <div aria-hidden="true" className="fd-profile-color-rail"
           style={{ background:me ? identity.color : "var(--accent)" }} />
@@ -102,8 +103,15 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
   const patterns = <PatternPicker me={me} skin={skin} locked={locked} stamp={stamp}
     onPick={sk => lateClaim ? setDraftSkin(sk) : onChip(undefined, sk)} />;
+  /* a late claim that just landed mints the chip it locked in */
+  const wasLate = useRef(lateClaim);
+  const [justClaimed, setJustClaimed] = useState(false);
+  useEffect(() => {
+    if (wasLate.current && locked) setJustClaimed(true);
+    wasLate.current = lateClaim;
+  }, [lateClaim, locked]);
   if (locked) return <div className="fd-profile-chip-locked">
-    <ChipFace p={me} size={48} stamp={stamp} />
+    <ChipCoin key={justClaimed ? "minted" : "locked"} p={me} size={48} stamp={stamp} mintOnMount={justClaimed} />
     <div><strong>{CHIP_SKIN_META[skin] || "Classic"} pattern</strong><p>Chips are locked for the weekend.</p></div>
   </div>;
   return (

@@ -2,10 +2,21 @@
   --pass-color:var(--paper); --pass-ink:var(--ink);
   width:100%; max-width:360px; margin:0 auto 24px;
 }
-.fd-pass { display:block; width:100%; aspect-ratio:4 / 5; padding:0; border:0;
+.fd-pass { position:relative; display:block; width:100%; aspect-ratio:4 / 5; padding:0; border:0;
   background:transparent; perspective:1200px; text-align:left; cursor:pointer;
-  font-family:'Inter',sans-serif; border-radius:6px; }
+  font-family:'Inter',sans-serif; border-radius:6px;
+  /* vertical drags still scroll the sheet; sideways drags tilt the card */
+  touch-action:pan-y; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
 .fd-pass:focus-visible { outline:3px solid var(--sun); outline-offset:6px; }
+/* Riso tilt. --tx/--ty are unit values written per frame by useRisoTilt;
+   every layer below turns them into a transform, so a frame never lays out. */
+.fd-pass-shadow { position:absolute; inset:0; display:block; border-radius:14px; box-shadow:var(--shadow-2);
+  transform:translate(calc(var(--tx,0) * -6px), calc(var(--ty,0) * -4px)); }
+.fd-pass-tilt { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d;
+  transform:rotateX(calc(var(--ty,0) * -7deg)) rotateY(calc(var(--tx,0) * 9deg)); }
+.fd-pass.is-tilting :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-photo,.fd-pass-chip) { will-change:transform; }
+.fd-pass.is-releasing :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-photo,.fd-pass-chip) {
+  transition:transform var(--tilt-release,520ms) cubic-bezier(.2,.8,.2,1.12), opacity var(--tilt-release,520ms) ease-out; }
 .fd-pass-inner { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d; }
 .fd-pass-inner.is-flipped { transform:rotateY(180deg); }
 .fd-pass-face { display:flex; flex-direction:column; position:absolute; inset:0; overflow:hidden;
@@ -18,13 +29,20 @@
   font-weight:700; font-size:16px; letter-spacing:-.035em; }
 .fd-pass-art { position:relative; flex:1; min-height:0; display:block; overflow:hidden; }
 .fd-pass-number { position:absolute; left:-5px; top:9%; font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:clamp(120px,36vw,196px); line-height:.9; letter-spacing:-8px; opacity:.23; }
+  font-weight:700; font-size:clamp(120px,36vw,196px); line-height:.9; letter-spacing:-8px; opacity:.23;
+  transform:translate(calc(var(--tx,0) * -8px), calc(var(--ty,0) * -8px)); }
+/* the second ink plate: the same number slipping out of register */
+.fd-pass-number.fd-pass-plate { opacity:calc(var(--tm,0) * .12);
+  transform:translate(calc(var(--tx,0) * -11px), calc(var(--ty,0) * -11px)); }
 .fd-pass-orbit { position:absolute; width:96%; height:44%; top:32%; left:0; border:1px solid var(--pass-ink);
-  border-radius:50%; transform:rotate(-34deg); opacity:.45; }
+  border-radius:50%; transform:translate(calc(var(--tx,0) * -3px), calc(var(--ty,0) * -3px)) rotate(-34deg); opacity:.45; }
 .fd-pass-photo { position:absolute; top:19%; right:9%; width:54%; aspect-ratio:1;
-  border-radius:50%; object-fit:cover; border:5px solid var(--pass-ink); transform:rotate(5deg); }
-.fd-pass-chip { position:absolute; right:5%; top:25%; display:block; transform:rotate(12deg); }
-.fd-pass-chip.with-photo { top:auto; bottom:12%; right:0; transform:rotate(-9deg); }
+  border-radius:50%; object-fit:cover; border:5px solid var(--pass-ink);
+  transform:translate(calc(var(--tx,0) * 5px), calc(var(--ty,0) * 5px)) rotate(5deg); }
+.fd-pass-chip { position:absolute; right:5%; top:25%; display:block;
+  transform:translate(calc(var(--tx,0) * 9px), calc(var(--ty,0) * 9px)) rotate(12deg); }
+.fd-pass-chip.with-photo { top:auto; bottom:12%; right:0;
+  transform:translate(calc(var(--tx,0) * 9px), calc(var(--ty,0) * 9px)) rotate(-9deg); }
 .fd-pass-edition { position:absolute; bottom:12%; left:2%; font-size:9px; letter-spacing:.12em; line-height:1.6; }
 .fd-pass-front { container-type:inline-size; }
 .fd-pass-name { display:block; font-family:'Barlow Condensed',sans-serif; font-size:clamp(40px,12vw,58px);
@@ -53,6 +71,19 @@
 .fd-profile-chip-locked { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
 .fd-profile-chip-locked strong { font:600 13px/1.4 var(--fd-body); }
 .fd-profile-chip-locked p { margin:3px 0 0; color:var(--muted2); font:12px/1.4 var(--fd-body); }
+.fd-profile-vibration { display:flex; align-items:center; justify-content:space-between; gap:12px;
+  min-height:54px; padding:5px 0; border-top:1px solid var(--line); color:var(--ink);
+  font:500 13px/1.4 'Inter',sans-serif; }
+.fd-switch { position:relative; flex-shrink:0; width:52px; min-height:44px; padding:0; border:0;
+  background:transparent; cursor:pointer; }
+.fd-switch>span { position:absolute; left:4px; right:4px; top:50%; height:26px; margin-top:-13px;
+  border-radius:99px; background:var(--paper2); border:1px solid var(--line); }
+.fd-switch>span::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px;
+  border-radius:50%; background:var(--muted); }
+.fd-switch[aria-checked=true]>span { background:var(--sun); border-color:var(--sun); }
+.fd-switch[aria-checked=true]>span::after { left:auto; right:3px; background:var(--ink0); }
+.fd-switch:focus-visible { outline:2px solid var(--sun); outline-offset:2px; border-radius:99px; }
+.fd-switch:disabled { cursor:default; opacity:.5; }
 .fd-profile-photo-button { display:flex; align-items:center; gap:10px; width:100%;
   min-height:54px; padding:12px 0; background:transparent; border:0;
   border-bottom:1px solid var(--line); color:var(--ink); cursor:pointer;
@@ -83,5 +114,13 @@
 }
 @media(prefers-reduced-motion:no-preference) {
   .fd-pass-inner { transition:transform .65s cubic-bezier(.2,.75,.2,1); }
-  .fd-pass:hover .fd-pass-inner:not(.is-flipped) { transform:rotate(-1.5deg); }
+}
+/* Reduced motion: a still card, and the flip is a short fade between faces. */
+@media(prefers-reduced-motion:reduce) {
+  .fd-pass-tilt,.fd-pass-shadow { transform:none; }
+  .fd-pass-number.fd-pass-plate { display:none; }
+  .fd-pass-inner.is-flipped,.fd-pass-back { transform:none; }
+  .fd-pass-front,.fd-pass-back { transition:opacity .12s linear; }
+  .fd-pass-back,.fd-pass-inner.is-flipped .fd-pass-front { opacity:0; }
+  .fd-pass-inner.is-flipped .fd-pass-back { opacity:1; }
 }

@@ -52,7 +52,62 @@ export function guestLedger(state, me, events, standings = computeStandings(stat
   }
   const tied = standings.every(item => item.pts === standings[0]?.pts);
   return { me, pts:row.pts, rank:row.rank, awards, places, results, wagers, rulings, duels,
+    contests:playedContests(state, me),
     leaders:tied ? [] : standings.filter(item => item.rank === 1).map(item => item.player) };
+}
+
+/* Every decided contest this player played in: posted event results, decided
+   bracket matchups, and heats or pools with a winner. Keys only. */
+const bracketSide = (br, slot) => {
+  if (!slot) return null;
+  if (slot.t !== undefined) return slot.t;
+  const source = br.rounds?.[slot.w?.[0]]?.[slot.w?.[1]];
+  return source?.winner ?? null;
+};
+export function playedContests(state, me) {
+  const keys = [];
+  if (!me) return keys;
+  for (const [evId, result] of Object.entries(state.results || {}))
+    if ((result?.slots || []).some(slot => (slot || []).includes(me))) keys.push(`result:${evId}`);
+  for (const [evId, br] of Object.entries(state.brackets || {})) {
+    const team = (state.draws?.[evId]?.teams || []).findIndex(item => item.players?.includes(me));
+    if (team < 0) continue;
+    (br?.rounds || []).forEach((round, r) => (round || []).forEach((match, m) => {
+      if (match?.winner === null || match?.winner === undefined) return;
+      if (bracketSide(br, match.a) === team || bracketSide(br, match.b) === team) keys.push(`match:${evId}:${r}:${m}`);
+    }));
+  }
+  for (const [evId, stages] of Object.entries(state.stages || {})) {
+    const mine = stages?.entrantType === "team"
+      ? (state.draws?.[evId]?.teams || []).findIndex(item => item.players?.includes(me)) : me;
+    (stages?.groups || []).forEach((group, index) => {
+      if (group?.winner === null || group?.winner === undefined) return;
+      if ((group.entrants || []).includes(mine)) keys.push(`group:${evId}:${index}`);
+    });
+  }
+  return keys;
+}
+
+/* One vibration per broadcast, at most: taking the lead outranks a contest
+   settling for you. A correction is never felt. */
+export function updateHaptic(prev, next, { state, skipDuel = null } = {}) {
+  if (!prev || !next || prev.me !== next.me || !state) return null;
+  const changed = [...new Set([...Object.keys(prev.results || {}), ...Object.keys(next.results || {})])]
+    .filter(evId => prev.results?.[evId] !== next.results?.[evId]);
+  if (changed.some(evId => prev.results?.[evId] !== undefined
+    || (state.eventOps?.[evId]?.corrections || []).length)) return null;
+  const me = next.me;
+  const before = prev.leaders || [], after = next.leaders || [];
+  if (!state.frozen && after.includes(me) && (!before.includes(me) || after.length < before.length)) return "lead";
+  const decided = new Set(prev.contests || []);
+  if ((next.contests || []).some(key => !decided.has(key))) return "settle";
+  for (const [id, now] of Object.entries(next.wagers || {})) {
+    const was = prev.wagers?.[id];
+    if (was?.status === "pending" && (now.status === "won" || now.status === "lost")) return "settle";
+  }
+  for (const id of Object.keys(next.duels || {}))
+    if (!prev.duels?.[id] && id !== skipDuel) return "settle";
+  return null;
 }
 
 /* A result is fresh when it appears for the first time with no correction

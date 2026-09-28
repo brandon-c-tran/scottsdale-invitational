@@ -501,7 +501,7 @@ The September 27 second pass (the re-audit's bugs and improvements, a strict
 copy pass, and the delight features: tilt card, chip coin, Android haptics,
 Chip Towers, Desert Clock, trophy plates) supersedes the September 26 fix
 pass: 409 tests and the 139-check local e2e pass, deployed to staging as
-version `5ff64831-f027-4b90-9262-d105a8d9dca3` (build `e19ed35`). The previous
+version `4f6789d5-2703-48cb-b790-9f75d3beaee3` (build `33a6736`, with visual bet and poker stacks). The previous
 staging baseline is tag `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for

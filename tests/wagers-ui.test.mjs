@@ -108,7 +108,7 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   draw.teams = draw.teams.slice(0, 2);
   /* two teams are a matchup: an observer may back either side at even money */
   const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
-  assert.match(teams.html, /Winner pays even/);
+  assert.match(teams.html, /Winner pays 1:1/);
   teams.click(`Place a chip on ${teamLabel(teamState, team)}`);
   assert.deepEqual(teams.picks, [{ kind:"outright", eventId:event.id, pickTeam:true,
     pickPlayers:team.players, drawId:draw.id, evName:event.name, stake:100, ...refs(teamState, event) }]);

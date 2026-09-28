@@ -6,7 +6,7 @@ import "./player-pass.css";
 
 // Small card labels need more contrast than the chip's large center stamp.
 // Pick the stronger ink against the actual claimed color, including midtones.
-function cardInk(color) {
+export function cardInk(color) {
   const luminanceOf = hex => {
     const channels = hex.slice(1).match(/.{2}/g).map(value => parseInt(value,16) / 255)
       .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);

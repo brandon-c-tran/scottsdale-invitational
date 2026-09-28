@@ -1,14 +1,16 @@
-import React from "react";
-import { EDITION, SESSIONS, AWARDS, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
+import React, { useRef, useState } from "react";
+import { SESSIONS, AWARDS, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { cardInk } from "../profile/PlayerPass.jsx";
 import { SectionHeading } from "../../ui/layout.jsx";
 import { Leaderboard } from "../standings/Standings.jsx";
-import { deriveHomeModel } from "./homeModel.js";
+import { bracketPath, deriveHomeModel } from "./homeModel.js";
 import { DraftEntry } from "../draft/DraftSheet.jsx";
-import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
+const ord = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 const sessionOf = event => SESSIONS.find(session => session.id === event?.session)?.label;
 const Arrow = () => <span className="fd-home-arrow" aria-hidden="true">↗</span>;
 
@@ -52,15 +54,14 @@ const names = (state, players) => players.map(player => disp(state, player)).joi
 
 /* One line of personal state under the room's matchup: where you stand in
    this event even when the contest on screen is someone else's. */
-export function personalLine({ current, state, model }) {
+export function personalLine({ current, state }) {
   const a = current?.assignment;
   if (!a) return null;
   if (a.kind === "crew") return `Your role · ${a.label}`;
   if (a.kind !== "team" && a.kind !== "solo") return null;
   const partner = a.partners?.length ? ` · with ${names(state, a.partners)}` : "";
-  const bettingOpen = !!model?.betting?.open && model.betting.event.id === current.event.id;
   const round = a.match?.roundName?.replace(/s$/, "");
-  if (a.status === "out") return `You’re out${bettingOpen ? " · betting open" : ""}`;
+  if (a.status === "out") return "You’re out";
   if (a.status === "won") return `You won${partner}`;
   if (a.status === "through") return `You’re through to the final${partner}`;
   if (a.status === "final") return `You’re in the final${partner}`;
@@ -83,9 +84,16 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
   const betHere = model.betting?.open && model.betting.event.id === event.id;
   const bettingLabel = model.betting?.canPlace ? "Place chips" : "View bets";
   const running = ["in-progress", "result-entry"].includes(current.lifecycle.phase);
-  /* in the contest on screen, "You're playing" already says it */
-  const mine = !before && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
-    && !current.contest.players?.includes(me) ? personalLine({ current, state, model }) : null;
+  const away = !!(me && state.away?.[me]);
+  /* a bracket game reads as one line: your path, or the next match */
+  const path = !before && onBracket ? bracketPath(state, event, me) : null;
+  const a = current.assignment;
+  const role = a?.kind === "crew" && a.role ? overflowRoleMeta(a.role).detail : null;
+  /* in the contest on screen, "You're playing" already says it; a bracket
+     path already says what is next */
+  const mine = !before && !away && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
+    && !current.contest.players?.includes(me) && !(path?.mine && a?.match)
+    ? personalLine({ current, state, model }) : null;
   return <section className={`fd-home-focus${running ? " is-running" : ""}`} aria-label={`${event.name}: ${current.status}`}>
     <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{running && <i aria-hidden="true" />}{current.status}</span>
       {before ? <span>{sessionOf(event)}</span> : rules && <button type="button" className="fd-home-text-link"
@@ -98,15 +106,17 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
     {!before && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
       ? <div className="fd-home-assignment"><div className="fd-home-contest-label">{current.contest.label}
           {current.contest.players?.includes(me) && <span>You’re playing</span>}</div>
-          {current.contest.sides.map((side,index) => <React.Fragment key={String(side.key)}>
+          {current.contest.sides.map((side,index) => <div className="fd-home-side" key={String(side.key)}>
             {index > 0 && current.contest.kind === "match" && <span className="fd-home-versus">vs</span>}
-            <People state={state} players={side.players} onPlayer={onPlayer} /></React.Fragment>)}
-          {mine && <p className="fd-home-personal">{mine}</p>}
+            <People state={state} players={side.players} onPlayer={onPlayer} /></div>)}
+          {away ? <p className="fd-home-personal">Sitting out this one</p>
+            : mine && <p className="fd-home-personal">{mine}{role && <small>{role}</small>}</p>}
         </div>
-      : !before && <Assignment current={current} state={state} onPlayer={onPlayer} />}
-    {/* a bracket game shows its whole bracket while it is being played */}
-    {!before && onBracket && !state.results?.[event.id]
-      && <BracketPeek state={state} ev={event} me={me} onOpen={onBracket} />}
+      : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">Sitting out this one</p></div>
+        : <Assignment current={current} state={state} onPlayer={onPlayer} />)}
+    {path && <button type="button" className="fd-home-path" onClick={() => onBracket(event)}
+      aria-label={`${path.text}. Open the full ${event.name} bracket`}>
+      <span>{path.text}</span><span className="fd-home-path-link">Full bracket <Arrow /></span></button>}
     <div className="fd-home-event-actions">
       {betHere && <button type="button" className="fd-home-primary" onClick={onBets}>{bettingLabel}<Arrow /></button>}
       <button type="button" className={betHere ? "fd-home-secondary" : "fd-home-primary"} onClick={() => before && rules ? onRules(event) : onOpen(event)}>
@@ -115,19 +125,55 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
   </section>;
 }
 
-export function GuestHome({ state, me, events, standings, onProfile, onPlayer, onEvents, onGuide,
-  onHouse, onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
-  since, onSince, onSinceDismiss }) {
+/* Your own place under the champion, in your identity color. */
+function OwnFinish({ row, me }) {
+  const identity = usePlayerIdentity(me);
+  return <p className="fd-home-own-finish" style={{ "--finish-color":identity.color, "--finish-ink":cardInk(identity.color) }}>
+    You finished {ord(row.rank)} · {fmt(row.pts)}</p>;
+}
+
+/* Before the weekend: the one travel answer still missing, asked outright.
+   Not yet saves through the same profile write and pending guard. */
+function FlightsQuestion({ onYes, onNotYet }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const busy = useRef(false);
+  const notYet = async () => {
+    if (busy.current) return;
+    busy.current = true; setPending(true); setError("");
+    try {
+      const result = await onNotYet();
+      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+    } catch { setError("Not saved. Try again."); }
+    finally { busy.current = false; setPending(false); }
+  };
+  return <section className="fd-home-flights" aria-label="Flights" aria-busy={pending}>
+    <span>Booked your flights?</span>
+    <button type="button" disabled={pending} onClick={onYes}>Yes</button>
+    <button type="button" disabled={pending} onClick={notYet}>{pending ? "Saving…" : "Not yet"}</button>
+    {error && <p role="alert">{error}</p>}
+  </section>;
+}
+
+export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
+  onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
+  since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
+  const ownRow = (standings || []).find(row => row.player === me);
   const latest = events.filter(event => state.results?.[event.id]?.slots?.[0]?.length && !state.shelved?.[event.id])
     .sort((a, b) => (state.results[b.id].ts || 0) - (state.results[a.id].ts || 0))[0];
   const bettingElsewhere = model.betting?.open && model.betting.event.id !== model.current?.event.id;
+  const sinceText = typeof since === "string" ? since : since?.text;
+  const sinceRoute = typeof since === "string" ? { type:"settled" } : since?.route;
+  const profile = me ? state.profiles?.[me] || {} : null;
+  const askFlights = before && !!profile && !!onFlightsNotYet && !flightsAnswered && profile.flightsBooked !== true
+    && !profile.flightIn && !profile.flightOut;
 
   return <div className={`fd-home is-${model.mode}`}>
-    <div className="fd-home-heading"><div><span className="fd-home-eyebrow">{EDITION.short}</span>
-      <h1>{complete ? "Final standings" : finale ? "The finale" : "Scottsdale"}</h1></div></div>
+    {(finale || complete) ? <div className="fd-home-heading"><h1>{complete ? "Final standings" : "The finale"}</h1></div>
+      : <h1 className="fd-home-sr">Home</h1>}
 
     {!finale && !complete && events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
       && !state.shelved?.[event.id] && !state.results?.[event.id]).map(event =>
@@ -140,27 +186,32 @@ export function GuestHome({ state, me, events, standings, onProfile, onPlayer, o
         <Avatar state={state} p={row.player} size={68} /><strong>{disp(state, row.player)}</strong></button>)}
       {leaders[0] && <p><strong>{fmt(leaders[0].pts)}</strong> chips</p>}
       {state.frozen && leaders.length > 1 && <p>Tied. One pressure putt decides it.</p>}
+      {ownRow && !leaders.some(row => row.player === me) && <OwnFinish row={ownRow} me={me} />}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
     </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
+
+    {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
 
     {model.mode === "live" && duelContent}
     {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>
       <GameMark id={model.betting.event.game} size={32} /><span><small>Betting open</small><strong>{model.betting.event.name}</strong></span>
       <span>{model.betting.canPlace ? "Place chips" : "View bets"}<Arrow /></span></button>}
 
-    {!before && !finale && !complete && latest && <section className="fd-home-result" aria-label="Latest result">
-      <button type="button" className="fd-home-result-event" onClick={() => onOpen(latest)}>
-        <span><small>Latest result</small><strong>{latest.name}</strong></span><Arrow /></button>
-      <div><People state={state} players={state.results[latest.id].slots[0]} onPlayer={onPlayer} />
-        <span className="fd-home-result-award">+{fmt(AWARDS[latest.value]?.[0])}</span></div>
+    {/* the since line already names the result it reports */}
+    {!before && !finale && !complete && latest && !sinceText && <section className="fd-home-result" aria-label="Latest result">
+      <button type="button" className="fd-home-result-event" onClick={() => onOpen(latest)} aria-label={`Latest result: ${latest.name}`}>
+        <small>Latest result</small><strong>{latest.name}</strong></button>
+      <People state={state} players={state.results[latest.id].slots[0]} onPlayer={onPlayer} />
+      <span className="fd-home-result-award">+{fmt(AWARDS[latest.value]?.[0])}</span>
     </section>}
 
     <section className="fd-home-leaderboard" aria-label="Leaderboard">
       <SectionHeading title="Leaderboard" action={<button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button>} />
-      {since && <div className="fd-home-since">
-        <button type="button" onClick={onSince} aria-label={`${since}. View settled bets`}>
-          <span>{since}</span><Arrow /></button>
+      {sinceText && <div className="fd-home-since">
+        <button type="button" onClick={() => onSince?.(sinceRoute)} aria-label={`${sinceText}. ${
+          sinceRoute?.type === "event" ? "Open the event" : sinceRoute?.type === "settled" ? "View settled bets" : "View standings"}`}>
+          <span>{sinceText}</span><Arrow /></button>
         {onSinceDismiss && <button type="button" className="fd-home-since-dismiss" onClick={onSinceDismiss}
           aria-label="Dismiss">✕</button>}
       </div>}
@@ -170,7 +221,6 @@ export function GuestHome({ state, me, events, standings, onProfile, onPlayer, o
       </div>}
       <Leaderboard state={state} standings={standings} me={me} onPlayer={onPlayer} starting={before} deltas={deltas}
         scoreLabel={finale ? "STARTING CHIPS" : undefined} ariaLabel={finale ? "Poker starting stacks" : undefined} />
-      {me && <button type="button" className="fd-home-card-link" onClick={onProfile}>Edit your profile<Arrow /></button>}
     </section>
 
     {model.upcoming.length > 0 && <section className="fd-home-upcoming" aria-label="Coming up">
@@ -179,10 +229,5 @@ export function GuestHome({ state, me, events, standings, onProfile, onPlayer, o
         <GameMark id={event.game} size={34} /><span><strong>{event.name}</strong><small>{sessionOf(event)}</small></span>
         <Arrow /></button>)}
     </section>}
-
-    <nav className="fd-home-reference" aria-label="Weekend reference">
-      <button type="button" onClick={onGuide}>Rules<Arrow /></button>
-      <button type="button" onClick={onHouse}>Trip details<Arrow /></button>
-    </nav>
   </div>;
 }

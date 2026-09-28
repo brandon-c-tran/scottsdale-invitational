@@ -11,7 +11,7 @@ import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
 import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
 import { GuestHome, hasGameRules } from "./features/home/GuestHome.jsx";
 import { deriveHomeModel } from "./features/home/homeModel.js";
-import { guestLedger, summarizeUpdate, freshResults, resultMarkers, sinceLine, sinceSnapshot, SINCE_KEY } from "./features/home/guestUpdates.js";
+import { guestLedger, summarizeUpdate, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { filterRevealCandidates } from "./features/weekend/drawReveal.js";
 import { Board } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
@@ -40,13 +40,14 @@ import {
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, draftTurn,
-  RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelOpen, duelPhase, duelRoom, duelsSentToday,
+  RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelLapsesAt, duelOpen, duelPhase, duelRoom, duelsSentToday,
   presentPlayers, suggestParticipants, teamFit, refundText, bracketOrder, bracketMatchOpen,
   correctionText, announcementTakeBack, lockerRoomAvailability, postCountRulingApplies,
 } from "../shared/core.js";
 import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
 import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
-import { duelView } from "./features/duels/duelView.js";
+import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
+import { useDuelClock } from "./features/duels/useDuelClock.js";
 import {
   SHOW_SCENE_DEFINITIONS,
   resolveShowScene,
@@ -72,7 +73,26 @@ const prefersReducedMotion = () => typeof window !== "undefined" &&
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const ord = n => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
 
+/* A timed-out write may still have landed: the surface that made it shows
+   Checking…, and only a settled failure is worth a toast. */
+export function actionFeedback(r, notify, okMsg) {
+  if (r?.uncertain) {
+    Promise.resolve(r.settled).then(outcome => {
+      if (outcome && outcome.ok === false) notify(outcome.error || "Not saved, try again");
+      else if (outcome?.ok && okMsg) notify(okMsg);
+    }, () => {});
+    return r;
+  }
+  if (!r?.ok) notify(r?.error || "Rejected");
+  else if (okMsg) notify(okMsg);
+  return r;
+}
+
+const SINCE_HOLD_MS = 5 * 60 * 1000;
+const DUEL_LAPSE_NOTICE_MS = 15 * 60 * 1000;
 const readJson = key => { try { return JSON.parse(localGet(key) || "null"); } catch { return null; } };
+const sessionRead = key => { try { return sessionStorage.getItem(key); } catch { return null; } };
+const sessionWrite = (key, value) => { try { sessionStorage.setItem(key, value); } catch {} };
 function usePageVisible() {
   const [visible, setVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
   useEffect(() => {
@@ -274,21 +294,30 @@ function VersusDraw({ state, teams, size="md", onPlayer }) {
 }
 
 /* ═════════════════════════════ APP ═════════════════════════════ */
-export default function App() {
+export default function App({ onUpdateReload = null }) {
   const tournament = useTournament();
   return <PlayerIdentityProvider profiles={tournament.state.profiles}>
-    <TournamentApp tournament={tournament} />
+    <TournamentApp tournament={tournament} onUpdateReload={onUpdateReload} />
   </PlayerIdentityProvider>;
 }
 
-function TournamentApp({ tournament }) {
+function TournamentApp({ tournament, onUpdateReload }) {
   const { state, connected, ready, version, lastAction, environment, capabilities } = tournament;
   useServerClockSync(tournament);
   const [me, setMe] = useState(() => localGet("si-me"));
   const [onboardStep, setOnboardStep] = useState(() => localGet("si-onboard-v5") === "yes" ? 99
     : firstOnboardStep());
-  const [tab, setActiveTab] = useState("board");
-  const [weekendSection, setWeekendSection] = useState("trip");
+  /* the tab and Weekend section survive an update reload in this session */
+  const [tab, setActiveTab] = useState(() => {
+    const saved = sessionRead("fd-tab");
+    return ["board", "sched", "bets", "guide"].includes(saved) ? saved : "board";
+  });
+  const [weekendSection, setWeekendSection] = useState(() => {
+    const saved = sessionRead("fd-weekend-section");
+    return ["trip", "rules", "games"].includes(saved) ? saved : "trip";
+  });
+  useEffect(() => { sessionWrite("fd-tab", tab); }, [tab]);
+  useEffect(() => { sessionWrite("fd-weekend-section", weekendSection); }, [weekendSection]);
   const tabScroll = useRef({});
   const setTab = next => {
     if (next === tab) { window.scrollTo({ top:0, behavior:"instant" }); return; }
@@ -311,6 +340,8 @@ function TournamentApp({ tournament }) {
      it. The X and the scrim always close the whole stack. */
   const [modalStack, setModalStack] = useState([]);
   const modal = modalStack[modalStack.length - 1] || null;
+  const modalRef = useRef(null);
+  modalRef.current = modal;
   const setModal = next => setModalStack(next ? [next] : []);
   const pushModal = next => {
     const scrollTop = document.querySelector(".si-sheet")?.scrollTop || 0;
@@ -394,10 +425,18 @@ function TournamentApp({ tournament }) {
   }, [environment, version, state, events, weekendOperation]);
   /* nav badges: something on that tab is waiting on this guest */
   const homeModel = useMemo(() => deriveHomeModel({ state, me, events, standings }), [state, me, events, standings]);
+  /* the Bets dot is for a market this device has not looked at yet */
+  const duelNow = useDuelClock(state);
+  const betsContest = homeModel.betting?.canPlace ? resolveCurrentContest(state, homeModel.betting.event) : null;
+  const betsKey = betsContest ? `${betsContest.id}:${betsContest.revision}` : null;
+  const [betsSeen, setBetsSeen] = useState(() => localGet("si-bets-seen") || "");
+  useEffect(() => {
+    if (tab !== "bets" || !betsKey || betsSeen === betsKey || onboardStep < 99) return;
+    setBetsSeen(betsKey); localSet("si-bets-seen", betsKey);
+  }, [tab, betsKey, betsSeen, onboardStep]);
   const navBadges = {
-    bets:homeModel.betting?.canPlace ? "betting open" : null,
-    board:me && ((state.duels || []).some(duel => duel.status === "open" && !resolveDuel(duel).settled
-        && (duel.to === me || duel.from === me) && !duel.runs?.[me])
+    bets:betsKey && betsSeen !== betsKey ? "betting open" : null,
+    board:me && (hasDuelTurn(state, me, duelNow)
       || Object.values(state.drafts || {}).some(draft => { const turn = draftTurn(draft); return turn && !turn.complete && turn.captain === me; }))
       ? "your turn" : null,
   };
@@ -463,10 +502,71 @@ function TournamentApp({ tournament }) {
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = !!(intro || reveal || activeShowScene);
   }, [intro, reveal, activeShowScene]);
+  /* A phone's automatic update reload waits while a sheet is open (a
+     profile draft or photo lives in one) or check-in drafts are on screen.
+     The tab and Weekend section are restored from this session. */
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      window.__FD_HOLD_RELOAD__ = modalStack.length > 0 || (onboardStep >= 0 && onboardStep < 99);
+  }, [modalStack.length, onboardStep]);
+
+  /* "Since you looked": one line after an absence, from this device's own
+     memory of the last board it showed. Coming back from the background
+     only raises a flag: the line is built from the first FRESH state after
+     it, and the memory is never rewritten from the stale board still on
+     screen. The line opens what it reports and clears once a newer change
+     lands or it has been up for a while. */
+  const [since, setSince] = useState(null);
+  const [settledOpen, setSettledOpen] = useState(false);
+  const sinceLive = useRef({});
+  sinceLive.current = { state, me, events, standings, version, connected };
+  const sinceMemory = useRef(null);
+  if (!sinceMemory.current) sinceMemory.current = sinceTracker({ read:() => readJson(SINCE_KEY),
+    write:saved => localSet(SINCE_KEY, JSON.stringify(saved)) });
+  const sinceShownFor = useRef(null);
+  useEffect(() => {
+    if (!ready || !me || onboardStep < 99 || typeof document === "undefined") return;
+    const summary = sinceMemory.current.observe({ state, me, events, standings, version, connected,
+      hidden:document.visibilityState === "hidden" });
+    if (!summary) return;
+    sinceShownFor.current = state;
+    setSince({ ...summary, markers:JSON.stringify(resultMarkers(state)),
+      pts:standings.find(row => row.player === me)?.pts });
+  }, [ready, me, onboardStep, state, events, standings, version, connected]);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "hidden") sinceMemory.current.hidden(sinceLive.current);
+      else sinceMemory.current.visible(sinceLive.current);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+  useEffect(() => {
+    if (!since || state === sinceShownFor.current) return;
+    const pts = standings.find(row => row.player === me)?.pts;
+    if (JSON.stringify(resultMarkers(state)) !== since.markers || pts !== since.pts) setSince(null);
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!since) return undefined;
+    const timer = setTimeout(() => setSince(null), SINCE_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [since]);
+  /* Home's flight question is answered once per device and player */
+  const [flightsAnswered, setFlightsAnswered] = useState(false);
+  useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
+  const openSince = route => {
+    setSince(null);
+    const ev = route?.type === "event" ? events.find(item => item.id === route.evId) : null;
+    if (ev) setModal({ type:"event", ev });
+    else if (route?.type === "settled") { setSettledOpen(true); setTab("bets"); }
+    else setModal({ type:"standings" });
+  };
 
   /* One summary per broadcast for this device's player, built from a
      before/after diff of their own row split by source. Several results in
-     one update join into one line instead of replacing each other. */
+     one update join into one line instead of replacing each other. The
+     update the since line just reported is not said twice. */
   const ledgerRef = useRef(null);
   const resultsSeenRef = useRef(null);
   const frozenRef = useRef(null);
@@ -481,8 +581,9 @@ function TournamentApp({ tournament }) {
     const next = me ? guestLedger(state, me, events, standings) : null;
     const prev = ledgerRef.current;
     ledgerRef.current = next;
-    if (onboardStep < 99) return;
-    const summary = summarizeUpdate(prev, next, { state, events });
+    if (onboardStep < 99 || sinceShownFor.current === state) return;
+    const playing = modalRef.current?.type === "duelPlay" ? modalRef.current.id : null;
+    const summary = summarizeUpdate(prev, next, { state, events, skipDuel:playing });
     if (summary) notify(summary.msg, null, summary.tone, summary.chip);
   }, [state, standings, events, me, ready, onboardStep, notify]);
 
@@ -521,36 +622,6 @@ function TournamentApp({ tournament }) {
     return () => clearTimeout(timer);
   }, [deltasShown, deltas]);
 
-  /* "Since you looked": one line after an absence, from this device's own
-     memory of the last board it showed. */
-  const [sinceText, setSinceText] = useState(null);
-  const [settledOpen, setSettledOpen] = useState(false);
-  const sinceLive = useRef({});
-  sinceLive.current = { state, me, events, standings, version };
-  const sinceLoaded = useRef(null);
-  useEffect(() => {
-    if (!ready || !me || onboardStep < 99 || typeof document === "undefined") return;
-    if (sinceLoaded.current !== me) {
-      sinceLoaded.current = me;
-      setSinceText(sinceLine(readJson(SINCE_KEY), state, me, events, standings));
-    }
-    if (document.visibilityState !== "hidden")
-      localSet(SINCE_KEY, JSON.stringify(sinceSnapshot(state, me, events, standings, version)));
-  }, [ready, me, onboardStep, state, events, standings, version]);
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const onVisible = () => {
-      const live = sinceLive.current;
-      if (!live.me || sinceLoaded.current !== live.me) return;
-      if (document.visibilityState !== "hidden") {
-        const text = sinceLine(readJson(SINCE_KEY), live.state, live.me, live.events, live.standings);
-        if (text) setSinceText(text);
-      }
-      localSet(SINCE_KEY, JSON.stringify(sinceSnapshot(live.state, live.me, live.events, live.standings, live.version)));
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
 
   /* reveal detection: team draws and stage draws reveal on every phone.
      The intro announces the game first and the reveal comes second, but the
@@ -679,10 +750,16 @@ function TournamentApp({ tournament }) {
       notify(`${disp(state, picked.captain)} picked you${picked.ev ? ` · ${picked.ev.name}` : ""}`, null, "gold", picked.captain);
   }, [state.drafts, me, events, ready, onboardStep, notify]); // eslint-disable-line
 
-  /* duels: nudge when a challenge lands on you or an open one appears, tell
-     the challenger when theirs is answered, toast when one settles. Nothing
-     toasts about the duel the Quick Draw layer is already showing. */
-  const duelNudged = useRef(new Set());
+  /* duels: nudge once when a challenge lands on you or an open one appears
+     (remembered on this device across reloads), tell the challenger when
+     theirs is answered or lapses. Settled duels join the update summary.
+     Nothing toasts about the duel the Quick Draw layer is already showing. */
+  const duelNudged = useRef(null);
+  if (!duelNudged.current) duelNudged.current = new Set(Array.isArray(readJson("si-duel-nudged")) ? readJson("si-duel-nudged") : []);
+  const rememberNudge = id => {
+    duelNudged.current.add(id);
+    localSet("si-duel-nudged", JSON.stringify([...duelNudged.current].slice(-80)));
+  };
   useEffect(() => {
     if (!me || !ready || onboardStep < 99) return;
     for (const d of state.duels || []) {
@@ -692,18 +769,42 @@ function TournamentApp({ tournament }) {
       if (view.phase === "offered" && view.recipient)
         msg = `Quick Draw: ${disp(state, d.from)} challenged you · ${fmt(d.stake)}`;
       else if (view.phase === "offered" && view.takeable)
-        msg = `Quick Draw: ${disp(state, d.from)} challenged anyone · ${fmt(d.stake)}`;
+        msg = `${disp(state, d.from)}: open Quick Draw · ${fmt(d.stake)}`;
       else if (view.phase === "live" && !d.consent && view.recipient && !view.myRun) {
         msg = `Quick Draw: ${disp(state, d.from)} challenged you`;
         action = "Play";
       }
       if (!msg) continue;
-      duelNudged.current.add(d.id);
+      rememberNudge(d.id);
       if (modal?.type === "duelPlay" && modal.id === d.id) continue;
       notify(msg, { label:action, fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } }, "gold", d.from);
       return;
     }
-  }, [state.duels, me, ready, onboardStep, notify, state, modal]);
+  }, [state.duels, me, ready, onboardStep, notify, state, modal]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* an offer lapses on the clock, not on a write: wake at the lapse */
+  const [lapseTick, setLapseTick] = useState(0);
+  useEffect(() => {
+    if (!me || !ready || onboardStep < 99) return undefined;
+    const now = serverNow();
+    let wake = Infinity;
+    const lapsed = [];
+    for (const d of state.duels || []) {
+      if (d.from !== me) continue;
+      const phase = duelPhase(d, now);
+      if (phase === "offered") { const at = duelLapsesAt(d); if (at) wake = Math.min(wake, at); continue; }
+      if (phase !== "lapsed" || duelNudged.current.has(`lapse:${d.id}`)) continue;
+      rememberNudge(`lapse:${d.id}`);
+      if (now - (duelLapsesAt(d) || 0) <= DUEL_LAPSE_NOTICE_MS) lapsed.push(d);
+    }
+    if (lapsed.length) {
+      const d = lapsed[0];
+      notify(d.to ? `${disp(state, d.to)} didn't answer · ${fmt(d.stake)} back`
+        : `No one took your open challenge · ${fmt(d.stake)} back`, null, undefined, d.to || me);
+    }
+    if (wake === Infinity) return undefined;
+    const timer = setTimeout(() => setLapseTick(n => n + 1), Math.max(250, wake - now + 250));
+    return () => clearTimeout(timer);
+  }, [state.duels, me, ready, onboardStep, lapseTick, notify]); // eslint-disable-line react-hooks/exhaustive-deps
   const prevDuelRes = useRef(null);
   useEffect(() => {
     if (!ready) return;
@@ -712,7 +813,7 @@ function TournamentApp({ tournament }) {
     (state.duels || []).forEach(d => {
       if (!me || (d.from !== me && d.to !== me)) return;
       const r = resolveDuel(d);
-      const st = !r.settled ? duelPhase(d) : r.push ? "push" : r.winner === me ? "won" : "lost";
+      const st = !r.settled ? duelPhase(d, serverNow()) : r.push ? "push" : r.winner === me ? "won" : "lost";
       map[d.id] = st;
       const before = prevDuelRes.current?.[d.id];
       if (!before || before === st || (modal?.type === "duelPlay" && modal.id === d.id)) return;
@@ -723,10 +824,6 @@ function TournamentApp({ tournament }) {
           action:{ label:"Play", fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } } };
       else if (st === "declined" && d.from === me)
         msg = { t:`Quick Draw: ${other} declined`, chip:oth };
-      else if (before === "live" && (st === "won" || st === "lost" || st === "push"))
-        msg = st === "won" ? { t:`Quick Draw: you win +${fmt(d.stake)}`, tone:"gold", chip:oth }
-          : st === "lost" ? { t:`Quick Draw: ${other} wins`, chip:oth }
-          : { t:`Quick Draw: tied, chips returned`, chip:oth };
     });
     if (msg && onboardStep >= 99) notify(msg.t, msg.action || null, msg.tone, msg.chip);
     prevDuelRes.current = map;
@@ -777,9 +874,7 @@ function TournamentApp({ tournament }) {
       if (!window.confirm(`${r.extra.event || "This"} starts the weekend.`)) return r;
       r = await dispatch(type, { ...(payload || {}), startWeekend:true }, options);
     }
-    if (!r.ok) notify(r.error || "Rejected");
-    else if (okMsg) notify(okMsg);
-    return r;
+    return actionFeedback(r, notify, okMsg);
   };
 
   const saveProfile = async (p, prof) => {
@@ -1488,19 +1583,27 @@ function TournamentApp({ tournament }) {
         onCommissioner={() => !gm ? setModal({type:"pin"})
           : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})}
         connected={connected} loaded={loaded} wagerEv={tab === "bets" || tab === "board" ? null : wagerEv} wagerMarketOpen={wagerMarketOpen}
-        onBets={() => setTab("bets")} GameMark={GameMark} />
+        onBets={() => setTab("bets")} GameMark={GameMark}
+        updateReady={!!tournament.updateReady} onReload={onUpdateReload || (() => window.location.reload())} />
 
       <main id="fd-main" className="fd-main" style={{
         paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 0,
         paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
         {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark}
-          onEvents={() => setTab("sched")} onGuide={() => { setWeekendSection("rules"); setTab("guide"); }}
-          onHouse={() => { setWeekendSection("trip"); setTab("guide"); }} onOpen={ev => setModal({type:"event", ev})}
+          onEvents={() => setTab("sched")}
+          onOpen={ev => setModal({type:"event", ev})}
           onRules={ev => setModal({type:"howto", ev})} onBracket={ev => setModal({type:"bracket", ev})}
           onDraft={ev => setModal({type:"draft", ev})} deltas={deltas}
-          since={sinceText} onSince={() => { setSinceText(null); setSettledOpen(true); setTab("bets"); }}
-          onSinceDismiss={() => setSinceText(null)}
-          onProfile={() => setModal({type:"profile"})} onPlayer={p => setModal({type:"player", p})}
+          since={since} onSince={openSince}
+          onSinceDismiss={() => setSince(null)}
+          flightsAnswered={flightsAnswered}
+          onFlightsYes={() => setModal({type:"profile", section:"travel"})}
+          onFlightsNotYet={async () => {
+            const result = await saveProfile(me, { flightsBooked:false });
+            if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
+            return result;
+          }}
+          onPlayer={p => setModal({type:"player", p})}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
             onPlayer={p => setModal({type:"player", p})}
@@ -2162,7 +2265,7 @@ const mmss = ms => {
   const t = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
-function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onPause, onBust, onUnbust, onCount, onReview }) {
+export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLevel, onPause, onBust, onUnbust, onCount, onReview }) {
   const pk = state.poker;
   const [now, setNow] = useState(() => serverNow());
   const [confirmOut, setConfirmOut] = useState(false);
@@ -2178,9 +2281,18 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   const myRow = standings.find(r => r.player === me);
   const card = { marginBottom:12, borderRadius:5, overflow:"hidden", border:"1.5px solid var(--ink)",
     background:"var(--night)" };
+  /* an away guest has no seat: no count, no bust, their chips carry as is */
+  const unseated = !!me && Array.isArray(pk.seats) && !pk.seats.includes(me);
+  const carried = unseated ? pk.unseated?.[me] ?? myRow?.pts ?? 0 : 0;
+  const seatButton = { minHeight:44, minWidth:44, fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.05em",
+    textTransform:"uppercase", borderRadius:10, padding:"0 12px", cursor:"pointer", flexShrink:0 };
+  const notSeated = unseated && (
+    <div style={{ borderTop:"1px solid var(--night-line)", padding:"12px 14px", fontFamily:SANS, fontSize:12.5, color:BONE }}>
+      Not seated · your {fmt(carried)} chips carry</div>
+  );
 
   if (!pk.startedAt) {
-    const d = myRow ? pokerDenoms(myRow.pts) : null;
+    const d = myRow && !unseated ? pokerDenoms(myRow.pts) : null;
     return (
       <div className="fd-night" style={card}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
@@ -2197,10 +2309,10 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
               <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pk.total)} chips in play</div>
             )}
           </div>
-          <button onClick={onBuyin} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-            textTransform:"uppercase", background:"transparent", color:BONE, border:"1.5px solid var(--ghost-line)",
-            borderRadius:10, padding:"6px 12px", cursor:"pointer", flexShrink:0 }}>Everyone</button>
+          <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
+            border:"1.5px solid var(--ghost-line)" }}>All stacks</button>
         </div>
+        {notSeated}
         {gm && (
           <div style={{ display:"flex", gap:8, padding:"0 14px 12px" }}>
             <Btn onClick={onStart} style={{ flex:1, padding:"10px 12px", fontSize:12.5 }}>Start the table</Btn>
@@ -2240,15 +2352,15 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
       </div>
 
       {/* your seat: bust yourself, count yourself. The GM never types for you. */}
-      {me && outIdx < 0 && (
+      {notSeated}
+      {me && !unseated && outIdx < 0 && (
         <div style={{ borderTop:"1px solid var(--night-line)", padding:"9px 14px" }}>
           {pk.counts?.[me] !== undefined && !counting ? (
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:BONE, flex:1 }}>
                 Counted: <b>{fmt(pk.counts[me])}</b></span>
-              <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
-                color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
-                textTransform:"uppercase", padding:"4px 6px" }}>Recount</button>
+              <button onClick={() => setCounting(true)} style={{ ...seatButton, background:"none", border:"none",
+                color:"var(--night-text)" }}>Recount</button>
             </div>
           ) : countPhase ? (
             <ChipCounter start={pk.counts?.[me]} onDone={async total => { const result = await onCount(me, total); if (result?.ok) setCounting(false); return result; }} />
@@ -2256,28 +2368,25 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text)", flex:1 }}>
                 Starting stack: <b style={{ color:BONE }}>{fmt(pk.startingStacks?.[me] ?? myRow?.pts ?? 0)}</b></span>
-              <button onClick={() => setCounting(true)} style={{ background:"none", border:"none",
-                color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
-                textTransform:"uppercase", padding:"4px 6px" }}>Count</button>
+              <button onClick={() => setCounting(true)} style={{ ...seatButton, background:"none", border:"none",
+                color:"var(--night-text)" }}>Count</button>
               <button onClick={() => { if (confirmOut) { onBust(me); setConfirmOut(false); } else setConfirmOut(true); }}
-                style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
-                  textTransform:"uppercase", borderRadius:10, padding:"6px 12px", cursor:"pointer",
+                style={{ ...seatButton,
                   background: confirmOut ? "var(--clay)" : "transparent",
                   color: confirmOut ? BONE : "var(--clay)",
-                  border:"1.5px solid rgba(192,71,58,0.6)" }}>
+                  border:"1.5px solid var(--danger-line)" }}>
                 {confirmOut ? "Tap again, you are out" : "I busted"}</button>
             </div>
           )}
         </div>
       )}
-      {me && outIdx >= 0 && (
+      {me && !unseated && outIdx >= 0 && (
         <div style={{ borderTop:"1px solid var(--night-line)", padding:"9px 14px",
           display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontFamily:SANS, fontSize:12.5, color:BONE, flex:1 }}>
             Out. You finish {ord(seats.length - outIdx)}.</span>
-          <button onClick={() => onUnbust(me)} style={{ background:"none", border:"none",
-            color:"var(--night-text)", fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer",
-            textTransform:"uppercase", padding:"4px 6px" }}>Wrong, back in</button>
+          <button onClick={() => onUnbust(me)} style={{ ...seatButton, background:"none", border:"none",
+            color:"var(--night-text)" }}>Wrong, back in</button>
         </div>
       )}
 

@@ -2,20 +2,22 @@ import {
   PT, disp, duelAccepted, duelBetween, duelLapsesAt, duelOpen, duelPhase, pokerLive, resolveDuel, stacksPosted,
 } from "../../../shared/core.js";
 
+import { serverNow } from "../tv/serverClock.js";
+
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 
 /* Duels can be sent and answered only while the weekend board is moving. */
 export const duelsOpen = state => !!(state?.live && !state.frozen
   && !(state.poker && !state.results?.[state.poker.id]) && !pokerLive(state) && !stacksPosted(state));
 
-export const minutesLeft = (duel, now = Date.now()) => {
+export const minutesLeft = (duel, now = serverNow()) => {
   const at = duelLapsesAt(duel);
   return at === null ? null : Math.max(1, Math.ceil((at - now) / 60000));
 };
 
 /* One viewer-relative reading of a duel, shared by Home, the player card,
    and the Quick Draw overlay, so every surface offers the same actions. */
-export function duelView(state, duel, me, now = Date.now()) {
+export function duelView(state, duel, me, now = serverNow()) {
   const phase = duelPhase(duel, now);
   const sender = !!me && duel.from === me;
   const recipient = !!me && !!duel.to && duel.to === me;
@@ -45,7 +47,7 @@ export function duelView(state, duel, me, now = Date.now()) {
 
 /* The duels a player should see on Home: their own offered or live duels and
    open challenges they could take. */
-export function duelsForPlayer(state, me, now = Date.now()) {
+export function duelsForPlayer(state, me, now = serverNow()) {
   if (!me) return [];
   return (state?.duels || []).filter(duel => {
     if (!duelOpen(duel, now)) return false;
@@ -53,6 +55,15 @@ export function duelsForPlayer(state, me, now = Date.now()) {
     return duelView(state, duel, me, now).takeable;
   });
 }
+
+/* Home's "your turn": a duel you can accept or play right now. A lapsed
+   offer is no longer open, so it never keeps the dot lit. */
+export const hasDuelTurn = (state, me, now = serverNow()) => !!me && duelsOpen(state)
+  && (state?.duels || []).some(duel => {
+    if (!duelOpen(duel, now)) return false;
+    const view = duelView(state, duel, me, now);
+    return view.canAccept || view.canPlay;
+  });
 
 /* A finished duel as a line on a player card, from `viewer`'s side. */
 export function duelResult(state, duel, viewer) {

@@ -1,8 +1,8 @@
 import {
-  PT, ROUND_NAMES, ROSTER, allEventsOf, atRisk, bracketChampion, computeStandings,
+  PT, ROUND_NAMES, ROSTER, allEventsOf, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
   duelReserve, maxRisk, overflowRoleMeta, participationForEvent,
   resolveEventLifecycle, resolveCurrentContest, resolveSlot, resolveWeekendOperation,
-  stageEntrantView, stageFinalists, stacksPosted, wagerBoardEvent,
+  stageEntrantView, stageFinalists, stacksPosted, teamLabel, wagerBoardEvent,
 } from "../../../shared/core.js";
 
 const RUNNING = new Set(["in-progress", "result-entry"]);
@@ -171,4 +171,42 @@ export function deriveHomeModel({ state, me, events = allEventsOf(state), standi
       && !RUNNING.has(resolveEventLifecycle(state, event).phase));
 
   return { mode, current, betting, upcoming, standing, finale };
+}
+
+/* One line for a bracket game on Home. A player in it reads their own path
+   ("Play-in ✓ → Semifinal vs Khoa & Brandon"); a spectator or an eliminated
+   team reads the match after the one on screen ("Semifinal 2 next"). */
+export function bracketPath(state, event, me) {
+  const bracket = state.brackets?.[event?.id], draw = state.draws?.[event?.id];
+  if (!bracket || !draw || state.results?.[event.id]) return null;
+  const names = ROUND_NAMES[bracket.size] || [];
+  const round = r => (names[r] || "Match").replace(/s$/, "");
+  const matchName = (r, m) => bracket.rounds[r]?.length > 1 ? `${round(r)} ${m + 1}` : round(r);
+  const contest = resolveCurrentContest(state, event);
+  const current = contest?.kind === "match" ? contest.match : null;
+  const isCurrent = (r, m) => !!current && current[0] === r && current[1] === m;
+  const team = draw.teams.findIndex(item => item.players.includes(me));
+  if (team >= 0) {
+    const steps = [];
+    let next = null, lost = false;
+    bracket.rounds.forEach((matches, r) => matches.forEach((match, m) => {
+      const a = resolveSlot(bracket, match.a), b = resolveSlot(bracket, match.b);
+      if (a !== team && b !== team) return;
+      if (!unresolved(match)) { if (match.winner === team) steps.push(`${round(r)} ✓`); else lost = true; }
+      else if (!next) next = { r, m, opponent:a === team ? b : a, slot:match[a === team ? "b" : "a"] };
+    }));
+    if (!lost) {
+      if (next && isCurrent(next.r, next.m)) steps.push(`${round(next.r)} now`);
+      else if (next) {
+        const opponent = next.opponent !== null && next.opponent !== undefined
+          ? teamLabel(state, draw.teams[next.opponent])
+          : next.slot?.w ? `winner of ${matchName(next.slot.w[0], next.slot.w[1])}` : null;
+        steps.push(opponent ? `${round(next.r)} vs ${opponent}` : round(next.r));
+      }
+      if (steps.length) return { mine:true, text:steps.join(" → ") };
+    }
+  }
+  const open = bracketOrder(bracket).filter(([r, m]) => unresolved(bracket.rounds[r][m]) && !isCurrent(r, m));
+  const pick = open.find(([r, m]) => bracketMatchOpen(bracket, r, m)) || open[0];
+  return pick ? { mine:false, text:`${matchName(pick[0], pick[1])} next` } : null;
 }

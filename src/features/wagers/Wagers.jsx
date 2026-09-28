@@ -76,10 +76,20 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     otherBets.set(w.player, (otherBets.get(w.player) || 0) + w.stake);
   const otherChips = [...otherBets].map(([p, val]) => ({ p, val }));
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  /* Checking… holds the pick until the next broadcast answers it: the chip
-     is there (done), or it is not (Not placed). */
+  /* a chip landing or leaving answers any earlier error on this pick */
+  const shownTotal = useRef(mineTotal);
   useEffect(() => {
-    if (!checking || state === checking.state) return;
+    if (shownTotal.current === mineTotal) return;
+    shownTotal.current = mineTotal;
+    setActionError(null);
+  }, [mineTotal]);
+  /* Checking… holds the pick until the transport settles the write. Only a
+     transport without a settled promise falls back to the next broadcast:
+     the chip is there (done), or it is not (Not placed). */
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => {
+    if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal))
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
     pendingRef.current = false;
@@ -97,7 +107,15 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       if (isUncertainResult(result)) {
         if (!landed(kind, before, live.current.mineTotal)) {
           holding = true;
-          setChecking({ kind, before, state:live.current.state });
+          const settled = typeof result?.settled?.then === "function";
+          setChecking({ kind, before, state:live.current.state, settled });
+          if (settled) result.settled.then(outcome => outcome, () => ({ ok:false })).then(outcome => {
+            if (!alive.current) return;
+            if (outcome?.ok !== true && !landed(kind, before, live.current.mineTotal))
+              setActionError(kind === "place" ? "Not placed" : "Not removed");
+            pendingRef.current = false;
+            setChecking(null);
+          });
         }
         return result;
       }
@@ -304,6 +322,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   }, [room, denom]);
   const tapStake = denom <= room ? denom : [...RACK_DENOMS].reverse().find(value => value <= room) || PT;
   const ev = wagerEv;
+  /* once the table is dealt, or its counts post, nothing takes a bet again */
+  const finaleClosed = stacksPosted(state) || !!(state.poker && !state.results?.[state.poker.id]);
   const contest = ev ? resolveCurrentContest(state, ev) : null;
   const lifecycle = ev ? resolveEventLifecycle(state, ev) : null;
   const marketOpen = !!contest && contest.phase === "betting-open" && !!state.live
@@ -359,18 +379,19 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       </div>
     </header> : <PageHeading title="Bets" />}
 
-    {!ev && <section className={`fd-wagers-waiting${state.frozen ? " is-finished" : ""}`}>
+    {!ev && <section className={`fd-wagers-waiting${state.frozen || finaleClosed ? " is-finished" : ""}`}>
       <div className="fd-wagers-waiting-copy">
-        <h2>{state.frozen ? "The board is frozen." : state.live ? "Between events" : "Betting opens with the first event"}</h2>
-        {!state.frozen && <p>Betting opens when an event goes on deck.</p>}
-        {!state.frozen && <ActionButton variant="secondary" onClick={onEvents}>Browse the events</ActionButton>}
+        <h2>{state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale"
+          : state.live ? "Between events" : "Betting opens with the first event"}</h2>
+        {!state.frozen && !finaleClosed && state.live && <p>Betting opens when an event goes on deck.</p>}
+        {!state.frozen && !finaleClosed && <ActionButton variant="secondary" onClick={onEvents}>Browse the events</ActionButton>}
       </div>
     </section>}
 
     {ev && <section className="fd-wagers-event">
       <div className="fd-wagers-contest-heading">
         <div><h2>{contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"}</h2>
-          {contest && <p>{evenMoney ? "Winner pays even" : "Pays 2 to 1"}</p>}</div>
+          {contest && <p>{evenMoney ? "Winner pays 1:1" : "Winner pays 2:1"}</p>}</div>
         {onEvent && !peek && <button type="button" className="fd-wagers-context" onClick={() => onEvent(ev)}>
           {contextLabel}<span aria-hidden="true">↗</span>
         </button>}

@@ -359,3 +359,112 @@
 .tv-card { border-radius:14px; background:var(--paper); border:1px solid var(--line); }
 .tv-qr { padding:24px; border-radius:14px; background:var(--bone); text-align:center; }
 .tv-qr img { width:360px; display:block; image-rendering:pixelated; }
+
+/* ── the Desert Clock ──
+   The TV's own tokens: every desert fill is a mix of the shared palette, one
+   set per session. Text over the two light skies (sun, lilac) is --ink0. */
+.tv-stage {
+  --desert-fri-sky:color-mix(in srgb, var(--pool) 8%, var(--bg));
+  --desert-fri-far:color-mix(in srgb, var(--pool) 26%, var(--bg));
+  --desert-fri-mid:color-mix(in srgb, var(--pool) 15%, var(--bg));
+  --desert-fri-ground:color-mix(in srgb, var(--pool) 6%, var(--bg));
+  --desert-fri-near:var(--bg);
+  --desert-fri-cactus:var(--ink0);
+  --desert-fri-disc:var(--pool);
+  --desert-sam-sky:var(--sun);
+  --desert-sam-far:color-mix(in srgb, var(--sun) 62%, var(--bronze));
+  --desert-sam-mid:color-mix(in srgb, var(--bronze) 85%, var(--ink0));
+  --desert-sam-ground:color-mix(in srgb, var(--bronze) 94%, var(--sun));
+  --desert-sam-near:color-mix(in srgb, var(--bronze) 55%, var(--ink0));
+  --desert-sam-cactus:color-mix(in srgb, var(--bronze) 28%, var(--ink0));
+  --desert-sam-disc:var(--bone);
+  --desert-sap-sky:var(--accent2);
+  --desert-sap-far:var(--accent);
+  --desert-sap-mid:color-mix(in srgb, var(--bronze) 85%, var(--ink0));
+  --desert-sap-ground:color-mix(in srgb, var(--clay) 70%, var(--bronze));
+  --desert-sap-near:color-mix(in srgb, var(--clay) 72%, var(--ink0));
+  --desert-sap-cactus:color-mix(in srgb, var(--bronze) 28%, var(--ink0));
+  --desert-sap-disc:var(--sun);
+  --desert-san-sky:color-mix(in srgb, var(--clay) 20%, var(--bg));
+  --desert-san-far:color-mix(in srgb, var(--clay) 72%, var(--ink0));
+  --desert-san-mid:var(--clay);
+  --desert-san-ground:color-mix(in srgb, var(--clay) 40%, var(--ink0));
+  --desert-san-near:color-mix(in srgb, var(--clay) 12%, var(--ink0));
+  --desert-san-cactus:var(--ink0);
+  --desert-san-disc:var(--live2);
+  --desert-fin-sky:var(--bg);
+  --desert-fin-far:var(--paper);
+  --desert-fin-mid:var(--paper2);
+  --desert-fin-ground:color-mix(in srgb, var(--paper) 45%, var(--bg));
+  --desert-fin-near:var(--bg);
+  --desert-fin-cactus:var(--ink0);
+  --desert-fin-disc:var(--sun);
+  --desert-star:var(--bone);
+}
+.tv-desert { display:block; overflow:hidden; }
+.tv-desert[data-phase="fri"] { --d-sky:var(--desert-fri-sky); --d-far:var(--desert-fri-far); --d-mid:var(--desert-fri-mid);
+  --d-ground:var(--desert-fri-ground); --d-near:var(--desert-fri-near); --d-cactus:var(--desert-fri-cactus); --d-disc:var(--desert-fri-disc); }
+.tv-desert[data-phase="sam"] { --d-sky:var(--desert-sam-sky); --d-far:var(--desert-sam-far); --d-mid:var(--desert-sam-mid);
+  --d-ground:var(--desert-sam-ground); --d-near:var(--desert-sam-near); --d-cactus:var(--desert-sam-cactus); --d-disc:var(--desert-sam-disc); }
+.tv-desert[data-phase="sap"] { --d-sky:var(--desert-sap-sky); --d-far:var(--desert-sap-far); --d-mid:var(--desert-sap-mid);
+  --d-ground:var(--desert-sap-ground); --d-near:var(--desert-sap-near); --d-cactus:var(--desert-sap-cactus); --d-disc:var(--desert-sap-disc); }
+.tv-desert[data-phase="san"] { --d-sky:var(--desert-san-sky); --d-far:var(--desert-san-far); --d-mid:var(--desert-san-mid);
+  --d-ground:var(--desert-san-ground); --d-near:var(--desert-san-near); --d-cactus:var(--desert-san-cactus); --d-disc:var(--desert-san-disc); }
+.tv-desert[data-phase="fin"] { --d-sky:var(--desert-fin-sky); --d-far:var(--desert-fin-far); --d-mid:var(--desert-fin-mid);
+  --d-ground:var(--desert-fin-ground); --d-near:var(--desert-fin-near); --d-cactus:var(--desert-fin-cactus); --d-disc:var(--desert-fin-disc); }
+.tv-desert-sky { fill:var(--d-sky); }
+.tv-desert-far { fill:var(--d-far); }
+.tv-desert-mid { fill:var(--d-mid); }
+.tv-desert-ground { fill:var(--d-ground); }
+.tv-desert-near { fill:var(--d-near); }
+.tv-desert-cactus path { fill:var(--d-cactus); }
+.tv-desert-disc circle { fill:var(--d-disc); }
+/* a phase change is a six-frame paper swap, never a blend */
+.tv-desert-sky, .tv-desert-far, .tv-desert-mid, .tv-desert-ground, .tv-desert-near, .tv-desert-cactus path,
+.tv-desert-disc circle { transition:fill 1.6s steps(6, end); }
+.tv-desert-disc { transition:transform 2.4s cubic-bezier(.4, 0, .2, 1); }
+.tv-desert-stars { opacity:0; transition:opacity 1.2s; }
+.tv-desert-stars.is-on { opacity:1; }
+.tv-desert-star { fill:var(--desert-star); }
+.tv-desert-star.is-winner { stroke:var(--bone); stroke-width:1.5px; }
+.tv-desert-star.is-new { animation:tv-star-pop .36s ease-out both; }
+.tv-desert-line { stroke:var(--bone); stroke-width:2.5px; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:0;
+  animation:tv-line-draw .18s linear both; }
+@keyframes tv-star-pop { 0% { transform:scale(0); } 70%, 85% { transform:scale(1.3); } 100% { transform:scale(1); } }
+@keyframes tv-line-draw { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+
+/* the band sits behind the masthead (and the towers' horizon) */
+.tv-backdrop { position:absolute; left:0; top:0; z-index:0; pointer-events:none; }
+.tv-mast, .tv-ticker { position:relative; z-index:1; }
+.tv-main { z-index:1; }
+.tv-canvas.is-day .tv-mast-title, .tv-canvas.is-day .tv-mast-edition, .tv-canvas.is-day .tv-status,
+.tv-canvas.is-day .tv-on-sky .tv-title, .tv-canvas.is-day .tv-on-sky .tv-label { color:var(--ink0); }
+.tv-canvas.is-day .tv-ondeck { background:var(--night2); }
+
+/* ── Chip Towers ── */
+.tv-towers-pane { position:absolute; inset:0; animation:si-fade .5s ease-out; }
+.tv-towers-table { position:absolute; left:0; right:0; bottom:0; background:var(--paper); border-top:2px solid var(--ink0); }
+.tv-towers { position:absolute; left:0; top:0; }
+.tv-towers-canvas { position:absolute; left:0; top:0; display:block; }
+.tv-towers-labels { position:absolute; inset:0; pointer-events:none; }
+.tv-tower-label { position:absolute; left:0; top:0; width:140px; display:flex; flex-direction:column; align-items:center;
+  gap:3px; text-align:center; }
+.tv-tower-name { max-width:140px; font:700 30px/1 var(--fd-display); text-transform:uppercase; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-tower-label.is-lead .tv-tower-name { color:var(--sun); }
+.tv-tower-pts { font:800 30px/1 var(--fd-display); color:var(--bone); }
+.tv-tower-move { font-size:24px; min-width:0; }
+.tv-tower-split { font:600 24px/1.05 var(--fd-display); color:var(--night-text); white-space:nowrap; }
+.tv-tower-split b { color:var(--ink); font-weight:700; }
+.tv-towers-sources { position:absolute; width:0; height:0; overflow:hidden; visibility:hidden; }
+.tv-towers-head { position:absolute; left:56px; right:56px; top:4px; }
+
+/* the champion's sky: the weekend's winners over the finale's night, the
+   trophy standing on the horizon */
+.tv-champ-sky { position:relative; width:740px; max-width:100%; flex-shrink:0; border-radius:14px; overflow:hidden;
+  border:3px solid var(--ink0); }
+.tv-champ-trophy { position:absolute; left:50%; bottom:4%; transform:translateX(-50%); }
+
+/* the trophy idle card */
+.tv-trophy-stage { flex:1; min-height:0; display:flex; align-items:flex-start; justify-content:center; }
+.tv-trophy-pane .fd-trophy.is-tv { --plate-h:100px; --tier-pad:10px 16px; }

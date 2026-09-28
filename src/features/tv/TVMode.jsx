@@ -20,10 +20,19 @@ import {
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import {
   ChampionMoment, TVBracket, StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
+  TrophyCard,
 } from "./TVCards.jsx";
+import { DesertBand } from "./DesertBand.jsx";
+import { desertPhase, constellationStars, isDaySky, isNightSky } from "./desertModel.js";
+import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
+import { towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
 import "./tv.css";
 
+const EMPTY = [];
+/* the backdrop's stars keep one patch of sky, right of the masthead type
+   and above the strip's peaks, whichever band is showing */
+const STAR_BOX = { left:1140, right:1860, top:8, bottom:44 };
 const reducedMotionNow = () => typeof window !== "undefined"
   && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
@@ -70,12 +79,12 @@ const Move = ({ delta, className = "tv-move" }) => !delta ? <span className={cla
     {delta > 0 ? "▲" : "▼"}{Math.abs(delta)}</span>
 );
 
-function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt, final, dock }) {
+function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt, final, dock, day = false }) {
   const offline = connection.mode === "reconnecting";
   const since = lastUpdateAt ? new Date(lastUpdateAt).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : null;
   return (
     <header className="tv-mast">
-      <FDMark size={64} variant="night" />
+      <FDMark size={64} variant={day ? undefined : "night"} />
       <div className="tv-display tv-mast-title">Field Day</div>
       {!dock && <div className="tv-mast-edition">{editionLabel()}</div>}
       {offline ? (
@@ -166,6 +175,38 @@ function StandingsBoard({ state, standings, allTied, rankDeltas = {}, title }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ── Chip Towers: the standings as stacks of each player's own chip ──
+   The table and the labels are flat HTML; the towers are a transparent
+   WebGL layer over them, loaded only on a TV that can draw it. */
+const TOWER_BASE = 716;
+const TOWER_TABLE = 560;
+const TOWER_SLOT = 136;
+const towerNameSize = name => {
+  const longest = Math.max(4, ...String(name || "").split(/\s+/).map(word => word.length));
+  return Math.max(24, Math.min(32, Math.floor(TOWER_SLOT / (longest * 0.5))));
+};
+function TowersView({ state, rows, head = null, height, towers, fallback, splits = false, rankDeltas = {} }) {
+  const leaders = towerLeaders(rows);
+  const labelFor = row => {
+    const name = disp(state, row.player);
+    const delta = splits ? row.move : rankDeltas[row.player];
+    return <>
+      <b className="tv-tower-name" style={{ fontSize:towerNameSize(name) }}>{name}</b>
+      <span className="tv-tower-pts">{fmt(row.pts)}{delta ? <Move delta={delta} className="tv-move tv-tower-move" /> : null}</span>
+      {splits && row.award ? <span className="tv-tower-split">Event <b>{signed(row.award)}</b></span> : null}
+      {splits && row.bets ? <span className="tv-tower-split">Bets <b>{signed(row.bets)}</b></span> : null}
+    </>;
+  };
+  return (
+    <div className="tv-towers-pane">
+      <div className="tv-towers-table" style={{ top:TOWER_TABLE }} />
+      <TowersBoard fallback={fallback} rows={rows} leaders={leaders} width={1920} height={height} baseY={TOWER_BASE}
+        top={head ? 104 : 48} pixelRatio={towers.pixelRatio} reducedMotion={towers.reducedMotion} labelFor={labelFor} />
+      {head && <div className="tv-towers-head tv-on-sky">{head}</div>}
     </div>
   );
 }
@@ -354,7 +395,7 @@ const ROW_STEP = 60;
 /* one result, told twice: a podium climbing third to first, then all thirteen
    rows moving from where they stood to where they stand, each change split
    into the event award and the bets on it (poker: final stacks). */
-function ResultSequence({ state, model, phase, directedStep = null }) {
+function ResultSequence({ state, model, phase, directedStep = null, towers = null }) {
   if (!model) return null;
   if (phase.phase === "podium") {
     const shown = new Set(model.revealOrder.slice(0, Math.min(model.revealOrder.length, phase.revealed)).map(p => p.place));
@@ -381,16 +422,19 @@ function ResultSequence({ state, model, phase, directedStep = null }) {
   }
   const order = phase.sorted ? model.rows.map(row => row.player) : model.beforeOrder;
   const leaderSet = new Set(model.leader?.players || []);
-  return (
-    <div className="tv-pane" style={{ paddingTop:0 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:24, height:70, marginBottom:6 }}>
-        <div className="tv-display tv-title" style={{ fontSize:52 }}>
-          {model.kind === "stacks" ? "Final stacks" : directedStep ? "Standings updated" : "Standings"}</div>
-        <div className="tv-label">{model.eventName}</div>
-        <div style={{ marginLeft:"auto" }}>
-          {phase.sorted && model.leadChanged && <LeadChange state={state} leader={model.leader} previous={model.previousLeader} />}
-        </div>
+  const head = (
+    <div style={{ display:"flex", alignItems:"center", gap:24, height:70, marginBottom:6 }}>
+      <div className="tv-display tv-title" style={{ fontSize:52 }}>
+        {model.kind === "stacks" ? "Final stacks" : directedStep ? "Standings updated" : "Standings"}</div>
+      <div className="tv-label">{model.eventName}</div>
+      <div style={{ marginLeft:"auto" }}>
+        {phase.sorted && model.leadChanged && <LeadChange state={state} leader={model.leader} previous={model.previousLeader} />}
       </div>
+    </div>
+  );
+  const flat = (
+    <div className="tv-pane" style={{ paddingTop:0 }}>
+      {head}
       <div className="tv-move-list" style={{ height:ROW_STEP * model.rows.length }}>
         {model.rows.map(row => {
           const index = order.indexOf(row.player);
@@ -416,6 +460,10 @@ function ResultSequence({ state, model, phase, directedStep = null }) {
       </div>
     </div>
   );
+  if (towers?.on && model.kind !== "stacks")
+    return <TowersView state={state} rows={resultTowerRows(model, phase.sorted)} head={head} height={towers.height}
+      towers={towers} fallback={flat} splits />;
+  return flat;
 }
 
 function TVPoker({ state, standings, now }) {
@@ -547,11 +595,15 @@ function TVDraft({ state, ev, d }) {
   );
 }
 
-function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion }) {
+function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null }) {
   const kind = scene.active.kind;
-  if (kind === "standings")
-    return <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={false}
+  if (kind === "standings") {
+    const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={false}
       rankDeltas={rankDeltas} title="Standings" /></div>;
+    return towers?.on ? <TowersView state={state} rows={standingsTowerRows(standings)} rankDeltas={rankDeltas}
+      head={<div className="tv-display tv-title" style={{ fontSize:56 }}>Standings</div>}
+      height={towers.height} towers={towers} fallback={flat} /> : flat;
+  }
   if (kind === "champion") {
     const view = championView(state, events, scene.standings);
     return view ? <ChampionMoment state={state} view={view} /> : null;
@@ -570,7 +622,7 @@ function DirectedScene({ state, events, scene, now, standings, rankDeltas, reduc
     const model = resultPresentation(state, events, scene.active.eventId);
     const anchor = scene.stepKey === "standings" ? Number(scene.active.updatedAt) : Number(scene.active.startedAt);
     const phase = resultMomentPhase(anchor, now, { reducedMotion, step:scene.stepKey });
-    return <ResultSequence state={state} model={model} phase={phase} directedStep={scene.stepKey} />;
+    return <ResultSequence state={state} model={model} phase={phase} directedStep={scene.stepKey} towers={towers} />;
   }
   return null;
 }
@@ -601,6 +653,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const connection = tvConnection(connectionInput);
   const lastUpdateAt = useLastUpdate(connectionInput.version);
   const pointerActive = usePointerActive();
+  const towersMode = useTowersMode();
 
   const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   const showScene = useMemo(() => showControlEnabled ? resolveShowScene(state, events) : null,
@@ -648,6 +701,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     [state, events, resultMoment?.eventId]); // eslint-disable-line react-hooks/exhaustive-deps
   const correction = champion ? null : correctionMoment(state, events, now);
 
+  /* the Desert Clock: the session's sky behind the masthead, the whole
+     horizon behind the towers; winners' stars from Saturday night on */
+  const phase = desertPhase(state, events, { liveEvent:liveEv, operationEvent:operationEv });
+  const day = isDaySky(phase);
+  const stars = useMemo(() => constellationStars(state, events), [state.results, events]); // eslint-disable-line react-hooks/exhaustive-deps
+  const skyStars = isNightSky(phase) ? stars : EMPTY;
+
   /* a lead change outside a result moment gets its card in the masthead */
   const leaderKey = !allTied && standings[0] ? standings.filter(r => r.rank === 1).map(r => r.player).sort().join("+") : "";
   const leadRef = useRef(null);
@@ -688,6 +748,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     if (latest) s.push("latest");
     if (openBook.length) s.push("book");
     if (state.live && latest) s.push("progress");
+    if (state.live) s.push("trophy");
     if (state.live && !allTied) s.push("race");
     if (board.recent.length) s.push("duels");
     if (Object.keys(state.profiles || {}).length) s.push("spotlight");
@@ -701,22 +762,35 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now });
 
   const showTicker = !final && !(directed && sceneView.ticker === false) && connection.mode !== "loading";
+  const towers = {
+    on:towersMode === "3d",
+    height:1080 - 6 - 118 - (showTicker ? 74 : 0),
+    pixelRatio:Math.min(1.5, Math.max(1, (typeof window === "undefined" ? 1 : window.devicePixelRatio || 1) * fit.scale)),
+    reducedMotion,
+  };
 
-  let content, liveShown = false;
+  let content, liveShown = false, bandTall = false;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
       <FDMark size={120} variant="night" />
       <div className="tv-display" style={{ fontSize:72, color:"var(--bone)", marginTop:24 }}>Connecting</div>
     </div>;
   } else if (directed) {
+    const kind = showScene.active.kind;
+    const winnerModel = kind === "winner" ? resultPresentation(state, events, showScene.active.eventId) : null;
+    const winnerPhase = kind === "winner" ? resultMomentPhase(showScene.stepKey === "standings" ? Number(showScene.active.updatedAt)
+      : Number(showScene.active.startedAt), now, { reducedMotion, step:showScene.stepKey }) : null;
+    bandTall = towers.on && (kind === "standings"
+      || (winnerPhase?.phase === "standings" && !!winnerModel && winnerModel.kind !== "stacks"));
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
-      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} />;
+      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} />;
   } else if (champion) {
     const view = championView(state, events, standings);
     content = view ? <ChampionMoment state={state} view={view} /> : null;
   } else if (resultModel) {
-    content = <ResultSequence state={state} model={resultModel}
-      phase={resultMomentPhase(resultMoment.anchor, now, { reducedMotion })} />;
+    const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
+    bandTall = towers.on && resultPhase.phase === "standings" && resultModel.kind !== "stacks";
+    content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers} />;
   } else if (state.poker && !state.results[state.poker.id]) {
     content = <TVPoker state={state} standings={standings} now={now} />;
   } else if (draftLive) {
@@ -793,6 +867,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
         })}
       </div>
     </div>;
+  } else if (scene === "trophy") {
+    content = <TrophyCard state={state} events={events} />;
   } else if (scene === "progress") {
     content = <WeekendProgressCard state={state} events={events} />;
   } else if (scene === "race") {
@@ -804,8 +880,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     content = player ? <SpotlightCard state={state} events={events} standings={standings} player={player} />
       : <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied} rankDeltas={rankDeltas} /></div>;
   } else {
-    content = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
+    const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
       rankDeltas={rankDeltas} /></div>;
+    bandTall = towers.on;
+    content = towers.on ? <TowersView state={state} rows={standingsTowerRows(standings)} rankDeltas={rankDeltas}
+      height={towers.height} towers={towers} fallback={flat} /> : flat;
   }
 
   const dockNode = dock?.kind === "correction" ? <CorrectionCard state={state} correction={dock.correction} />
@@ -813,10 +892,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
 
   return (
     <div className="tv-stage fd-night">
-      <div className="tv-canvas" data-tv-canvas
+      <div className={`tv-canvas${day ? " is-day" : ""}${bandTall ? " is-towers" : ""}`} data-tv-canvas data-phase={phase}
+        data-towers={towers.on ? "3d" : towersFailure() || "2d"}
         style={{ left:fit.left, top:fit.top, transform:`scale(${fit.scale})` }}>
+        <DesertBand phase={phase} variant={bandTall ? "full" : "strip"} width={1920} height={bandTall ? 118 + TOWER_TABLE : 118}
+          stars={skyStars} starBox={STAR_BOX} className="tv-backdrop" />
         <Masthead state={state} onDeckEv={onDeckEv} connection={connection} lastUpdateAt={lastUpdateAt}
-          showOnDeck={!final && !directed && !liveShown} final={final} dock={dockNode} />
+          showOnDeck={!final && !directed && !liveShown} final={final} dock={dockNode} day={day} />
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
         </main>

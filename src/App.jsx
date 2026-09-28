@@ -11,7 +11,9 @@ import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
 import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
 import { GuestHome, hasGameRules } from "./features/home/GuestHome.jsx";
 import { deriveHomeModel } from "./features/home/homeModel.js";
-import { guestLedger, summarizeUpdate, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
+import { guestLedger, summarizeUpdate, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
+import { haptic, setHapticSurface } from "./lib/haptics.js";
+import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
 import { filterRevealCandidates } from "./features/weekend/drawReveal.js";
 import { Board } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
@@ -338,6 +340,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [qaTop, setQaTop] = useState(() => localGet("si-qa-pos") === "top");
   const [tv, setTv] = useState(() => typeof window !== "undefined" &&
     (window.location.pathname === "/tv" || new URLSearchParams(window.location.search).has("tv")));
+  /* the TV never vibrates, however it got there */
+  useEffect(() => { setHapticSurface(tv ? "tv" : "phone"); }, [tv]);
   /* Sheets stack: setModal replaces the stack (open fresh, or null closes
      all), pushModal opens a sheet INSIDE the current one so back returns to
      it. The X and the scrim always close the whole stack. */
@@ -589,7 +593,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
     const playing = modalRef.current?.type === "duelPlay" ? modalRef.current.id : null;
     const summary = summarizeUpdate(prev, next, { state, events, skipDuel:playing });
     if (summary) notify(summary.msg, null, summary.tone, summary.chip);
-  }, [state, standings, events, me, ready, onboardStep, notify]);
+    const buzz = tv ? null : updateHaptic(prev, next, { state, skipDuel:playing });
+    if (buzz) haptic(buzz);
+  }, [state, standings, events, me, ready, onboardStep, notify]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it
      finished. A device that finished before it ever stored one adopts the
@@ -731,6 +737,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       const draftEvent = events.find(e => e.id === eid);
       notify(`Your pick · ${draftEvent?.name || "Draft"}`, draftEvent
         ? { label:"Open draft", fn:() => { setModal({type:"draft",ev:draftEvent}); setToast(null); } } : null, "gold", me);
+      if (!tv) haptic("pick");
       return;
     }
   }, [state.drafts, me, events, ready]); // eslint-disable-line
@@ -4375,6 +4382,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
         num={num} setNum={setNum} size={size} setSize={setSize}
         onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
+      <VibrationToggle />
       </div>
       <div hidden={section !== "travel"}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,

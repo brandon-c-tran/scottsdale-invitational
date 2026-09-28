@@ -1524,7 +1524,26 @@ function resolveWeekendOperation(state, events = allEventsOf(state)) {
   return { event, lifecycle, nextAction:lifecycle.nextAction };
 }
 
+/* Read-only preview of what pokerSetup would deal, for the commissioner's
+   Starting stacks sheet: seated players and their stacks (minimum-stack
+   grants included), who is away, the tray, and how many open duels the
+   setup write voids. Nothing here writes. */
+function pokerSetupPreview(state) {
+  const rows = computeStandings(state);
+  const seated = rows.filter(row => !isAway(state, row.player));
+  const distribution = pokerDistribution(seated);
+  return {
+    seats:seated.map(row => row.player),
+    away:rows.filter(row => isAway(state, row.player)).map(row => row.player),
+    rows:distribution.rows.map(row => ({ player:row.player, stack:row.stack, grant:row.grant })),
+    inventory:distribution.inventory,
+    voidDuels:(state.duels || []).filter(duel => duel.status === "open" && !resolveDuel(duel).settled).length,
+    total:distribution.total,
+  };
+}
+
 export {
+  pokerSetupPreview,
   ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer, isAway, presentPlayers,
   AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,

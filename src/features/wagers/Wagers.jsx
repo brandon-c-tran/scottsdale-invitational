@@ -203,10 +203,14 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   </div>;
 }
 
-function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
+function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label = wagerPickLabel(state, w, events);
   const win = wagerMult(w) * w.stake;
+  const [confirming, setConfirming] = useState(false), [voiding, setVoiding] = useState(false);
+  const voidBusy = useRef(false);
+  const ids = w.ids || [w.id];
+  const voidable = gm && manage && r.status === "pending" && !!onVoid;
   return <article className={`fd-wagers-line is-${r.status}`}>
     <button type="button" className="fd-wagers-ledger-player" disabled={!onPlayer}
       onClick={() => onPlayer?.(w.player)} aria-label={`View ${disp(state, w.player)}'s player card`}>
@@ -223,9 +227,22 @@ function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
       {r.status === "won" && <><small>WON</small><strong>+{fmt(r.delta)}</strong></>}
       {r.status === "lost" && <><small>LOST</small><strong>{fmt(r.delta)}</strong></>}
       {r.status === "void" && <small>VOID</small>}
-      {gm && r.status === "pending" && <ActionButton compact variant="destructive"
-        className="fd-wagers-void" onClick={() => onVoid(w.ids || [w.id])}>Void</ActionButton>}
+      {voidable && !confirming && <button type="button" className="fd-wagers-void"
+        onClick={() => setConfirming(true)}>Void</button>}
     </div>
+    {voidable && confirming && <div className="fd-wagers-void-confirm" role="group" aria-label="Confirm void">
+      <span>{disp(state, w.player)}, {ids.length} bet{ids.length === 1 ? "" : "s"}, {fmt(w.stake)} chips back</span>
+      <button type="button" className="is-commit" disabled={voiding} onClick={async () => {
+        if (voidBusy.current) return undefined;
+        voidBusy.current = true; setVoiding(true);
+        try {
+          const result = await onVoid(ids);
+          if (result?.ok !== false) setConfirming(false);
+          return result;
+        } finally { voidBusy.current = false; setVoiding(false); }
+      }}>{voiding ? "Voiding…" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`}</button>
+      <button type="button" disabled={voiding} onClick={() => setConfirming(false)}>Keep</button>
+    </div>}
   </article>;
 }
 
@@ -274,6 +291,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     onSettledSeen?.();
   }, [openSettled]); // eslint-disable-line
   const [denom, setDenom] = useState(PT);
+  /* per-bet Void sits behind the commissioner's Manage toggle */
+  const [manage, setManage] = useState(false);
   const resolved = useMemo(() => (state.wagers || []).map(w => ({ w, r:resolveWager(state, w, events) })),
     [state, events]);
   const pending = resolved.filter(x => x.r.status === "pending");
@@ -387,10 +406,12 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       {peek && <BracketPeek state={state} ev={ev} me={me} onOpen={onEvent} card />}
     </section>}
 
-    {pendingLines.length > 0 && <details className="fd-wagers-history" open={gm || !contest || undefined}>
+    {pendingLines.length > 0 && <details className="fd-wagers-history" open={!contest || undefined}>
       <summary>Open bets <span>{pendingLines.length}</span></summary>
+      {gm && onVoid && <button type="button" className="fd-wagers-manage" aria-pressed={manage}
+        onClick={() => setManage(value => !value)}>{manage ? "Done" : "Manage"}</button>}
       <div className="fd-wagers-ledger">{pendingLines.map(x =>
-        <WagerLine key={x.w.id} x={x} state={state} events={events} gm={gm} onVoid={onVoid} onPlayer={onPlayer} />)}</div>
+        <WagerLine key={x.w.id} x={x} state={state} events={events} gm={gm} manage={manage} onVoid={onVoid} onPlayer={onPlayer} />)}</div>
     </details>}
 
     {settledLines.length > 0 && <details className="fd-wagers-history" ref={settledRef} open={settledShown}

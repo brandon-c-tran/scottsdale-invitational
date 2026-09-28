@@ -46,6 +46,9 @@ import {
 import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
 import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
 import { duelView } from "./features/duels/duelView.js";
+import { DirectorPill } from "./features/director/DirectorPill.jsx";
+import { directorPill } from "./features/director/directorPill.js";
+import { PokerSetupSheet, CrownSheet } from "./features/director/FinaleSheets.jsx";
 import {
   SHOW_SCENE_DEFINITIONS,
   resolveShowScene,
@@ -762,10 +765,22 @@ function TournamentApp({ tournament }) {
 
   /* every mutation is an action; the server validates, applies, broadcasts */
   const act = (type, payload, okMsg, options) => dispatch(type, payload, options).then(r => {
+    /* the first weekend-starting write asks once before it goes out */
+    if (!r.ok && r.extra?.needsStartConfirm && !payload?.startWeekend)
+      return new Promise(resolve => setStartConfirm({ type, payload, okMsg, options, resolve }));
     if (!r.ok) notify(r.error || "Rejected");
     else if (okMsg) notify(okMsg);
     return r;
   });
+  const [startConfirm, setStartConfirm] = useState(null);
+  const answerStartConfirm = async go => {
+    const pendingStart = startConfirm;
+    if (!pendingStart) return;
+    setStartConfirm(null);
+    pendingStart.resolve(go
+      ? await act(pendingStart.type, { ...pendingStart.payload, startWeekend:true }, pendingStart.okMsg, pendingStart.options)
+      : { ok:false, error:"Not opened" });
+  };
 
   const saveProfile = async (p, prof) => {
     const result = await savePlayerProfile({ player:p, profile:prof,
@@ -809,7 +824,7 @@ function TournamentApp({ tournament }) {
   const setAway = (player, away) => act("setAway", { player, away });
   const lockAndStart = (ev, reference) => {
     const contest = resolveCurrentContest(state, ev);
-    return act("lockAndStart", { evId:ev.id, contestId:contest?.id, contestRevision:contest?.revision, ...reference }, "Bets locked. Play starts.", { retry:true });
+    return act("lockAndStart", { evId:ev.id, contestId:contest?.id, contestRevision:contest?.revision, ...reference }, "Bets locked", { retry:true });
   };
   const recordContestWinner = (ev, result) => act("recordContestWinner", { evId:ev.id, ...result }, "Winner recorded", { retry:true });
   const openResultEntry = async ev => {
@@ -1325,78 +1340,47 @@ function TournamentApp({ tournament }) {
   };
 
 
-  const DIRECTOR_SCENE_BEATS = ["advance-scene", "clear-scene",
-    "start-champion-scene", "replay-winner-scene"];
-  const gmNext = (() => {
-    if (!gmView || !ready) return null;
-    const { event:ev, nextAction } = director;
-    if (!nextAction) return null;
-    /* the frozen board keeps only its ceremony beats */
-    if (state.frozen && !DIRECTOR_SCENE_BEATS.includes(nextAction.type)) return null;
-    if (nextAction.type === "crown-champion")
-      return { label:"Crown the champion", run:() => setModal({type:"freeze"}) };
-    const run = {
-      "advance-scene":() => advanceShowScene(nextAction.sceneId),
-      "clear-scene":() => endShowScene(nextAction.sceneId, "cancelled"),
-      "start-champion-scene":() => startShowScene({ kind:"champion" }),
-      "replay-winner-scene":() => startShowScene({ kind:"winner", eventId:nextAction.eventId }),
-      "announce":() => announceEvent(ev),
-      /* crew to confirm: a compact picker; nobody sitting out: one tap */
-      "announce-draw":() => nextAction.roles?.length
-        ? setModal({ type:"announceDraw", ev, players:nextAction.players, roles:nextAction.roles })
-        : announceAndDraw(ev, nextAction.players, nextAction.roles),
-      "lock-start":() => lockAndStart(ev),
-      "setup-poker":() => { pokerSetup(); setModal({type:"pokerBuyin"}); },
-      "start-poker":() => setModal({type:"pokerBuyin"}),
-      "run-poker":() => setModal({type:"pokerResult"}),
-      "post-poker-result":() => setModal({type:"pokerResult"}),
-      "prepare-draw":() => setModal({type:"event", ev}),
-      "prepare-stages":() => setModal({type:"event", ev}),
-      "record-contest-winner":() => setModal({type:"event", ev}),
-      "continue-draft":() => setModal({type:"event", ev}),
-      "open-betting":() => setOnDeck(ev.id),
-      "lock-betting":() => setOnDeck(null),
-      "start-event":() => startEvent(ev),
-      "advance-bracket":() => setModal({type:"bracket", ev}),
-      "advance-stages":() => setModal({type:"event", ev}),
-      "enter-result":() => openResultEntry(ev),
-      "post-result":() => setModal({type:"result", ev}),
-    }[nextAction.type];
-    if (!run) return null;
-    /* a blocked beat is a door to the fixing surface, not a dead end */
-    if (nextAction.enabled === false && nextAction.blockers?.length) {
-      const route = nextAction.type === "setup-poker"
-        ? () => setTab("bets")
-        : ev ? () => setModal({type:"event", ev}) : run;
-      return { label:nextAction.blockers[0], run:route, blocked:true };
+  /* The pill: directorPill turns the director's beat into targets. A write
+     goes straight to the server; an open names the sheet or view. */
+  const pillModel = gmView && ready ? directorPill(state, events, director, { me }) : null;
+  const DIRECTOR_TOASTS = {
+    announceEvent:p => `${events.find(e => e.id === p.evId)?.name || "Event"} is on deck`,
+    announceAndDraw:p => `${events.find(e => e.id === p.evId)?.name || "Event"} is on deck`,
+    lockAndStart:() => "Bets locked",
+    startEvent:() => "Started",
+  };
+  const directorWrite = (type, payload) => dispatch(type, payload, { retry:true }).then(r => {
+    if (r.ok && !r.extra?.unchanged && DIRECTOR_TOASTS[type]) notify(DIRECTOR_TOASTS[type](payload));
+    return r;
+  });
+  const directorOpen = run => {
+    const ev = run.evId ? events.find(e => e.id === run.evId) : null;
+    if (run.tab) return setTab(run.tab);
+    if (run.open === "pokerClock") {
+      setModal(null); setTab("board");
+      setTimeout(() => document.getElementById("fd-poker-table")?.scrollIntoView({ block:"start", behavior:"smooth" }), 80);
+      return;
     }
-    const note = nextAction.type === "lock-start" && ev && state.onDeck === ev.id ? (() => {
-      const contest = resolveCurrentContest(state, ev);
-      const bets = (state.wagers || []).filter(w => wagerMatchesContest(w, contest) && resolveWager(state,w,events).status === "pending").length;
-      const openedAt = Number(state.eventOps?.[ev.id]?.contest?.openedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
-      const mins = openedAt ? Math.max(0, Math.round((Date.now() - openedAt) / 60000)) : null;
-      return `${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`;
-    })() : nextAction.type === "setup-poker" ? (() => {
-      const open = openDuelsForDesk(state).length;
-      return open ? `Voids ${open} open duel${open === 1 ? "" : "s"}` : null;
-    })() : nextAction.type === "record-contest-winner" && ev ? (() => {
-      /* the two sides, by real name, so the right winner gets the tap */
-      const contest = resolveCurrentContest(state, ev);
-      if (!contest || contest.kind === "ffa") return null;
-      const sides = contest.sides.map(side => side.players.map(p => disp(state, p)).join(" & ")).join(" vs ");
-      return contest.players.includes(me) ? `${sides} · You’re playing` : sides;
-    })() : null;
-    const secondary = director.secondary?.type === "skip-event" && ev
-      ? { label:"Skip", run:() => setModal({ type:"skipEvent", ev }) } : null;
-    return {
-      label:nextAction.label,
-      run,
-      note,
-      secondary,
-      skip:nextAction.type === "advance-scene"
-        ? () => endShowScene(nextAction.sceneId, "skipped") : null,
-    };
-  })();
+    if (run.open === "resultEntry") return ev && openResultEntry(ev);
+    if (run.open === "draft") return ev && setModal({ type:"draft", ev, pool:run.pool, roles:run.roles });
+    if (run.open === "announceDraw") return ev && setModal({ type:"announceDraw", ev, players:run.players,
+      roles:run.roles, changing:!!run.changing });
+    if (["event", "bracket", "result", "skipEvent"].includes(run.open)) return ev && setModal({ type:run.open, ev });
+    if (["pokerSetup", "pokerResult", "crown"].includes(run.open)) return setModal({ type:run.open });
+  };
+  const crownReady = director.nextAction?.type === "crown-champion" && !state.frozen;
+  const dealAndStart = async () => {
+    const dealt = await dispatch("pokerSetup", {}, { retry:true });
+    if (!dealt.ok) return dealt;
+    const started = await dispatch("pokerStart", {}, { retry:true });
+    if (started.ok) { setModal(null); notify("Cards are live"); }
+    return started;
+  };
+  const crownChampion = async champions => {
+    const result = await dispatch("crownChampion", { champions }, { retry:true });
+    if (result.ok) { setModal(null); setTab("board"); }
+    return result;
+  };
 
   if (tv) {
     return (
@@ -1486,7 +1470,12 @@ function TournamentApp({ tournament }) {
           onPlayer={p => setModal({type:"player", p})}
           onPick={pick => placeWager({ ...pick, stake: pick.stake || PT })}
           onRetract={(id, reference) => retractWager(id, reference)}
-          onVoid={ids => { (Array.isArray(ids) ? ids : [ids]).forEach(id => voidWager(id)); notify("Wager voided"); }} />}
+          onVoid={async ids => {
+            const results = await Promise.all((Array.isArray(ids) ? ids : [ids]).map(id => voidWager(id)));
+            const failed = results.find(result => !result.ok);
+            if (!failed) notify(results.length === 1 ? "Bet voided" : `${results.length} bets voided`);
+            return failed || { ok:true };
+          }} />}
         {tab === "bets" && gmView && <DuelDesk state={state} onVoid={voidDuel} onVoidAll={voidOpenDuels} />}
         {tab === "guide" && <Guide events={events} state={state} me={me}
           section={weekendSection} onSection={setWeekendSection}
@@ -1500,7 +1489,7 @@ function TournamentApp({ tournament }) {
               .players.map(player => ({ player, track:state.profiles?.[player]?.walkoutTrack }))
               .filter(item => item.track)
           : [];
-        if ((!gmNext && !cueTracks.length) || modal) return null;
+        if ((!gmView && !cueTracks.length) || modal) return null;
         return (
           <div style={{ position:"fixed", right:14, zIndex:56,
             bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
@@ -1513,42 +1502,8 @@ function TournamentApp({ tournament }) {
                   onAudio={() => setModal({type:"audioDirector"})} />
               </div>
             )}
-            {gmNext && (
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                {gmNext.skip && (
-                  <button onClick={gmNext.skip} aria-label="Skip scene"
-                    style={{ width:38, height:38, borderRadius:99, background:"var(--night)",
-                      border:"1px solid var(--bone-line)", color:"var(--night-text)",
-                      fontSize:13, cursor:"pointer", boxShadow:"var(--shadow-2)",
-                      display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
-                )}
-                {gmNext.secondary && (
-                  <button onClick={gmNext.secondary.run}
-                    style={{ minHeight:44, padding:"0 14px", borderRadius:99, background:"var(--night)",
-                      border:"1px solid var(--bone-line)", color:"var(--night-text)", cursor:"pointer",
-                      fontFamily:SANS, fontWeight:700, fontSize:12.5, boxShadow:"var(--shadow-2)" }}>
-                    {gmNext.secondary.label}</button>
-                )}
-                <button onClick={gmNext.run}
-                  style={{ display:"flex", alignItems:"center", gap:8, background:"var(--night)",
-                    color:BONE, border:"1px solid var(--bone-line)", borderRadius:99,
-                    padding:"11px 18px", cursor:"pointer", boxShadow:"var(--shadow-2)",
-                    maxWidth:"78vw", opacity:gmNext.blocked ? 0.8 : 1 }}>
-                  <span style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", minWidth:0 }}>
-                    <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:16, letterSpacing:"0.04em",
-                      textTransform:"uppercase", overflow:"hidden", textOverflow:"ellipsis",
-                      whiteSpace:"nowrap", maxWidth:"70vw",
-                      color:gmNext.blocked ? "var(--night-text)" : BONE }}>
-                      {gmNext.label}</span>
-                    {gmNext.note && (
-                      <span style={{ fontFamily:SANS, fontWeight:600, fontSize:10.5,
-                        color:"var(--night-text)" }}>{gmNext.note}</span>
-                    )}
-                  </span>
-                  <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--sun)" }}>›</span>
-                </button>
-              </div>
-            )}
+            {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
+              onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
           </div>
         );
       })()}
@@ -1570,7 +1525,8 @@ function TournamentApp({ tournament }) {
           champion={champion} coChamps={coChamps} gm={gmView} events={events}
           myAtRisk={me ? atRisk(state, me, events) : 0}
           onOpen={ev => pushModal({type:"event", ev})} onAdjust={p => pushModal({type:"adjust", player:p})}
-          onPlayer={p => pushModal({type:"player", p})} onFreeze={() => pushModal({type:"freeze"})}
+          crownReady={crownReady}
+          onPlayer={p => pushModal({type:"player", p})} onFreeze={() => pushModal({type:"crown"})}
           onUnfreeze={() => pushModal({type:"unfreeze"})} finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
       </Sheet>}
       {modal?.type === "menu" && <Sheet title="Field Day" onClose={() => setModal(null)}>
@@ -1603,20 +1559,21 @@ function TournamentApp({ tournament }) {
             <MenuGroup title="The show">
               {showControlAllowed && <MenuRow name="Show Control"
                 note={activeShowScene
-                  ? `${activeShowScene.definition?.label || "Scene"} · step ${activeShowScene.stepIndex + 1} of ${activeShowScene.stepCount}`
+                  ? `On TV: ${activeShowScene.definition?.label || "Scene"}, ${activeShowScene.stepIndex + 1} of ${activeShowScene.stepCount}`
                   : "Ambient rotation"}
                 onClick={() => pushModal({type:"showControl"})} />}
               {!showControlAllowed && audioDirectorAllowed && <MenuRow name="Audio Director"
                 onClick={() => pushModal({type:"audioDirector"})} />}
             </MenuGroup>
           )}
-          {state.live && !state.frozen && <MenuGroup title="The weekend">
-            <MenuRow name="Crown the champion" onClick={() => pushModal({type:"freeze"})} />
+          {crownReady && <MenuGroup title="The weekend">
+            <MenuRow name="Crown the champion" onClick={() => pushModal({type:"crown"})} />
           </MenuGroup>}
           <MenuGroup title="Fix something">
-            {state.onDeck && <MenuRow name="Close betting"
-              note={`${onDeckEv?.name || "An event"} is on deck`}
-              onClick={() => { setOnDeck(null); setModal(null); notify("Betting closed"); }} />}
+            {state.onDeck && <MenuRow name="Lock bets"
+              note={onDeckEv?.name || null}
+              onClick={async () => { const locked = await setOnDeck(null);
+                if (locked.ok) { setModal(null); notify("Bets locked"); } }} />}
             {state.live && state.frozen && <MenuRow tone="destructive" name="Unfreeze board"
               onClick={() => pushModal({type:"unfreeze"})} />}
             <MenuRow name="Who is here"
@@ -1686,6 +1643,7 @@ function TournamentApp({ tournament }) {
           && ["prepare-draw", "prepare-stages"].includes(weekendOperation.nextAction?.type)}
         onAnnounceDraw={(players, roles, cfg) => announceAndDraw(modal.ev, players, roles, cfg)}
         onSwap={(out, into) => swapPlayer(modal.ev, out, into)}
+        onTakeBack={() => act("takeBackAnnouncement", { evId:modal.ev.id }, "Announcement taken back", { retry:true })}
         onClose={() => setModal(null)}
         onBack={modalBack}
         onPlayer={p => pushModal({type:"player", p})}
@@ -1816,7 +1774,7 @@ function TournamentApp({ tournament }) {
       )}
       {gmView && modal?.type === "announceDraw" && (
         <AnnounceDrawSheet state={state} ev={events.find(e => e.id === modal.ev.id) || modal.ev}
-          players={modal.players} roles={modal.roles} onClose={() => setModal(null)}
+          players={modal.players} roles={modal.roles} changing={modal.changing} onClose={() => setModal(null)}
           onPlayer={p => pushModal({type:"player", p})}
           onConfirm={async (players, roles) => {
             const result = await announceAndDraw(modal.ev, players, roles);
@@ -1826,7 +1784,11 @@ function TournamentApp({ tournament }) {
       )}
       {gmView && modal?.type === "skipEvent" && (
         <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}>
-          <p style={pStyle}>Shelves {modal.ev.name}. Open bets on it are returned. Restore it from its event sheet.</p>
+          <p style={pStyle}>{(() => {
+            const bets = (state.wagers || []).filter(w => w.eventId === modal.ev.id
+              && resolveWager(state, w, events).status === "pending").length;
+            return bets ? `Returns ${bets} bet${bets === 1 ? "" : "s"}.` : "No open bets.";
+          })()}</p>
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
@@ -1837,7 +1799,9 @@ function TournamentApp({ tournament }) {
       )}
       {gmView && modal?.type === "unfreeze" && (
         <Sheet title="Unfreeze the board" onClose={() => setModal(null)} onBack={modalBack}>
-          <p style={pStyle}>Betting and rulings reopen.</p>
+          <p style={pStyle}>{stacksPosted(state)
+            ? "Rulings reopen. Betting and duels stay closed after the finale."
+            : "Betting, duels and rulings reopen."}</p>
           <div style={{ display:"flex", gap:10 }}>
             <Btn kind="danger" onClick={async () => { const result = await setFrozen(false);
               if (result.ok) setModal(null); }}>Unfreeze</Btn>
@@ -1868,22 +1832,30 @@ function TournamentApp({ tournament }) {
         <GmDevicesSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify}
           onSignedOut={() => { setGmToken(null); setGm(false); saveMine("si-gm", "no"); setModal(null); }} />
       )}
-      {modal?.type === "freeze" && (
-        <Sheet title="Crown the champion" onClose={() => setModal(null)} onBack={modalBack}>
-          <p style={pStyle}>Freezes the board and crowns {(() => {
-            const leaders = standings.filter(row => row.rank === 1);
-            const names = leaders.map(row => disp(state, row.player));
-            return <><b style={{color:"var(--accent2)"}}>{names.length > 1
-              ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]}</b>{names.length > 1 ? " as co-champions" : ""}</>;
-          })()} at {fmt(standings[0]?.pts)} chips. All betting closes.</p>
-          {!state.results[events.find(e => e.finale)?.id] && <p style={{...pStyle, color:"var(--live2)"}}>No Finale result yet.</p>}
-          <div style={{ display:"flex", gap:10 }}>
-            <Btn onClick={() => { setFrozen(true); setModal(null); setTab("board"); }}>Freeze the board</Btn>
-            <Btn kind="ghost" onClick={() => setModal(null)}>Not yet</Btn>
-          </div>
-        </Sheet>
+      {gmView && modal?.type === "crown" && (
+        <CrownSheet state={state} finalePosted={!!state.results[events.find(e => e.finale)?.id]}
+          onClose={() => setModal(null)} onBack={modalBack} onCrown={crownChampion} />
+      )}
+      {gmView && modal?.type === "pokerSetup" && (
+        <PokerSetupSheet state={state} onClose={() => setModal(null)} onBack={modalBack} onDeal={dealAndStart} />
       )}
 
+      {startConfirm && (() => {
+        const id = startConfirm.payload?.evId || startConfirm.payload?.id;
+        const name = events.find(e => e.id === id)?.name;
+        return <div className="fd-director fd-start-confirm" style={{ position:"fixed", right:14, zIndex:120,
+          bottom:"calc(84px + env(safe-area-inset-bottom))" }}>
+          <div className="fd-director-confirm" role="group" aria-label="Confirm">
+            <p>{name ? `Opens betting on ${name} on every phone. Chip colors lock.`
+              : "Starts the weekend on every phone. Chip colors lock."}</p>
+            <div>
+              <button type="button" className="is-primary" onClick={() => answerStartConfirm(true)}>
+                {name ? "Open betting" : "Start"}</button>
+              <button type="button" onClick={() => answerStartConfirm(false)}>Not yet</button>
+            </div>
+          </div>
+        </div>;
+      })()}
       {toast && (
         <div role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
           {toast.chip ? (
@@ -2100,6 +2072,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   const [now, setNow] = useState(() => serverNow());
   const [confirmOut, setConfirmOut] = useState(false);
   const [counting, setCounting] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   useEffect(() => {
     if (!pk?.startedAt) return;
     const t = setInterval(() => setNow(serverNow()), 1000);
@@ -2115,7 +2088,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   if (!pk.startedAt) {
     const d = myRow ? pokerDenoms(myRow.pts) : null;
     return (
-      <div className="fd-night" style={card}>
+      <div id="fd-poker-table" className="fd-night" style={card}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
           <GameMark id="poker" size={34} />
           <div style={{ flex:1, minWidth:0 }}>
@@ -2134,12 +2107,22 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
             textTransform:"uppercase", background:"transparent", color:BONE, border:"1.5px solid var(--ghost-line)",
             borderRadius:10, padding:"6px 12px", cursor:"pointer", flexShrink:0 }}>Everyone</button>
         </div>
-        {gm && (
-          <div style={{ display:"flex", gap:8, padding:"0 14px 12px" }}>
-            <Btn onClick={onStart} style={{ flex:1, padding:"10px 12px", fontSize:12.5 }}>Start the table</Btn>
-            <Btn kind="danger" onClick={onCancel} style={{ padding:"10px 12px", fontSize:12.5 }}>Cancel</Btn>
+        {gm && (confirmCancel ? (
+          <div style={{ padding:"0 14px 12px" }}>
+            <p style={{ margin:"0 0 8px", fontFamily:SANS, fontSize:12.5, color:BONE }}>
+              Clears the dealt stacks and removes the minimum stack grants.</p>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn kind="flame" onClick={async () => { const result = await onCancel(); if (result?.ok) setConfirmCancel(false); return result; }}
+                style={{ flex:1, fontSize:12.5 }}>Cancel the table</Btn>
+              <Btn kind="ghost" onClick={() => setConfirmCancel(false)} style={{ fontSize:12.5 }}>Keep it</Btn>
+            </div>
           </div>
-        )}
+        ) : (
+          <div style={{ display:"flex", gap:8, padding:"0 14px 12px" }}>
+            <Btn onClick={onStart} style={{ flex:1, fontSize:12.5 }}>Start the table</Btn>
+            <Btn kind="danger" onClick={() => setConfirmCancel(true)} style={{ fontSize:12.5 }}>Cancel</Btn>
+          </div>
+        ))}
       </div>
     );
   }
@@ -2154,7 +2137,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
   const countPhase = counting || (clk.last && clk.msLeft === 0) || counted.length > 0;
 
   return (
-    <div className="fd-night" style={card}>
+    <div id="fd-poker-table" className="fd-night" style={card}>
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px" }}>
         <GameMark id="poker" size={30} />
         <div style={{ flex:1 }}>
@@ -2240,11 +2223,11 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
         <div style={{ borderTop:"1px solid var(--night-line)", padding:"8px 14px 10px",
           display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ ...label, fontSize:10.5, color:"var(--night-text2)" }}>Level</span>
-          <button onClick={() => onLevel(-1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
-            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>−</button>
-          <button onClick={() => onLevel(1)} style={{ width:30, height:30, borderRadius:10, cursor:"pointer",
-            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE }}>+</button>
-          {onPause && <button onClick={() => onPause(!clk.paused)} style={{ minHeight:30, padding:"0 12px",
+          <button onClick={() => onLevel(-1)} aria-label="Previous level" style={{ width:44, height:44, borderRadius:10, cursor:"pointer",
+            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}>−</button>
+          <button onClick={() => onLevel(1)} aria-label="Next level" style={{ width:44, height:44, borderRadius:10, cursor:"pointer",
+            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}>+</button>
+          {onPause && <button onClick={() => onPause(!clk.paused)} style={{ minHeight:44, padding:"0 12px",
             borderRadius:10, cursor:"pointer", background:"transparent", border:"1.5px solid var(--ghost-line)",
             color:BONE, fontFamily:SANS, fontWeight:700, fontSize:11.5, textTransform:"uppercase" }}>
             {clk.paused ? "Resume clock" : "Pause clock"}</button>}
@@ -2252,7 +2235,7 @@ function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel, onLev
           {!counted.length && (
             <button onClick={onReview} style={{ background:"none", border:"none", color:"var(--night-text)",
               fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer", textTransform:"uppercase",
-              padding:"4px 0" }}>Table sheet</button>
+              minHeight:44, padding:"4px 0" }}>Table sheet</button>
           )}
         </div>
       )}
@@ -2591,8 +2574,9 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size="md" }) {
 /* ─────────── event sheet ─────────── */
 function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBack, onPlayer, onBets, enterResult, clearRes, onEdit, onDraw, onClearDraw,
   onStages, onClearStages, onThrough, onFinal, onDeckToggle, onStart, onShelve, onRemove, openBracket, openDraft, onReplay,
-  onPlayNext, announceNext, onAnnounceDraw, onSwap }) {
+  onPlayNext, announceNext, onAnnounceDraw, onSwap, onTakeBack }) {
   const res = state.results[ev.id];
+  const [confirmTakeBack, setConfirmTakeBack] = useState(false);
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
@@ -2985,6 +2969,22 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
               <ActionButton variant="destructive" onClick={() => setConfirmClear(true)} style={{ flex:1 }}>Clear</ActionButton>
             )}
           </div>
+          {!res && onTakeBack && state.onDeck === ev.id && !state.eventOps?.[ev.id]?.startedAt && (
+            confirmTakeBack ? (
+              <div style={{ marginTop:10 }}>
+                <p style={{ ...pStyle, fontSize:13, marginBottom:8 }}>
+                  {openBets.length ? `Returns ${openBets.length} bet${openBets.length === 1 ? "" : "s"}.` : "No open bets."}</p>
+                <div style={{ display:"flex", gap:8 }}>
+                  <ActionButton variant="commit" disabled={setupPending} style={{ flex:1 }}
+                    onClick={() => saveSetup(async () => { const result = await onTakeBack();
+                      if (result?.ok) setConfirmTakeBack(false); return result; })}>
+                    {setupPending ? "Taking back…" : "Take it back"}</ActionButton>
+                  <ActionButton variant="tertiary" disabled={setupPending} onClick={() => setConfirmTakeBack(false)}>Keep it</ActionButton>
+                </div>
+              </div>
+            ) : <ActionButton variant="destructive" onClick={() => setConfirmTakeBack(true)}
+                style={{ width:"100%", marginTop:10 }}>Take back the announcement</ActionButton>
+          )}
           {!res && !contestActive && lifecycle.blockers?.length > 0 && (
             <div style={{ ...pStyle, marginTop:8, color:"var(--muted)", fontSize:13 }}>
               Next: {lifecycle.blockers[0]}</div>
@@ -4114,7 +4114,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
             {device.player ? <Avatar state={state} p={device.player} size={30} /> : <FDMark size={30} variant="night" />}
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-                {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unclaimed phone"}
+                {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unknown phone"}
                 {device.current ? " · this device" : ""}</div>
               {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
                 Unlocked {new Date(device.createdAt).toLocaleString("en-US", { weekday:"short", hour:"numeric", minute:"2-digit" })}</div>}
@@ -4130,10 +4130,10 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
 /* The director's announce-and-draw beat. The crew is prefilled with whoever
    has sat out least; Change reopens the choice. Confirm draws and announces
    in one write so every screen plays the intro before the teams. */
-function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPlayer }) {
+function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPlayer, changing:startChanging = false }) {
   const present = presentPlayers(state);
   const [crew, setCrew] = useState(() => (roles || []).map(item => ({ ...item })));
-  const [changing, setChanging] = useState(false);
+  const [changing, setChanging] = useState(!!startChanging);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const busy = useRef(false);
   const crewIds = crew.map(item => item.player);
@@ -4457,14 +4457,11 @@ function ShowControlSheet({
             marginBottom:14, background:"var(--paper2)" }}>
             <div className="fd-night" style={{ background:"var(--night)", padding:"12px 14px", display:"flex",
               alignItems:"center", gap:10 }}>
-              <Tag tone={scene.definition?.intensity === "major" ? "gold" : "dim"}>
-                {scene.definition?.intensity || "Scene"}</Tag>
               <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
                 textTransform:"uppercase", color:"var(--bone)" }}>
-                {scene.definition?.label || "Unsupported scene"}</div>
-              <div style={{ marginLeft:"auto", fontFamily:SANS, fontWeight:700,
-                fontSize:11, color:"var(--night-text)" }}>
-                {scene.stepCount ? `${scene.stepIndex + 1} / ${scene.stepCount}` : ""}</div>
+                {scene.definition
+                  ? `On TV: ${scene.definition.label}, ${scene.stepIndex + 1} of ${scene.stepCount}`
+                  : "Unsupported scene"}</div>
             </div>
             <div style={{ padding:14 }}>
               {scene.event && (
@@ -4478,14 +4475,12 @@ function ShowControlSheet({
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             <ActionButton disabled={busy || !scene.definition} style={{ gridColumn:"1 / -1" }}
               onClick={() => run(() => onAdvance(scene.active.id))}>
-              {scene.stepIndex >= scene.stepCount - 1 ? "Complete scene" : "Advance"}</ActionButton>
+              Next</ActionButton>
             <ActionButton variant="secondary" disabled={busy}
               onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</ActionButton>
             <ActionButton variant="tertiary" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>Cancel scene</ActionButton>
+              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>End scene</ActionButton>
           </div>
-          <div style={{ ...pStyle, fontSize:12, margin:"12px 1px 0" }}>
-            TV returns to live tournament context when this scene ends.</div>
           {onAudio && <ActionButton variant="secondary" onClick={onAudio}
             style={{ width:"100%", marginTop:12 }}>Open Audio Director</ActionButton>}
         </>

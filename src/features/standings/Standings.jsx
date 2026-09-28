@@ -169,10 +169,13 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
 }
 
 export function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm,
-  events, myAtRisk, onOpen, onAdjust, onPlayer, onFreeze, onUnfreeze, finaleDone,
+  events, myAtRisk, onOpen, onAdjust, onPlayer, onFreeze, onUnfreeze, finaleDone, crownReady = false,
   GameMark, StatPills, resultImpact, nextOpenMatch, embedded=false }) {
   const finished = events.filter(event => !state.shelved[event.id] && state.results[event.id]).length;
   const eventCount = events.filter(event => !state.shelved[event.id]).length;
+  /* rulings exist only while the board can move; Crown only when it is the next step */
+  const adjustable = gm && state.live && !state.frozen;
+  const commissioner = gm && (champion ? !!onUnfreeze : crownReady && !!onFreeze);
   return <div className={`fd-standings-page${gm ? " is-gm" : ""}${embedded ? " is-embedded" : ""}`}>
     {!embedded && <PageHeading title={champion ? "Final standings" : "The board"}
       aside={<span className={`fd-board-state${champion ? " is-final" : ""}`}>
@@ -182,9 +185,9 @@ export function Board({ state, standings, me, deltas, allTied, champion, coChamp
       GameMark={GameMark} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch} />}
     <SectionHeading title="Standings" detail={`${finished} of ${eventCount} events posted`} />
     <Leaderboard state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
-      onPlayer={onPlayer} onAdjust={gm ? onAdjust : undefined} StatPills={StatPills} myAtRisk={myAtRisk}
+      onPlayer={onPlayer} onAdjust={adjustable ? onAdjust : undefined} StatPills={StatPills} myAtRisk={myAtRisk}
       starting={!state.live && !champion} />
-    {gm && <div className="fd-board-commissioner">
+    {commissioner && <div className="fd-board-commissioner">
       <span>Commissioner</span>
       <ActionButton type="button" variant={champion ? "destructive" : finaleDone ? "primary" : "secondary"}
         onClick={champion ? onUnfreeze : onFreeze}>{champion ? "Unfreeze board" : "Crown the champion"}</ActionButton>

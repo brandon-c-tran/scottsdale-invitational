@@ -35,13 +35,15 @@ test("the director upgrades lifecycle beats and keeps scene beats capability-gat
   assert.equal(off.event.id, operation.event.id);
   assert.equal(off.scene, null);
   assert.equal(off.nextAction.type, "announce");
-  assert.match(off.nextAction.label, /^Announce /);
+  /* the pill's verb is short; the event is its subject */
+  assert.equal(off.nextAction.label, "Announce");
+  assert.equal(off.nextAction.subject, operation.event.name);
 
   /* Going live never inserts a separate opening-weekend step. */
   state.live = true;
   const on = resolveDirector(state, events, { showControl:true });
   assert.equal(on.nextAction.type, "announce");
-  assert.match(on.nextAction.label, /^Announce /);
+  assert.equal(on.nextAction.label, "Announce");
 
   /* A manually played opening remains optional. */
   state.showControl.history = [{ id:"show-x", kind:"opening", outcome:"completed" }];

@@ -235,7 +235,10 @@ for (const showControl of [false, true]) {
   test(`the first event moves directly from announcement to play with show control ${showControl ? "on" : "off"}`, () => {
     const state = fresh(), events = allEventsOf(state);
     const initial = resolveDirector(state, events, { showControl });
-    assert.equal(initial.nextAction.type, "announce");
+    /* with Show Control the optional Opening beat comes first; Skip opening
+       leads straight to the announcement, which starts the weekend */
+    assert.equal(initial.nextAction.type, showControl ? "start-opening-scene" : "announce");
+    if (showControl) assert.equal(initial.then.type, "announce");
     const ev = initial.event;
     act(state, "announceEvent", { evId:ev.id }, { ...gm(), showControl });
     assert.equal(state.live, true);

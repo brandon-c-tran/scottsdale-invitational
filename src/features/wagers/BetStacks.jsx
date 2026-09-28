@@ -1,9 +1,9 @@
-import React, { useRef } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DISPLAY } from "../../ui/theme.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { COIN_FACETS, edgeInserts } from "../identity/chipCoin.js";
-import { STACK_CAP, STACK_TILT as TILT, stackChipCount, stackGeometry } from "./betStacks.js";
+import { STACK_CAP, STACK_TILT as TILT, fitLevels, groupStacks, stackChipCount, stackGeometry } from "./betStacks.js";
 import "./bet-stacks.css";
 
 const fmt = n => (Number(n) || 0).toLocaleString("en-US");
@@ -123,15 +123,47 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
   );
 }
 
+/* The smallest bettors on a crowded side, as one pile: a fan of their own
+   flat identity chips (each still in its colour, overlapping), the group's
+   total stamped on its shoulder, "+N" where a name would sit. */
+export function StackGroup({ rest, size = 40, names = false, tagSize = null, label = true }) {
+  const mini = Math.max(14, Math.round(size * 0.72));
+  /* up to eight, four to a row: the back row peeks over the front one */
+  const fan = rest.stacks.slice(0, 8);
+  const step = Math.round(mini * 0.42), perRow = 4, rise = Math.round(mini * 0.42);
+  const rows = Math.ceil(fan.length / perRow);
+  const width = mini + step * (Math.min(perRow, fan.length) - 1);
+  const height = mini + (rows - 1) * rise;
+  const players = rest.players;
+  return (
+    <div className="fd-stacks-slot fd-stacks-group" role="img"
+      aria-label={`${players.length} more: ${fmt(rest.total)} chips`}>
+      <span className="fd-stack fd-stack-fan">
+        <span className="fd-stack-tag is-group" style={tagSize ? { fontSize:tagSize } : undefined}>{fmt(rest.total)}</span>
+        <span className="fd-stack-fan-chips" style={{ width, height }}>
+          {fan.map((item, index) => <span key={item.player} className="fd-stack-fan-chip"
+            style={{ left:(index % perRow) * step + (index >= perRow ? Math.round(step / 2) : 0),
+              top:index >= perRow ? 0 : (rows - 1) * rise, zIndex:(index >= perRow ? 0 : 10) + perRow - (index % perRow) }}>
+            <ChipFace p={item.player} size={mini} stamp="" flat />
+          </span>)}
+        </span>
+      </span>
+      {names && label && <span className="fd-stacks-name">+{players.length}</span>}
+    </div>
+  );
+}
+
 /* A side's stacks standing side by side, biggest first. On the TV a first
-   name sits under each stack; the stack itself is the amount. */
+   name sits under each stack; the stack itself is the amount. Past `slots`
+   the smallest collapse into one StackGroup. */
 export function BetStacks({ stacks, size = 40, names = null, cap = STACK_CAP, settle = null, delay = 0,
-  className = "", tagSize = null, mine = null }) {
+  className = "", tagSize = null, mine = null, slots = Infinity }) {
   if (!stacks?.length) return null;
-  const tagged = stacks.some(item => stackChipCount(item.stake) + stackChipCount(item.paid || 0) > cap);
+  const { shown, rest } = groupStacks(stacks, slots);
+  const tagged = !!rest || shown.some(item => stackChipCount(item.stake) + stackChipCount(item.paid || 0) > cap);
   return (
     <div className={`fd-stacks${tagged ? " has-tag" : ""}${className ? ` ${className}` : ""}`}>
-      {stacks.map((item, index) => {
+      {shown.map((item, index) => {
         const result = settle || item.status || null;
         const at = delay + index * 90;
         /* a lost stack leaves with its name */
@@ -142,6 +174,62 @@ export function BetStacks({ stacks, size = 40, names = null, cap = STACK_CAP, se
           {names && <span className="fd-stacks-name">{names(item.player)}</span>}
         </div>;
       })}
+      {rest && <StackGroup key="group" rest={rest} size={size} names={!!names} tagSize={tagSize} />}
+    </div>
+  );
+}
+
+/* Does every stack sit inside the box, clear of the side's total? */
+function stacksFit(box, avoid) {
+  const inner = box?.firstElementChild;
+  if (!inner) return true;
+  const b = box.getBoundingClientRect();
+  if (!(b.width > 0) || !(b.height > 0)) return true;
+  const a = avoid?.getBoundingClientRect?.();
+  const parts = [...inner.querySelectorAll(".fd-stacks-slot, .fd-stack-tag")];
+  return parts.every(el => {
+    const r = el.getBoundingClientRect();
+    if (r.top < b.top - 1 || r.left < b.left - 1 || r.right > b.right + 1 || r.bottom > b.bottom + 1) return false;
+    return !a || r.right <= a.left - 8 || r.left >= a.right + 8 || r.bottom <= a.top - 4 || r.top >= a.bottom + 4;
+  });
+}
+
+/* A felt that keeps every bettor on it legible (P1): the side's total sits
+   top right and the stacks stand from the bottom up, biggest first. When
+   they do not fit, the chips step down in size, then the smallest bettors
+   collapse into a "+N" pile, one more at a time, until nothing overflows or
+   touches the total. Measured before paint, so no frame ever overlaps. */
+export function FitStacks({ stacks, total = 0, totalClass = "", chip = 64, cap = STACK_CAP, min = 30,
+  names = null, tagSize = null, className = "" }) {
+  const box = useRef(null), totalRef = useRef(null);
+  const [boxSize, setBoxSize] = useState("");
+  const levels = useMemo(() => fitLevels(stacks.length, { chip, cap, min }), [stacks.length, chip, cap, min]);
+  const key = `${boxSize}|${chip}|${cap}|${stacks.map(item => `${item.player}:${item.stake}`).join(",")}`;
+  const [fit, setFit] = useState({ key:"", level:0 });
+  const level = Math.min(fit.key === key ? fit.level : 0, levels.length - 1);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver !== "function") return undefined;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setBoxSize(`${Math.round(r.width)}x${Math.round(r.height)}`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    if (!boxSize) return;
+    if (level < levels.length - 1 && !stacksFit(box.current, totalRef.current)) setFit({ key, level:level + 1 });
+    else if (fit.key !== key || fit.level !== level) setFit({ key, level });
+  });
+  const step = levels[level] || { size:chip, cap, slots:Infinity };
+  return (
+    <div className={`fd-fit${className ? ` ${className}` : ""}`} ref={box} data-fit-level={level}>
+      <BetStacks stacks={stacks} size={step.size} cap={step.cap} slots={step.slots} names={names}
+        tagSize={tagSize} className="fd-fit-stacks" />
+      {total > 0 && <span ref={totalRef} className={`fd-fit-total${totalClass ? ` ${totalClass}` : ""}`}>{fmt(total)}</span>}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { wagerPickLabel, mergeWagerLines } from "../wagers/Wagers.jsx";
-import { BetStacks } from "../wagers/BetStacks.jsx";
+import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
 import { DenomStacks } from "../poker/PokerChips.jsx";
 import { STACK_CAP, contestStacks, stackName, stackGeometry, pickStacks } from "../wagers/betStacks.js";
 import {
@@ -273,7 +273,7 @@ const TV_STACKS = {
 /* A wide field keeps every side on screen: rows with chips take the room
    they need, and the chips shrink only when many rows carry them. */
 const COMPACT_SIZES = [[50, 8], [46, 8], [42, 7], [38, 6], [34, 6], [30, 5]];
-const COMPACT_ROW = 64, COMPACT_GAP = 14, COMPACT_NAME = 30, COMPACT_PAD = 20, COMPACT_PER_LINE = 3;
+const COMPACT_ROW = 64, COMPACT_GAP = 14, COMPACT_NAME = 30, COMPACT_PAD = 20, COMPACT_PER_LINE = 3, COMPACT_SLOTS = 6;
 /* lines: for each grid row, how many lines of stacks its fullest card needs */
 export function compactStackSize(lines, budget) {
   for (const [chip, cap] of COMPACT_SIZES) {
@@ -299,7 +299,7 @@ function ContestBoard({ state, events, ev, contest }) {
     const lines = Array.from({ length:Math.ceil(n / colCount) }, () => 0);
     contest.sides.forEach((side, index) => {
       const row = Math.floor(index / colCount);
-      lines[row] = Math.max(lines[row], Math.ceil((stacks.get(side.key)?.stacks.length || 0) / COMPACT_PER_LINE));
+      lines[row] = Math.max(lines[row], Math.ceil(Math.min(COMPACT_SLOTS, stacks.get(side.key)?.stacks.length || 0) / COMPACT_PER_LINE));
     });
     size = { ...size, ...compactStackSize(lines, head ? 660 : 716) };
   }
@@ -309,8 +309,12 @@ function ContestBoard({ state, events, ev, contest }) {
     const ride = stacks.get(side.key) || { stacks:[], total:0 };
     const face = view.players.length > 2 ? size.faceMany : size.face;
     const total = ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>;
+    /* a wide field's row keeps two lines of stacks; past that the smallest group */
     const pile = ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={size.chip} cap={size.cap}
-      className="tv-stacks" names={p => stackName(state, p)} tagSize={24} />;
+      className="tv-stacks" names={p => stackName(state, p)} tagSize={24} slots={COMPACT_SLOTS} />;
+    /* a felt fits any number of bettors without covering its total (P1) */
+    const felt = ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={ride.total} totalClass="tv-side-total"
+      chip={size.chip} cap={size.cap} min={34} className="tv-stacks-fit" names={p => stackName(state, p)} tagSize={24} />;
     /* a wide field: one row per side, its stacks beside the name */
     if (compact) return (
       <div key={String(side.key)} className={`tv-side is-row${ride.stacks.length ? " has-chips" : ""}`}>
@@ -333,8 +337,7 @@ function ContestBoard({ state, events, ev, contest }) {
           <div className="tv-side-name">{view.name}</div>
         </div>
         <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
-          {total}
-          {pile || <span className="tv-felt-empty">{betting ? "No chips yet" : "No bets"}</span>}
+          {felt || <span className="tv-felt-empty">{betting ? "No chips yet" : "No bets"}</span>}
         </div>
       </div>
     );

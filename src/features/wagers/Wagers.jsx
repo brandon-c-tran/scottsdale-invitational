@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   PT, OUTRIGHT_MULT, atRisk, disp, maxRisk, contestBetEligibility, contestMult, contestSideOf, wagerMult,
   resolveCurrentContest, duelReserve, resolveDuel, resolveEventLifecycle, resolveWager, stacksPosted, teamLabel,
@@ -9,12 +9,18 @@ import { haptic, tapTick } from "../../lib/haptics.js";
 import { PageHeading } from "../../ui/layout.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
-import { BetStacks, ChipStack } from "./BetStacks.jsx";
-import { orderStacks, stacksTotal, settledStacks } from "./betStacks.js";
+import { BetStacks, ChipStack, StackGroup } from "./BetStacks.jsx";
+import {
+  STACK_CAP, decidedContest, faceRect, groupStacks, hoverRect, orderStacks, rackTargetFor,
+  stackChipCount, stacksTotal, settledStacks,
+} from "./betStacks.js";
+import { EASE, MOTION, fly, flightTarget, prefersReducedMotion, useFlightTarget, useFreshChange, useMotionFrame } from "../../lib/motion.js";
 import "./wagers.css";
 
 /* a phone stack's chip, px across: a 44px target still carries it */
 const PHONE_CHIP = 28;
+/* a phone felt holds two rows of three: the well, your stack, the rest */
+const PHONE_SLOTS = 6;
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 
@@ -69,6 +75,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
   const pendingRef = useRef(false);
+  /* M4: the chip in the air for the write in flight (presentation only) */
+  const wellRef = useRef(null), mineRef = useRef(null), flightRef = useRef(null);
   const mine = bets.filter(x => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
     return latest(a) - latest(b);
@@ -92,14 +100,63 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
      transport without a settled promise falls back to the next broadcast:
      the chip is there (done), or it is not (Not placed). */
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => () => { alive.current = false; flightRef.current?.cancel(); }, []);
   useEffect(() => {
     if (!checking || checking.settled || state === checking.state) return;
-    if (!landed(checking.kind, checking.before, mineTotal))
+    if (!landed(checking.kind, checking.before, mineTotal)) {
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
+      checking.flight?.back();
+    } else checking.flight?.land();
     pendingRef.current = false;
     setChecking(null);
   }, [state, mineTotal, checking]);
+  /* your stack's drawing, or null before your first chip lands */
+  const mineFace = () => mineRef.current?.querySelector(".fd-stack > svg")?.getBoundingClientRect() || null;
+  /* M4: the rack's chip lifts and arcs to hover over your stack (or the
+     well, before your first chip); the write's answer lands it or flies it
+     home. Never gates the write: a skipped flight is just no flight. */
+  const placeFlight = () => {
+    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
+    const source = flightTarget(`bets:rack:${tapStake}`);
+    const face = mineFace();
+    const anchor = face || wellRef.current?.querySelector(".fd-wagers-chip-well")?.getBoundingClientRect();
+    if (!source || !anchor) return null;
+    let release = () => {};
+    const hold = new Promise(resolve => { release = resolve; });
+    try { source.animate([{ transform:"scale(1)" }, { transform:"scale(.9)" }, { transform:"scale(1)" }],
+      { duration:MOTION.fast * 2, easing:EASE.out }); } catch {}
+    fly(source, hoverRect(anchor, PHONE_CHIP, face ? 10 : 6), { node:<BankChip p={me} size={46} val={tapStake} />,
+      arc:64, hold });
+    let settled = false;
+    const finish = next => { if (!settled) { settled = true; release(next); } };
+    return {
+      /* the state is already painted when the ack lands; wait one frame so
+         the new stack is measured, then drop onto it */
+      land:() => requestAnimationFrame(() => {
+        const now = mineFace();
+        if (!now) { finish(null); return; }
+        finish(face ? { to:faceRect(now), duration:MOTION.fast, fade:true }
+          : { to:mineRef.current, duration:MOTION.fast * 1.5, land:true });
+      }),
+      back:() => finish({ to:flightTarget(`bets:rack:${tapStake}`) || source, arc:40, duration:MOTION.flight }),
+      cancel:() => finish(null),
+    };
+  };
+  /* retract: your last chip leaves the top of your stack for its rack slot */
+  const retractFlight = () => {
+    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
+    const face = mineFace();
+    if (!face) return null;
+    const value = mineChips[mineChips.length - 1];
+    const from = faceRect(face);
+    return {
+      land:() => {
+        const to = flightTarget(rackTargetFor(value, RACK_DENOMS, tapStake));
+        if (to) fly(from, to, { node:<BankChip p={me} size={Math.round(from.width)} val={value} />, arc:48, land:true });
+      },
+      back:() => {}, cancel:() => {},
+    };
+  };
   const act = (kind, callback) => {
     if (pendingRef.current) return;
     /* the iOS tick belongs to the tap itself, before any await */
@@ -108,6 +165,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     const before = mineTotal;
     setPendingAction(kind);
     setActionError(null);
+    const flight = kind === "place" ? placeFlight() : retractFlight();
+    flightRef.current = flight;
     let holding = false;
     const finish = () => { if (!holding) pendingRef.current = false; setPendingAction(null); };
     const check = result => {
@@ -115,25 +174,29 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         if (!landed(kind, before, live.current.mineTotal)) {
           holding = true;
           const settled = typeof result?.settled?.then === "function";
-          setChecking({ kind, before, state:live.current.state, settled });
+          setChecking({ kind, before, state:live.current.state, settled, flight });
           if (settled) result.settled.then(outcome => outcome, () => ({ ok:false })).then(outcome => {
             if (!alive.current) return;
-            if (outcome?.ok === true) haptic(kind === "place" ? "place" : "retract");
-            else if (!landed(kind, before, live.current.mineTotal))
+            if (outcome?.ok === true) { haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
+            else if (!landed(kind, before, live.current.mineTotal)) {
               setActionError(kind === "place" ? "Not placed" : "Not removed");
+              flight?.back();
+            } else flight?.land();
             pendingRef.current = false;
             setChecking(null);
           });
-        }
+        } else flight?.land();
         return result;
       }
-      if (result?.ok === false) setActionError(result.error || "Bet not saved.");
-      else if (result?.ok === true) haptic(kind === "place" ? "place" : "retract");
+      if (result?.ok === false) { setActionError(result.error || "Bet not saved."); flight?.back(); }
+      else if (result?.ok === true) { haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
+      else flight?.cancel();
       return result;
     };
     const fail = error => {
       const message = error?.message || "Bet not saved.";
       setActionError(message);
+      flight?.back();
       return { ok:false, error:message };
     };
     try {
@@ -146,6 +209,10 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
   };
   const stack = mineTotal > 0 && <ChipStack p={me} stake={mineTotal} size={PHONE_CHIP} mine groups={mineChips} />;
   const busyKind = pendingAction || checking?.kind || null;
+  /* P1: two rows at most (well, yours, then the biggest); the smallest
+     bettors fold into one "+N" pile. The ledger still lists every bet. */
+  const { shown:othersShown, rest:othersRest } = groupStacks(otherStacks, PHONE_SLOTS - 1 - (mineTotal > 0 ? 1 : 0));
+  const tagged = !!othersRest || stackChipCount(mineTotal) > STACK_CAP || othersShown.some(item => item.capped);
   return <div className={`fd-wagers-pick${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}`}>
     <div className="fd-wagers-pick-identity">
       {roleLabel && <span className="fd-wagers-pick-role">{roleLabel}</span>}
@@ -166,8 +233,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         total sits at its head */}
     <div className="fd-wagers-felt" role="group" aria-label={`Bets on ${name}`} aria-busy={!!busyKind}>
       {sideTotal > 0 && <span className="fd-wagers-felt-total">{fmt(sideTotal)}</span>}
-      <div className="fd-wagers-felt-stacks">
-        <button type="button" className={`fd-wagers-pick-main${capLabel ? " is-capped" : ""}`} disabled={!canPick || !!busyKind}
+      <div className={`fd-wagers-felt-stacks${tagged ? " has-tag" : ""}`}>
+        <button type="button" ref={wellRef} className={`fd-wagers-pick-main${capLabel ? " is-capped" : ""}`} disabled={!canPick || !!busyKind}
           onClick={() => act("place", onPick)} aria-label={canPick ? `Place a chip on ${name}` : name}
           aria-description={unavailableReason || capReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
           {unavailableReason ? <span className="fd-wagers-pick-closed">{unavailableLabel}</span> : marketOpen && players.length > 0 ? <>
@@ -175,17 +242,18 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
             <span className="fd-wagers-pick-add">{capLabel || fmt(tapStake)}</span>
           </> : <span className="fd-wagers-pick-closed">{players.length ? "Locked" : "Pending"}</span>}
         </button>
-        {mineTotal > 0 && (marketOpen ? <button type="button" className="fd-wagers-retract" disabled={!!busyKind}
+        {mineTotal > 0 && (marketOpen ? <button type="button" ref={mineRef} className="fd-wagers-retract" disabled={!!busyKind}
           onClick={() => act("remove", () => onRetract(mine[mine.length - 1].w.id))}
           aria-label={`Retract your last chip on ${name}`}
           aria-description={`Remove ${fmt(mineChips[mineChips.length - 1])} chips; ${fmt(mineTotal)} total on this pick`}>
           {stack}
-        </button> : <div className="fd-wagers-owned-stack" role="img" aria-label={`${fmt(mineTotal)} of your chips on ${name}`}>{stack}</div>)}
-        {otherStacks.map(item => <button type="button" key={item.player} className="fd-wagers-other" disabled={!onPlayer}
+        </button> : <div ref={mineRef} className="fd-wagers-owned-stack" role="img" aria-label={`${fmt(mineTotal)} of your chips on ${name}`}>{stack}</div>)}
+        {othersShown.map(item => <button type="button" key={item.player} className="fd-wagers-other" disabled={!onPlayer}
           onClick={() => onPlayer?.(item.player)} title={disp(state, item.player)}
           aria-label={`View ${disp(state, item.player)}'s player card (${fmt(item.stake)} chips)`}>
           <ChipStack p={item.player} stake={item.stake} size={PHONE_CHIP} />
         </button>)}
+        {othersRest && <StackGroup rest={othersRest} size={PHONE_CHIP} />}
       </div>
     </div>
     {checking && <p className="fd-wagers-pick-checking" role="status">Checking…</p>}
@@ -211,6 +279,83 @@ function SettleStrip({ me, settling }) {
         <BetStacks stacks={view.losers} size={24} delay={450} mine={me} />
       </div>}
     </div>
+  </section>;
+}
+
+/* A rack chip is also where a flying chip leaves from and comes home to. */
+function RackChip({ value, me, disabled, selected, onClick }) {
+  const target = useFlightTarget(`bets:rack:${value}`);
+  return <button type="button" ref={target} disabled={disabled} onClick={onClick}
+    aria-pressed={selected} aria-label={`Bet ${value} a tap`} className={selected ? "is-selected" : ""}>
+    <BankChip p={me} size={46} val={value} />
+  </button>;
+}
+
+/* M5: the decided contest, held on the board it was bet on. WON stamps on
+   the winning side, the losing stacks go back to the bank, the winners'
+   stacks grow by their payout, and your own winnings fly to Home. A tap
+   anywhere on it deals the next contest in. */
+const HOME_FLIGHT_AT = 1300;
+function HeldBoard({ state, me, held, view, onSkip }) {
+  const mineRef = useRef(null);
+  const paid = (view.sides.find(side => side.won)?.stacks || [])
+    .filter(item => item.player === me).reduce((sum, item) => sum + item.paid, 0);
+  useEffect(() => {
+    if (!me || paid <= 0) return undefined;
+    const timer = setTimeout(() => {
+      const svg = mineRef.current?.querySelector(".fd-stack > svg");
+      if (!svg) return;
+      const from = faceRect(svg.getBoundingClientRect());
+      const count = Math.max(1, Math.min(5, Math.round(paid / PT)));
+      for (let i = 0; i < count; i++) fly(from, "tab:home", { node:<BankChip p={me} size={Math.round(from.width)} val={PT} />,
+        delay:i * 70, arc:60, duration:560, scale:0.7, fade:true, land:i === count - 1 });
+    }, HOME_FLIGHT_AT);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const { contest, ev, label } = held;
+  const sides = contest.kind === "ffa" ? view.sides.filter(side => side.won || side.stacks.length) : view.sides;
+  const nameOf = side => {
+    const drawn = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
+    return side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawn || { players:side.players });
+  };
+  return <section className="fd-wagers-event fd-wagers-held" onClick={onSkip} aria-label={`${label} settled`}>
+    <div className="fd-wagers-contest-heading">
+      <div><h2>{contest.kind === "ffa" ? "Winner" : label}</h2>
+        <p>{contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"}</p></div>
+    </div>
+    <div className="fd-wagers-picks">{sides.map(side => {
+      const { shown, rest } = groupStacks(side.stacks, PHONE_SLOTS);
+      const head = side.won ? side.paid > 0 && <span className="fd-wagers-held-head is-up">+{fmt(side.paid)}</span>
+        : side.total > 0 && <span className="fd-wagers-held-head is-down">−{fmt(side.total)}</span>;
+      return <div key={String(side.key)} className={`fd-wagers-pick fd-wagers-held-side ${side.won ? "is-won" : "is-lost"}`}>
+        <div className="fd-wagers-pick-identity">
+          {side.players.length === 1 ? <span className="fd-wagers-player">
+            <Avatar state={state} p={side.players[0]} size={26} /><span>{nameOf(side)}</span>
+          </span> : <>
+            {side.players.length > 2 && <span className="fd-wagers-team-name">{nameOf(side)}</span>}
+            <span className="fd-wagers-team-players">{side.players.map(player => <span key={player} className="fd-wagers-held-face">
+              <Avatar state={state} p={player} size={24} /><span>{disp(state, player)}</span>
+            </span>)}</span>
+          </>}
+        </div>
+        <div className="fd-wagers-felt">
+          {head}
+          {side.won && <span className="fd-wagers-won" aria-label="Won">WON</span>}
+          <div className={`fd-wagers-felt-stacks${head || side.won ? " has-head" : ""}`}>
+            {shown.map((item, index) => side.won
+              ? <span key={item.player} className="fd-wagers-held-stack" ref={item.player === me ? mineRef : undefined}>
+                <ChipStack p={item.player} stake={item.stake} paid={item.paid} size={PHONE_CHIP} settle="won"
+                  delay={500 + index * 90} mine={item.player === me} />
+              </span>
+              : <span key={item.player} className="fd-wagers-held-stack fd-stacks-slot is-lost"
+                style={{ animationDelay:`${200 + index * 90}ms` }}>
+                <ChipStack p={item.player} stake={item.stake} size={PHONE_CHIP} mine={item.player === me} />
+              </span>)}
+            {rest && <StackGroup rest={rest} size={PHONE_CHIP} />}
+          </div>
+        </div>
+      </div>;
+    })}</div>
   </section>;
 }
 
@@ -407,17 +552,46 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result"
     ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
   /* a live bracket game shows the bracket itself, which replaces the link */
-  /* the contest this board was showing, so its chips can visibly settle
-     when it is decided: derived from resolveWager, held only while shown */
+  /* M5: the contest this board was showing, so it can settle in place when
+     it is decided. Only a fresh decision plays (never a first load, a
+     reconnect, or a correction): the board holds the decided contest for
+     MOTION.settleHold, then the next one deals in. With reduced motion the
+     next contest shows at once and the settle strip carries the result.
+     Everything shown is derived from the latest state through resolveWager;
+     the hold never delays or blocks the state underneath. */
+  const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
+  const boardChange = useFreshChange(boardKey);
+  const frame = useMotionFrame();
   const watched = useRef(null);
   const [settling, setSettling] = useState(null);
-  useEffect(() => {
+  const [held, setHeld] = useState(null);
+  const [dealing, setDealing] = useState(0);
+  useLayoutEffect(() => {
     const prev = watched.current;
-    watched.current = contest ? { contest, label:contest.kind === "ffa" ? ev?.name || "Winner" : contest.label } : null;
-    if (!prev || prev.contest.id === contest?.id) return;
+    watched.current = ev && contest ? { ev, contest, label:contest.kind === "ffa" ? ev.name || "Winner" : contest.label } : null;
+    if (!boardChange.fresh || !prev || prev.contest.id === contest?.id) return;
+    const decided = decidedContest(state, events, prev.ev.id, prev.contest);
+    if (!decided) return;
+    if (boardChange.animate) { setSettling(null); setHeld({ id:`${prev.contest.id}:${boardChange.changeId}`, ...prev }); return; }
     const view = settledStacks(state, events, prev.contest);
     if (view.any) setSettling({ id:prev.contest.id, label:prev.label, view });
-  }, [contest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [boardKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const heldView = held ? decidedContest(state, events, held.ev.id, held.contest) : null;
+  const endHold = () => { setHeld(null); setDealing(value => value + 1); };
+  useEffect(() => {
+    if (!held) return undefined;
+    const timer = setTimeout(endHold, MOTION.settleHold);
+    return () => clearTimeout(timer);
+  }, [held?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* a rewind (Undo, a correction) ends the hold on the corrected board */
+  useEffect(() => {
+    if (held && (!heldView || frame.correction)) setHeld(null);
+  }, [held?.id, !!heldView, frame.seq]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!dealing) return undefined;
+    const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
+    return () => clearTimeout(timer);
+  }, [dealing]);
   useEffect(() => {
     if (!settling) return undefined;
     const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
@@ -427,20 +601,25 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket"
     : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
 
+  const holding = !!(held && heldView);
+  const headEv = holding ? held.ev : ev;
+  const liveDot = marketOpen && !holding;
   return <div className={`fd-wagers${me && marketOpen ? " has-rack" : ""}`}
     style={{ "--fd-wagers-numerals":DISPLAY, "--fd-wagers-body":SANS }}>
-    {ev ? <header className="fd-wagers-event-heading">
-      <div><h1>{ev.name}</h1>{GameMark && <GameMark id={ev.game} size={34} />}</div>
+    {headEv ? <header className="fd-wagers-event-heading">
+      <div><h1>{headEv.name}</h1>{GameMark && <GameMark id={headEv.game} size={34} />}</div>
       <div className="fd-wagers-event-meta">
-        <span className={`fd-wagers-status${marketOpen ? " is-open" : ""}`}>
-          <i className={marketOpen ? "fd-beat-dot" : undefined} aria-hidden="true" />{status}
+        <span className={`fd-wagers-status${liveDot ? " is-open" : ""}`}>
+          <i className={liveDot ? "fd-beat-dot" : undefined} aria-hidden="true" />{holding ? "Settled" : status}
         </span>
       </div>
     </header> : <PageHeading title="Bets" />}
 
     {settling && <SettleStrip key={settling.id} me={me} settling={settling} />}
 
-    {!ev && <section className={`fd-wagers-waiting${state.frozen || finaleClosed ? " is-finished" : ""}`}>
+    {holding && <HeldBoard key={held.id} state={state} me={me} held={held} view={heldView} onSkip={endHold} />}
+
+    {!ev && !holding && <section className={`fd-wagers-waiting${state.frozen || finaleClosed ? " is-finished" : ""}`}>
       <div className="fd-wagers-waiting-copy">
         <h2>{state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale"
           : state.live ? "Between events" : "Betting opens with the first event"}</h2>
@@ -448,7 +627,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       </div>
     </section>}
 
-    {ev && <section className="fd-wagers-event">
+    {ev && !holding && <section className="fd-wagers-event">
       <div className="fd-wagers-contest-heading">
         <div><h2>{contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"}</h2>
           {contest && <p>{evenMoney ? "Winner pays 1:1" : "Winner pays 2:1"}</p>}</div>
@@ -456,7 +635,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
           {contextLabel}<span aria-hidden="true">↗</span>
         </button>}
       </div>
-      {contest && picks.length > 0 ? <section className={`fd-wagers-market fd-wagers-contest is-${contest.kind}`}
+      {contest && picks.length > 0 ? <section className={`fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`}
         aria-label={contest.label}>
         <div className="fd-wagers-picks">
           {picks.map(pick => <MarketPick {...pick} key={`${contest.id}:${pick.key}`} />)}
@@ -501,16 +680,13 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
 
     {/* One summary and one chip row keep the rack visible without covering
         the matchup. The meter expresses exposure against the actual cap. */}
-    {me && ev && marketOpen && <section className="fd-wagers-rack fd-night" aria-label="Choose your betting chip">
+    {me && ev && marketOpen && !holding && <section className={`fd-wagers-rack fd-night${dealing ? " is-dealing" : ""}`} aria-label="Choose your betting chip">
       <StackMeter pts={myPts} cap={myCap} bets={wagerRisk} duels={duelAntes} room={room} />
       <div className="fd-wagers-denoms" role="group" aria-label="Chip value per tap">
         {RACK_DENOMS.map(value => {
           const affordable = value <= room;
-          return <button type="button" key={value} disabled={!affordable} onClick={() => { tapTick(); setDenom(value); }}
-            aria-pressed={tapStake === value && affordable} aria-label={`Bet ${value} a tap`}
-            className={tapStake === value && affordable ? "is-selected" : ""}>
-            <BankChip p={me} size={46} val={value} />
-          </button>;
+          return <RackChip key={value} value={value} me={me} disabled={!affordable}
+            selected={tapStake === value && affordable} onClick={() => { tapTick(); setDenom(value); }} />;
         })}
       </div>
     </section>}

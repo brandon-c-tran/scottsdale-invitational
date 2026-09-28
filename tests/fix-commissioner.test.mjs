@@ -115,12 +115,16 @@ test("8-Ball through the real path: director crew, one write, intro then reveal"
   const state = fresh(["8ball"]);
   const beat = director(state).nextAction;
   assert.equal(beat.type, "announce-draw");
-  assert.equal(beat.label, "Announce and draw 8-Ball Doubles");
+  assert.equal(beat.label, "Announce and draw");
+  assert.equal(beat.subject, "8-Ball Doubles");
   assert.deepEqual(beat.roles, [{ player:"Jeremy", role:"referee" }], "Crew prefilled with whoever sat out least");
   assert.equal(beat.players.length, 12);
 
   const device = phone({ player:"Evan" });
-  assert.match(device.render(state), /Announce and draw 8-Ball Doubles/);
+  const pill = device.render(state);
+  assert.match(pill, /Announce and draw/);
+  assert.match(pill, /8-Ball Doubles/);
+  assert.match(pill, /Crew: Jeremy · Event official/);
   device.commitOnDeck(state.onDeck);
 
   act(state, "announceAndDraw", { evId:"8ball", players:beat.players, roles:beat.roles });
@@ -129,7 +133,7 @@ test("8-Ball through the real path: director crew, one write, intro then reveal"
   assert.deepEqual(state.draws["8ball"].roles, beat.roles);
   assert.deepEqual(ceremony(state), [["intro", "8ball"], ["reveal", "8ball", state.draws["8ball"].id]]);
   const html = device.render(state, 2, "announceAndDraw");
-  assert.match(html, /Lock bets and start/);
+  assert.match(html, /Lock and start/);
   device.commitOnDeck(state.onDeck);
   assert.ok(device.render(state, 2, "announceAndDraw"), "A subsequent render still works");
 
@@ -153,7 +157,7 @@ test("a draw prepared for a later event is held on every screen until it is anno
   device.render(state); device.commitOnDeck(state.onDeck);
   act(state, "announceEvent", { evId:"pong" });
   assert.deepEqual(ceremony(state), [["intro", "pong"], ["reveal", "pong", state.draws.pong.id]]);
-  assert.match(device.render(state, 3, "announceEvent"), /Lock bets and start/);
+  assert.match(device.render(state, 3, "announceEvent"), /Lock and start/);
 });
 
 test("solo heats announce and draw in one write with the present players", () => {
@@ -301,13 +305,15 @@ test("preparing or announcing another event never hijacks one being played", () 
   const beat = director(state);
   assert.equal(beat.event.id, "8ball");
   assert.equal(beat.nextAction.type, "record-contest-winner");
-  assert.equal(beat.nextAction.label, "Record Play-in · Match 1 winner");
-  /* the pill names both sides, and tells a commissioner who is playing */
+  assert.equal(beat.nextAction.label, "Record winner");
+  assert.equal(beat.nextAction.subject, "Play-in 1");
+  /* the pill shows both sides as winner targets and says who is playing */
   const contest = current(state, "8ball");
   const player = contest.players[0];
   const html = phone({ player }).render(state);
-  assert.match(html, /Record Play-in · Match 1 winner/);
-  assert.match(html, / vs /);
+  assert.match(html, /Record winner/);
+  assert.match(html, /Play-in 1/);
+  for (const side of contest.sides) assert.ok(html.includes(`aria-label="Winner: ${side.players.join(" &amp; ")}"`));
   assert.match(html, /You’re playing/);
   /* an explicit override is still possible */
   const forced = structuredClone(state);

@@ -240,18 +240,22 @@ for (const kind of ["bracket", "heats"]) test(`actual guest board and host panel
     const host = controls(state, ev, { onLock:reference => act(state, "lockAndStart", { evId:ev.id, ...reference }) });
     assert.equal((await host.click("Lock bets and start")).ok, true);
     assert.equal(bettingControls(state, ev, spectator).buttons.filter(button => !button.disabled && button.name.startsWith("Place a chip on ")).length, 0);
+    /* a stage final of three or more is recorded as a finish order */
+    const other = contest.sides[1];
     const selection = contest.kind === "heat" ? [`Winner: ${names(winner)}`,
-      button => button.role === "checkbox" && button.name === `Also advances: ${names(backed)}`] : [];
+      button => button.role === "checkbox" && button.name === `Also advances: ${names(backed)}`]
+      : contest.kind === "stage-final" ? [`1st: ${names(winner)}`, `2nd: ${names(other)}`] : [];
     const result = controls(state, ev, { onWinner:payload => act(state, "recordContestWinner", { evId:ev.id, ...payload }) }, selection);
-    assert.equal((await result.click(contest.kind === "heat" ? "Record winner" : `Winner: ${names(winner)}`)).ok, true);
+    assert.equal((await result.click(contest.kind === "heat" ? "Record winner"
+      : contest.kind === "stage-final" ? "Record order" : `Winner: ${names(winner)}`)).ok, true);
     winners.push(winner.players);
     const settled = resolveWager(state, state.wagers.find(item => item.id === wager.id), BUILTIN_EVENTS);
     assert.equal(settled.delta, contest.kind === "heat" ? -100 : 100, "A qualifying non-winner loses a winner bet; winners pay even");
   }
   assert.deepEqual(played, kind === "bracket" ? Array(5).fill("match") : ["heat", "heat", "heat", "stage-final"]);
-  assert.equal(resolveEventLifecycle(state, ev).phase, "result-entry");
-  const finish = controls(state, ev, { onResult:() => act(state, "saveResult", { evId:ev.id, slots:[winners.at(-1), [], []], noScene:true }) });
-  assert.equal((await finish.click("Post event result")).ok, true);
+  /* the final's decisive tap posts the official result in the same write */
+  assert.equal(resolveEventLifecycle(state, ev).phase, "complete");
+  assert.deepEqual(state.results[ev.id].slots[0], winners.at(-1));
   assert.equal(controls(state, ev).html, "");
   assert.ok(state.wagers.every(wager => resolveWager(state, wager, BUILTIN_EVENTS).status !== "pending"));
 });
@@ -267,13 +271,13 @@ test("correction carries previous contest refs, waits for acknowledgement, and r
     calls.push(payload);
     return new Promise(resolve => { acknowledge = () => resolve(calls.length === 1 ? { ok:false, error:"Connection failed" }
       : act(state, "undoLastContest", { evId:ev.id, ...payload })); });
-  } });
-  const firstAttempt = view.click("Correct previous result");
-  await view.click("Correct previous result");
+  } }, ["Fix Play-in 1"]);
+  const firstAttempt = view.click("Reopen Play-in 1");
+  await view.click("Reopen Play-in 1");
   assert.deepEqual(calls, [{ contestId:first.id, contestRevision:revision }]);
   acknowledge(); await firstAttempt;
   assert.notEqual(resolveCurrentContest(state, ev).id, first.id);
-  const retry = view.click("Correct previous result");
+  const retry = view.click("Reopen Play-in 1");
   acknowledge(); await retry;
   assert.equal(calls.length, 2);
   const restored = resolveCurrentContest(state, ev);
@@ -292,10 +296,10 @@ test("correction names next-contest chips in its confirm and returns them in the
   const next = resolveCurrentContest(state, ev), name = names(next.sides[0]);
   const onUndo = payload => act(state, "undoLastContest", { evId:ev.id, ...payload });
   assert.equal((await bettingControls(state, ev, me).click(`Place a chip on ${name}`)).ok, true);
-  const confirm = controls(state, ev, { onUndo }, ["Correct previous result"]);
+  const confirm = controls(state, ev, { onUndo }, ["Fix Play-in 1"]);
   assert.match(confirm.html, new RegExp(`Returns ${me} 100`));
   assert.equal(state.eventOps[ev.id].lastContest.id, first.id, "Opening the confirm changes nothing");
-  await confirm.click("Correct previous result");
+  await confirm.click("Reopen Play-in 1");
   assert.equal(resolveCurrentContest(state, ev).id, first.id);
   assert.equal(state.wagers[0].status, "void");
 });
@@ -305,12 +309,12 @@ test("a pending start also blocks the conflicting previous-result correction", a
   saved(state,"recordContestWinner",{evId:ev.id,...ref(first),winner:first.sides[0].key});
   let acknowledge, corrections=0;
   const view=controls(state,ev,{onLock:()=>new Promise(resolve=>{acknowledge=resolve;}),
-    onUndo:()=>{corrections++;return {ok:true};}});
+    onUndo:()=>{corrections++;return {ok:true};}},["Fix Play-in 1"]);
   const start=view.click("Lock bets and start");
-  await view.click("Correct previous result");
+  await view.click("Reopen Play-in 1");
   assert.equal(corrections,0);
   acknowledge({ok:false,error:"Connection failed"}); await start;
-  await view.click("Correct previous result");
+  await view.click("Reopen Play-in 1");
   assert.equal(corrections,1);
 });
 
@@ -323,13 +327,13 @@ test("completed-event posting waits for acknowledgement, blocks correction, and 
   }
   let acknowledge,posts=0,corrections=0;
   const view=controls(state,ev,{onResult:()=>{posts++;return new Promise(resolve=>{acknowledge=resolve;});},
-    onUndo:()=>{corrections++;return {ok:true};}});
+    onUndo:()=>{corrections++;return {ok:true};}},["Fix Final"]);
   const first=view.click("Post event result");
-  await view.click("Post event result");await view.click("Correct previous result");
+  await view.click("Post event result");await view.click("Reopen Final");
   assert.equal(posts,1);assert.equal(corrections,0);
   acknowledge({ok:false,error:"Connection failed"});assert.equal((await first).ok,false);
   const retry=view.click("Post event result");
-  await view.click("Correct previous result");
+  await view.click("Reopen Final");
   assert.equal(posts,2);assert.equal(corrections,0);
   acknowledge({ok:true});assert.equal((await retry).ok,true);
 });

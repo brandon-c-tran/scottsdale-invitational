@@ -255,9 +255,10 @@ test("C2: the contest panel offers each recorded contest by name and confirms wh
     return { html, buttons };
   };
   const view = render();
-  assert.ok(view.buttons.has("Correct previous result"));
-  assert.ok(view.buttons.has("Correct Play-in 1"));
-  const confirm = render("Correct Play-in 1");
+  /* every recorded contest by name, newest first (commissioner flow: "Fix") */
+  assert.ok(view.buttons.has("Fix Play-in 2"));
+  assert.ok(view.buttons.has("Fix Play-in 1"));
+  const confirm = render("Fix Play-in 1");
   assert.match(confirm.html, new RegExp(`Rewinds Play-in 2\\. Returns ${crew} 200\\.`));
   assert.equal(calls.length, 0, "opening the confirm changes nothing");
 });
@@ -388,7 +389,8 @@ test("C14: a result correction is one Replay beat with a Skip beside it", () => 
   act(s, "saveResult", { evId:"putt", slots:[["Khoa"]], confirmOverwrite:true, correctionReason:"Wrong" }, gm(true));
   const beat = director(s);
   assert.equal(beat.nextAction.type, "replay-winner-scene");
-  assert.equal(beat.nextAction.label, "Replay Long Putt winner");
+  assert.equal(beat.nextAction.label, "Replay winner");
+  assert.equal(beat.nextAction.subject, "Long Putt");
   assert.deepEqual([beat.secondary.type, beat.secondary.label], ["skip-replay", "Skip"]);
   const staleId = s.showControl.active.id;
   act(s, "replayWinnerScene", { eventId:"putt" }, gm(true));

@@ -36,15 +36,18 @@ const textOf = values => values.map(value => Array.isArray(value) ? textOf(value
 
 /* Capture native button handlers during a real React render. Exercise them
    through their accessible names and disabled states, not layout/classes. */
-function controls(state, event, overrides = {}) {
+function controls(state, event, overrides = {}, select = []) {
   const buttons = [], picks = [], retractions = [], retractionRefs = [], voids = [];
-  let html;
+  let html, selection = 0;
   const createElement = React.createElement;
   React.createElement = (type, props, ...children) => {
-    if (type === "button" && props?.onClick) buttons.push({
-      name:(props["aria-label"] || textOf(children)).trim(), description:props["aria-description"],
-      disabled:!!props.disabled, click:props.onClick,
-    });
+    if (type === "button" && props?.onClick) {
+      const button = { name:(props["aria-label"] || textOf(children)).trim(), description:props["aria-description"],
+        disabled:!!props.disabled, click:props.onClick };
+      buttons.push(button);
+      /* render-time taps drive in-component steps such as Manage and confirm */
+      if (select[selection] === button.name) { selection++; button.click(); }
+    }
     return createElement(type, props, ...children);
   };
   try {
@@ -345,10 +348,13 @@ test("retraction targets one record while commissioner void retains every merged
     { ...wager, id:"legacy-b", stake:200, chips:undefined },
   ];
   const before = structuredClone(state.wagers);
-  const legacy = controls(state, solo, { gm:true });
+  /* per-bet Void sits behind Manage and confirms how many bets it voids */
+  assert.ok(!controls(state, solo, { gm:true }).names.includes("Void"));
+  const legacy = controls(state, solo, { gm:true }, ["Manage", "Void"]);
   legacy.click(`Retract your last chip on ${ROSTER[1]}`);
   assert.deepEqual(legacy.retractions, ["legacy-b"]);
-  legacy.click("Void");
+  assert.deepEqual(legacy.voids, [], "Opening the confirm voids nothing");
+  legacy.click("Void 2 bets");
   assert.deepEqual(legacy.voids, [["legacy-a", "legacy-b"]]);
   assert.deepEqual(state.wagers, before);
 });

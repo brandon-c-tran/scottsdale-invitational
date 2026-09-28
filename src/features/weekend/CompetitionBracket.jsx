@@ -49,7 +49,7 @@ const statusOf = (contest, isCurrent) => !isCurrent ? null
    Team targets and player-card targets are siblings: viewing a player can
    never record a winner. compact is a read-only picture sized to its column;
    its caller makes the whole thing one target that opens the full bracket. */
-export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, size="md", hot, pending=false }) {
+export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, size="md", hot, pending=false, pickable=true }) {
   const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
   const scroller = useRef(null);
   const compact = size === "compact";
@@ -76,7 +76,8 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
   const colLeft = r => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
   const topOf = (r, m) => centers[r][m] * unit - cardH / 2;
   const rowY = (r, m, index) => topOf(r, m) + 1 + dims.head + dims.row / 2 + index * (dims.row + 1);
-  const canRecord = gm && !!onPick && contest?.phase === "in-progress"
+  /* pickable=false: the caller draws its own winner targets beside it */
+  const canRecord = pickable && gm && !!onPick && contest?.phase === "in-progress"
     && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
   const names = ROUND_NAMES[bracket.size] || [];
 

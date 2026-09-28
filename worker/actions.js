@@ -10,7 +10,7 @@ import {
   duelBetween, duelsSentToday, pokerLive, stacksPosted, pokerLevels, pokerClockAnchor,
   validateEventParticipants, normalizeOverflowRoles, presentPlayers, isAway, suggestParticipants, bracketMatchOpen, eventInPlay, GAMES,
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
-  pokerDistribution, wagerMult, contestMult, contestSideOf,
+  pokerDistribution, wagerMult, contestMult, contestSideOf, stageEntrantView, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   enforceExposure, refundTotals, voidWagerRecords, contestStackOf, contestEntryLabel, applyContestCorrection,
   contestCorrectionAvailability, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview, wagerSide,
@@ -24,6 +24,7 @@ import {
   sceneAtLastStep,
   showDefinition,
   validateShowSceneRequest,
+  postedFinalUndo,
   resolveShowScene,
   championIdentity,
 } from "../shared/show.js";
@@ -272,8 +273,45 @@ const openContest = (state, ev, now = Date.now()) => {
 const contestCommand = (ctx, type, payload) => ({
   id:showCommandId(ctx) ? `command:${ctx.deviceId || "gm"}:${ctx.actionId}` : null,
   fingerprint:JSON.stringify([type, payload.evId, payload.contestId, payload.contestRevision,
-    payload.winner, Array.isArray(payload.qualifiers) ? [...payload.qualifiers].sort() : null]),
+    payload.winner, Array.isArray(payload.qualifiers) ? [...payload.qualifiers].sort() : null,
+    /* older commands keep their exact fingerprint */
+    ...(payload.order !== undefined || payload.postResult !== undefined
+      ? [payload.order ?? null, payload.postResult === true] : [])]),
 });
+/* The places a completed contest sequence already decides. A bracket: the
+   champion, the final's loser, and the teams that lost the round before the
+   final sharing 3rd. A stage final: its finish order, where two finalists
+   need only the winner. Null until every paid place is known. */
+const placesPaid = ev => (AWARDS[ev?.value] || [0, 0, 0]).filter(pts => pts > 0).length;
+function contestPlacement(state, ev, contest, order) {
+  const table = AWARDS[ev.value] || [0, 0, 0];
+  const draw = state.draws[ev.id];
+  const known = key => key !== null && key !== undefined;
+  if (contest.kind === "match") {
+    const br = state.brackets[ev.id];
+    const champion = br ? bracketChampion(br) : null;
+    if (!known(champion) || !draw?.teams?.[champion]) return null;
+    const final = br.rounds[br.rounds.length - 1][0];
+    const runner = [resolveSlot(br, final.a), resolveSlot(br, final.b)].find(key => known(key) && key !== champion);
+    const before = br.rounds.length > 1 ? br.rounds[br.rounds.length - 2] : [];
+    const third = before.map(match => [resolveSlot(br, match.a), resolveSlot(br, match.b)]
+      .find(key => known(key) && key !== match.winner)).filter(key => known(key) && draw.teams[key]);
+    return [[...draw.teams[champion].players],
+      table[1] > 0 && known(runner) ? [...draw.teams[runner].players] : [],
+      table[2] > 0 ? third.flatMap(key => draw.teams[key].players) : []];
+  }
+  if (contest.kind === "stage-final") {
+    const st = state.stages[ev.id];
+    const finalists = stageFinalists(st) || [];
+    const placed = Array.isArray(order) ? [...order] : [st.finalWinner];
+    if (placed.length === finalists.length - 1) placed.push(finalists.find(key => !placed.includes(key)));
+    const needed = Math.min(placesPaid(ev), finalists.length);
+    if (placed.length < needed) return null;
+    return [0, 1, 2].map(place => place < needed && table[place] > 0 && known(placed[place])
+      ? [...stageEntrantView(state, st, placed[place]).players] : []);
+  }
+  return null;
+}
 const replayContestCommand = (state, evId, command) => {
   if (!command.id) return null;
   const previous = state.eventOps?.[evId]?.contestCommands?.[command.id];
@@ -1283,6 +1321,12 @@ export const ACTIONS = {
     if (contest.kind === "ffa") return err("Enter the event result instead");
     if (!contest.sides.some(side => side.key === winner)) return err("Winner is not in this contest");
     if (state.onDeck && state.onDeck !== evId) return err("Close the current betting market first");
+    /* a stage final may carry its finish order, winner first */
+    const order = payload.order === undefined ? null : payload.order;
+    if (order !== null && (contest.kind !== "stage-final" || !Array.isArray(order) || !order.length
+        || order[0] !== winner || new Set(order).size !== order.length
+        || order.some(key => !contest.sides.some(side => side.key === key))))
+      return err("Choose the finish order from the finalists");
     let through;
     if (contest.kind === "heat") {
       const st = state.stages[evId];
@@ -1326,7 +1370,24 @@ export const ACTIONS = {
       op.resultEntryAt = Date.now();
       if (state.onDeck === evId) state.onDeck = null;
     }
+    /* The final's winner can post the official result in the same write,
+       through saveResult itself: same validation, revision, and winner
+       scene. A stage final posts only once its paid places are known. */
+    let posted = null;
+    if (!next && payload.postResult === true && !state.results[evId]) {
+      const slots = contestPlacement(state, ev, contest, order);
+      if (slots) {
+        const saved = ACTIONS.saveResult(state, { evId, slots, noScene:payload.noScene }, ctx);
+        if (!saved.ok) return saved;
+        posted = saved.extra || {};
+        /* the recorded entry remembers the result it posted, for its Undo */
+        op.lastContest.postedRevision = posted.revision;
+        const top = op.contestStack?.at(-1);
+        if (top && top.id === op.lastContest.id) top.postedRevision = posted.revision;
+      }
+    }
     rememberContestCommand(state, evId, command);
+    if (posted) return ok({ posted:true, revision:posted.revision, ...(posted.sceneId ? { sceneId:posted.sceneId } : {}) });
     return ok({ ...(next ? { contestId:op.contest.id, contestRevision:op.contest.revision } : { awaitingResult:true }) });
   },
   /* Correct any recorded contest of this event. The contest and every one
@@ -1344,11 +1405,24 @@ export const ACTIONS = {
     if (!ev) return err("No such event");
     if (typeof contestId !== "string" || !contestStackOf(state, evId).some(entry => entry.id === contestId))
       return err("Contest changed, refresh and try again");
-    const available = contestCorrectionAvailability(state, ev, contestId);
+    /* a final whose winner posted the result is corrected with that result */
+    const postedFinal = contestStackOf(state, evId).at(-1)?.id === contestId ? postedFinalUndo(state, ev) : null;
+    const available = postedFinal || contestCorrectionAvailability(state, ev, contestId);
     if (!available.enabled) return err(available.blocker);
     if (contestRevision !== available.contestRevision)
       return err("Contest changed, refresh and try again");
     const now = Date.now();
+    if (postedFinal) {
+      const existing = state.results[evId];
+      delete state.results[evId];
+      delete eventOp(state, evId).completedAt;
+      appendCorrection(state, evId, { type:"clear", at:now, by:actorOf(ctx), reason:"Final winner undone",
+        fromRevision:Number(existing.revision || 1),
+        previousSlots:(existing.slots || []).map(slot => [...(slot || [])]) });
+      /* the ceremony for a result that no longer exists leaves the TV */
+      const active = state.showControl?.active;
+      if (active?.kind === "winner" && active.eventId === evId) finishShowScene(showControlOf(state), "cancelled", now);
+    }
     const moved = applyContestCorrection(state, ev, contestId, now);
     if (moved.voidIds.length || moved.voided.length || moved.rewinds.length)
       appendCorrection(state, evId, { type:"correct-contest", at:now, by:actorOf(ctx),
@@ -2293,6 +2367,22 @@ export const ACTIONS = {
     if (state.showControl?.active) retireFinishedShowScene(showControlOf(state), now);
     const scene = tryStartScene(state, ctx, { kind:"champion" }, now);
     return ok(scene ? { sceneId:scene.id } : undefined);
+  },
+  /* One confirmed commissioner write names the champion and freezes the
+     board. The confirm carries the names it showed, so a board that moved
+     in between is refused instead of crowning someone else. Freezing goes
+     through setFrozen, which owns everything a freeze sets off. */
+  crownChampion(state, { champions }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const leaders = computeStandings(state).filter(row => row.rank === 1).map(row => row.player);
+    if (state.frozen) return samePlayers(champions, leaders)
+      ? ok({ unchanged:true, champions:leaders }) : err("The board is already frozen");
+    if (resolveWeekendOperation(state).nextAction?.type !== "crown-champion")
+      return err("Finish the finale first");
+    if (!samePlayers(champions, leaders)) return err("Standings changed, refresh and try again");
+    const frozen = ACTIONS.setFrozen(state, { f:true }, ctx);
+    if (!frozen.ok) return frozen;
+    return ok({ ...(frozen.extra || {}), champions:leaders });
   },
   /* replaying the intro re-opens the chip race: colors go back on the board so
      the claim is first come first serve again. Never mid-weekend, when the

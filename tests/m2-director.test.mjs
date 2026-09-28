@@ -35,13 +35,15 @@ test("the director upgrades lifecycle beats and keeps scene beats capability-gat
   assert.equal(off.event.id, operation.event.id);
   assert.equal(off.scene, null);
   assert.equal(off.nextAction.type, "announce");
-  assert.match(off.nextAction.label, /^Announce /);
+  /* the pill's verb is short; the event is its subject */
+  assert.equal(off.nextAction.label, "Announce");
+  assert.equal(off.nextAction.subject, operation.event.name);
 
   /* Going live never inserts a separate opening-weekend step. */
   state.live = true;
   const on = resolveDirector(state, events, { showControl:true });
   assert.equal(on.nextAction.type, "announce");
-  assert.match(on.nextAction.label, /^Announce /);
+  assert.equal(on.nextAction.label, "Announce");
 
   /* A manually played opening remains optional. */
   state.showControl.history = [{ id:"show-x", kind:"opening", outcome:"completed" }];
@@ -168,7 +170,8 @@ test("posting a result carries its ceremony; corrections mark it stale and owe a
   const replay = resolveDirector(state, events, { showControl:true });
   assert.equal(replay.nextAction.type, "replay-winner-scene");
   assert.equal(replay.nextAction.eventId, "putt");
-  assert.equal(replay.nextAction.label, "Replay Long Putt winner");
+  assert.equal(replay.nextAction.label, "Replay winner");
+  assert.equal(replay.nextAction.subject, "Long Putt");
   assert.equal(replay.secondary.type, "skip-replay");
 
   /* playing it stamps the revision, which settles the debt */

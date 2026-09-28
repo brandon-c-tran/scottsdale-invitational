@@ -279,15 +279,23 @@ test("standings keep player cards available when frozen and separate commissione
     for (const player of ROSTER) view.click(`View ${player}'s player card, 1,000 chips`);
     assert.deepEqual(view.viewed, ROSTER);
     assert.deepEqual(view.adjusted, []);
-    view.click(`Adjust chips for ${other}`);
-    assert.deepEqual(view.adjusted, [other]);
+    /* a frozen board takes no rulings, so Adjust is not offered */
+    if (frozen) assert.ok(!view.buttons.some(button => button.name.startsWith("Adjust chips for")));
+    else {
+      view.click(`Adjust chips for ${other}`);
+      assert.deepEqual(view.adjusted, [other]);
+    }
     assert.deepEqual(view.challenges, []);
   }
+  const before = controls(Board, { ...fresh(), live:false }, { gm:true });
+  assert.ok(!before.buttons.some(button => button.name.startsWith("Adjust chips for")), "No rulings before the weekend");
 });
 
 test("embedded standings omit the page and event headers while retaining champion and commissioner actions", () => {
   const state = fresh();
-  const view = controls(Board, state, { embedded:true, gm:true });
+  /* Crown shows only when the director would offer it */
+  assert.ok(!controls(Board, state, { embedded:true, gm:true }).buttons.some(button => button.name === "Crown the champion"));
+  const view = controls(Board, state, { embedded:true, gm:true, crownReady:true });
   assert.doesNotMatch(view.html, /<h1|fd-now-card/);
   assert.match(view.html, /aria-label="Tournament standings"/);
   view.click(`View ${other}'s player card, 1,000 chips`);

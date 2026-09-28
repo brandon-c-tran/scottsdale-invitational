@@ -25,6 +25,7 @@ export function DuelDesk({ state, onVoid, onVoidAll }) {
   const now = useDuelClock(state);
   const [pending, setPending] = useState(null);
   const [error, setError] = useState("");
+  const [confirmAll, setConfirmAll] = useState(false);
   const inFlight = useRef(null);
   const open = openDuelsForDesk(state, now);
   if (!open.length) return null;
@@ -43,10 +44,18 @@ export function DuelDesk({ state, onVoid, onVoidAll }) {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
       <h2 style={{ margin:0, font:"700 18px/1.1 var(--fd-display)", textTransform:"uppercase", color:"var(--ink)" }}>
         Open duels · {open.length}</h2>
-      <ActionButton type="button" variant="destructive" compact disabled={!!pending || !onVoidAll}
-        pending={pending === "all"} onClick={() => run("all", onVoidAll)}>
-        {pending === "all" ? "Voiding…" : "Void all open duels"}</ActionButton>
+      {!confirmAll && <button type="button" disabled={!!pending || !onVoidAll} onClick={() => setConfirmAll(true)}
+        style={{ minHeight:44, padding:"8px 11px", borderRadius:6, border:"1px solid var(--line)", background:"var(--paper)",
+          color:"var(--clay)", font:"600 12px/1.2 var(--fd-body)", cursor:"pointer" }}>Void all open duels</button>}
     </div>
+    {confirmAll && <div role="group" aria-label="Confirm void all" style={{ display:"flex", flexWrap:"wrap", alignItems:"center",
+      gap:8, margin:"8px 0 0", fontSize:12.5, lineHeight:1.4, color:"var(--ink)" }}>
+      <span style={{ flex:"1 1 100%" }}>{open.map(duel => `${duel.from} vs ${duel.to || "anyone"}`).join(", ")}</span>
+      <ActionButton type="button" variant="commit" compact disabled={!!pending || !onVoidAll} pending={pending === "all"}
+        onClick={() => run("all", onVoidAll).then(result => { if (result?.ok) setConfirmAll(false); return result; })}>
+        {pending === "all" ? "Voiding…" : `Void ${open.length} duel${open.length === 1 ? "" : "s"}`}</ActionButton>
+      <ActionButton type="button" variant="tertiary" compact disabled={!!pending} onClick={() => setConfirmAll(false)}>Keep</ActionButton>
+    </div>}
     <ul style={{ listStyle:"none", margin:"8px 0 0", padding:0 }}>
       {open.map(duel => <li key={duel.id} style={{ display:"flex", alignItems:"center", gap:10,
         padding:"6px 0", borderTop:"1px solid var(--line)" }}>

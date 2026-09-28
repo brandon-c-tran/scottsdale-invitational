@@ -2,7 +2,8 @@
    Scene records contain stable references and a step. Every player, result,
    and standings view is resolved from current authoritative state. */
 
-import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants } from "./core.js";
+import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants,
+  contestUndoAvailability, isAway, ROUND_NAMES } from "./core.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -221,16 +222,131 @@ function resolveShowScene(state, events = []) {
    composite forms (announce, announce-draw, lock-start) whether or not
    Show Control is on; scene beats exist only when it is. The TV keeps
    reading resolveWeekendOperation, so director copy never leaks to the
-   room. */
+   room. A beat's label is the short verb the pill shows; its subject is
+   the thing it acts on, drawn on the pill's second line. */
 const REPLAY_WINDOW_MS = 15 * 60 * 1000;
 const ADVANCE_LABELS = { winner:{ winner:"Show standings" } };
 const directorBeat = (type, label, extra = {}) =>
   ({ type, label, enabled:true, blockers:[], ...extra });
 
+/* What the commissioner calls a contest out loud: "Semifinal 2", "Final",
+   "Play-in 1", a heat's own name, or the event for a free-for-all. */
+function contestName(state, ev, contest) {
+  if (!contest) return ev?.name || "";
+  if (contest.kind === "match" && Array.isArray(contest.match)) {
+    const bracket = state.brackets?.[ev?.id];
+    const [r, m] = contest.match;
+    const round = bracket?.rounds?.[r] || [];
+    const name = (ROUND_NAMES[bracket?.size] || [])[r] || `Round ${r + 1}`;
+    return round.length > 1 ? `${name.replace(/s$/, "")} ${m + 1}` : name;
+  }
+  if (contest.kind === "ffa") return ev?.name || contest.label || "";
+  if (contest.kind === "stage-final" || contest.kind === "final") return "Final";
+  if (contest.kind === "heat" && Number.isInteger(contest.group))
+    return state.stages?.[ev?.id]?.groups?.[contest.group]?.name || contest.label || "";
+  return contest.label || ev?.name || "";
+}
+
+/* A final whose recorded winner also posted the event result can be taken
+   back while that result is still the one it posted: the same checks as any
+   previous-contest correction, read as if the result were not there. */
+function postedFinalUndo(state, ev) {
+  const op = state.eventOps?.[ev?.id];
+  const last = op?.lastContest, result = state.results?.[ev?.id];
+  if (!last || !result || last.postedRevision === undefined || last.postedRevision === null) return null;
+  if (Number(result.revision || 1) !== Number(last.postedRevision))
+    return { enabled:false, blocker:"The result was corrected", contestId:last.id,
+      contestRevision:Number(op.contestRevision || 0), refunds:[], voidIds:[] };
+  const probe = { ...state, results:{ ...state.results } };
+  delete probe.results[ev.id];
+  return contestUndoAvailability(probe, ev);
+}
+
+/* players drawn into an event that has not been announced yet */
+function drawnPlayers(state, ev) {
+  const draw = state.draws?.[ev?.id];
+  if (draw?.teams) return draw.teams.flatMap(team => team.players || []);
+  const stages = state.stages?.[ev?.id];
+  if (stages?.entrantType === "solo") return stages.groups.flatMap(group => group.entrants || []);
+  return [];
+}
+
+const LIFECYCLE_LABELS = {
+  "open-betting":"Announce",
+  "lock-betting":"Lock and start",
+  "start-event":"Start",
+  "record-contest-winner":"Record winner",
+  "continue-draft":"Continue the draft",
+  "enter-result":"Enter result",
+  "post-result":"Post result",
+  "setup-poker":"Deal and start",
+  "start-poker":"Deal and start",
+  "run-poker":"Blind clock",
+  "post-poker-result":"Post counts",
+};
+
+function lifecycleBeat(state, operation) {
+  const action = operation.nextAction;
+  const ev = operation.event;
+  const none = { ...operation, scene:null, secondary:null, extras:[] };
+  if (!action) return none;
+  if (action.type === "crown-champion") {
+    const champions = computeStandings(state).filter(row => row.rank === 1).map(row => row.player);
+    return { ...none, nextAction:{ ...action, label:"Crown", champions } };
+  }
+  if (!ev) return none;
+  const contest = resolveCurrentContest(state, ev);
+  /* Skipping is the secondary beat beside an event that has not begun, so
+     the night can jump to the finale without hunting for Shelve. */
+  const secondary = !ev.finale && !state.eventOps?.[ev.id]?.startedAt
+    && SKIPPABLE_PHASES.includes(operation.lifecycle?.phase)
+    ? { type:"skip-event", label:`Skip ${ev.name}`, eventId:ev.id } : null;
+  const extras = [];
+  const beat = nextAction => ({ ...operation, scene:null, nextAction, secondary, extras });
+  const subject = ev.name;
+  /* a prepared draw that now names someone away is worth a look first */
+  const away = drawnPlayers(state, ev).filter(player => isAway(state, player));
+  const swapIn = () => { if (away.length) extras.push({ type:"swap-in", label:"Swap in", eventId:ev.id }); };
+  if (action.type === "open-betting") {
+    swapIn();
+    return beat({ ...action, type:"announce", label:"Announce", subject, away });
+  }
+  /* A draw for the next event is announced in the same write, so every
+     screen plays the intro before the teams. The beat carries the default
+     crew (whoever has sat out least); the commissioner can change it. */
+  if (action.type === "prepare-draw"
+      || action.type === "prepare-stages" && (ev.stageCfg?.kind === "heats" || state.draws?.[ev.id])) {
+    const suggestion = state.draws?.[ev.id] ? { players:null, roles:null } : suggestParticipants(state, ev);
+    if (suggestion) {
+      if (suggestion.roles?.length) extras.push({ type:"change-crew", label:"Change crew", eventId:ev.id });
+      if (ev.kind === "team" && !state.draws?.[ev.id])
+        extras.push({ type:"captains-draft", label:"Captains draft", eventId:ev.id });
+      swapIn();
+      return beat({ ...action, type:"announce-draw", label:"Announce and draw", subject,
+        players:suggestion.players, roles:suggestion.roles, away });
+    }
+  }
+  if (action.type === "lock-betting")
+    return beat({ ...action, type:"lock-start", label:"Lock and start",
+      subject:contestName(state, ev, contest), contestId:contest?.id });
+  if (action.type === "start-event")
+    return beat({ ...action, type:"lock-start", label:"Start",
+      subject:contestName(state, ev, contest), contestId:contest?.id });
+  if (action.type === "record-contest-winner" && contest && contest.kind !== "ffa")
+    return beat({ ...action, label:"Record winner", subject:contestName(state, ev, contest), contestId:contest.id });
+  if (action.type === "prepare-draw")
+    return beat({ ...action, label:"Set up teams", subject });
+  if (action.type === "prepare-stages")
+    return beat({ ...action, label:`Set up ${ev.stageCfg?.kind || "groups"}`, subject });
+  return beat({ ...action, label:LIFECYCLE_LABELS[action.type] || action.label, subject });
+}
+
 function resolveDirector(state, events = [], { showControl = false, now = Date.now() } = {}) {
   const operation = resolveWeekendOperation(state, events);
   const control = state.showControl;
   const history = Array.isArray(control?.history) ? control.history : [];
+  const base = lifecycleBeat(state, operation);
+  const only = (scene, nextAction) => ({ ...operation, scene, secondary:null, extras:[], nextAction });
 
   if (showControl) {
     const scene = resolveShowScene(state, events);
@@ -240,9 +356,9 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
     const replayBeat = (eventId, sceneId = null) => {
       const event = events.find(item => item.id === eventId);
       const revision = Number(state.results?.[eventId]?.revision || 1);
-      return { ...operation, scene, nextAction:directorBeat("replay-winner-scene",
-        revision > 1 ? `Replay ${event.name} winner` : `Play the ${event.name} winner scene`,
-        { eventId, revision, ...(sceneId ? { sceneId } : {}) }),
+      return { ...operation, scene, extras:[], nextAction:directorBeat("replay-winner-scene",
+        revision > 1 ? "Replay winner" : "Play winner scene",
+        { eventId, revision, subject:event.name, ...(sceneId ? { sceneId } : {}) }),
       secondary:{ type:"skip-replay", label:"Skip", eventId, revision } };
     };
     if (scene) {
@@ -250,20 +366,28 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
         if (scene.active.kind === "winner" && scene.staleReason === "The result was corrected"
             && scene.event && !state.shelved?.[scene.event.id])
           return replayBeat(scene.event.id, scene.active.id);
-        return { ...operation, scene, nextAction:
-          directorBeat("clear-scene", "Clear the scene", { sceneId:scene.active.id }) };
+        return only(scene, directorBeat("clear-scene", "End scene",
+          { sceneId:scene.active.id, subject:scene.staleReason }));
       }
       if (scene.stepIndex < scene.stepCount - 1)
-        return { ...operation, scene, nextAction:
-          directorBeat("advance-scene",
-            ADVANCE_LABELS[scene.active.kind]?.[scene.stepKey] || "Continue",
-            { sceneId:scene.active.id }) };
+        return only(scene, directorBeat("advance-scene",
+          ADVANCE_LABELS[scene.active.kind]?.[scene.stepKey] || "Continue",
+          { sceneId:scene.active.id,
+            subject:`On TV: ${scene.definition.label}, ${scene.stepIndex + 1} of ${scene.stepCount}` }));
       /* A scene on its last step never holds Continue: the next official
          composite retires it, so the chain cannot dead-end on ceremony. It
          also never hides a ceremony the room is still owed. */
     }
 
     const active = scene?.active || null;
+    /* the room gets its title card before the first announcement */
+    if (!active && !state.live && !Object.keys(state.results || {}).length
+        && !history.some(entry => entry.kind === "opening")
+        && ["announce", "announce-draw"].includes(base.nextAction?.type))
+      return { ...base, secondary:null, then:base.nextAction,
+        extras:[{ type:"skip-opening", label:"Skip opening" }],
+        nextAction:directorBeat("start-opening-scene", "Opening", { subject:"Field Day title on the TV" }) };
+
     const latest = Object.entries(state.results || {})
       .map(([eventId, result]) => ({ eventId, result }))
       .filter(item => item.result?.slots?.[0]?.length)
@@ -281,40 +405,12 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
       const champion = championIdentity(state);
       if (champion.length && !history.some(entry => championShownFor(entry, champion))
           && !championShownFor(active, champion))
-        return { ...operation, scene:null, nextAction:
-          directorBeat("start-champion-scene", "Show the champion") };
+        return only(null, directorBeat("start-champion-scene", "Show the champion",
+          { subject:"Final standings on the TV" }));
     }
   }
 
-  const action = operation.nextAction;
-  const ev = operation.event;
-  if (!action || !ev) return { ...operation, scene:null };
-  const contest = resolveCurrentContest(state, ev);
-  /* Skipping is the secondary beat beside an event that has not begun, so
-     the night can jump to the finale without hunting for Shelve. */
-  const secondary = !ev.finale && !state.eventOps?.[ev.id]?.startedAt
-    && SKIPPABLE_PHASES.includes(operation.lifecycle?.phase)
-    ? { type:"skip-event", label:`Skip ${ev.name}`, eventId:ev.id } : null;
-  const beat = nextAction => ({ ...operation, scene:null, nextAction, secondary });
-  if (action.type === "open-betting")
-    return beat({ ...action, type:"announce", label:`Announce ${ev.name}` });
-  /* A draw for the next event is announced in the same write, so every
-     screen plays the intro before the teams. The beat carries the default
-     crew (whoever has sat out least); the commissioner can change it. */
-  if (action.type === "prepare-draw"
-      || action.type === "prepare-stages" && (ev.stageCfg?.kind === "heats" || state.draws?.[ev.id])) {
-    const suggestion = state.draws?.[ev.id] ? { players:null, roles:null } : suggestParticipants(state, ev);
-    if (suggestion)
-      return beat({ ...action, type:"announce-draw", label:`Announce and draw ${ev.name}`,
-        players:suggestion.players, roles:suggestion.roles });
-  }
-  if (action.type === "lock-betting")
-    return beat({ ...action, type:"lock-start", label:`Lock bets and start ${contest?.label || ev.name}` });
-  if (action.type === "start-event")
-    return beat({ ...action, type:"lock-start", label:`Start ${contest?.label || ev.name}` });
-  if (action.type === "record-contest-winner" && contest && contest.kind !== "ffa")
-    return beat({ ...action, label:`Record ${contest.label} winner`, contestId:contest.id });
-  return { ...operation, scene:null, secondary };
+  return base;
 }
 const SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
 
@@ -333,4 +429,6 @@ export {
   championShownFor,
   resolveShowScene,
   resolveDirector,
+  contestName,
+  postedFinalUndo,
 };

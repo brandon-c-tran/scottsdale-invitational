@@ -11,7 +11,7 @@ import {
   validateEventParticipants, makeBracket, bracketOrder, refundText,
 } from "../shared/core.js";
 import { resolveDirector } from "../shared/show.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { Tournament } from "../worker/tournament.js";
 import { pendingReveal, revealReady } from "../src/features/weekend/drawReveal.js";
 

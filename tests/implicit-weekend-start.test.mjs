@@ -9,7 +9,7 @@ import {
   EMPTY_STATE, BUILTIN_EVENTS, ROSTER, allEventsOf, atRisk, computeStandings,
   defaultQaParticipants, draftTurn, resolveCurrentContest, resolveEventLifecycle, wagerBoardEvent,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 import { resolveDirector } from "../shared/show.js";
 
 const fresh = () => structuredClone(EMPTY_STATE);
@@ -240,14 +240,9 @@ for (const showControl of [false, true]) {
     act(state, "announceEvent", { evId:ev.id }, { ...gm(), showControl });
     assert.equal(state.live, true);
     if (showControl) {
+      /* the intro is one step (C13): no Continue between announce and start */
       assert.equal(state.showControl.active.kind, "event-intro");
-      assert.equal(resolveDirector(state, events, { showControl }).nextAction.type, "advance-scene");
-      const sceneId = state.showControl.active.id;
-      act(state, "advanceShowScene", { id:sceneId }, { ...gm(), showControl });
       assert.equal(resolveDirector(state, events, { showControl }).nextAction.type, "lock-start");
-      act(state, "advanceShowScene", { id:sceneId }, { ...gm(), showControl });
-      assert.equal(state.showControl.active, null);
-      assert.equal(state.showControl.history[0].outcome, "completed");
     }
     const next = resolveDirector(state, events, { showControl });
     assert.equal(next.nextAction.type, "lock-start");

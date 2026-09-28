@@ -55,6 +55,49 @@
 .fd-pass-facts { display:grid; gap:10px; font-size:11px; line-height:1.5; padding-bottom:12px; }
 .fd-pass-facts>span { display:flex; justify-content:space-between; gap:16px; }
 .fd-pass-facts strong { font-weight:600; text-align:right; max-width:60%; overflow-wrap:anywhere; }
+/* The season back: a stat sheet printed in the card's own ink. The body is
+   measured (flex:none keeps its natural height) and the turned card grows
+   to fit it. */
+.fd-pass-back.is-season { justify-content:flex-start; }
+.fd-pass-season { display:flex; flex-direction:column; flex:none; gap:10px; }
+.fd-pass-season-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:4px; }
+.fd-pass-season-title { font:700 30px/.9 'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:-.02em; }
+.fd-pass-season-ghost { font:italic 700 42px/.8 'Barlow Condensed',sans-serif; letter-spacing:-.03em;
+  color:color-mix(in srgb,var(--pass-ink) 38%,var(--pass-color)); }
+.fd-pass-table { display:block; }
+.fd-pass-table-head,.fd-pass-table-row { display:grid; grid-template-columns:minmax(0,1fr) 46px 54px;
+  gap:6px; align-items:baseline; }
+.fd-pass-table-head { padding-bottom:5px; border-bottom:1.5px solid var(--pass-ink);
+  font:700 8px/1 var(--fd-body,'Inter',sans-serif); letter-spacing:.1em; text-transform:uppercase; }
+.fd-pass-table-row { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent);
+  font:600 11px/1.25 var(--fd-body,'Inter',sans-serif); }
+.fd-pass-table-row>span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-pass-table-row>strong { font:700 14px/1 'Barlow Condensed',sans-serif; white-space:nowrap; }
+.fd-pass-table-head>span:last-child,.fd-pass-table-row>span:last-child { text-align:right; white-space:nowrap; }
+.fd-pass-table-row.is-placed>span:last-child,.fd-pass-table-row.is-crew>span:last-child {
+  font:700 14px/1 'Barlow Condensed',sans-serif; }
+.fd-pass-totals { display:grid; grid-auto-columns:minmax(0,1fr); grid-auto-flow:column; gap:4px; text-align:center; padding-top:2px; }
+.fd-pass-totals strong { display:block; font:700 21px/1 'Barlow Condensed',sans-serif; white-space:nowrap; }
+.fd-pass-totals small { display:block; margin-top:4px; font:700 8px/1.2 var(--fd-body,'Inter',sans-serif);
+  letter-spacing:.08em; text-transform:uppercase; }
+.fd-pass-box { display:grid; gap:1px; padding:8px 10px; border:1.5px solid var(--pass-ink); border-radius:10px; }
+.fd-pass-box-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding-bottom:3px;
+  font:700 9px/1.2 var(--fd-body,'Inter',sans-serif); letter-spacing:.1em; text-transform:uppercase; }
+.fd-pass-box-head strong { font:700 22px/1 'Barlow Condensed',sans-serif; letter-spacing:0; }
+.fd-pass-line { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:3px 0;
+  font:600 11px/1.3 var(--fd-body,'Inter',sans-serif); }
+.fd-pass-line>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-pass-line>strong { flex-shrink:0; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font:700 14px/1 'Barlow Condensed',sans-serif; }
+.fd-pass-walkout { border-top:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent); padding-top:8px; }
+.fd-pass-walkout>strong { font:600 11px/1.3 var(--fd-body,'Inter',sans-serif); }
+@media(prefers-reduced-motion:no-preference) {
+  .fd-pass { transition:min-height var(--motion-story,720ms) var(--ease-out,cubic-bezier(.2,.8,.2,1)); }
+  /* turning the card over deals its lines in, top to bottom */
+  .fd-pass-inner.is-flipped .fd-pass-row { animation:fd-pass-row var(--motion-base,260ms) var(--ease-out,ease-out) both;
+    animation-delay:calc(220ms + min(var(--i,0), 14) * 28ms); }
+}
+@keyframes fd-pass-row { from { opacity:0; transform:translateY(6px); } }
 .fd-pass-hint { display:block; text-align:center; margin-top:12px; font:11px/1.5 var(--fd-body, 'Inter', sans-serif); color:var(--muted); }
 .fd-pass-compact { max-width:300px; }
 .fd-profile-editor { width:100%; }

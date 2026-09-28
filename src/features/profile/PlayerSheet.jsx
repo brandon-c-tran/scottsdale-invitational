@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PT, DUEL_DAILY_LIMIT, DUEL_LAPSE_MS, disp, duelBetween, duelPhase, duelRoom, duelsSentToday, resolveDuel } from "../../../shared/core.js";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { DuelCard } from "../duels/DuelCard.jsx";
 import { ANTES, duelRecord, duelResult, duelView, duelsOpen, signedChips } from "../duels/duelView.js";
 import { PlayerPass } from "./PlayerPass.jsx";
+import { headToHead } from "./seasonStats.js";
+import { useReducedMotion } from "../../ui/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import "./player-sheet.css";
@@ -12,6 +14,15 @@ import "./player-sheet.css";
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const signed = n => `${n > 0 ? "+" : ""}${fmt(n)}`;
 const OUTCOME = { won:"Won", lost:"Lost", push:"Push", void:"Void" };
+
+/* Rematch sits with your record against a player: you have met, and a duel
+   could be sent between you right now (live, neither away, not frozen, no
+   poker table, and no duel already open between you). */
+export function rematchAvailable(state, me, p, { events = [], now = serverNow() } = {}) {
+  if (!me || !p || me === p || !duelsOpen(state)) return false;
+  if (state.away?.[me] || state.away?.[p] || duelBetween(state, me, p, now)) return false;
+  return headToHead(state, me, p, events.length ? events : undefined).count > 0;
+}
 
 /* Public identity has the same destination wherever a player is selected.
    Ratings and travel answers belong to the editor and commissioner views. */
@@ -51,6 +62,19 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   const unavailable = dailyLimit ? "Daily limit of 3 challenges reached."
     : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
+  /* the turned card shows your record against this player; Rematch opens
+     the challenge below with the last ante, and only while one can be sent */
+  const [turned, setTurned] = useState(false);
+  const duelRef = useRef(null);
+  const reducedMotion = useReducedMotion();
+  const canRematch = useMemo(() => !!onDuel && rematchAvailable(state, me, p, { events, now }),
+    [state, me, p, events, onDuel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openRematch = () => {
+    if (last && last.outcome !== "void" && last.stake <= anteMax) setAnte(last.stake);
+    const section = duelRef.current;
+    section?.scrollIntoView?.({ block:"center", behavior:reducedMotion ? "auto" : "smooth" });
+    section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll:true });
+  };
 
   useEffect(() => {
     setAnte(currentAnte => currentAnte <= anteMax ? currentAnte : ANTES.filter(value => value <= anteMax).at(-1) || PT);
@@ -80,7 +104,10 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
 
   return <Sheet title={disp(state, p)} onClose={onClose} onBack={onBack} busy={pending}>
     <div className="fd-player-sheet">
-      <PlayerPass key={p} state={state} p={p} compact />
+      <PlayerPass key={p} state={state} p={p} compact viewer={me || null} events={events.length ? events : undefined}
+        standings={standings} onFlip={setTurned} />
+      {turned && canRematch && <ActionButton type="button" className="fd-player-rematch"
+        onClick={openRematch}>Rematch</ActionButton>}
 
       {state.live && row && <dl className="fd-player-stats" aria-label="Tournament stats">
         <div><dt>Position</dt><dd>{row.rank}</dd></div>
@@ -100,7 +127,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
       {own && onEdit && <ActionButton type="button" variant="secondary" onClick={onEdit}
         style={{ width:"100%" }}>Edit your profile</ActionButton>}
 
-      {canDuel && (current || !away) && <section className="fd-player-duel" aria-label="Quick Draw challenge">
+      {canDuel && (current || !away) && <section ref={duelRef} className="fd-player-duel" aria-label="Quick Draw challenge">
         <details className="fd-player-duel-rules"><summary><h2>Quick Draw</h2><span>How to play +</span></summary>
           <p>Once accepted, each of you plays on your own phone. Tap when the screen flashes. Fastest tap
             wins both antes. Tapping early is a foul. An unanswered challenge lapses
@@ -118,7 +145,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
               </button>)}
             </fieldset>
             {error && <p className="fd-player-error" role="alert">{error}</p>}
-            <ActionButton type="button" onClick={challenge} disabled={pending || ante > anteMax}
+            <ActionButton type="button" data-duel-send="" onClick={challenge} disabled={pending || ante > anteMax}
               pending={pending} style={{ width:"100%" }}>
               {pending ? "Sending…" : own ? `Challenge anyone for ${fmt(ante)}`
                 : rematch ? `Rematch for ${fmt(ante)}` : `Challenge ${disp(state, p)} for ${fmt(ante)}`}

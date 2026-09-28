@@ -1,0 +1,76 @@
+/* Motion tokens and shared keyframes (M0). The JS mirror is MOTION / EASE in
+   src/lib/motion.js; change both together. Colors come from experience.css.
+   Reduced motion: shell.css removes every animation and transition, so each
+   rule here keeps its end state as the element's resting style. */
+:root {
+  --motion-fast:140ms; --motion-base:260ms; --motion-story:720ms;
+  --motion-count:750ms; --motion-delta:1100ms; --motion-row:560ms; --motion-stamp:320ms;
+  --motion-flight:340ms; --motion-card-flight:520ms; --motion-pop:320ms;
+  --motion-sheet-in:260ms; --motion-sheet-out:200ms; --motion-settle:2400ms; --motion-beat:2000ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+  --ease-land:cubic-bezier(.3,.7,.35,1.25);
+  --ease-exit:cubic-bezier(.5,0,.75,.4);
+}
+
+/* ── heartbeat (M1, M20) ──
+   One beat for everything live. motion.js pins every fd-beat animation to
+   the server clock, so all phones and the TV breathe together. <html>
+   carries data-fd-link: live beats, down stops and hollows the dots, back
+   pops them once before the beat resumes. */
+@keyframes fd-beat { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+@keyframes fd-beat-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.3; transform:scale(.75); } }
+@keyframes fd-beat-pop { 0%,100% { transform:scale(1); } 50% { transform:scale(1.5); } }
+@keyframes fd-beat-fill { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+.fd-beat { animation:fd-beat var(--motion-beat) ease-in-out infinite; }
+.fd-beat-dot { display:inline-block; flex-shrink:0; width:6px; height:6px; border-radius:50%; background:currentColor;
+  animation:fd-beat-dot var(--motion-beat) ease-in-out infinite; }
+/* a filled badge whose fill breathes while its label holds still */
+.fd-beat-fill { position:relative; isolation:isolate; background:transparent; }
+.fd-beat-fill::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit;
+  background:var(--sun); animation:fd-beat-fill var(--motion-beat) ease-in-out infinite; }
+:root[data-fd-link=down] .fd-beat,
+:root[data-fd-link=down] .fd-beat-dot,
+:root[data-fd-link=down] .fd-beat-fill::before { animation:none; }
+:root[data-fd-link=down] .fd-beat-dot { background:transparent; box-shadow:inset 0 0 0 1.5px var(--clay); }
+:root[data-fd-link=back] .fd-beat-dot { animation:fd-beat-pop var(--motion-pop) var(--ease-land); }
+
+/* ── a change rising off a number (useCountUp's delta) ── */
+@keyframes fd-delta-rise {
+  0% { opacity:0; transform:translateY(0); }
+  15% { opacity:1; }
+  100% { opacity:0; transform:translateY(-18px); }
+}
+.fd-motion-delta { pointer-events:none; font-variant-numeric:tabular-nums; opacity:0;
+  animation:fd-delta-rise var(--motion-delta) var(--ease-out) both; }
+.fd-motion-delta.is-up { color:var(--green); }
+.fd-motion-delta.is-down { color:var(--live2); }
+
+/* ── flight layer ── */
+.fd-flight-layer { position:fixed; inset:0; z-index:600; pointer-events:none; overflow:hidden; contain:strict; }
+.fd-flight { position:fixed; pointer-events:none; transform-origin:50% 50%; will-change:transform; }
+
+/* ── sheets ──
+   The scrim fades in under the rising sheet; on close a non-interactive copy
+   (src/ui/sheetMotion.js) falls and fades after the real sheet unmounts. A
+   sheet that replaces another in the same commit only fades its content.
+   Entrances fill backwards only, so a finished sheet carries no transform
+   (a transform would re-anchor position:fixed content inside it). */
+@keyframes fd-scrim-in { from { opacity:0; } to { opacity:1; } }
+@keyframes fd-scrim-out { from { opacity:1; } to { opacity:0; } }
+@keyframes fd-sheet-rise { from { transform:translateY(var(--fd-sheet-from, 100%)); } to { transform:none; } }
+@keyframes fd-sheet-fall { from { transform:none; } to { transform:translateY(var(--fd-sheet-from, 100%)); } }
+@keyframes fd-sheet-swap { from { opacity:.4; } to { opacity:1; } }
+.fd-sheet-overlay::before { animation:fd-scrim-in var(--motion-sheet-in) var(--ease-out) backwards; }
+.fd-sheet-overlay .si-sheet { animation:fd-sheet-rise var(--motion-sheet-in) var(--ease-out) backwards; }
+.fd-sheet-overlay.is-swap::before { animation:none; }
+.fd-sheet-overlay.is-swap .si-sheet { animation:fd-sheet-swap var(--motion-fast) ease-out backwards; }
+.fd-sheet-overlay.is-leaving { pointer-events:none; }
+.fd-sheet-overlay.is-leaving::before { animation:fd-scrim-out var(--motion-sheet-out) var(--ease-exit) both; }
+.fd-sheet-overlay.is-leaving .si-sheet { animation:fd-sheet-fall var(--motion-sheet-out) var(--ease-exit) both; }
+@media(min-width:700px) {
+  .fd-sheet-overlay { --fd-sheet-from:24px; }
+  .fd-sheet-overlay .si-sheet { animation:fd-sheet-rise var(--motion-sheet-in) var(--ease-out) backwards,
+    fd-scrim-in var(--motion-sheet-in) var(--ease-out) backwards; }
+  .fd-sheet-overlay.is-leaving .si-sheet { animation:fd-sheet-fall var(--motion-sheet-out) var(--ease-exit) both,
+    fd-scrim-out var(--motion-sheet-out) var(--ease-exit) both; }
+}

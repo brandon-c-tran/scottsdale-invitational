@@ -5,7 +5,8 @@ import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { DuelCard } from "../duels/DuelCard.jsx";
 import { ANTES, duelRecord, duelResult, duelView, duelsOpen, signedChips } from "../duels/duelView.js";
 import { PlayerPass } from "./PlayerPass.jsx";
-import { serverNow } from "../tv/serverClock.js";
+import { serverNow } from "../../lib/serverClock.js";
+import { tapTick } from "../../lib/haptics.js";
 import "./player-sheet.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -61,6 +62,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
 
   const challenge = async () => {
     if (sending.current || !canDuel || away || current || unavailable || ante > anteMax) return;
+    tapTick();
     sending.current = true;
     setPending(true);
     setError("");

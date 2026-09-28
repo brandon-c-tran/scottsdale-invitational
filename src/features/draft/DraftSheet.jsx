@@ -3,6 +3,7 @@ import { disp, draftTurn, shuffle, snakeTeam, overflowRoleMeta, playerStrength, 
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
+import { tapTick } from "../../lib/haptics.js";
 import "./draft.css";
 
 const identityStyle = (state, player) => ({ "--draft-color":resolvePlayerIdentity(state.profiles, player).color });
@@ -127,6 +128,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   }));
   const pick = player => {
     if (!canPick || saving.current) return;
+    tapTick();
     focusAfterPick.current = true;
     return submit(`pick:${player}`, () => onPick(player, ref));
   };

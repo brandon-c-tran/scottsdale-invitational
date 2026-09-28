@@ -109,7 +109,7 @@ test("each session swaps the surface ramp from the study; bone, gold, accents an
     for (const name of ["ink", "bone", "sun", "ink0", "accent", "clay"])
       assert.ok(!(name in OVERRIDES[phase]), `${phase} does not override --${name}`);
   assert.match(css, /\.fd-header \{[^}]*box-shadow:inset 0 3px 0 var\(--phase\)/, "the phase line tops the header");
-  assert.match(css, /\.fd-sheet-overlay \{[^}]*background:var\(--scrim\)/, "the scrim follows the phase");
+  assert.match(css, /\.fd-sheet-overlay(::before)? \{[^}]*background:var\(--scrim\)/, "the scrim follows the phase");
 });
 
 test("the phase shift is gated by a class, eases 1.5s, and reduced motion switches at once", () => {

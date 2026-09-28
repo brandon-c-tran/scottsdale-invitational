@@ -53,8 +53,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `features/director/` owns the commissioner pill
   model and the finale sheets. The player card tilts (`useRisoTilt`, never an
   iOS motion prompt), the identity chip is a spinnable `ChipCoin`, and
-  `src/lib/haptics.js` vibrates on Android only, never on the TV, with reduced
-  motion, or when the device-local Vibration toggle is off.
+  `src/lib/haptics.js` vibrates on Android only (never on the TV, with reduced
+  motion, or when the device-local Haptics toggle is off) and ticks on iPhone
+  through `tapTick()`.
   `ui/AppChrome.jsx` owns the persistent header/navigation; `ui/GameMark.jsx`
   owns the shared game illustrations. `src/lib/client.js` treats the socket as
   live only after a fresh state lands on it, replaces a socket whose ping goes
@@ -62,6 +63,32 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and reports a timed-out write as uncertain until the next state settles it.
   Every frame carries a build id: the TV reloads between ceremonies and phones
   offer Update ready.
+- **Motion foundation** (`src/lib/motion.js`, tokens in `src/ui/motion.css`):
+  every animated surface uses it. `MOTION`/`EASE` are the named timings
+  (count 750, delta 1100, row 560, stamp 320, flight 340, settle hold 2400,
+  beat 2000) mirrored as `--motion-*`/`--ease-*`. Only fresh changes animate:
+  the transport classifies each frame in `src/lib/frameGate.js` (broadcast on a
+  settled socket, not the first state after a connect, not the catch-up after
+  returning to the foreground, not hidden, not a correction or rewind) and
+  `useFreshChange(value, key)` returns `{ fresh, animate, changeId, from, to }`;
+  `useCountUp(value, { key, step })` steps a number in PT (or 25s) and returns
+  a `delta` for the `.fd-motion-delta` float. `useReducedMotion()` gates JS
+  motion; reduced motion shows end states. `fly(from, to, opts)` flies a clone
+  (or a React element) through the one fixed layer to an element, rect, or
+  named target and always resolves (false when skipped); register targets
+  with `useFlightTarget(name)` (`tab:home`, `tab:events`, `tab:bets`,
+  `tab:weekend`, `header:profile` exist). `MotionRoot` is mounted once in
+  App. **Heartbeat:** `.fd-beat`, `.fd-beat-dot`, `.fd-beat-fill` share one
+  2s beat phased to the server clock (`src/lib/serverClock.js`, fed by the
+  `serverNow` stamp on every state frame and pong; the TV imports the same
+  clock); `<html data-fd-link>` stops and hollows dots when the socket is
+  down and pops them once on return. Sheets rise over a fading scrim and a
+  non-interactive copy falls after unmount (`src/ui/sheetMotion.js`).
+  `src/lib/haptics.js` `tapTick()` is the iOS 18 switch tick: call it
+  synchronously in the user's own tap (chip place/retract, rack, draft pick,
+  duel send/accept, winner tap), never for remote events or Quick Draw's
+  reaction; the device Haptics toggle is its only gate.
+  `/dev/motion-preview.html` rehearses all of it without a socket.
 
 ## Current redesign direction
 

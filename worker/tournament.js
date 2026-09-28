@@ -803,6 +803,8 @@ export class Tournament {
       build:BUILD_ID,
       boot:this.bootId,
       applied:meta.deviceId ? this.appliedActions.get(meta.deviceId) || [] : [],
+      /* send time, so every screen shares one clock (src/lib/serverClock.js) */
+      serverNow:Date.now(),
     });
     return `${head.slice(0, -1)},"state":${serialize(viewer)}}`;
   }
@@ -836,7 +838,7 @@ export class Tournament {
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       return;
     }
-    if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong" })); } catch {} return; }
+    if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {} return; }
 
     if (type === "gmUnlock") {
       /* a 4-digit pin needs a brake: ten misses lock the door for a minute */

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { lastWinnerUndo } from "./directorPill.js";
+import { tapTick } from "../../lib/haptics.js";
 import "./director.css";
 
 /* A recorded winner can be taken back with one tap for this long. */
@@ -63,7 +64,7 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer }
             {model.lines.map(line => <span key={line}>{line}</span>)}</div>
           {model.sides.map(side => <div className="fd-director-side" key={String(side.key)}>
             <button type="button" className="fd-director-pick" disabled={pending}
-              aria-label={`Winner: ${side.name}`} onClick={() => perform(side.run)}>
+              aria-label={`Winner: ${side.name}`} onClick={() => { if (side.run && !busy.current) tapTick(); return perform(side.run); }}>
               <span>{side.name}</span><small>{pending ? "Saving…" : "Won"}</small></button>
             <div className="fd-director-faces">{side.players.map(player => <button type="button" key={player}
               aria-label={`View ${disp(state, player)}'s player card`} disabled={!onPlayer}

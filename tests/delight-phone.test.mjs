@@ -184,18 +184,21 @@ test("haptic() vibrates through the gate and honours this device's opt-out", () 
   assert.deepEqual(calls, [8, 5, [20, 40, 20], 15]);
 });
 
-test("the Vibration toggle is offered only where the phone can vibrate and stores a local opt-out", () => {
+test("the Haptics toggle is offered on iPhone and vibrating Android phones and stores a local opt-out", () => {
   const androidEnv = { userAgent:ANDROID, canVibrate:true, reducedMotion:false, tv:false };
   withGlobals({ localStorage:memoryStorage() }, () => {
-    const shown = render(React.createElement(ui.VibrationToggle, { environment:androidEnv }));
-    const toggle = shown.buttons.find(button => button.role === "switch");
-    assert.ok(toggle, "a switch is rendered");
-    assert.equal(toggle["aria-checked"], true);
-    assert.match(shown.html, />Vibration</);
-    assert.equal(typeof toggle.onClick, "function");
+    for (const environment of [androidEnv, { userAgent:IPHONE, canVibrate:false, reducedMotion:false, tv:false },
+      { userAgent:IPHONE, canVibrate:false, reducedMotion:true, tv:false }]) {
+      const shown = render(React.createElement(ui.VibrationToggle, { environment }));
+      const toggle = shown.buttons.find(button => button.role === "switch");
+      assert.ok(toggle, "a switch is rendered");
+      assert.equal(toggle["aria-checked"], true, "on by default");
+      assert.match(shown.html, />Haptics</);
+      assert.equal(typeof toggle.onClick, "function");
+    }
   });
-  for (const environment of [{ ...androidEnv, userAgent:IPHONE }, { ...androidEnv, userAgent:DESKTOP },
-    { ...androidEnv, reducedMotion:true }, { ...androidEnv, tv:true }, { ...androidEnv, canVibrate:false }])
+  for (const environment of [{ ...androidEnv, userAgent:DESKTOP }, { ...androidEnv, reducedMotion:true },
+    { ...androidEnv, tv:true }, { ...androidEnv, canVibrate:false }, { userAgent:IPHONE, tv:true }])
     assert.equal(render(React.createElement(ui.VibrationToggle, { environment })).html, "");
   withGlobals({ localStorage:(() => { const s = memoryStorage(); s.setItem(ui.VIBRATION_KEY, "off"); return s; })() }, () => {
     const off = render(React.createElement(ui.VibrationToggle, { environment:androidEnv }));

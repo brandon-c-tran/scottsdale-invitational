@@ -6,6 +6,7 @@ import { contestName } from "../../../shared/show.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { CompetitionBracket } from "./CompetitionBracket.jsx";
 import { contestIsFinal, lastWinnerUndo } from "../director/directorPill.js";
+import { tapTick } from "../../lib/haptics.js";
 import "./contest.css";
 
 const nameOf = (state, side) => side.name || side.players.map(player => disp(state, player)).join(" & ");
@@ -40,6 +41,8 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   };
   const sideName = key => { const side = contest.sides.find(item => item.key === key); return side ? nameOf(state, side) : ""; };
   const submit = payload => async () => {
+    /* runs synchronously inside the winner tap, after the busy guard */
+    tapTick();
     const result = await onWinner({ ...reference, ...payload, ...(final ? { postResult:true } : {}) });
     if (result?.ok === true) onRecorded?.(sideName(payload.winner), !!result.extra?.posted);
     return result;
@@ -63,7 +66,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   return <section className="fd-contest" aria-label="Current contest" aria-busy={pending}>
     <div className="fd-contest-toolbar">
       <div><strong>{isBracket ? contestName(state, ev, contest) : contest.label || ev.name}</strong>
-        <span>{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span></div>
+        <span>{(open || running) && <i className="fd-beat-dot" aria-hidden="true" />}{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span></div>
       {gm && (open || locked) && <button type="button" className="fd-contest-primary" disabled={pending || blocked || !onLock}
         onClick={() => act(() => onLock(reference))}>{pending ? "Starting…" : "Lock bets and start"}</button>}
       {!gm && onBets && <button type="button" className="fd-contest-primary" disabled={pending || blocked} onClick={onBets}>{open ? "Place chips" : "View bets"}</button>}

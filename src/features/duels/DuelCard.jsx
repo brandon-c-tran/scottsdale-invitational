@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { duelView } from "./duelView.js";
+import { tapTick } from "../../lib/haptics.js";
 
 const actionStyle = {
   minWidth:0, minHeight:44, padding:"10px 8px", borderRadius:10,
@@ -26,6 +27,7 @@ export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline
   const submit = (action, handler) => {
     if (pending.current) return pending.current;
     if (finished.current || !handler) return;
+    if (action === "accept") tapTick();
     setPendingAction(action);
     setError("");
     const failure = `Couldn't ${action} the duel. Try again.`;

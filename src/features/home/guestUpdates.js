@@ -1,4 +1,4 @@
-import { computeStandings, disp, resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
+import { computeStandings, disp, resolveDuel, resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
 
 /* Everything here is derived from the broadcast state and the device's own
    memory of the last state it showed. No field is sent to the server. */
@@ -8,6 +8,17 @@ export const signed = value => `${value > 0 ? "+" : value < 0 ? "-" : ""}${abs(v
 const ord = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 const eventName = (events, id) => events.find(event => event.id === id)?.name || "An event";
 const resultKey = result => `${Number(result?.revision || 1)}:${result?.correctedAt || result?.ts || 0}`;
+
+/* A settled duel from one side: won, lost or tied, with its chip effect. */
+function duelOutcome(duel, me) {
+  if (!duel?.id || !me || !duel.to || (duel.from !== me && duel.to !== me)) return null;
+  const result = resolveDuel(duel);
+  if (!result.settled) return null;
+  const stake = Number(duel.stake) || 0;
+  const status = result.push ? "push" : result.winner === me ? "won" : "lost";
+  return { status, delta:status === "won" ? stake : status === "lost" ? -stake : 0,
+    other:duel.from === me ? duel.to : duel.from };
+}
 
 /* The row you see on the board, split by the source of every chip. */
 export function guestLedger(state, me, events, standings = computeStandings(state)) {
@@ -34,8 +45,13 @@ export function guestLedger(state, me, events, standings = computeStandings(stat
   const rulings = {};
   for (const item of state.adjustments || [])
     if (item?.player === me && item.id) rulings[item.id] = { delta:item.delta, reason:item.reason || "" };
+  const duels = {};
+  for (const duel of state.duels || []) {
+    const outcome = duelOutcome(duel, me);
+    if (outcome) duels[duel.id] = outcome;
+  }
   const tied = standings.every(item => item.pts === standings[0]?.pts);
-  return { me, pts:row.pts, rank:row.rank, awards, places, results, wagers, rulings,
+  return { me, pts:row.pts, rank:row.rank, awards, places, results, wagers, rulings, duels,
     leaders:tied ? [] : standings.filter(item => item.rank === 1).map(item => item.player) };
 }
 
@@ -50,7 +66,7 @@ export const resultMarkers = state => Object.fromEntries(Object.entries(state.re
 
 /* One line per update for this device's player. Several sources in one
    broadcast join into the same line instead of replacing each other. */
-export function summarizeUpdate(prev, next, { state, events }) {
+export function summarizeUpdate(prev, next, { state, events, skipDuel = null }) {
   if (!prev || !next || prev.me !== next.me) return null;
   const me = next.me;
   const changedResults = [...new Set([...Object.keys(prev.results), ...Object.keys(next.results)])]
@@ -99,6 +115,12 @@ export function summarizeUpdate(prev, next, { state, events }) {
   if (voidPart) parts.push(voidPart);
   for (const ruling of newRulings)
     parts.push(`Ruling ${signed(ruling.delta)}${ruling.reason ? ` · ${ruling.reason}` : ""}`);
+  /* a settled duel joins the same line; the Quick Draw layer already shows
+     the duel it is playing */
+  for (const [id, duel] of Object.entries(next.duels || {})) {
+    if (prev.duels?.[id] || id === skipDuel) continue;
+    parts.push(`Quick Draw vs ${disp(state, duel.other)} ${duel.status === "push" ? "tied" : signed(duel.delta)}`);
+  }
   const leadKey = list => [...list].sort().join("+");
   const leadChanged = !state.frozen && next.leaders.length > 0 && leadKey(prev.leaders) !== leadKey(next.leaders);
   const iLead = next.leaders.includes(me);
@@ -127,7 +149,9 @@ export function sinceSnapshot(state, me, events, standings, version, now = Date.
     && resolveWager(state, wager, events).status !== "pending").map(wager => wager.id);
   const results = Object.fromEntries(Object.entries(state.results || {})
     .filter(([, result]) => result?.slots?.[0]?.length).map(([evId, result]) => [evId, resultKey(result)]));
-  return { at:now, me, pts:row.pts, rank:row.rank, v:version || 0, settled, results };
+  const duels = (state.duels || []).filter(duel => duelOutcome(duel, me)).map(duel => duel.id);
+  const rulings = (state.adjustments || []).filter(item => item?.player === me && item.id).map(item => item.id);
+  return { at:now, me, pts:row.pts, rank:row.rank, v:version || 0, settled, results, duels, rulings };
 }
 
 const clock = at => new Date(at).toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" });
@@ -138,18 +162,24 @@ function winnersText(state, evId, players) {
   return team ? teamLabel(state, team) : players.map(player => disp(state, player)).join(" & ");
 }
 
-export function sinceLine(saved, state, me, events, standings, now = Date.now()) {
+/* What changed while this device looked away, and where to read it: a result
+   opens that event, settled bets open the settled list, anything else opens
+   the standings. `results` lists every event the line already reports. */
+export function sinceSummary(saved, state, me, events, standings, now = Date.now()) {
   if (!saved || saved.me !== me || now - Number(saved.at || 0) < SINCE_ABSENCE) return null;
   const row = standings.find(item => item.player === me);
   if (!row) return null;
   const parts = [];
+  let route = null;
   const changed = Object.entries(state.results || {})
     .filter(([evId, result]) => result?.slots?.[0]?.length && saved.results?.[evId] !== resultKey(result))
     .sort(([, a], [, b]) => (b.correctedAt || b.ts || 0) - (a.correctedAt || a.ts || 0));
   if (changed.length) {
     const [evId, result] = changed[0];
-    const text = `${eventName(events, evId)}: ${winnersText(state, evId, result.slots[0])} won`;
+    const text = saved.results?.[evId] !== undefined ? `Correction · ${eventName(events, evId)}`
+      : `${eventName(events, evId)}: ${winnersText(state, evId, result.slots[0])} won`;
     parts.push(changed.length > 1 ? `${changed.length} results · ${text}` : text);
+    route = { type:"event", evId };
   }
   const seen = new Set(saved.settled || []);
   let net = 0, count = 0;
@@ -158,10 +188,69 @@ export function sinceLine(saved, state, me, events, standings, now = Date.now())
     const resolved = resolveWager(state, wager, events);
     if (resolved.status === "won" || resolved.status === "lost") { net += resolved.delta; count++; }
   }
-  if (count) parts.push(`your ${count === 1 ? "bet" : "bets"} ${signed(net)}`);
+  if (count) {
+    parts.push(`your ${count === 1 ? "bet" : "bets"} ${signed(net)}`);
+    route = route || { type:"settled" };
+  }
+  const seenDuels = new Set(saved.duels || []);
+  let duelNet = 0, duelCount = 0;
+  for (const duel of state.duels || []) {
+    const outcome = seenDuels.has(duel.id) ? null : duelOutcome(duel, me);
+    if (outcome) { duelNet += outcome.delta; duelCount++; }
+  }
+  if (duelCount) parts.push(`${duelCount === 1 ? "duel" : `${duelCount} duels`} ${duelNet ? signed(duelNet) : duelCount === 1 ? "tied" : "net 0"}`);
+  const seenRulings = new Set(saved.rulings || []);
+  const rulings = (state.adjustments || []).filter(item => item?.player === me && item.id && !seenRulings.has(item.id));
+  if (rulings.length) parts.push(`${rulings.length === 1 ? "ruling" : `${rulings.length} rulings`} ${
+    signed(rulings.reduce((sum, item) => sum + (Number(item.delta) || 0), 0))}`);
   const moved = Number(saved.rank) - row.rank;
-  if (saved.rank && moved) parts.push(`${moved > 0 ? "↑" : "↓"}${Math.abs(moved)}`);
+  if (saved.rank && moved) parts.push(`${moved > 0 ? "up" : "down"} ${Math.abs(moved)} ${
+    Math.abs(moved) === 1 ? "place" : "places"}, now ${ord(row.rank)}`);
   if (!parts.length && saved.pts !== undefined && row.pts !== saved.pts) parts.push(`${signed(row.pts - saved.pts)} chips`);
   if (!parts.length) return null;
-  return [`Since ${clock(saved.at)}`, ...parts].join(" · ");
+  return { text:[`Since ${clock(saved.at)}`, ...parts].join(" · "), route:route || { type:"standings" },
+    results:changed.map(([evId]) => evId) };
+}
+
+export const sinceLine = (...args) => sinceSummary(...args)?.text || null;
+
+/* The device's memory across absences. A cold start reads it once. Going to
+   the background writes it. Coming back only raises a flag: the line is
+   built from the first FRESH state after that (a new broadcast on a live
+   socket), and until then the stale board on screen never rewrites the
+   memory. `read`/`write` are this device's storage. */
+export function sinceTracker({ read, write, clock = () => Date.now() }) {
+  let loaded = null, returning = null;
+  const save = live => {
+    const saved = sinceSnapshot(live.state, live.me, live.events, live.standings, live.version, clock());
+    if (saved) write(saved);
+  };
+  return {
+    /* a state is on screen; returns the since summary when it should show */
+    observe(live) {
+      if (!live.me) return null;
+      let summary = null;
+      if (loaded !== live.me) {
+        loaded = live.me;
+        returning = null;
+        summary = sinceSummary(read(), live.state, live.me, live.events, live.standings, clock());
+      } else if (returning) {
+        if (live.hidden || live.connected === false || live.state === returning) return null;
+        returning = null;
+        summary = sinceSummary(read(), live.state, live.me, live.events, live.standings, clock());
+      }
+      if (!live.hidden && live.connected !== false) save(live);
+      return summary;
+    },
+    hidden(live) {
+      if (!live.me || loaded !== live.me) return;
+      returning = null;
+      save(live);
+    },
+    visible(live) {
+      if (!live.me || loaded !== live.me) return;
+      returning = live.state;
+    },
+    get waiting() { return !!returning; },
+  };
 }

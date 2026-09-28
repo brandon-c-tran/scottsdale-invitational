@@ -5,6 +5,7 @@ import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { DuelCard } from "../duels/DuelCard.jsx";
 import { ANTES, duelRecord, duelResult, duelView, duelsOpen, signedChips } from "../duels/duelView.js";
 import { PlayerPass } from "./PlayerPass.jsx";
+import { serverNow } from "../tv/serverClock.js";
 import "./player-sheet.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -19,7 +20,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const sending = useRef(false);
-  const now = Date.now();
+  const now = serverNow();
   const row = standings.find(item => item.player === p);
   const duels = state.duels || [];
   const settled = duels.map(d => resolveDuel(d)).filter(result => result.settled && !result.push);
@@ -27,6 +28,8 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   const duelLosses = settled.filter(result => result.loser === p).length;
   const wins = events.filter(event => state.results[event.id]?.slots?.[0]?.includes(p));
   const own = !!me && me === p;
+  /* nobody away from the venue sends or receives a challenge */
+  const away = !!(state.away?.[p] || (me && state.away?.[me]));
   const canDuel = !!(onDuel && me && duelsOpen(state));
 
   /* the card of someone you share a duel with carries that duel's controls;
@@ -42,7 +45,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
 
   // Mirror sendDuel: wagers and reserved duel antes both hold the balance back.
   const room = player => duelRoom(state, player, { events, rows:standings, now }).room;
-  const anteMax = canDuel && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
+  const anteMax = canDuel && !away && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
   const dailyLimit = !!me && duelsSentToday(state, me, now) >= DUEL_DAILY_LIMIT;
   const unavailable = dailyLimit ? "Three challenges a day, max."
     : anteMax < PT ? "Not enough chips for an ante." : "";
@@ -57,7 +60,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   }, [p]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const challenge = async () => {
-    if (sending.current || !canDuel || current || unavailable || ante > anteMax) return;
+    if (sending.current || !canDuel || away || current || unavailable || ante > anteMax) return;
     sending.current = true;
     setPending(true);
     setError("");
@@ -95,7 +98,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
       {own && onEdit && <ActionButton type="button" variant="secondary" onClick={onEdit}
         style={{ width:"100%" }}>Edit your profile</ActionButton>}
 
-      {canDuel && <section className="fd-player-duel" aria-label="Quick Draw challenge">
+      {canDuel && (current || !away) && <section className="fd-player-duel" aria-label="Quick Draw challenge">
         <details className="fd-player-duel-rules"><summary><h2>Quick Draw</h2><span>How to play +</span></summary>
           <p>You both play on your own phone after the challenge is accepted. The screen flashes after a
             random wait, tap it. Fastest tap wins the pot. Tapping early is a foul. An unanswered

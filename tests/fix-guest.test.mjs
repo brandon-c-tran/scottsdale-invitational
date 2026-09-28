@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket,
-  resolveCurrentContest } from "../shared/core.js";
+  pokerLevels, resolveCurrentContest } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
 
 /* The returning guest's phone: real components compiled once, React kept
@@ -27,7 +27,12 @@ const load = async (name, contents, plugins = []) => {
 };
 const ui = await load("fix-guest.cjs", `
   export { GuestHome, personalLine, hasGameRules } from "./src/features/home/GuestHome.jsx";
-  export { deriveHomeModel } from "./src/features/home/homeModel.js";
+  export { deriveHomeModel, bracketPath } from "./src/features/home/homeModel.js";
+  export { HomeDuels } from "./src/features/home/HomeDuels.jsx";
+  export { hasDuelTurn } from "./src/features/duels/duelView.js";
+  export { AppHeader } from "./src/ui/AppChrome.jsx";
+  export { UpdateChip } from "./src/ui/UpdateReady.jsx";
+  export { PlayerSheet } from "./src/features/profile/PlayerSheet.jsx";
   export * from "./src/features/home/guestUpdates.js";
   export { filterRevealCandidates, buildEventReveal } from "./src/features/weekend/drawReveal.js";
   export { Wagers, isUncertainResult } from "./src/features/wagers/Wagers.jsx";
@@ -40,7 +45,7 @@ const ui = await load("fix-guest.cjs", `
   export { AppNavigation } from "./src/ui/AppChrome.jsx";
   export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
 `);
-const app = await load("fix-guest-app.cjs", `export { ProfileSheet } from "./src/App.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, [{ name:"isolated-client", setup(builder) {
+const app = await load("fix-guest-app.cjs", `export { ProfileSheet, PokerCard, actionFeedback } from "./src/App.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, [{ name:"isolated-client", setup(builder) {
   builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({ loader:"js", contents:`
     export const useTournament=()=>({});
     export const localGet=()=>null, localSet=()=>{}, hasGmToken=()=>false, setGmToken=()=>{};
@@ -109,17 +114,36 @@ test("home keeps the room's matchup and adds the viewer's own bracket position, 
   assert.equal(line(state, ROSTER[2]), `Next: Semifinal vs ${ROSTER[4]} & ${ROSTER[5]} · with ${ROSTER[3]}`);
   assert.equal(line(state, ROSTER[12]), "Your role · Scorekeeper");
 
+  /* G17: a spectator reads the match after the one on screen */
+  assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[12]), { mine:false, text:"Semifinal 2 next" });
+  assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[0]), { mine:true, text:"Semifinal now" });
+
   state.brackets[pairs.id].rounds[0][0].winner = 0;
   openCurrent(state, pairs);
-  assert.equal(line(state, ROSTER[6]), "You’re out · betting open");
+  /* G16: out is out, whatever the market is doing */
+  assert.equal(line(state, ROSTER[6]), "You’re out");
   assert.equal(line(state, ROSTER[0]), `Next: Final vs winner of Semifinal 2 · with ${ROSTER[1]}`);
+  assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[0]), { mine:true, text:"Semifinal ✓ → Final vs winner of Semifinal 2" });
+  assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[6]), { mine:false, text:"Final next" });
 
+  const opened = [];
   const view = render(ui.GuestHome, { state, me:ROSTER[0], events:[pairs], standings:computeStandings(state),
-    GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop, onProfile:noop,
-    onEvents:noop, onGuide:noop, onHouse:noop });
-  assert.match(view.html, /class="fd-home-personal">Next: Final vs winner of Semifinal 2/);
+    GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop,
+    onEvents:noop, onBracket:event => opened.push(event.id) });
+  /* the path line says what is next once, and the bracket picture is gone */
+  assert.doesNotMatch(view.html, /fd-home-personal">Next:/);
+  assert.doesNotMatch(view.html, /fd-bracket-peek|fd-bracket-scroll/);
+  assert.match(view.html, /Semifinal ✓ → Final vs winner of Semifinal 2/);
+  view.click(`Semifinal ✓ → Final vs winner of Semifinal 2. Open the full ${pairs.name} bracket`);
+  assert.deepEqual(opened, [pairs.id]);
   for (const player of [ROSTER[2], ROSTER[3], ROSTER[4], ROSTER[5]])
     assert.ok(view.buttons.some(button => button.name === `View ${player}'s player card`), "The room's matchup still renders");
+
+  /* crew read their role and what it means */
+  const crew = render(ui.GuestHome, { state, me:ROSTER[12], events:[pairs], standings:computeStandings(state),
+    GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop, onEvents:noop, onBracket:noop });
+  assert.match(crew.html, /Your role · Scorekeeper<small>Tracks the score and reports the finish\.<\/small>/);
+  assert.match(crew.html, /Final next/);
 });
 
 test("an added event without a game has no dead rules target and opens its own description", () => {
@@ -394,4 +418,242 @@ test("toasts wrap inside the screen with a separate 44px action, and older contr
   const arrival = readFileSync(new URL("../src/features/check-in/arrival.css", import.meta.url), "utf8");
   assert.match(arrival, /\.fd-rating-options button \{[^}]*min-height:44px/);
   assert.doesNotMatch(arrival, /\.fd-rating-options button \{ min-height:3\dpx/);
+  /* G8: while the rack is up the toast docks under the header, off the + targets */
+  const docked = css.match(/\.fd-toast\.is-over-rack \{[^}]*\}/)[0];
+  assert.match(docked, /top:calc\(env\(safe-area-inset-top\) \+ \d+px\)/);
+  assert.match(docked, /bottom:auto/);
+});
+
+/* ── returning guest regressions ── */
+const minutes = n => n * 60_000;
+const homeProps = (state, me, extra = {}) => ({ state, me, events:[pairs, putt], standings:computeStandings(state),
+  GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop, onEvents:noop, onBracket:noop, ...extra });
+
+test("G1: a phone back from the background builds the since line from the first fresh state, never the stale one", () => {
+  const me = ROSTER[0], events = BUILTIN_EVENTS;
+  let clock = Date.UTC(2026, 9, 31, 20, 0), stored = null, writes = 0;
+  const tracker = ui.sinceTracker({ read:() => stored, write:saved => { stored = structuredClone(saved); writes++; }, clock:() => clock });
+  const live = state => ({ state, me, events, standings:computeStandings(state), version:1, connected:true, hidden:false });
+  const stale = fresh();
+  stale.draws[pairs.id] = { id:"d1", teams:[{ players:[ROSTER[3], ROSTER[4]] }, { players:[ROSTER[5], ROSTER[6]] }] };
+  assert.equal(tracker.observe(live(stale)), null, "a first look has nothing to report");
+  tracker.hidden(live(stale));
+  const leftAt = stored.at;
+
+  clock += minutes(40);
+  tracker.visible(live(stale));
+  assert.equal(tracker.waiting, true);
+  const before = writes;
+  assert.equal(tracker.observe(live(stale)), null, "the stale board on screen says nothing");
+  assert.equal(tracker.observe({ ...live(structuredClone(stale)), connected:false }), null, "nor does a dead socket");
+  assert.equal(writes, before, "and neither rewrites the memory");
+  assert.equal(stored.at, leftAt);
+
+  const next = structuredClone(stale);
+  next.results[pairs.id] = { slots:[[ROSTER[3], ROSTER[4]], [], []], ts:clock - minutes(5) };
+  const summary = tracker.observe(live(next));
+  assert.match(summary.text, new RegExp(`^Since .* · ${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won`));
+  assert.deepEqual(summary.route, { type:"event", evId:pairs.id });
+  assert.equal(tracker.waiting, false);
+  assert.ok(stored.results[pairs.id], "the fresh board becomes the memory");
+  assert.equal(tracker.observe(live(structuredClone(next))), null, "said once");
+});
+
+test("G9 G21: the since line names duels, rulings, corrections and places, and routes by what it reports", () => {
+  const me = ROSTER[0], events = BUILTIN_EVENTS;
+  const state = fresh();
+  state.results[putt.id] = { slots:[[ROSTER[1]], [], []], ts:1, revision:1 };
+  state.adjustments = [{ id:"leader", player:ROSTER[5], delta:3000, ts:1 }];
+  const at = Date.UTC(2026, 9, 31, 20, 0), later = at + minutes(30);
+  const saved = ui.sinceSnapshot(state, me, events, computeStandings(state), 1, at);
+
+  const bets = structuredClone(state);
+  bets.wagers = [{ id:"w", player:me, kind:"outright", eventId:putt.id, pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:100 }];
+  assert.deepEqual(ui.sinceSummary(saved, bets, me, events, computeStandings(bets), later).route, { type:"settled" });
+
+  const corrected = structuredClone(state);
+  corrected.results[putt.id] = { slots:[[ROSTER[2]], [], []], ts:1, revision:2, correctedAt:5 };
+  const correction = ui.sinceSummary(saved, corrected, me, events, computeStandings(corrected), later);
+  assert.match(correction.text, new RegExp(`· Correction · ${putt.name}`));
+  assert.deepEqual(correction.route, { type:"event", evId:putt.id });
+
+  const moved = structuredClone(state);
+  moved.duels = [{ id:"qd", from:me, to:ROSTER[7], stake:300, status:"open", runs:{ [me]:{ ms:200 }, [ROSTER[7]]:{ ms:260 } } }];
+  moved.adjustments.push({ id:"r1", player:me, delta:1000, ts:2, reason:"Style" });
+  const text = ui.sinceSummary(saved, moved, me, events, computeStandings(moved), later);
+  assert.match(text.text, /· duel \+300 · ruling \+1,000 · up 1 place, now 2nd$/);
+  assert.doesNotMatch(text.text, /↑|↓/);
+  assert.deepEqual(text.route, { type:"standings" });
+
+  const routes = [];
+  const view = render(ui.GuestHome, homeProps(moved, me, { since:text, onSince:route => routes.push(route) }));
+  view.click(`${text.text}. View standings`);
+  assert.deepEqual(routes, [{ type:"standings" }]);
+});
+
+test("G7 G18: Home drops the title, says a result once, and collapses your own waiting offer", () => {
+  const me = ROSTER[0], state = bracketState();
+  state.onDeck = pairs.id;
+  state.results[putt.id] = { slots:[[ROSTER[1]], [], []], ts:1 };
+  const now = Date.now();
+  state.duels = [
+    { id:"mine", from:me, to:ROSTER[9], stake:100, status:"open", consent:true, acceptedAt:null, runs:{}, ts:now },
+    { id:"theirs", from:ROSTER[10], to:me, stake:300, status:"open", consent:true, acceptedAt:null, runs:{}, ts:now },
+  ];
+  const duelContent = React.createElement(ui.HomeDuels, { state, me, gm:false, onAccept:noop, onDecline:noop, onWithdraw:noop, onPlay:noop, onPlayer:noop });
+  const plain = render(ui.GuestHome, homeProps(state, me, { duelContent }));
+  assert.doesNotMatch(plain.html, />Scottsdale</);
+  assert.match(plain.html, /aria-label="Latest result"/);
+  assert.equal((plain.html.match(/<article /g) || []).length, 1, "only the duel waiting on you is a card");
+  assert.ok(plain.html.indexOf(`Accept duel with ${ROSTER[10]}`) < plain.html.indexOf("Withdraw challenge to"), "act-on-it duels lead");
+  assert.match(plain.html, new RegExp(`Waiting for ${ROSTER[9]} to accept<small>100 · 10 min</small>`));
+  assert.doesNotMatch(plain.html, /Edit your profile|Trip details/);
+  const withSince = render(ui.GuestHome, homeProps(state, me, { duelContent,
+    since:{ text:`Since 8:00 PM · ${putt.name}: ${ROSTER[1]} won`, route:{ type:"event", evId:putt.id } } }));
+  assert.doesNotMatch(withSince.html, /aria-label="Latest result"/, "the since line already names it");
+});
+
+test("G2: Home's your-turn dot is built from what you can do now, and a lapsed offer clears it", () => {
+  const me = ROSTER[0], state = fresh(), now = Date.now();
+  state.duels = [{ id:"old", from:ROSTER[1], to:me, stake:100, status:"open", consent:true, acceptedAt:null, runs:{}, ts:now - minutes(11) }];
+  assert.equal(ui.hasDuelTurn(state, me, now), false, "a lapsed offer is stored as open but is not your turn");
+  state.duels.push({ id:"sent", from:me, to:ROSTER[2], stake:100, status:"open", consent:true, acceptedAt:null, runs:{}, ts:now });
+  assert.equal(ui.hasDuelTurn(state, me, now), false, "your own waiting offer is not your turn");
+  state.duels.push({ id:"live", from:ROSTER[3], to:me, stake:100, status:"open", consent:true, acceptedAt:now, runs:{ [ROSTER[3]]:{ played:true } }, ts:now });
+  assert.equal(ui.hasDuelTurn(state, me, now), true);
+  state.duels[2].runs[me] = { ms:250 };
+  assert.equal(ui.hasDuelTurn(state, me, now), false, "after your draw it is theirs");
+  state.duels.push({ id:"open", from:ROSTER[4], to:null, open:true, stake:200, status:"open", consent:true, acceptedAt:null, runs:{}, ts:now });
+  assert.equal(ui.hasDuelTurn(state, me, now), true, "an open challenge you can take");
+  assert.equal(ui.hasDuelTurn(state, me, now + minutes(11)), false);
+});
+
+test("G3: Update ready is a header chip, never a floating layer", () => {
+  const reloads = [];
+  const header = render(ui.AppHeader, { state:fresh(), me:ROSTER[0], onHome:noop, onProfile:noop, onMenu:noop,
+    connected:true, loaded:true, updateReady:true, onReload:() => reloads.push(1), GameMark:StubMark });
+  header.click("Update ready. Reload");
+  assert.deepEqual(reloads, [1]);
+  const quiet = render(ui.AppHeader, { state:fresh(), me:ROSTER[0], onHome:noop, onProfile:noop, onMenu:noop,
+    connected:true, loaded:true, updateReady:false, onReload:noop, GameMark:StubMark });
+  assert.ok(!quiet.buttons.some(button => button.name === "Update ready. Reload"));
+  const source = readFileSync(new URL("../src/ui/UpdateReady.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /position:\s*"?fixed/);
+  assert.doesNotMatch(readFileSync(new URL("../src/main.jsx", import.meta.url), "utf8"), /<UpdateReady/);
+  const client = readFileSync(new URL("../src/lib/client.js", import.meta.url), "utf8");
+  assert.match(client, /__FD_HOLD_RELOAD__ === true/, "G10: an open sheet or draft holds the automatic reload");
+});
+
+test("G4: an uncertain write toasts only when it settles as a real failure", async () => {
+  const toasts = [];
+  const notify = message => toasts.push(message);
+  let settle;
+  const uncertain = { ok:false, uncertain:true, error:"No response, try again", settled:new Promise(resolve => { settle = resolve; }) };
+  assert.equal(app.actionFeedback(uncertain, notify, "Saved"), uncertain);
+  assert.deepEqual(toasts, [], "Checking… is on the surface; no toast yet");
+  settle({ ok:true, late:true });
+  await uncertain.settled; await null;
+  assert.deepEqual(toasts, ["Saved"]);
+  const failed = { ok:false, uncertain:true, error:"No response, try again", settled:Promise.resolve({ ok:false, error:"Not saved, try again" }) };
+  app.actionFeedback(failed, notify);
+  await failed.settled; await null;
+  assert.deepEqual(toasts, ["Saved", "Not saved, try again"]);
+  app.actionFeedback({ ok:false, error:"Betting is locked" }, notify);
+  assert.equal(toasts.at(-1), "Betting is locked");
+});
+
+test("G6: an unseated guest reads their carried chips with no seat controls; seat controls are 44px", () => {
+  const finale = BUILTIN_EVENTS.find(event => event.finale && event.game === "poker");
+  const state = fresh();
+  state.poker = { id:finale.id, total:12000, startingStacks:{}, startedAt:Date.now(), levels:pokerLevels(),
+    levelIdx:0, levelStartedAt:Date.now(), levelOffset:0, outs:[], counts:{}, ts:1,
+    seats:ROSTER.slice(1), unseated:{ [ROSTER[0]]:1400 } };
+  const props = { state, standings:computeStandings(state), gm:false, onBuyin:noop, onStart:noop, onCancel:noop,
+    onLevel:noop, onPause:noop, onBust:noop, onUnbust:noop, onCount:noop, onReview:noop };
+  const away = render(app.PokerCard, { ...props, me:ROSTER[0] }, state, app.PlayerIdentityProvider);
+  assert.match(away.html, /Not seated · your 1,400 chips carry/);
+  assert.ok(!away.buttons.some(button => ["Count", "I busted", "Recount"].includes(button.name)));
+  const seated = render(app.PokerCard, { ...props, me:ROSTER[1] }, state, app.PlayerIdentityProvider);
+  assert.ok(seated.buttons.some(button => button.name === "Count"));
+  assert.ok(seated.buttons.some(button => button.name === "I busted"));
+  assert.equal((seated.html.match(/<button[^>]*min-height:44px/g) || []).length, 2);
+  state.poker.startedAt = null;
+  const setup = render(app.PokerCard, { ...props, me:ROSTER[0] }, state, app.PlayerIdentityProvider);
+  assert.ok(setup.buttons.some(button => button.name === "All stacks"));
+  assert.ok(!setup.buttons.some(button => button.name === "Everyone"));
+  assert.match(setup.html, /Not seated · your 1,400 chips carry/);
+});
+
+test("G13 G15: a settled duel joins the update line instead of replacing it", () => {
+  const me = ROSTER[0], events = BUILTIN_EVENTS;
+  const before = fresh();
+  before.duels = [{ id:"qd", from:me, to:ROSTER[7], stake:300, status:"open", runs:{ [me]:{ ms:200 } }, ts:1 }];
+  before.wagers = [{ id:"w", player:me, kind:"outright", eventId:putt.id, pick:me, pickPlayers:[me], stake:100 }];
+  const prev = ui.guestLedger(before, me, events);
+  const after = structuredClone(before);
+  after.duels[0].runs[ROSTER[7]] = { ms:260 };
+  after.results[putt.id] = { slots:[[me], [], []], ts:2, revision:1 };
+  const summary = ui.summarizeUpdate(prev, ui.guestLedger(after, me, events), { state:after, events });
+  assert.equal(summary.msg, `1st in ${putt.name} +400 · bet +200 · Quick Draw vs ${ROSTER[7]} +300 · you lead`);
+  assert.equal(ui.summarizeUpdate(prev, ui.guestLedger(after, me, events), { state:after, events, skipDuel:"qd" }).msg,
+    `1st in ${putt.name} +400 · bet +200 · you lead`, "the Quick Draw layer already shows its own duel");
+});
+
+test("G20: an away guest sits out on Home and nobody can challenge an away player", () => {
+  const me = ROSTER[0], state = bracketState();
+  state.onDeck = pairs.id;
+  state.away = { [me]:true };
+  const view = render(ui.GuestHome, homeProps(state, me));
+  assert.match(view.html, /Sitting out this one/);
+  const live = fresh();
+  live.away = { [ROSTER[3]]:true };
+  const card = p => render(ui.PlayerSheet, { state:live, me, p, standings:computeStandings(live), events:BUILTIN_EVENTS,
+    onClose:noop, onDuel:() => ({ ok:true }) });
+  assert.ok(!card(ROSTER[3]).buttons.some(button => /^Challenge /.test(button.name)));
+  assert.ok(card(ROSTER[4]).buttons.some(button => button.name === `Challenge ${ROSTER[4]} for 100`));
+});
+
+test("G25: before the weekend a guest without a flight answer gets one compact question", async () => {
+  const me = ROSTER[0], state = { ...fresh(), live:false };
+  state.profiles[me] = { display:"Evan" };
+  const asked = [];
+  const props = extra => homeProps(state, me, { events:[putt], onFlightsYes:() => asked.push("yes"),
+    onFlightsNotYet:() => { asked.push("not yet"); return Promise.resolve({ ok:true }); }, ...extra });
+  const view = render(ui.GuestHome, props());
+  assert.match(view.html, /Booked your flights\?/);
+  view.click("Yes");
+  await view.click("Not yet");
+  assert.deepEqual(asked, ["yes", "not yet"]);
+  state.profiles[me].flightsBooked = false;
+  assert.match(render(ui.GuestHome, props()).html, /Booked your flights\?/, "Not yet from check-in is asked again");
+  assert.doesNotMatch(render(ui.GuestHome, props({ flightsAnswered:true })).html, /Booked your flights/);
+  state.profiles[me] = { flightsBooked:true };
+  assert.doesNotMatch(render(ui.GuestHome, props()).html, /Booked your flights/);
+  state.profiles[me] = { flightIn:{ air:"UA", num:"1", time:"10:00" } };
+  assert.doesNotMatch(render(ui.GuestHome, props()).html, /Booked your flights/, "saved legs are an answer");
+  state.profiles[me] = {};
+  assert.doesNotMatch(render(ui.GuestHome, props({ state:{ ...state, live:true } })).html, /Booked your flights/);
+});
+
+test("G5: Bets during the finale is closed, and before the weekend says it once", () => {
+  const finale = BUILTIN_EVENTS.find(event => event.finale && event.game === "poker");
+  const table = { ...fresh(), poker:{ id:finale.id, outs:[], startedAt:1 } };
+  const closed = wagers(table, null);
+  assert.match(closed.html, /Betting is closed for the finale/);
+  assert.doesNotMatch(closed.html, /Betting opens/);
+  assert.ok(!closed.buttons.some(button => button.name === "Browse the events"));
+  const before = wagers({ ...fresh(), live:false }, null);
+  assert.equal((before.html.match(/Betting opens/g) || []).length, 1);
+});
+
+test("G19: Checking… waits for the transport to settle, not for any broadcast", async () => {
+  let settle;
+  const reply = { ok:false, uncertain:true, error:"No response, try again", settled:new Promise(resolve => { settle = resolve; }) };
+  const sent = [];
+  const view = wagers({ ...fresh(), onDeck:putt.id }, putt, { onPick:pick => { sent.push(pick); return Promise.resolve(reply); } });
+  await view.click(`Place a chip on ${ROSTER[1]}`);
+  view.click(`Place a chip on ${ROSTER[1]}`);
+  assert.equal(sent.length, 1, "held while Checking");
+  settle({ ok:true, late:true });
+  await reply.settled;
 });

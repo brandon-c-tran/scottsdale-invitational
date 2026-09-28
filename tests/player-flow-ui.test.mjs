@@ -90,8 +90,8 @@ test("every home player opens a card, including the current player, without edit
     assert.deepEqual(view.viewed, ROSTER);
     assert.deepEqual(edited, []);
     assert.deepEqual(view.challenges, []);
-    view.click("Edit your profile");
-    assert.deepEqual(edited, [true]);
+    assert.ok(!view.buttons.some(button => button.name === "Edit your profile"), "the header avatar opens the profile");
+    assert.deepEqual(edited, []);
   }
 });
 
@@ -139,10 +139,9 @@ test("home keeps trip details private while event and reference actions open the
   assert.deepEqual(rules, [first.id]);
   assert.deepEqual(routes, []);
   view.click("All events");
-  view.click("Rules");
-  view.click("Trip details");
   view.click("Standings");
-  assert.deepEqual(routes, ["events", "rules", "trip", "standings"]);
+  assert.deepEqual(routes, ["events", "standings"]);
+  assert.ok(!view.buttons.some(button => ["Rules", "Trip details"].includes(button.name)), "Weekend owns the reference links");
   assert.deepEqual(view.viewed, []);
 });
 

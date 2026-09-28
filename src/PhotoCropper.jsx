@@ -236,7 +236,7 @@ export default function PhotoCropper({
       );
       onConfirm?.(canvas.toDataURL("image/jpeg", clamp(quality, 0.5, 0.95)));
     } catch {
-      setError("We couldn't crop that photo. Please try a different image.");
+      setError("That photo could not be cropped. Choose another image.");
     }
   };
 

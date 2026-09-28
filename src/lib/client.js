@@ -321,7 +321,10 @@ export function reloadForUpdate() {
   window.location.reload();
   return true;
 }
-const autoReloadAllowed = () => reloadAttempts(snapshot.serverBuild || "") < 2 && pendingAcks.size === 0;
+/* App sets __FD_HOLD_RELOAD__ while a sheet or check-in draft is open: a
+   reload would drop it, so the phone keeps Update ready until the next return */
+const autoReloadAllowed = () => reloadAttempts(snapshot.serverBuild || "") < 2 && pendingAcks.size === 0
+  && !(typeof window !== "undefined" && window.__FD_HOLD_RELOAD__ === true);
 
 let tvReloadTimer = null, tvWaitingSince = 0;
 function tvReloadWhenIdle() {

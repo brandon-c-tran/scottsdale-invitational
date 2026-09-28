@@ -39,8 +39,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `shared/core.js` supplies its turn and mutation references through `draftTurn`.
   `features/duels/` owns Quick Draw, the duel card, the commissioner duel
   list, and viewer-relative duel state. `features/tv/` owns TV mode
-  (`TVMode.jsx`, pure `tvModel.js`, `serverClock.js`), drawn on a fixed
-  1920x1080 letterboxed canvas with 24px minimum text.
+  (`TVMode.jsx`, pure `tvModel.js`, `serverClock.js`, its own intro and draw
+  reveal in `TVCeremony.jsx`, cards in `TVCards.jsx`), drawn on a fixed
+  1920x1080 letterboxed canvas with 24px minimum text; it reloads for a new
+  build only in an idle gap. `features/director/` owns the commissioner pill
+  model and the finale sheets. The player card tilts (`useRisoTilt`, never an
+  iOS motion prompt), the identity chip is a spinnable `ChipCoin`, and
+  `src/lib/haptics.js` vibrates on Android only, never on the TV, with reduced
+  motion, or when the device-local Vibration toggle is off.
   `ui/AppChrome.jsx` owns the persistent header/navigation; `ui/GameMark.jsx`
   owns the shared game illustrations. `src/lib/client.js` treats the socket as
   live only after a fresh state lands on it, replaces a socket whose ping goes
@@ -56,10 +62,13 @@ redesign and the rewritten voice. It made the app harder to use and broke
 intentional cohesion. This supersedes the September 4 light paper/burgundy
 direction. In the subsequent Home brief, Brandon explicitly allowed a new
 dark palette: green charcoal, warm bone, muted yellow, and restrained lilac.
-Keep the dark theme and recover Brandon's existing wording from the
-pre-redesign source. Do not add slogans, a fictional host note, casino idioms,
-or reassuring filler. Change copy only to explain an actual changed interaction
-or keep a rule accurate.
+Keep the dark theme. **No string in the app is protected wording** (Sept 27):
+older lines are not Brandon's by default and change like any other copy. No
+corny lines, jokes, asides, slogans, a fictional host note, casino idioms, or
+reassuring filler, and no text that explains what a control, layout, number,
+or feature already makes obvious. Keep labels, numbers, rules a player cannot
+see on screen, confirms that name what will change, and errors that say what
+to do.
 
 Treat this as a UX and system problem: make the app's functionality easy to
 find, keep related actions together, and preserve context between views.
@@ -103,6 +112,10 @@ after results, show final chips and the confirmed champion when frozen.
 The weekend starts implicitly when the host opens the first game's betting
 or starts play. Team/heat/draft preparation alone does not start it. Never add
 a separate Start/Open weekend step, including in the director's next action.
+The first game-opening write carries a one-tap confirm on that same tap
+("{Event} starts the weekend.", server flag `startWeekend`), and
+`returnToLockerRoom` undoes a mistaken start only while nothing has been
+played or bet.
 House, flights, and check-in details belong in Weekend, not a Home hero.
 Weekend contains Trip,
 Rules, and Games, and remembers its selected section. Profile, public player
@@ -122,9 +135,15 @@ player-color motion, or acknowledgement feedback that makes a result legible.
 A bracket is drawn as a bracket: rounds are columns, each match sits between
 the matches that feed it, connector lines carry winners forward, and the live
 match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx). While
-a bracket game is live, a compact read-only bracket (`BracketPeek`, one target)
-sits under the current matchup on Home and under the board on Bets, and its
-Events row has its own Bracket entry; all open the full bracket sheet.
+a bracket game is live, Home shows your path as one line ("Semifinal ✓ → Final
+vs winner of Semifinal 2 · Full bracket ↗", `bracketPath`), Bets shows the
+compact read-only bracket (`BracketPeek`, one target) under the board, the TV
+shows it with pair names, and its Events row has its own Bracket entry; all
+open the full bracket sheet. Home keeps the leaderboard heading on the first
+phone screen during events: no page title, a one-line Latest result that hides
+while the "Since you looked" line shows, and your own waiting duel offer
+collapsed. "Since you looked" is built from the first fresh state after the
+phone returns and opens what it reports. "Update ready" is a header chip.
 Commissioner winner selection uses the actual bracket matchup or heat rows,
 with separate player-avatar targets for cards. Do not build a second copy of
 the teams just to choose a winner. Bets keeps one compact chip rack and a
@@ -200,9 +219,10 @@ no specific question, poll, or new endpoint has been implemented yet.
    balances.
 4. **Current-contest betting:** a free-for-all with more than two sides pays
    2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
-   winner pays even (1:1). Any contest with exactly two sides, including a
-   two-team game like Volleyball, Flip Cup or 5v5, is a matchup: even money,
-   and competitors may back only their own side. Every bettor holds one side
+   winner pays 1:1. Any contest with exactly two sides, including a
+   two-team game like Volleyball, Flip Cup or 5v5, is a matchup paying 1:1,
+   and competitors may back only their own side. Payout copy is always
+   "Winner pays 1:1" or "Winner pays 2:1", never "even". Every bettor holds one side
    per contest. New outright tickets store their `mult`. The board exposes only that one current contest,
    never every unresolved bracket matchup or an event-wide outright market
    for an event being played as matches or stages. A competitor may optionally
@@ -368,9 +388,10 @@ no specific question, poll, or new endpoint has been implemented yet.
    separate current match in a view. The sequence is open betting, lock and
    start, record this contest's winner, then atomically open the next contest.
    A heat records its winner separately from its complete qualifying list;
-   two-through requires the winner plus one other qualifier. Finish every
-   match or heat and the final before posting the event result. FFA goes from
-   play to its normal event result entry. New writes carry `contestId` and
+   two-through requires the winner plus one other qualifier. A bracket final's
+   winner tap, or a stage final's recorded 1st/2nd/3rd order, posts the event
+   result in the same write through `saveResult`; its 5-second Undo reopens
+   the final. FFA goes from play to its normal event result entry. New writes carry `contestId` and
    `contestRevision`; reject stale targets and acknowledge identical retries
    without moving twice. Old in-progress events remain readable and preserve
    their draws, tickets, results, and original contracts. Results are revisioned;
@@ -384,7 +405,18 @@ no specific question, poll, or new endpoint has been implemented yet.
    their contest starts without changing the draw id, Skip shelves an unplayed
    event, and once stacks post the only operation is crowning the champion.
    `rerunOnboarding` is refused while live, and `setLive(false)` once any
-   event has started.
+   event has started. Marking a player Away returns chips on their side of an
+   open free-for-all; Swap in returns the incoming player's chips on the other
+   side; away players cannot send or accept duels and are not dealt into
+   poker (their board total carries, and the champion is the chip leader
+   among seats). `takeBackAnnouncement` un-announces an event nothing has
+   started in, returning its chips. The event intro is one scene step;
+   crowning (`crownChampion`) freezes the board and plays the champion scene
+   in the same write; a corrected result owes one "Replay winner" beat with
+   Skip. The director pill carries a short verb with its subject on the note
+   line, records a live match's winner from its two side buttons, and puts the
+   default crew in the note (`features/director/`). Crew earn what a
+   3rd-place player actually gets, including a split share.
 10. **The wager ledger is duplicate-safe.** State schema `v:7` adds
    `wagerOps`, keyed by device plus action id. The client may retry place and
    retract once using the same action id; the server acknowledges that retry
@@ -423,13 +455,15 @@ no specific question, poll, or new endpoint has been implemented yet.
    replay keys to nobody; the TV route and unclaimed devices get the public
    view. A socket is bound to the device id of its hello. Tournament state may contain only validated public walkout-track
    metadata, and Show Control never depends on playback success.
-14. **Previous-contest correction is explicit and guarded.**
-   `contestUndoAvailability()` supplies the eligibility and explanation;
-   `undoLastContest` validates the previous contest id and current revision.
-   Correction is allowed while the next contest is open, locked or in
-   progress but undecided; that contest's pending chips are voided in the same
-   write and named in the confirm ("Returns Evan 200"). The winner tap offers
-   a 5-second Undo. It is unavailable after the
+14. **Recorded-contest correction is explicit and guarded.**
+   Recorded contests stack in `eventOps[ev].contestStack`; `correctContest`
+   corrects any of them ("Fix Play-in 1"), rewinding every contest recorded
+   after it, and `contestCorrections()` / `contestUndoAvailability()` supply
+   eligibility plus a preview computed by running the correction on a copy.
+   Rewound and next-market chips and any duel voided for exposure are named in
+   the confirm ("Returns Evan 200. Voids Jeremy vs Ben duel."). The winner tap
+   offers a 5-second Undo. Post-count poker rulings apply only to the count
+   revision they were made against. Correction is unavailable after the
    event result posts, while frozen, during the finale, or while another
    event's betting market is open. Restore the previous contest for winner
    entry with betting still locked and a fresh revision. Derived settlement
@@ -456,10 +490,11 @@ no specific question, poll, or new endpoint has been implemented yet.
   an existing mid-event scenario; switch guest/commissioner/player and simulate
   failed acknowledgements. No WebSocket, persistent storage, or remote data.
 
-The September 26 fix pass (every finding from the Sept 26 audit plus the
-Sept 7 FD list) passes 316 tests and the 138-check local e2e. It is deployed to
-staging as version `69ef6834-4e5d-485d-9276-977255e545c1` (build `b089c73`); the
-previous staging build is tag `staging-7c2c9f15`. The first
+The September 27 second pass (the re-audit's bugs and improvements, a strict
+copy pass, and the delight features: tilt card, chip coin, Android haptics,
+Chip Towers, Desert Clock, trophy plates) supersedes the September 26 fix
+pass; see git log for its test count and staging version. The previous
+staging baseline is tag `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet
@@ -487,10 +522,10 @@ edits. This preview never connects to the tournament and is not deployed.
   - Cut reassurance and atmosphere tails: "The board tracks it", "The room
     keeps time", "Nobody sees this".
   - One idea per line. When a sentence carries a rule AND a rationale, keep
-    the rule and drop the rationale, unless the rationale is the joke.
-  - A dry aside is welcome where a rule sounds arbitrary ("to limit the damage
-    of one bad decision, only half your points can be at risk"). Dry, never
-    zany.
+    the rule and drop the rationale.
+  - No jokes or asides, dry or otherwise. If the UI already shows it, don't
+    write it: no "Tap + to add", no captions restating a heading, no confirm
+    body that repeats its button. Payouts read "Winner pays 1:1".
   - A first-run flow gets one progress system and one finish line. Put deeper
     mechanics in Weekend's Rules section instead of making a completed check-in continue.
   - Ask questions outright with equal answers instead of hiding the alternative

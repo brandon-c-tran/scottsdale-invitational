@@ -48,6 +48,9 @@
 /* ── flight layer ── */
 .fd-flight-layer { position:fixed; inset:0; z-index:600; pointer-events:none; overflow:hidden; contain:strict; }
 .fd-flight { position:fixed; pointer-events:none; transform-origin:50% 50%; will-change:transform; }
+/* a flight waiting on its hold (a write in the air) bobs where it stopped */
+@keyframes fd-flight-hover { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+.fd-flight.is-hover > * { animation:fd-flight-hover .66s ease-in-out infinite; }
 
 /* ── sheets ──
    The scrim fades in under the rising sheet; on close a non-interactive copy

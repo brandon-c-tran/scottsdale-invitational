@@ -124,6 +124,12 @@
   color:var(--bone); }
 .tv-stacks .fd-stack-tag { padding:3px 9px; border-width:2px; }
 .tv-stacks.has-tag { padding-top:26px; }
+/* a fitted felt (P1): same names and tags, the total pinned top right */
+.tv-stacks-fit .fd-stacks { gap:8px 18px; }
+.tv-stacks-fit .fd-stacks-name { max-width:120px; font:700 26px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase;
+  color:var(--bone); }
+.tv-stacks-fit .fd-stack-tag { padding:3px 9px; border-width:2px; }
+.tv-side.is-row .tv-stacks .fd-stacks-name { max-width:100%; }
 .tv-sides:not(.is-h2h):not(.is-compact) .tv-side-name { font-size:40px; }
 .tv-sides:not(.is-h2h):not(.is-compact) .tv-side-total { font-size:48px; }
 /* a wide field: one row per side; a side with chips is felt, an empty one stays quiet */

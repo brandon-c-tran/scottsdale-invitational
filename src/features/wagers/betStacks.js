@@ -127,6 +127,106 @@ export function settledStacks(state, events, contest, matches = wager => wagerMa
   };
 }
 
+/* ── many bettors on one side (P1) ──
+   A side can carry up to 12 bettors. Past `slots` stacks, the smallest
+   collapse into one "+N" group that keeps each bettor's colour and carries
+   their combined total. The list arrives biggest first, so the group is
+   always the tail. */
+export function groupStacks(stacks = [], slots = Infinity) {
+  const list = stacks || [];
+  const room = Math.max(1, Math.floor(Number(slots) || 0) || 1);
+  if (!Number.isFinite(Number(slots)) || list.length <= room) return { shown:list, rest:null };
+  const keep = Math.max(1, room - 1);
+  const tail = list.slice(keep);
+  return { shown:list.slice(0, keep), rest:{ players:tail.map(item => item.player), count:tail.length,
+    total:stacksTotal(tail), stacks:tail } };
+}
+
+/* The ladder a fitted board steps down until every stack fits its felt:
+   smaller chips and shorter caps first, then grouping the smallest stacks,
+   one more at a time. Chips never go below `min` px (TV text stays legible
+   under them). */
+export function fitLevels(count, { chip = 64, cap = STACK_CAP, min = 30 } = {}) {
+  const sizes = [];
+  for (const k of [1, 0.875, 0.75, 0.66, 0.58, 0.5]) {
+    const size = Math.max(min, Math.round(chip * k));
+    if (!sizes.length || sizes[sizes.length - 1].size !== size)
+      sizes.push({ size, cap:Math.max(5, Math.min(cap, Math.round(cap * (0.6 + 0.4 * k)))), slots:Infinity });
+  }
+  /* once some must group, more bettors on show wins over bigger chips, but
+     each count tries a few sizes so a short felt does not shrink them all */
+  const grouped = sizes.filter((_, index) => index === 0 || index === sizes.length - 1 || index === 2);
+  const levels = [...sizes];
+  for (let slots = Math.max(0, count) - 1; slots >= 2; slots--)
+    grouped.forEach(level => levels.push({ ...level, slots }));
+  return levels;
+}
+
+/* A decided contest as its sides stood: which side won, each side's stacks
+   settled through resolveWager (a winner's payout is its own delta), and the
+   totals the board stamps. Null until the contest is actually decided, so a
+   reorder or a rewind never plays as a result. */
+export function contestWinnerKey(state, evId, contest) {
+  if (!contest) return null;
+  if (contest.kind === "ffa") {
+    const first = state.results?.[evId]?.slots?.[0];
+    const top = Array.isArray(first) ? first : first != null ? [first] : [];
+    if (!top.length) return null;
+    const side = (contest.sides || []).find(item => item.players.some(p => top.includes(p)));
+    return side ? side.key : null;
+  }
+  const stack = state.eventOps?.[evId]?.contestStack;
+  const list = Array.isArray(stack) ? stack : state.eventOps?.[evId]?.lastContest ? [state.eventOps[evId].lastContest] : [];
+  for (let i = list.length - 1; i >= 0; i--) if (list[i]?.id === contest.id) return list[i].winner ?? null;
+  return null;
+}
+export function decidedContest(state, events, evId, contest) {
+  const winner = contestWinnerKey(state, evId, contest);
+  if (!contest || winner === null || winner === undefined) return null;
+  const bySide = new Map((contest.sides || []).map(side => [side.key, new Map()]));
+  (state.wagers || []).forEach(wager => {
+    if (!wagerMatchesContest(wager, contest)) return;
+    const result = resolveWager(state, wager, events);
+    if (result.status !== "won" && result.status !== "lost") return;
+    const side = bySide.get(sideKeyOf(state, contest, wager));
+    if (!side) return;
+    const cur = side.get(wager.player) || { player:wager.player, stake:0, paid:0, status:result.status };
+    cur.stake += Number(wager.stake) || 0;
+    if (result.status === "won") cur.paid += Math.max(0, result.delta);
+    side.set(wager.player, cur);
+  });
+  const sides = (contest.sides || []).map(side => {
+    const stacks = [...bySide.get(side.key).values()]
+      .sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
+    const won = side.key === winner;
+    return { key:side.key, players:side.players, won, stacks,
+      total:stacksTotal(stacks), paid:stacks.reduce((sum, item) => sum + item.paid, 0) };
+  });
+  return { winner, sides,
+    paid:sides.reduce((sum, side) => sum + side.paid, 0),
+    lost:sides.filter(side => !side.won).reduce((sum, side) => sum + side.total, 0),
+    any:sides.some(side => side.stacks.length > 0) };
+}
+/* what one player collects from a decided contest */
+export const decidedPayout = (decided, player) => (decided?.sides || [])
+  .reduce((sum, side) => sum + side.stacks.filter(item => item.player === player)
+    .reduce((acc, item) => acc + (item.status === "won" ? item.stake + item.paid : 0), 0), 0);
+
+/* ── chip flight geometry (M4), pure ── */
+/* where a chip waits over a stack (or the + well) while its write is out:
+   `size` px square, centred on the anchor, `lift` px above its top */
+export const hoverRect = (anchor, size, lift = 8) => anchor ? ({
+  left:anchor.left + anchor.width / 2 - size / 2, top:anchor.top - size - lift, width:size, height:size,
+}) : null;
+/* a stack's top face as a square rect the landing chip fits into */
+export const faceRect = svgRect => svgRect ? ({
+  left:svgRect.left, top:svgRect.top - svgRect.width * 0.2, width:svgRect.width, height:svgRect.width,
+}) : null;
+/* the rack chip a retracted chip flies home to: its own value when the rack
+   carries it, otherwise the selected one */
+export const rackTargetFor = (value, denoms, fallback) =>
+  `bets:rack:${denoms.includes(value) ? value : fallback}`;
+
 /* a recorded contest entry, as the contest target its tickets were placed on */
 export const contestOfEntry = (eventId, entry) => entry ? ({ id:entry.id, eventId, kind:entry.kind,
   match:entry.match, group:entry.group, stagesId:entry.stagesId, drawId:entry.drawId }) : null;

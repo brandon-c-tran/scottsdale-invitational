@@ -251,8 +251,8 @@ test("TV: bettors ride as named stacks, never a Name 200 list", () => {
   }
   assert.ok(textNodes(board).every(text => !/[A-Za-z] \d/.test(text)), textNodes(board).join(" | "));
   assert.doesNotMatch(board, /tv-side-riders/);
-  assert.match(board, /class="tv-side-total">2,000</);
-  assert.match(board, /class="tv-side-total">1,500</);
+  assert.match(board, /tv-side-total">2,000</);
+  assert.match(board, /tv-side-total">1,500</);
   /* a 1,000 stake caps at ten chips and stamps its value */
   assert.match(board, new RegExp(`data-stack-player="${bystanders[0]}" data-stack-chips="${STACK_CAP}"`));
   assert.ok(contest);
@@ -271,7 +271,7 @@ test("TV free-for-all: a player's card holds the stacks backing them, an empty c
   };
   assert.match(card("Khoa"), /data-stack-player="Adi"/);
   assert.match(card("Khoa"), /data-stack-player="Ben"/);
-  assert.match(card("Khoa"), /class="tv-side-total">500</);
+  assert.match(card("Khoa"), /tv-side-total">500</);
   assert.match(card("Evan"), /data-stack-player="Evan"/);
   assert.doesNotMatch(card("Chinh"), /data-stack-player|tv-side-total|No chips/);
   /* the card no longer repeats its own name with a number */

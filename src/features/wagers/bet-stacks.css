@@ -23,6 +23,25 @@
 .fd-stacks-slot { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
 .fd-stacks-name { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+/* a crowded side's smallest bettors, as one fan of their own chips */
+.fd-stack-fan { justify-content:flex-end; }
+.fd-stack-fan-chips { position:relative; display:block; }
+.fd-stack-fan-chip { position:absolute; line-height:0; }
+.fd-stack-fan-chip svg { display:block; }
+.fd-stack-tag.is-group { position:static; transform:none; margin-bottom:4px; border-color:var(--bone-line); }
+
+/* a fitted felt: the total top right, stacks standing from the bottom up
+   (biggest first, bottom left); the level is chosen before paint */
+.fd-fit { position:relative; flex:1; min-height:0; min-width:0; overflow:hidden; }
+/* wrap-reverse flips the cross axis: flex-start is the line's floor */
+.fd-fit-stacks { position:absolute; left:0; right:0; bottom:0; flex-wrap:wrap-reverse; align-content:flex-start; align-items:flex-start; }
+.fd-fit-stacks.has-tag { padding-top:0; }
+/* here a capped stack's value rides in flow above it, so it can never reach
+   into the row above */
+.fd-fit-stacks .fd-stack { width:auto !important; }
+.fd-fit-stacks .fd-stack-tag { position:static; transform:none; margin-bottom:4px; }
+.fd-fit-total { position:absolute; top:0; right:0; }
+
 /* a chip lands on its stack */
 @keyframes fd-stack-drop {
   0% { transform:translateY(-26px); opacity:0; }

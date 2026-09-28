@@ -84,6 +84,37 @@
 .fd-wagers-settle-zone.is-lost > strong { color:var(--clay-text); }
 .fd-wagers-settle .fd-stacks { gap:2px 4px; }
 @keyframes fd-settle-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+/* P1: the "+N" pile of a crowded side, and room for capped stacks' values */
+.fd-wagers-felt-stacks.has-tag { padding-top:30px; }
+.fd-wagers-felt-total + .fd-wagers-felt-stacks.has-tag { padding-top:34px; }
+.fd-wagers-felt-stacks > .fd-stacks-group { flex:0 0 auto; min-width:44px; min-height:44px; justify-content:flex-end; padding-bottom:3px; }
+.fd-wagers-felt-stacks > .fd-stacks-group .fd-stack-tag { font-size:10px; }
+/* M5: a decided contest held in place. Resting styles are the end state. */
+.fd-wagers-held { cursor:pointer; }
+.fd-wagers-held-side.is-won { border-color:var(--green); }
+.fd-wagers-held-side.is-lost { opacity:.55; animation:fd-held-fade var(--motion-base) var(--ease-out) both; }
+@keyframes fd-held-fade { from { opacity:1; } to { opacity:.55; } }
+.fd-wagers-held-face { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; }
+.fd-wagers-held-face > span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; line-height:1.2; text-align:center; }
+.fd-wagers-held-head { position:absolute; top:5px; left:8px; font:700 17px/1 var(--fd-wagers-numerals); font-variant-numeric:tabular-nums; animation:fd-settle-in var(--motion-base) var(--ease-out) both; }
+.fd-wagers-held-head.is-up { color:var(--green); }
+.fd-wagers-held-head.is-down { color:var(--clay-text); }
+.fd-wagers-felt-stacks.has-head { padding-top:22px; }
+.fd-wagers-felt-stacks.has-head.has-tag { padding-top:34px; }
+.fd-wagers-held-stack { display:flex; align-items:flex-end; justify-content:center; flex:0 0 44px; min-width:44px; min-height:44px; padding:0 0 3px; }
+.fd-wagers-held-stack.is-lost { --bank-x:46px; --bank-y:24px; }
+.fd-wagers-won { position:absolute; top:3px; right:6px; z-index:2; padding:4px 8px 3px; border-radius:6px; background:var(--green); color:var(--ink0);
+  font:800 15px/1 var(--fd-wagers-numerals); letter-spacing:.06em; transform:rotate(-4deg); transform-origin:right center;
+  animation:fd-won-stamp var(--motion-stamp) var(--ease-land) both; }
+@keyframes fd-won-stamp { from { opacity:0; transform:scale(1.5) rotate(-10deg); } to { opacity:1; transform:rotate(-4deg); } }
+/* the next contest deals in from the deck; the rack returns under it */
+@keyframes fd-deal-in { from { opacity:0; transform:translateX(64px); } to { opacity:1; transform:none; } }
+.fd-wagers-market.is-dealing { overflow-x:clip; }
+.fd-wagers-market.is-dealing .fd-wagers-pick { animation:fd-deal-in 360ms var(--ease-out) both; }
+.fd-wagers-market.is-dealing .fd-wagers-pick:nth-child(2) { animation-delay:60ms; }
+.fd-wagers-market.is-dealing .fd-wagers-pick:nth-child(n+3) { animation-delay:120ms; }
+@keyframes fd-rack-in { from { opacity:0; transform:translate(-50%, 28px); } to { opacity:1; transform:translateX(-50%); } }
+.fd-wagers-rack.is-dealing { animation:fd-rack-in 320ms var(--ease-out) 160ms both; }
 .fd-wagers-limit { color:var(--clay-text); font-size:12px; line-height:1.5; }
 .fd-wagers-history { border-top:1px solid var(--line); }
 .fd-wagers-event + .fd-wagers-history { margin-top:20px; }

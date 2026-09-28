@@ -296,6 +296,27 @@ export function flightKeyframes(from, to, { arc = 0, scale = "fit", fade = false
   });
 }
 
+/* Keyframes for a second leg: the shell still sits on `base` (its own rect)
+   and already wears the transform that put it on `a`; this moves it on to
+   `b`. Scale is relative to `base`, fitted to each rect. Pure. */
+export function legKeyframes(base, a, b, { arc = 0, fade = false, easing = EASE.out, frames = 12 } = {}) {
+  const ease = parseBezier(easing) || easeFn.out;
+  const cx = r => r.left + r.width / 2, cy = r => r.top + r.height / 2;
+  const fit = r => Math.min(r.width / base.width, r.height / base.height);
+  const sa = fit(a), sb = fit(b), lift = Number(arc) || 0;
+  return Array.from({ length:frames + 1 }, (_, i) => {
+    const t = i / frames, e = ease(t);
+    const x = cx(a) + (cx(b) - cx(a)) * e - cx(base);
+    const y = cy(a) + (cy(b) - cy(a)) * e - 4 * lift * e * (1 - e) - cy(base);
+    const s = sa + (sb - sa) * e;
+    const frame = { offset:t, transform:`translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${s.toFixed(4)})` };
+    if (fade) frame.opacity = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+    return frame;
+  });
+}
+/* the longest a flight waits on its `hold` before it simply leaves */
+export const MAX_HOLD_MS = 20000;
+
 let layerEl = null;
 function flightLayer() {
   if (typeof document === "undefined") return null;
@@ -325,10 +346,14 @@ let portalHost = null;
      scale     "fit" (default: land at the target's size) or a number
      fade      fade out over the last 30%
      easing    a cubic-bezier() string, default EASE.out
-     land      pulse the target element when the flight arrives */
+     land      pulse the target element when the flight arrives
+     hold      a Promise: on arrival the clone hovers (gently bobbing) until
+               it settles. It resolves to nothing (the clone leaves where it
+               is) or to a second leg { to, duration, arc, fade, easing, land }
+               flown from the hover spot. Capped at MAX_HOLD_MS. */
 export function fly(from, to, options = {}) {
   const { node = null, duration = MOTION.flight, delay = 0, arc = 0, scale = "fit",
-    fade = false, easing = EASE.out, land = false } = options;
+    fade = false, easing = EASE.out, land = false, hold = null } = options;
   const skip = Promise.resolve(false);
   if (typeof document === "undefined" || typeof window === "undefined") return skip;
   if (prefersReducedMotion() || document.hidden) return skip;
@@ -373,16 +398,35 @@ export function fly(from, to, options = {}) {
     try {
       animation = shell.animate(frames, { duration, delay, easing:"linear", fill:"forwards" });
     } catch { done(); resolve(false); return; }
-    animation.finished.then(() => {
-      done();
-      const target = typeof to === "string" ? flightTarget(to) : to;
-      if (land && typeof target?.animate === "function" && !prefersReducedMotion()) {
+    const pulse = (dest, on) => {
+      const target = typeof dest === "string" ? flightTarget(dest) : dest;
+      if (on && typeof target?.animate === "function" && !prefersReducedMotion()) {
         try {
           target.animate([{ transform:"scale(1)" }, { transform:"scale(1.14)" }, { transform:"scale(1)" }],
             { duration:MOTION.pop, easing:EASE.land });
         } catch {}
       }
-      resolve(true);
+    };
+    animation.finished.then(() => {
+      if (!hold) { done(); pulse(to, land); resolve(true); return; }
+      shell.classList.add("is-hover");
+      let timer = 0;
+      const capped = new Promise(settle => { timer = setTimeout(() => settle(null), MAX_HOLD_MS); });
+      Promise.race([Promise.resolve(hold).catch(() => null), capped]).then(next => {
+        clearTimeout(timer);
+        shell.classList.remove("is-hover");
+        const toRect2 = next?.to ? rectOf(next.to) : null;
+        if (!toRect2 || !rectVisible(toRect2) || document.hidden || !shell.isConnected) {
+          done(); resolve(true); return;
+        }
+        let second;
+        try {
+          second = shell.animate(legKeyframes(fromRect, toRect, toRect2, next),
+            { duration:next.duration ?? MOTION.flight, easing:"linear", fill:"forwards" });
+        } catch { done(); resolve(true); return; }
+        second.finished.then(() => { done(); pulse(next.to, next.land); resolve(true); },
+          () => { done(); resolve(true); });
+      });
     }, () => { done(); resolve(false); });
   }));
 }

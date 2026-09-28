@@ -241,7 +241,7 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
   act(frozen, "setFrozen", { f:true });
   act(frozen, "startShowScene", { kind:"champion" });
   const champ = renderTv(frozen, { now:frozen.showControl.active.startedAt + 1000 });
-  assert.ok(champ.includes("tv-champion"));
+  assert.ok(champ.includes("tv-champ"));
   assert.ok(!champ.includes("tv-ticker"));
   assert.ok(!champ.includes("radial-gradient"));
 
@@ -279,13 +279,13 @@ test("bracket play shows the current match large with a strip, then an advances 
   const live = renderTv(state, { showControl:false });
   assert.ok(live.includes("is-up-now"));
   assert.ok(live.includes("Up now · "));
-  assert.ok(live.includes("tv-strip"));
+  assert.ok(live.includes("tv-bracket"), "the drawn bracket under the match");
   assert.ok(!live.includes("tv-ondeck"), "the header does not repeat the board");
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "pong"));
   act(state, "recordContestWinner", { evId:"pong", winner:contest.sides[0].key, ...ref(state, "pong") }, gm(false));
   const decidedAt = state.eventOps.pong.lastContest.decidedAt;
   const moment = advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 1000);
-  assert.equal(moment.verb, "Advances");
+  assert.equal(moment.verb, "Advance", "a pair takes the plural verb");
   assert.equal(advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 5001), null);
   assert.ok(renderTv(state, { now:decidedAt + 1000, showControl:false }).includes("tv-advance"));
   const strip = bracketStrip(state, BUILTIN_EVENTS.find(e => e.id === "pong"), null);
@@ -488,4 +488,290 @@ test("a revoked grant reports reconnect, never connected, and concurrent refresh
   assert.equal(status.connected, false);
   assert.equal(status.reconnect, true);
   assert.equal(status.error, "Reconnect Spotify in Audio Director");
+});
+
+/* ── TV repair pass (T1-T22) ── */
+import { resolveWeekendOperation, resolveSlot } from "../shared/core.js";
+import {
+  tvLiveEvent, nextUpEvent, latestResultOf, correctionMoment, dockCard, tvBusy, tickerPage, TICKER_TONES,
+  tickerRuling, pokerTableRows, contestRiders, championView, readableInk, weekendProgress, stackRace, duelBoard,
+  spotlightPlayer, decidedWinner, TV_CORRECTION_MS, TV_LEAD_CHANGE_MS,
+} from "../src/features/tv/tvModel.js";
+import { buildEventReveal } from "../src/features/weekend/drawReveal.js";
+
+/* writes in one test land in the same millisecond otherwise; ordering
+   checks need a clock that moves */
+const movingClock = () => {
+  const original = Date.now;
+  let t = 1_800_000_000_000;
+  Date.now = () => (t += 10);
+  return () => { Date.now = original; };
+};
+const evOf = (state, id) => allEventsOf(state).find(ev => ev.id === id);
+const playBracket = (state, evId) => {
+  act(state, "announceAndDraw", { evId, players:ROSTER.slice(0, 12) }, gm(false));
+  for (let k = 0; k < 20; k++) {
+    const contest = resolveCurrentContest(state, evOf(state, evId));
+    if (!contest || contest.kind === "ffa") break;
+    if (contest.phase === "betting-open") act(state, "lockAndStart", { evId, ...ref(state, evId) }, gm(false));
+    act(state, "recordContestWinner", { evId, winner:contest.sides[0].key, ...ref(state, evId) }, gm(false));
+  }
+};
+const bracketSlots = (state, evId) => {
+  const br = state.brackets[evId], teams = state.draws[evId].teams;
+  const loser = match => [resolveSlot(br, match.a), resolveSlot(br, match.b)].find(key => key !== match.winner);
+  const fin = br.rounds[br.rounds.length - 1][0];
+  const semis = br.rounds[br.rounds.length - 2] || [];
+  return [[...teams[fin.winner].players], [...teams[loser(fin)].players], semis.flatMap(m => teams[loser(m)].players)];
+};
+
+test("T1: a skipped event is never live, and nobody's instruction appears under its name", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) }, gm(false));
+  act(state, "shelve", { id:"8ball", on:true, confirmReturn:true }, gm(false));
+  const events = allEventsOf(state);
+  const operation = resolveWeekendOperation(state, events);
+  assert.equal(tvLiveEvent(state, events, operation.event), null);
+  const html = renderTv(state, { showControl:false });
+  assert.ok(!html.includes("tv-live-name"), "no live board for a shelved event");
+  assert.ok(!/Choose players|Open betting|Post the|Lock bets/.test(html.replace(/<[^>]*>/g, " ")), "no commissioner labels");
+});
+
+test("T3: next up is the operation event while it has not started", () => {
+  const state = puttPosted(false);
+  const events = allEventsOf(state);
+  const operation = resolveWeekendOperation(state, events);
+  assert.equal(operation.event.id, "8ball");
+  assert.equal(nextUpEvent(state, events, { liveEv:null, operationEv:operation.event }).id, "8ball");
+  act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) }, gm(false));
+  const after = allEventsOf(state);
+  const live = tvLiveEvent(state, after, resolveWeekendOperation(state, after).event);
+  assert.equal(live.id, "8ball");
+  assert.equal(nextUpEvent(state, after, { liveEv:live }).id, "pong", "a live event is skipped");
+});
+
+test("T4: the fallback result moment never retakes the TV after a directed scene or a newer write", () => {
+  const restore = movingClock();
+  try {
+    const directed = puttPosted(true);
+    const anchor = directed.results.putt.confirmedAt;
+    act(directed, "advanceShowScene", { id:directed.showControl.active.id });
+    act(directed, "endShowScene", { id:directed.showControl.active.id, outcome:"skipped" });
+    assert.equal(directed.showControl.history[0].kind, "winner");
+    assert.equal(resultMomentFor(directed, allEventsOf(directed), anchor + 5000, null, null), null,
+      "the winner scene already told it");
+    const bare = puttPosted(false);
+    const bareAnchor = bare.results.putt.confirmedAt;
+    assert.ok(resultMomentFor(bare, allEventsOf(bare), bareAnchor + 5000, null, null));
+    act(bare, "announceEvent", { evId:"nine" }, gm(false));
+    assert.equal(resultMomentFor(bare, allEventsOf(bare), bareAnchor + 5000, null, null), null,
+      "the next event's announcement owns the TV");
+  } finally { restore(); }
+});
+
+test("T5: a split place stays split per drawn team, and tied stacks are named or counted", () => {
+  const state = structuredClone(EMPTY_STATE);
+  playBracket(state, "8ball");
+  act(state, "saveResult", { evId:"8ball", slots:bracketSlots(state, "8ball") }, gm(false));
+  const model = resultPresentation(state, allEventsOf(state), "8ball");
+  const third = model.podium.find(item => item.place === 3);
+  assert.equal(third.groups.length, 2);
+  assert.ok(third.names.every(name => name.includes(" & ")), third.names.join("|"));
+  const html = renderTv(state, { now:state.results["8ball"].confirmedAt + 6000, showControl:false });
+  assert.ok(html.includes("tv-place-split"));
+  assert.ok(!html.includes("Team "), "never an invented team");
+
+  const poker = structuredClone(EMPTY_STATE);
+  act(poker, "pokerSetup"); act(poker, "pokerStart");
+  ROSTER.forEach((p, i) => {
+    if (i >= 10) act(poker, "pokerBust", { player:p });
+    else act(poker, "pokerCount", { player:p, count:i === 0 ? 3000 : 1000 });
+  });
+  act(poker, "pokerResult", { noScene:true });
+  const stacks = resultPresentation(poker, allEventsOf(poker), "poker");
+  assert.deepEqual(stacks.podium[1].names, ["9 tied"]);
+  assert.equal(stacks.podium[1].players.length, 9);
+});
+
+test("T6: away players are never dealt: rows, rail, and cues", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "setAway", { player:"Henry", away:true });
+  act(state, "pokerSetup"); act(state, "pokerStart");
+  const rows = pokerTableRows(state, computeStandings(state));
+  const henry = rows.find(row => row.player === "Henry");
+  assert.equal(henry.away, true);
+  assert.equal(henry.starting, null);
+  assert.equal(rows.at(-1).player, "Henry", "listed apart, after the table");
+  const html = renderTv(state, { now:state.poker.startedAt + 1000 });
+  assert.ok(html.includes("tv-away-tag"));
+  const cues = cueCandidates(state, allEventsOf(state), { now:state.poker.startedAt + 1000 });
+  assert.equal(cues.players.length, ROSTER.length - 1);
+  assert.ok(!cues.players.includes("Henry"));
+  ROSTER.filter(p => p !== "Henry").forEach((p, i) => act(state, "pokerCount", { player:p, count:i ? 500 : 2000 }));
+  act(state, "pokerResult", { noScene:true });
+  const model = resultPresentation(state, allEventsOf(state), "poker");
+  assert.equal(model.rows.find(row => row.player === "Henry").away, true);
+  assert.ok(!model.podium.some(item => item.players.includes("Henry")));
+});
+
+test("T8: a decided bracket shows its winner and the bracket, never a commissioner label", () => {
+  const state = structuredClone(EMPTY_STATE);
+  playBracket(state, "8ball");
+  const winner = decidedWinner(state, evOf(state, "8ball"));
+  assert.equal(winner?.players.length, 2);
+  const html = renderTv(state, { showControl:false });
+  assert.ok(html.includes("tv-decided"));
+  assert.ok(html.includes("tv-bracket"));
+  assert.ok(!/Post the|Enter the|Record /.test(html.replace(/<[^>]*>/g, " ")));
+});
+
+test("T2: the TV draws the intro and the draw inside its canvas", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) }, gm(false));
+  const reveal = buildEventReveal(state, evOf(state, "8ball"), "draw");
+  const events = allEventsOf(state);
+  const tvWith = ceremony => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+    React.createElement(TVMode, { state, events, standings:computeStandings(state), allTied:true, onDeckEv:evOf(state, "8ball"),
+      showControlEnabled:false, connection:{ ready:true, connected:true, version:3 }, now:Date.now(), onExit:() => {}, ceremony })));
+  const html = tvWith({ intro:null, reveal, handoff:false });
+  const canvas = html.indexOf("data-tv-canvas"), inner = html.indexOf("tv-reveal"), exit = html.indexOf("tv-exit");
+  assert.ok(canvas >= 0 && inner > canvas && inner < exit, "inside the scaled canvas");
+  assert.ok(reveal.groups.every(group => group.lines.every(line => html.includes(line.text.replace(/&/g, "&amp;")))));
+  const intro = tvWith({ intro:"8ball", reveal:null, handoff:true });
+  assert.ok(intro.indexOf("tv-intro") > intro.indexOf("data-tv-canvas"));
+  assert.ok(intro.includes("Drawing teams"));
+  const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.ok(!/<EventIntro[^>]*\bbig\b/.test(app) && !/<Reveal[^>]*\bbig\b/.test(app), "no phone overlays on the TV");
+});
+
+test("T10: the reload flag follows what the TV shows, and the client never reloads blind", () => {
+  const state = puttPosted();
+  act(state, "advanceShowScene", { id:state.showControl.active.id });
+  const scene = resolveShowScene(state, allEventsOf(state));
+  const idle = tvSceneView(scene, scene.active.updatedAt + TV_SCENE_IDLE_MS + 1);
+  assert.equal(tvBusy({ sceneView:idle }), false, "an active but idle scene is not a ceremony");
+  assert.equal(tvBusy({ sceneView:tvSceneView(scene, scene.active.updatedAt + 1000) }), true);
+  assert.equal(tvBusy({ reveal:{ id:"d1" } }), true);
+  assert.equal(tvBusy({ advance:{ id:"x" } }), true);
+  const client = readFileSync(new URL("../src/lib/client.js", import.meta.url), "utf8");
+  assert.ok(!client.includes("TV_CEREMONY_WAIT_MS"), "no five-minute blind reload");
+  const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.ok(app.includes("!tv) window.__FD_CEREMONY__ = !!(intro || reveal)"), "the TV owns its own flag");
+});
+
+test("T11/T12: reduced motion pages the ticker on the server clock; every tag clears 4.5:1", () => {
+  const items = Array.from({ length:5 }, (_, i) => ({ tag:`T${i}`, text:String(i) }));
+  assert.deepEqual(tickerPage(items, 0).items.map(it => it.tag), ["T0", "T1"]);
+  assert.deepEqual(tickerPage(items, 6000).items.map(it => it.tag), ["T2", "T3"]);
+  assert.equal(tickerPage(items, 12000).pages, 3);
+  assert.equal(tickerPage(items, 18000).index, 0);
+  const css = readFileSync(new URL("../src/ui/experience.css", import.meta.url), "utf8");
+  const token = name => css.match(new RegExp(`${name}:(#[0-9a-f]{6})`, "i"))[1];
+  const lum = hex => hex.slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255)
+    .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  for (const tone of TICKER_TONES) assert.ok(ratio(token(tone), token("--ink0")) >= 4.5, tone);
+  const tv = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
+  assert.match(tv, /\.tv-ticker-tag \{[^}]*color:var\(--ink0\)/);
+  const state = puttPosted(false);
+  state.adjustments = [{ id:"r", player:"Evan", delta:100, reason:"Spirit", ts:1 }];
+  const all = tickerItems({ state, events:allEventsOf(state), standings:computeStandings(state), allTied:false,
+    nextEv:evOf(state, "8ball"), now:Date.now() });
+  assert.ok(all.every(item => TICKER_TONES.includes(item.tone.replace(/var\((--[a-z0-9]+)\)/, "$1"))), all.map(i => i.tone).join());
+});
+
+test("T13/T14: a correction gets one line first, then the lead change", () => {
+  const restore = movingClock();
+  try {
+    const state = puttPosted(false);
+    act(state, "saveResult", { evId:"putt", slots:[["Adi"], ["Evan"], ["Khoa"]], confirmOverwrite:true, correctionReason:"Card" }, gm(false));
+    const at = state.results.putt.correctedAt;
+    const correction = correctionMoment(state, allEventsOf(state), at + 1000);
+    assert.equal(correction.text, "Long Putt: Adi 1st");
+    assert.equal(correctionMoment(state, allEventsOf(state), at + TV_CORRECTION_MS + 1), null);
+    const lead = { at, leader:{ players:["Adi"], pts:1400 } };
+    assert.equal(dockCard({ now:at + 1000, lead, correction }).kind, "correction");
+    assert.equal(dockCard({ now:correction.until + 10, lead, correction }).kind, "lead");
+    assert.equal(dockCard({ now:at + 1000, lead, holdUntil:at + 5000 }), null, "waits out the advance moment");
+    assert.equal(dockCard({ now:at + 5000 + TV_LEAD_CHANGE_MS + 1, lead, holdUntil:at + 5000 }), null);
+    const tv = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
+    assert.ok(!tv.includes("tv-leadchange-float"), "docked, never floating over the rail");
+  } finally { restore(); }
+});
+
+test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances carry context", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) }, gm(false));
+  const ev = evOf(state, "8ball");
+  const contest = resolveCurrentContest(state, ev);
+  const side = contest.sides[0];
+  const bettor = ROSTER.find(p => !contest.players.includes(p));
+  const wager = { kind:"match", eventId:"8ball", contestId:contest.id, contestRevision:contest.revision, stake:100,
+    drawId:contest.drawId, match:[...contest.match], matchName:contest.label, teamIdx:side.key,
+    pickPlayers:side.players, pickTeam:true, pick:"x" };
+  for (const id of ["w1", "w2"]) {
+    const r = applyAction(state, "placeWager", { wager }, { player:bettor, deviceId:`d-${bettor}`, actionId:id });
+    assert.equal(r.ok, true, r.error);
+  }
+  const riders = contestRiders(state, allEventsOf(state), contest).get(side.key);
+  assert.deepEqual(riders.riders, [{ player:bettor, stake:200 }]);
+  assert.equal(riders.total, 200);
+  const html = renderTv(state, { showControl:false });
+  assert.ok(html.includes(`${bettor} 200`));
+  assert.ok(html.includes("Winner pays 1:1") && !/ to 1\b|even/.test(html.replace(/<[^>]*>/g, " ")));
+  act(state, "lockAndStart", { evId:"8ball", ...ref(state, "8ball") }, gm(false));
+  act(state, "recordContestWinner", { evId:"8ball", winner:side.key, ...ref(state, "8ball") }, gm(false));
+  const moment = advanceMoment(state, ev, state.eventOps["8ball"].lastContest.decidedAt + 500);
+  assert.equal(moment.verb, "Advance", "a pair advances");
+  assert.match(moment.detail, /^beat .+ · Semifinals next$/);
+  const volley = structuredClone(EMPTY_STATE);
+  act(volley, "announceAndDraw", { evId:"volley", players:ROSTER.slice(0, 12) }, gm(false));
+  const vhtml = renderTv(volley, { showControl:false });
+  assert.ok(vhtml.includes("is-h2h"));
+  assert.ok(vhtml.includes("Winner pays 1:1"), "two teams pay 1:1, even as a free-for-all");
+  const names = [...vhtml.matchAll(/class="tv-side-name">([^<]*)</g)].map(m => m[1]);
+  assert.equal(names.length, 2);
+  assert.ok(names.every(name => !name.includes("&amp;")), names.join("|"));
+});
+
+test("T20/T21: champion, progress, race, duels, and spotlight models", () => {
+  const state = puttPosted(false);
+  act(state, "setFrozen", { f:true }, gm(false));
+  const standings = computeStandings(state);
+  const view = championView(state, allEventsOf(state), standings);
+  assert.deepEqual(view.players, ["Evan"]);
+  assert.deepEqual(view.plates, [{ eventId:"putt", name:"Long Putt", winner:"Evan" }]);
+  assert.equal(view.path[0].label, "1st Long Putt");
+  assert.equal(readableInk("#E39A3B"), "var(--ink0)");
+  assert.equal(readableInk("#2F7E83"), "var(--bone)");
+  const html = renderTv(state, { showControl:false });
+  assert.ok(html.includes("tv-champ") && html.includes(">Final<"));
+  assert.ok(!html.includes("tv-ticker") && !html.includes("is-live"), "final: no ticker, no pulsing dot");
+  const progress = weekendProgress(state, allEventsOf(state));
+  assert.equal(progress.find(row => row.id === "putt").status, "done");
+  assert.deepEqual(progress.find(row => row.id === "putt").winners, ["Evan"]);
+  assert.equal(stackRace(standings)[0].share, 1);
+  state.duels = [{ id:"d", from:"Adi", to:"Evan", stake:100, status:"open", ts:1,
+    runs:{ Adi:{ ms:250, ts:2 }, Evan:{ ms:300, ts:3 } } }];
+  const duels = duelBoard(state);
+  assert.equal(duels.records[0].player, "Adi");
+  assert.equal(duels.recent[0].winner, "Adi");
+  state.profiles = { Adi:{ display:"Adi" }, Evan:{ display:"Evan" } };
+  assert.notEqual(spotlightPlayer(state, 0, 1000), spotlightPlayer(state, 1000, 1000));
+});
+
+test("T22: latest by original post, rulings the room hears, crash board and Exit on the canvas", () => {
+  const events = allEventsOf(EMPTY_STATE);
+  const state = { ...structuredClone(EMPTY_STATE), results:{
+    putt:{ slots:[["Evan"]], ts:100, confirmedAt:100 },
+    nine:{ slots:[["Adi"]], ts:300, confirmedAt:50, correctedAt:300, revision:2 } } };
+  assert.equal(latestResultOf(state, events).ev.id, "putt", "a correction does not make an old event latest");
+  state.adjustments = [{ id:"g", player:"Adi", delta:100, reason:"Minimum stack" },
+    { id:"r", player:"Evan", delta:100, reason:"Spirit", removedAt:5 }, { id:"ok", player:"Khoa", delta:-100, reason:"Late" }];
+  assert.equal(tickerRuling(state).id, "ok");
+  const boundary = readFileSync(new URL("../src/ui/AppErrorBoundary.jsx", import.meta.url), "utf8");
+  assert.ok(boundary.includes("tvCanvasFit") && boundary.includes("data-tv-canvas"));
+  const tv = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
+  assert.ok(tv.includes("is-idle"), "Exit TV hides when the pointer is idle");
 });

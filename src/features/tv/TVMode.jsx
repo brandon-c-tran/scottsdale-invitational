@@ -1,20 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, wagerMult,
-  disp, teamLabel, snakeTeam, resolveWager, resolveCurrentContest, wagerMatchesContest,
-  resolveWeekendOperation, pokerClock, pokerDenoms, stageEntrantView,
+  ROSTER, wagerMult, disp, snakeTeam, resolveWager, resolveCurrentContest, resolveWeekendOperation,
+  pokerClock, pokerDenoms,
 } from "../../../shared/core.js";
 import { resolveShowScene } from "../../../shared/show.js";
-import { Avatar, AvatarStack, BetChipCluster } from "../identity/PlayerIdentity.jsx";
+import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { wagerPickLabel, mergeWagerLines } from "../wagers/Wagers.jsx";
 import {
-  TV_LEAD_CHANGE_MS, fmt, signed, mmss, editionLabel, payoutLine, tvCanvasFit, tvSceneView, ambientIndex,
-  nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor, advanceMoment,
-  bracketStrip, pokerTableRows, tvConnection, tickerItems,
+  fmt, signed, mmss, editionLabel, payoutLine, oddsLine, phaseBand, placeName, sessionLabel,
+  tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS,
+  tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
+  advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView, contestRiders,
+  ridersText, pokerTableRows, pokerSeats, tvConnection, tickerItems, tickerPage, tvBusy, championView,
+  duelBoard, spotlightPlayer,
 } from "./tvModel.js";
+import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
+import {
+  ChampionMoment, TVBracket, StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
+} from "./TVCards.jsx";
 import { useServerNow } from "./serverClock.js";
 import "./tv.css";
 
@@ -33,116 +39,55 @@ function useCanvasFit() {
   return fit;
 }
 
+/* Exit TV is for whoever is holding the remote: it hides once the pointer
+   has been still, and any pointer, touch, or key brings it back */
+const EXIT_IDLE_MS = 3000;
+function usePointerActive() {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    let t = setTimeout(() => setActive(false), EXIT_IDLE_MS);
+    const wake = () => {
+      setActive(true);
+      clearTimeout(t);
+      t = setTimeout(() => setActive(false), EXIT_IDLE_MS);
+    };
+    const kinds = ["pointermove", "pointerdown", "touchstart", "keydown"];
+    kinds.forEach(kind => window.addEventListener(kind, wake, { passive:true }));
+    return () => { clearTimeout(t); kinds.forEach(kind => window.removeEventListener(kind, wake)); };
+  }, []);
+  return active;
+}
+
+/* a display size that fits a name's longest word into its column */
+const fitDisplay = (text, max, width) => {
+  const longest = Math.max(4, ...String(text || "").split(/\s+/).map(word => word.length));
+  return Math.max(40, Math.min(max, Math.floor(width / (longest * 0.5))));
+};
+
 const Move = ({ delta, className = "tv-move" }) => !delta ? <span className={className} /> : (
   <span className={`${className} ${delta > 0 ? "is-up" : "is-down"}`}
     aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)}`}>
     {delta > 0 ? "▲" : "▼"}{Math.abs(delta)}</span>
 );
 
-/* ─────────── the prize ───────────
-   An actually-turned trophy: every part is a real solid of revolution built
-   from a ring of facets, back faces culled. Flat facet tones, no glow. */
-function trophyRing({ key, topR, botR, h, yTop, n, hue, lo = 0.72 }) {
-  const slant = Math.hypot(h, topR - botR);
-  const tilt = Math.atan2(topR - botR, h) * 180 / Math.PI;
-  const wTop = 2 * topR * Math.tan(Math.PI / n) + 0.6;
-  const wBot = 2 * botR * Math.tan(Math.PI / n) + 0.6;
-  const w = Math.max(wTop, wBot);
-  const rMid = (topR + botR) / 2;
-  const inset = t => 50 - 50 * (t / w);
-  return Array.from({ length:n }, (_, i) => {
-    const mix = Math.round(100 - (100 - lo * 100) * (1 - Math.cos(i * 2 * Math.PI / n)) / 2);
-    return (
-      <div key={`${key}${i}`} style={{
-        position:"absolute", left:"50%", top:0, width:w, height:slant, marginLeft:-w / 2,
-        backgroundColor:`var(${hue})`,
-        background:`color-mix(in srgb, var(${hue}) ${mix}%, var(--ink0))`,
-        backfaceVisibility:"hidden",
-        clipPath:`polygon(${inset(wTop)}% 0%, ${100 - inset(wTop)}% 0%, ${100 - inset(wBot)}% 100%, ${inset(wBot)}% 100%)`,
-        transform:`translateY(${yTop + h / 2 - slant / 2}px) rotateY(${i * 360 / n}deg) `
-          + `translateZ(${rMid}px) rotateX(${-tilt}deg)`,
-      }} />
-    );
-  });
-}
-function TrophyHero({ size = 190, plate = "FIELD DAY" }) {
-  const S = size;
-  const cupTop = 0.27 * S, cupBot = 0.115 * S;
-  const parts = [
-    { key:"rim",  topR:0.285 * S, botR:0.275 * S, h:0.045 * S, yTop:0.04 * S, n:20, hue:"--sun", lo:0.8 },
-    { key:"cup",  topR:cupTop,    botR:cupBot,    h:0.29 * S,  yTop:0.085 * S, n:20, hue:"--sun" },
-    { key:"neck", topR:cupBot,    botR:0.045 * S, h:0.045 * S, yTop:0.375 * S, n:16, hue:"--sun", lo:0.62 },
-    { key:"stem", topR:0.042 * S, botR:0.042 * S, h:0.115 * S, yTop:0.42 * S,  n:14, hue:"--sun", lo:0.6 },
-    { key:"coll", topR:0.05 * S,  botR:0.15 * S,  h:0.05 * S,  yTop:0.535 * S, n:18, hue:"--sun", lo:0.68 },
-    { key:"base", topR:0.16 * S,  botR:0.16 * S,  h:0.045 * S, yTop:0.585 * S, n:20, hue:"--sun", lo:0.7 },
-    { key:"blk",  topR:0.185 * S, botR:0.185 * S, h:0.1 * S,   yTop:0.63 * S,  n:22, hue:"--accent", lo:0.66 },
-  ];
-  return (
-    <div style={{ width:S, height:S * 0.82, perspective:5.5 * S, flexShrink:0 }} aria-hidden="true">
-      <div data-trophy style={{ position:"relative", width:"100%", height:"100%", transformStyle:"preserve-3d",
-        transform:"rotateX(-8deg)", animation:"si-trophy 16s linear infinite" }}>
-        {parts.map(p => trophyRing(p))}
-        <div style={{ position:"absolute", left:"50%", top:0, width:0.55 * S, height:0.55 * S,
-          marginLeft:-0.275 * S, borderRadius:"50%", backgroundColor:"var(--ink0)",
-          transform:`translateY(${0.045 * S - 0.275 * S}px) rotateX(90deg)` }} />
-        {[1, -1].map(dir => (
-          <svg key={dir} width={S} height={S * 0.82} viewBox="0 0 100 82"
-            style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
-              fill="none" stroke="var(--ink0)" strokeWidth="6.4" strokeLinecap="round"/>
-            <path d={dir > 0 ? "M27 13 Q10 18 14 30 Q17 39 29 40" : "M73 13 Q90 18 86 30 Q83 39 71 40"}
-              fill="none" stroke="var(--sun)" strokeWidth="3.4" strokeLinecap="round"/>
-          </svg>
-        ))}
-        {[0, 180].map(deg => (
-          <div key={deg} style={{ position:"absolute", left:"50%", top:0, width:0.3 * S, height:0.1 * S,
-            marginLeft:-0.15 * S, display:"flex", alignItems:"center", justifyContent:"center",
-            backfaceVisibility:"hidden", fontFamily:"var(--fd-display)", fontWeight:700, fontSize:0.052 * S,
-            letterSpacing:"0.06em", color:"var(--bone)", whiteSpace:"nowrap",
-            transform:`translateY(${0.63 * S}px) rotateY(${deg}deg) translateZ(${0.187 * S}px)` }}>
-            {plate}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* the champion card: the same leader(s) phones crown, in chips */
-function ChampionCard({ state, champion, coChamps }) {
-  return (
-    <div className="tv-champion">
-      <div style={{ display:"flex", justifyContent:"center", margin:"-24px 0 -10px" }}>
-        <TrophyHero size={250} plate="FIELD DAY" />
-      </div>
-      <div style={{ display:"flex", justifyContent:"center", gap:14, marginBottom:16 }}>
-        {coChamps.map(c => <Avatar key={c.player} state={state} p={c.player} size={120}
-          style={{ border:"3px solid var(--sun)" }} />)}
-      </div>
-      <div className="tv-champion-tag">Champion</div>
-      <div className="tv-champion-name">{coChamps.map(c => disp(state, c.player)).join(" & ")}</div>
-      <div className="tv-body">{fmt(champion.pts)} chips</div>
-      {coChamps.length > 1 && <div className="tv-body" style={{ marginTop:8 }}>
-        Tied. One pressure putt decides it.</div>}
-    </div>
-  );
-}
-
-function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt }) {
+function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt, final, dock }) {
   const offline = connection.mode === "reconnecting";
   const since = lastUpdateAt ? new Date(lastUpdateAt).toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }) : null;
   return (
     <header className="tv-mast">
       <FDMark size={64} variant="night" />
       <div className="tv-display tv-mast-title">Field Day</div>
-      <div className="tv-mast-edition">{editionLabel()}</div>
+      {!dock && <div className="tv-mast-edition">{editionLabel()}</div>}
       {offline ? (
         <span className="tv-status is-offline" role="status"><i />
           {since ? `Reconnecting · last update ${since}` : "Reconnecting"}</span>
+      ) : final ? (
+        <span className="tv-status is-final">Final</span>
       ) : (
         <span className={`tv-status${state.live ? " is-live" : ""}`}><i />
           {state.live ? "Weekend live" : "Check-in"}</span>
       )}
-      {showOnDeck && onDeckEv && (
+      {dock ? <div className="tv-dock">{dock}</div> : showOnDeck && onDeckEv && (
         <div className="tv-ondeck">
           <span className="tv-label" style={{ color:"var(--live2)" }}>Betting open</span>
           <b>{onDeckEv.name}</b>
@@ -152,20 +97,31 @@ function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt }) {
   );
 }
 
-function Ticker({ state, items }) {
+function TickerItem({ state, it }) {
+  return (
+    <span className="tv-ticker-item">
+      <span className="tv-ticker-tag" style={{ background:it.tone }}>{it.tag}</span>
+      {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={34} />)}
+      <span className="tv-ticker-text">{it.text}</span>
+    </span>
+  );
+}
+/* scrolling normally; reduced motion cuts between pages on the server clock */
+function Ticker({ state, items, reducedMotion, now }) {
+  if (reducedMotion) {
+    const page = tickerPage(items, now);
+    return (
+      <div className="tv-ticker is-paged" aria-label={`Ticker, page ${page.index + 1} of ${page.pages}`}>
+        {page.items.map((it, i) => <TickerItem key={`${page.index}-${i}`} state={state} it={it} />)}
+      </div>
+    );
+  }
   return (
     <div className="tv-ticker">
       <div className="tv-ticker-track" style={{ animationDuration:`${Math.max(28, items.length * 10)}s` }}>
         {[0, 1].map(k => (
           <span key={k} style={{ display:"inline-flex", alignItems:"center" }} aria-hidden={k === 1 || undefined}>
-            {items.map((it, i) => (
-              <span key={i} className="tv-ticker-item">
-                <span className={`tv-ticker-tag${it.tone === "var(--sun)" ? " on-sun" : ""}`}
-                  style={{ background:it.tone }}>{it.tag}</span>
-                {(it.players || []).map(p => <Avatar key={p} state={state} p={p} size={34} />)}
-                <span className="tv-ticker-text">{it.text}</span>
-              </span>
-            ))}
+            {items.map((it, i) => <TickerItem key={i} state={state} it={it} />)}
           </span>
         ))}
       </div>
@@ -215,20 +171,31 @@ function StandingsBoard({ state, standings, allTied, rankDeltas = {}, title }) {
 }
 
 /* compact standings rail beside a live event; during poker it lists the
-   dealt starting chips and marks busted seats */
+   seated players' dealt starting chips, busts marked, and anyone away apart */
 function Rail({ state, standings, allTied, rankDeltas = {}, poker = null }) {
   if (poker) {
     const rows = pokerTableRows(state, standings);
+    const seated = rows.filter(r => !r.away), away = rows.filter(r => r.away);
     return (
       <aside className="tv-rail">
         <div className="tv-rail-head tv-label">Starting chips</div>
-        {rows.map(r => (
+        {seated.map(r => (
           <div key={r.player} className={`tv-rail-row${r.busted ? " is-out" : ""}`}>
             <Avatar state={state} p={r.player} size={36} />
             <span className="tv-name">{disp(state, r.player)}</span>
             {r.busted ? <span className="tv-out-tag">Out</span> : <span className="tv-pts">{fmt(r.starting)}</span>}
           </div>
         ))}
+        {away.length > 0 && <>
+          <div className="tv-rail-head tv-label is-sub">Away</div>
+          {away.map(r => (
+            <div key={r.player} className="tv-rail-row is-away">
+              <Avatar state={state} p={r.player} size={36} />
+              <span className="tv-name">{disp(state, r.player)}</span>
+              <span className="tv-away-tag">Away</span>
+            </div>
+          ))}
+        </>}
       </aside>
     );
   }
@@ -248,90 +215,64 @@ function Rail({ state, standings, allTied, rankDeltas = {}, poker = null }) {
   );
 }
 
-/* the current contest, large, with the chips riding each side. A bracket
+/* The current contest, large: every side's faces and name, and a readable
+   list of who rides it. Any two-sided contest is a head-to-head. A bracket
    match IS the up-now banner: gold outline, round named once. */
 function ContestBoard({ state, events, ev, contest }) {
-  const open = (state.wagers || []).filter(w => wagerMatchesContest(w, contest)
-    && resolveWager(state, w, events).status === "pending");
-  const keyOf = w => contest.kind === "match" ? w.teamIdx : contest.kind === "ffa"
-    ? (w.pickTeam ? contest.sides.find(side => side.players.length === w.pickPlayers?.length
-      && side.players.every(p => w.pickPlayers.includes(p)))?.key : w.pick) : w.pickKey;
+  const riders = contestRiders(state, events, contest);
   const betting = contest.phase === "betting-open";
   const n = contest.sides.length;
+  const h2h = n === 2;
   const compact = n > 4;
-  const cols = n === 2 ? "1fr auto 1fr" : n <= 4 ? "1fr 1fr" : n <= 9 ? "repeat(3,1fr)" : "repeat(4,1fr)";
+  const cols = h2h ? "1fr auto 1fr" : n <= 6 ? "1fr 1fr" : n <= 9 ? "repeat(3,1fr)" : "repeat(4,1fr)";
   const upNow = contest.kind === "match";
+  const faceSize = count => h2h ? (count > 3 ? 72 : 120) : compact ? (n > 9 ? 52 : 64) : 96;
   const cards = contest.sides.map(side => {
-    const bets = open.filter(w => keyOf(w) === side.key);
-    const total = bets.reduce((sum, w) => sum + w.stake, 0);
+    const view = contestSideView(state, ev, contest, side);
+    const ride = riders.get(side.key) || { riders:[], total:0 };
     return (
       <div key={String(side.key)} className="tv-side">
-        <AvatarStack state={state} players={side.players} size={compact ? 44 : 64} max={4} />
-        <div className="tv-side-name">{side.players.map(p => disp(state, p)).join(" & ")}</div>
-        <BetChipCluster chips={bets.map(w => ({ p:w.player, val:w.stake }))} size={compact ? 36 : 52} max={5} />
-        <div className="tv-side-total">{total ? `${fmt(total)} in chips` : "No chips yet"}</div>
+        <div className="tv-side-top">
+          <div className="tv-side-faces">
+            {view.players.map(p => <Avatar key={p} state={state} p={p} size={faceSize(view.players.length)} />)}
+          </div>
+          <div className="tv-side-name">{view.name}</div>
+        </div>
+        <div className="tv-side-bets">
+          {ride.riders.length
+            ? <><span className="tv-side-riders">{ridersText(state, ride.riders, h2h ? 6 : compact ? 2 : 3)}</span>
+              <span className="tv-side-total">{fmt(ride.total)}</span></>
+            : <span className="tv-side-riders is-empty">{betting ? "No chips yet" : "No bets"}</span>}
+        </div>
       </div>
     );
   });
+  const head = upNow ? `Up now · ${contest.label}` : contest.label !== ev.name ? contest.label : null;
   return (
     <div className={`tv-contest${upNow ? " is-up-now" : ""}`}>
-      <div className="tv-display tv-contest-head">{upNow ? `Up now · ${contest.label}` : contest.label}</div>
-      <div className={`tv-sides${compact ? " is-compact" : ""}`} style={{ gridTemplateColumns:cols }}>
-        {n === 2 ? [cards[0], <div key="vs" className="tv-vs">VS</div>, cards[1]] : cards}
+      {head && <div className="tv-display tv-contest-head">{head}</div>}
+      <div className={`tv-sides${compact ? " is-compact" : ""}${h2h ? " is-h2h" : ""}`} style={{ gridTemplateColumns:cols }}>
+        {h2h ? [cards[0], <div key="vs" className="tv-vs">VS</div>, cards[1]] : cards}
       </div>
-      <div className="tv-contest-foot">{betting ? "Betting open" : "Bets locked"} · Winner pays {contest.kind === "ffa" ? "2 to 1" : "1 to 1"}</div>
+      <div className="tv-contest-foot">{betting ? "Betting open" : "Bets locked"} · {oddsLine(contest)}</div>
     </div>
   );
 }
 
-function BracketStrip({ state, ev, hot }) {
-  const rounds = bracketStrip(state, ev, hot);
-  if (!rounds) return null;
+/* a finished bracket or stage waiting on its official result: the room sees
+   who won it and the whole draw, never the commissioner's next step */
+function DecidedWinner({ state, ev, winner }) {
+  const plural = winner.players.length > 1;
   return (
-    <div className="tv-strip" aria-label="Bracket">
-      {rounds.map(round => (
-        <div key={round.name} className="tv-strip-round">
-          <div className="tv-label">{round.name}</div>
-          <div className="tv-strip-matches">
-            {round.matches.map(match => (
-              <div key={match.key} className={`tv-strip-match${match.hot ? " is-hot" : ""}`}>
-                {match.sides.map((side, i) => (
-                  <div key={i} className={`tv-strip-side${side.won ? " is-won" : side.lost ? " is-lost" : ""}`}>
-                    {side.players.length
-                      ? <AvatarStack state={state} players={side.players} size={30} max={3} />
-                      : <span className="tv-label">TBD</span>}
-                    {side.won && <span className="tv-label">Won</span>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+    <div className="tv-decided">
+      <div className="tv-decided-winner">
+        <div className="tv-side-faces">
+          {winner.players.map(p => <Avatar key={p} state={state} p={p} size={112} ring />)}
         </div>
-      ))}
-    </div>
-  );
-}
-
-function StageStrip({ state, ev }) {
-  const st = state.stages?.[ev.id];
-  if (!st) return null;
-  return (
-    <div className="tv-strip" aria-label={st.kind === "heats" ? "Heats" : "Pools"}>
-      {st.groups.map((group, gi) => (
-        <div key={gi} className="tv-strip-round">
-          <div className="tv-label">{group.name}</div>
-          <div className="tv-strip-match">
-            <div className="tv-strip-side">
-              {group.entrants.map(key => {
-                const view = stageEntrantView(state, st, key);
-                const through = (group.through || []).includes(key);
-                return <span key={String(key)} style={{ opacity:group.through?.length && !through ? 0.35 : 1 }}>
-                  <AvatarStack state={state} players={view.players} size={30} max={2} /></span>;
-              })}
-            </div>
-          </div>
-        </div>
-      ))}
+        <div className="tv-display tv-decided-name">{winner.name}</div>
+        <div className="tv-display tv-decided-stamp">{plural ? "Win" : "Wins"}</div>
+      </div>
+      {state.brackets?.[ev.id] ? <TVBracket state={state} ev={ev} size="full" /> : <StageGroups state={state} ev={ev} />}
     </div>
   );
 }
@@ -345,6 +286,7 @@ function AdvanceMoment({ state, moment }) {
       </div>
       <div className="tv-display tv-advance-name">{moment.name}</div>
       <div key={moment.id} className="tv-display tv-advance-stamp">{moment.verb}</div>
+      {moment.detail && <div className="tv-advance-detail">{moment.detail}</div>}
     </div>
   );
 }
@@ -357,11 +299,53 @@ function LeadChange({ state, leader, previous }) {
       <AvatarStack state={state} players={leader.players} size={48} max={3} />
       <b>{names.join(" and ")} {names.length > 1 ? "lead" : "leads"} · {fmt(leader.pts)}</b>
       {previous && (
-        <span className="tv-prev">
+        <span className="tv-prev" aria-label={`Previously ${previous.players.map(p => disp(state, p)).join(" and ")}`}>
           <AvatarStack state={state} players={previous.players} size={36} max={2} />
-          {previous.players.map(p => disp(state, p)).join(" and ")}
         </span>
       )}
+    </div>
+  );
+}
+function CorrectionCard({ state, correction }) {
+  return (
+    <div className="tv-correction" role="status">
+      <AvatarStack state={state} players={correction.players} size={44} max={3} />
+      <b>Corrected · {correction.text}</b>
+    </div>
+  );
+}
+
+/* one podium place: a single side large, a split place stacked, a wide tie
+   counted */
+function PodiumPlace({ state, item }) {
+  const first = item.place === 1;
+  const width = first ? 620 : 470;
+  const single = item.groups.length === 1;
+  const wide = item.groups.length > 3;
+  const face = first ? (item.players.length > 2 ? 120 : 220) : item.players.length > 2 ? 84 : 140;
+  return (
+    <div className={`tv-place${first ? " is-first" : ""}`}>
+      <div className="tv-place-rank">{placeName(item.place)}</div>
+      {single || wide ? <>
+        <div className="tv-place-faces">
+          {item.players.map(p => <Avatar key={p} state={state} p={p} size={wide ? 64 : face} ring={first} />)}
+        </div>
+        <div className="tv-display tv-place-name"
+          style={{ fontSize:fitDisplay(item.names[0], first ? 120 : 64, width) }}>{item.names[0]}</div>
+      </> : (
+        <div className="tv-place-split">
+          {item.groups.map(group => (
+            <div key={group.name} className="tv-place-group">
+              <div className="tv-side-faces">
+                {group.players.map(p => <Avatar key={p} state={state} p={p} size={first ? 96 : 64} />)}</div>
+              <div className="tv-display tv-place-group-name">{group.name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {item.amount ? <div className="tv-place-amount">
+        {item.unit === "stack" ? `${fmt(item.amount)} chips` : `+${fmt(item.amount)}${item.players.length > 1 ? " each" : ""}`}
+      </div> : null}
     </div>
   );
 }
@@ -372,29 +356,24 @@ const ROW_STEP = 60;
    into the event award and the bets on it (poker: final stacks). */
 function ResultSequence({ state, model, phase, directedStep = null }) {
   if (!model) return null;
-  const unitText = item => item.unit === "stack" ? `${fmt(item.amount)} chips`
-    : item.amount ? `+${fmt(item.amount)}${item.players.length > 1 ? " each" : ""}` : "";
   if (phase.phase === "podium") {
     const shown = new Set(model.revealOrder.slice(0, Math.min(model.revealOrder.length, phase.revealed)).map(p => p.place));
     const at = place => model.podium.find(item => item.place === place);
     return (
-      <div className="tv-pane" style={{ paddingBottom:10 }}>
-        <div className="tv-label" style={{ color:"var(--sun)", textAlign:"center" }}>
-          Final · {model.eventName}{model.kind === "stacks" ? " · final stacks" : ""}</div>
+      <div className="tv-pane tv-result">
+        <div className="tv-result-band" style={{ background:phaseBand({ session:model.session }) }} />
+        <div className="tv-result-head">
+          <GameMark id={model.game} size={96} />
+          <div>
+            <div className="tv-label" style={{ color:"var(--sun)" }}>Final{model.kind === "stacks" ? " · final stacks" : ""}</div>
+            <div className="tv-display tv-result-name">{model.eventName}</div>
+          </div>
+        </div>
         <div className="tv-podium">
           {[2, 1, 3].map(place => {
             const item = at(place);
             if (!item || !shown.has(place)) return <div key={place} className="tv-place-slot" />;
-            return (
-              <div key={place} className={`tv-place${place === 1 ? " is-first" : ""}`}>
-                <div className="tv-label">{place === 1 ? "1st" : place === 2 ? "2nd" : "3rd"}</div>
-                <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
-                  {item.players.map(p => <Avatar key={p} state={state} p={p} size={place === 1 ? 128 : 92} ring={place === 1} />)}
-                </div>
-                <div className="tv-display tv-place-name">{teamLabel(state, { players:item.players })}</div>
-                {unitText(item) && <div className="tv-place-amount">{unitText(item)}</div>}
-              </div>
-            );
+            return <PodiumPlace key={place} state={state} item={item} />;
           })}
         </div>
       </div>
@@ -418,14 +397,14 @@ function ResultSequence({ state, model, phase, directedStep = null }) {
           const pts = phase.sorted ? row.after : row.before;
           const rank = phase.sorted ? row.rankAfter : row.rankBefore;
           return (
-            <div key={row.player} className={`tv-move-row${phase.sorted && leaderSet.has(row.player) ? " is-lead" : ""}${row.busted ? " is-out" : ""}`}
+            <div key={row.player} className={`tv-move-row${phase.sorted && leaderSet.has(row.player) ? " is-lead" : ""}${row.busted ? " is-out" : ""}${row.away ? " is-away" : ""}`}
               style={{ top:index * ROW_STEP }}>
               <span className="tv-rank">{rank}</span>
               {phase.sorted ? <Move delta={row.move} /> : <span className="tv-move" />}
               <Avatar state={state} p={row.player} size={40} />
               <span className="tv-name">{disp(state, row.player)}</span>
               {model.kind === "stacks" ? (
-                <span className="tv-split">{row.busted ? "Busted" : `Started ${fmt(row.before)}`}</span>
+                <span className="tv-split">{row.away ? "Away" : row.busted ? "Busted" : `Started ${fmt(row.before)}`}</span>
               ) : (<>
                 <span className="tv-split">{row.award ? <>Event <b>{signed(row.award)}</b></> : null}</span>
                 <span className="tv-split">{row.bets ? <>Bets <b>{signed(row.bets)}</b></> : null}</span>
@@ -439,22 +418,12 @@ function ResultSequence({ state, model, phase, directedStep = null }) {
   );
 }
 
-function IntroOverlay({ ev, EventSpotlight, phaseOf }) {
-  const ph = phaseOf ? phaseOf(ev) : { bg:"var(--sun)" };
-  return (
-    <div className="tv-intro fd-night" role="status" aria-label={`Up next: ${ev.name}`}>
-      <div className="tv-intro-band" style={{ background:ph.bg }} />
-      <div className="tv-label" style={{ color:"var(--sun)" }}>Up next · {payoutLine(ev)}</div>
-      {EventSpotlight ? <EventSpotlight gameId={ev.game} big /> : <GameMark id={ev.game} size={200} />}
-      <div className="tv-display tv-intro-name">{ev.name}</div>
-    </div>
-  );
-}
-
 function TVPoker({ state, standings, now }) {
   const pk = state.poker;
   if (!pk) return null;
   if (!pk.startedAt) {
+    const rows = pokerTableRows(state, standings);
+    const away = rows.filter(r => r.away);
     return (
       <div className="tv-pane">
         <div style={{ display:"flex", alignItems:"center", gap:24, marginBottom:18 }}>
@@ -469,7 +438,7 @@ function TVPoker({ state, standings, now }) {
           </div>
         </div>
         <div className="tv-buyin-grid">
-          {pokerTableRows(state, standings).map(r => {
+          {rows.filter(r => !r.away).map(r => {
             const d = pokerDenoms(r.starting);
             return (
               <div key={r.player} className="tv-buyin-cell">
@@ -483,6 +452,13 @@ function TVPoker({ state, standings, now }) {
             );
           })}
         </div>
+        {away.length > 0 && (
+          <div className="tv-away-group">
+            <span className="tv-label">Away</span>
+            {away.map(r => <span key={r.player} className="tv-away-name">
+              <Avatar state={state} p={r.player} size={40} />{disp(state, r.player)}</span>)}
+          </div>
+        )}
       </div>
     );
   }
@@ -499,7 +475,7 @@ function TVPoker({ state, standings, now }) {
         <div className={`tv-clock${!clk.paused && !clk.final && clk.msLeft < 60000 ? " is-late" : ""}`}>
           {clk.paused ? "Paused" : clk.final ? "Final level" : mmss(clk.msLeft)}</div>
         {clk.paused && <div className="tv-body">{mmss(clk.msLeft)} left in this level</div>}
-        <div className="tv-body">{(pk.seats || ROSTER).length - pk.outs.length} still in</div>
+        <div className="tv-body">{pokerSeats(pk).length - pk.outs.length} still in</div>
       </div>
       <Rail state={state} standings={standings} poker />
     </>
@@ -577,13 +553,14 @@ function DirectedScene({ state, events, scene, now, standings, rankDeltas, reduc
     return <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={false}
       rankDeltas={rankDeltas} title="Standings" /></div>;
   if (kind === "champion") {
-    const coChamps = scene.standings.filter(row => row.rank === 1);
-    return <div className="tv-pane tv-center"><ChampionCard state={state} champion={scene.standings[0]} coChamps={coChamps} /></div>;
+    const view = championView(state, events, scene.standings);
+    return view ? <ChampionMoment state={state} view={view} /> : null;
   }
   if (kind === "opening") {
+    if (scene.stepKey === "room") return <RosterWall state={state} />;
     return (
       <div className="tv-pane tv-center">
-        <FDMark size={scene.stepKey === "title" ? 150 : 120} variant="night" />
+        <FDMark size={150} variant="night" />
         <div className="tv-display" style={{ fontSize:170, lineHeight:0.82, color:"var(--sun)", marginTop:26 }}>Field Day</div>
         <div className="tv-mast-edition" style={{ fontSize:32, marginTop:22 }}>{editionLabel()}</div>
       </div>
@@ -598,15 +575,32 @@ function DirectedScene({ state, events, scene, now, standings, rankDeltas, reduc
   return null;
 }
 
+function NextUpCard({ ev }) {
+  const session = sessionLabel(ev);
+  return (
+    <div className="tv-pane tv-center">
+      <div className="tv-label" style={{ marginBottom:18 }}>Next up</div>
+      <GameMark id={ev.game} size={130} />
+      <div className="tv-next-card">
+        <div className="tv-next-band" style={{ background:phaseBand(ev) }} />
+        <div className="tv-display tv-next-name">{ev.name}</div>
+        <div className="tv-next-facts">{[session, payoutLine(ev)].filter(Boolean).join(" · ")}</div>
+      </div>
+      {ev.desc && <div className="tv-body" style={{ marginTop:22, maxWidth:1100 }}>{ev.desc}</div>}
+    </div>
+  );
+}
+
 /* ═════════════ the TV ═════════════ */
-function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamps, showControlEnabled,
-  rankDeltas = {}, connection: connectionInput = {}, onExit, EventSpotlight, phaseOf, now: nowOverride }) {
+function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, champion, coChamps, showControlEnabled,
+  rankDeltas = {}, connection: connectionInput = {}, onExit, EventSpotlight, ceremony = null, now: nowOverride }) {
   const tickNow = useServerNow(nowOverride === undefined ? 1000 : 0);
   const now = nowOverride ?? tickNow;
   const fit = useCanvasFit();
   const reducedMotion = reducedMotionNow();
   const connection = tvConnection(connectionInput);
   const lastUpdateAt = useLastUpdate(connectionInput.version);
+  const pointerActive = usePointerActive();
 
   const operation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   const showScene = useMemo(() => showControlEnabled ? resolveShowScene(state, events) : null,
@@ -614,26 +608,19 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const sceneView = tvSceneView(showScene, now);
   const operationEv = operation.event;
   const operationLifecycle = operation.lifecycle;
+  /* a shelved event is never on deck or live, whatever the prop says */
+  const onDeckEv = onDeckInput && !state.shelved?.[onDeckInput.id] ? onDeckInput : null;
 
-  const liveBracketEv = useMemo(() => {
-    const c = events.filter(e => state.brackets[e.id] && state.draws[e.id] && !state.results[e.id]);
-    if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
-    return c[0] || null;
-  }, [events, state, onDeckEv]);
-  const liveStageEv = useMemo(() => {
-    const c = events.filter(e => state.stages[e.id] && !state.results[e.id]);
-    if (onDeckEv && c.find(e => e.id === onDeckEv.id)) return onDeckEv;
-    return c[0] || null;
-  }, [events, state, onDeckEv]);
   const draftLive = useMemo(() => {
     for (const [eid, d] of Object.entries(state.drafts || {})) {
       const ev = events.find(e => e.id === eid);
-      if (ev && d) return { ev, d };
+      if (ev && d && !state.shelved?.[eid] && !state.results?.[eid]) return { ev, d };
     }
     return null;
-  }, [state.drafts, events]);
+  }, [state.drafts, state.shelved, state.results, events]);
   const latest = useMemo(() => latestResultOf(state, events), [state, events]);
-  const nextEv = events.find(e => !state.results[e.id] && !state.shelved[e.id] && e.id !== operationEv?.id);
+  const liveEv = useMemo(() => tvLiveEvent(state, events, operationEv), [state, events, operationEv]);
+  const nextEv = useMemo(() => nextUpEvent(state, events, { liveEv, operationEv }), [state, events, liveEv, operationEv]);
   const allW = useMemo(() => (state.wagers || []).map(w => ({ w, r:resolveWager(state, w, events) })),
     [state, events]);
   const openBook = mergeWagerLines(allW.filter(x => x.r.status === "pending")).slice(0, 9);
@@ -647,21 +634,21 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     } catch { return null; }
   }, []);
 
-  const lifecycleLive = operationEv && ["betting-locked", "in-progress", "result-entry"].includes(operationLifecycle?.phase);
-  const liveEv = onDeckEv || liveBracketEv || liveStageEv || (lifecycleLive ? operationEv : null);
-  const activeBracketEv = liveEv && state.brackets[liveEv.id] && state.draws[liveEv.id] ? liveEv : null;
-  const activeStageEv = liveEv && state.stages[liveEv.id] ? liveEv : null;
-  const liveCrew = (liveEv && state.draws[liveEv.id]?.roles) || draftLive?.d.roles || [];
+  const activeBracketEv = liveEv && state.brackets?.[liveEv.id] && state.draws?.[liveEv.id] ? liveEv : null;
+  const activeStageEv = liveEv && state.stages?.[liveEv.id] ? liveEv : null;
+  const liveCrew = (liveEv && state.draws?.[liveEv.id]?.roles) || draftLive?.d.roles || [];
   const upNext = activeBracketEv ? nextOpenMatch(state.brackets[activeBracketEv.id]) : null;
   const upNextDraw = activeBracketEv ? state.draws[activeBracketEv.id] : null;
   const liveContest = liveEv ? resolveCurrentContest(state, liveEv) : null;
   const advance = liveEv ? advanceMoment(state, liveEv, now) : null;
+  const decided = liveEv && !liveContest ? decidedWinner(state, liveEv) : null;
 
   const resultMoment = resultMomentFor(state, events, now, sceneView, showScene);
   const resultModel = useMemo(() => resultMoment ? resultPresentation(state, events, resultMoment.eventId) : null,
     [state, events, resultMoment?.eventId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const correction = champion ? null : correctionMoment(state, events, now);
 
-  /* a lead change outside a result moment still gets its card */
+  /* a lead change outside a result moment gets its card in the masthead */
   const leaderKey = !allTied && standings[0] ? standings.filter(r => r.rank === 1).map(r => r.player).sort().join("+") : "";
   const leadRef = useRef(null);
   const [leadCard, setLeadCard] = useState(null);
@@ -670,18 +657,42 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     leadRef.current = { key:leaderKey, players:standings.filter(r => r.rank === 1).map(r => r.player), pts:standings[0]?.pts };
     if (prev === null || !leaderKey || prev.key === leaderKey || state.frozen) return;
     setLeadCard({ leader:{ players:leadRef.current.players, pts:standings[0].pts },
-      previous:prev.key ? { players:prev.players, pts:prev.pts } : null, until:now + TV_LEAD_CHANGE_MS });
+      previous:prev.key ? { players:prev.players, pts:prev.pts } : null, at:now });
   }, [leaderKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const final = !!champion || !!state.frozen;
+  const directed = sceneView?.covers && sceneView.mode === "scene";
+  const sceneIntroEv = sceneView?.mode === "intro-overlay" ? events.find(e => e.id === sceneView.eventId) : null;
+  const ceremonyReveal = !sceneIntroEv ? ceremony?.reveal || null : null;
+  const ceremonyIntroEv = !sceneIntroEv && !ceremonyReveal && ceremony?.intro
+    ? events.find(e => e.id === ceremony.intro && !state.results?.[e.id]) || null : null;
+
+  const dock = final ? null : dockCard({ now, correction,
+    lead:leadCard && !directed && !resultModel ? leadCard : null,
+    holdUntil:leadCard ? advanceHoldUntil(state, liveEv, leadCard.at) : 0 });
+
+  /* the update reload waits for a gap in what is actually on screen */
+  const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
+    reveal:ceremonyReveal, dock });
+  useEffect(() => {
+    if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
+  }, [busy]);
+  useEffect(() => () => { if (typeof window !== "undefined") window.__FD_CEREMONY__ = false; }, []);
+
+  const board = useMemo(() => duelBoard(state), [state]);
   const ambient = useMemo(() => {
     const s = ["board"];
-    if (champion) return s;
+    if (final) return s;
     if (joinNeeded && qrUrl) s.push("join");
     if (nextEv) s.push("next");
     if (latest) s.push("latest");
     if (openBook.length) s.push("book");
+    if (state.live && latest) s.push("progress");
+    if (state.live && !allTied) s.push("race");
+    if (board.recent.length) s.push("duels");
+    if (Object.keys(state.profiles || {}).length) s.push("spotlight");
     return s;
-  }, [champion, joinNeeded, qrUrl, nextEv, latest, openBook.length]);
+  }, [final, joinNeeded, qrUrl, nextEv, latest, openBook.length, state.live, allTied, board.recent.length, state.profiles]);
   /* server time picks the card, so every TV in the house shows the same one;
      reduced motion still rotates, it just cuts instead of fading */
   const scene = ambient[ambientIndex(ambient.length, now)] || "board";
@@ -689,9 +700,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
   const items = tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest, upNext, upNextDraw,
     onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now });
 
-  const directed = sceneView?.covers && sceneView.mode === "scene";
-  const introEv = sceneView?.mode === "intro-overlay" ? events.find(e => e.id === sceneView.eventId) : null;
-  const showTicker = !(directed && sceneView.ticker === false) && connection.mode !== "loading";
+  const showTicker = !final && !(directed && sceneView.ticker === false) && connection.mode !== "loading";
 
   let content, liveShown = false;
   if (connection.mode === "loading") {
@@ -703,7 +712,8 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
       standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} />;
   } else if (champion) {
-    content = <div className="tv-pane tv-center"><ChampionCard state={state} champion={champion} coChamps={coChamps} /></div>;
+    const view = championView(state, events, standings);
+    content = view ? <ChampionMoment state={state} view={view} /> : null;
   } else if (resultModel) {
     content = <ResultSequence state={state} model={resultModel}
       phase={resultMomentPhase(resultMoment.anchor, now, { reducedMotion })} />;
@@ -713,27 +723,30 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
     content = <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />;
   } else if (liveEv) {
     liveShown = true;
-    const inContest = liveContest && ["betting-open", "betting-locked", "in-progress"].includes(liveContest.phase);
+    const inContest = liveContest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(liveContest.phase);
+    /* the lifecycle label belongs to the live event only, never another's */
+    const label = onDeckEv?.id === liveEv.id ? "Betting open"
+      : operationEv?.id === liveEv.id && operationLifecycle ? operationLifecycle.label : "Live";
     content = <>
       <div className="tv-pane" style={{ position:"relative" }}>
         <div className="tv-live-head">
-          <GameMark id={liveEv.game} size={88} />
+          <GameMark id={liveEv.game} size={80} />
           <div>
-            <div className="tv-label">{operationEv?.id === liveEv.id && operationLifecycle
-              ? operationLifecycle.label : onDeckEv ? "Betting open" : "Live"}</div>
+            <div className="tv-label">{label}</div>
             <div className="tv-display tv-live-name">{liveEv.name}</div>
           </div>
         </div>
-        {inContest ? <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} />
-          : (
-            <div className="tv-card tv-center" style={{ flex:1, padding:36 }}>
-              <div className="tv-label">{operationLifecycle?.label}</div>
-              <div className="tv-display" style={{ fontSize:64, color:"var(--bone)", margin:"10px 0" }}>{liveEv.name}</div>
-              <div className="tv-body">{operationLifecycle?.nextAction?.label || "Waiting for the commissioner"}</div>
-            </div>
-          )}
-        {activeBracketEv && <BracketStrip state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null} />}
-        {!activeBracketEv && activeStageEv && <StageStrip state={state} ev={activeStageEv} />}
+        {inContest ? <>
+          <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} />
+          {activeBracketEv && <TVBracket state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null} />}
+          {!activeBracketEv && activeStageEv && <StageGroups state={state} ev={activeStageEv} />}
+        </> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} />
+          : activeBracketEv ? <TVBracket state={state} ev={activeBracketEv} size="full" />
+            : activeStageEv ? <StageGroups state={state} ev={activeStageEv} />
+              : <div className="tv-card tv-center" style={{ flex:1, padding:36 }}>
+                <GameMark id={liveEv.game} size={130} />
+                <div className="tv-body" style={{ marginTop:20 }}>{payoutLine(liveEv)}</div>
+              </div>}
         {advance && <AdvanceMoment state={state} moment={advance} />}
       </div>
       <Rail state={state} standings={standings} allTied={allTied} rankDeltas={rankDeltas} />
@@ -752,17 +765,7 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
       </div>
     </div>;
   } else if (scene === "next" && nextEv) {
-    const ph = phaseOf ? phaseOf(nextEv) : { bg:"var(--paper2)", fg:"var(--ink)" };
-    content = <div className="tv-pane tv-center">
-      <div className="tv-label" style={{ marginBottom:18 }}>Next up</div>
-      <GameMark id={nextEv.game} size={130} />
-      <div style={{ background:ph.bg, color:ph.fg, border:"2px solid var(--ink0)", borderRadius:16,
-        padding:"44px 90px", marginTop:20, maxWidth:1200 }}>
-        <div className="tv-display" style={{ fontSize:110, lineHeight:0.95 }}>{nextEv.name}</div>
-        <div style={{ font:"700 30px/1.2 var(--fd-body)", marginTop:14 }}>{payoutLine(nextEv)}</div>
-      </div>
-      {nextEv.desc && <div className="tv-body" style={{ marginTop:22, maxWidth:1100 }}>{nextEv.desc}</div>}
-    </div>;
+    content = <NextUpCard ev={nextEv} />;
   } else if (scene === "latest" && latest) {
     const model = resultPresentation(state, events, latest.ev.id);
     content = model ? <ResultSequence state={state} model={model} phase={{ phase:"podium", revealed:3 }} /> : null;
@@ -790,28 +793,42 @@ function TVMode({ standings, state, events, onDeckEv, allTied, champion, coChamp
         })}
       </div>
     </div>;
+  } else if (scene === "progress") {
+    content = <WeekendProgressCard state={state} events={events} />;
+  } else if (scene === "race") {
+    content = <StackRaceCard state={state} standings={standings} />;
+  } else if (scene === "duels") {
+    content = <DuelBoardCard state={state} />;
+  } else if (scene === "spotlight") {
+    const player = spotlightPlayer(state, now, TV_AMBIENT_MS * ambient.length);
+    content = player ? <SpotlightCard state={state} events={events} standings={standings} player={player} />
+      : <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied} rankDeltas={rankDeltas} /></div>;
   } else {
     content = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
       rankDeltas={rankDeltas} /></div>;
   }
 
-  const showLeadCard = leadCard && now < leadCard.until && !directed && !resultModel && !champion;
+  const dockNode = dock?.kind === "correction" ? <CorrectionCard state={state} correction={dock.correction} />
+    : dock?.kind === "lead" ? <LeadChange state={state} leader={dock.lead.leader} previous={dock.lead.previous} /> : null;
 
   return (
     <div className="tv-stage fd-night">
       <div className="tv-canvas" data-tv-canvas
         style={{ left:fit.left, top:fit.top, transform:`scale(${fit.scale})` }}>
         <Masthead state={state} onDeckEv={onDeckEv} connection={connection} lastUpdateAt={lastUpdateAt}
-          showOnDeck={!champion && !directed && !liveShown} />
+          showOnDeck={!final && !directed && !liveShown} final={final} dock={dockNode} />
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
-          {showLeadCard && <div className="tv-leadchange-float">
-            <LeadChange state={state} leader={leadCard.leader} previous={leadCard.previous} /></div>}
         </main>
-        {showTicker && <Ticker state={state} items={items} />}
-        {introEv && <IntroOverlay ev={introEv} EventSpotlight={EventSpotlight} phaseOf={phaseOf} />}
+        {showTicker && <Ticker state={state} items={items} reducedMotion={reducedMotion} now={now} />}
+        {sceneIntroEv && <IntroOverlay state={state} ev={sceneIntroEv} EventSpotlight={EventSpotlight} reducedMotion={reducedMotion} />}
+        {ceremonyIntroEv && <IntroOverlay key={ceremonyIntroEv.id} state={state} ev={ceremonyIntroEv} EventSpotlight={EventSpotlight}
+          handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} />}
+        {ceremonyReveal && <TVDrawReveal key={ceremonyReveal.id} state={state} events={events} reveal={ceremonyReveal}
+          reducedMotion={reducedMotion} onDone={ceremony?.onRevealDone || null} />}
       </div>
-      <button type="button" className="tv-exit" onClick={onExit} aria-label="Exit TV mode">Exit TV</button>
+      <button type="button" className={`tv-exit${pointerActive ? "" : " is-idle"}`} onClick={onExit}
+        aria-label="Exit TV mode">Exit TV</button>
     </div>
   );
 }
@@ -823,4 +840,4 @@ function useLastUpdate(version) {
   return at;
 }
 
-export { TVMode, ChampionCard, TrophyHero };
+export { TVMode };

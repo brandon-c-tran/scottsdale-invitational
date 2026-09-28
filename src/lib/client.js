@@ -27,7 +27,8 @@ const QUIET_MS = PING_EVERY_MS + PONG_DEADLINE_MS;
 const ACK_TIMEOUT_MS = 6000;
 const UNCERTAIN_EXPIRY_MS = 60000;
 const UPDATE_AWAY_MS = 30000;
-const TV_CEREMONY_WAIT_MS = 5 * 60 * 1000;
+/* the TV checks for an idle gap this often while an update waits */
+const TV_IDLE_POLL_MS = 1000;
 
 /* randomUUID exists only in a secure context, so over plain http it is
    undefined and throwing here would blank the app before React ever mounts.
@@ -321,8 +322,9 @@ function probe() {
 }
 
 /* ── new builds ──
-   The Worker stamps its build on every state. A TV reloads itself once no
-   ceremony is on screen (App sets window.__FD_CEREMONY__); a phone shows
+   The Worker stamps its build on every state. A TV reloads itself in the
+   first gap where nothing is playing (the TV canvas sets
+   window.__FD_CEREMONY__ from what it actually shows); a phone shows
    Update ready and reloads the next time it comes back to the foreground.
    Reloading never touches localStorage. A build that keeps coming back old
    (a cached bundle) stops reloading after two tries this session. */
@@ -342,14 +344,15 @@ export function reloadForUpdate() {
 const autoReloadAllowed = () => reloadAttempts(snapshot.serverBuild || "") < 2 && pendingAcks.size === 0
   && !(typeof window !== "undefined" && window.__FD_HOLD_RELOAD__ === true);
 
-let tvReloadTimer = null, tvWaitingSince = 0;
+/* No blind deadline: a ceremony is never cut off. The flag reflects only
+   what is on screen, so an idle gap comes between beats. */
+let tvReloadTimer = null;
 function tvReloadWhenIdle() {
   clearTimeout(tvReloadTimer);
   if (!snapshot.updateReady || reloadAttempts(snapshot.serverBuild || "") >= 2) return;
-  tvWaitingSince = tvWaitingSince || Date.now();
   const busy = pendingAcks.size > 0 || (typeof window !== "undefined" && window.__FD_CEREMONY__ === true);
-  if (busy && Date.now() - tvWaitingSince < TV_CEREMONY_WAIT_MS) {
-    tvReloadTimer = setTimeout(tvReloadWhenIdle, 5000);
+  if (busy) {
+    tvReloadTimer = setTimeout(tvReloadWhenIdle, TV_IDLE_POLL_MS);
     return;
   }
   reloadForUpdate();

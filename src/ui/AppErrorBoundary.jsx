@@ -1,6 +1,7 @@
 import React from "react";
 import { computeStandings, disp } from "../../shared/core.js";
 import { reportClientError, useTournament } from "../lib/client.js";
+import { tvCanvasFit } from "../features/tv/tvModel.js";
 
 /* Recovery reloads the client only. Claims and saved guest/game data stay in
    their existing stores; this screen must never clear or reset them.
@@ -25,21 +26,48 @@ const setCrashCount = n => {
 const page = { minHeight:"100vh", boxSizing:"border-box", padding:24, display:"grid", placeItems:"center",
   background:"var(--bg, #151c1c)", color:"var(--ink, #f2eddf)", fontFamily:"var(--fd-body, system-ui, sans-serif)" };
 
+/* The crash board is drawn on the same fixed 1920x1080 canvas as the TV,
+   scaled to the screen, so a 4K set reads it from the couch too. Inline
+   styles only: nothing here may depend on the code that just failed. */
+function useFallbackFit() {
+  const read = () => typeof window === "undefined" ? tvCanvasFit(1920, 1080)
+    : tvCanvasFit(window.innerWidth, window.innerHeight);
+  const [fit, setFit] = React.useState(read);
+  React.useEffect(() => {
+    const onResize = () => setFit(read());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return fit;
+}
 function StandingsFallback() {
   const { state } = useTournament();
+  const fit = useFallbackFit();
   let rows = [];
   try { rows = computeStandings(state); } catch { rows = []; }
-  return <main style={{ ...page, placeItems:"start center" }}>
-    <div style={{ width:"100%", maxWidth:720 }}>
-      <h1 style={{ margin:"0 0 16px", fontSize:28 }}>Standings</h1>
-      <ol aria-label="Tournament standings" style={{ listStyle:"none", margin:0, padding:0 }}>
-        {rows.map(row => <li key={row.player} style={{ display:"grid", gridTemplateColumns:"48px 1fr auto",
-          gap:12, padding:"10px 0", borderBottom:"1px solid var(--line, rgba(242,237,223,.15))", fontSize:24 }}>
-          <span>{row.rank}</span>
-          <span>{disp(state, row.player)}</span>
-          <strong>{Number(row.pts).toLocaleString("en-US")}</strong>
-        </li>)}
-      </ol>
+  const half = Math.ceil(rows.length / 2);
+  const row = r => <li key={r.player} style={{ display:"grid", gridTemplateColumns:"64px 1fr auto", alignItems:"center",
+    gap:18, height:96, padding:"0 26px", borderRadius:14, background:"var(--paper, #202b2a)",
+    border:"1px solid var(--line, rgba(242,237,223,.15))", fontSize:40, fontWeight:700 }}>
+    <span style={{ color:"var(--muted, #a7b5ac)", fontFamily:"var(--fd-display, sans-serif)" }}>{r.rank}</span>
+    <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
+    <strong style={{ fontFamily:"var(--fd-display, sans-serif)", fontSize:48 }}>{Number(r.pts).toLocaleString("en-US")}</strong>
+  </li>;
+  return <main style={{ position:"fixed", inset:0, overflow:"hidden", background:"var(--night-deep, #151c1c)",
+    color:"var(--ink, #f2eddf)", fontFamily:"var(--fd-body, system-ui, sans-serif)" }}>
+    <div data-tv-canvas style={{ position:"absolute", left:fit.left, top:fit.top, width:1920, height:1080,
+      transform:`scale(${fit.scale})`, transformOrigin:"0 0", boxSizing:"border-box", padding:"48px 56px",
+      background:"var(--night, #202b2a)", borderTop:"6px solid var(--sun, #e4d477)" }}>
+      <h1 style={{ margin:"0 0 28px", fontSize:72, lineHeight:1, textTransform:"uppercase",
+        fontFamily:"var(--fd-display, sans-serif)", color:"var(--sun, #e4d477)" }}>Standings</h1>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:28 }}>
+        {[rows.slice(0, half), rows.slice(half)].map((col, index) => (
+          <ol key={index} aria-label={index ? undefined : "Tournament standings"}
+            style={{ listStyle:"none", margin:0, padding:0, display:"grid", gap:12, alignContent:"start" }}>
+            {col.map(row)}
+          </ol>
+        ))}
+      </div>
     </div>
   </main>;
 }

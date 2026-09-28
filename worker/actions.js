@@ -245,7 +245,13 @@ const resetContestSetup = (state, evId) => {
   delete op.contestStack;
   delete op.bettingOpenedAt;
   delete op.bettingLockedAt;
+  delete op.announcedAt;
 };
+/* The announcement's server time: every screen times the intro and the
+   draw reveal from it (src/features/weekend/drawReveal.js revealTimeline),
+   so the room turns each card together. Stamped only by a fresh
+   announcement, never by the next contest opening inside a started event. */
+const stampAnnouncement = (op, now) => { op.announcedAt = now; };
 const eventHasBegun = (state, ev) => !!state.eventOps?.[ev?.id]?.startedAt
   || ["in-progress", "result-entry"].includes(resolveEventLifecycle(state, ev).phase);
 const contestReferenceError = (state, ev, payload, required = false) => {
@@ -1181,7 +1187,10 @@ export const ACTIONS = {
     if (op.contest) {
       const refError = contestReferenceError(state, ev, { contestId, contestRevision }); if (refError) return refError;
     }
-    return openContest(state, ev);
+    const now = Date.now();
+    const opened = openContest(state, ev, now);
+    if (opened.ok) stampAnnouncement(op, now);
+    return opened;
   },
   startEvent(state, payload, ctx) {
     const { evId } = payload;
@@ -1238,6 +1247,7 @@ export const ACTIONS = {
     const pick = chosen ? players : suggestion?.players || [];
     const crew = chosen ? roles : suggestion?.roles || [];
     const present = presentPlayers(state);
+    const now = Date.now();
     let drew = false;
     if (ev.teamCfg && !state.draws[evId]) {
       const compatible = validateEventParticipants(ev, pick, present);
@@ -1251,7 +1261,7 @@ export const ACTIONS = {
       delete state.stages[evId];
       if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(draw.teams.length);
       else delete state.brackets[evId];
-      op.drawRevealedAt = Date.now();
+      op.drawRevealedAt = now;
       drew = true;
     }
     let announced = false;
@@ -1264,10 +1274,11 @@ export const ACTIONS = {
         const prepared = ACTIONS.runStages(state, { evId,
           cfg:heats ? { ...shape, players:pick, roles:crew } : shape }, ctx);
         if (!prepared.ok) return prepared;
-        if (heats) { op.drawRevealedAt = Date.now(); drew = true; }
+        if (heats) { op.drawRevealedAt = now; drew = true; }
       }
-      const opened = openContest(state, ev);
+      const opened = openContest(state, ev, now);
       if (!opened.ok) return opened;
+      stampAnnouncement(op, now);
       announced = true;
     }
     if (!drew && !announced) return ok({ unchanged:true });
@@ -1784,6 +1795,7 @@ export const ACTIONS = {
     const op = state.eventOps?.[evId];
     if (op) {
       delete op.drawRevealedAt;
+      delete op.announcedAt;
       delete op.bettingOpenedAt;
       delete op.bettingLockedAt;
       delete op.contest;

@@ -88,20 +88,82 @@ export function drawRevealGroups(state, reveal) {
   })) : reveal.groups || [];
 }
 
+/* ── one timeline for the room ──
+   The write that announces an event stamps eventOps[ev].announcedAt with the
+   server's time; the draw carries its own time (draw.ts / drawRevealedAt).
+   Every phone and the TV read those stamps against serverNow(), so the intro
+   hands over and each card turns at the same instant on every screen, and a
+   screen that opens late joins at the current step. States from before the
+   stamp keep the old per-device clock. DRAW_INTRO_MS equals the TV's
+   event-intro overlay (TV_INTRO_OVERLAY_MS), so a directed intro and the
+   phones hand over together too. */
+export const DRAW_INTRO_MS = 3000;
+export const DRAW_INTRO_REDUCED_MS = 650;
+export const DRAW_FIRST_STEP_MS = 480;
+export const drawStepGap = total => Math.min(680, 2900 / Math.max(1, total - 1));
+/* ms after the reveal starts that step `index` (0-based) turns */
+export const drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
+/* how many steps are showing `elapsed` ms after the reveal started */
+export function drawStepAt(elapsed, total) {
+  const count = Math.max(0, Math.floor(Number(total) || 0));
+  const t = Number(elapsed);
+  if (!count || !Number.isFinite(t)) return 0;
+  let shown = 0;
+  while (shown < count && drawStepDelay(shown, count) <= t) shown++;
+  return shown;
+}
+export const drawSequenceMs = total => total > 0 ? drawStepDelay(total - 1, total) : 0;
+
+const saved = (state, reveal) => {
+  const draw = state?.draws?.[reveal?.evId], stage = state?.stages?.[reveal?.evId];
+  return draw?.id === reveal?.id ? draw : stage?.id === reveal?.id ? stage : null;
+};
+/* The server anchors for one event's ceremony, or null for a state from
+   before the stamp (the device then times itself).
+     introAt   the announcement write
+     handoffAt the intro steps aside for the draw
+     revealAt  the draw's first step starts counting (a draw made after the
+               intro was over starts at its own write) */
+export function revealTimeline(state, evId, { reveal = null, reducedMotion = false } = {}) {
+  const announcedAt = Number(state?.eventOps?.[evId]?.announcedAt) || 0;
+  if (!announcedAt) return null;
+  const handoffAt = announcedAt + (reducedMotion ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS);
+  const item = reveal ? saved(state, reveal) : null;
+  const drewAt = item ? revealTime(state, evId, item) : 0;
+  return { introAt:announcedAt, handoffAt, revealAt:Math.max(handoffAt, drewAt || 0) };
+}
+/* How long the intro still owns the screen before a queued draw takes over.
+   Anchored: until the shared handoff (never longer than one intro, in case
+   the clock estimate is still settling). Legacy: from this device's own
+   intro start. */
+export function introRemainingMs(state, evId, { now, localStart = 0, localNow = Date.now(), reducedMotion = false } = {}) {
+  const hold = reducedMotion ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS;
+  const line = revealTimeline(state, evId, { reducedMotion });
+  if (line && Number.isFinite(now)) return Math.min(hold, Math.max(0, line.handoffAt - now));
+  return Math.max(0, hold - (localNow - localStart));
+}
+
 // A bounded reveal clock shared by the component and its deterministic tests.
 // Cancelled callbacks are inert even if the browser had already queued them.
-export function startDrawPlayback({ total, reducedMotion = false, onStep, schedule = setTimeout, cancel = clearTimeout }) {
+// With `startAt` (a server time) and `now` (the server clock) it joins the
+// room's timeline: steps already due show at once, the rest turn when the
+// room turns them. Without them the reveal starts now on this device.
+export function startDrawPlayback({ total, reducedMotion = false, onStep, schedule = setTimeout, cancel = clearTimeout,
+  startAt = null, now = null }) {
   let active = true;
   const timers = [];
   const stop = () => { active = false; timers.forEach(cancel); };
   const skip = () => { stop(); onStep(total); };
-  if (reducedMotion || total === 0) onStep(total);
+  const anchored = Number.isFinite(startAt) && typeof now === "function";
+  const elapsed = anchored ? now() - startAt : 0;
+  const joined = reducedMotion || total === 0 ? total : drawStepAt(elapsed, total);
+  if (joined >= total) onStep(total);
   else {
-    onStep(0);
-    for (let index = 0; index < total; index++) {
-      const delay = 480 + index * Math.min(680, 2900 / Math.max(1, total - 1));
+    onStep(joined);
+    for (let index = joined; index < total; index++) {
+      const delay = Math.max(0, drawStepDelay(index, total) - elapsed);
       timers.push(schedule(() => { if (active) onStep(index + 1); }, delay));
     }
   }
-  return { stop, skip };
+  return { stop, skip, joined };
 }

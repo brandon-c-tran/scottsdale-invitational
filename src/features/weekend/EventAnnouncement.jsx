@@ -3,13 +3,21 @@ import { AWARDS, disp, overflowRoleMeta, resolveCurrentContest } from "../../../
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
-import { drawRevealGroups, startDrawPlayback } from "./drawReveal.js";
+import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { serverNow } from "../../lib/serverClock.js";
+import { drawRevealGroups, drawStepAt, revealTimeline, startDrawPlayback } from "./drawReveal.js";
 import "./announcement.css";
 
-export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 2800, visual }) {
+export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3000, visual, now:clockNow = serverNow }) {
   const contest = resolveCurrentContest(state,ev);
   const detail = [!handoff && (contest?.kind !== "ffa" ? contest?.label : "One winner"),
     AWARDS[ev.value]?.[0] ? `${AWARDS[ev.value][0].toLocaleString("en-US")} chips to win` : null].filter(Boolean).join(" · ");
+  /* the handoff bar runs on the room's clock, so a phone that heard late
+     starts it part-filled and every bar ends at the shared handoff */
+  const [elapsed] = useState(() => {
+    const introAt = handoff ? revealTimeline(state, ev.id)?.introAt : null;
+    return introAt ? Math.min(holdMs, Math.max(0, clockNow() - introAt)) : 0;
+  });
   return <Sheet title={ev.name} subtitle={handoff ? "On deck" : "Betting open"} onClose={onClose} layer={290} className="fd-announcement">
     {visual && <div className="fd-announcement-game">{visual}</div>}
     <div className={`fd-announcement-summary${handoff ? " is-handoff" : ""}`}>
@@ -18,7 +26,8 @@ export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs 
         <small>{detail}</small>
       </div>
     </div>
-    {handoff && <div className="fd-announcement-handoff" aria-hidden="true" style={{ "--intro-hold":`${holdMs}ms` }}><span/></div>}
+    {handoff && <div className="fd-announcement-handoff" aria-hidden="true"
+      style={{ "--intro-hold":`${holdMs}ms`, "--intro-elapsed":`${-Math.round(elapsed)}ms` }}><span/></div>}
     <div className="fd-announcement-actions">
       {onBets && <ActionButton onClick={onBets}>Place chips</ActionButton>}
       <ActionButton variant={onBets ? "secondary" : "primary"} onClick={onClose}>{handoff ? "View draw" : "Done"}</ActionButton>
@@ -38,19 +47,31 @@ function useReducedMotion(override) {
   return override ?? reduced;
 }
 
-export function DrawAnnouncement({ state, reveal, onClose, onBets, onPlayer, onBack, initialComplete = false, reducedMotion:motionOverride }) {
+/* `synced`: the live ceremony, timed from the server's stamps so every phone
+   and the TV turn each card together; a sheet that opens late joins at the
+   current step, and cards already turned show without turning again. Replay
+   draw and the event sheet's replay run on this device's own clock. */
+export function DrawAnnouncement({ state, reveal, me = null, synced = false, onClose, onBets, onPlayer, onBack,
+  initialComplete = false, reducedMotion:motionOverride, now:clockNow = serverNow }) {
   const groups = drawRevealGroups(state, reveal);
   const total = groups.length + (reveal.crew?.length ? 1 : 0);
   const reducedMotion = useReducedMotion(motionOverride);
-  const [shown, setShown] = useState(() => reducedMotion || initialComplete ? total : 0);
+  const startAt = synced && !initialComplete
+    ? revealTimeline(state, reveal.evId, { reveal, reducedMotion })?.revealAt ?? null : null;
+  const [joined] = useState(() => reducedMotion || initialComplete ? total
+    : startAt !== null ? drawStepAt(clockNow() - startAt, total) : 0);
+  const [shown, setShown] = useState(joined);
   const [run, setRun] = useState(0);
-  const animate = !reducedMotion && !(initialComplete && run === 0);
+  const animate = !reducedMotion && !(run === 0 && (initialComplete || joined >= total));
   const playback = useRef(null);
   useEffect(() => {
-    const next = startDrawPlayback({ total, reducedMotion:!animate, onStep:setShown });
+    const next = startDrawPlayback({ total, reducedMotion:!animate, onStep:setShown,
+      ...(run === 0 && startAt !== null ? { startAt, now:clockNow } : {}) });
     playback.current = next;
     return () => next.stop();
-  }, [reveal.id, total, animate, run]);
+  }, [reveal.id, total, animate, run, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  const you = usePlayerIdentity(me);
+  const youStyle = { "--fd-you":you.color, "--fd-you-ink":you.isLight ? "var(--ink0)" : "var(--bone)" };
   const complete = shown >= total;
   const skip = () => playback.current?.skip();
   const replay = () => {
@@ -70,10 +91,17 @@ export function DrawAnnouncement({ state, reveal, onClose, onBets, onPlayer, onB
     </div>
     <div className={`fd-draw-announcement${!animate ? " is-reduced" : ""}`} key={run}>{groups.map((group,index)=>{
       const visible = index < shown;
-      return <section key={index} className={`fd-draw-card ${visible ? "is-revealed" : "is-covered"}`}>
+      /* turned before this sheet opened: shown as it lies, no second turn */
+      const settled = run === 0 && index < joined;
+      /* your own team, heat or matchup rings in your color as it turns */
+      const mine = !!me && group.lines.some(line => (line.avatars || []).includes(me));
+      const ring = mine && visible && animate && !settled;
+      return <section key={index} style={mine ? youStyle : undefined}
+        className={`fd-draw-card ${visible ? "is-revealed" : "is-covered"}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`}>
         <div className="fd-draw-card-back" aria-hidden="true"><span>{String(index + 1).padStart(2,"0")}</span></div>
+        {ring && <i className="fd-draw-ring" aria-hidden="true"/>}
         <div className="fd-draw-card-front" aria-hidden={!visible}>
-          <h3>{group.title}</h3>
+          <h3>{group.title}{mine && visible && <span className="fd-draw-you">You</span>}</h3>
           {group.lines.map((line,j)=>{
             const people = line.avatars || [];
             const namedTeam = line.text && people.length > 1 && line.text !== people.map(player => disp(state,player)).join(" & ") && line.text !== group.title;

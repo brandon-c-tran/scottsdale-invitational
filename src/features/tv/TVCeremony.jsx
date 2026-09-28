@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { disp, teamLabel, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
-import { startDrawPlayback } from "../weekend/drawReveal.js";
+import { drawStepAt, drawSequenceMs, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
+import { serverNow } from "../../lib/serverClock.js";
 import {
   TV_INTRO_AUTO_MS, TV_INTRO_AUTO_REDUCED_MS, TV_REVEAL_HOLD_MS, payoutLine, oddsLine, phaseBand, sessionLabel,
 } from "./tvModel.js";
@@ -60,25 +61,37 @@ function DrawLine({ state, avatars, text, size = 64 }) {
 }
 
 /* The draw at canvas scale: matchups, teams or heats land one at a time on
-   the same clock the phones use, then the crew. Reduced motion shows the
-   whole draw at once. Presentation only: it reads the saved draw. */
-export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false, onDone = null }) {
+   the room's clock (the server's announcement stamp, the same timeline every
+   phone reads), then the crew as the last step, exactly as the phones count
+   it. A TV that joins late starts at the current step. Reduced motion shows
+   the whole draw at once. Presentation only: it reads the saved draw. */
+const TV_REVEAL_LATE_HOLD_MS = 2500;
+export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false, onDone = null, now:clockNow = serverNow }) {
   const versus = reveal.versus || null;
   const groups = versus ? null : reveal.groups || [];
   const crew = reveal.crew || [];
-  const total = versus ? 2 : groups.length;
-  const [shown, setShown] = useState(() => reducedMotion ? total : 0);
+  const cards = versus ? 2 : groups.length;
+  const total = cards + (crew.length ? 1 : 0);
+  const startAt = revealTimeline(state, reveal.evId, { reveal, reducedMotion })?.revealAt ?? null;
+  const [joined] = useState(() => reducedMotion ? total : startAt !== null ? drawStepAt(clockNow() - startAt, total) : 0);
+  const [shown, setShown] = useState(joined);
   useEffect(() => {
-    const playback = startDrawPlayback({ total, reducedMotion, onStep:setShown });
+    const playback = startDrawPlayback({ total, reducedMotion, onStep:setShown,
+      ...(startAt !== null ? { startAt, now:clockNow } : {}) });
     return () => playback.stop();
-  }, [reveal.id, total, reducedMotion]);
+  }, [reveal.id, total, reducedMotion, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
   const complete = shown >= total;
   const doneRef = useRef(onDone); doneRef.current = onDone;
   useEffect(() => {
     if (!complete || !doneRef.current) return undefined;
-    const t = setTimeout(() => doneRef.current?.(), TV_REVEAL_HOLD_MS);
+    /* the room's draw holds until the same moment on every TV; a TV that
+       arrives after that still shows it briefly */
+    const hold = startAt === null ? TV_REVEAL_HOLD_MS : Math.min(TV_REVEAL_HOLD_MS,
+      Math.max(TV_REVEAL_LATE_HOLD_MS, startAt + drawSequenceMs(total) + TV_REVEAL_HOLD_MS - clockNow()));
+    const t = setTimeout(() => doneRef.current?.(), hold);
     return () => clearTimeout(t);
-  }, [complete, reveal.id]);
+  }, [complete, reveal.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const settledStyle = index => index < joined && !reducedMotion ? { animation:"none" } : undefined;
   const ev = events.find(item => item.id === reveal.evId);
   const contest = ev && state.onDeck === ev.id ? resolveCurrentContest(state, ev) : null;
   const cols = groups ? (groups.length === 4 ? 2 : Math.min(3, Math.max(1, groups.length))) : 0;
@@ -95,7 +108,8 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
           {versus.map((team, index) => (
             <React.Fragment key={index}>
               {index > 0 && <div className="tv-vs tv-reveal-vs" style={{ visibility:shown > 1 ? "visible" : "hidden" }}>VS</div>}
-              <section className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}>
+              <section className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
+                style={settledStyle(index)}>
                 <DrawLine state={state} avatars={team.players} text={teamLabel(state, team)}
                   size={team.players.length > 3 ? 72 : 96} />
               </section>
@@ -105,7 +119,8 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
       ) : (
         <div className="tv-reveal-grid" style={{ gridTemplateColumns:`repeat(${cols}, 1fr)` }}>
           {groups.map((group, index) => (
-            <section key={index} className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}>
+            <section key={index} className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
+              style={settledStyle(index)}>
               <div className="tv-display tv-reveal-group">{group.title}</div>
               {group.lines.map((line, j) => (
                 <React.Fragment key={j}>
@@ -119,7 +134,8 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
       )}
       <div className="tv-reveal-foot">
         {crew.length > 0 && (
-          <div className={`tv-reveal-crew${complete ? " is-shown" : ""}`} aria-hidden={!complete}>
+          <div className={`tv-reveal-crew${complete ? " is-shown" : ""}`} aria-hidden={!complete}
+            style={joined >= total && !reducedMotion ? { animation:"none" } : undefined}>
             <span className="tv-label">Event crew</span>
             {crew.map(role => (
               <span key={role.player} className="tv-reveal-crew-item">

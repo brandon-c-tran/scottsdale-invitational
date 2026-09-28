@@ -5,7 +5,7 @@
 .fd-announcement-actions { display:flex; gap:8px; margin-top:14px; }
 .fd-announcement-actions>button:first-child { flex:1; }
 .fd-announcement-handoff { height:3px; overflow:hidden; border-radius:99px; background:var(--line); }
-.fd-announcement-handoff>span { display:block; width:100%; height:100%; background:var(--sun); transform-origin:left; animation:fd-event-handoff var(--intro-hold,2200ms) linear both; }
+.fd-announcement-handoff>span { display:block; width:100%; height:100%; background:var(--sun); transform-origin:left; animation:fd-event-handoff var(--intro-hold,2200ms) linear var(--intro-elapsed,0ms) both; }
 .fd-draw-playback { display:flex; align-items:center; gap:10px; min-height:48px; margin:-4px 0 12px; }
 .fd-draw-playback>span { flex:1; color:var(--muted2); font-size:11px; }
 .fd-draw-playback-action { min-height:44px; border:0; border-radius:6px; padding:8px 0 8px 10px; background:none; color:var(--sun); font:600 12px var(--fd-body); cursor:pointer; }
@@ -38,13 +38,26 @@
 .fd-draw-playback-action:focus-visible,.fd-draw-people button:focus-visible,.fd-draw-crew button:focus-visible { outline:2px solid var(--sun); outline-offset:3px; }
 .fd-draw-announcement.is-reduced .fd-draw-card-front,.fd-draw-announcement.is-reduced .fd-draw-card-back,.fd-draw-announcement.is-reduced .fd-draw-people button { animation:none; }
 .fd-draw-announcement.is-reduced .fd-draw-card.is-revealed .fd-draw-card-back { display:none; }
+/* a card that had already turned when the sheet opened (the room's clock
+   was ahead of this phone) shows as it lies */
+.fd-draw-card.is-settled .fd-draw-card-front,.fd-draw-card.is-settled .fd-draw-people button { animation:none; }
+.fd-draw-card.is-settled .fd-draw-card-back { display:none; }
+/* M8: your own card carries your color; the turn that shows it rings once
+   and stamps You. The resting border and tag are the static cue. */
+.fd-draw-card.is-mine .fd-draw-card-front { border:2px solid var(--fd-you); padding:9px; }
+.fd-draw-card.is-mine .fd-draw-card-front { position:relative; }
+.fd-draw-you { position:absolute; top:-10px; right:10px; padding:1px 7px; border-radius:99px; background:var(--fd-you); color:var(--fd-you-ink); font:700 10px/1.4 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; }
+.fd-draw-card.is-ringing .fd-draw-you { animation:fd-draw-you-stamp var(--motion-stamp) var(--ease-land) .46s backwards; }
+.fd-draw-ring { position:absolute; inset:-5px; z-index:1; border:2px solid var(--fd-you); border-radius:14px; pointer-events:none; opacity:0; animation:fd-draw-ring .9s var(--ease-out) .4s both; }
+@keyframes fd-draw-ring { 0% { opacity:0; transform:scale(.97); } 25% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.07); } }
+@keyframes fd-draw-you-stamp { from { opacity:0; transform:scale(1.9) rotate(-8deg); } 60% { opacity:1; transform:scale(.9) rotate(1deg); } to { opacity:1; transform:none; } }
 @keyframes fd-event-mark-in { from { transform:translateY(12px) rotate(-12deg) scale(.7); opacity:0; } 70% { transform:translateY(-3px) rotate(3deg) scale(1.04); opacity:1; } to { transform:none; opacity:1; } }
 @keyframes fd-event-handoff { from { transform:scaleX(0); } to { transform:scaleX(1); } }
 @keyframes fd-draw-deck-deal { 0%,100% { transform:none; } 45% { transform:translate(4px,-5px) rotate(12deg); } }
 @keyframes fd-draw-turn { from { transform:rotateY(-90deg); } to { transform:rotateY(0); } }
 @keyframes fd-draw-back { from { transform:rotateY(0); } to { transform:rotateY(90deg); visibility:hidden; } }
 @keyframes fd-draw-player { from { transform:translateX(-9px); opacity:0; } to { transform:none; opacity:1; } }
-@media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button { animation:none !important; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
+@media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
 @media(max-width:359px) { .fd-draw-announcement { grid-template-columns:1fr; } }
 .fd-announcement-game { display:flex; align-items:center; justify-content:center; min-height:90px; padding:0 0 8px; overflow:hidden; }
 .fd-game-moment { display:grid; place-items:center; width:180px; height:82px; }

@@ -42,7 +42,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`TVMode.jsx`, pure `tvModel.js`, `serverClock.js`, its own intro and draw
   reveal in `TVCeremony.jsx`, cards in `TVCards.jsx`), drawn on a fixed
   1920x1080 letterboxed canvas with 24px minimum text; it reloads for a new
-  build only in an idle gap. `features/director/` owns the commissioner pill
+  build only in an idle gap. TV standings are `ChipTowers.jsx`, a cel-shaded 3D
+  table of each player's chip (one per 100); `three` is imported only there and
+  only through `TowersBoard.jsx`'s dynamic import, so phones never download it,
+  and no WebGL, a failed load, a lost context or a slow TV falls back to the flat
+  board for the session. `DesertBand` is the paper-cut backdrop by session phase
+  (`--desert-*` tokens mixed from existing ones) with a star per winner from
+  Saturday night; `weekend/Trophy.jsx` shows a plate per posted event.
+  `features/director/` owns the commissioner pill
   model and the finale sheets. The player card tilts (`useRisoTilt`, never an
   iOS motion prompt), the identity chip is a spinnable `ChipCoin`, and
   `src/lib/haptics.js` vibrates on Android only, never on the TV, with reduced

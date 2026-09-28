@@ -93,15 +93,15 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     if (!result.ok) setError(result.error || "Couldn't save your chip. Try again.");
     setBusy(false);
   };
-  const title = step === -1 ? "Take Field Day with you"
+  const title = step === -1 ? "Add Field Day to your home screen"
     : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
-  const intro = step === -1 ? "Add it to your home screen for live scores, draws, and bets all weekend."
-    : ["Pick your name to unlock the trip details and give me the additional information I’ll need for logistics. It’ll only take ~2 minutes.",
-      `${ROSTER.length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board. Win events and land bets to collect chips all weekend, then play them at the poker finale. Whoever wins the poker table is the Field Day champion.`,
+  const intro = step === -1 ? ""
+    : ["",
+      `${ROSTER.length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board.`,
       `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
       "",
       "",
-      "These stay private. They’re only used to make fair teams."][step];
+      "Private. Only used to balance teams."][step];
   /* Once the weekend is live a straggler is already here: flights become
      optional, the shirt size is still needed. */
   const canContinue = step === 0 ? !!selected : step === 3 ? !!size && (flightsBooked !== null || !!state.live)
@@ -136,7 +136,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
       <section className="fd-arrival-main" key={step}>
         <div className="fd-arrival-heading"><h1 ref={heading} tabIndex={-1}>{title}</h1>{intro && <p>{intro}</p>}</div>
         <fieldset className="fd-arrival-fields" disabled={busy}>
-          {step === -1 && <div className="fd-install"><InstallHint /><p>Open it from your home screen to finish your two-minute check-in.</p></div>}
+          {step === -1 && <div className="fd-install"><InstallHint /><p>Open it from your home screen to check in.</p></div>}
           {step === 0 && <div className="fd-guest-list" role="group" aria-label="Who are you?">
             {ROSTER.map((p, i) => <button type="button" key={p} onClick={() => setSelected(p)} aria-pressed={selected === p}>
               <span className="fd-guest-index">{String(i + 1).padStart(2, "0")}</span><span>{p}</span><span className="fd-guest-check" aria-hidden="true">{selected === p ? "↗" : "+"}</span>
@@ -145,9 +145,9 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
           {step === 1 && <>
             <div className="fd-starting-stack"><span className="fd-eyebrow">EVERYONE STARTS AT</span><strong>1,000<span>CHIPS</span></strong></div>
             <div className="fd-weekend-rules">
-              {[["01", "Collect chips", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
-                ["02", "Betting", "Every event can be bet on. Only half your chips can be at risk at one time."],
-                ["03", "Duels", "Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot."],
+              {[["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
+                ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
+                ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
                 ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]].map(([n, name, body]) =>
                 <div key={n}><span>{n}</span><div><h2>{name}</h2><p>{body}</p></div></div>)}
             </div>

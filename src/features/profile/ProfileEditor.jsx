@@ -131,16 +131,16 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
             textTransform:"uppercase", color:"var(--accent2)", marginBottom:4 }}>Chip design</div>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
             textTransform:"uppercase", color:"var(--ink)" }}>Your chip</div>
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.45, marginTop:5 }}>
-            {mine.color ? `${CHIP_SKIN_META[skin] || "Classic"} pattern` : "Choose a color and pattern."}
-          </div>
+          {mine.color && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted2)", lineHeight:1.45, marginTop:5 }}>
+            {CHIP_SKIN_META[skin] || "Classic"} pattern
+          </div>}
         </div>
       </div>}
       {lateClaim && patterns}
       {lateClaim && <p className="fd-chip-late-note">Claiming a color locks your chip for the weekend.</p>}
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
         marginBottom:8 }}>
-        <div style={{ ...label, fontSize:10 }}>Choose your color</div>
+        <div style={{ ...label, fontSize:10 }}>Color</div>
         {!mine.color && <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)" }}>
           First come, first served
         </div>}
@@ -190,7 +190,7 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
     <>
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:10,
         marginBottom:8 }}>
-        <div style={{ ...label, fontSize:10 }}>Choose your pattern</div>
+        <div style={{ ...label, fontSize:10 }}>Pattern</div>
       </div>
       <div className="fd-chip-patterns">
         {CHIP_SKINS.map(sk => (

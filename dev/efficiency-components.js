@@ -326,16 +326,18 @@ function resultAwards(state, ev, res) {
   const draw = state.draws?.[ev?.id];
   const bracket = !!state.brackets?.[ev?.id] && !!draw?.teams;
   const out = [];
+  let thirdEach = table[2] || 0;
   (res?.slots || []).forEach((players, place) => {
     let each = table[place] || 0;
     if (place === 2 && bracket)
       each = splitThird(each, new Set((players || []).map((p) => draw.teams.findIndex((team) => team.players?.includes(p)))).size);
+    if (place === 2 && (players || []).length) thirdEach = each;
     (players || []).forEach((player) => out.push({ player, place, pts: each }));
   });
-  if (!res?.stacks && table[2] > 0) {
+  if (!res?.stacks && thirdEach > 0) {
     const placed = new Set(out.map((award) => award.player));
     (draw?.roles || []).forEach(({ player }) => {
-      if (player && !placed.has(player)) out.push({ player, place: "crew", pts: table[2] });
+      if (player && !placed.has(player)) out.push({ player, place: "crew", pts: thirdEach });
     });
   }
   return out;
@@ -343,13 +345,14 @@ function resultAwards(state, ev, res) {
 function awardPlan(ev, draw = null) {
   const table = AWARDS[ev?.value] || [0, 0, 0];
   const crew = draw ? (draw.roles || []).length > 0 : Number.isInteger(eventCapacity(ev)) && eventCapacity(ev) < ROSTER.length;
+  const rows = table.map((pts, place) => ({
+    place,
+    pts: place === 2 && ev?.teamCfg?.bracket ? splitThird(pts, 2) : pts,
+    split: place === 2 && !!ev?.teamCfg?.bracket
+  }));
   return [
-    ...table.map((pts, place) => ({
-      place,
-      pts: place === 2 && ev?.teamCfg?.bracket ? splitThird(pts, 2) : pts,
-      split: place === 2 && !!ev?.teamCfg?.bracket
-    })),
-    ...crew ? [{ place: "crew", pts: table[2] }] : []
+    ...rows,
+    ...crew ? [{ place: "crew", pts: rows[2].pts }] : []
   ].filter((row) => row.pts > 0);
 }
 function computeStandings(state) {
@@ -401,24 +404,30 @@ function computeStandings(state) {
   Object.values(state.results || {}).forEach((res) => {
     if (res?.stacks) stacksRes = res;
   });
+  let leaders = null;
   if (stacksRes) {
     ROSTER.forEach((p) => {
       pts[p] = stacksRes.stacks[p] ?? 0;
     });
     rulings.forEach((a) => {
-      if (postCountRuling(a, stacksRes) && pts[a.player] !== void 0) pts[a.player] += a.delta;
+      if (postCountRulingApplies(a, stacksRes) && pts[a.player] !== void 0) pts[a.player] += a.delta;
     });
+    const seats = (Array.isArray(stacksRes.seats) ? stacksRes.seats : Array.isArray(state.poker?.seats) ? state.poker.seats : ROSTER).filter((p) => pts[p] !== void 0);
+    const top = seats.length ? Math.max(...seats.map((p) => pts[p])) : 0;
+    leaders = new Set(top > 0 ? seats.filter((p) => pts[p] === top) : []);
   }
+  const lead = (p) => leaders?.has(p) ? 1 : 0;
   const outRank = (p) => {
     const i = (stacksRes?.outs || []).indexOf(p);
     return i >= 0 ? i : stacksRes?.stacks?.[p] === 0 ? -1 : Infinity;
   };
-  const rows = ROSTER.map((p) => ({ player: p, pts: pts[p], wins: wins[p], betNet: betNet[p], duelNet: duelNet[p], awardPts: awardPts[p] })).sort((x, y) => y.pts - x.pts || (stacksRes ? outRank(y.player) - outRank(x.player) : 0) || y.wins - x.wins || x.player.localeCompare(y.player));
+  const rows = ROSTER.map((p) => ({ player: p, pts: pts[p], wins: wins[p], betNet: betNet[p], duelNet: duelNet[p], awardPts: awardPts[p] })).sort((x, y) => lead(y.player) - lead(x.player) || y.pts - x.pts || (stacksRes ? outRank(y.player) - outRank(x.player) : 0) || y.wins - x.wins || x.player.localeCompare(y.player));
   let rank = 0, prev = null;
   rows.forEach((r, i) => {
-    if (r.pts !== prev || stacksRes && r.pts === 0) {
+    const key = `${lead(r.player)}:${r.pts}`;
+    if (key !== prev || stacksRes && r.pts === 0) {
       rank = i + 1;
-      prev = r.pts;
+      prev = key;
     }
     r.rank = rank;
   });
@@ -566,30 +575,212 @@ function wagerMatchesContest(wager, contest) {
   if (contest.kind === "match") return wager.kind === "match" && wager.drawId === contest.drawId && wager.match?.[0] === contest.match[0] && wager.match?.[1] === contest.match[1];
   return wager.stagesId === contest.stagesId && (contest.kind === "heat" ? wager.kind === "heat" && !wager.final && wager.group === contest.group : wager.kind === "stage" && wager.final === true);
 }
-function contestUndoAvailability(state, ev) {
+function enforceExposure(state, now = Date.now()) {
+  if (pokerLive(state) || stacksPosted(state)) return [];
+  const events = allEventsOf(state);
+  const rows = computeStandings(state);
+  const voided = [];
+  for (const { player, pts } of rows) {
+    const limit = Math.max(0, Math.min(maxRisk(pts), pts));
+    const items = [];
+    for (const w of (state.wagers || []).filter((w2) => w2.player === player && resolveWager(state, w2, events).status === "pending")) {
+      const chips = Array.isArray(w.chips) && w.chips.length ? w.chips : null;
+      if (!chips) items.push({ w, stake: w.stake, ts: w.updatedAt || w.ts || 0, order: 0 });
+      else chips.forEach((chip, index) => items.push({
+        w,
+        chip,
+        stake: Number(chip.stake) || 0,
+        ts: chip.ts || w.ts || 0,
+        order: index
+      }));
+    }
+    for (const d of state.duels || []) {
+      const phase = duelPhase(d, now);
+      if (phase === "live" && (d.from === player || d.to === player) || phase === "offered" && d.from === player)
+        items.push({ d, stake: d.stake, ts: d.acceptedAt || d.ts || 0, order: 0 });
+    }
+    let exposure = items.reduce((sum, item) => sum + item.stake, 0);
+    items.sort((a, b) => b.ts - a.ts || b.order - a.order);
+    for (const item of items) {
+      if (exposure <= limit) break;
+      if (item.d) {
+        if (!(item.d.status === "open" && !resolveDuel(item.d).settled)) continue;
+        item.d.status = "void";
+        Object.assign(item.d, { voidedAt: now, voidedBy: "exposure" });
+        voided.push({ type: "duel", id: item.d.id, players: [item.d.from, item.d.to], stake: item.d.stake });
+      } else if (item.chip && item.w.chips.length > 1 && item.w.chips.at(-1) === item.chip) {
+        item.w.chips.pop();
+        item.w.stake = Math.max(0, item.w.stake - item.stake);
+        item.w.updatedAt = now;
+        item.w.voidedChips = [...item.w.voidedChips || [], { ...item.chip, voidedAt: now }];
+        voided.push({ type: "chip", id: item.w.id, player, eventId: item.w.eventId, stake: item.stake });
+      } else {
+        if (item.w.status === "void") continue;
+        item.w.status = "void";
+        Object.assign(item.w, { voidedAt: now, voidedBy: "exposure" });
+        voided.push({ type: "wager", id: item.w.id, player, eventId: item.w.eventId, stake: item.w.stake });
+        exposure -= item.w.stake - item.stake;
+      }
+      exposure -= item.stake;
+    }
+  }
+  return voided;
+}
+function refundTotals(items = []) {
+  const totals = /* @__PURE__ */ new Map();
+  items.forEach((item) => {
+    if (item?.player) totals.set(item.player, (totals.get(item.player) || 0) + Number(item.stake || 0));
+  });
+  return [...totals].map(([player, stake]) => ({ player, stake }));
+}
+function voidWagerRecords(state, ids, reason, now = Date.now()) {
+  const wanted = new Set(ids);
+  const events = allEventsOf(state);
+  const voided = [];
+  (state.wagers || []).forEach((wager) => {
+    if (!wanted.has(wager.id) || wager.status === "void") return;
+    const was = resolveWager(state, wager, events).status;
+    wager.status = "void";
+    wager.voidReason = reason;
+    wager.voidedAt = now;
+    if (was === "won" || was === "lost") wager.voidedFrom = was;
+    voided.push({ id: wager.id, player: wager.player, stake: Number(wager.stake || 0) });
+  });
+  return voided;
+}
+function contestStackOf(state, evId) {
+  const op = eventOpOf(state, evId);
+  if (Array.isArray(op.contestStack)) return op.contestStack;
+  return op.lastContest ? [op.lastContest] : [];
+}
+function contestEntryLabel(state, ev, entry) {
+  if (!entry) return "";
+  if (typeof entry.short === "string" && entry.short) return entry.short;
+  if (entry.kind === "match" && Array.isArray(entry.match)) {
+    const [r, m] = entry.match;
+    const br = state.brackets?.[ev?.id];
+    const size = state.draws?.[ev?.id]?.teams?.length || br?.size;
+    const round = ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
+    return (br?.rounds?.[r]?.length || 1) > 1 ? `${singularRound(round)} ${m + 1}` : round;
+  }
+  if (entry.kind === "heat") return state.stages?.[ev?.id]?.groups?.[entry.group]?.name || `Heat ${Number(entry.group) + 1}`;
+  return "Final";
+}
+function restoreContestEntry(state, evId, entry) {
+  if (entry.kind === "match") {
+    const match = state.brackets?.[evId]?.rounds?.[entry.match[0]]?.[entry.match[1]];
+    if (match) match.winner = entry.previousWinner ?? null;
+  } else if (entry.kind === "heat") {
+    const group = state.stages?.[evId]?.groups?.[entry.group];
+    if (group) {
+      group.winner = entry.previousWinner ?? null;
+      group.through = [...entry.previousThrough || []];
+    }
+  } else if (state.stages?.[evId]) state.stages[evId].finalWinner = entry.previousWinner ?? null;
+}
+function applyContestCorrection(state, ev, contestId, now = Date.now()) {
+  const stack = [...contestStackOf(state, ev.id)];
+  const index = stack.findIndex((entry) => entry.id === contestId);
+  if (index < 0) return null;
+  const target = stack[index], later = stack.slice(index + 1);
+  const events = allEventsOf(state);
+  const ids = /* @__PURE__ */ new Set();
+  const current = resolveCurrentContest(state, ev);
+  if (current) (state.wagers || []).forEach((wager) => {
+    if (wagerMatchesContest(wager, current) && resolveWager(state, wager, events).status === "pending") ids.add(wager.id);
+  });
+  later.forEach((entry) => {
+    const contest = contestOfEntry(ev.id, entry);
+    (state.wagers || []).forEach((wager) => {
+      if (wager.status !== "void" && wagerMatchesContest(wager, contest)) ids.add(wager.id);
+    });
+  });
+  [...stack.slice(index)].reverse().forEach((entry) => restoreContestEntry(state, ev.id, entry));
+  const returned = voidWagerRecords(state, [...ids], "Previous result corrected", now);
+  const op = state.eventOps[ev.id];
+  if (target.kind === "match" && state.brackets?.[ev.id])
+    state.brackets[ev.id].next = [target.match[0], target.match[1]];
+  op.contestRevision = Number(op.contestRevision || 0) + 1;
+  op.contest = { id: target.id, revision: op.contestRevision, phase: "in-progress" };
+  op.bettingLockedAt = now;
+  delete op.resultEntryAt;
+  op.contestStack = stack.slice(0, index);
+  if (op.contestStack.length) op.lastContest = op.contestStack.at(-1);
+  else delete op.lastContest;
+  if (state.onDeck === ev.id) state.onDeck = null;
+  const exposure = enforceExposure(state, now);
+  return {
+    contestId: target.id,
+    contestRevision: op.contestRevision,
+    label: contestEntryLabel(state, ev, target),
+    rewinds: later.map((entry) => contestEntryLabel(state, ev, entry)),
+    voidIds: returned.map((item) => item.id),
+    refunds: refundTotals([...returned, ...exposure.filter((item) => item.type !== "duel")]),
+    voidDuels: exposure.filter((item) => item.type === "duel").map((item) => ({ id: item.id, players: item.players, stake: item.stake })),
+    voided: exposure
+  };
+}
+function contestCorrectionAvailability(state, ev, contestId = null, now = Date.now()) {
   const op = eventOpOf(state, ev?.id);
-  const last = op.lastContest;
-  const response = (blocker) => ({
+  const stack = ev ? contestStackOf(state, ev.id) : [];
+  const entry = contestId ? stack.find((item) => item.id === contestId) : stack.at(-1);
+  const short = entry ? contestEntryLabel(state, ev, entry) : "";
+  const response = (blocker, preview2 = {}) => ({
     enabled: !blocker,
     blocker: blocker || null,
-    contestId: last?.id || null,
-    contestRevision: Number(op.contestRevision || 0)
+    contestId: entry?.id || null,
+    contestRevision: Number(op.contestRevision || 0),
+    label: entry ? `Correct ${short}` : null,
+    contest: short || null,
+    rewinds: [],
+    voidIds: [],
+    refunds: [],
+    voidDuels: [],
+    voided: [],
+    ...preview2
   });
-  if (!ev || !last) return response("No previous contest to correct");
+  if (!ev || !entry) return response("No previous contest to correct");
   if (state.frozen) return response("The board is frozen");
   if (state.results?.[ev.id]) return response("The event result is already posted");
   if (state.poker || stacksPosted(state)) return response("The finale is underway");
   if (state.onDeck && state.onDeck !== ev.id) return response("Close the current betting market first");
-  const current = resolveCurrentContest(state, ev);
+  const rewound = stack.slice(stack.indexOf(entry));
+  if (rewound.some((item) => item.drawId && state.draws?.[ev.id]?.id !== item.drawId || item.stagesId && state.stages?.[ev.id]?.id !== item.stagesId))
+    return response("Draw changed, refresh and try again");
+  const preview = structuredClone(state);
+  const moved = applyContestCorrection(preview, allEventsOf(preview).find((item) => item.id === ev.id), entry.id, now);
+  if (!moved) return response("No previous contest to correct");
+  const { contestId: _id, contestRevision: _revision, label: _label, ...rest } = moved;
+  return response(null, rest);
+}
+function correctionText(state, moved = {}) {
+  const duels = (moved.voidDuels || []).map((duel) => duelPairText(state, duel.players));
+  return [
+    moved.rewinds?.length ? `Rewinds ${moved.rewinds.join(", ")}` : "",
+    refundText(state, moved.refunds || []),
+    duels.length ? `Voids ${duels.join(", ")} duel${duels.length === 1 ? "" : "s"}` : ""
+  ].filter(Boolean).map((line) => `${line}.`).join(" ");
+}
+function announcementTakeBack(state, ev) {
+  const op = eventOpOf(state, ev?.id);
+  const response = (blocker, extra = {}) => ({
+    enabled: !blocker,
+    blocker: blocker || null,
+    eventId: ev?.id || null,
+    refunds: [],
+    voidIds: [],
+    ...extra
+  });
+  if (!ev) return response("No such event");
+  const announced = state.onDeck === ev.id || !!op.contest || !!op.bettingOpenedAt || !!op.bettingLockedAt;
+  if (!announced) return response("Not announced");
+  if (state.frozen) return response("The board is frozen");
+  if (state.results?.[ev.id]) return response("Result already posted");
+  if (op.startedAt || op.resultEntryAt || contestStackOf(state, ev.id).length || bracketStarted(state.brackets?.[ev.id]) || stagesStarted(state.stages?.[ev.id]))
+    return response("The event has already started");
   const events = allEventsOf(state);
-  const voided = current ? (state.wagers || []).filter((wager) => wagerMatchesContest(wager, current) && resolveWager(state, wager, events).status === "pending") : [];
-  const totals = /* @__PURE__ */ new Map();
-  voided.forEach((wager) => totals.set(wager.player, (totals.get(wager.player) || 0) + Number(wager.stake || 0)));
-  return {
-    ...response(null),
-    voidIds: voided.map((wager) => wager.id),
-    refunds: [...totals].map(([player, stake]) => ({ player, stake }))
-  };
+  const pending = (state.wagers || []).filter((wager) => wager.eventId === ev.id && resolveWager(state, wager, events).status === "pending");
+  return response(null, { voidIds: pending.map((wager) => wager.id), refunds: refundTotals(pending) });
 }
 function resultReadiness(state, ev) {
   const blockers = [];
@@ -687,7 +878,7 @@ function resolveEventLifecycle(state, ev) {
     return response("draw-revealed", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
   return response("setup", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
 }
-var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isActivePlayer, isAway, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, disp, shuffle, snakeTeam, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, splitThird, postCountRuling, ROUND_NAMES, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, refundText, lifecycleAction;
+var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isActivePlayer, isAway, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, disp, shuffle, snakeTeam, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, splitThird, postCountRuling, postCountRulingApplies, ROUND_NAMES, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, singularRound, contestOfEntry, contestUndoAvailability, contestCorrections, refundText, duelPairText, lifecycleAction;
 var init_core = __esm({
   "shared/core.js"() {
     ROSTER_CONFIG = [
@@ -797,7 +988,7 @@ var init_core = __esm({
         sport: "die",
         game: "die",
         teamCfg: { teams: 6, size: 2, bracket: 6 },
-        desc: "Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill."
+        desc: "Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game."
       },
       /* ── Saturday morning · 800 pts ── */
       {
@@ -897,7 +1088,7 @@ var init_core = __esm({
         sport: "pickleball",
         game: "pickleball",
         teamCfg: { teams: 6, size: 2, bracket: 6 },
-        desc: "Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2."
+        desc: "Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2."
       },
       /* ── Saturday night · 1600 pts ── */
       {
@@ -956,7 +1147,7 @@ var init_core = __esm({
         name: "The Gauntlet",
         kind: "solo",
         game: "gauntlet",
-        desc: "One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it."
+        desc: "One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean run wins."
       },
       /* ── The Finale · poker. No value: the result carries chip stacks that
          BECOME the standings, it never pays awards. ── */
@@ -991,12 +1182,12 @@ var init_core = __esm({
       "on-deck": Object.freeze({
         label: "On-deck lead",
         short: "Next up",
-        detail: "Keeps the next matchup ready to go."
+        detail: "Gets the next matchup ready."
       }),
       "sit-out": Object.freeze({
         label: "Event host",
         short: "Host",
-        detail: "Resets the station and keeps play moving."
+        detail: "Resets the station between games."
       })
     });
     overflowRoleMeta = (role) => OVERFLOW_ROLE_META[role] || OVERFLOW_ROLE_META["sit-out"];
@@ -1020,51 +1211,51 @@ var init_core = __esm({
         players: "Solo",
         gear: ["Putter", "One ball"],
         objective: "Sink it, or finish closest to the pin.",
-        steps: ["Set up at the marked spot.", "Putt for the hole, distance counts.", "Closest ball beats a miss, a make beats everything.", "Lowest strokes or closest putt wins, by event."],
+        steps: ["Putt from the marked spot.", "A make beats any miss. Otherwise the closest ball wins."],
         win: "Long Putt: closest of three attempts. Nine-Hole: fewest total strokes. Ties go to sudden death."
       } },
       "8ball": { name: "8-Ball", howto: {
         players: "Pairs",
         gear: ["Pool table", "Full rack", "Two cues"],
         objective: "Clear your group, then sink the 8.",
-        steps: ["Break, then split stripes and solids.", "Partners alternate shots.", "Clear your group of seven. A scratch is ball in hand for them.", "Call and sink the 8 to win."],
-        win: "First pair to legally pot the 8 takes the rack."
+        steps: ["Break, then split stripes and solids.", "Partners alternate shots.", "A scratch gives the other pair ball in hand.", "Call the 8 before you shoot it."],
+        win: "First pair to legally sink the 8 wins."
       } },
       pong: { name: "Beer Pong", howto: {
         players: "Pairs",
         gear: ["Table", "Ten cups", "Two balls"],
         objective: "Sink every cup on the far end first.",
-        steps: ["Rack six, one re-rack on request.", "Both partners throw each turn.", "Bounces count two and can be swatted.", "Clear their last cup to win."],
+        steps: ["Rack six, one re-rack on request.", "Both partners throw each turn.", "Bounces count two and can be swatted."],
         win: "First pair to sink all their cups wins.",
         house: "Redemption throw in the semis and final."
       } },
       die: { name: "Beer Die", howto: {
         players: "Pairs",
         gear: ["Table", "One die", "Four cups", "A pour"],
-        objective: "Land the die in their cup, or make them flub the catch.",
-        steps: ["Sit across the table, cups on your two corners.", "Toss the die up past head height and onto the far end.", "It has to bounce off the table, no darting it, no skying it.", "They catch it one-handed off the bounce, or you score.", "Sink it in a cup for the instant kill."],
-        win: "First pair to the set score wins. Sinking the die ends it on the spot.",
+        objective: "Land the die in their cup, or make them miss the catch.",
+        steps: ["Sit across the table, cups on your two corners.", "Toss the die up past head height and onto the far end.", "It has to bounce off the table. No darting it, no skying it.", "They catch it one-handed off the bounce, or you score."],
+        win: "First pair to the set score wins. Sinking the die in a cup ends it on the spot.",
         house: "Call your own height on the toss. A plunk means chug."
       } },
       basketball: { name: "Basketball", variants: [
         { id: "1v1", label: "1v1", howto: {
           players: "Solo, heats then a final",
           gear: ["Half court", "One ball"],
-          objective: "Beat your man to five.",
-          steps: ["Check the ball up top.", "Everything counts one.", "Make it, take it.", "Call your own fouls.", "First to five, win by one."],
+          objective: "Score five before your opponent.",
+          steps: ["Check the ball up top.", "Everything counts one.", "Make it, take it.", "Call your own fouls."],
           win: "First to five wins the game. Best record in your heat moves on."
         } },
         { id: "3v3", label: "3v3", howto: {
           players: "Teams of three",
           gear: ["Half court", "One ball"],
-          objective: "Outscore them to seven.",
-          steps: ["Check the ball up top.", "Score by ones and twos.", "Take it back past the arc on a turnover.", "Call your own fouls.", "First to seven, win by one."],
+          objective: "Score seven before the other team.",
+          steps: ["Check the ball up top.", "Score by ones and twos.", "Take it back past the arc on a turnover.", "Call your own fouls."],
           win: "First team to seven wins."
         } },
         { id: "5v5", label: "5v5", howto: {
           players: "Two teams of five",
           gear: ["Full court", "One ball", "A clock"],
-          objective: "Be ahead when the horn sounds.",
+          objective: "Be ahead when time runs out.",
           steps: ["Tip off to start.", "Twos inside the arc, threes beyond it.", "Clear past half on a change of possession.", "Call your own fouls.", "Two halves, running clock."],
           win: "Ahead at the horn wins.",
           house: "No hard contact."
@@ -1081,21 +1272,21 @@ var init_core = __esm({
         players: "Solo",
         gear: ["Table", "Paddles", "One ball"],
         objective: "Win points until eleven.",
-        steps: ["Rally for serve, then serve two and hand it over.", "Serve must clear the net and bounce once each side.", "Let it bounce once on your side before returning.", "Games to eleven, win by two."],
-        win: "Games to eleven, win by two. Best in the final takes it."
+        steps: ["Rally for serve, then serve two and hand it over.", "Serve must clear the net and bounce once each side.", "Let it bounce once on your side before returning."],
+        win: "Games to eleven, win by two. The winner of the final takes the event."
       } },
       foosball: { name: "Foosball", howto: {
         players: "Pairs",
         gear: ["Foosball table", "One ball"],
         objective: "Score on their goal, defend yours.",
-        steps: ["Split the rods with your partner.", "Serve through the side hole.", "Pass and shoot. A full spin wipes the goal.", "Dead ball resets to the serve.", "Ball in their goal scores."],
+        steps: ["Split the rods with your partner.", "Serve through the side hole.", "No spinning. A goal off a full spin does not count.", "A dead ball goes back to the serve."],
         win: "First pair to ten goals wins."
       } },
       volleyball: { name: "Volleyball", howto: {
         players: "Two teams",
         gear: ["Sand court", "Net", "One ball"],
         objective: "Ground the ball on their side.",
-        steps: ["Serve from behind the line.", "Three touches a side, clean contact only.", "Rotate on every side-out.", "Win the rally, win the point."],
+        steps: ["Serve from behind the line.", "Three touches a side, clean contact only.", "Rotate on every side-out.", "Every rally scores a point."],
         win: "Best two of three sets to fifteen, win by two, cap seventeen."
       } },
       pickleball: { name: "Pickleball", howto: {
@@ -1116,30 +1307,29 @@ var init_core = __esm({
         players: "Heats of four",
         gear: ["Switch", "Four controllers", "A beer each"],
         objective: "Win the race, but finish your beer to count.",
-        steps: ["Draw into a heat of four.", "Crack a beer at the start line.", "Pull over to drink, no sipping while you steer.", "Finish the beer before the line, or sit there until it is gone."],
+        steps: ["Open a beer at the start line.", "Pull over to drink, no sipping while you steer.", "Finish the beer before the finish line, or wait there until it is gone."],
         win: "Best finishes advance to the final. Highest total wins."
       } },
       ragecage: { name: "Rage Cage", howto: {
         players: "Solo, last standing",
         gear: ["Ring of cups", "Center cup", "Two balls"],
-        objective: "Never get caught holding a ball. Empty the ring before you.",
-        steps: ["Everyone circles the cups, two balls in play.", "Bounce a ball into your cup, then pass it on.", "Make it in one, stack your cup on the player to your left.", "Get stacked on and you are out.", "Sink the center cup to end it. Last player standing wins."],
+        objective: "Sink your ball and pass it on before you get stacked.",
+        steps: ["Everyone circles the cups, two balls in play.", "Bounce a ball into your cup, then pass it on.", "Make it in one, stack your cup on the player to your left.", "Get stacked on and you are out.", "Sink the center cup to end it."],
         win: "Last one standing takes 1st. Elimination order sets 2nd and 3rd."
       } },
       poker: { name: "Poker", howto: {
         players: "Everyone, one table",
         gear: ["Cards", "Chips", "The clock"],
         objective: "Finish with the biggest stack.",
-        steps: ["Whatever you have Saturday night is the stack you start the finale with.", "No-limit hold'em. Blinds rise on the clock, shown on the TV.", "Bust and you are out.", "When the last level ends, count your stack.", "Final chip counts are the final standings."],
-        win: "Chip leader takes the championship. Elimination order settles the busts.",
-        house: "No wagers, duels, or rulings while cards are live."
+        steps: ["Whatever you have Saturday night is the stack you start the finale with.", "No-limit hold'em. Blinds rise on the clock.", "Bust and you are out.", "When the last level ends, count your stack."],
+        win: "Chip leader takes the championship. Final chip counts are the final standings, and elimination order ranks the busts."
       } },
       gauntlet: { name: "The Gauntlet", howto: {
         players: "Solo, on the clock",
         gear: ["Putter", "Cups", "Pong ball", "One die"],
         objective: "Clear five stations faster than everyone else.",
         steps: ["Sink the pressure putt.", "Flip your cup clean.", "Hit a pong shot.", "Land a die on the table.", "Finish at the center cup. Miss a station, run it back."],
-        win: "Fastest clean run takes 1st. The clock settles ties.",
+        win: "Fastest clean run takes 1st.",
         house: "One runner at a time. Someone times each run."
       } }
     };
@@ -1299,6 +1489,7 @@ var init_core = __esm({
     duelsSentToday = (state, player, now = Date.now()) => (state?.duels || []).filter((duel) => duel.from === player && Number(duel.ts || 0) > now - 24 * 60 * 60 * 1e3 && !["declined", "withdrawn", "lapsed"].includes(duelPhase(duel, now))).length;
     splitThird = (each, sides) => sides > 1 ? Math.floor(each / sides / PT) * PT : each;
     postCountRuling = (a, stacksRes = null) => a.pokerRevision !== void 0 || !!stacksRes && a.ts > stacksRes.ts;
+    postCountRulingApplies = (a, stacksRes) => !!stacksRes && (a.pokerRevision !== void 0 ? Number(a.pokerRevision) === Number(stacksRes.revision || 1) : a.ts > stacksRes.ts);
     ROUND_NAMES = {
       2: ["Final"],
       3: ["Semifinal", "Final"],
@@ -1328,7 +1519,20 @@ var init_core = __esm({
     needsStageSetup = (state, ev) => !!ev.stageCfg && !state.stages?.[ev.id] && !(!state.eventOps?.[ev.id]?.contest && (state.onDeck === ev.id || state.eventOps?.[ev.id]?.startedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || state.eventOps?.[ev.id]?.bettingLockedAt || state.eventOps?.[ev.id]?.resultEntryAt));
     wideField = (contest) => contest?.kind === "ffa" && contest.sides.length > 2;
     contestMult = (contest) => wideField(contest) ? OUTRIGHT_MULT : 1;
+    singularRound = (name) => String(name || "").replace(/s$/, "");
+    contestOfEntry = (evId, entry) => ({
+      id: entry.id,
+      eventId: evId,
+      kind: entry.kind,
+      match: entry.match,
+      group: entry.group,
+      stagesId: entry.stagesId,
+      drawId: entry.drawId
+    });
+    contestUndoAvailability = (state, ev, now = Date.now()) => contestCorrectionAvailability(state, ev, null, now);
+    contestCorrections = (state, ev, now = Date.now()) => ev ? [...contestStackOf(state, ev.id)].reverse().map((entry) => contestCorrectionAvailability(state, ev, entry.id, now)) : [];
     refundText = (state, refunds = []) => refunds.length ? `Returns ${refunds.map((item) => `${disp(state, item.player)} ${item.stake}`).join(", ")}` : "";
+    duelPairText = (state, players = []) => players.filter(Boolean).map((player) => disp(state, player)).join(" vs ");
     lifecycleAction = (type, label2, blockers = []) => ({
       type,
       label: label2,
@@ -1339,14 +1543,13 @@ var init_core = __esm({
 });
 
 // src/ui/theme.js
-var DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle;
+var DISPLAY, SANS, BONE, GOLD_GRAD, label, pStyle;
 var init_theme = __esm({
   "src/ui/theme.js"() {
     DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
     SANS = "'Inter',system-ui,sans-serif";
     BONE = "var(--bone)";
     GOLD_GRAD = "var(--sun)";
-    CARD_BG = "var(--paper)";
     label = { fontFamily: SANS, fontWeight: 700, fontSize: 11, letterSpacing: "0.07em", color: "var(--muted)", textTransform: "uppercase" };
     pStyle = { fontFamily: SANS, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", marginBottom: 14 };
   }
@@ -1840,6 +2043,63 @@ var init_PlayerIdentity = __esm({
   }
 });
 
+// src/features/profile/player-pass.css
+var init_player_pass = __esm({
+  "src/features/profile/player-pass.css"() {
+  }
+});
+
+// src/features/profile/PlayerPass.jsx
+import React14, { useState as useState11 } from "react";
+function cardInk(color) {
+  const luminanceOf = (hex) => {
+    const channels = hex.slice(1).match(/.{2}/g).map((value) => parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  const luminance = luminanceOf(color), darkLuminance = luminanceOf("#070b09");
+  return (luminance + 0.05) / (darkLuminance + 0.05) >= 1.05 / (luminance + 0.05) ? "#070b09" : "#ffffff";
+}
+function PlayerPass({ state, p, display, num, photo, compact = false }) {
+  const identity = usePlayerIdentity(p);
+  const [flipped, setFlipped] = useState11(false);
+  const profile = state.profiles?.[p] || {};
+  const name = display?.trim() || profile.display || p;
+  const number = num !== void 0 && num !== null && num !== "" ? Number(num) : identity.num;
+  const saved = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
+  const [failed, setFailed] = useState11(null);
+  const portrait = saved && failed !== saved ? saved : null;
+  const standing = state.live ? computeStandings(state).find((row) => row.player === p) : null;
+  if (!p) return null;
+  const longest = Math.max(4, ...name.split(/\s+/).map((word) => word.length));
+  return /* @__PURE__ */ React14.createElement(
+    "div",
+    {
+      className: `fd-pass-wrap${compact ? " fd-pass-compact" : ""}`,
+      style: { "--pass-color": identity.color, "--pass-ink": cardInk(identity.color), "--pass-name-chars": longest }
+    },
+    /* @__PURE__ */ React14.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-pass",
+        onClick: () => setFlipped((value) => !value),
+        "aria-label": `${name}'s player card. ${flipped ? "Show front" : "Turn over"}`,
+        "aria-pressed": flipped
+      },
+      /* @__PURE__ */ React14.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React14.createElement("span", null, "FIELD DAY"), /* @__PURE__ */ React14.createElement("span", null, EDITION.name.toUpperCase(), " / ", EDITION.year)), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-number" }, number == null ? "FD" : String(number).padStart(2, "0")), portrait && /* @__PURE__ */ React14.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) }), /* @__PURE__ */ React14.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React14.createElement(ChipFace, { p, size: portrait ? 78 : 112, stamp: number == null ? void 0 : String(number) })), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-edition" }, "SCOTTSDALE", /* @__PURE__ */ React14.createElement("br", null), "ARIZONA")), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-name" }, name), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React14.createElement("span", null, EDITION.short), /* @__PURE__ */ React14.createElement("span", null, "PLAYER / ", number ?? "FD"))), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-face fd-pass-back", "aria-hidden": !flipped }, /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React14.createElement("span", null, name), /* @__PURE__ */ React14.createElement("span", null, "FIELD DAY / ", EDITION.year)), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-back-title" }, "PLAYER", /* @__PURE__ */ React14.createElement("br", null), number == null ? "CARD" : String(number).padStart(2, "0")), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-facts" }, /* @__PURE__ */ React14.createElement("span", null, /* @__PURE__ */ React14.createElement("span", null, "Scottsdale, Arizona"), /* @__PURE__ */ React14.createElement("span", null, EDITION.short)), standing && /* @__PURE__ */ React14.createElement("span", null, /* @__PURE__ */ React14.createElement("span", null, "Current chips"), /* @__PURE__ */ React14.createElement("strong", null, standing.pts.toLocaleString("en-US"))), profile.walkoutTrack?.name && /* @__PURE__ */ React14.createElement("span", null, /* @__PURE__ */ React14.createElement("span", null, "Walkout song"), /* @__PURE__ */ React14.createElement("strong", null, profile.walkoutTrack.name))), /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React14.createElement("span", null, name.toUpperCase()), /* @__PURE__ */ React14.createElement("span", null, EDITION.year))))
+    ),
+    /* @__PURE__ */ React14.createElement("span", { className: "fd-pass-hint" }, flipped ? "Tap to see the front" : "Tap to turn over")
+  );
+}
+var init_PlayerPass = __esm({
+  "src/features/profile/PlayerPass.jsx"() {
+    init_core();
+    init_PlayerIdentity();
+    init_PlayerIdentityContext();
+    init_player_pass();
+  }
+});
+
 // src/features/travel/travel.css
 var init_travel = __esm({
   "src/features/travel/travel.css"() {
@@ -1847,14 +2107,14 @@ var init_travel = __esm({
 });
 
 // src/features/travel/Travel.jsx
-import React17, { useState as useState10 } from "react";
+import React19, { useState as useState14 } from "react";
 function TravelMap() {
   const arc = (c) => {
     const mx = (c.x + TRAVEL_DEST.x) / 2;
     const lift = 9 + Math.abs(c.x - TRAVEL_DEST.x) * 0.3;
     return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
-  return /* @__PURE__ */ React17.createElement(
+  return /* @__PURE__ */ React19.createElement(
     "svg",
     {
       viewBox: "-5 -3 110 104",
@@ -1864,8 +2124,8 @@ function TravelMap() {
       "aria-hidden": "true",
       style: { display: "block", overflow: "hidden", maxWidth: "100%", maxHeight: "100%" }
     },
-    /* @__PURE__ */ React17.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React17.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React17.createElement(
+    /* @__PURE__ */ React19.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React19.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React19.createElement(
       "path",
       {
         key: "r" + c.n,
@@ -1879,7 +2139,7 @@ function TravelMap() {
         style: { "--len": 140, animation: `si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }
       }
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React17.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React19.createElement(
       "circle",
       {
         className: "fd-travel-motion",
@@ -1890,10 +2150,10 @@ function TravelMap() {
         strokeWidth: "0.5",
         opacity: "0"
       },
-      /* @__PURE__ */ React17.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
-      /* @__PURE__ */ React17.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
+      /* @__PURE__ */ React19.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
+      /* @__PURE__ */ React19.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React17.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React17.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React17.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React19.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React19.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React19.createElement(
       "text",
       {
         x: c.x + c.dx,
@@ -1907,7 +2167,7 @@ function TravelMap() {
       },
       c.n.toUpperCase()
     ))),
-    /* @__PURE__ */ React17.createElement(
+    /* @__PURE__ */ React19.createElement(
       "circle",
       {
         cx: TRAVEL_DEST.x,
@@ -1919,8 +2179,8 @@ function TravelMap() {
         style: { animation: "si-land 2.2s ease-in-out infinite" }
       }
     ),
-    /* @__PURE__ */ React17.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
-    /* @__PURE__ */ React17.createElement(
+    /* @__PURE__ */ React19.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
+    /* @__PURE__ */ React19.createElement(
       "text",
       {
         x: TRAVEL_DEST.x,
@@ -1937,7 +2197,7 @@ function TravelMap() {
   );
 }
 function HouseArt() {
-  return /* @__PURE__ */ React17.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React17.createElement(
+  return /* @__PURE__ */ React19.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React19.createElement(
     "img",
     {
       src: "/airbnb-compound-field-day.webp",
@@ -1957,12 +2217,12 @@ function HouseArt() {
   ));
 }
 function InfoCell({ lb, v, first }) {
-  return /* @__PURE__ */ React17.createElement("div", { style: {
+  return /* @__PURE__ */ React19.createElement("div", { style: {
     flex: 1,
     minWidth: 0,
     padding: "11px 14px",
     borderLeft: first ? "none" : "1px solid var(--line)"
-  } }, /* @__PURE__ */ React17.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 4 } }, lb), /* @__PURE__ */ React17.createElement("div", { style: {
+  } }, /* @__PURE__ */ React19.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 4 } }, lb), /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 14,
@@ -1977,20 +2237,20 @@ function VenueCard({ lg, compact = false }) {
     inL && ["Lands", inL.note || legTime(inL.time) && `Fri ${legTime(inL.time)}`],
     outL && ["Leaves", outL.note || legTime(outL.time) && `Sun ${legTime(outL.time)}`]
   ].filter((x) => x && x[1]);
-  return /* @__PURE__ */ React17.createElement("div", null, /* @__PURE__ */ React17.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React17.createElement(HouseArt, null), /* @__PURE__ */ React17.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React17.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React17.createElement("div", { style: {
+  return /* @__PURE__ */ React19.createElement("div", null, /* @__PURE__ */ React19.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React19.createElement(HouseArt, null), /* @__PURE__ */ React19.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React19.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15.5,
     lineHeight: 1.45,
     userSelect: "text",
     color: "var(--ink)"
-  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React17.createElement("div", { style: {
+  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13,
     color: "var(--muted2)",
     marginTop: 5,
     lineHeight: 1.5
-  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React17.createElement(
+  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React19.createElement(
     "a",
     {
       href: mapUrl,
@@ -2011,7 +2271,7 @@ function VenueCard({ lg, compact = false }) {
       }
     },
     "Open in maps \u203A"
-  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React17.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React17.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React17.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React17.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React17.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React17.createElement(
+  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React19.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React19.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React19.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React19.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React19.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React19.createElement(
     "svg",
     {
       width: "20",
@@ -2021,8 +2281,8 @@ function VenueCard({ lg, compact = false }) {
       "aria-hidden": "true",
       style: { flexShrink: 0 }
     },
-    /* @__PURE__ */ React17.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
-  ), /* @__PURE__ */ React17.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React17.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React17.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React17.createElement("div", { style: {
+    /* @__PURE__ */ React19.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
+  ), /* @__PURE__ */ React19.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React19.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React19.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 30,
@@ -2031,7 +2291,7 @@ function VenueCard({ lg, compact = false }) {
     lineHeight: 1
   } }, lg.airport)), hostLegs.length > 0 && /* the flight codes matter to nobody but Brandon; the times are how
      people work out who they are sharing a ride with */
-  /* @__PURE__ */ React17.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React17.createElement("div", { style: { ...label, fontSize: 10, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React17.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React17.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
+  /* @__PURE__ */ React19.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React19.createElement("div", { style: { ...label, fontSize: 10, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React19.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React19.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
 }
 function FlightEntry({ leg: raw, dir, setLeg }) {
   const leg = raw || {};
@@ -2058,7 +2318,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
     color: "var(--ink)"
   };
   const cap = { ...label, fontSize: 9, marginTop: 5, color: "var(--muted)" };
-  return /* @__PURE__ */ React17.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React17.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React17.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React17.createElement("div", { style: box }, /* @__PURE__ */ React17.createElement(
+  return /* @__PURE__ */ React19.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React19.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React19.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React19.createElement("div", { style: box }, /* @__PURE__ */ React19.createElement(
     "input",
     {
       value: leg.air || "",
@@ -2069,7 +2329,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16, letterSpacing: "0.1em" }
     }
-  )), /* @__PURE__ */ React17.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React17.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React17.createElement("div", { style: box }, /* @__PURE__ */ React17.createElement(
+  )), /* @__PURE__ */ React19.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React19.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React19.createElement("div", { style: box }, /* @__PURE__ */ React19.createElement(
     "input",
     {
       value: leg.num || "",
@@ -2079,7 +2339,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16 }
     }
-  )), /* @__PURE__ */ React17.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React17.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React17.createElement("div", { style: box }, /* @__PURE__ */ React17.createElement(
+  )), /* @__PURE__ */ React19.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React19.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React19.createElement("div", { style: box }, /* @__PURE__ */ React19.createElement(
     "input",
     {
       type: "time",
@@ -2094,13 +2354,13 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
         color: leg.time ? "var(--ink)" : "var(--muted)"
       }
     }
-  )), /* @__PURE__ */ React17.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
+  )), /* @__PURE__ */ React19.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
 }
 function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
-  if (edit) return /* @__PURE__ */ React17.createElement(FlightEntry, { leg: raw, dir, setLeg });
+  if (edit) return /* @__PURE__ */ React19.createElement(FlightEntry, { leg: raw, dir, setLeg });
   const leg = cleanLeg(raw);
   if (!leg) return null;
-  if (leg.note) return /* @__PURE__ */ React17.createElement("div", { style: {
+  if (leg.note) return /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 12.5 : 13.5,
@@ -2109,7 +2369,7 @@ function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
   } }, leg.note);
   const t = legTime(leg.time);
   const numSize = small ? 19 : 22;
-  return /* @__PURE__ */ React17.createElement("div", { style: {
+  return /* @__PURE__ */ React19.createElement("div", { style: {
     display: "flex",
     alignItems: "center",
     gap: small ? 10 : 11,
@@ -2117,7 +2377,7 @@ function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
     border: "1px solid var(--line)",
     borderRadius: 10,
     padding: small ? "9px 11px" : "11px 13px"
-  } }, /* @__PURE__ */ React17.createElement(
+  } }, /* @__PURE__ */ React19.createElement(
     "svg",
     {
       width: small ? 14 : 16,
@@ -2127,31 +2387,31 @@ function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
       "aria-hidden": "true",
       style: { flexShrink: 0 }
     },
-    /* @__PURE__ */ React17.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
-  ), /* @__PURE__ */ React17.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 7, flex: 1, minWidth: 0 } }, /* @__PURE__ */ React17.createElement("span", { style: {
+    /* @__PURE__ */ React19.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
+  ), /* @__PURE__ */ React19.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 7, flex: 1, minWidth: 0 } }, /* @__PURE__ */ React19.createElement("span", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: small ? 11 : 12,
     letterSpacing: "0.14em",
     color: "var(--accent2)"
-  } }, leg.air || "\xB7\xB7"), /* @__PURE__ */ React17.createElement("span", { style: {
+  } }, leg.air || "\xB7\xB7"), /* @__PURE__ */ React19.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: numSize,
     color: "var(--ink)",
     lineHeight: 1
-  } }, leg.num || "\u2014")), /* @__PURE__ */ React17.createElement("div", { style: {
+  } }, leg.num || "\u2014")), /* @__PURE__ */ React19.createElement("div", { style: {
     flexShrink: 0,
     borderLeft: "1px dashed var(--line)",
     paddingLeft: small ? 10 : 12,
     textAlign: "right"
-  } }, /* @__PURE__ */ React17.createElement("div", { style: {
+  } }, /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: small ? 16 : 19,
     lineHeight: 1.05,
     color: t ? "var(--signal-text, var(--sun))" : "var(--muted)"
-  } }, t || "\u2014"), /* @__PURE__ */ React17.createElement("div", { style: {
+  } }, t || "\u2014"), /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: small ? 9.5 : 10,
@@ -2163,7 +2423,7 @@ function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
 }
 function LegField({ lb, dir, leg, setLeg }) {
   const filled = leg && (leg.air || leg.num || leg.time);
-  return /* @__PURE__ */ React17.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React17.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React17.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React17.createElement("button", { onClick: () => setLeg(null), style: {
+  return /* @__PURE__ */ React19.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React19.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React19.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React19.createElement("button", { onClick: () => setLeg(null), style: {
     marginLeft: "auto",
     background: "none",
     border: "none",
@@ -2177,13 +2437,13 @@ function LegField({ lb, dir, leg, setLeg }) {
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: "var(--muted)"
-  } }, "Clear")), /* @__PURE__ */ React17.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
+  } }, "Clear")), /* @__PURE__ */ React19.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
 }
 function TravelLists() {
-  return /* @__PURE__ */ React17.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React17.createElement("option", { key: a, value: a })));
+  return /* @__PURE__ */ React19.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React19.createElement("option", { key: a, value: a })));
 }
 function SizeRow({ lb, value, onPick, allowClear }) {
-  return /* @__PURE__ */ React17.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React17.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React17.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React17.createElement(
+  return /* @__PURE__ */ React19.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React19.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React19.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React19.createElement(
     "button",
     {
       key: sz,
@@ -2219,13 +2479,13 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
     color: on ? "var(--ink0)" : "var(--ink)",
     border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
   });
-  return /* @__PURE__ */ React17.createElement("div", null, /* @__PURE__ */ React17.createElement(TravelLists, null), /* @__PURE__ */ React17.createElement("div", { style: {
+  return /* @__PURE__ */ React19.createElement("div", null, /* @__PURE__ */ React19.createElement(TravelLists, null), /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15,
     color: "var(--ink)",
     marginBottom: 8
-  } }, "Booked your flights?"), /* @__PURE__ */ React17.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React17.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React17.createElement(
+  } }, "Booked your flights?"), /* @__PURE__ */ React19.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React19.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React19.createElement(
     "button",
     {
       onClick: () => {
@@ -2237,7 +2497,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
       style: opt(booked === false)
     },
     "Not yet"
-  )), booked === true && /* @__PURE__ */ React17.createElement(React17.Fragment, null, /* @__PURE__ */ React17.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React17.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React17.createElement("div", { style: {
+  )), booked === true && /* @__PURE__ */ React19.createElement(React19.Fragment, null, /* @__PURE__ */ React19.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React19.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React19.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13.5,
     color: "var(--muted2)",
@@ -2353,13 +2613,13 @@ var init_install = __esm({
 });
 
 // src/features/check-in/InstallHint.jsx
-import React18, { useEffect as useEffect7, useState as useState11 } from "react";
+import React20, { useEffect as useEffect8, useState as useState15 } from "react";
 function InstallHint() {
-  const [, bump] = useState11(0);
-  useEffect7(() => onInstallReady(() => bump((x) => x + 1)), []);
-  if (installEvt) return /* @__PURE__ */ React18.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
-  if (isIOS()) return /* @__PURE__ */ React18.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React18.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React18.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React18.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
-  return /* @__PURE__ */ React18.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
+  const [, bump] = useState15(0);
+  useEffect8(() => onInstallReady(() => bump((x) => x + 1)), []);
+  if (installEvt) return /* @__PURE__ */ React20.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
+  if (isIOS()) return /* @__PURE__ */ React20.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React20.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React20.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React20.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
+  return /* @__PURE__ */ React20.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
 }
 var init_InstallHint = __esm({
   "src/features/check-in/InstallHint.jsx"() {
@@ -2370,7 +2630,7 @@ var init_InstallHint = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React21, { useCallback, useEffect as useEffect9, useRef as useRef9, useState as useState14 } from "react";
+import React23, { useCallback, useEffect as useEffect10, useRef as useRef11, useState as useState18 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -2393,18 +2653,18 @@ function PhotoCropper({
   outputSize = 384,
   quality = 0.84
 }) {
-  const dialogRef = useRef9(null);
-  const cancelRef = useRef9(null);
-  const stageRef = useRef9(null);
-  const imageRef = useRef9(null);
-  const dragRef = useRef9(null);
-  const [image, setImage] = useState14(null);
-  const [stageSize, setStageSize] = useState14(0);
-  const [view, setView] = useState14({ zoom: 1, x: 0, y: 0 });
-  const [status, setStatus] = useState14("loading");
-  const [error, setError] = useState14("");
+  const dialogRef = useRef11(null);
+  const cancelRef = useRef11(null);
+  const stageRef = useRef11(null);
+  const imageRef = useRef11(null);
+  const dragRef = useRef11(null);
+  const [image, setImage] = useState18(null);
+  const [stageSize, setStageSize] = useState18(0);
+  const [view, setView] = useState18({ zoom: 1, x: 0, y: 0 });
+  const [status, setStatus] = useState18("loading");
+  const [error, setError] = useState18("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect9(() => {
+  useEffect10(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -2417,7 +2677,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect9(() => {
+  useEffect10(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -2453,10 +2713,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect9(() => {
+  useEffect10(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect9(() => {
+  useEffect10(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -2571,13 +2831,13 @@ function PhotoCropper({
       );
       onConfirm?.(canvas.toDataURL("image/jpeg", clamp(quality, 0.5, 0.95)));
     } catch {
-      setError("We couldn't crop that photo. Please try a different image.");
+      setError("That photo could not be cropped. Choose another image.");
     }
   };
   const coverScale = image && diameter ? Math.max(diameter / image.width, diameter / image.height) : 0;
   const renderedWidth = image ? image.width * coverScale * view.zoom : 0;
   const renderedHeight = image ? image.height * coverScale * view.zoom : 0;
-  return /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React21.createElement("style", null, `
+  return /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React23.createElement("style", null, `
         .fd-crop-overlay {
           position: fixed;
           inset: 0;
@@ -2762,7 +3022,7 @@ function PhotoCropper({
         @media (prefers-reduced-motion: reduce) {
           .fd-crop-overlay, .fd-crop-dialog { animation: none; }
         }
-      `), /* @__PURE__ */ React21.createElement(
+      `), /* @__PURE__ */ React23.createElement(
     "section",
     {
       ref: dialogRef,
@@ -2772,7 +3032,7 @@ function PhotoCropper({
       "aria-labelledby": "fd-crop-title",
       onKeyDown: onDialogKeyDown
     },
-    /* @__PURE__ */ React21.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React21.createElement("div", null, /* @__PURE__ */ React21.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React21.createElement(
+    /* @__PURE__ */ React23.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React23.createElement("div", null, /* @__PURE__ */ React23.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React23.createElement(
       "button",
       {
         ref: cancelRef,
@@ -2781,9 +3041,9 @@ function PhotoCropper({
         "aria-label": "Cancel photo crop",
         onClick: onCancel
       },
-      /* @__PURE__ */ React21.createElement("span", { "aria-hidden": "true" }, "\xD7")
+      /* @__PURE__ */ React23.createElement("span", { "aria-hidden": "true" }, "\xD7")
     )),
-    /* @__PURE__ */ React21.createElement(
+    /* @__PURE__ */ React23.createElement(
       "div",
       {
         ref: stageRef,
@@ -2797,7 +3057,7 @@ function PhotoCropper({
         onPointerUp: endPointer,
         onPointerCancel: endPointer
       },
-      /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React21.createElement(
+      /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React23.createElement(
         "img",
         {
           className: "fd-crop-image",
@@ -2813,9 +3073,9 @@ function PhotoCropper({
           }
         }
       )),
-      status !== "ready" && /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
+      status !== "ready" && /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
     ),
-    /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React21.createElement(
+    /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React23.createElement(
       "button",
       {
         type: "button",
@@ -2824,8 +3084,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom <= MIN_ZOOM,
         onClick: () => updateZoom(view.zoom - ZOOM_STEP)
       },
-      /* @__PURE__ */ React21.createElement("span", { "aria-hidden": "true" }, "\u2212")
-    ), /* @__PURE__ */ React21.createElement(
+      /* @__PURE__ */ React23.createElement("span", { "aria-hidden": "true" }, "\u2212")
+    ), /* @__PURE__ */ React23.createElement(
       "input",
       {
         className: "fd-crop-range",
@@ -2838,7 +3098,7 @@ function PhotoCropper({
         "aria-label": `Photo zoom, ${Math.round(view.zoom * 100)} percent`,
         onChange: (event) => updateZoom(event.target.value)
       }
-    ), /* @__PURE__ */ React21.createElement(
+    ), /* @__PURE__ */ React23.createElement(
       "button",
       {
         type: "button",
@@ -2847,8 +3107,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom >= MAX_ZOOM,
         onClick: () => updateZoom(view.zoom + ZOOM_STEP)
       },
-      /* @__PURE__ */ React21.createElement("span", { "aria-hidden": "true" }, "+")
-    )), error && /* @__PURE__ */ React21.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React21.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React21.createElement(
+      /* @__PURE__ */ React23.createElement("span", { "aria-hidden": "true" }, "+")
+    )), error && /* @__PURE__ */ React23.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React23.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React23.createElement(
       "button",
       {
         type: "button",
@@ -2856,7 +3116,7 @@ function PhotoCropper({
         onClick: onCancel
       },
       "Cancel"
-    ), /* @__PURE__ */ React21.createElement(
+    ), /* @__PURE__ */ React23.createElement(
       "button",
       {
         type: "button",
@@ -2877,70 +3137,13 @@ var init_PhotoCropper = __esm({
   }
 });
 
-// src/features/profile/player-pass.css
-var init_player_pass = __esm({
-  "src/features/profile/player-pass.css"() {
-  }
-});
-
-// src/features/profile/PlayerPass.jsx
-import React22, { useState as useState15 } from "react";
-function cardInk(color) {
-  const luminanceOf = (hex) => {
-    const channels = hex.slice(1).match(/.{2}/g).map((value) => parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-  };
-  const luminance = luminanceOf(color), darkLuminance = luminanceOf("#070b09");
-  return (luminance + 0.05) / (darkLuminance + 0.05) >= 1.05 / (luminance + 0.05) ? "#070b09" : "#ffffff";
-}
-function PlayerPass({ state, p, display, num, photo, compact = false }) {
-  const identity = usePlayerIdentity(p);
-  const [flipped, setFlipped] = useState15(false);
-  const profile = state.profiles?.[p] || {};
-  const name = display?.trim() || profile.display || p;
-  const number = num !== void 0 && num !== null && num !== "" ? Number(num) : identity.num;
-  const saved = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
-  const [failed, setFailed] = useState15(null);
-  const portrait = saved && failed !== saved ? saved : null;
-  const standing = state.live ? computeStandings(state).find((row) => row.player === p) : null;
-  if (!p) return null;
-  const longest = Math.max(4, ...name.split(/\s+/).map((word) => word.length));
-  return /* @__PURE__ */ React22.createElement(
-    "div",
-    {
-      className: `fd-pass-wrap${compact ? " fd-pass-compact" : ""}`,
-      style: { "--pass-color": identity.color, "--pass-ink": cardInk(identity.color), "--pass-name-chars": longest }
-    },
-    /* @__PURE__ */ React22.createElement(
-      "button",
-      {
-        type: "button",
-        className: "fd-pass",
-        onClick: () => setFlipped((value) => !value),
-        "aria-label": `${name}'s player card. ${flipped ? "Show front" : "Turn over"}`,
-        "aria-pressed": flipped
-      },
-      /* @__PURE__ */ React22.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React22.createElement("span", null, "FIELD DAY"), /* @__PURE__ */ React22.createElement("span", null, EDITION.name.toUpperCase(), " / ", EDITION.year)), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-number" }, number == null ? "FD" : String(number).padStart(2, "0")), portrait && /* @__PURE__ */ React22.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) }), /* @__PURE__ */ React22.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React22.createElement(ChipFace, { p, size: portrait ? 78 : 112, stamp: number == null ? void 0 : String(number) })), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-edition" }, "SCOTTSDALE", /* @__PURE__ */ React22.createElement("br", null), "ARIZONA")), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-name" }, name), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React22.createElement("span", null, EDITION.short), /* @__PURE__ */ React22.createElement("span", null, "PLAYER / ", number ?? "FD"))), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-face fd-pass-back", "aria-hidden": !flipped }, /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React22.createElement("span", null, name), /* @__PURE__ */ React22.createElement("span", null, "FIELD DAY / ", EDITION.year)), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-back-title" }, "PLAYER", /* @__PURE__ */ React22.createElement("br", null), number == null ? "CARD" : String(number).padStart(2, "0")), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-facts" }, /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement("span", null, "Scottsdale, Arizona"), /* @__PURE__ */ React22.createElement("span", null, EDITION.short)), standing && /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement("span", null, "Current chips"), /* @__PURE__ */ React22.createElement("strong", null, standing.pts.toLocaleString("en-US"))), profile.walkoutTrack?.name && /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement("span", null, "Walkout song"), /* @__PURE__ */ React22.createElement("strong", null, profile.walkoutTrack.name))), /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React22.createElement("span", null, name.toUpperCase()), /* @__PURE__ */ React22.createElement("span", null, EDITION.year))))
-    ),
-    /* @__PURE__ */ React22.createElement("span", { className: "fd-pass-hint" }, flipped ? "Tap to see the front" : "Tap to turn over")
-  );
-}
-var init_PlayerPass = __esm({
-  "src/features/profile/PlayerPass.jsx"() {
-    init_core();
-    init_PlayerIdentity();
-    init_PlayerIdentityContext();
-    init_player_pass();
-  }
-});
-
 // src/features/profile/ProfileEditor.jsx
-import React23, { useId as useId2, useRef as useRef10, useState as useState16 } from "react";
+import React24, { useId as useId2, useRef as useRef12, useState as useState19 } from "react";
 function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
   const identity = usePlayerIdentity(me);
-  const fileRef = useRef10(null);
+  const fileRef = useRef12(null);
   const numberErrorId = useId2();
-  const [cropSource, setCropSource] = useState16(null);
+  const [cropSource, setCropSource] = useState19(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
   const takenBy = num !== "" ? Object.entries(state.profiles || {}).find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
@@ -2952,14 +3155,14 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
     reader.readAsDataURL(f);
     e.target.value = "";
   };
-  return /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-editor" }, me && (state.live ? /* @__PURE__ */ React23.createElement("details", { className: "fd-profile-preview" }, /* @__PURE__ */ React23.createElement("summary", null, "Player card preview"), /* @__PURE__ */ React23.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true })) : /* @__PURE__ */ React23.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true })), /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React23.createElement(
+  return /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-editor" }, me && (state.live ? /* @__PURE__ */ React24.createElement("details", { className: "fd-profile-preview" }, /* @__PURE__ */ React24.createElement("summary", null, "Player card preview"), /* @__PURE__ */ React24.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true })) : /* @__PURE__ */ React24.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true })), /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React24.createElement(
     "div",
     {
       "aria-hidden": "true",
       className: "fd-profile-color-rail",
       style: { background: me ? identity.color : "var(--accent)" }
     }
-  ), /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React23.createElement(
+  ), /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React24.createElement(
     "button",
     {
       type: "button",
@@ -2967,7 +3170,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       className: "fd-profile-photo-button",
       "aria-label": current ? "Change your photo" : "Add your photo"
     },
-    /* @__PURE__ */ React23.createElement(
+    /* @__PURE__ */ React24.createElement(
       "svg",
       {
         width: "18",
@@ -2979,12 +3182,12 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
         strokeLinejoin: "round",
         "aria-hidden": "true"
       },
-      /* @__PURE__ */ React23.createElement("path", { d: "M3 7h4l2-3h6l2 3h4v13H3z" }),
-      /* @__PURE__ */ React23.createElement("circle", { cx: "12", cy: "13", r: "3.5" })
+      /* @__PURE__ */ React24.createElement("path", { d: "M3 7h4l2-3h6l2 3h4v13H3z" }),
+      /* @__PURE__ */ React24.createElement("circle", { cx: "12", cy: "13", r: "3.5" })
     ),
-    /* @__PURE__ */ React23.createElement("span", null, current ? "Change photo" : "Add a photo"),
-    /* @__PURE__ */ React23.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, current ? "\u2197" : "+")
-  ), /* @__PURE__ */ React23.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React23.createElement(
+    /* @__PURE__ */ React24.createElement("span", null, current ? "Change photo" : "Add a photo"),
+    /* @__PURE__ */ React24.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, current ? "\u2197" : "+")
+  ), /* @__PURE__ */ React24.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React24.createElement(
     PhotoCropper,
     {
       src: cropSource,
@@ -2994,7 +3197,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
         setCropSource(null);
       }
     }
-  )), /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React23.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React23.createElement("span", null, "Display name"), /* @__PURE__ */ React23.createElement(
+  )), /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React24.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React24.createElement("span", null, "Display name"), /* @__PURE__ */ React24.createElement(
     "input",
     {
       value: display,
@@ -3003,7 +3206,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       "aria-label": "Display name",
       autoComplete: "nickname"
     }
-  )), /* @__PURE__ */ React23.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React23.createElement("span", null, "No."), /* @__PURE__ */ React23.createElement(
+  )), /* @__PURE__ */ React24.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React24.createElement("span", null, "No."), /* @__PURE__ */ React24.createElement(
     "input",
     {
       value: num,
@@ -3014,7 +3217,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
       "aria-describedby": takenBy ? numberErrorId : void 0,
       onChange: (e) => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))
     }
-  ))), takenBy && /* @__PURE__ */ React23.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React23.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React23.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React23.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
+  ))), takenBy && /* @__PURE__ */ React24.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React24.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React24.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React24.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
 }
 function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const mine = state.profiles?.[me] || {};
@@ -3023,9 +3226,9 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const lateClaim = !!state.live && !mine.color;
   const locked = !!state.live && !lateClaim;
   const { skin: savedSkin } = usePlayerIdentity(me);
-  const [draftSkin, setDraftSkin] = useState16(null);
+  const [draftSkin, setDraftSkin] = useState19(null);
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
-  const patterns = /* @__PURE__ */ React23.createElement(
+  const patterns = /* @__PURE__ */ React24.createElement(
     PatternPicker,
     {
       me,
@@ -3035,20 +3238,20 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
       onPick: (sk) => lateClaim ? setDraftSkin(sk) : onChip(void 0, sk)
     }
   );
-  if (locked) return /* @__PURE__ */ React23.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React23.createElement(ChipFace, { p: me, size: 48, stamp }), /* @__PURE__ */ React23.createElement("div", null, /* @__PURE__ */ React23.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React23.createElement("p", null, "Chips are locked for the weekend.")));
-  return /* @__PURE__ */ React23.createElement("div", { className: "fd-chip-picker", style: {
+  if (locked) return /* @__PURE__ */ React24.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React24.createElement(ChipFace, { p: me, size: 48, stamp }), /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React24.createElement("p", null, "Chips are locked for the weekend.")));
+  return /* @__PURE__ */ React24.createElement("div", { className: "fd-chip-picker", style: {
     background: "var(--paper)",
     border: embedded ? "none" : "1px solid var(--line)",
     borderTop: embedded ? "1px solid var(--line)" : void 0,
     borderRadius: embedded ? 0 : 14,
     padding: embedded ? "14px 12px 13px" : 12
-  } }, !embedded && /* @__PURE__ */ React23.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React23.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React23.createElement("span", { "aria-hidden": "true", style: {
+  } }, !embedded && /* @__PURE__ */ React24.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React24.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React24.createElement("span", { "aria-hidden": "true", style: {
     position: "absolute",
     inset: 4,
     borderRadius: "50%",
     background: "var(--sun-tint)",
     border: "1px solid var(--line)"
-  } }), /* @__PURE__ */ React23.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React23.createElement(ChipFace, { p: me, size: 70, stamp }))), /* @__PURE__ */ React23.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React23.createElement("div", { style: {
+  } }), /* @__PURE__ */ React24.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React24.createElement(ChipFace, { p: me, size: 70, stamp }))), /* @__PURE__ */ React24.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React24.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 10,
@@ -3056,24 +3259,24 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     textTransform: "uppercase",
     color: "var(--accent2)",
     marginBottom: 4
-  } }, "Chip design"), /* @__PURE__ */ React23.createElement("div", { style: {
+  } }, "Chip design"), /* @__PURE__ */ React24.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 26,
     lineHeight: 1,
     textTransform: "uppercase",
     color: "var(--ink)"
-  } }, "Your chip"), /* @__PURE__ */ React23.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, mine.color ? `${CHIP_SKIN_META[skin] || "Classic"} pattern` : "Choose a color and pattern."))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React23.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React23.createElement("div", { style: {
+  } }, "Your chip"), mine.color && /* @__PURE__ */ React24.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React24.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React24.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React23.createElement("div", { style: { ...label, fontSize: 10 } }, "Choose your color"), !mine.color && /* @__PURE__ */ React23.createElement("div", { style: { fontFamily: SANS, fontSize: 10.5, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React23.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
+  } }, /* @__PURE__ */ React24.createElement("div", { style: { ...label, fontSize: 10 } }, "Color"), !mine.color && /* @__PURE__ */ React24.createElement("div", { style: { fontFamily: SANS, fontSize: 10.5, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React24.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
     const by = owner(c.hex);
     const isMine = by === me;
     const taken = by && !isMine;
-    return /* @__PURE__ */ React23.createElement(
+    return /* @__PURE__ */ React24.createElement(
       "button",
       {
         type: "button",
@@ -3097,7 +3300,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1
         }
       },
-      /* @__PURE__ */ React23.createElement("span", { style: {
+      /* @__PURE__ */ React24.createElement("span", { style: {
         position: "relative",
         display: "grid",
         placeItems: "center",
@@ -3107,12 +3310,12 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
         borderRadius: "50%",
         background: c.hex,
         border: "1.5px solid var(--bone-line)"
-      } }, taken && /* @__PURE__ */ React23.createElement("span", { style: {
+      } }, taken && /* @__PURE__ */ React24.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 800,
         fontSize: 8.5,
         color: c.light ? "var(--ink0)" : "var(--bone)"
-      } }, (disp(state, by) || "").slice(0, 2).toUpperCase()), isMine && /* @__PURE__ */ React23.createElement(
+      } }, (disp(state, by) || "").slice(0, 2).toUpperCase()), isMine && /* @__PURE__ */ React24.createElement(
         "svg",
         {
           width: "14",
@@ -3125,19 +3328,19 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           strokeLinejoin: "round",
           "aria-hidden": "true"
         },
-        /* @__PURE__ */ React23.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
+        /* @__PURE__ */ React24.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
       ))
     );
   })), !lateClaim && patterns);
 }
 function PatternPicker({ me, skin, locked, stamp, onPick }) {
-  return /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("div", { style: {
+  return /* @__PURE__ */ React24.createElement(React24.Fragment, null, /* @__PURE__ */ React24.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React23.createElement("div", { style: { ...label, fontSize: 10 } }, "Choose your pattern")), /* @__PURE__ */ React23.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React23.createElement(
+  } }, /* @__PURE__ */ React24.createElement("div", { style: { ...label, fontSize: 10 } }, "Pattern")), /* @__PURE__ */ React24.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React24.createElement(
     "button",
     {
       type: "button",
@@ -3162,8 +3365,8 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
         opacity: locked && skin !== sk ? 0.55 : 1
       }
     },
-    /* @__PURE__ */ React23.createElement(ChipFace, { p: me, size: 42, skin: sk, stamp }),
-    /* @__PURE__ */ React23.createElement("span", { style: {
+    /* @__PURE__ */ React24.createElement(ChipFace, { p: me, size: 42, skin: sk, stamp }),
+    /* @__PURE__ */ React24.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 10.5,
@@ -3232,13 +3435,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React29, { useEffect as useEffect14, useRef as useRef15, useState as useState22 } from "react";
+import React34, { useEffect as useEffect16, useRef as useRef20, useState as useState27 } from "react";
 function InvitationArt() {
-  return /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React29.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React29.createElement("span", null, EDITION.year)), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("span", null, "FIELD"), /* @__PURE__ */ React29.createElement("span", null, "DAY", /* @__PURE__ */ React29.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React29.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React29.createElement("span", null, /* @__PURE__ */ React29.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React29.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React29.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React29.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React29.createElement("span", null, EDITION.short, /* @__PURE__ */ React29.createElement("br", null), "2026")));
+  return /* @__PURE__ */ React34.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React34.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React34.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React34.createElement("span", null, EDITION.year)), /* @__PURE__ */ React34.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React34.createElement("span", null, "FIELD"), /* @__PURE__ */ React34.createElement("span", null, "DAY", /* @__PURE__ */ React34.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React34.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React34.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React34.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React34.createElement("span", null, /* @__PURE__ */ React34.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React34.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React34.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React34.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React34.createElement("span", null, EDITION.short, /* @__PURE__ */ React34.createElement("br", null), "2026")));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React29.createElement("div", null, /* @__PURE__ */ React29.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React29.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React29.createElement(
+  return /* @__PURE__ */ React34.createElement("div", null, /* @__PURE__ */ React34.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React34.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React34.createElement(
     "button",
     {
       type: "button",
@@ -3246,7 +3449,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React29.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React29.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React29.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("span", null), /* @__PURE__ */ React29.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React29.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React29.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React29.createElement("div", null, /* @__PURE__ */ React29.createElement("strong", null, s.label), /* @__PURE__ */ React29.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React29.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React29.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React34.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React34.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React34.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React34.createElement("span", null), /* @__PURE__ */ React34.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React34.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React34.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React34.createElement("div", null, /* @__PURE__ */ React34.createElement("strong", null, s.label), /* @__PURE__ */ React34.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React34.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React34.createElement(
     "button",
     {
       type: "button",
@@ -3260,21 +3463,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState22(me || null);
-  const [ratings, setRatings] = useState22({});
-  const [display, setDisplay] = useState22("");
-  const [photo, setPhoto] = useState22(null);
-  const [num, setNum] = useState22("");
-  const [size, setSize] = useState22(null);
-  const [flightsBooked, setFlightsBooked] = useState22(null);
-  const [flightIn, setFlightIn] = useState22(null);
-  const [flightOut, setFlightOut] = useState22(null);
-  const [busy, setBusy] = useState22(false);
-  const [error, setError] = useState22("");
-  const submit = useRef15(createCheckInSubmission());
-  const heading = useRef15(null);
-  const hydratedPlayer = useRef15(null);
-  useEffect14(() => {
+  const [selected, setSelected] = useState27(me || null);
+  const [ratings, setRatings] = useState27({});
+  const [display, setDisplay] = useState27("");
+  const [photo, setPhoto] = useState27(null);
+  const [num, setNum] = useState27("");
+  const [size, setSize] = useState27(null);
+  const [flightsBooked, setFlightsBooked] = useState27(null);
+  const [flightIn, setFlightIn] = useState27(null);
+  const [flightOut, setFlightOut] = useState27(null);
+  const [busy, setBusy] = useState27(false);
+  const [error, setError] = useState27("");
+  const submit = useRef20(createCheckInSubmission());
+  const heading = useRef20(null);
+  const hydratedPlayer = useRef20(null);
+  useEffect16(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -3287,7 +3490,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect14(() => {
+  useEffect16(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -3307,14 +3510,14 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (!result.ok) setError(result.error || "Couldn't save your chip. Try again.");
     setBusy(false);
   };
-  const title = step === -1 ? "Take Field Day with you" : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
-  const intro = step === -1 ? "Add it to your home screen for live scores, draws, and bets all weekend." : [
-    "Pick your name to unlock the trip details and give me the additional information I\u2019ll need for logistics. It\u2019ll only take ~2 minutes.",
-    `${ROSTER.length} players, ${allEventsOf(state).filter((e) => !e.finale).length} events, one board. Win events and land bets to collect chips all weekend, then play them at the poker finale. Whoever wins the poker table is the Field Day champion.`,
+  const title = step === -1 ? "Add Field Day to your home screen" : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
+  const intro = step === -1 ? "" : [
+    "",
+    `${ROSTER.length} players, ${allEventsOf(state).filter((e) => !e.finale).length} events, one board.`,
     `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
     "",
     "",
-    "These stay private. They\u2019re only used to make fair teams."
+    "Private. Only used to balance teams."
   ][step];
   const canContinue = step === 0 ? !!selected : step === 3 ? !!size && (flightsBooked !== null || !!state.live) : step === 4 ? !!display.trim() && !!state.profiles?.[me]?.color : step === 5 ? SPORTS.every((s) => ratings[s.id] !== void 0) : true;
   const continueLabel = step === -1 ? "Skip, stay in the browser" : step === 0 ? selected ? `Continue as ${selected}` : "Pick your name" : step === 5 ? "Finish check-in" : "Continue";
@@ -3329,12 +3532,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React29.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React29.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React29.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React29.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React29.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React29.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React29.createElement(InvitationArt, null) : /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React29.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React29.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React29.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React29.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React29.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React29.createElement("p", null, intro)), /* @__PURE__ */ React29.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React29.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React29.createElement(InstallHint, null), /* @__PURE__ */ React29.createElement("p", null, "Open it from your home screen to finish your two-minute check-in.")), step === 0 && /* @__PURE__ */ React29.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React29.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React29.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React29.createElement("span", null, p), /* @__PURE__ */ React29.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React29.createElement(React29.Fragment, null, /* @__PURE__ */ React29.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React29.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React29.createElement("strong", null, "1,000", /* @__PURE__ */ React29.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React29.createElement("div", { className: "fd-weekend-rules" }, [
-    ["01", "Collect chips", "Win events and land bets. Whatever you have Saturday night becomes your poker stack."],
-    ["02", "Betting", "Every event can be bet on. Only half your chips can be at risk at one time."],
-    ["03", "Duels", "Challenge anyone to Quick Draw. You name the ante, and the fastest tap takes the pot."],
+  return /* @__PURE__ */ React34.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React34.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React34.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React34.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React34.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React34.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React34.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React34.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React34.createElement(InvitationArt, null) : /* @__PURE__ */ React34.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React34.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React34.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React34.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React34.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React34.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React34.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React34.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React34.createElement("p", null, intro)), /* @__PURE__ */ React34.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React34.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React34.createElement(InstallHint, null), /* @__PURE__ */ React34.createElement("p", null, "Open it from your home screen to check in.")), step === 0 && /* @__PURE__ */ React34.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React34.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React34.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React34.createElement("span", null, p), /* @__PURE__ */ React34.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React34.createElement(React34.Fragment, null, /* @__PURE__ */ React34.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React34.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React34.createElement("strong", null, "1,000", /* @__PURE__ */ React34.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React34.createElement("div", { className: "fd-weekend-rules" }, [
+    ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
+    ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
+    ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React29.createElement("div", { key: n }, /* @__PURE__ */ React29.createElement("span", null, n), /* @__PURE__ */ React29.createElement("div", null, /* @__PURE__ */ React29.createElement("h2", null, name), /* @__PURE__ */ React29.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React29.createElement(TravelMap, null), /* @__PURE__ */ React29.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React29.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React29.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React29.createElement(React29.Fragment, null, /* @__PURE__ */ React29.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React29.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React29.createElement("h2", null, "Information I need"), /* @__PURE__ */ React29.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React29.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React29.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React34.createElement("div", { key: n }, /* @__PURE__ */ React34.createElement("span", null, n), /* @__PURE__ */ React34.createElement("div", null, /* @__PURE__ */ React34.createElement("h2", null, name), /* @__PURE__ */ React34.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React34.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React34.createElement(TravelMap, null), /* @__PURE__ */ React34.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React34.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React34.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React34.createElement(React34.Fragment, null, /* @__PURE__ */ React34.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React34.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React34.createElement("h2", null, "Information I need"), /* @__PURE__ */ React34.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React34.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React34.createElement(
     ProfileEditor,
     {
       state,
@@ -3348,7 +3551,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React29.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React29.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React29.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React29.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React29.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React29.createElement("span", { "aria-hidden": "true" }, "\u2197")), /* @__PURE__ */ React29.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React29.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, "\u2190 Back"), step === 0 && onTv && /* @__PURE__ */ React29.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React29.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React34.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React34.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React34.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React34.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React34.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React34.createElement("span", { "aria-hidden": "true" }, "\u2197")), /* @__PURE__ */ React34.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React34.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, "\u2190 Back"), step === 0 && onTv && /* @__PURE__ */ React34.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React34.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -3391,8 +3594,83 @@ function GameInstructions({ gameId, game, variant }) {
 
 // src/features/weekend/ContestPanel.jsx
 init_core();
-init_PlayerIdentity();
 import React5, { useEffect as useEffect3, useRef as useRef3, useState as useState4 } from "react";
+
+// shared/show.js
+init_core();
+var SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
+var SHOW_SCENE_DEFINITIONS = Object.freeze({
+  opening: Object.freeze({
+    label: "Opening",
+    intensity: "major",
+    steps: Object.freeze(["title", "room"])
+  }),
+  /* one step: the intro says its piece and the next official write (lock
+     and start, the next announcement) retires it, so an announcement never
+     costs the host a Continue. Stored scenes from the two-step era clamp to
+     this step. */
+  "event-intro": Object.freeze({
+    label: "Event intro",
+    intensity: "normal",
+    requiresEvent: true,
+    steps: Object.freeze(["title"])
+  }),
+  winner: Object.freeze({
+    label: "Winner",
+    intensity: "major",
+    requiresEvent: true,
+    requiresResult: true,
+    steps: Object.freeze(["winner", "standings"])
+  }),
+  standings: Object.freeze({
+    label: "Standings",
+    intensity: "routine",
+    steps: Object.freeze(["board"])
+  }),
+  champion: Object.freeze({
+    label: "Champion",
+    intensity: "major",
+    requiresFrozen: true,
+    steps: Object.freeze(["champion"])
+  })
+});
+var REPLAY_WINDOW_MS = 15 * 60 * 1e3;
+function contestName(state, ev, contest) {
+  if (!contest) return ev?.name || "";
+  if (contest.kind === "match" && Array.isArray(contest.match)) {
+    const bracket = state.brackets?.[ev?.id];
+    const [r, m] = contest.match;
+    const round = bracket?.rounds?.[r] || [];
+    const name = (ROUND_NAMES[bracket?.size] || [])[r] || `Round ${r + 1}`;
+    return round.length > 1 ? `${name.replace(/s$/, "")} ${m + 1}` : name;
+  }
+  if (contest.kind === "ffa") return ev?.name || contest.label || "";
+  if (contest.kind === "stage-final" || contest.kind === "final") return "Final";
+  if (contest.kind === "heat" && Number.isInteger(contest.group))
+    return state.stages?.[ev?.id]?.groups?.[contest.group]?.name || contest.label || "";
+  return contest.label || ev?.name || "";
+}
+function postedFinalUndo(state, ev) {
+  const op = state.eventOps?.[ev?.id];
+  const last = op?.lastContest, result = state.results?.[ev?.id];
+  if (!last || !result || last.postedRevision === void 0 || last.postedRevision === null) return null;
+  if (Number(result.revision || 1) !== Number(last.postedRevision))
+    return {
+      enabled: false,
+      blocker: "The result was corrected",
+      contestId: last.id,
+      contestRevision: Number(op.contestRevision || 0),
+      refunds: [],
+      voidIds: []
+    };
+  const probe = { ...state, results: { ...state.results } };
+  delete probe.results[ev.id];
+  return contestUndoAvailability(probe, ev);
+}
+var SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
+
+// src/features/weekend/ContestPanel.jsx
+init_PlayerIdentity();
 
 // src/features/weekend/CompetitionBracket.jsx
 init_core();
@@ -3435,7 +3713,7 @@ var SIZES2 = {
   compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 }
 };
 var statusOf = (contest, isCurrent) => !isCurrent ? null : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : contest.phase === "awaiting-result" ? "Awaiting result" : "Up next";
-function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false }) {
+function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false, pickable = true }) {
   const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
   const scroller = useRef2(null);
   const compact = size === "compact";
@@ -3459,7 +3737,7 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
   const colLeft = (r) => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
   const topOf = (r, m) => centers[r][m] * unit - cardH / 2;
   const rowY = (r, m, index) => topOf(r, m) + 1 + dims.head + dims.row / 2 + index * (dims.row + 1);
-  const canRecord = gm && !!onPick && contest?.phase === "in-progress" && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
+  const canRecord = pickable && gm && !!onPick && contest?.phase === "in-progress" && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
   const names = ROUND_NAMES[bracket.size] || [];
   const connectors = [];
   rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
@@ -3554,11 +3832,28 @@ function BracketPeek({ state, ev, me, onOpen, label: label2 = "Bracket", card = 
   );
 }
 
+// src/features/director/directorPill.js
+init_core();
+function contestIsFinal(state, ev, contest) {
+  if (!contest) return false;
+  if (contest.kind === "stage-final") return true;
+  if (contest.kind !== "match") return false;
+  const rounds = state.brackets?.[ev.id]?.rounds || [];
+  return contest.match?.[0] === rounds.length - 1;
+}
+function lastWinnerUndo(state, ev) {
+  if (!ev) return { enabled: false };
+  return postedFinalUndo(state, ev) || contestUndoAvailability(state, ev);
+}
+
 // src/features/weekend/ContestPanel.jsx
 var nameOf = (state, side) => side.name || side.players.map((player) => disp(state, player)).join(" & ");
 var UNDO_WINDOW_MS = 5e3;
+var ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
+var placesPaid = (ev) => (AWARDS[ev?.value] || [0, 0, 0]).filter((pts) => pts > 0).length;
 function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, onWinner, onResult, onPlayNext, onRecorded, operationBusy, onBusy, blocked }) {
   const [winner, setWinner] = useState4(null), [qualifiers, setQualifiers] = useState4([]);
+  const [order, setOrder] = useState4([]);
   const [pending, setPending] = useState4(false), [error, setError] = useState4("");
   const busy = useRef3(false), retry = useRef3(null);
   const open = contest.phase === "betting-open", locked = contest.phase === "betting-locked";
@@ -3566,6 +3861,9 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const isFfa = contest.kind === "ffa", isBracket = contest.kind === "match";
   const advance = contest.kind === "heat" ? state.stages?.[ev.id]?.advance || 1 : 1;
   const reference2 = { contestId: contest.id, contestRevision: contest.revision };
+  const final = contestIsFinal(state, ev, contest);
+  const needed = Math.min(placesPaid(ev), contest.sides.length);
+  const ordering = gm && contest.kind === "stage-final" && contest.sides.length >= 3 && needed >= 2;
   const act = async (callback) => {
     if (busy.current || operationBusy.current) return;
     busy.current = true;
@@ -3591,17 +3889,22 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
     const side = contest.sides.find((item) => item.key === key);
     return side ? nameOf(state, side) : "";
   };
-  const recorded = (key) => async () => {
-    const result = await onWinner({ ...reference2, winner: key, qualifiers: [key] });
-    if (result?.ok === true) onRecorded?.(sideName(key));
+  const submit = (payload) => async () => {
+    const result = await onWinner({ ...reference2, ...payload, ...final ? { postResult: true } : {} });
+    if (result?.ok === true) onRecorded?.(sideName(payload.winner), !!result.extra?.posted);
     return result;
   };
-  const record = (key) => act(recorded(key));
+  const record = (key) => act(submit({ winner: key, qualifiers: [key] }));
   const selectingQualifiers = advance > 1 && winner !== null;
+  const unplaced = contest.sides.filter((side) => !order.includes(side.key));
+  const fullOrder = order.length >= needed ? order.slice(0, needed) : order.length === needed - 1 && unplaced.length === 1 ? [...order, unplaced[0].key] : null;
   const bracket = isBracket ? state.brackets?.[ev.id] : null;
   const chipsIn = open && (state.wagers || []).some((wager) => wagerMatchesContest(wager, contest) && resolveWager(state, wager, allEventsOf(state)).status === "pending");
   const alternatives = gm && open && bracket && onPlayNext ? bracketOrder(bracket).filter(([r, m]) => bracketMatchOpen(bracket, r, m) && (r !== contest.match[0] || m !== contest.match[1])) : [];
-  return /* @__PURE__ */ React5.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("strong", null, isBracket ? "Bracket" : contest.label || ev.name), /* @__PURE__ */ React5.createElement("span", null, open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest")), gm && (open || locked) && /* @__PURE__ */ React5.createElement(
+  const canChoose = gm && running && !!onWinner;
+  const showEntrants = !isFfa && (!isBracket || canChoose);
+  const instruction = ordering ? `Tap ${ORD.slice(0, needed).join(needed > 2 ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ")}.` : selectingQualifiers ? `Choose ${advance - 1} more to advance.` : "";
+  return /* @__PURE__ */ React5.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React5.createElement("div", null, /* @__PURE__ */ React5.createElement("strong", null, isBracket ? contestName(state, ev, contest) : contest.label || ev.name), /* @__PURE__ */ React5.createElement("span", null, open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest")), gm && (open || locked) && /* @__PURE__ */ React5.createElement(
     "button",
     {
       type: "button",
@@ -3622,33 +3925,27 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       })
     },
     "Enter result"
-  )), gm && running && !isFfa && /* @__PURE__ */ React5.createElement("p", { className: "fd-contest-instruction" }, selectingQualifiers ? `Choose ${advance - 1} more to advance.` : isBracket ? "Tap the winning team." : "Tap the winner."), isBracket ? /* @__PURE__ */ React5.createElement(
-    CompetitionBracket,
-    {
-      state,
-      ev,
-      me,
-      gm,
-      pending: pending || blocked,
-      onPlayer,
-      onPick: onWinner ? (_r, _m, key) => record(key) : void 0
-    }
-  ) : !isFfa && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-entrants", "aria-label": contest.label }, contest.sides.map((side) => {
+  )), gm && running && !isFfa && instruction && /* @__PURE__ */ React5.createElement("p", { className: "fd-contest-instruction" }, instruction), showEntrants && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-entrants", "aria-label": contest.label }, contest.sides.map((side) => {
     const name = nameOf(state, side), selected = winner === side.key;
-    const canChoose = gm && running && !!onWinner;
     const qualifier = selectingQualifiers && !selected;
-    return /* @__PURE__ */ React5.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected ? "is-winner" : ""}` }, /* @__PURE__ */ React5.createElement(
+    const place = order.indexOf(side.key);
+    const label2 = !canChoose ? name : ordering ? place >= 0 ? `Remove ${name} from ${ORD[place]}` : `${ORD[order.length]}: ${name}` : `${qualifier ? "Also advances" : "Winner"}: ${name}`;
+    return /* @__PURE__ */ React5.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected || place === 0 ? "is-winner" : ""}` }, /* @__PURE__ */ React5.createElement(
       "button",
       {
         type: "button",
         className: "fd-contest-entrant-pick",
-        disabled: pending || blocked || !canChoose,
+        disabled: pending || blocked || !canChoose || ordering && place < 0 && order.length >= needed,
         role: canChoose && qualifier ? "checkbox" : void 0,
         "aria-checked": canChoose && qualifier ? qualifiers.includes(side.key) : void 0,
-        "aria-pressed": canChoose && advance > 1 && !qualifier ? selected : void 0,
-        "aria-label": canChoose ? `${qualifier ? "Also advances" : "Winner"}: ${name}` : name,
+        "aria-pressed": canChoose && (ordering ? place >= 0 : advance > 1 && !qualifier ? selected : void 0),
+        "aria-label": label2,
         onClick: () => {
           if (busy.current || operationBusy.current || !canChoose) return;
+          if (ordering) {
+            setOrder((current) => place >= 0 ? current.slice(0, place) : current.length < needed ? [...current, side.key] : current);
+            return;
+          }
           if (advance === 1) return record(side.key);
           if (!selectingQualifiers || selected) {
             setWinner(side.key);
@@ -3659,7 +3956,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         }
       },
       /* @__PURE__ */ React5.createElement("span", null, name),
-      canChoose && /* @__PURE__ */ React5.createElement("small", null, selected ? "Winner" : qualifier ? qualifiers.includes(side.key) ? "\u2713" : "+" : "Win")
+      canChoose && /* @__PURE__ */ React5.createElement("small", null, ordering ? place >= 0 ? ORD[place] : order.length < needed ? "+" : "" : selected ? "Winner" : qualifier ? qualifiers.includes(side.key) ? "\u2713" : "+" : "Win")
     ), /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-entrant-players" }, side.players.map((player) => /* @__PURE__ */ React5.createElement(
       "button",
       {
@@ -3671,7 +3968,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       },
       /* @__PURE__ */ React5.createElement(Avatar, { state, p: player, size: 28 })
     ))));
-  }), gm && running && advance > 1 && selectingQualifiers && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => {
+  }), canChoose && advance > 1 && selectingQualifiers && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => {
     setWinner(null);
     setQualifiers([]);
   } }, "Change winner"), /* @__PURE__ */ React5.createElement(
@@ -3680,15 +3977,31 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       type: "button",
       className: "fd-contest-primary",
       disabled: pending || qualifiers.length !== advance - 1 || !onWinner,
-      onClick: () => act(async () => {
-        const result = await onWinner({ ...reference2, winner, qualifiers: [winner, ...qualifiers] });
-        if (result?.ok === true) onRecorded?.(sideName(winner));
-        return result;
-      })
+      onClick: () => act(submit({ winner, qualifiers: [winner, ...qualifiers] }))
     },
     pending ? "Saving\u2026" : "Record winner"
-  ))), !!alternatives.length && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-reorder" }, alternatives.map(([r, m]) => {
-    const label2 = `${ROUND_NAMES[bracket.size]?.[r] || `Round ${r + 1}`} \xB7 Match ${m + 1}`;
+  )), canChoose && ordering && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending || !order.length, onClick: () => setOrder([]) }, "Start over"), /* @__PURE__ */ React5.createElement(
+    "button",
+    {
+      type: "button",
+      className: "fd-contest-primary",
+      disabled: pending || !fullOrder,
+      onClick: () => act(submit({ winner: fullOrder[0], qualifiers: [fullOrder[0]], order: fullOrder }))
+    },
+    pending ? "Saving\u2026" : "Record order"
+  ))), isBracket && /* @__PURE__ */ React5.createElement(
+    CompetitionBracket,
+    {
+      state,
+      ev,
+      me,
+      gm,
+      pending: pending || blocked,
+      onPlayer,
+      pickable: false
+    }
+  ), !!alternatives.length && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-reorder" }, alternatives.map(([r, m]) => {
+    const label2 = contestName(state, ev, { kind: "match", match: [r, m] });
     return /* @__PURE__ */ React5.createElement(
       "button",
       {
@@ -3714,9 +4027,9 @@ function ContestPanel(props) {
     return () => clearTimeout(timer);
   }, [recent]);
   const operations = { operationBusy, blocked, onBusy };
-  if (state.results?.[ev.id] || state.shelved?.[ev.id] || state.frozen || ev.finale) return null;
-  const onRecorded = gm && onUndo ? (name) => setRecent({ name, at: Date.now() }) : null;
-  const undoRecent = recent && gm && onUndo ? /* @__PURE__ */ React5.createElement(RecentWinner, { ...props, ...operations, name: recent.name, onDone: () => setRecent(null) }) : null;
+  const onRecorded = gm && onUndo ? (name, posted) => setRecent({ name, posted, at: Date.now() }) : null;
+  const undoRecent = recent && gm && onUndo ? /* @__PURE__ */ React5.createElement(RecentWinner, { ...props, ...operations, name: recent.name, posted: recent.posted, onDone: () => setRecent(null) }) : null;
+  if (state.results?.[ev.id] || state.shelved?.[ev.id] || state.frozen || ev.finale) return undoRecent;
   const correction = undoRecent ? null : /* @__PURE__ */ React5.createElement(ContestCorrection, { ...props, ...operations });
   const lifecycle = resolveEventLifecycle(state, ev), contest = resolveCurrentContest(state, ev);
   if (!contest || !["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase)) {
@@ -3736,9 +4049,9 @@ function ContestPanel(props) {
 function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   const [pending, setPending] = useState4(false), [error, setError] = useState4("");
   const busy = useRef3(false);
-  const run = async () => {
+  const run = async (contestId = null) => {
     if (busy.current || operationBusy.current) return;
-    const undo = contestUndoAvailability(state, ev);
+    const undo = contestId ? contestCorrectionAvailability(state, ev, contestId) : lastWinnerUndo(state, ev);
     busy.current = true;
     operationBusy.current = true;
     onBusy(true);
@@ -3760,12 +4073,12 @@ function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   return { pending, error, run };
 }
 function RecentWinner(props) {
-  const { state, ev, name, blocked, onDone } = props;
-  const undo = contestUndoAvailability(state, ev);
+  const { state, ev, name, posted, blocked, onDone } = props;
+  const undo = lastWinnerUndo(state, ev);
   const correction = useCorrection(props, onDone);
   if (!undo.enabled) return null;
-  const refunds = refundText(state, undo.refunds);
-  return /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-recent", role: "status" }, /* @__PURE__ */ React5.createElement("span", null, "Winner recorded: ", name, refunds ? `. ${refunds}` : ""), /* @__PURE__ */ React5.createElement("button", { type: "button", disabled: correction.pending || blocked, onClick: correction.run }, correction.pending ? "Undoing\u2026" : "Undo"), correction.error && /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
+  const moved = correctionText(state, undo);
+  return /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-recent", role: "status" }, /* @__PURE__ */ React5.createElement("span", null, "Winner recorded: ", name, posted ? ". Result posted" : "", moved ? `. ${moved}` : ""), /* @__PURE__ */ React5.createElement("button", { type: "button", disabled: correction.pending || blocked, onClick: () => correction.run() }, correction.pending ? "Undoing\u2026" : "Undo"), correction.error && /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
 }
 function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
   const [pending, setPending] = useState4(false), [error, setError] = useState4("");
@@ -3789,23 +4102,55 @@ function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
   };
   return /* @__PURE__ */ React5.createElement("section", { className: "fd-contest", "aria-busy": pending }, /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React5.createElement("strong", null, "Competition complete"), /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-primary", disabled: blocked || pending || !onResult, onClick: post }, pending ? "Opening result\u2026" : "Post event result")), error && /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React5.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: blocked || pending, onClick: post }, "Retry")));
 }
+function lastContestView(state, ev, last) {
+  if (!last) return null;
+  const draw = state.draws?.[ev.id], stages = state.stages?.[ev.id];
+  const team = (key) => draw?.teams?.[key]?.players || [];
+  const players = (key) => last.kind === "match" ? team(key) : stages ? stageEntrantView(state, stages, key).players : [];
+  const named = (key) => players(key).map((player) => disp(state, player)).join(" & ");
+  let keys = [];
+  if (last.kind === "match") {
+    const match = state.brackets?.[ev.id]?.rounds?.[last.match?.[0]]?.[last.match?.[1]];
+    if (match) keys = [resolveSlot(state.brackets[ev.id], match.a), resolveSlot(state.brackets[ev.id], match.b)];
+  } else if (last.kind === "heat") keys = stages?.groups?.[last.group]?.entrants || [];
+  else keys = stages && stageFinalists(stages) || [];
+  const sides = keys.filter((key) => key !== null && key !== void 0).map(named);
+  return {
+    name: contestName(state, ev, { kind: last.kind, match: last.match, group: last.group }),
+    matchup: sides.length === 2 ? sides.join(" vs ") : sides.join(", "),
+    winner: named(last.winner)
+  };
+}
 function ContestCorrection(props) {
   const { state, ev, gm, onUndo, blocked } = props;
-  const [confirming, setConfirming] = useState4(false);
-  const correction = useCorrection(props, () => setConfirming(false));
-  const undo = contestUndoAvailability(state, ev);
-  if (!gm || !onUndo || !state.eventOps?.[ev.id]?.lastContest) return null;
-  const refunds = refundText(state, undo.refunds);
-  const label2 = correction.pending ? "Opening result\u2026" : "Correct previous result";
-  return /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-correction" }, confirming && refunds ? /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-confirm" }, /* @__PURE__ */ React5.createElement("p", null, refunds), /* @__PURE__ */ React5.createElement("button", { type: "button", disabled: correction.pending || blocked || !undo.enabled, onClick: correction.run }, label2), /* @__PURE__ */ React5.createElement("button", { type: "button", disabled: correction.pending, onClick: () => setConfirming(false) }, "Keep it")) : /* @__PURE__ */ React5.createElement(
-    "button",
-    {
-      type: "button",
-      disabled: correction.pending || blocked || !undo.enabled,
-      onClick: () => refunds ? setConfirming(true) : correction.run()
-    },
-    label2
-  ), !undo.enabled && /* @__PURE__ */ React5.createElement("p", null, undo.blocker), correction.error && /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
+  const [confirming, setConfirming] = useState4(null);
+  const correction = useCorrection(props, () => setConfirming(null));
+  const options = contestCorrections(state, ev);
+  if (!gm || !onUndo || !options.length) return null;
+  const stack = contestStackOf(state, ev.id);
+  return /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-correction" }, options.map((option) => {
+    const view = lastContestView(state, ev, stack.find((entry) => entry.id === option.contestId));
+    const name = view?.name || option.contest;
+    const moved = correctionText(state, option);
+    return /* @__PURE__ */ React5.createElement(React5.Fragment, { key: option.contestId }, confirming === option.contestId ? /* @__PURE__ */ React5.createElement("div", { className: "fd-contest-confirm" }, /* @__PURE__ */ React5.createElement("p", null, "Reopens ", name, view?.matchup ? `: ${view.matchup}` : "", ".", view?.winner ? ` ${view.winner} loses the win.` : "", moved ? ` ${moved}` : ""), /* @__PURE__ */ React5.createElement(
+      "button",
+      {
+        type: "button",
+        disabled: correction.pending || blocked || !option.enabled,
+        onClick: () => correction.run(option.contestId)
+      },
+      correction.pending ? "Undoing\u2026" : `Reopen ${name}`
+    ), /* @__PURE__ */ React5.createElement("button", { type: "button", disabled: correction.pending, onClick: () => setConfirming(null) }, "Keep it")) : /* @__PURE__ */ React5.createElement(
+      "button",
+      {
+        type: "button",
+        disabled: correction.pending || blocked || !option.enabled,
+        onClick: () => setConfirming(option.contestId)
+      },
+      "Fix ",
+      name
+    ));
+  }), !options[0].enabled && /* @__PURE__ */ React5.createElement("p", null, options[0].blocker), correction.error && /* @__PURE__ */ React5.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
 }
 
 // src/features/weekend/EventAnnouncement.jsx
@@ -4122,7 +4467,7 @@ function DraftSheet({
     }
   ));
   if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React8.createElement("p", null, "Draft closed."));
-  if (!draft) return shell(/* @__PURE__ */ React8.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React8.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-note" }, "Captain order is pick order. It reverses each round."), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React8.createElement(
+  if (!draft) return shell(/* @__PURE__ */ React8.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React8.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-note" }, "Pick order reverses each round."), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React8.createElement(
     "button",
     {
       type: "button",
@@ -4166,9 +4511,9 @@ function DraftSheet({
     pending ? "Starting\u2026" : "Start the draft"
   ))));
   const last = draft.picks.at(-1), ref = reference(turn);
-  const remainingOrder = Array.from({ length: Math.min(turn.remaining, n + 1) }, (_, offset) => ({
-    pick: turn.pickIndex + offset,
-    team: snakeTeam(turn.pickIndex + offset, n)
+  const remainingOrder = Array.from({ length: Math.min(turn.remaining, n + 1) }, (_, offset2) => ({
+    pick: turn.pickIndex + offset2,
+    team: snakeTeam(turn.pickIndex + offset2, n)
   }));
   const pick = (player) => {
     if (!canPick || saving.current) return;
@@ -4182,7 +4527,7 @@ function DraftSheet({
       "aria-label": "Current pick",
       style: identityStyle(state, turn.captain || draft.teams[0].captain)
     },
-    /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React8.createElement("small", null, turn.complete ? `${draft.teams.length} teams \xB7 ${size} players each` : `Round ${turn.round} \xB7 Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`), /* @__PURE__ */ React8.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React8.createElement("p", null, turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm." : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player." : "Only captains pick.")),
+    /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React8.createElement("small", null, turn.complete ? `${draft.teams.length} teams \xB7 ${size} players each` : `Round ${turn.round} \xB7 Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`), /* @__PURE__ */ React8.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), (turn.complete || canPick && gm && !myTurn) && /* @__PURE__ */ React8.createElement("p", null, turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm." : `Picking for ${disp(state, turn.captain)}`)),
     /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React8.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
     /* @__PURE__ */ React8.createElement(
       "div",
@@ -4196,7 +4541,7 @@ function DraftSheet({
       },
       /* @__PURE__ */ React8.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
     )
-  ), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React8.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order" }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React8.createElement("li", { key: pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React8.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React8.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React8.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React8.createElement("span", null, "\u2192 ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React8.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React8.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h3", null, canPick ? "Make your pick" : "Available"), /* @__PURE__ */ React8.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-pool" }, draft.pool.map((player) => /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-candidate", key: player, style: identityStyle(state, player) }, /* @__PURE__ */ React8.createElement(
+  ), /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React8.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order" }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React8.createElement("li", { key: pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React8.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React8.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React8.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React8.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React8.createElement("span", null, "\u2192 ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React8.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React8.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React8.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React8.createElement("h3", null, "Available"), /* @__PURE__ */ React8.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-pool" }, draft.pool.map((player) => /* @__PURE__ */ React8.createElement("div", { className: "fd-draft-candidate", key: player, style: identityStyle(state, player) }, /* @__PURE__ */ React8.createElement(
     "button",
     {
       type: "button",
@@ -4287,21 +4632,29 @@ function DraftCrew({ state, roles, onPlayer, disabled }) {
 }
 
 // src/features/home/HomeDuels.jsx
-import React10 from "react";
+import React10, { useRef as useRef7, useState as useState10 } from "react";
 
 // src/features/duels/DuelCard.jsx
 init_PlayerIdentity();
-import React9, { useRef as useRef6, useState as useState7 } from "react";
+import React9, { useRef as useRef6, useState as useState8 } from "react";
 
 // src/features/duels/duelView.js
 init_core();
+
+// src/features/tv/serverClock.js
+import { useEffect as useEffect6, useState as useState7 } from "react";
+var MAX_PLAUSIBLE_OFFSET_MS = 12 * 60 * 60 * 1e3;
+var offset = 0;
+var serverNow = () => Date.now() + offset;
+
+// src/features/duels/duelView.js
 var fmt = (n) => (n ?? 0).toLocaleString("en-US");
 var duelsOpen = (state) => !!(state?.live && !state.frozen && !(state.poker && !state.results?.[state.poker.id]) && !pokerLive(state) && !stacksPosted(state));
-var minutesLeft = (duel, now = Date.now()) => {
+var minutesLeft = (duel, now = serverNow()) => {
   const at = duelLapsesAt(duel);
   return at === null ? null : Math.max(1, Math.ceil((at - now) / 6e4));
 };
-function duelView(state, duel, me, now = Date.now()) {
+function duelView(state, duel, me, now = serverNow()) {
   const phase = duelPhase(duel, now);
   const sender = !!me && duel.from === me;
   const recipient = !!me && !!duel.to && duel.to === me;
@@ -4378,9 +4731,9 @@ var actionStyle = {
 var DONE = { decline: "Declined", withdraw: "Withdrawn", void: "Voided" };
 var PENDING = { accept: "Accepting\u2026", decline: "Declining\u2026", withdraw: "Withdrawing\u2026", void: "Voiding\u2026" };
 function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWithdraw, onVoid, onPlayer, bare = false }) {
-  const [pendingAction, setPendingAction] = useState7(null);
-  const [error, setError] = useState7("");
-  const [acknowledged, setAcknowledged] = useState7(null);
+  const [pendingAction, setPendingAction] = useState8(null);
+  const [error, setError] = useState8("");
+  const [acknowledged, setAcknowledged] = useState8(null);
   const pending = useRef6(null);
   const finished = useRef6(false);
   const view = duelView(state, duel, me, now);
@@ -4537,12 +4890,12 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
 
 // src/features/duels/useDuelClock.js
 init_core();
-import { useEffect as useEffect6, useState as useState8 } from "react";
+import { useEffect as useEffect7, useState as useState9 } from "react";
 
 // src/ui/AppChrome.jsx
 init_PlayerIdentity();
 init_core();
-import React12 from "react";
+import React13 from "react";
 
 // src/ui/Brand.jsx
 import React11 from "react";
@@ -4550,22 +4903,27 @@ import React11 from "react";
 // src/ui/AppChrome.jsx
 init_controls();
 
+// src/ui/UpdateReady.jsx
+import React12 from "react";
+
 // src/features/home/GuestHome.jsx
 init_core();
 init_PlayerIdentity();
-import React15 from "react";
+init_PlayerIdentityContext();
+init_PlayerPass();
+import React17, { useRef as useRef8, useState as useState12 } from "react";
 
 // src/ui/layout.jsx
-import React13 from "react";
+import React15 from "react";
 function PageHeading({ kicker, title, children, aside }) {
-  return /* @__PURE__ */ React13.createElement("header", { className: "fd-page-heading" }, kicker && /* @__PURE__ */ React13.createElement("div", { className: "fd-kicker" }, kicker), /* @__PURE__ */ React13.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React13.createElement("h1", null, title), aside), children);
+  return /* @__PURE__ */ React15.createElement("header", { className: "fd-page-heading" }, kicker && /* @__PURE__ */ React15.createElement("div", { className: "fd-kicker" }, kicker), /* @__PURE__ */ React15.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React15.createElement("h1", null, title), aside), children);
 }
 
 // src/features/standings/Standings.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React14, { useMemo } from "react";
+import React16, { useMemo } from "react";
 
 // src/features/home/homeModel.js
 init_core();
@@ -4583,11 +4941,11 @@ var SINCE_ABSENCE = 2 * 60 * 1e3;
 // src/features/weekend/Schedule.jsx
 init_core();
 init_PlayerIdentity();
-import React16, { useRef as useRef7, useState as useState9 } from "react";
+import React18, { useRef as useRef9, useState as useState13 } from "react";
 
 // src/features/weekend/Guide.jsx
 init_core();
-import React19, { useState as useState12 } from "react";
+import React21, { useState as useState16 } from "react";
 init_Travel();
 init_InstallHint();
 init_install();
@@ -4596,7 +4954,7 @@ init_install();
 init_core();
 init_theme();
 init_controls();
-import React20, { useEffect as useEffect8, useMemo as useMemo2, useRef as useRef8, useState as useState13 } from "react";
+import React22, { useEffect as useEffect9, useMemo as useMemo2, useRef as useRef10, useState as useState17 } from "react";
 init_PlayerIdentity();
 var fmt2 = (n) => (n ?? 0).toLocaleString("en-US");
 function wagerPickLabel(state, w, events) {
@@ -4649,16 +5007,16 @@ function MarketPick({
   capLabel,
   capReason
 }) {
-  const [pendingAction, setPendingAction] = useState13(null);
-  const [actionError, setActionError] = useState13(null);
-  const [checking, setChecking] = useState13(null);
-  const pendingRef = useRef8(false);
+  const [pendingAction, setPendingAction] = useState17(null);
+  const [actionError, setActionError] = useState17(null);
+  const [checking, setChecking] = useState17(null);
+  const pendingRef = useRef10(false);
   const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
     return latest(a) - latest(b);
   });
   const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
-  const live = useRef8({ state, mineTotal });
+  const live = useRef10({ state, mineTotal });
   live.current = { state, mineTotal };
   const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map((chip) => chip.stake) : [w.stake]);
   const otherBets = /* @__PURE__ */ new Map();
@@ -4666,8 +5024,18 @@ function MarketPick({
     otherBets.set(w.player, (otherBets.get(w.player) || 0) + w.stake);
   const otherChips = [...otherBets].map(([p, val]) => ({ p, val }));
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  useEffect8(() => {
-    if (!checking || state === checking.state) return;
+  const shownTotal = useRef10(mineTotal);
+  useEffect9(() => {
+    if (shownTotal.current === mineTotal) return;
+    shownTotal.current = mineTotal;
+    setActionError(null);
+  }, [mineTotal]);
+  const alive = useRef10(true);
+  useEffect9(() => () => {
+    alive.current = false;
+  }, []);
+  useEffect9(() => {
+    if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal))
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
     pendingRef.current = false;
@@ -4688,7 +5056,15 @@ function MarketPick({
       if (isUncertainResult(result)) {
         if (!landed(kind, before, live.current.mineTotal)) {
           holding = true;
-          setChecking({ kind, before, state: live.current.state });
+          const settled = typeof result?.settled?.then === "function";
+          setChecking({ kind, before, state: live.current.state, settled });
+          if (settled) result.settled.then((outcome) => outcome, () => ({ ok: false })).then((outcome) => {
+            if (!alive.current) return;
+            if (outcome?.ok !== true && !landed(kind, before, live.current.mineTotal))
+              setActionError(kind === "place" ? "Not placed" : "Not removed");
+            pendingRef.current = false;
+            setChecking(null);
+          });
         }
         return result;
       }
@@ -4711,17 +5087,17 @@ function MarketPick({
       return fail(error);
     }
   };
-  const stack = mineTotal > 0 && /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-chip-pile", "aria-hidden": "true" }, mineChips.slice(-3).map((value, index, visible) => /* @__PURE__ */ React20.createElement(
+  const stack = mineTotal > 0 && /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-chip-pile", "aria-hidden": "true" }, mineChips.slice(-3).map((value, index, visible) => /* @__PURE__ */ React22.createElement(
     "span",
     {
       key: `${mineTotal}:${index}`,
       "data-chip-stake": value,
       style: { "--chip-level": index, "--chip-count": visible.length }
     },
-    /* @__PURE__ */ React20.createElement(BankChip, { p: me, size: 36, val: value })
-  )), marketOpen && /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-chip-remove" }, "\u2212")), /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-chip-total" }, fmt2(mineTotal)));
+    /* @__PURE__ */ React22.createElement(BankChip, { p: me, size: 36, val: value })
+  )), marketOpen && /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-chip-remove" }, "\u2212")), /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-chip-total" }, fmt2(mineTotal)));
   const busyKind = pendingAction || checking?.kind || null;
-  return /* @__PURE__ */ React20.createElement("div", { className: `fd-wagers-pick${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-pick-identity" }, roleLabel && /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel), players.length === 1 ? /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement("div", { className: `fd-wagers-pick${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-pick-identity" }, roleLabel && /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel), players.length === 1 ? /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4730,9 +5106,9 @@ function MarketPick({
       onClick: () => onPlayer?.(players[0]),
       "aria-label": `View ${name}'s player card`
     },
-    /* @__PURE__ */ React20.createElement(Avatar, { state, p: players[0], size: 26 }),
-    /* @__PURE__ */ React20.createElement("span", null, name)
-  ) : /* @__PURE__ */ React20.createElement(React20.Fragment, null, players.length > 2 && /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-team-players" }, players.map((player) => /* @__PURE__ */ React20.createElement(
+    /* @__PURE__ */ React22.createElement(Avatar, { state, p: players[0], size: 26 }),
+    /* @__PURE__ */ React22.createElement("span", null, name)
+  ) : /* @__PURE__ */ React22.createElement(React22.Fragment, null, players.length > 2 && /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-team-players" }, players.map((player) => /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4742,9 +5118,9 @@ function MarketPick({
       title: disp(state, player),
       "aria-label": `View ${disp(state, player)}'s player card`
     },
-    /* @__PURE__ */ React20.createElement(Avatar, { state, p: player, size: 24 }),
-    /* @__PURE__ */ React20.createElement("span", null, disp(state, player))
-  ))))), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-pick-surface", "aria-busy": !!busyKind }, /* @__PURE__ */ React20.createElement(
+    /* @__PURE__ */ React22.createElement(Avatar, { state, p: player, size: 24 }),
+    /* @__PURE__ */ React22.createElement("span", null, disp(state, player))
+  ))))), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-pick-surface", "aria-busy": !!busyKind }, /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4754,8 +5130,8 @@ function MarketPick({
       "aria-label": canPick ? `Place a chip on ${name}` : name,
       "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt2(tapStake)} chips` : void 0)
     },
-    unavailableReason ? /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-pick-closed" }, unavailableLabel) : marketOpen && players.length > 0 ? /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-chip-well", "aria-hidden": "true" }, "+"), /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-pick-add" }, capLabel || fmt2(tapStake))) : /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-pick-closed" }, players.length ? "Locked" : "Pending")
-  ), mineTotal > 0 && (marketOpen ? /* @__PURE__ */ React20.createElement(
+    unavailableReason ? /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-pick-closed" }, unavailableLabel) : marketOpen && players.length > 0 ? /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-chip-well", "aria-hidden": "true" }, "+"), /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-pick-add" }, capLabel || fmt2(tapStake))) : /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-pick-closed" }, players.length ? "Locked" : "Pending")
+  ), mineTotal > 0 && (marketOpen ? /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4766,7 +5142,7 @@ function MarketPick({
       "aria-description": `Remove ${fmt2(mineChips[mineChips.length - 1])} chips; ${fmt2(mineTotal)} total on this pick`
     },
     stack
-  ) : /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-owned-stack", "aria-label": `${fmt2(mineTotal)} of your chips on ${name}` }, stack))), otherChips.length > 0 && /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-other-chips", role: "group", "aria-label": `Other bets on ${name}` }, otherChips.map((chip) => /* @__PURE__ */ React20.createElement(
+  ) : /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-owned-stack", "aria-label": `${fmt2(mineTotal)} of your chips on ${name}` }, stack))), otherChips.length > 0 && /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-other-chips", role: "group", "aria-label": `Other bets on ${name}` }, otherChips.map((chip) => /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4776,8 +5152,8 @@ function MarketPick({
       title: `${disp(state, chip.p)} \xB7 ${fmt2(chip.val)}`,
       "aria-label": `View ${disp(state, chip.p)}'s player card (${fmt2(chip.val)} chips)`
     },
-    /* @__PURE__ */ React20.createElement(BankChip, { p: chip.p, size: 25, val: chip.val })
-  ))), checking && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError));
+    /* @__PURE__ */ React22.createElement(BankChip, { p: chip.p, size: 25, val: chip.val })
+  ))), checking && /* @__PURE__ */ React22.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React22.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError));
 }
 function StackMeter({ pts, cap, bets, duels, room }) {
   const exposure = bets + duels;
@@ -4788,7 +5164,7 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   const over = Math.max(0, exposure - cap);
   const capped = room < PT && pts - exposure >= PT;
   const gapMid = Math.min(92, Math.max(8, (at(Math.min(exposure, cap)) + at(Math.min(cap, pts))) / 2));
-  return /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: `fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`,
@@ -4799,16 +5175,20 @@ function StackMeter({ pts, cap, bets, duels, room }) {
       "aria-valuenow": exposure,
       "aria-valuetext": `${fmt2(exposure)} at risk, ${fmt2(cap)} maximum, ${fmt2(pts)} in your stack${duels ? `, ${fmt2(duels)} reserved for duels` : ""}`
     },
-    /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, /* @__PURE__ */ React20.createElement("strong", { style: { left: capped ? `${Math.min(92, Math.max(8, at(cap)))}%` : `${gapMid}%` } }, fmt2(room))),
-    /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React20.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React20.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React20.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React20.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
-    /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, exposure > 0 && /* @__PURE__ */ React20.createElement("span", { className: "is-exposure" }, fmt2(exposure)), /* @__PURE__ */ React20.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt2(cap)), at(cap) <= 72 && /* @__PURE__ */ React20.createElement("span", { className: "is-stack" }, fmt2(pts)))
+    /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, /* @__PURE__ */ React22.createElement("strong", { style: { left: capped ? `${Math.min(92, Math.max(8, at(cap)))}%` : `${gapMid}%` } }, fmt2(room))),
+    /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React22.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React22.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React22.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React22.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
+    /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, exposure > 0 && /* @__PURE__ */ React22.createElement("span", { className: "is-exposure" }, fmt2(exposure)), /* @__PURE__ */ React22.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt2(cap)), at(cap) <= 72 && /* @__PURE__ */ React22.createElement("span", { className: "is-stack" }, fmt2(pts)))
   );
 }
-function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
+function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label2 = wagerPickLabel(state, w, events);
   const win = wagerMult(w) * w.stake;
-  return /* @__PURE__ */ React20.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React20.createElement(
+  const [confirming, setConfirming] = useState17(false), [voiding, setVoiding] = useState17(false);
+  const voidBusy = useRef10(false);
+  const ids = w.ids || [w.id];
+  const voidable = gm && manage && r.status === "pending" && !!onVoid;
+  return /* @__PURE__ */ React22.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4817,8 +5197,8 @@ function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player),
       "aria-label": `View ${disp(state, w.player)}'s player card`
     },
-    /* @__PURE__ */ React20.createElement(Avatar, { state, p: w.player, size: 32 })
-  ), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React20.createElement(
+    /* @__PURE__ */ React22.createElement(Avatar, { state, p: w.player, size: 32 })
+  ), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -4826,16 +5206,27 @@ function WagerLine({ x, state, events, gm, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player)
     },
     disp(state, w.player)
-  ), " ", /* @__PURE__ */ React20.createElement("span", null, "\xB7 ", fmt2(w.stake), " chips")), /* @__PURE__ */ React20.createElement("strong", null, label2.pick), /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement("small", null, "TO WIN"), /* @__PURE__ */ React20.createElement("strong", null, "+", fmt2(win))), r.status === "won" && /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement("small", null, "WON"), /* @__PURE__ */ React20.createElement("strong", null, "+", fmt2(r.delta))), r.status === "lost" && /* @__PURE__ */ React20.createElement(React20.Fragment, null, /* @__PURE__ */ React20.createElement("small", null, "LOST"), /* @__PURE__ */ React20.createElement("strong", null, fmt2(r.delta))), r.status === "void" && /* @__PURE__ */ React20.createElement("small", null, "VOID"), gm && r.status === "pending" && /* @__PURE__ */ React20.createElement(
-    ActionButton,
+  ), " ", /* @__PURE__ */ React22.createElement("span", null, "\xB7 ", fmt2(w.stake), " chips")), /* @__PURE__ */ React22.createElement("strong", null, label2.pick), /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("small", null, "TO WIN"), /* @__PURE__ */ React22.createElement("strong", null, "+", fmt2(win))), r.status === "won" && /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("small", null, "WON"), /* @__PURE__ */ React22.createElement("strong", null, "+", fmt2(r.delta))), r.status === "lost" && /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("small", null, "LOST"), /* @__PURE__ */ React22.createElement("strong", null, fmt2(r.delta))), r.status === "void" && /* @__PURE__ */ React22.createElement("small", null, "VOID"), voidable && !confirming && /* @__PURE__ */ React22.createElement(
+    "button",
     {
-      compact: true,
-      variant: "destructive",
+      type: "button",
       className: "fd-wagers-void",
-      onClick: () => onVoid(w.ids || [w.id])
+      onClick: () => setConfirming(true)
     },
     "Void"
-  )));
+  )), voidable && confirming && /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React22.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt2(w.stake), " chips back"), /* @__PURE__ */ React22.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
+    if (voidBusy.current) return void 0;
+    voidBusy.current = true;
+    setVoiding(true);
+    try {
+      const result = await onVoid(ids);
+      if (result?.ok !== false) setConfirming(false);
+      return result;
+    } finally {
+      voidBusy.current = false;
+      setVoiding(false);
+    }
+  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React22.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
 }
 function contestPick(contest, side, event) {
   const common = {
@@ -4897,17 +5288,18 @@ function Wagers({
   openSettled = false,
   onSettledSeen
 }) {
-  const [settledOpen, setSettledOpen] = useState13(() => openSettled && me ? `st:${me}` : null);
-  const [settledShown, setSettledShown] = useState13(!!openSettled);
-  const settledRef = useRef8(null);
-  useEffect8(() => {
+  const [settledOpen, setSettledOpen] = useState17(() => openSettled && me ? `st:${me}` : null);
+  const [settledShown, setSettledShown] = useState17(!!openSettled);
+  const settledRef = useRef10(null);
+  useEffect9(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
     settledRef.current?.scrollIntoView?.({ block: "start" });
     onSettledSeen?.();
   }, [openSettled]);
-  const [denom, setDenom] = useState13(PT);
+  const [denom, setDenom] = useState17(PT);
+  const [manage, setManage] = useState17(false);
   const resolved = useMemo2(
     () => (state.wagers || []).map((w) => ({ w, r: resolveWager(state, w, events) })),
     [state, events]
@@ -4932,12 +5324,13 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect8(() => {
+  useEffect9(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
   const tapStake = denom <= room ? denom : [...RACK_DENOMS].reverse().find((value) => value <= room) || PT;
   const ev = wagerEv;
+  const finaleClosed = stacksPosted(state) || !!(state.poker && !state.results?.[state.poker.id]);
   const contest = ev ? resolveCurrentContest(state, ev) : null;
   const lifecycle = ev ? resolveEventLifecycle(state, ev) : null;
   const marketOpen = !!contest && contest.phase === "betting-open" && !!state.live && !state.frozen && !state.results?.[ev?.id] && !stacksPosted(state) && !(state.poker && !state.results?.[state.poker.id]);
@@ -4978,25 +5371,33 @@ function Wagers({
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result" ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
   const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket" : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
-  return /* @__PURE__ */ React20.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: `fd-wagers${me && marketOpen ? " has-rack" : ""}`,
       style: { "--fd-wagers-numerals": DISPLAY, "--fd-wagers-body": SANS }
     },
-    ev ? /* @__PURE__ */ React20.createElement("header", { className: "fd-wagers-event-heading" }, /* @__PURE__ */ React20.createElement("div", null, /* @__PURE__ */ React20.createElement("h1", null, ev.name), GameMark2 && /* @__PURE__ */ React20.createElement(GameMark2, { id: ev.game, size: 34 })), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React20.createElement("span", { className: `fd-wagers-status${marketOpen ? " is-open" : ""}` }, /* @__PURE__ */ React20.createElement("i", { "aria-hidden": "true" }), status), marketOpen && /* @__PURE__ */ React20.createElement("p", null, "Tap + to add. Tap your chips to remove."))) : /* @__PURE__ */ React20.createElement(PageHeading, { title: "Bets" }),
-    !ev && /* @__PURE__ */ React20.createElement("section", { className: `fd-wagers-waiting${state.frozen ? " is-finished" : ""}` }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React20.createElement("h2", null, state.frozen ? "The board is frozen." : state.live ? "Between events" : "Betting opens with the first event"), !state.frozen && /* @__PURE__ */ React20.createElement("p", null, "Betting opens when an event goes on deck."), !state.frozen && /* @__PURE__ */ React20.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && /* @__PURE__ */ React20.createElement("section", { className: "fd-wagers-event" }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React20.createElement("div", null, /* @__PURE__ */ React20.createElement("h2", null, contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"), contest && /* @__PURE__ */ React20.createElement("p", null, evenMoney ? "Winner pays even" : "Pays 2 to 1")), onEvent && !peek && /* @__PURE__ */ React20.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React20.createElement("span", { "aria-hidden": "true" }, "\u2197"))), contest && picks.length > 0 ? /* @__PURE__ */ React20.createElement(
+    ev ? /* @__PURE__ */ React22.createElement("header", { className: "fd-wagers-event-heading" }, /* @__PURE__ */ React22.createElement("div", null, /* @__PURE__ */ React22.createElement("h1", null, ev.name), GameMark2 && /* @__PURE__ */ React22.createElement(GameMark2, { id: ev.game, size: 34 })), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React22.createElement("span", { className: `fd-wagers-status${marketOpen ? " is-open" : ""}` }, /* @__PURE__ */ React22.createElement("i", { "aria-hidden": "true" }), status))) : /* @__PURE__ */ React22.createElement(PageHeading, { title: "Bets" }),
+    !ev && /* @__PURE__ */ React22.createElement("section", { className: `fd-wagers-waiting${state.frozen || finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React22.createElement("h2", null, state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !state.frozen && !finaleClosed && /* @__PURE__ */ React22.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
+    ev && /* @__PURE__ */ React22.createElement("section", { className: "fd-wagers-event" }, /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React22.createElement("div", null, /* @__PURE__ */ React22.createElement("h2", null, contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"), contest && /* @__PURE__ */ React22.createElement("p", null, evenMoney ? "Winner pays 1:1" : "Winner pays 2:1")), onEvent && !peek && /* @__PURE__ */ React22.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React22.createElement("span", { "aria-hidden": "true" }, "\u2197"))), contest && picks.length > 0 ? /* @__PURE__ */ React22.createElement(
       "section",
       {
         className: `fd-wagers-market fd-wagers-contest is-${contest.kind}`,
         "aria-label": contest.label
       },
-      restriction && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-participant-note" }, restriction),
-      /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-picks" }, picks.map((pick) => /* @__PURE__ */ React20.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
-    ) : /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React20.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React20.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
-    pendingLines.length > 0 && /* @__PURE__ */ React20.createElement("details", { className: "fd-wagers-history", open: gm || !contest || void 0 }, /* @__PURE__ */ React20.createElement("summary", null, "Open bets ", /* @__PURE__ */ React20.createElement("span", null, pendingLines.length)), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React20.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer })))),
-    settledLines.length > 0 && /* @__PURE__ */ React20.createElement(
+      /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-picks" }, picks.map((pick) => /* @__PURE__ */ React22.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
+    ) : /* @__PURE__ */ React22.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React22.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React22.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
+    pendingLines.length > 0 && /* @__PURE__ */ React22.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React22.createElement("summary", null, "Open bets ", /* @__PURE__ */ React22.createElement("span", null, pendingLines.length)), gm && onVoid && /* @__PURE__ */ React22.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-manage",
+        "aria-pressed": manage,
+        onClick: () => setManage((value) => !value)
+      },
+      manage ? "Done" : "Manage"
+    ), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React22.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
+    settledLines.length > 0 && /* @__PURE__ */ React22.createElement(
       "details",
       {
         className: "fd-wagers-history",
@@ -5004,10 +5405,10 @@ function Wagers({
         open: settledShown,
         onToggle: (event) => setSettledShown(event.currentTarget.open)
       },
-      /* @__PURE__ */ React20.createElement("summary", null, "Settled ", /* @__PURE__ */ React20.createElement("span", null, settledLines.length)),
-      /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
+      /* @__PURE__ */ React22.createElement("summary", null, "Settled ", /* @__PURE__ */ React22.createElement("span", null, settledLines.length)),
+      /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
         const key = `st:${group.player}`, open = settledOpen === key;
-        return /* @__PURE__ */ React20.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React20.createElement(
+        return /* @__PURE__ */ React22.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React22.createElement(
           "button",
           {
             type: "button",
@@ -5016,9 +5417,9 @@ function Wagers({
             onClick: () => onPlayer?.(group.player),
             "aria-label": `View ${disp(state, group.player)}'s player card`
           },
-          /* @__PURE__ */ React20.createElement(Avatar, { state, p: group.player, size: 32 }),
-          /* @__PURE__ */ React20.createElement("strong", null, disp(state, group.player))
-        ), /* @__PURE__ */ React20.createElement(
+          /* @__PURE__ */ React22.createElement(Avatar, { state, p: group.player, size: 32 }),
+          /* @__PURE__ */ React22.createElement("strong", null, disp(state, group.player))
+        ), /* @__PURE__ */ React22.createElement(
           "button",
           {
             type: "button",
@@ -5027,15 +5428,15 @@ function Wagers({
             "aria-label": `${open ? "Hide" : "View"} settled bets by ${disp(state, group.player)}`,
             onClick: () => setSettledOpen((current) => current === key ? null : key)
           },
-          /* @__PURE__ */ React20.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
-          /* @__PURE__ */ React20.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt2(group.net)),
-          /* @__PURE__ */ React20.createElement("span", { className: "fd-wagers-settled-arrow", "aria-hidden": "true" }, open ? "\u2212" : "+")
-        )), open && /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React20.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
+          /* @__PURE__ */ React22.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
+          /* @__PURE__ */ React22.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt2(group.net)),
+          /* @__PURE__ */ React22.createElement("span", { className: "fd-wagers-settled-arrow", "aria-hidden": "true" }, open ? "\u2212" : "+")
+        )), open && /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React22.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
       }))
     ),
-    me && ev && marketOpen && /* @__PURE__ */ React20.createElement("section", { className: "fd-wagers-rack fd-night", "aria-label": "Choose your betting chip" }, /* @__PURE__ */ React20.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room }), /* @__PURE__ */ React20.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
+    me && ev && marketOpen && /* @__PURE__ */ React22.createElement("section", { className: "fd-wagers-rack fd-night", "aria-label": "Choose your betting chip" }, /* @__PURE__ */ React22.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room }), /* @__PURE__ */ React22.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
       const affordable = value <= room;
-      return /* @__PURE__ */ React20.createElement(
+      return /* @__PURE__ */ React22.createElement(
         "button",
         {
           type: "button",
@@ -5046,7 +5447,7 @@ function Wagers({
           "aria-label": `Bet ${value} a tap`,
           className: tapStake === value && affordable ? "is-selected" : ""
         },
-        /* @__PURE__ */ React20.createElement(BankChip, { p: me, size: 46, val: value })
+        /* @__PURE__ */ React22.createElement(BankChip, { p: me, size: 46, val: value })
       );
     })))
   );
@@ -5057,13 +5458,13 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React30, { useState as useState23, useEffect as useEffect15, useLayoutEffect as useLayoutEffect2, useRef as useRef16, useMemo as useMemo4, useCallback as useCallback3, useId as useId3, lazy, Suspense } from "react";
+import React35, { useState as useState28, useEffect as useEffect17, useLayoutEffect as useLayoutEffect2, useRef as useRef21, useMemo as useMemo4, useCallback as useCallback3, useId as useId3, lazy, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React24, { useEffect as useEffect10, useRef as useRef11, useState as useState17 } from "react";
+import React25, { useEffect as useEffect11, useRef as useRef13, useState as useState20 } from "react";
 init_PlayerPass();
 var fmt3 = (n) => (n ?? 0).toLocaleString("en-US");
 var signed = (n) => `${n > 0 ? "+" : ""}${fmt3(n)}`;
@@ -5084,11 +5485,11 @@ function PlayerSheet({
   onDecline,
   onWithdraw
 }) {
-  const [ante, setAnte] = useState17(PT);
-  const [pending, setPending] = useState17(false);
-  const [error, setError] = useState17("");
-  const sending = useRef11(false);
-  const now = Date.now();
+  const [ante, setAnte] = useState20(PT);
+  const [pending, setPending] = useState20(false);
+  const [error, setError] = useState20("");
+  const sending = useRef13(false);
+  const now = serverNow();
   const row = standings.find((item) => item.player === p);
   const duels = state.duels || [];
   const settled = duels.map((d) => resolveDuel(d)).filter((result) => result.settled && !result.push);
@@ -5096,25 +5497,26 @@ function PlayerSheet({
   const duelLosses = settled.filter((result) => result.loser === p).length;
   const wins = events.filter((event) => state.results[event.id]?.slots?.[0]?.includes(p));
   const own = !!me && me === p;
+  const away = !!(state.away?.[p] || me && state.away?.[me]);
   const canDuel = !!(onDuel && me && duelsOpen(state));
   const current = !me ? null : own ? duels.find((d) => d.open && d.from === me && duelPhase(d, now) === "offered") || null : duelBetween(state, me, p, now) || duels.find((d) => d.from === p && d.open && duelView(state, d, me, now).takeable) || null;
   const record = me && !own ? duelRecord(state, me, p) : null;
   const history = own ? duels.map((d) => duelResult(state, d, me)).filter(Boolean).sort((a, b) => (b.ts || 0) - (a.ts || 0)) : record?.lines || [];
   const last = !own ? history[0] : null;
   const room = (player) => duelRoom(state, player, { events, rows: standings, now }).room;
-  const anteMax = canDuel && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
+  const anteMax = canDuel && !away && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
   const dailyLimit = !!me && duelsSentToday(state, me, now) >= DUEL_DAILY_LIMIT;
-  const unavailable = dailyLimit ? "Three challenges a day, max." : anteMax < PT ? "Not enough chips for an ante." : "";
+  const unavailable = dailyLimit ? "Daily limit of 3 challenges reached." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
-  useEffect10(() => {
+  useEffect11(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect10(() => {
+  useEffect11(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
   }, [p]);
   const challenge = async () => {
-    if (sending.current || !canDuel || current || unavailable || ante > anteMax) return;
+    if (sending.current || !canDuel || away || current || unavailable || ante > anteMax) return;
     sending.current = true;
     setPending(true);
     setError("");
@@ -5129,7 +5531,7 @@ function PlayerSheet({
       setPending(false);
     }
   };
-  return /* @__PURE__ */ React24.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending }, /* @__PURE__ */ React24.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React24.createElement(PlayerPass, { key: p, state, p, compact: true }), state.live && row && /* @__PURE__ */ React24.createElement("dl", { className: "fd-player-stats", "aria-label": "Tournament stats" }, /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("dt", null, "Position"), /* @__PURE__ */ React24.createElement("dd", null, row.rank)), /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("dt", null, "Chips"), /* @__PURE__ */ React24.createElement("dd", null, fmt3(row.pts))), /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("dt", null, "Wins"), /* @__PURE__ */ React24.createElement("dd", null, row.wins))), state.live && row && (row.betNet !== 0 || duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React24.createElement("dl", { className: "fd-player-record" }, row.betNet !== 0 && /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("dt", null, "Wagers"), /* @__PURE__ */ React24.createElement("dd", null, signed(row.betNet))), (duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React24.createElement("div", null, /* @__PURE__ */ React24.createElement("dt", null, "Duels"), /* @__PURE__ */ React24.createElement("dd", null, duelWins, " won \xB7 ", duelLosses, " lost", /* @__PURE__ */ React24.createElement("span", null, signed(row.duelNet), " chips")))), wins.length > 0 && /* @__PURE__ */ React24.createElement("section", { className: "fd-player-wins", "aria-label": "Event wins" }, /* @__PURE__ */ React24.createElement("h2", null, "Event wins"), /* @__PURE__ */ React24.createElement("ul", null, wins.map((event) => /* @__PURE__ */ React24.createElement("li", { key: event.id }, event.name)))), own && onEdit && /* @__PURE__ */ React24.createElement(
+  return /* @__PURE__ */ React25.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending }, /* @__PURE__ */ React25.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React25.createElement(PlayerPass, { key: p, state, p, compact: true }), state.live && row && /* @__PURE__ */ React25.createElement("dl", { className: "fd-player-stats", "aria-label": "Tournament stats" }, /* @__PURE__ */ React25.createElement("div", null, /* @__PURE__ */ React25.createElement("dt", null, "Position"), /* @__PURE__ */ React25.createElement("dd", null, row.rank)), /* @__PURE__ */ React25.createElement("div", null, /* @__PURE__ */ React25.createElement("dt", null, "Chips"), /* @__PURE__ */ React25.createElement("dd", null, fmt3(row.pts))), /* @__PURE__ */ React25.createElement("div", null, /* @__PURE__ */ React25.createElement("dt", null, "Wins"), /* @__PURE__ */ React25.createElement("dd", null, row.wins))), state.live && row && (row.betNet !== 0 || duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React25.createElement("dl", { className: "fd-player-record" }, row.betNet !== 0 && /* @__PURE__ */ React25.createElement("div", null, /* @__PURE__ */ React25.createElement("dt", null, "Wagers"), /* @__PURE__ */ React25.createElement("dd", null, signed(row.betNet))), (duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React25.createElement("div", null, /* @__PURE__ */ React25.createElement("dt", null, "Duels"), /* @__PURE__ */ React25.createElement("dd", null, duelWins, " won \xB7 ", duelLosses, " lost", /* @__PURE__ */ React25.createElement("span", null, signed(row.duelNet), " chips")))), wins.length > 0 && /* @__PURE__ */ React25.createElement("section", { className: "fd-player-wins", "aria-label": "Event wins" }, /* @__PURE__ */ React25.createElement("h2", null, "Event wins"), /* @__PURE__ */ React25.createElement("ul", null, wins.map((event) => /* @__PURE__ */ React25.createElement("li", { key: event.id }, event.name)))), own && onEdit && /* @__PURE__ */ React25.createElement(
     ActionButton,
     {
       type: "button",
@@ -5138,7 +5540,7 @@ function PlayerSheet({
       style: { width: "100%" }
     },
     "Edit your profile"
-  ), canDuel && /* @__PURE__ */ React24.createElement("section", { className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, /* @__PURE__ */ React24.createElement("details", { className: "fd-player-duel-rules" }, /* @__PURE__ */ React24.createElement("summary", null, /* @__PURE__ */ React24.createElement("h2", null, "Quick Draw"), /* @__PURE__ */ React24.createElement("span", null, "How to play +")), /* @__PURE__ */ React24.createElement("p", null, "You both play on your own phone after the challenge is accepted. The screen flashes after a random wait, tap it. Fastest tap wins the pot. Tapping early is a foul. An unanswered challenge lapses after ", DUEL_LAPSE_MS / 6e4, " minutes.")), current ? /* @__PURE__ */ React24.createElement(
+  ), canDuel && (current || !away) && /* @__PURE__ */ React25.createElement("section", { className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, /* @__PURE__ */ React25.createElement("details", { className: "fd-player-duel-rules" }, /* @__PURE__ */ React25.createElement("summary", null, /* @__PURE__ */ React25.createElement("h2", null, "Quick Draw"), /* @__PURE__ */ React25.createElement("span", null, "How to play +")), /* @__PURE__ */ React25.createElement("p", null, "Once accepted, each of you plays on your own phone. Tap when the screen flashes. Fastest tap wins both antes. Tapping early is a foul. An unanswered challenge lapses after ", DUEL_LAPSE_MS / 6e4, " minutes.")), current ? /* @__PURE__ */ React25.createElement(
     DuelCard,
     {
       bare: true,
@@ -5151,7 +5553,7 @@ function PlayerSheet({
       onDecline,
       onWithdraw
     }
-  ) : unavailable ? /* @__PURE__ */ React24.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : /* @__PURE__ */ React24.createElement(React24.Fragment, null, /* @__PURE__ */ React24.createElement("fieldset", { className: "fd-player-antes", disabled: pending }, /* @__PURE__ */ React24.createElement("legend", null, "Ante, each"), ANTES.map((value) => /* @__PURE__ */ React24.createElement(
+  ) : unavailable ? /* @__PURE__ */ React25.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : /* @__PURE__ */ React25.createElement(React25.Fragment, null, /* @__PURE__ */ React25.createElement("fieldset", { className: "fd-player-antes", disabled: pending }, /* @__PURE__ */ React25.createElement("legend", null, "Ante, each"), ANTES.map((value) => /* @__PURE__ */ React25.createElement(
     "button",
     {
       type: "button",
@@ -5161,8 +5563,8 @@ function PlayerSheet({
       "aria-label": `Ante ${fmt3(value)} chips each`,
       onClick: () => setAnte(value)
     },
-    /* @__PURE__ */ React24.createElement(BankChip, { p: me, size: 44, val: value })
-  ))), error && /* @__PURE__ */ React24.createElement("p", { className: "fd-player-error", role: "alert" }, error), /* @__PURE__ */ React24.createElement(
+    /* @__PURE__ */ React25.createElement(BankChip, { p: me, size: 44, val: value })
+  ))), error && /* @__PURE__ */ React25.createElement("p", { className: "fd-player-error", role: "alert" }, error), /* @__PURE__ */ React25.createElement(
     ActionButton,
     {
       type: "button",
@@ -5172,14 +5574,14 @@ function PlayerSheet({
       style: { width: "100%" }
     },
     pending ? "Sending\u2026" : own ? `Challenge anyone for ${fmt3(ante)}` : rematch ? `Rematch for ${fmt3(ante)}` : `Challenge ${disp(state, p)} for ${fmt3(ante)}`
-  ))), !!me && history.length > 0 && /* @__PURE__ */ React24.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React24.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React24.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React24.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React24.createElement("span", null, signedChips(record.net))), /* @__PURE__ */ React24.createElement("ul", null, history.map((line) => /* @__PURE__ */ React24.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React24.createElement("span", null, own ? `vs ${line.name}` : `${fmt3(line.stake)} each`, line.times && /* @__PURE__ */ React24.createElement("small", null, line.times)), /* @__PURE__ */ React24.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips(line.delta)}`)))))));
+  ))), !!me && history.length > 0 && /* @__PURE__ */ React25.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React25.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React25.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React25.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React25.createElement("span", null, signedChips(record.net))), /* @__PURE__ */ React25.createElement("ul", null, history.map((line) => /* @__PURE__ */ React25.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React25.createElement("span", null, own ? `vs ${line.name}` : `${fmt3(line.stake)} each`, line.times && /* @__PURE__ */ React25.createElement("small", null, line.times)), /* @__PURE__ */ React25.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips(line.delta)}`)))))));
 }
 
 // src/App.jsx
 init_InstallHint();
 
 // src/features/tv/TVMode.jsx
-import React25, { useEffect as useEffect12, useMemo as useMemo3, useRef as useRef12, useState as useState19 } from "react";
+import React28, { useEffect as useEffect13, useMemo as useMemo3, useRef as useRef15, useState as useState22 } from "react";
 
 // ../../../node_modules/qrcode-generator/dist/qrcode.mjs
 var qrcode = function(typeNumber, errorCorrectionLevel) {
@@ -5352,7 +5754,7 @@ var qrcode = function(typeNumber, errorCorrectionLevel) {
     }
   };
   const createBytes = function(buffer, rsBlocks) {
-    let offset = 0;
+    let offset2 = 0;
     let maxDcCount = 0;
     let maxEcCount = 0;
     const dcdata = new Array(rsBlocks.length);
@@ -5364,9 +5766,9 @@ var qrcode = function(typeNumber, errorCorrectionLevel) {
       maxEcCount = Math.max(maxEcCount, ecCount);
       dcdata[r] = new Array(dcCount);
       for (let i = 0; i < dcdata[r].length; i += 1) {
-        dcdata[r][i] = 255 & buffer.getBuffer()[i + offset];
+        dcdata[r][i] = 255 & buffer.getBuffer()[i + offset2];
       }
-      offset += dcCount;
+      offset2 += dcCount;
       const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
       const rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
       const modPoly = rawPoly.mod(rsPoly);
@@ -6055,13 +6457,13 @@ var qrPolynomial = function(num, shift) {
     throw num.length + "/" + shift;
   }
   const _num = (function() {
-    let offset = 0;
-    while (offset < num.length && num[offset] == 0) {
-      offset += 1;
+    let offset2 = 0;
+    while (offset2 < num.length && num[offset2] == 0) {
+      offset2 += 1;
     }
-    const _num2 = new Array(num.length - offset + shift);
-    for (let i = 0; i < num.length - offset; i += 1) {
-      _num2[i] = num[i + offset];
+    const _num2 = new Array(num.length - offset2 + shift);
+    for (let i = 0; i < num.length - offset2; i += 1) {
+      _num2[i] = num[i + offset2];
     }
     return _num2;
   })();
@@ -6697,14 +7099,14 @@ var gifImage = function(width, height) {
     const lzwMinCodeSize = 2;
     const raster = getLZWRaster(lzwMinCodeSize);
     out.writeByte(lzwMinCodeSize);
-    let offset = 0;
-    while (raster.length - offset > 255) {
+    let offset2 = 0;
+    while (raster.length - offset2 > 255) {
       out.writeByte(255);
-      out.writeBytes(raster, offset, 255);
-      offset += 255;
+      out.writeBytes(raster, offset2, 255);
+      offset2 += 255;
     }
-    out.writeByte(raster.length - offset);
-    out.writeBytes(raster, offset, raster.length - offset);
+    out.writeByte(raster.length - offset2);
+    out.writeBytes(raster, offset2, raster.length - offset2);
     out.writeByte(0);
     out.writeString(";");
   };
@@ -6816,54 +7218,22 @@ var stringToBytes = qrcode.stringToBytes;
 
 // src/features/tv/TVMode.jsx
 init_core();
-
-// shared/show.js
-init_core();
-var SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
-var SHOW_SCENE_DEFINITIONS = Object.freeze({
-  opening: Object.freeze({
-    label: "Opening",
-    intensity: "major",
-    steps: Object.freeze(["title", "room"])
-  }),
-  "event-intro": Object.freeze({
-    label: "Event intro",
-    intensity: "normal",
-    requiresEvent: true,
-    steps: Object.freeze(["title", "ready"])
-  }),
-  winner: Object.freeze({
-    label: "Winner",
-    intensity: "major",
-    requiresEvent: true,
-    requiresResult: true,
-    steps: Object.freeze(["winner", "standings"])
-  }),
-  standings: Object.freeze({
-    label: "Standings",
-    intensity: "routine",
-    steps: Object.freeze(["board"])
-  }),
-  champion: Object.freeze({
-    label: "Champion",
-    intensity: "major",
-    requiresFrozen: true,
-    steps: Object.freeze(["champion"])
-  })
-});
-var REPLAY_WINDOW_MS = 15 * 60 * 1e3;
-var SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
-
-// src/features/tv/TVMode.jsx
 init_PlayerIdentity();
 
 // src/features/tv/tvModel.js
 init_core();
 var CUE_WINDOW_MS = 3 * 60 * 1e3;
 
-// src/features/tv/serverClock.js
-import { useEffect as useEffect11, useState as useState18 } from "react";
-var MAX_PLAUSIBLE_OFFSET_MS = 12 * 60 * 60 * 1e3;
+// src/features/tv/TVCeremony.jsx
+init_core();
+init_PlayerIdentity();
+import React26, { useEffect as useEffect12, useRef as useRef14, useState as useState21 } from "react";
+
+// src/features/tv/TVCards.jsx
+init_core();
+init_PlayerIdentity();
+init_PlayerIdentityContext();
+import React27 from "react";
 
 // src/App.jsx
 init_install();
@@ -6874,18 +7244,29 @@ init_core();
 init_PlayerIdentity();
 init_controls();
 init_theme();
-import React26, { useCallback as useCallback2, useEffect as useEffect13, useLayoutEffect, useRef as useRef13, useState as useState20 } from "react";
+import React29, { useCallback as useCallback2, useEffect as useEffect14, useLayoutEffect, useRef as useRef16, useState as useState23 } from "react";
 var FOUL = Object.freeze({ ms: null, foul: true });
 
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React27, { useRef as useRef14, useState as useState21 } from "react";
+import React30, { useRef as useRef17, useState as useState24 } from "react";
+
+// src/features/director/DirectorPill.jsx
+init_core();
+init_PlayerIdentity();
+import React31, { useEffect as useEffect15, useRef as useRef18, useState as useState25 } from "react";
+
+// src/features/director/FinaleSheets.jsx
+init_core();
+init_controls();
+init_PlayerIdentity();
+import React32, { useRef as useRef19, useState as useState26 } from "react";
 
 // src/ui/Shell.jsx
-import React28 from "react";
+import React33 from "react";
 function Shell({ children, tv, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React28.createElement("div", { className: `fd-shell${tv ? " fd-night" : ""}` }, /* @__PURE__ */ React28.createElement("div", { className: `fd-shell-inner${tv ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React28.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+  return /* @__PURE__ */ React33.createElement("div", { className: `fd-shell${tv ? " fd-night" : ""}` }, /* @__PURE__ */ React33.createElement("div", { className: `fd-shell-inner${tv ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React33.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/App.jsx
@@ -6894,13 +7275,15 @@ init_controls();
 var Onboarding2 = lazy(() => Promise.resolve().then(() => (init_Onboarding(), Onboarding_exports)).then((module) => ({ default: module.Onboarding })));
 var prefersReducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 var fmt5 = (n) => (n ?? 0).toLocaleString("en-US");
+var SINCE_HOLD_MS = 5 * 60 * 1e3;
+var DUEL_LAPSE_NOTICE_MS = 15 * 60 * 1e3;
 var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   if (i !== count - 1 || count % columns !== 1) return {};
   if (columns % 2) return { gridColumn: String(Math.ceil(columns / 2)) };
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React30.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React35.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -6924,7 +7307,7 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
   const av = size === "lg" ? 34 : 26;
   const f = size === "lg" ? 19 : 14;
   const tf = size === "lg" ? 26 : 17;
-  return /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: size === "lg" ? 18 : 10, alignItems: "stretch" } }, [teams[0], null, teams[1]].map((t, i) => i === 1 ? /* @__PURE__ */ React30.createElement("div", { key: "vs", style: {
+  return /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: size === "lg" ? 18 : 10, alignItems: "stretch" } }, [teams[0], null, teams[1]].map((t, i) => i === 1 ? /* @__PURE__ */ React35.createElement("div", { key: "vs", style: {
     alignSelf: "center",
     width: size === "lg" ? 54 : 36,
     height: size === "lg" ? 54 : 36,
@@ -6940,14 +7323,14 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
     fontSize: size === "lg" ? 24 : 16,
     border: "2px solid var(--ink)",
     zIndex: 2
-  } }, "VS") : /* @__PURE__ */ React30.createElement("div", { key: i, style: {
+  } }, "VS") : /* @__PURE__ */ React35.createElement("div", { key: i, style: {
     background: "var(--paper)",
     border: "1.5px solid var(--ink)",
     borderRadius: 10,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: {
+  } }, /* @__PURE__ */ React35.createElement("div", { style: {
     background: SIDE_COLORS[i === 0 ? 0 : 1],
     color: BONE,
     fontFamily: DISPLAY,
@@ -6960,8 +7343,8 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap"
-  } }, teamLabel(state, t)), /* @__PURE__ */ React30.createElement("div", { style: { padding: size === "lg" ? "10px 14px" : "8px 11px" } }, t.players.map(
-    (p) => React30.createElement(onPlayer ? "button" : "div", {
+  } }, teamLabel(state, t)), /* @__PURE__ */ React35.createElement("div", { style: { padding: size === "lg" ? "10px 14px" : "8px 11px" } }, t.players.map(
+    (p) => React35.createElement(onPlayer ? "button" : "div", {
       key: p,
       type: onPlayer ? "button" : void 0,
       onClick: onPlayer ? () => onPlayer(p) : void 0,
@@ -6974,21 +7357,11 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
         width: "100%",
         flexDirection: i === 0 ? "row" : "row-reverse"
       }
-    }, /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement(Avatar, { state, p, size: av }), /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: f, color: "var(--ink)" } }, disp(state, p))))
+    }, /* @__PURE__ */ React35.createElement(React35.Fragment, null, /* @__PURE__ */ React35.createElement(Avatar, { state, p, size: av }), /* @__PURE__ */ React35.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: f, color: "var(--ink)" } }, disp(state, p))))
   )))));
 }
-function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
-  const ph = phaseOf(ev);
-  const session = SESSIONS.find((s) => s.id === ev.session);
-  const format = ev.finale ? "Finale" : ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Team event";
-  const closeRef = useRef16(onClose);
-  closeRef.current = onClose;
-  useEffect15(() => {
-    if (!auto) return;
-    const t = setTimeout(() => closeRef.current(), prefersReducedMotion() ? 2200 : 7e3);
-    return () => clearTimeout(t);
-  }, [auto]);
-  if (!big) return /* @__PURE__ */ React30.createElement(
+function EventIntro({ state, ev, handoff, onClose, onBets }) {
+  return /* @__PURE__ */ React35.createElement(
     EventAnnouncement,
     {
       state,
@@ -6997,101 +7370,14 @@ function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
       onClose,
       onBets,
       holdMs: prefersReducedMotion() ? 650 : 2800,
-      visual: /* @__PURE__ */ React30.createElement(GameMoment, { gameId: ev.game })
+      visual: /* @__PURE__ */ React35.createElement(GameMoment, { gameId: ev.game })
     }
-  );
-  return /* @__PURE__ */ React30.createElement(
-    "div",
-    {
-      className: "si-event-intro fd-night",
-      onClick: auto ? void 0 : onClose,
-      style: {
-        position: "fixed",
-        inset: 0,
-        zIndex: 290,
-        background: "rgba(23,16,9,0.985)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "calc(28px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom))",
-        overflowY: "auto"
-      }
-    },
-    /* @__PURE__ */ React30.createElement("div", { "aria-hidden": "true", style: { position: "absolute", inset: "0 0 auto", height: 5, background: ph.bg } }),
-    /* @__PURE__ */ React30.createElement("div", { style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 9,
-      color: "var(--night-text)",
-      animation: "si-intro-copy .35s .08s both"
-    } }, /* @__PURE__ */ React30.createElement("span", { style: { width: 7, height: 7, borderRadius: 99, background: ph.bg } }), /* @__PURE__ */ React30.createElement("span", { style: {
-      fontFamily: SANS,
-      fontWeight: 700,
-      fontSize: big ? 15 : 11,
-      letterSpacing: "0.16em",
-      textTransform: "uppercase"
-    } }, "On deck", session ? ` \xB7 ${session.label}` : "", ev.value ? ` \xB7 ${fmt5(ev.value)} chips` : "")),
-    /* @__PURE__ */ React30.createElement("div", { style: { margin: big ? "18px 0 2px" : "10px 0 0" } }, /* @__PURE__ */ React30.createElement(EventSpotlight, { gameId: ev.game, big })),
-    /* @__PURE__ */ React30.createElement("div", { style: {
-      fontFamily: DISPLAY,
-      fontWeight: 700,
-      fontSize: big ? "clamp(56px,7vw,110px)" : 44,
-      lineHeight: 0.92,
-      textAlign: "center",
-      textTransform: "uppercase",
-      color: BONE,
-      maxWidth: big ? 1050 : 430,
-      animation: "si-intro-copy .45s .28s both"
-    } }, ev.name),
-    /* @__PURE__ */ React30.createElement("div", { style: {
-      fontFamily: SANS,
-      fontWeight: 700,
-      fontSize: big ? 15 : 11.5,
-      letterSpacing: "0.14em",
-      textTransform: "uppercase",
-      color: ph.bg,
-      marginTop: big ? 15 : 10,
-      animation: "si-intro-copy .4s .4s both"
-    } }, format),
-    ev.desc && /* @__PURE__ */ React30.createElement("div", { style: {
-      fontFamily: SANS,
-      fontSize: big ? "clamp(15px,1.45vw,20px)" : 14,
-      lineHeight: 1.55,
-      color: "var(--night-text)",
-      textAlign: "center",
-      maxWidth: big ? 720 : 355,
-      marginTop: big ? 18 : 13,
-      animation: "si-intro-copy .4s .52s both"
-    } }, ev.desc),
-    handoff && /* @__PURE__ */ React30.createElement("div", { style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 8,
-      fontFamily: SANS,
-      fontWeight: 700,
-      fontSize: big ? 14 : 11.5,
-      letterSpacing: "0.14em",
-      textTransform: "uppercase",
-      color: "var(--sun)",
-      marginTop: big ? 26 : 20,
-      animation: "si-intro-copy .3s .65s both"
-    } }, /* @__PURE__ */ React30.createElement("span", { className: "si-event-dot" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-dot si-event-dot-2" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-dot si-event-dot-3" }), " Drawing teams"),
-    !auto && !handoff && /* @__PURE__ */ React30.createElement(
-      "div",
-      {
-        onClick: (e) => e.stopPropagation(),
-        style: { display: "flex", gap: 10, marginTop: 24, animation: "si-intro-copy .3s .7s both" }
-      },
-      onBets && /* @__PURE__ */ React30.createElement(Btn, { onClick: onBets, style: { fontSize: 16, padding: "13px 28px" } }, "To the bets"),
-      /* @__PURE__ */ React30.createElement(Btn, { kind: onBets ? "ghost" : "primary", onClick: onClose, style: { fontSize: 16, padding: "13px 28px" } }, "Close")
-    )
   );
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId3(), saving = useRef16(false);
-  const [counts, setCounts] = useState23(() => {
+  const countId = useId3(), saving = useRef21(false);
+  const [counts, setCounts] = useState28(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -7099,12 +7385,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState23(false), [error, setError] = useState23("");
+  const [pending, setPending] = useState28(false), [error, setError] = useState28("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React30.createElement("div", { className: "fd-chip-counter" }, /* @__PURE__ */ React30.createElement("p", null, "Count your stack by chip."), denominations.map((value) => /* @__PURE__ */ React30.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React30.createElement("label", { htmlFor: countId + value }, fmt5(value), " chips"), /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React35.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React35.createElement("label", { htmlFor: countId + value }, fmt5(value), " chips"), /* @__PURE__ */ React35.createElement(
     "button",
     {
       type: "button",
@@ -7113,7 +7399,7 @@ function ChipCounter({ start, onDone }) {
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
     "\u2212"
-  ), /* @__PURE__ */ React30.createElement(
+  ), /* @__PURE__ */ React35.createElement(
     "input",
     {
       id: countId + value,
@@ -7126,7 +7412,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React30.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, "+"))), /* @__PURE__ */ React30.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React30.createElement("span", null, "Total"), /* @__PURE__ */ React30.createElement("strong", null, fmt5(total))), error && /* @__PURE__ */ React30.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React30.createElement(ActionButton, { disabled: pending, onClick: async () => {
+  ), /* @__PURE__ */ React35.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, "+"))), /* @__PURE__ */ React35.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React35.createElement("span", null, "Total"), /* @__PURE__ */ React35.createElement("strong", null, fmt5(total))), error && /* @__PURE__ */ React35.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React35.createElement(ActionButton, { disabled: pending, onClick: async () => {
     if (saving.current) return;
     saving.current = true;
     setPending(true);
@@ -7140,13 +7426,13 @@ function ChipCounter({ start, onDone }) {
       saving.current = false;
       setPending(false);
     }
-  }, style: { width: "100%" } }, pending ? "Saving\u2026" : "That is my count"));
+  }, style: { width: "100%" } }, pending ? "Saving\u2026" : "Save count"));
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState23(null);
-  const [pending, setPending] = useState23(false), [error, setError] = useState23("");
-  const saving = useRef16(false);
+  const [fixing, setFixing] = useState28(null);
+  const [pending, setPending] = useState28(false), [error, setError] = useState28("");
+  const saving = useRef21(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -7172,10 +7458,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React30.createElement(Sheet, { title: "The table", onClose, busy: pending }, /* @__PURE__ */ React30.createElement("p", { style: pStyle }, "Everyone counts their own stack from their phone. Tap a row to fix one."), seats.map((p) => {
+  return /* @__PURE__ */ React35.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c = pk.counts?.[p];
-    return /* @__PURE__ */ React30.createElement("div", { key: p }, /* @__PURE__ */ React30.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React30.createElement(
+    return /* @__PURE__ */ React35.createElement("div", { key: p }, /* @__PURE__ */ React35.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React35.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -7186,10 +7472,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React30.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React30.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React30.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React30.createElement("strong", null, fmt5(c)) : /* @__PURE__ */ React30.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React30.createElement(
+      /* @__PURE__ */ React35.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React35.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React35.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React35.createElement("strong", null, fmt5(c)) : /* @__PURE__ */ React35.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React35.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -7202,35 +7488,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React30.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React35.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React30.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React35.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React30.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React30.createElement("span", { style: {
+  }), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React35.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React35.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt5(sum)), /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt5(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay)", marginBottom: 10 } }, sum > pk.total ? `${fmt5(sum - pk.total)} over` : `${fmt5(pk.total - sum)} short`, ". Chips get miscounted, you can still post."), error && /* @__PURE__ */ React30.createElement("p", { role: "alert", style: { color: "var(--clay)", fontSize: 13 } }, error), /* @__PURE__ */ React30.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt5(sum)), /* @__PURE__ */ React35.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt5(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay)", marginBottom: 10 } }, sum > pk.total ? `${fmt5(sum - pk.total)} over` : `${fmt5(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React35.createElement("p", { role: "alert", style: { color: "var(--clay)", fontSize: 13 } }, error), /* @__PURE__ */ React35.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
-var PHASE = {
-  fri: { bg: "var(--pool)", fg: BONE },
-  sam: { bg: "var(--sun)", fg: "var(--ink0)" },
-  sap: { bg: "var(--accent)", fg: BONE },
-  san: { bg: "var(--clay)", fg: BONE },
-  fin: { bg: "var(--night)", fg: "var(--sun)" }
-};
-var phaseOf = (ev) => PHASE[ev?.session] || { bg: "var(--paper2)", fg: "var(--ink)" };
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React30.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React35.createElement(
     "button",
     {
       type: "button",
@@ -7239,16 +7517,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React30.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React30.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React35.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React35.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React30.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React30.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React30.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React30.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React30.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React30.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React30.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React35.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React35.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React35.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React35.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React35.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React35.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React35.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -7256,7 +7534,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React30.createElement("span", { style: { ...label, color: "var(--accent2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React30.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React30.createElement("span", { style: {
+    } }, /* @__PURE__ */ React35.createElement("span", { style: { ...label, color: "var(--accent2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React35.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React35.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 11.5,
@@ -7266,7 +7544,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React30.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React35.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 10.5,
@@ -7274,15 +7552,15 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React30.createElement("div", { style: {
+  return /* @__PURE__ */ React35.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
     border: "1px solid rgba(194,88,50,0.38)"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React30.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew"), /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 10.5, color: "var(--muted2)" } }, assignments.length, " ", assignments.length === 1 ? "assignment" : "assignments")), assignments.map((item, index) => {
+  } }, /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React35.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React30.createElement(
+    if (onPlayer) return /* @__PURE__ */ React35.createElement(
       "button",
       {
         type: "button",
@@ -7291,18 +7569,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React30.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React30.createElement("span", null, /* @__PURE__ */ React30.createElement("strong", null, disp(state, item.player)), /* @__PURE__ */ React30.createElement("small", null, meta.detail)),
-      /* @__PURE__ */ React30.createElement("small", null, meta.label)
+      /* @__PURE__ */ React35.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React35.createElement("span", null, /* @__PURE__ */ React35.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React35.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React30.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React35.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React30.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React30.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: {
+    } }, /* @__PURE__ */ React35.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React35.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React35.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -7310,7 +7588,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player)), /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 11.5, lineHeight: 1.35, color: "var(--muted2)" } }, meta.detail)), /* @__PURE__ */ React30.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React35.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 10.5,
@@ -7330,14 +7608,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React30.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React35.createElement("div", { style: {
     background: "var(--paper2)",
     border: "1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React30.createElement("div", { style: {
+  } }, /* @__PURE__ */ React35.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 10.5,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -7348,12 +7626,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React30.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React35.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React30.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React30.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React30.createElement(
+    } }, /* @__PURE__ */ React35.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React35.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React35.createElement(
       "button",
       {
         key: String(key),
@@ -7373,8 +7651,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React30.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React30.createElement("span", { style: {
+      /* @__PURE__ */ React35.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React35.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -7384,10 +7662,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, isFinal ? "\u{1F3C6}" : "\u2713")
+      isThrough && /* @__PURE__ */ React35.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, isFinal ? "\u{1F3C6}" : "\u2713")
     );
   }));
-  return /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React35.createElement(
     GroupCard,
     {
       key: i,
@@ -7396,7 +7674,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React30.createElement(
+  )), finalists && /* @__PURE__ */ React35.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -7437,29 +7715,31 @@ function EventSheet({
   onPlayNext,
   announceNext,
   onAnnounceDraw,
-  onSwap
+  onSwap,
+  onTakeBack
 }) {
   const res = state.results[ev.id];
+  const [confirmTakeBack, setConfirmTakeBack] = useState28(false);
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value];
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState23(false);
-  const [confirmRemove, setConfirmRemove] = useState23(false);
-  const [confirmClear, setConfirmClear] = useState23(false);
-  const [clearReason, setClearReason] = useState23("");
-  const [confirmScrap, setConfirmScrap] = useState23(false);
-  const [confirmShelve, setConfirmShelve] = useState23(false);
+  const [confirmRedraw, setConfirmRedraw] = useState28(false);
+  const [confirmRemove, setConfirmRemove] = useState28(false);
+  const [confirmClear, setConfirmClear] = useState28(false);
+  const [clearReason, setClearReason] = useState28("");
+  const [confirmScrap, setConfirmScrap] = useState28(false);
+  const [confirmShelve, setConfirmShelve] = useState28(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState23(false);
-  const [howTo, setHowTo] = useState23(false);
-  const [more, setMore] = useState23(false);
-  const [eName, setEName] = useState23("");
-  const [eDesc, setEDesc] = useState23("");
-  const [eValue, setEValue] = useState23(400);
-  const [eSession, setESession] = useState23(null);
+  const [editOpen, setEditOpen] = useState28(false);
+  const [howTo, setHowTo] = useState28(false);
+  const [more, setMore] = useState28(false);
+  const [eName, setEName] = useState28("");
+  const [eDesc, setEDesc] = useState28("");
+  const [eValue, setEValue] = useState28(400);
+  const [eSession, setESession] = useState28(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -7467,16 +7747,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState23(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState23(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState23(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState23(""), [swapIn, setSwapIn] = useState23("");
-  const [showOuts, setShowOuts] = useState23(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState23(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState23(null);
-  const [advance, setAdvance] = useState23(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState23(false);
-  const [contestPending, setContestPending] = useState23(false);
+  const [suggested] = useState28(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState28(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState28(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState28(""), [swapIn, setSwapIn] = useState28("");
+  const [showOuts, setShowOuts] = useState28(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState28(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState28(null);
+  const [advance, setAdvance] = useState28(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState28(false);
+  const [contestPending, setContestPending] = useState28(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -7485,8 +7765,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState23("");
-  const setupBusy = useRef16(false);
+  const [setupError, setSetupError] = useState28("");
+  const setupBusy = useRef21(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -7521,7 +7801,7 @@ function EventSheet({
   const suggestedGroups = Math.min(4, Math.max(2, Math.round(stageEntrantCount / (canHeats ? 4 : 3))));
   const groupsChoice = nGroups ?? ev.stageCfg?.nGroups ?? suggestedGroups;
   const heatsFit = inPlayers.length >= groupsChoice * 2;
-  return /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement(
     Sheet,
     {
       title: ev.name,
@@ -7530,9 +7810,9 @@ function EventSheet({
       wide: !!br,
       busy: setupPending || contestPending,
       subtitle: [SESSIONS.find((s) => s.id === ev.session)?.label, ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" \xB7 "),
-      headerActions: /* @__PURE__ */ React30.createElement(React30.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React30.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React30.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React35.createElement(React35.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React35.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React35.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    /* @__PURE__ */ React30.createElement(
+    /* @__PURE__ */ React35.createElement(
       ContestPanel,
       {
         state,
@@ -7548,35 +7828,35 @@ function EventSheet({
         onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
       }
     ),
-    br && !contestActive && /* @__PURE__ */ React30.createElement(CompetitionBracket, { state, ev, me, onPlayer }),
-    /* @__PURE__ */ React30.createElement("details", { className: "fd-event-info", open: !draw && !st && !contestActive || void 0 }, /* @__PURE__ */ React30.createElement("summary", null, /* @__PURE__ */ React30.createElement("span", null, "Event info"), table?.[0] > 0 && /* @__PURE__ */ React30.createElement("small", null, fmt5(table[0]), " chips to win")), ev.desc && /* @__PURE__ */ React30.createElement("p", null, ev.desc), table && /* @__PURE__ */ React30.createElement("div", { className: "fd-event-awards" }, awardPlan(ev, draw).map((row) => /* @__PURE__ */ React30.createElement("span", { key: row.place }, /* @__PURE__ */ React30.createElement("small", null, row.place === "crew" ? "Crew" : SLOT_META[row.place].label, row.split ? " (each side)" : ""), /* @__PURE__ */ React30.createElement("strong", null, "+", fmt5(row.pts))))), ev.finale && /* @__PURE__ */ React30.createElement("p", null, "Your final chip count is your final standing.")),
-    !contestActive && onBets && /* @__PURE__ */ React30.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    howTo && /* @__PURE__ */ React30.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, onClose: () => setHowTo(false) }),
-    draftLive && !draw && /* @__PURE__ */ React30.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() }),
-    draw && !br && !st && /* @__PURE__ */ React30.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 8 } }, "The draw"), draw.teams.length === 2 ? /* @__PURE__ */ React30.createElement(VersusDraw, { state, teams: draw.teams, onPlayer }) : /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap: 8 } }, draw.teams.map((t, i) => /* @__PURE__ */ React30.createElement("div", { key: i, style: {
+    br && !contestActive && /* @__PURE__ */ React35.createElement(CompetitionBracket, { state, ev, me, onPlayer }),
+    /* @__PURE__ */ React35.createElement("details", { className: "fd-event-info", open: !draw && !st && !contestActive || void 0 }, /* @__PURE__ */ React35.createElement("summary", null, /* @__PURE__ */ React35.createElement("span", null, "Event info"), table?.[0] > 0 && /* @__PURE__ */ React35.createElement("small", null, fmt5(table[0]), " chips to win")), ev.desc && /* @__PURE__ */ React35.createElement("p", null, ev.desc), table && /* @__PURE__ */ React35.createElement("div", { className: "fd-event-awards" }, awardPlan(ev, draw).map((row) => /* @__PURE__ */ React35.createElement("span", { key: row.place }, /* @__PURE__ */ React35.createElement("small", null, row.place === "crew" ? "Crew" : SLOT_META[row.place].label, row.split ? " (each side)" : ""), /* @__PURE__ */ React35.createElement("strong", null, "+", fmt5(row.pts)))))),
+    !contestActive && onBets && /* @__PURE__ */ React35.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    howTo && /* @__PURE__ */ React35.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, onClose: () => setHowTo(false) }),
+    draftLive && !draw && /* @__PURE__ */ React35.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() }),
+    draw && !br && !st && /* @__PURE__ */ React35.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 8 } }, "The draw"), draw.teams.length === 2 ? /* @__PURE__ */ React35.createElement(VersusDraw, { state, teams: draw.teams, onPlayer }) : /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap: 8 } }, draw.teams.map((t, i) => /* @__PURE__ */ React35.createElement("div", { key: i, style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "10px 12px",
       ...draw.teams.length > 3 && draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: "var(--accent2)", marginBottom: 5 } }, teamLabel(state, t)), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, t.players.map((p) => /* @__PURE__ */ React30.createElement("button", { type: "button", key: p, className: "fd-player-link", "aria-label": `View ${disp(state, p)}'s player card`, onClick: () => onPlayer?.(p) }, /* @__PURE__ */ React30.createElement(Avatar, { state, p, size: 30 }))))))), /* @__PURE__ */ React30.createElement(EventCrewCard, { state, roles: draw.roles, onPlayer })),
-    st && /* @__PURE__ */ React30.createElement("details", { className: "fd-event-info", open: !contestActive || void 0 }, /* @__PURE__ */ React30.createElement("summary", null, /* @__PURE__ */ React30.createElement("span", null, "All ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React30.createElement("small", null, st.advance, " through from each")), /* @__PURE__ */ React30.createElement(StageGrid, { state, ev, gm: false, onPlayer })),
-    (br || st) && /* @__PURE__ */ React30.createElement(EventCrewCard, { state, roles: draw?.roles || st?.roles, compact: true, onPlayer }),
+    } }, /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: "var(--accent2)", marginBottom: 5 } }, teamLabel(state, t)), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, t.players.map((p) => /* @__PURE__ */ React35.createElement("button", { type: "button", key: p, className: "fd-player-link", "aria-label": `View ${disp(state, p)}'s player card`, onClick: () => onPlayer?.(p) }, /* @__PURE__ */ React35.createElement(Avatar, { state, p, size: 30 }))))))), /* @__PURE__ */ React35.createElement(EventCrewCard, { state, roles: draw.roles, onPlayer })),
+    st && /* @__PURE__ */ React35.createElement("details", { className: "fd-event-info", open: !contestActive || void 0 }, /* @__PURE__ */ React35.createElement("summary", null, /* @__PURE__ */ React35.createElement("span", null, "All ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React35.createElement("small", null, st.advance, " through from each")), /* @__PURE__ */ React35.createElement(StageGrid, { state, ev, gm: false, onPlayer })),
+    (br || st) && /* @__PURE__ */ React35.createElement(EventCrewCard, { state, roles: draw?.roles || st?.roles, compact: true, onPlayer }),
     res && res.slots && (() => {
       const awards = resultAwards(state, ev, res);
       const crew = awards.filter((award) => award.place === "crew");
-      return /* @__PURE__ */ React30.createElement("div", { style: { marginBottom: 14 } }, res.slots.map((players, i) => players?.length > 0 && /* @__PURE__ */ React30.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React30.createElement("span", { style: { color: SLOT_META[i].color, fontWeight: 700 } }, SLOT_META[i].label, ":"), " ", players.map((p) => /* @__PURE__ */ React30.createElement("button", { type: "button", key: p, className: "fd-player-link", onClick: () => onPlayer?.(p) }, disp(state, p))), " ", /* @__PURE__ */ React30.createElement("span", { style: { color: "var(--muted)" } }, res.stacks ? `${fmt5(res.stacks[players[0]] ?? 0)} chips` : `+${fmt5(awards.find((award) => award.place === i)?.pts ?? 0)} each`))), crew.length > 0 && /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React30.createElement("span", { style: { fontWeight: 700 } }, "Crew:"), " ", crew.map(({ player }) => /* @__PURE__ */ React30.createElement("button", { type: "button", key: player, className: "fd-player-link", onClick: () => onPlayer?.(player) }, disp(state, player))), " ", /* @__PURE__ */ React30.createElement("span", { style: { color: "var(--muted)" } }, "+", fmt5(crew[0].pts), " each")), (() => {
+      return /* @__PURE__ */ React35.createElement("div", { style: { marginBottom: 14 } }, res.slots.map((players, i) => players?.length > 0 && /* @__PURE__ */ React35.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React35.createElement("span", { style: { color: SLOT_META[i].color, fontWeight: 700 } }, SLOT_META[i].label, ":"), " ", players.map((p) => /* @__PURE__ */ React35.createElement("button", { type: "button", key: p, className: "fd-player-link", onClick: () => onPlayer?.(p) }, disp(state, p))), " ", /* @__PURE__ */ React35.createElement("span", { style: { color: "var(--muted)" } }, res.stacks ? `${fmt5(res.stacks[players[0]] ?? 0)} chips` : `+${fmt5(awards.find((award) => award.place === i)?.pts ?? 0)} each`))), crew.length > 0 && /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React35.createElement("span", { style: { fontWeight: 700 } }, "Crew:"), " ", crew.map(({ player }) => /* @__PURE__ */ React35.createElement("button", { type: "button", key: player, className: "fd-player-link", onClick: () => onPlayer?.(player) }, disp(state, player))), " ", /* @__PURE__ */ React35.createElement("span", { style: { color: "var(--muted)" } }, "+", fmt5(crew[0].pts), " each")), (() => {
         const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
         const reason = res.correctionReason || correction?.reason;
         const voided = Array.isArray(correction?.voided) ? correction.voided.length : 0;
-        return reason && (res.correctedAt || correction) ? /* @__PURE__ */ React30.createElement("p", { className: "fd-event-correction" }, "Corrected \xB7 ", reason, voided ? ` \xB7 ${voided} ${voided === 1 ? "bet" : "bets"} voided` : "") : null;
+        return reason && (res.correctedAt || correction) ? /* @__PURE__ */ React35.createElement("p", { className: "fd-event-correction" }, "Corrected \xB7 ", reason, voided ? ` \xB7 ${voided} ${voided === 1 ? "bet" : "bets"} voided` : "") : null;
       })());
     })(),
-    gm && !state.frozen && /* @__PURE__ */ React30.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 14 } }, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    gm && !state.frozen && /* @__PURE__ */ React35.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 14 } }, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, flex: 1 } }, "Draw teams"), /* @__PURE__ */ React30.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+      return /* @__PURE__ */ React35.createElement(React35.Fragment, null, /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, flex: 1 } }, "Draw teams"), /* @__PURE__ */ React35.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
         cursor: "pointer",
         fontFamily: SANS,
         fontWeight: 700,
@@ -7586,12 +7866,12 @@ function EventSheet({
         background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
         border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
         color: diff !== 0 ? "var(--clay)" : "var(--ink)"
-      } }, inPlayers.length, " competitors ", showOuts ? "\u25B4" : "\u25BE")), /* @__PURE__ */ React30.createElement("div", { style: {
+      } }, inPlayers.length, " competitors ", showOuts ? "\u25B4" : "\u25BE")), /* @__PURE__ */ React35.createElement("div", { style: {
         fontFamily: SANS,
         fontSize: 12.5,
         marginBottom: 8,
         color: diff !== 0 ? "var(--clay)" : "var(--muted)"
-      } }, "Format: ", shape.teams, " teams of ", shape.size, ", fits ", fit2, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React30.createElement(
+      } }, "Format: ", shape.teams, " teams of ", shape.size, ", fits ", fit2, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React35.createElement(React35.Fragment, null, /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React35.createElement(
         PlayerChip,
         {
           key: p,
@@ -7601,38 +7881,36 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React30.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React35.createElement("div", { style: {
         background: "var(--paper2)",
         border: "1px solid rgba(194,88,50,0.38)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React30.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew"), /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 10.5, color: "var(--muted2)" } }, overflowAssignments.length, " ", overflowAssignments.length === 1 ? "assignment" : "assignments")), /* @__PURE__ */ React30.createElement("div", { style: {
+      } }, /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React35.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), /* @__PURE__ */ React35.createElement("div", { style: {
         fontFamily: SANS,
         fontSize: 11.5,
         lineHeight: 1.4,
         color: "var(--muted2)",
         marginBottom: 9
-      } }, table?.[2] > 0 ? `These jobs keep the event moving. Crew do not compete and earn the 3rd-place award, +${fmt5(table[2])}.` : "These jobs keep the event moving. Crew do not compete or score in this one."), overflowAssignments.map(({ player }, index) => {
+      } }, table?.[2] > 0 ? `Crew do not compete and earn the 3rd-place award, +${fmt5(table[2])}.` : "Crew do not compete or score."), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        const meta = overflowRoleMeta(role);
-        return /* @__PURE__ */ React30.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React35.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React30.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React30.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: {
+        } }, /* @__PURE__ */ React35.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React35.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React35.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
           fontSize: 12.5,
           color: "var(--ink)",
-          marginBottom: 3,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap"
-        } }, disp(state, player)), /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 10.5, lineHeight: 1.3, color: "var(--muted2)" } }, meta.detail)), /* @__PURE__ */ React30.createElement(
+        } }, disp(state, player))), /* @__PURE__ */ React35.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
@@ -7651,9 +7929,9 @@ function EventSheet({
               fontSize: 11.5
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React30.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React35.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 10 } }, participantFit.ok ? `Teams balance from ratings and results.${overflowAssignments.length ? " Event crew assignments save with the draw." : ""}${announceNext ? "" : " Teams stay hidden until this event is announced."}` : participantFit.error), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React30.createElement(
+      }))), (!participantFit.ok || !announceNext) && /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 10 } }, participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React35.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -7661,7 +7939,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React30.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React35.createElement(
         Btn,
         {
           kind: "dark",
@@ -7671,10 +7949,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React30.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React35.createElement(Btn, { kind: "danger", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -7691,7 +7969,7 @@ function EventSheet({
         fontWeight: 700,
         fontSize: 12.5
       };
-      return /* @__PURE__ */ React30.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React30.createElement("summary", null, /* @__PURE__ */ React30.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React30.createElement(
+      return /* @__PURE__ */ React35.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React35.createElement("summary", null, /* @__PURE__ */ React35.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React35.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -7700,9 +7978,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React30.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React30.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React30.createElement(
+        /* @__PURE__ */ React35.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React35.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React35.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -7711,9 +7989,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React30.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React30.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React30.createElement(
+        /* @__PURE__ */ React35.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React35.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React35.createElement(
         ActionButton,
         {
           compact: true,
@@ -7728,14 +8006,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React30.createElement("p", null, "Bets on the team stay. Outright bets on the player leaving are voided."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React30.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React30.createElement("div", { style: {
+      )), /* @__PURE__ */ React35.createElement("p", null, "Bets on the team stay. Outright bets on the player leaving are voided."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React35.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React35.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React30.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React35.createElement(React35.Fragment, null, /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React35.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -7745,7 +8023,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", showOuts ? "\u25B4" : "\u25BE")), showOuts && /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React30.createElement(
+    } }, inPlayers.length, " playing ", showOuts ? "\u25B4" : "\u25BE")), showOuts && /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React35.createElement(
       PlayerChip,
       {
         key: p,
@@ -7755,7 +8033,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React30.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React30.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React30.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React35.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React35.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React35.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -7766,7 +8044,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React30.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React30.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React30.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React35.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React35.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React35.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -7777,7 +8055,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React30.createElement(
+    } }, n))), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -7795,17 +8073,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React30.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React30.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React30.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React35.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React35.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React35.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools", ", sure"), /* @__PURE__ */ React30.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React30.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React30.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React35.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React35.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React30.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -7813,7 +8091,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React30.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -7821,26 +8099,47 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React30.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React30.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React30.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, "Next: ", lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React30.createElement("div", { style: {
+    ), res && !confirmClear && /* @__PURE__ */ React35.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && onTakeBack && announcementTakeBack(state, ev).enabled && (confirmTakeBack ? /* @__PURE__ */ React35.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React35.createElement("p", { style: { ...pStyle, fontSize: 13, marginBottom: 8 } }, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React35.createElement(
+      ActionButton,
+      {
+        variant: "commit",
+        disabled: setupPending,
+        style: { flex: 1 },
+        onClick: () => saveSetup(async () => {
+          const result = await onTakeBack();
+          if (result?.ok) setConfirmTakeBack(false);
+          return result;
+        })
+      },
+      setupPending ? "Taking back\u2026" : "Take it back"
+    ), /* @__PURE__ */ React35.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it"))) : /* @__PURE__ */ React35.createElement(
+      ActionButton,
+      {
+        variant: "destructive",
+        onClick: () => setConfirmTakeBack(true),
+        style: { width: "100%", marginTop: 10 }
+      },
+      "Take back the announcement"
+    )), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React35.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, "Next: ", lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React35.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "Why is this result being cleared?"), /* @__PURE__ */ React30.createElement(
+    } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React35.createElement(
       "input",
       {
         value: clearReason,
         onChange: (event) => setClearReason(event.target.value),
         maxLength: 100,
-        placeholder: "Example: signed scorecard needs re-entry",
+        "aria-label": "Reason for clearing",
         style: {
           width: "100%",
           background: "var(--paper)",
@@ -7855,7 +8154,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React30.createElement(
+    ), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -7864,7 +8163,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React30.createElement(
+    ), /* @__PURE__ */ React35.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -7875,13 +8174,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React30.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React35.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React30.createElement(
+    } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React35.createElement(
       "input",
       {
         value: eName,
@@ -7902,7 +8201,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "How it works"), /* @__PURE__ */ React30.createElement(
+    ), /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "How it works"), /* @__PURE__ */ React35.createElement(
       "textarea",
       {
         value: eDesc,
@@ -7925,7 +8224,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth", res ? ". Clear the result to change it" : ""), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React30.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth", res ? ". Clear the result to change it" : ""), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React35.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -7936,7 +8235,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "When"), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React30.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "When"), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React35.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -7946,7 +8245,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React30.createElement(
+    } }, lb))), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React35.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -7957,7 +8256,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React30.createElement("button", { onClick: () => setMore(true), style: {
+    ), /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React35.createElement("button", { onClick: () => setMore(true), style: {
       background: "none",
       border: "none",
       cursor: "pointer",
@@ -7969,14 +8268,14 @@ function EventSheet({
       padding: "8px 0",
       display: "block",
       marginLeft: "auto"
-    } }, "More options \u25BE") : /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement(Btn, { kind: "danger", onClick: () => {
+    } }, "More options \u25BE") : /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React35.createElement(React35.Fragment, null, /* @__PURE__ */ React35.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt5(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React30.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React30.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React30.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove")))
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt5(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React35.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React35.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React35.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove")))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState23(false);
+  const [pending, setPending] = useState28(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -7989,7 +8288,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React30.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React35.createElement(
     ContestPanel,
     {
       state,
@@ -8004,7 +8303,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React30.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React30.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React35.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React35.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
@@ -8045,14 +8344,14 @@ function ResultSheet({ ev, state, onClose, save }) {
     }
     return [[], [], []];
   }, []);
-  const [slots, setSlots] = useState23(initial);
-  const [active, setActive] = useState23(editableSlots[0] ?? 0);
-  const [byPlayer, setByPlayer] = useState23(false);
-  const [confirmCorrection, setConfirmCorrection] = useState23(false);
-  const [correctionReason, setCorrectionReason] = useState23("");
-  const [pending, setPending] = useState23(false), [error, setError] = useState23("");
-  const [emptyCheck, setEmptyCheck] = useState23(null);
-  const saving = useRef16(false);
+  const [slots, setSlots] = useState28(initial);
+  const [active, setActive] = useState28(editableSlots[0] ?? 0);
+  const [byPlayer, setByPlayer] = useState28(false);
+  const [confirmCorrection, setConfirmCorrection] = useState28(false);
+  const [correctionReason, setCorrectionReason] = useState28("");
+  const [pending, setPending] = useState28(false), [error, setError] = useState28("");
+  const [emptyCheck, setEmptyCheck] = useState28(null);
+  const saving = useRef21(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;
     if (!allowEmpty && emptyPaid.length) {
@@ -8103,16 +8402,16 @@ function ResultSheet({ ev, state, onClose, save }) {
     if (was !== active) nx[active] = [...nx[active], ...t.players];
     return nx;
   });
-  return /* @__PURE__ */ React30.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React30.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React30.createElement("small", null, "Winner"), /* @__PURE__ */ React30.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React30.createElement("span", null, "+", fmt5(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React30.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), !!editableSlots.length && /* @__PURE__ */ React30.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React30.createElement("button", { key: i, onClick: () => setActive(i), style: {
+  return /* @__PURE__ */ React35.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React35.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React35.createElement("small", null, "Winner"), /* @__PURE__ */ React35.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React35.createElement("span", null, "+", fmt5(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React35.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), !!editableSlots.length && /* @__PURE__ */ React35.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React35.createElement("button", { key: i, onClick: () => setActive(i), style: {
     flex: 1,
     padding: "10px 6px",
     cursor: "pointer",
     borderRadius: 14,
     border: "1px solid " + (active === i ? "var(--accent)" : "var(--line)"),
     background: active === i ? "rgba(194,88,50,0.1)" : "var(--paper2)"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 11, color: "var(--muted)" } }, "+", fmt5(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React30.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt5(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
+  } }, /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React35.createElement("div", { style: { fontFamily: SANS, fontSize: 11, color: "var(--muted)" } }, "+", fmt5(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React35.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt5(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
     const w = teamSlot(t);
-    return /* @__PURE__ */ React30.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
+    return /* @__PURE__ */ React35.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -8123,7 +8422,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       background: w === active ? GOLD_GRAD : "var(--paper)",
       border: w === active ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
       ...draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React30.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React30.createElement("span", { style: {
+    } }, /* @__PURE__ */ React35.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React35.createElement("span", { style: {
       flex: 1,
       fontFamily: SANS,
       fontWeight: 600,
@@ -8133,16 +8432,16 @@ function ResultSheet({ ev, state, onClose, save }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       color: w === active ? "var(--ink0)" : "var(--ink)"
-    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React30.createElement("span", { style: {
+    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React35.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 11,
       color: SLOT_META[w].color,
       flexShrink: 0
     } }, SLOT_META[w].label));
-  })) : /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
+  })) : /* @__PURE__ */ React35.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
     const w = taken(p);
-    return /* @__PURE__ */ React30.createElement(
+    return /* @__PURE__ */ React35.createElement(
       PlayerChip,
       {
         key: p,
@@ -8153,7 +8452,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         style: centeredGridCell(i, ROSTER.length)
       }
     );
-  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React30.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
+  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React35.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
     background: "none",
     border: "none",
     cursor: "pointer",
@@ -8164,13 +8463,13 @@ function ResultSheet({ ev, state, onClose, save }) {
     minHeight: 44,
     padding: "6px 0",
     display: "block"
-  } }, byPlayer ? "Back to teams" : "Pick player by player instead")), error && /* @__PURE__ */ React30.createElement("p", { role: "alert", style: { color: "var(--clay)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React30.createElement("div", { role: "alert", style: {
+  } }, byPlayer ? "Back to teams" : "Pick by player")), error && /* @__PURE__ */ React35.createElement("p", { role: "alert", style: { color: "var(--clay)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React35.createElement("div", { role: "alert", style: {
     marginBottom: 10,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, emptyPaid.map((i) => /* @__PURE__ */ React30.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt5(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React30.createElement(
+  } }, emptyPaid.map((i) => /* @__PURE__ */ React35.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt5(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React35.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -8179,7 +8478,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Leave empty"
-  ), /* @__PURE__ */ React30.createElement(
+  ), /* @__PURE__ */ React35.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -8191,7 +8490,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React30.createElement(
+  ))), !existing ? /* @__PURE__ */ React35.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || pending,
@@ -8199,7 +8498,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
     "Post official result"
-  ) : !confirmCorrection ? /* @__PURE__ */ React30.createElement(
+  ) : !confirmCorrection ? /* @__PURE__ */ React35.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || unchanged || pending,
@@ -8207,20 +8506,20 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
     unchanged ? `Official result \xB7 revision ${existing.revision || 1}` : "Review result correction"
-  ) : /* @__PURE__ */ React30.createElement("div", { style: {
+  ) : /* @__PURE__ */ React35.createElement("div", { style: {
     marginTop: 4,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, "Why is the official result changing?"), /* @__PURE__ */ React30.createElement(
+  } }, /* @__PURE__ */ React35.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for the correction"), /* @__PURE__ */ React35.createElement(
     "input",
     {
       value: correctionReason,
       disabled: pending,
       onChange: (event) => setCorrectionReason(event.target.value),
       maxLength: 100,
-      placeholder: "Example: 2nd and 3rd were reversed",
+      "aria-label": "Reason for the correction",
       style: {
         width: "100%",
         background: "var(--paper)",
@@ -8235,7 +8534,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         outline: "none"
       }
     }
-  ), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React30.createElement(
+  ), /* @__PURE__ */ React35.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React35.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -8247,61 +8546,56 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Replace official result"
-  ), /* @__PURE__ */ React30.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
+  ), /* @__PURE__ */ React35.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
     setConfirmCorrection(false);
     setCorrectionReason("");
   }, style: { flex: 1 } }, "Keep current"))));
 }
 function GameMoment({ gameId }) {
   const Hero = GAME_HEROES[gameId];
-  return /* @__PURE__ */ React30.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion() ? /* @__PURE__ */ React30.createElement(Hero, null) : /* @__PURE__ */ React30.createElement(GameMark, { id: gameId, size: 72 }));
-}
-function EventSpotlight({ gameId, big = false }) {
-  const mark = big ? 150 : 112;
-  const box = big ? 242 : 176;
-  return /* @__PURE__ */ React30.createElement("div", { style: { position: "relative", width: box, height: box, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React30.createElement("span", { className: "si-event-ring", "aria-hidden": "true" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-ring si-event-ring-2", "aria-hidden": "true" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-rule si-event-rule-left", "aria-hidden": "true" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-rule si-event-rule-right", "aria-hidden": "true" }), /* @__PURE__ */ React30.createElement("span", { className: "si-event-mark", style: GAME_HEROES[gameId] ? { transform: big ? "scale(1.4)" : void 0 } : void 0 }, GAME_HEROES[gameId] ? /* @__PURE__ */ React30.createElement(GameMoment, { gameId }) : /* @__PURE__ */ React30.createElement(GameMark, { id: gameId, size: mark, hero: true })));
+  return /* @__PURE__ */ React35.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion() ? /* @__PURE__ */ React35.createElement(Hero, null) : /* @__PURE__ */ React35.createElement(GameMark, { id: gameId, size: 72 }));
 }
 function DieHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React30.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React30.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React30.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React30.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React30.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React30.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React35.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React35.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React35.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React35.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React35.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React35.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
 }
 function PongHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function FlipHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-flip-cup 2.2s ease-in-out 1 both", transformOrigin: "90px 46px" } }, /* @__PURE__ */ React30.createElement("path", { d: "M78 32h24l-3 28H81z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("ellipse", { cx: "90", cy: "32", rx: "12", ry: "3.4", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-flip-cup 2.2s ease-in-out 1 both", transformOrigin: "90px 46px" } }, /* @__PURE__ */ React35.createElement("path", { d: "M78 32h24l-3 28H81z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("ellipse", { cx: "90", cy: "32", rx: "12", ry: "3.4", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" })));
 }
 function PuttHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React30.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React35.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function EightHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React30.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React35.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
 }
 function BballHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React30.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React30.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React35.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React35.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function SpikeHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React30.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React35.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
 }
 function PingpongHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React30.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React30.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React30.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React30.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React35.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React35.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React35.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React35.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
 }
 function FoosHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React30.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React35.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function VolleyHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React30.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React35.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function PickleHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React30.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React30.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React35.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React35.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
 }
 function KartHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React30.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React35.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
 }
 function RageHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React30.createElement("g", { key: x }, /* @__PURE__ */ React30.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React30.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React35.createElement("g", { key: x }, /* @__PURE__ */ React35.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React35.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
 }
 function GauntletHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [36, 68, 100, 132, 164].map((x, i) => /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [36, 68, 100, 132, 164].map((x, i) => /* @__PURE__ */ React35.createElement(
     "rect",
     {
       key: x,
@@ -8314,10 +8608,10 @@ function GauntletHero() {
       stroke: "var(--ink)",
       strokeWidth: "1.4"
     }
-  )), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-gauntlet 2.8s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "12", cy: "44", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  )), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-gauntlet 2.8s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "12", cy: "44", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
 }
 function PokerHero() {
-  return /* @__PURE__ */ React30.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React30.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React30.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React30.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React30.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React30.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React35.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React35.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React35.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React35.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React35.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React35.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React35.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
 }
 var GAME_HEROES = {
   die: DieHero,
@@ -8336,101 +8630,8 @@ var GAME_HEROES = {
   gauntlet: GauntletHero,
   poker: PokerHero
 };
-function Reveal({ state, reveal, big, auto, onClose, onBets, onPlayer }) {
-  const teamItems = reveal.versus ? 1 : reveal.groups?.length || 0;
-  const crew = reveal.crew || [];
-  const items = teamItems + (crew.length ? 1 : 0);
-  const reducedMotion = prefersReducedMotion();
-  const [shown, setShown] = useState23(() => reducedMotion ? items : 0);
-  useEffect15(() => {
-    if (shown >= items) return;
-    const t = setTimeout(() => setShown((s) => s + 1), shown === 0 ? 900 : 1300);
-    return () => clearTimeout(t);
-  }, [shown, items]);
-  const doneAll = shown >= items;
-  const closeRef = useRef16(onClose);
-  closeRef.current = onClose;
-  useEffect15(() => {
-    if (!auto || !doneAll) return;
-    const t = setTimeout(() => closeRef.current(), reducedMotion ? 2200 : 6e3);
-    return () => clearTimeout(t);
-  }, [auto, doneAll, reducedMotion]);
-  if (!big) return /* @__PURE__ */ React30.createElement(DrawAnnouncement, { state, reveal, onClose, onBets, onPlayer });
-  return /* @__PURE__ */ React30.createElement("div", { className: "fd-night", style: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 300,
-    background: "rgba(32,24,17,0.97)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "calc(30px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom))",
-    overflowY: "auto"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, fontSize: big ? 15 : 11, color: "var(--sun)", animation: "si-in .4s both" } }, reveal.title), /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontSize: big ? 64 : 36,
-    color: BONE,
-    textTransform: "uppercase",
-    lineHeight: 0.95,
-    marginBottom: big ? 28 : 20,
-    animation: "si-in .4s .1s both",
-    textAlign: "center"
-  } }, reveal.subtitle), reveal.versus ? /* @__PURE__ */ React30.createElement("div", { style: {
-    width: "100%",
-    maxWidth: big ? 900 : 470,
-    visibility: shown > 0 ? "visible" : "hidden",
-    animation: shown > 0 ? "si-flag .55s both" : "none"
-  } }, /* @__PURE__ */ React30.createElement(VersusDraw, { state, teams: reveal.versus, size: big ? "lg" : "md" })) : /* @__PURE__ */ React30.createElement("div", { style: {
-    display: "grid",
-    gap: big ? 16 : 10,
-    width: "100%",
-    maxWidth: big ? 1100 : 460,
-    gridTemplateColumns: big ? `repeat(${teamItems === 4 ? 2 : Math.min(teamItems, 3)}, 1fr)` : teamItems > 3 ? "1fr 1fr" : "1fr"
-  } }, reveal.groups.map((g, i) => /* @__PURE__ */ React30.createElement("div", { key: i, style: {
-    visibility: i < shown ? "visible" : "hidden",
-    animation: i < shown ? "si-flag .55s both" : "none",
-    background: CARD_BG,
-    border: "1px solid rgba(156,69,38,0.45)",
-    borderRadius: 14,
-    padding: big ? "18px 20px" : "14px 15px",
-    boxShadow: "var(--shadow-2)"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontSize: big ? 26 : 16,
-    color: "var(--accent2)",
-    marginBottom: 8
-  } }, g.title), g.lines.map((ln, j) => /* @__PURE__ */ React30.createElement(React30.Fragment, { key: j }, g.vs && j > 0 && /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: SANS,
-    fontWeight: 700,
-    fontSize: big ? 14 : 11,
-    letterSpacing: "0.18em",
-    color: "var(--muted)",
-    textTransform: "uppercase",
-    padding: "1px 0 1px 4px",
-    animation: i < shown ? "si-in .3s .3s both" : "none"
-  } }, "vs"), /* @__PURE__ */ React30.createElement("div", { style: {
-    display: "flex",
-    alignItems: "center",
-    gap: 9,
-    padding: "3px 0",
-    animation: i < shown ? `si-in .3s ${0.25 + j * 0.15}s both` : "none"
-  } }, /* @__PURE__ */ React30.createElement(AvatarStack, { state, players: ln.avatars, size: big ? 34 : 26, max: 3 }), /* @__PURE__ */ React30.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: big ? 20 : 14.5, color: "var(--ink)" } }, ln.text))))))), crew.length > 0 && /* @__PURE__ */ React30.createElement("div", { style: {
-    width: "100%",
-    maxWidth: big ? 760 : 470,
-    visibility: shown > teamItems ? "visible" : "hidden",
-    animation: shown > teamItems ? "si-flag .55s both" : "none"
-  } }, /* @__PURE__ */ React30.createElement(EventCrewCard, { state, roles: crew })), doneAll && !auto && /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", gap: 10, marginTop: big ? 30 : 22, animation: "si-in .3s both" } }, onBets && /* @__PURE__ */ React30.createElement(Btn, { onClick: onBets, style: { fontSize: 16, padding: "13px 28px" } }, "To the bets"), /* @__PURE__ */ React30.createElement(Btn, { kind: onBets ? "ghost" : "primary", onClick: onClose, style: { fontSize: 16, padding: "13px 28px" } }, "Close")), !doneAll && !auto && /* @__PURE__ */ React30.createElement("button", { onClick: () => setShown(items), style: {
-    marginTop: 20,
-    background: "none",
-    border: "none",
-    color: "var(--night-text)",
-    fontFamily: SANS,
-    fontSize: 12.5,
-    cursor: "pointer"
-  } }, "skip"));
+function Reveal({ state, reveal, onClose, onBets, onPlayer }) {
+  return /* @__PURE__ */ React35.createElement(DrawAnnouncement, { state, reveal, onClose, onBets, onPlayer });
 }
 
 // <stdin>

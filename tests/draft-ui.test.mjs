@@ -94,7 +94,7 @@ test("setup requires the commissioner and preserves the selected captain order",
   assert.ok(!guest.buttons.some(button => button.name === "Start the draft"));
   assert.equal(controls(state, ev).named("Start the draft").disabled, true);
   const host = controls(state, ev, {}, [choose(state,captains[1]), choose(state,captains[0])]);
-  assert.match(host.html, /Captain order is pick order/);
+  assert.match(host.html, /Pick order reverses each round/);
   assert.equal(host.named(choose(state,pool[2])).disabled, true);
   assert.equal((await host.click("Start the draft")).ok, true);
   assert.deepEqual(state.drafts[ev.id].teams.map(team => team.captain), [...captains].reverse());

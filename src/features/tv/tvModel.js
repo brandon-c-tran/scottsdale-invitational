@@ -519,7 +519,7 @@ export function tickerItems({ state, events, standings, allTied, draftLive, live
   if (draftLive && draftLive.d.pool.length) {
     const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
     if (cur) items.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
-      text:`${disp(state, cur)} is on the clock` });
+      text:`${disp(state, cur)}'s pick` });
   }
   if (liveCrew?.length) items.push({ tag:"Event crew", tone:"var(--accent2)",
     players:liveCrew.map(item => item.player).slice(0, 4),

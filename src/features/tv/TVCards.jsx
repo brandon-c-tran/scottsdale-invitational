@@ -112,8 +112,7 @@ export function ChampionMoment({ state, view }) {
             <span><b>{view.wins}</b> win{view.wins === 1 ? "" : "s"}</span>
             {view.betNet !== 0 && <span><b>{signed(view.betNet)}</b> bets</span>}
           </div>
-          {view.tied ? <div className="tv-champ-path">Tied. One pressure putt decides it.</div>
-            : view.path.length > 0 && (
+          {!view.tied && view.path.length > 0 && (
               <div className="tv-champ-path">
                 {view.path.map(item => <span key={item.eventId}>{item.label}</span>)}
               </div>

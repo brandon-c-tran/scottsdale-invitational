@@ -604,7 +604,7 @@ test("G20: an away guest sits out on Home and nobody can challenge an away playe
   state.onDeck = pairs.id;
   state.away = { [me]:true };
   const view = render(ui.GuestHome, homeProps(state, me));
-  assert.match(view.html, /Sitting out this one/);
+  assert.match(view.html, /You are marked away/);
   const live = fresh();
   live.away = { [ROSTER[3]]:true };
   const card = p => render(ui.PlayerSheet, { state:live, me, p, standings:computeStandings(live), events:BUILTIN_EVENTS,

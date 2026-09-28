@@ -913,7 +913,7 @@ export const ACTIONS = {
     if (anyone && state.duels.some(d => d.open && d.from === from && duelPhase(d, now) === "offered"))
       return err("You already have an open challenge");
     if (duelsSentToday(state, from, now) >= DUEL_DAILY_LIMIT)
-      return err("Three challenges a day, max");
+      return err("Daily limit of 3 challenges reached");
     /* the challenger names the ante; both sides put up the same amount */
     const stake = want === undefined ? DUEL_STAKE : Math.floor(Number(want));
     if (!(Number.isInteger(stake) && stake % PT === 0 && stake >= PT))
@@ -2057,7 +2057,7 @@ export const ACTIONS = {
   pokerSetup(state, {}, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     const ev = allEventsOf(state).find(e => e.finale);
-    if (!ev) return err("No poker finale on the slate");
+    if (!ev) return err("No poker finale scheduled");
     if (state.shelved[ev.id]) return err("The finale is shelved");
     if (state.poker?.id === ev.id)
       return ok({ unchanged:true, total:state.poker.total });
@@ -2181,7 +2181,7 @@ export const ACTIONS = {
     if (!seatsOf(pk).includes(player)) return err("Not seated at the table");
     if (player !== ctx.player && !ctx.isGm) return err("Only you can bust yourself");
     if (pk.outs.find(o => o.player === player)) return err("Already out");
-    if (!stillIn(pk).some(p => p !== player)) return err("Someone has to hold the chips");
+    if (!stillIn(pk).some(p => p !== player)) return err("The last player in cannot bust");
     pk.outs.push({ player, ts: Date.now() });
     delete pk.counts?.[player];
     return ok();
@@ -2218,7 +2218,7 @@ export const ACTIONS = {
     if (!op.resultEntryAt) op.resultEntryAt = Date.now();
     /* counting 0 is busting: it ranks in bust order, never above a bust */
     if (c === 0) {
-      if (!stillIn(pk).some(p => p !== player)) return err("Someone has to hold the chips");
+      if (!stillIn(pk).some(p => p !== player)) return err("The last player in cannot bust");
       pk.outs.push({ player, ts:Date.now() });
       delete pk.counts[player];
       return ok({ busted:true });

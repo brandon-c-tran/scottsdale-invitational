@@ -376,7 +376,7 @@ function sheetText(state) {
 const LOGI_FIELDS = [
   { k:"venue", label:"House address", ph:"10848 North Aberdeen Road, Scottsdale, AZ",
     autoComplete:"street-address" },
-  { k:"venueNote", label:"Arrival notes", ph:"Door code, parking, or anything guests need",
+  { k:"venueNote", label:"Arrival notes", ph:"Door code, parking",
     multiline:true, optional:true },
   { k:"checkIn", label:"Check-in", ph:"Fri Oct 30, 4:00 PM" },
   { k:"checkOut", label:"Checkout", ph:"Sun Nov 1, 10:00 AM" },
@@ -396,10 +396,6 @@ function LogisticsEditor({ state, onSave }) {
     fontFamily:SANS, fontWeight:600, fontSize:15, boxSizing:"border-box" };
   return (
     <div>
-      <div style={{ fontFamily:SANS, fontSize:13.5, lineHeight:1.5, color:"var(--muted2)",
-        marginBottom:18 }}>
-        Guests see this during check-in and in Weekend.
-      </div>
       <div>
         {LOGI_FIELDS.map(f => {
           const inputProps = {
@@ -425,9 +421,7 @@ function LogisticsEditor({ state, onSave }) {
       </div>
       <div style={{ borderTop:"1px solid var(--line)", paddingTop:16, marginTop:4 }}>
         <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, textTransform:"uppercase",
-          color:"var(--ink)", marginBottom:4 }}>Your flights</div>
-        <div style={{ fontFamily:SANS, fontSize:12.5, lineHeight:1.45, color:"var(--muted)",
-          marginBottom:14 }}>Shown to guests for airport coordination.</div>
+          color:"var(--ink)", marginBottom:14 }}>Your flights</div>
         <TravelLists />
         <LegField lb="You land Friday" dir="in" leg={hostIn} setLeg={setHostIn} />
         <LegField lb="You leave Sunday" dir="out" leg={hostOut} setLeg={setHostOut} />
@@ -490,13 +484,13 @@ function TravelApparelSheet({ state, onSize, onNotify }) {
                 color:pr ? "var(--ink)" : "var(--muted)" }}>{p}</span>
               <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, textAlign:"center",
                 color:pr?.num != null ? "var(--accent2)" : "var(--muted)" }}>
-                {pr?.num != null ? `#${pr.num}` : "—"}</span>
+                {pr?.num != null ? `#${pr.num}` : "·"}</span>
               <select value={pr?.size || ""} aria-label={`${p} shirt size`}
                 onChange={e => onSize(p, e.target.value || null)}
                 style={{ width:"100%", height:44, background:"var(--paper2)", border:"1px solid var(--line)",
                   borderRadius:8, color:pr?.size ? "var(--ink)" : "var(--muted)", fontFamily:SANS,
                   fontWeight:700, fontSize:13, textAlign:"center", outline:"none" }}>
-                <option value="">—</option>
+                <option value="">Size</option>
                 {SIZES.map(size => <option key={size} value={size}>{size}</option>)}
               </select>
             </div>

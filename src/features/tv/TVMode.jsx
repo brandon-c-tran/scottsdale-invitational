@@ -501,7 +501,7 @@ function TVDraft({ state, ev, d }) {
             <Avatar state={state} p={cur} size={96} ring />
             <div>
               <div className="tv-label">{ev.name} draft · round {round}, pick {d.picks.length + 1}</div>
-              <div className="tv-display" style={{ fontSize:60, color:"var(--bone)" }}>{disp(state, cur)} is on the clock</div>
+              <div className="tv-display" style={{ fontSize:60, color:"var(--bone)" }}>{disp(state, cur)}'s pick</div>
             </div>
           </div>
         )}

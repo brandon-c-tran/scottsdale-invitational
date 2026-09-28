@@ -79,7 +79,7 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
     const stacks = latest.res.stacks;
     const winners = latest.res.slots[0];
     const award = stacks ? stacks[winners[0]] ?? 0 : AWARDS[latest.ev.value]?.[0] ?? 0;
-    const resultNote = stacks ? "Final chip counts posted." : impact;
+    const resultNote = stacks ? "" : impact;
     return <section className="fd-now-card fd-now-result" aria-label="Latest result">
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(latest.ev)}>
       <span className="fd-now-topline"><span className="fd-now-status">Result posted</span>
@@ -119,7 +119,6 @@ function ChampionPanel({ state, champion, coChamps, onPlayer }) {
     <div className="fd-leader-score">
       <strong>{fmt(leaders[0].pts)}</strong><span>tournament<br />chips</span>
     </div>
-    {tied && <p className="fd-leader-tiebreak">Tied. One pressure putt decides it.</p>}
   </section>;
 }
 

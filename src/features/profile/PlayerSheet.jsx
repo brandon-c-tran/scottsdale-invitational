@@ -47,7 +47,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   const room = player => duelRoom(state, player, { events, rows:standings, now }).room;
   const anteMax = canDuel && !away && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
   const dailyLimit = !!me && duelsSentToday(state, me, now) >= DUEL_DAILY_LIMIT;
-  const unavailable = dailyLimit ? "Three challenges a day, max."
+  const unavailable = dailyLimit ? "Daily limit of 3 challenges reached."
     : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
 
@@ -100,9 +100,9 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
 
       {canDuel && (current || !away) && <section className="fd-player-duel" aria-label="Quick Draw challenge">
         <details className="fd-player-duel-rules"><summary><h2>Quick Draw</h2><span>How to play +</span></summary>
-          <p>You both play on your own phone after the challenge is accepted. The screen flashes after a
-            random wait, tap it. Fastest tap wins the pot. Tapping early is a foul. An unanswered
-            challenge lapses after {DUEL_LAPSE_MS / 60000} minutes.</p>
+          <p>Once accepted, each of you plays on your own phone. Tap when the screen flashes. Fastest tap
+            wins both antes. Tapping early is a foul. An unanswered challenge lapses
+            after {DUEL_LAPSE_MS / 60000} minutes.</p>
         </details>
         {current ? <DuelCard bare state={state} duel={current} me={me} now={now}
           onPlay={onPlay} onAccept={onAccept} onDecline={onDecline} onWithdraw={onWithdraw} />

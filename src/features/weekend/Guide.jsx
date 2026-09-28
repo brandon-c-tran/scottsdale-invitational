@@ -74,43 +74,39 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
     <div id="fd-weekend-panel-rules" role="tabpanel" aria-labelledby="fd-weekend-tab-rules" hidden={section !== "rules"}>
       <section className="fd-weekend-overview">
         <h2>How Field Day works</h2>
-        <p>{ROSTER.length} players, {events.filter(event => !event.finale).length} events, one board. Teams reshuffle every event.
-          {" "}Everyone starts at 1,000, and results, bets, and duels all move that same number.</p>
-        <p>Whatever you have when the events end is the stack you are dealt at Championship Poker. The winner of that table is the Field Day champion.</p>
+        <p>{ROSTER.length} players, {events.filter(event => !event.finale).length} events, one board. Teams are redrawn every event.
+          {" "}Everyone starts with 1,000 chips.</p>
+        <p>Whatever you have when the events end is your stack at Championship Poker. The winner of that table is the Field Day champion.</p>
       </section>
       <section className="fd-weekend-guide-section" aria-label="Core rules">
         <div className="fd-weekend-rules">
           <Rule number="01" title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
-            <p>Friday events pay 400. Saturday morning pays 800, afternoon 1,200, and night 1,600.
-              {" "}Solo events pay the podium. Team events pay every player on the placing team the full amount.
-              {" "}In a bracket, the two semifinal losers split 3rd. Event crew earn the 3rd-place award.</p>
+            <p>Every player on a placing team gets the full amount.
+              {" "}In a bracket, the two semifinal losers split 3rd. Event crew get the 3rd-place award.</p>
             <table className="fd-weekend-payouts"><caption>Chips awarded per player</caption>
               <thead><tr><th scope="col">Session</th><th scope="col">1st</th><th scope="col">2nd</th><th scope="col">3rd</th></tr></thead>
               <tbody>{[[400, "Friday"], [800, "Sat AM"], [1200, "Sat PM"], [1600, "Sat night"]].map(([value, name]) =>
                 <tr key={value}><th scope="row">{name}</th>{AWARDS[value].map((amount, index) => <td key={index}>{amount ? format(amount) : "·"}</td>)}</tr>)}</tbody>
             </table>
-            <p>Ties are settled on the spot, and a championship tie is one pressure putt.</p>
+            <p>Event ties are settled on the spot. A tied championship goes to one pressure putt.</p>
           </Rule>
           <Rule number="02" title="Betting" meta="One contest at a time · 100 to 1,000 per tap">
             <p>Only the current contest takes bets: the matchup or heat being played, or the whole event if it is free-for-all.
-              {" "}Bets lock before play. The winner settles the chips, then the next contest opens.
-              {" "}Pick a chip, 100 to 1,000, and tap who you like. Tap your stack to take the last one back.</p>
+              {" "}Bets lock when play starts.</p>
             <div className="fd-weekend-odds"><div><strong>2:1</strong><span>Free-for-all winner</span></div><div><strong>1:1</strong><span>Matchup, heat<br />or final winner</span></div></div>
-            <p>Playing in the matchup or heat? Back yourself or your team, or sit it out. One side per contest.</p>
-            <p>To limit the damage of one bad decision, only half your chips can be at risk at a time.
-              {" "}The limit rounds down to 100s and is never under 500.</p>
-            <p>Bets settle off the official result, so correcting a result corrects the payouts. I can void any wager.</p>
+            <p>If you are playing in the matchup or heat, you can only back your own side. One side per contest.</p>
+            <p>Only half your chips can be at risk at a time, rounded down to 100s and never under 500.</p>
+            <p>Correcting a result corrects the payouts. I can void any bet.</p>
           </Rule>
           <Rule number="03" title="Duels" meta="Quick Draw · equal ante · three a day">
-            <p>Short on chips? Challenge someone. Tap anyone on the board and name the ante, or tap yourself to challenge anyone. You both put up the same once they accept.</p>
-            <p>Once accepted, you each play Quick Draw on your own phone whenever you want: the screen flashes after a random wait, tap it.
-              {" "}Fastest tap takes the pot. Tapping early is a foul. Matching times or two fouls return the chips.</p>
+            <p>Open a player card to challenge that player, or your own card to challenge anyone. You name the ante and both sides put it up once accepted.</p>
+            <p>Each of you plays Quick Draw on your own phone. Tap when the screen flashes.
+              {" "}Fastest tap wins both antes. Tapping early is a foul. Matching times or two fouls return the chips.</p>
             <p>One challenge per pair, three a day. An unanswered challenge lapses after 10 minutes. Unplayed duels are void when the finale is dealt.</p>
           </Rule>
           <Rule number="04" title="Draws and brackets" meta="Balanced teams · live brackets, heats, and pools">
-            <p>I run each draw, and it reveals on every phone at once. Teams balance from your ratings and your results
-              {" "}so far, and the later the weekend, the more the results count. Ratings are never shown.</p>
-            <p>Some events are captains drafting instead. Brackets, heats, and pools update here and on the TV as they are played.</p>
+            <p>Teams balance from your ratings and your results so far. Results count more as the weekend goes on. Ratings are never shown.</p>
+            <p>Some events use a captains draft instead.</p>
           </Rule>
         </div>
       </section>
@@ -119,12 +115,12 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
         <ul>{AWARD_NAMES.map(award => <li key={award}>{award}</li>)}</ul>
       </section>
       <section className="fd-weekend-guide-section">
-        <SectionHeading title="Safety and respect" detail="The house" />
+        <SectionHeading title="Safety and respect" />
         <ul className="fd-weekend-house-rules">
           <li>Alcohol is optional everywhere. NA equivalents carry no penalty. No forced participation.</li>
           <li>Rack cups hold water. Drink from your own cup.</li>
           <li>No hard contact. Respect the property.</li>
-          <li>Everyone knows when the 360 cam is rolling.</li>
+          <li>Say so when the 360 camera is recording.</li>
           <li>I can stop anything for safety.</li>
         </ul>
       </section>

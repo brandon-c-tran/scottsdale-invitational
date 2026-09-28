@@ -103,7 +103,7 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
 function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
-  color: colorOverride, isLight: lightOverride, valueRing=false }) {
+  color: colorOverride, isLight: lightOverride, valueRing=false, flat=false }) {
   const clipId = `chip-edge-${useId().replace(/:/g, "")}`;
   const identity = usePlayerIdentity(p);
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
@@ -119,7 +119,7 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
       style={{ flexShrink:0, display:"block",
-        filter:size >= 32 ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
+        filter:size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
       <defs>
         <clipPath id={clipId}><circle cx="16" cy="16" r="14.7" /></clipPath>
       </defs>

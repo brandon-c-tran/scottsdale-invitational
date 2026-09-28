@@ -37,7 +37,7 @@
 .fd-wagers-contest-waiting { margin:18px 0; color:var(--muted2); font-size:12px; line-height:1.5; }
 .fd-wagers-pick.is-winner { border-color:var(--green); }
 .fd-wagers-pick.is-loser { opacity:.55; }
-.fd-wagers-pick-identity { display:flex; flex:1; flex-wrap:wrap; align-items:center; align-content:flex-start; gap:3px; min-height:44px; padding:5px 8px; border-bottom:1px solid var(--line); }
+.fd-wagers-pick-identity { display:flex; flex:0 0 auto; flex-wrap:wrap; align-items:center; align-content:flex-start; gap:3px; min-height:44px; padding:5px 8px 0; }
 .fd-wagers-player { display:flex; align-items:center; gap:6px; width:100%; min-height:44px; padding:0; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
 .fd-wagers-player > span { min-width:0; font-size:12px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
 .fd-wagers-player:not(:disabled):hover > span { text-decoration:underline; text-underline-offset:3px; }
@@ -56,20 +56,34 @@
 .fd-wagers-chip-well { display:grid; place-items:center; width:32px; height:32px; border:1px dashed currentColor; border-radius:50%; font-size:24px; font-weight:300; line-height:1; }
 .fd-wagers-pick-add { font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; }
 .fd-wagers-pick-closed { font-size:10px; color:var(--muted2); }
-.fd-wagers-retract,.fd-wagers-owned-stack { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:0 0 49px; min-width:49px; min-height:54px; padding:0 3px; border:0; border-radius:8px; background:transparent; color:var(--ink); }
+/* the felt: every bettor's own stack on the side it backs. Your stack is a
+   retract target with a sun ring; anyone else's opens their player card. */
+.fd-wagers-felt { position:relative; flex:1; display:flex; flex-direction:column; justify-content:flex-end; margin:5px; padding:3px; border-radius:9px; background:var(--bg); border:1px solid var(--night-line); }
+.fd-wagers-felt-total { position:absolute; top:5px; right:8px; font:700 17px/1 var(--fd-wagers-numerals); color:var(--sun); font-variant-numeric:tabular-nums; pointer-events:none; }
+.fd-wagers-felt-stacks { display:flex; flex-wrap:wrap; align-items:flex-end; gap:0 2px; min-height:52px; }
+.fd-wagers-felt-total + .fd-wagers-felt-stacks { padding-top:18px; }
+.fd-wagers-felt .fd-wagers-pick-main { flex:0 0 auto; flex-direction:column; flex-wrap:nowrap; gap:2px; min-width:48px; min-height:50px; padding:3px 4px; }
+.fd-wagers-felt .fd-wagers-chip-well { width:30px; height:30px; font-size:22px; }
+.fd-wagers-retract,.fd-wagers-owned-stack,.fd-wagers-other { display:flex; align-items:flex-end; justify-content:center; flex:0 0 44px; min-width:44px; min-height:44px; padding:0 0 3px; border:0; border-radius:8px; background:transparent; color:var(--ink); }
 .fd-wagers-retract { cursor:pointer; }
-.fd-wagers-retract:not(:disabled):hover { background:var(--ink-tint); }
+.fd-wagers-other { cursor:pointer; }
+.fd-wagers-retract:not(:disabled):hover,.fd-wagers-other:not(:disabled):hover { background:var(--ink-tint); }
 .fd-wagers-retract:disabled { cursor:wait; }
-.fd-wagers-chip-pile { position:relative; display:block; width:42px; height:42px; }
-.fd-wagers-chip-pile > span[data-chip-stake] { position:absolute; left:calc(2px + var(--chip-level)*1px); bottom:calc(var(--chip-level)*3px); z-index:var(--chip-level); animation:fd-chip-in .2s ease-out both; }
-.fd-wagers-chip-remove { position:absolute; right:-3px; top:0; display:grid; place-items:center; z-index:4; width:16px; height:16px; border-radius:50%; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:15px; line-height:1; }
-.fd-wagers-chip-total { font-size:10px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.2; }
-.fd-wagers-other-chips { display:flex; align-items:center; gap:2px; min-height:36px; padding:0 6px; border-top:1px solid var(--line); overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
-.fd-wagers-other-chips > button { display:flex; align-items:center; justify-content:center; flex:0 0 44px; min-height:44px; border:0; border-radius:50%; padding:0; background:none; cursor:pointer; }
-.fd-wagers-other-chips > button:disabled { cursor:default; }
+.fd-wagers-other:disabled { cursor:default; }
 .fd-wagers-pick-error { margin:0; padding:7px 8px; border-top:1px solid var(--danger-line); color:var(--clay); font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
 .fd-wagers-pick.is-pending-place .fd-wagers-chip-well { color:var(--sun); border-style:solid; animation:fd-chip-pending .7s ease-in-out infinite alternate; }
-.fd-wagers-pick.is-pending-remove .fd-wagers-chip-pile { animation:fd-chip-pending .7s ease-in-out infinite alternate; }
+.fd-wagers-pick.is-pending-remove .fd-wagers-retract .fd-stack-tap:last-of-type { animation:fd-chip-pending .7s ease-in-out infinite alternate; }
+/* a decided contest settling on the board */
+.fd-wagers-settle { margin:0 0 12px; padding:9px 11px 8px; border-radius:12px; background:var(--paper2); border:1px solid var(--line); animation:fd-settle-in .25s ease-out both; }
+.fd-wagers-settle h2 { margin:0 0 6px; font-size:12px; font-weight:650; color:var(--muted2); }
+.fd-wagers-settle-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; }
+.fd-wagers-settle-zone { display:flex; align-items:flex-end; gap:8px; min-width:0; }
+.fd-wagers-settle-zone > strong { font:700 20px/1 var(--fd-wagers-numerals); font-variant-numeric:tabular-nums; padding-bottom:4px; }
+.fd-wagers-settle-zone.is-won > strong { color:var(--green); }
+.fd-wagers-settle-zone.is-lost { --bank-x:46px; --bank-y:18px; }
+.fd-wagers-settle-zone.is-lost > strong { color:var(--clay); }
+.fd-wagers-settle .fd-stacks { gap:2px 4px; }
+@keyframes fd-settle-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
 .fd-wagers-limit { color:var(--clay); font-size:12px; line-height:1.5; }
 .fd-wagers-history { border-top:1px solid var(--line); }
 .fd-wagers-event + .fd-wagers-history { margin-top:20px; }
@@ -77,7 +91,7 @@
 .fd-wagers-history > summary::-webkit-details-marker { display:none; }
 .fd-wagers-history > summary > span { font-size:12px; font-weight:400; color:var(--muted2); }
 .fd-wagers-history > summary::after { content:"+"; margin-left:auto; font-size:20px; font-weight:400; color:var(--muted2); }
-.fd-wagers-history[open] > summary::after { content:"âˆ’"; }
+.fd-wagers-history[open] > summary::after { content:"\2212"; }
 .fd-wagers-ledger { border-top:1px solid var(--line); }
 .fd-wagers-line { display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px; padding:14px 0; border-bottom:1px solid var(--line); }
 /* commissioner voids sit behind Manage, each with an inline confirm */

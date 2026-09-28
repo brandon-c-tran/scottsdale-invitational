@@ -1,0 +1,11 @@
+/* The finale's chips, drawn: flat denomination colors from :root. */
+.fd-poker-stacks { display:flex; align-items:flex-end; gap:6px; min-width:0; }
+.fd-poker-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.fd-poker-count { min-width:18px; padding:1px 4px; border-radius:99px; background:var(--ink-tint); color:var(--ink);
+  font:700 11px/1.1 var(--fd-body); text-align:center; font-variant-numeric:tabular-nums; }
+.fd-poker-grant { display:inline-flex; align-items:center; gap:1px; padding:2px 6px; border-radius:99px;
+  background:var(--clay-tint); color:var(--live2); font:700 11px/1.1 var(--fd-body); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-poker-tray { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 18px; }
+.fd-poker-tray-denom { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.fd-poker-tray-tubes { display:flex; align-items:flex-end; gap:2px; }
+.fd-poker-tray-count { font:700 18px/1 var(--fd-display, 'Barlow Condensed', sans-serif); color:var(--ink); font-variant-numeric:tabular-nums; }

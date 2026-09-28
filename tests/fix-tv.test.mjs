@@ -718,7 +718,9 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   assert.deepEqual(riders.riders, [{ player:bettor, stake:200 }]);
   assert.equal(riders.total, 200);
   const html = renderTv(state, { showControl:false });
-  assert.ok(html.includes(`${bettor} 200`));
+  /* the bettor rides as their own two-chip stack, named, never "Name 200" */
+  assert.match(html, new RegExp(`data-stack-player="${bettor}" data-stack-chips="2"`));
+  assert.ok(!html.replace(/<[^>]*>/g, " ").includes(`${bettor} 200`));
   assert.ok(html.includes("Winner pays 1:1") && !/ to 1\b|even/.test(html.replace(/<[^>]*>/g, " ")));
   act(state, "lockAndStart", { evId:"8ball", ...ref(state, "8ball") }, gm(false));
   act(state, "recordContestWinner", { evId:"8ball", winner:side.key, ...ref(state, "8ball") }, gm(false));

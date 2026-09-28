@@ -5,10 +5,10 @@
 import {
   AWARDS, ROSTER, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult,
-  wagerMatchesContest,
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
 import { constellationStars, constellationLines } from "./desertModel.js";
+import { contestStacks, contestOfEntry, settledStacks, eventWinnerStacks } from "../wagers/betStacks.js";
 
 export const TV_WIDTH = 1920;
 export const TV_HEIGHT = 1080;
@@ -261,6 +261,8 @@ export function resultPresentation(state, events, eventId) {
     leader:leaderAfter,
     previousLeader:leaderBefore,
     leadChanged:!!leaderAfter && key(leaderAfter) !== key(leaderBefore),
+    /* who backed the winner outright, and what it paid them */
+    winnerStacks:stacks ? null : eventWinnerStacks(state, events, eventId),
   };
 }
 
@@ -382,8 +384,11 @@ export function advanceMoment(state, ev, now) {
   const plural = players.length > 1;
   const won = finalMatch || last.kind === "stage-final";
   const detail = [beat ? `beat ${beat}` : null, !won && next ? `${next} next` : null].filter(Boolean).join(" · ");
+  /* the decided contest's chips: winners grow by their payout, the rest go
+     back to the bank. Derived from resolveWager, so a correction redraws it. */
+  const settle = settledStacks(state, [ev], contestOfEntry(ev.id, last));
   return { players, name, round, verb:won ? (plural ? "Win" : "Wins") : (plural ? "Advance" : "Advances"),
-    detail, beat, next, decidedAt:last.decidedAt, id:last.id };
+    detail, beat, next, decidedAt:last.decidedAt, id:last.id, settle };
 }
 
 /* a finished bracket or stage waiting on its official result: who won it */
@@ -437,29 +442,12 @@ export function contestSideView(state, ev, contest, side) {
   }
   return { players:side.players, name:teamLabel(state, { players:side.players }) };
 }
-/* who rides each side, merged per bettor, largest first */
+/* who rides each side, merged per bettor, largest first: the same stacks
+   the board draws */
 export function contestRiders(state, events, contest) {
-  const open = (state.wagers || []).filter(w => wagerMatchesContest(w, contest)
-    && resolveWager(state, w, events).status === "pending");
-  const keyOf = w => contest.kind === "match" ? w.teamIdx : contest.kind === "ffa"
-    ? (w.pickTeam ? contest.sides.find(side => side.players.length === w.pickPlayers?.length
-      && side.players.every(p => w.pickPlayers.includes(p)))?.key : w.pick) : w.pickKey;
-  const bySide = new Map(contest.sides.map(side => [side.key, new Map()]));
-  open.forEach(w => {
-    const riders = bySide.get(keyOf(w));
-    if (riders) riders.set(w.player, (riders.get(w.player) || 0) + Number(w.stake || 0));
-  });
-  return new Map([...bySide].map(([key, riders]) => {
-    const list = [...riders].map(([player, stake]) => ({ player, stake }))
-      .sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
-    return [key, { riders:list, total:list.reduce((sum, item) => sum + item.stake, 0) }];
-  }));
+  return new Map([...contestStacks(state, events, contest)].map(([key, side]) =>
+    [key, { riders:side.stacks.map(({ player, stake }) => ({ player, stake })), total:side.total }]));
 }
-export const ridersText = (state, riders, max = 6) => {
-  const shown = riders.slice(0, max).map(item => `${disp(state, item.player)} ${fmt(item.stake)}`);
-  if (riders.length > max) shown.push(`${riders.length - max} more`);
-  return shown.join(" · ");
-};
 
 /* ── the poker table on the TV ──
    Seated players are dealt starting chips and marked out as they bust;

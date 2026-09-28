@@ -1,20 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, wagerMult, disp, snakeTeam, resolveWager, resolveCurrentContest, resolveWeekendOperation,
-  pokerClock, pokerDenoms,
+  ROSTER, disp, snakeTeam, resolveWager, resolveCurrentContest, resolveWeekendOperation,
+  pokerClock,
 } from "../../../shared/core.js";
 import { resolveShowScene } from "../../../shared/show.js";
 import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { wagerPickLabel, mergeWagerLines } from "../wagers/Wagers.jsx";
+import { BetStacks } from "../wagers/BetStacks.jsx";
+import { DenomStacks } from "../poker/PokerChips.jsx";
+import { STACK_CAP, contestStacks, stackName, stackGeometry, pickStacks } from "../wagers/betStacks.js";
 import {
   fmt, signed, mmss, editionLabel, payoutLine, oddsLine, phaseBand, placeName, sessionLabel,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
-  advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView, contestRiders,
-  ridersText, pokerTableRows, pokerSeats, tvConnection, tickerItems, tickerPage, tvBusy, championView,
+  advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
+  pokerTableRows, pokerSeats, tvConnection, tickerItems, tickerPage, tvBusy, championView,
   duelBoard, spotlightPlayer,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
@@ -256,39 +259,85 @@ function Rail({ state, standings, allTied, rankDeltas = {}, poker = null }) {
   );
 }
 
-/* The current contest, large: every side's faces and name, and a readable
-   list of who rides it. Any two-sided contest is a head-to-head. A bracket
-   match IS the up-now banner: gold outline, round named once. */
+/* The current contest, large: every side's faces and name, and the chips
+   riding it as each bettor's own stack, biggest first, a first name under
+   each and the side's total at the head of its felt. Any two-sided contest
+   is a head-to-head. A bracket match IS the up-now banner: gold outline,
+   round named once. */
+const TV_STACKS = {
+  h2h:{ face:88, faceMany:64, chip:64, cap:STACK_CAP },
+  grid:{ face:64, faceMany:52, chip:52, cap:STACK_CAP },
+  compact:{ face:44, faceMany:36, chip:48, cap:8 },
+};
+/* A wide field keeps every side on screen: rows with chips take the room
+   they need, and the chips shrink only when many rows carry them. */
+const COMPACT_SIZES = [[50, 8], [46, 8], [42, 7], [38, 6], [34, 6], [30, 5]];
+const COMPACT_ROW = 64, COMPACT_GAP = 14, COMPACT_NAME = 30, COMPACT_PAD = 20, COMPACT_PER_LINE = 3;
+/* lines: for each grid row, how many lines of stacks its fullest card needs */
+export function compactStackSize(lines, budget) {
+  for (const [chip, cap] of COMPACT_SIZES) {
+    const line = stackGeometry(chip, cap).height + COMPACT_NAME + 6;
+    const used = lines.reduce((sum, count) => sum + Math.max(COMPACT_ROW, count ? COMPACT_PAD + count * line : 0), 0)
+      + (lines.length - 1) * COMPACT_GAP;
+    if (used <= budget) return { chip, cap };
+  }
+  const [chip, cap] = COMPACT_SIZES[COMPACT_SIZES.length - 1];
+  return { chip, cap };
+}
 function ContestBoard({ state, events, ev, contest }) {
-  const riders = contestRiders(state, events, contest);
+  const stacks = contestStacks(state, events, contest);
   const betting = contest.phase === "betting-open";
   const n = contest.sides.length;
   const h2h = n === 2;
   const compact = n > 4;
-  const cols = h2h ? "1fr auto 1fr" : n <= 6 ? "1fr 1fr" : n <= 9 ? "repeat(3,1fr)" : "repeat(4,1fr)";
+  const colCount = h2h ? 2 : n <= 6 ? 2 : 3;
   const upNow = contest.kind === "match";
-  const faceSize = count => h2h ? (count > 3 ? 72 : 120) : compact ? (n > 9 ? 52 : 64) : 96;
+  const head = upNow ? `Up now · ${contest.label}` : contest.label !== ev.name ? contest.label : null;
+  let size = h2h ? TV_STACKS.h2h : compact ? TV_STACKS.compact : TV_STACKS.grid;
+  if (compact) {
+    const lines = Array.from({ length:Math.ceil(n / colCount) }, () => 0);
+    contest.sides.forEach((side, index) => {
+      const row = Math.floor(index / colCount);
+      lines[row] = Math.max(lines[row], Math.ceil((stacks.get(side.key)?.stacks.length || 0) / COMPACT_PER_LINE));
+    });
+    size = { ...size, ...compactStackSize(lines, head ? 660 : 716) };
+  }
+  const cols = h2h ? "1fr auto 1fr" : `repeat(${colCount},1fr)`;
   const cards = contest.sides.map(side => {
     const view = contestSideView(state, ev, contest, side);
-    const ride = riders.get(side.key) || { riders:[], total:0 };
+    const ride = stacks.get(side.key) || { stacks:[], total:0 };
+    const face = view.players.length > 2 ? size.faceMany : size.face;
+    const total = ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>;
+    const pile = ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={size.chip} cap={size.cap}
+      className="tv-stacks" names={p => stackName(state, p)} tagSize={24} />;
+    /* a wide field: one row per side, its stacks beside the name */
+    if (compact) return (
+      <div key={String(side.key)} className={`tv-side is-row${ride.stacks.length ? " has-chips" : ""}`}>
+        <div className="tv-side-faces">
+          {view.players.map(p => <Avatar key={p} state={state} p={p} size={face} />)}
+        </div>
+        <div className="tv-side-id">
+          <div className="tv-side-name">{view.name}</div>
+          {total}
+        </div>
+        {pile}
+      </div>
+    );
     return (
-      <div key={String(side.key)} className="tv-side">
+      <div key={String(side.key)} className={`tv-side${ride.stacks.length ? " has-chips" : ""}`}>
         <div className="tv-side-top">
           <div className="tv-side-faces">
-            {view.players.map(p => <Avatar key={p} state={state} p={p} size={faceSize(view.players.length)} />)}
+            {view.players.map(p => <Avatar key={p} state={state} p={p} size={face} />)}
           </div>
           <div className="tv-side-name">{view.name}</div>
         </div>
-        <div className="tv-side-bets">
-          {ride.riders.length
-            ? <><span className="tv-side-riders">{ridersText(state, ride.riders, h2h ? 6 : compact ? 2 : 3)}</span>
-              <span className="tv-side-total">{fmt(ride.total)}</span></>
-            : <span className="tv-side-riders is-empty">{betting ? "No chips yet" : "No bets"}</span>}
+        <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
+          {total}
+          {pile || <span className="tv-felt-empty">{betting ? "No chips yet" : "No bets"}</span>}
         </div>
       </div>
     );
   });
-  const head = upNow ? `Up now · ${contest.label}` : contest.label !== ev.name ? contest.label : null;
   return (
     <div className={`tv-contest${upNow ? " is-up-now" : ""}`}>
       {head && <div className="tv-display tv-contest-head">{head}</div>}
@@ -318,16 +367,38 @@ function DecidedWinner({ state, ev, winner }) {
   );
 }
 
-function AdvanceMoment({ state, moment }) {
+/* The decided contest's chips settle: the winners' stacks grow by their
+   payout, every other stack slides back to the bank. */
+const SETTLE_LOSE_AT = 700, SETTLE_PAY_AT = 1300;
+function SettleBoard({ state, settle, size = 56 }) {
+  if (!settle?.any) return null;
+  const names = p => stackName(state, p);
   return (
-    <div className="tv-advance" role="status">
+    <div className="tv-settle">
+      {settle.winners.length > 0 && <div className="tv-settle-zone is-won">
+        <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_PAY_AT}ms` }}>{signed(settle.paid)}</div>
+        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} tagSize={24} className="tv-stacks" />
+      </div>}
+      {settle.losers.length > 0 && <div className="tv-settle-zone is-lost">
+        <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_LOSE_AT}ms` }}>{signed(-settle.lost)}</div>
+        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} tagSize={24} className="tv-stacks" />
+      </div>}
+    </div>
+  );
+}
+
+function AdvanceMoment({ state, moment }) {
+  const chips = !!moment.settle?.any;
+  return (
+    <div className={`tv-advance${chips ? " has-settle" : ""}`} role="status">
       <div className="tv-label">{moment.round}</div>
       <div style={{ display:"flex", gap:16 }}>
-        {moment.players.map(p => <Avatar key={p} state={state} p={p} size={120} ring />)}
+        {moment.players.map(p => <Avatar key={p} state={state} p={p} size={chips ? 96 : 120} ring />)}
       </div>
       <div className="tv-display tv-advance-name">{moment.name}</div>
       <div key={moment.id} className="tv-display tv-advance-stamp">{moment.verb}</div>
       {moment.detail && <div className="tv-advance-detail">{moment.detail}</div>}
+      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} />
     </div>
   );
 }
@@ -358,12 +429,13 @@ function CorrectionCard({ state, correction }) {
 
 /* one podium place: a single side large, a split place stacked, a wide tie
    counted */
-function PodiumPlace({ state, item }) {
+function PodiumPlace({ state, item, backers = null }) {
   const first = item.place === 1;
   const width = first ? 620 : 470;
   const single = item.groups.length === 1;
   const wide = item.groups.length > 3;
-  const face = first ? (item.players.length > 2 ? 120 : 220) : item.players.length > 2 ? 84 : 140;
+  const riding = first && backers?.winners?.length > 0;
+  const face = first ? (item.players.length > 2 ? 120 : riding ? 170 : 220) : item.players.length > 2 ? 84 : 140;
   return (
     <div className={`tv-place${first ? " is-first" : ""}`}>
       <div className="tv-place-rank">{placeName(item.place)}</div>
@@ -387,6 +459,11 @@ function PodiumPlace({ state, item }) {
       {item.amount ? <div className="tv-place-amount">
         {item.unit === "stack" ? `${fmt(item.amount)} chips` : `+${fmt(item.amount)}${item.players.length > 1 ? " each" : ""}`}
       </div> : null}
+      {riding && <div className="tv-place-backers">
+        <div className="tv-settle-head" style={{ animationDelay:"900ms" }}>{signed(backers.paid)}</div>
+        <BetStacks stacks={backers.winners} size={46} names={p => stackName(state, p)} delay={900} tagSize={24}
+          className="tv-stacks" />
+      </div>}
     </div>
   );
 }
@@ -414,7 +491,7 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
           {[2, 1, 3].map(place => {
             const item = at(place);
             if (!item || !shown.has(place)) return <div key={place} className="tv-place-slot" />;
-            return <PodiumPlace key={place} state={state} item={item} />;
+            return <PodiumPlace key={place} state={state} item={item} backers={model.winnerStacks} />;
           })}
         </div>
       </div>
@@ -486,19 +563,16 @@ function TVPoker({ state, standings, now }) {
           </div>
         </div>
         <div className="tv-buyin-grid">
-          {rows.filter(r => !r.away).map(r => {
-            const d = pokerDenoms(r.starting);
-            return (
-              <div key={r.player} className="tv-buyin-cell">
-                <Avatar state={state} p={r.player} size={48} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div className="tv-name">{disp(state, r.player)}</div>
-                  <div className="tv-denoms">{d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</div>
-                </div>
-                <div className="tv-display" style={{ fontSize:44, color:"var(--sun)" }}>{fmt(r.starting)}</div>
+          {rows.filter(r => !r.away).map(r => (
+            <div key={r.player} className="tv-buyin-cell">
+              <Avatar state={state} p={r.player} size={48} />
+              <div className="tv-buyin-who">
+                <div className="tv-name">{disp(state, r.player)}</div>
+                <div className="tv-display tv-buyin-total">{fmt(r.starting)}</div>
               </div>
-            );
-          })}
+              <DenomStacks stack={r.starting} size={40} className="tv-buyin-stacks" />
+            </div>
+          ))}
         </div>
         {away.length > 0 && (
           <div className="tv-away-group">
@@ -844,27 +918,23 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     const model = resultPresentation(state, events, latest.ev.id);
     content = model ? <ResultSequence state={state} model={model} phase={{ phase:"podium", revealed:3 }} /> : null;
   } else if (scene === "book") {
+    /* every open pick with the stacks riding it, as on the live board */
+    const picks = pickStacks(openBook.map(x => x.w), w => wagerPickLabel(state, w, events)).slice(0, 6);
     content = <div className="tv-pane tv-center">
       <div className="tv-label">Betting</div>
       <div className="tv-display" style={{ fontSize:64, color:"var(--bone)", marginBottom:24 }}>
         {openBook.length} open wager{openBook.length === 1 ? "" : "s"}</div>
-      <div style={{ display:"grid", gridTemplateColumns:openBook.length > 4 ? "1fr 1fr 1fr" : "1fr", gap:"12px 24px",
-        width:"100%", maxWidth:1700, textAlign:"left" }}>
-        {openBook.map(x => {
-          const l = wagerPickLabel(state, x.w, events);
-          return (
-            <div key={x.w.id} className="tv-card" style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 18px" }}>
-              <Avatar state={state} p={x.w.player} size={48} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ font:"700 26px/1.2 var(--fd-body)", color:"var(--ink)" }}>
-                  {disp(state, x.w.player)} put {fmt(x.w.stake)} on {l.pick}</div>
-                <div className="tv-denoms" style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{l.ctx}</div>
-              </div>
-              <span className="tv-display" style={{ fontSize:34, color:"var(--olive)" }}>
-                +{fmt(wagerMult(x.w) * x.w.stake)}</span>
+      <div className="tv-book" style={{ gridTemplateColumns:picks.length > 3 ? "1fr 1fr" : "1fr" }}>
+        {picks.map(pick => (
+          <div key={pick.key} className="tv-book-pick">
+            <div className="tv-book-id">
+              <div className="tv-display tv-book-name">{pick.name}</div>
+              <div className="tv-denoms">{pick.ctx}</div>
+              <div className="tv-side-total">{fmt(pick.total)}</div>
             </div>
-          );
-        })}
+            <BetStacks stacks={pick.stacks} size={48} names={p => stackName(state, p)} tagSize={24} className="tv-stacks" />
+          </div>
+        ))}
       </div>
     </div>;
   } else if (scene === "trophy") {

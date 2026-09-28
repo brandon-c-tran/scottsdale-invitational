@@ -3,6 +3,7 @@ import { ContestPanel } from "./features/weekend/ContestPanel.jsx";
 import { CompetitionBracket } from "./features/weekend/CompetitionBracket.jsx";
 import { EventAnnouncement, DrawAnnouncement } from "./features/weekend/EventAnnouncement.jsx";
 import { DraftSheet, DraftEntry } from "./features/draft/DraftSheet.jsx";
+import { PokerBlinds, PokerSeatChips } from "./features/poker/PokerMotion.jsx";
 import { buildEventReveal, pendingReveal, revealReady } from "./features/weekend/drawReveal.js";
 import "./features/weekend/event-sheet.css";
 import { HomeDuels } from "./features/home/HomeDuels.jsx";
@@ -2215,7 +2216,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
           <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
             border:"1.5px solid var(--ghost-line)" }}>All stacks</button>
         </div>
-        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks stack={myRow.pts} size={26} /></div>}
+        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks stack={myRow.pts} size={26} build /></div>}
         {notSeated}
         {gm && (confirmCancel ? (
           <div style={{ padding:"0 14px 12px" }}>
@@ -2249,13 +2250,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
   return (
     <div id="fd-poker-table" className="fd-night" style={card}>
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px" }}>
-        <GameMark id="poker" size={30} />
-        <div style={{ flex:1 }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1, color:BONE }}>
-            {fmt(clk.sb)} / {fmt(clk.bb)}</div>
-          <div style={{ fontFamily:SANS, fontSize:11, color:"var(--night-text)", marginTop:3 }}>
-            Blinds, level {clk.idx + 1} of {pk.levels.length}. {alive} still in.</div>
-        </div>
+        <PokerBlinds pk={pk} clk={clk} now={now} alive={alive} />
         <div style={{ textAlign:"right" }}>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
             color: clk.msLeft < 60000 && !clk.last ? "var(--live2)" : "var(--sun)" }}>
@@ -2265,6 +2260,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
         </div>
       </div>
 
+      <div className="fd-seat-chips-row"><PokerSeatChips state={state} pk={pk} /></div>
       {/* your seat: bust yourself, count yourself. The GM never types for you. */}
       {notSeated}
       {me && !unseated && outIdx < 0 && (

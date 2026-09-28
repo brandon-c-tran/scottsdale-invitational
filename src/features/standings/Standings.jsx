@@ -58,7 +58,7 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
     const status = awaitingResult ? "Awaiting result" : operation.lifecycle.label;
     return <section className="fd-now-card fd-now-live" aria-label={`${liveEv.name}: ${status}`}>
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(liveEv)}>
-      <span className="fd-now-topline"><span className="fd-now-status"><i aria-hidden="true" />{status}</span>
+      <span className="fd-now-topline"><span className="fd-now-status"><i className="fd-beat-dot" aria-hidden="true" />{status}</span>
         <span className="fd-now-open" aria-hidden="true">›</span></span>
       <span className="fd-now-title-row"><GameMark id={liveEv.game} size={46} />
         <span className="fd-now-event">{liveEv.name}</span></span>
@@ -178,7 +178,7 @@ export function Board({ state, standings, me, deltas, allTied, champion, coChamp
   return <div className={`fd-standings-page${gm ? " is-gm" : ""}${embedded ? " is-embedded" : ""}`}>
     {!embedded && <PageHeading title={champion ? "Final standings" : "The board"}
       aside={<span className={`fd-board-state${champion ? " is-final" : ""}`}>
-        {!champion && <i aria-hidden="true" />}{champion ? "Final" : "Live"}</span>} />}
+        {!champion && <i className={state.live ? "fd-beat-dot" : undefined} aria-hidden="true" />}{champion ? "Final" : "Live"}</span>} />}
     {champion && <ChampionPanel state={state} champion={champion} coChamps={coChamps || []} onPlayer={onPlayer} />}
     {!embedded && !champion && <NowCard state={state} standings={standings} events={events} onOpen={onOpen} onPlayer={onPlayer}
       GameMark={GameMark} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch} />}

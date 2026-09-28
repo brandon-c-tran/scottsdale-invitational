@@ -5,7 +5,7 @@ import {
 } from "../../../shared/core.js";
 import { DISPLAY, SANS } from "../../ui/theme.js";
 import { ActionButton } from "../../ui/controls.jsx";
-import { haptic } from "../../lib/haptics.js";
+import { haptic, tapTick } from "../../lib/haptics.js";
 import { PageHeading } from "../../ui/layout.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
@@ -102,6 +102,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
   }, [state, mineTotal, checking]);
   const act = (kind, callback) => {
     if (pendingRef.current) return;
+    /* the iOS tick belongs to the tap itself, before any await */
+    tapTick();
     pendingRef.current = true;
     const before = mineTotal;
     setPendingAction(kind);
@@ -431,7 +433,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       <div><h1>{ev.name}</h1>{GameMark && <GameMark id={ev.game} size={34} />}</div>
       <div className="fd-wagers-event-meta">
         <span className={`fd-wagers-status${marketOpen ? " is-open" : ""}`}>
-          <i aria-hidden="true" />{status}
+          <i className={marketOpen ? "fd-beat-dot" : undefined} aria-hidden="true" />{status}
         </span>
       </div>
     </header> : <PageHeading title="Bets" />}
@@ -504,7 +506,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       <div className="fd-wagers-denoms" role="group" aria-label="Chip value per tap">
         {RACK_DENOMS.map(value => {
           const affordable = value <= room;
-          return <button type="button" key={value} disabled={!affordable} onClick={() => setDenom(value)}
+          return <button type="button" key={value} disabled={!affordable} onClick={() => { tapTick(); setDenom(value); }}
             aria-pressed={tapStake === value && affordable} aria-label={`Bet ${value} a tap`}
             className={tapStake === value && affordable ? "is-selected" : ""}>
             <BankChip p={me} size={46} val={value} />

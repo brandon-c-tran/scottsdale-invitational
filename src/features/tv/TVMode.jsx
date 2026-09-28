@@ -101,7 +101,7 @@ function Masthead({ state, onDeckEv, showOnDeck, connection, lastUpdateAt, final
       )}
       {dock ? <div className="tv-dock">{dock}</div> : showOnDeck && onDeckEv && (
         <div className="tv-ondeck">
-          <span className="tv-label" style={{ color:"var(--live2)" }}>Betting open</span>
+          <span className="tv-label" style={{ color:"var(--live2)" }}><i className="fd-beat-dot tv-beat" aria-hidden="true" />Betting open</span>
           <b>{onDeckEv.name}</b>
         </div>
       )}
@@ -340,7 +340,7 @@ function ContestBoard({ state, events, ev, contest }) {
   });
   return (
     <div className={`tv-contest${upNow ? " is-up-now" : ""}`}>
-      {head && <div className="tv-display tv-contest-head">{head}</div>}
+      {head && <div className="tv-display tv-contest-head">{upNow && <i className="fd-beat-dot tv-beat" aria-hidden="true" />}{head}</div>}
       <div className={`tv-sides${compact ? " is-compact" : ""}${h2h ? " is-h2h" : ""}`} style={{ gridTemplateColumns:cols }}>
         {h2h ? [cards[0], <div key="vs" className="tv-vs">VS</div>, cards[1]] : cards}
       </div>

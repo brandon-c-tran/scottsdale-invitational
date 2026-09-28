@@ -25,6 +25,7 @@
   --shadow-1:0 2px 10px rgba(5,12,12,.5);
   --shadow-2:0 8px 24px rgba(5,12,12,.6);
   --shadow-3:0 14px 40px rgba(5,12,12,.7);
+  --scrim:rgba(5,12,12,.62);
   --action-fill:var(--sun); --action-ink:var(--ink0);
   --chrome:rgba(21,28,28,.97); --chrome-line:var(--line);
   --fd-nav-height:calc(74px + env(safe-area-inset-bottom));
@@ -70,7 +71,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:430px) { .fd-header-row.has-update .fd-brand>span { display:none; } }
 .fd-update-chip span { padding:6px 10px; border:1px solid color-mix(in srgb,var(--sun) 45%,transparent); border-radius:99px; }
 .fd-connection { display:flex; align-items:center; gap:8px; padding:9px 0; font-size:11px; color:var(--clay); }
-.fd-connection:before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.fd-connection .fd-beat-dot { color:var(--clay); }
 .fd-live-link { display:flex; align-items:center; gap:9px; padding:10px 0 13px; width:100%; border:0;
   background:none; text-align:left; color:var(--ink); cursor:pointer; }
 .fd-live-link-text { flex:1; min-width:0; font-size:12px; font-weight:600; }
@@ -122,8 +123,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-crew-link strong { display:block; font-size:13px; }
 .fd-crew-link small { display:block; color:var(--muted2); font-size:11px; line-height:1.5; }
 .si-sheet:focus { outline:none; }
-.fd-sheet-overlay { position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; background:rgba(5,12,12,.62); backdrop-filter:blur(3px); }
-.fd-sheet-overlay .si-sheet { width:100%; max-width:560px; max-height:94dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0; box-shadow:var(--shadow-3); animation:si-up .2s ease-out; }
+/* the scrim is its own layer so it can fade while the sheet rises (motion.css) */
+.fd-sheet-overlay { position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; }
+.fd-sheet-overlay::before { content:""; position:absolute; inset:0; background:var(--scrim); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+.fd-sheet-overlay .si-sheet { position:relative; width:100%; max-width:560px; max-height:94dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0; box-shadow:var(--shadow-3); }
 .fd-sheet-overlay .si-sheet.is-wide { max-width:900px; }
 .fd-sheet-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:60px; padding:8px 16px; background:var(--paper); border-bottom:1px solid var(--line); }
 .fd-sheet-heading { flex:1; min-width:0; color:var(--ink); font:700 23px/1.1 var(--fd-display); overflow-wrap:anywhere; }

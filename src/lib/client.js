@@ -12,6 +12,8 @@
 import { useSyncExternalStore } from "react";
 import { EMPTY_STATE } from "../../shared/core.js";
 import { BUILD_ID, buildsDiffer } from "../../shared/build.js";
+import { noteServerTime } from "./serverClock.js";
+import { classifyFrame, publishFrame } from "./frameGate.js";
 
 const localGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
@@ -97,6 +99,9 @@ export const getTournamentSnapshot = () => cached;
 let ws = null, backoff = 500, pingTimer = null, pongTimer = null, reconnectTimer = null;
 let probeTimer = null, openTimer = null, aid = 0, helloSeq = 0;
 let lastInbound = 0, freshSinceOpen = false, lastBoot = null;
+/* the hello a foreground probe is waiting on: frames before its answer are
+   catch-up, not news, and never animate (frameGate.js) */
+let settleNonce = null;
 const pendingAcks = new Map();
 const uncertain = new Map();
 
@@ -170,7 +175,7 @@ function connect() {
     snapshot.version = 0;
     snapshot.gm = null;
     gmHelloFloor = helloSeq + 1;
-    snapshot.socketOpen = true; freshSinceOpen = false;
+    snapshot.socketOpen = true; freshSinceOpen = false; settleNonce = null;
     lastInbound = Date.now();
     syncConnected(); emit();
     sendHello();
@@ -193,6 +198,7 @@ function connect() {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
     if (msg.type === "state") receiveState(msg);
     else if (msg.type === "ack") receiveAck(msg);
+    else if (msg.type === "pong") noteServerTime(msg.serverNow, lastInbound);
   };
   socket.onclose = () => { if (ws === socket) { ws = null; socketLost(); } };
   socket.onerror = () => { try { socket.close(); } catch {} };
@@ -200,8 +206,15 @@ function connect() {
 
 function receiveState(msg) {
   if (typeof msg.boot === "string") lastBoot = msg.boot;
+  noteServerTime(msg.serverNow, lastInbound || Date.now());
   settleUncertain(msg);
-  if (msg.version >= snapshot.version) {
+  const accepted = msg.version >= snapshot.version;
+  const answersProbe = typeof msg.hello === "number" && settleNonce !== null && msg.hello >= settleNonce;
+  const motion = classifyFrame({ msg, prevState:snapshot.state, hadState:freshSinceOpen,
+    settling:settleNonce !== null && !answersProbe, accepted,
+    hidden:typeof document !== "undefined" && document.hidden === true });
+  if (answersProbe) settleNonce = null;
+  if (accepted) {
     snapshot.state = msg.state; snapshot.version = msg.version;
     snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
     snapshot.environment = msg.environment || "production";
@@ -219,6 +232,7 @@ function receiveState(msg) {
   clearTimeout(probeTimer);
   syncConnected();
   noteServerBuild(msg.build);
+  if (accepted) publishFrame({ ...motion, version:msg.version });
   emit();
 }
 
@@ -307,14 +321,15 @@ export function dispatch(type, payload, { retry = false } = {}) {
 
 /* Foreground, network back, or page restored: ask for a fresh state and
    replace the socket if none arrives quickly. */
-function probe() {
+function probe({ foreground = false } = {}) {
   if (typeof window === "undefined") return;
   if (!ws || ws.readyState > 1) { clearTimeout(reconnectTimer); backoff = 500; connect(); return; }
   if (ws.readyState === 0) return;
   if (Date.now() - lastInbound > QUIET_MS) markStale();
   const socket = ws;
   const sentAt = Date.now();
-  sendHello();
+  const nonce = sendHello();
+  if (foreground) settleNonce = nonce;
   clearTimeout(probeTimer);
   probeTimer = setTimeout(() => {
     if (ws === socket && lastInbound < sentAt) forceReconnect();
@@ -384,10 +399,10 @@ if (typeof window !== "undefined") {
     const away = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = null;
     if (snapshot.updateReady && away >= UPDATE_AWAY_MS && autoReloadAllowed() && reloadForUpdate()) return;
-    probe();
+    probe({ foreground:true });
   });
-  window.addEventListener("pageshow", () => probe());
-  window.addEventListener("online", () => probe());
+  window.addEventListener("pageshow", () => probe({ foreground:true }));
+  window.addEventListener("online", () => probe({ foreground:true }));
   window.addEventListener("offline", () => markStale());
 }
 

@@ -1,19 +1,3 @@
-import { useEffect, useState } from "react";
-
-const QUERY = "(prefers-reduced-motion: reduce)";
-export const prefersReducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.(QUERY)?.matches;
-
-/* Follows the system setting live, so turning it on mid-weekend stops tilt
-   and spin without a reload. */
-export function useReducedMotion() {
-  const [reduced, setReduced] = useState(prefersReducedMotion);
-  useEffect(() => {
-    const media = typeof window !== "undefined" ? window.matchMedia?.(QUERY) : null;
-    if (!media) return undefined;
-    const update = () => setReduced(media.matches);
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, []);
-  return reduced;
-}
+/* Moved to the motion foundation (src/lib/motion.js); kept so existing
+   imports keep working. New code imports from src/lib/motion.js. */
+export { prefersReducedMotion, useReducedMotion } from "../lib/motion.js";

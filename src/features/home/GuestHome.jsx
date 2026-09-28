@@ -95,7 +95,8 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
     && !current.contest.players?.includes(me) && !(path?.mine && a?.match)
     ? personalLine({ current, state, model }) : null;
   return <section className={`fd-home-focus${running ? " is-running" : ""}`} aria-label={`${event.name}: ${current.status}`}>
-    <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{running && <i aria-hidden="true" />}{current.status}</span>
+    <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{(running || current.lifecycle.phase === "betting-open")
+      && <i className="fd-beat-dot" aria-hidden="true" />}{current.status}</span>
       {before ? <span>{sessionOf(event)}</span> : rules && <button type="button" className="fd-home-text-link"
         aria-label={`${event.name} rules`} onClick={() => onRules(event)}>Rules <Arrow /></button>}</div>
     <button type="button" className="fd-home-event-title" onClick={() => onOpen(event)} aria-label={`Open ${event.name}`}>
@@ -194,7 +195,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
 
     {model.mode === "live" && duelContent}
     {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>
-      <GameMark id={model.betting.event.game} size={32} /><span><small>Betting open</small><strong>{model.betting.event.name}</strong></span>
+      <GameMark id={model.betting.event.game} size={32} /><span><small><i className="fd-beat-dot" aria-hidden="true" />Betting open</small><strong>{model.betting.event.name}</strong></span>
       <span>{model.betting.canPlace ? "Place chips" : "View bets"}<Arrow /></span></button>}
 
     {/* the since line already names the result it reports */}

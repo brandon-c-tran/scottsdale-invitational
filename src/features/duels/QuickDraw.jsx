@@ -5,6 +5,7 @@ import { Btn } from "../../ui/controls.jsx";
 import { BONE, CARD_BG, DISPLAY, SANS, label } from "../../ui/theme.js";
 import { duelView, duelsOpen } from "./duelView.js";
 import { useDuelClock } from "./useDuelClock.js";
+import { tapTick } from "../../lib/haptics.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const duelTime = r => (r.foul ? "foul" : `${r.ms}ms`);
@@ -153,6 +154,8 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
   };
   const perform = async (key, handler, after) => {
     if (busy || !handler) return undefined;
+    /* accepting or sending a rematch ticks; the reaction tap never does */
+    if (key === "accept" || key === "rematch") tapTick();
     setBusy(key);
     setActionError("");
     try {

@@ -1,6 +1,7 @@
 import React from "react";
 import "./shell.css";
 import "./experience.css";
+import "./motion.css";
 
 function Shell({ children, tv, arrival, environment = "production" }) {
   return <div className={`fd-shell${tv ? " fd-night" : ""}`}>

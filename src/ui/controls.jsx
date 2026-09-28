@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { BONE, DISPLAY, SANS, label } from "./theme.js";
+import { useSheetPresence } from "./sheetMotion.js";
 
 function Tag({ children, tone="dim", style }) {
   const tones = {
@@ -135,6 +136,8 @@ let openSheets = 0;
 let pageOverflow = "";
 function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100 }) {
   const dialog = useRef(null);
+  const overlay = useRef(null);
+  useSheetPresence(overlay, dialog);
   const current = useRef({ busy, onClose });
   current.current = { busy, onClose };
   useEffect(() => {
@@ -170,7 +173,7 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
     };
   }, []);
   return (
-    <div className="fd-sheet-overlay" onClick={busy ? undefined : onClose} style={{zIndex:layer}}>
+    <div ref={overlay} className="fd-sheet-overlay" onClick={busy ? undefined : onClose} style={{zIndex:layer}}>
       <div ref={dialog} tabIndex={-1} onClick={e=>e.stopPropagation()} className={`si-sheet${wide ? " is-wide" : ""} ${className}`} role="dialog" aria-modal="true"
         aria-label={title} aria-busy={busy || undefined}>
         {/* Shared sheet header stays in the surrounding surface palette. */}

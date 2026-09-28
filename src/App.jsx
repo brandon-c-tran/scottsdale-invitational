@@ -30,7 +30,8 @@ import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
 import { TVMode } from "./features/tv/TVMode.jsx";
 import { nextOpenMatch, cueCandidates, cuePlayingUntil, tvSceneView } from "./features/tv/tvModel.js";
-import { serverNow, useServerClockSync } from "./features/tv/serverClock.js";
+import { serverNow, useServerClockSync } from "./lib/serverClock.js";
+import { MotionRoot } from "./lib/motion.js";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import qrcode from "qrcode-generator";
@@ -304,6 +305,7 @@ export default function App({ onUpdateReload = null }) {
   const tournament = useTournament();
   return <PlayerIdentityProvider profiles={tournament.state.profiles}>
     <TournamentApp tournament={tournament} onUpdateReload={onUpdateReload} />
+    <MotionRoot connected={tournament.connected} loaded={tournament.ready} />
   </PlayerIdentityProvider>;
 }
 

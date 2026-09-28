@@ -160,9 +160,12 @@ test("three.js is a TV-only lazy chunk: nothing on the main path imports it stat
 test("the sky follows the session: live event, else the last result, finale once dealt", () => {
   const events = allEventsOf(EMPTY_STATE);
   const ev = id => events.find(item => item.id === id);
-  const state = structuredClone(EMPTY_STATE);
-  assert.equal(desertPhase(state, events), "fri", "before anything, Friday");
+  const state = { ...structuredClone(EMPTY_STATE), live:true };
+  assert.equal(desertPhase(structuredClone(EMPTY_STATE), events), "fri", "before anything, Friday");
+  assert.equal(desertPhase(state, events), "fri", "live with nothing announced is still Friday");
   assert.equal(desertPhase(state, events, { liveEvent:ev("volley") }), "sap");
+  assert.equal(desertPhase({ ...state, live:false }, events, { liveEvent:ev("volley") }), "fri",
+    "before the weekend goes live it is Friday");
   const played = { ...state, results:{ putt:{ slots:[["Evan"]], ts:1 }, bball:{ slots:[["Adi"]], ts:5 } } };
   assert.equal(desertPhase(played, events), "sam", "between events, the last posted session");
   assert.equal(desertPhase({ ...played, poker:{ id:"poker" } }, events), "fin");

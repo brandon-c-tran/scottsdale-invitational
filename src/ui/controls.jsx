@@ -27,7 +27,7 @@ const ACTION_VARIANTS = {
   primary:     { background:"var(--action-fill)", color:"var(--action-ink)", border:"1px solid var(--action-fill)" },
   secondary:   { background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)" },
   tertiary:    { background:"var(--paper)", color:"var(--muted2)", border:"1px solid var(--line)" },
-  destructive: { background:"var(--paper)", color:"var(--clay)", border:"1px solid var(--line)" },
+  destructive: { background:"var(--paper)", color:"var(--clay-text)", border:"1px solid var(--line)" },
   commit:      { background:"var(--clay)", color:BONE, border:"1.5px solid var(--ink0)" },
 };
 function ActionButton({ children, onClick, variant="primary", pending, disabled, compact, style, ...props }) {
@@ -108,7 +108,7 @@ function MenuRow({ name, note, tone, onClick, disabled, last }) {
       <span style={{ flex:1, minWidth:0 }}>
         <span style={{ display:"block", fontFamily:SANS, fontWeight:700, fontSize:13.5,
           letterSpacing:"0.04em", textTransform:"uppercase",
-          color: tone === "destructive" ? "var(--clay)" : "var(--ink)" }}>{name}</span>
+          color: tone === "destructive" ? "var(--clay-text)" : "var(--ink)" }}>{name}</span>
         {note && <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)",
           marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{note}</span>}
       </span>

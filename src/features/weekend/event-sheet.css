@@ -29,7 +29,7 @@
 .fd-poker-count-player small { color:var(--muted2); font-size:12px; }
 .fd-poker-count-player:disabled { cursor:default; }
 .is-out .fd-poker-count-player { opacity:.55; }
-.fd-poker-count-action { min-height:44px; min-width:58px; padding:6px; background:none; border:0; color:var(--clay); font-size:12px; cursor:pointer; }
+.fd-poker-count-action { min-height:44px; min-width:58px; padding:6px; background:none; border:0; color:var(--clay-text); font-size:12px; cursor:pointer; }
 .fd-event-crew-compact { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; border-top:1px solid var(--line); margin-top:8px; padding-top:6px; }
 .fd-event-crew-compact button { display:flex; align-items:center; gap:7px; min-height:44px; padding:4px 0; border:0; background:none; color:var(--ink); cursor:pointer; font-size:12px; }
 .fd-event-crew-compact small { color:var(--muted2); font-size:11px; }

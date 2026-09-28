@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { EDITION, SESSIONS, disp, resolveEventLifecycle } from "../../../shared/core.js";
+import { EDITION, SESSIONS, disp, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
 import "./weekend.css";
@@ -16,6 +16,7 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
   const extras = events.filter(event => !SESSIONS.some(session => session.id === event.session) && !state.shelved?.[event.id]);
   const active = events.filter(event => !state.shelved?.[event.id]);
   const complete = active.filter(event => state.results?.[event.id]).length;
+  const nextId = resolveWeekendOperation(state, events).event?.id;
 
   const move = async (event, direction) => {
     if (pending.current) return;
@@ -44,7 +45,11 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
     const onDeck = state.onDeck === event.id;
     const reordering = reorderMode && gm && canMove;
     const lifecycle = resolveEventLifecycle(state, event);
-    const status = lifecycle.phase === "scheduled" ? "" : lifecycle.label;
+    /* every team event waits on a draw (and heats on setup); that is news
+       only for the next one */
+    const quiet = lifecycle.phase === "scheduled"
+      || (["draw-pending", "setup"].includes(lifecycle.phase) && event.id !== nextId);
+    const status = quiet ? "" : lifecycle.label;
     return <li key={event.id} className={`fd-weekend-event${onDeck ? " is-on-deck" : ""}${event.finale ? " is-finale" : ""}`}>
       <div className="fd-weekend-event-line">
         <button type="button" className="fd-weekend-event-open" disabled={reordering}

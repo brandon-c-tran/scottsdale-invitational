@@ -24,7 +24,7 @@ const setCrashCount = n => {
 };
 
 const page = { minHeight:"100vh", boxSizing:"border-box", padding:24, display:"grid", placeItems:"center",
-  background:"var(--bg, #151c1c)", color:"var(--ink, #f2eddf)", fontFamily:"var(--fd-body, system-ui, sans-serif)" };
+  background:"var(--bg, #0e191c)", color:"var(--ink, #f2eddf)", fontFamily:"var(--fd-body, system-ui, sans-serif)" };
 
 /* The crash board is drawn on the same fixed 1920x1080 canvas as the TV,
    scaled to the screen, so a 4K set reads it from the couch too. Inline
@@ -53,7 +53,7 @@ function StandingsFallback() {
     <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
     <strong style={{ fontFamily:"var(--fd-display, sans-serif)", fontSize:48 }}>{Number(r.pts).toLocaleString("en-US")}</strong>
   </li>;
-  return <main style={{ position:"fixed", inset:0, overflow:"hidden", background:"var(--night-deep, #151c1c)",
+  return <main style={{ position:"fixed", inset:0, overflow:"hidden", background:"var(--night-deep, #0e191c)",
     color:"var(--ink, #f2eddf)", fontFamily:"var(--fd-body, system-ui, sans-serif)" }}>
     <div data-tv-canvas style={{ position:"absolute", left:fit.left, top:fit.top, width:1920, height:1080,
       transform:`scale(${fit.scale})`, transformOrigin:"0 0", boxSizing:"border-box", padding:"48px 56px",

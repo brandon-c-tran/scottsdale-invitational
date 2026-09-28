@@ -167,6 +167,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   const bettingElsewhere = model.betting?.open && model.betting.event.id !== model.current?.event.id;
   const sinceText = typeof since === "string" ? since : since?.text;
   const sinceRoute = typeof since === "string" ? { type:"settled" } : since?.route;
+  const sinceDetail = (typeof since === "object" && since?.detail) || sinceText;
   const profile = me ? state.profiles?.[me] || {} : null;
   const askFlights = before && !!profile && !!onFlightsNotYet && !flightsAnswered && profile.flightsBooked !== true
     && !profile.flightIn && !profile.flightOut;
@@ -208,7 +209,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
     <section className="fd-home-leaderboard" aria-label="Leaderboard">
       <SectionHeading title="Leaderboard" action={<button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button>} />
       {sinceText && <div className="fd-home-since">
-        <button type="button" onClick={() => onSince?.(sinceRoute)} aria-label={`${sinceText}. ${
+        <button type="button" onClick={() => onSince?.(sinceRoute)} aria-label={`${sinceDetail}. ${
           sinceRoute?.type === "event" ? "Open the event" : sinceRoute?.type === "settled" ? "View settled bets" : "View standings"}`}>
           <span>{sinceText}</span><Arrow /></button>
         {onSinceDismiss && <button type="button" className="fd-home-since-dismiss" onClick={onSinceDismiss}

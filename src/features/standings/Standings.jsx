@@ -167,11 +167,14 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
   </div>;
 }
 
+export function postedLine(state, events) {
+  const active = events.filter(event => !state.shelved?.[event.id]);
+  return `${active.filter(event => state.results?.[event.id]).length} of ${active.length} events posted`;
+}
+
 export function Board({ state, standings, me, deltas, allTied, champion, coChamps, gm,
   events, myAtRisk, onOpen, onAdjust, onPlayer, onFreeze, onUnfreeze, finaleDone, crownReady = false,
   GameMark, StatPills, resultImpact, nextOpenMatch, embedded=false }) {
-  const finished = events.filter(event => !state.shelved[event.id] && state.results[event.id]).length;
-  const eventCount = events.filter(event => !state.shelved[event.id]).length;
   /* rulings exist only while the board can move; Crown only when it is the next step */
   const adjustable = gm && state.live && !state.frozen;
   const commissioner = gm && (champion ? !!onUnfreeze : crownReady && !!onFreeze);
@@ -182,7 +185,8 @@ export function Board({ state, standings, me, deltas, allTied, champion, coChamp
     {champion && <ChampionPanel state={state} champion={champion} coChamps={coChamps || []} onPlayer={onPlayer} />}
     {!embedded && !champion && <NowCard state={state} standings={standings} events={events} onOpen={onOpen} onPlayer={onPlayer}
       GameMark={GameMark} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch} />}
-    <SectionHeading title="Standings" detail={`${finished} of ${eventCount} events posted`} />
+    {/* in the sheet, its header carries the title and this count once */}
+    {!embedded && <SectionHeading title="Standings" detail={postedLine(state, events)} />}
     <Leaderboard state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
       onPlayer={onPlayer} onAdjust={adjustable ? onAdjust : undefined} StatPills={StatPills} myAtRisk={myAtRisk}
       starting={!state.live && !champion} />

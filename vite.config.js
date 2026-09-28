@@ -35,7 +35,7 @@ const BUILD_ID = process.env.FD_BUILD_ID || sourceId();
 const appShell = mode => {
   const staging = mode === "staging";
   const values = {
-    APP_THEME_COLOR: staging ? "#101A33" : "#151c1c",
+    APP_THEME_COLOR: staging ? "#101A33" : "#0e191c",
     APP_NAME: staging ? "Field Day Staging" : "Field Day",
     APP_MANIFEST: staging ? "/manifest-staging.webmanifest" : "/manifest.webmanifest",
     APP_FAVICON: staging ? "/favicon-staging.svg" : "/favicon.svg",

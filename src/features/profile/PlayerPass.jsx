@@ -73,7 +73,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
     <div className={`fd-pass-wrap${compact ? " fd-pass-compact" : ""}`}
       style={{ "--pass-color":identity.color, "--pass-ink":cardInk(identity.color), "--pass-name-chars":longest }}>
       <button type="button" ref={cardRef} className="fd-pass" {...tilt.handlers}
-        style={flipped && backHeight ? { minHeight:backHeight } : undefined}
+        style={backHeight ? { minHeight:flipped ? backHeight : 0 } : undefined}
         onClick={() => { if (tilt.consumeClick()) return; tilt.flip(); turn(); }}
         aria-label={`${name}'s player card. ${flipped ? "Show front" : "Turn over"}`}
         aria-pressed={flipped}>

@@ -1,0 +1,66 @@
+/* TV draft (1920x1080 canvas). Text never under 24px. Motion only under
+   .is-fresh (a fresh pick), end states are the resting styles, and reduced
+   motion drops every animation. */
+.tv-draft { position:relative; gap:18px; }
+.tv-draft-head { display:flex; align-items:center; gap:32px; flex-shrink:0; min-height:140px; }
+.tv-draft-clock { display:flex; align-items:center; gap:28px; min-width:0; flex:1; }
+.tv-draft-clock-chip { display:block; flex-shrink:0; transform:rotate(-9deg); }
+.tv-draft-clock-copy { min-width:0; }
+.tv-draft-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-who { font-size:96px; line-height:.95; color:var(--bone); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft.is-complete .tv-draft-who { color:var(--sun); }
+.tv-draft-order { display:flex; gap:12px; margin:0; padding:0; list-style:none; flex-shrink:0; }
+.tv-draft-order li { display:flex; align-items:center; gap:12px; min-width:170px; padding:12px 16px; border:1px solid var(--line);
+  border-radius:14px; background:var(--paper); }
+.tv-draft-order li>span { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.tv-draft-order small { font:700 24px/1 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.tv-draft-order li.is-back small::after { content:" ↩"; }
+.tv-draft-order b { font:700 28px/1 var(--fd-body); color:var(--bone); white-space:nowrap; max-width:190px; overflow:hidden; text-overflow:ellipsis; }
+
+.tv-draft-teams { flex:1; min-height:0; display:grid; gap:18px; }
+.tv-draft-col { display:flex; flex-direction:column; min-width:0; min-height:0; padding:14px 22px 10px; border-radius:14px;
+  background:var(--paper); border:1px solid var(--line); }
+.tv-draft-col.is-clock { border:3px solid var(--sun); padding:12px 20px 8px; }
+.tv-draft-col>header { display:flex; align-items:center; gap:14px; padding-bottom:10px; border-bottom:1.5px solid var(--ghost-line); }
+.tv-draft-captain { flex:1; min-width:0; font-size:44px; line-height:1; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-count { font-size:36px; line-height:1; color:var(--muted); }
+.tv-draft-col ol { flex:1; min-height:0; display:grid; grid-template-rows:repeat(var(--draft-rows, 5), minmax(0, 120px)); align-content:start; margin:0; padding:0; list-style:none; }
+.tv-draft-seat { position:relative; display:flex; align-items:center; gap:18px; min-height:0; padding:0 12px;
+  margin:0 -12px; border-bottom:1px solid var(--line); border-radius:10px; }
+.tv-draft-seat:last-child { border-bottom:0; }
+.tv-draft-seat-chip { display:grid; place-items:center; flex-shrink:0; width:56px; height:56px; }
+.tv-draft-seat-name { flex:1; min-width:0; font:700 34px/1.1 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-seat.is-latest { background:var(--sun-tint); }
+.tv-draft-seat-pick { font:700 24px/1 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--sun); }
+.tv-draft-seat.is-arriving>* { opacity:0; }
+/* an open seat: a numbered silhouette; the next one to fill is in sun */
+.tv-draft-silhouette { display:block; overflow:visible; }
+.tv-draft-silhouette circle, .tv-draft-silhouette path { fill:var(--line); stroke:var(--ghost-line); stroke-width:1.5; stroke-dasharray:4 3; }
+.tv-draft-silhouette text { font:700 26px/1 var(--fd-display); fill:var(--muted); }
+.tv-draft-silhouette.is-next circle, .tv-draft-silhouette.is-next path { fill:var(--sun-tint); stroke:var(--sun); stroke-dasharray:none; }
+.tv-draft-silhouette.is-next text { fill:var(--sun); }
+
+.tv-draft-pool { flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+.tv-draft-wall { display:flex; flex-wrap:wrap; gap:10px 14px; }
+.tv-draft-wall-item { display:flex; flex-direction:column; align-items:center; gap:6px; width:140px; }
+.tv-draft-wall-chip { display:block; width:72px; height:72px; }
+.tv-draft-wall-name { max-width:100%; font:700 26px/1.1 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.tv-draft-flyer { position:absolute; z-index:5; pointer-events:none; transform-origin:50% 50%; will-change:transform; }
+
+/* ── a fresh pick ── the turn passes after the chip lands, the name slams */
+.tv-draft.is-fresh .tv-draft-clock-copy { animation:tv-draft-turn var(--motion-base) var(--ease-out) both; }
+.tv-draft.is-passing .tv-draft-clock-chip { animation:tv-draft-chip .5s var(--ease-land) .45s both; }
+.tv-draft.is-fresh .tv-draft-col { transition:border-color var(--motion-base) ease-out .6s; }
+.tv-draft-seat.is-slam .tv-draft-seat-chip { animation:tv-draft-land var(--motion-stamp) var(--ease-land) both; }
+.tv-draft-seat.is-slam .tv-draft-seat-name { animation:tv-draft-slam var(--motion-stamp) var(--ease-land) both; transform-origin:0 50%; }
+.tv-draft-seat.is-slam .tv-draft-seat-pick { animation:tv-draft-stamp var(--motion-stamp) var(--ease-land) .12s both; }
+@keyframes tv-draft-turn { from { opacity:.25; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes tv-draft-chip { from { opacity:0; transform:translateY(-40px) rotate(-60deg) scale(.6); } to { opacity:1; transform:rotate(-9deg); } }
+@keyframes tv-draft-land { 0% { transform:scale(1.18); } 60% { transform:scale(.94); } 100% { transform:none; } }
+@keyframes tv-draft-slam { 0% { opacity:0; transform:scale(1.35); } 70% { opacity:1; transform:scale(.97); } 100% { opacity:1; transform:none; } }
+@keyframes tv-draft-stamp { 0% { opacity:0; transform:scale(1.8) rotate(-8deg); } 100% { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tv-draft *, .tv-draft *::before, .tv-draft *::after { animation:none !important; transition:none !important; }
+  .tv-draft-flyer { display:none; }
+}

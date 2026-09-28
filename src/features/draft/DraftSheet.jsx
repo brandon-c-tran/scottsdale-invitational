@@ -4,6 +4,9 @@ import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { tapTick } from "../../lib/haptics.js";
+import { MOTION, fly, rectVisible, useFreshChange } from "../../lib/motion.js";
+import { useFlip, useFreshHold } from "../../lib/motionKit.js";
+import { landedPick } from "./draftModel.js";
 import "./draft.css";
 
 const identityStyle = (state, player) => ({ "--draft-color":resolvePlayerIdentity(state.profiles, player).color });
@@ -38,6 +41,38 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   const [confirmCancel, setConfirmCancel] = useState(false);
   const saving = useRef(false), board = useRef(null), focusAfterPick = useRef(false);
   const turn = draft ? draftTurn(draft) : null;
+  /* M9: a fresh pick flies from the pool into its seat, the pool closes up,
+     and the turn passes. Undo, reconnects and reopening show the state. */
+  const poolBox = useRef(null), queueBox = useRef(null);
+  const [arriving, setArriving] = useState(null), [landed, setLanded] = useState(null);
+  const pickChange = useFreshChange(draft?.picks?.length ?? null, draft?.id || null);
+  const landing = pickChange.animate ? landedPick(draft, pickChange) : null;
+  const passing = useFreshHold(draft?.picks?.length ?? null, draft?.id || null, MOTION.story * 2);
+  const handing = useFreshHold(turn?.captain ?? null, draft?.id || null, MOTION.story * 2);
+  useFlip(queueBox, { play:!!landing, delay:MOTION.base, duration:MOTION.base });
+  useFlip(poolBox, { play:!!landing, delay:300, duration:280, stagger:25, enter:false, onPlay:before => {
+    const from = before.get(landing.player), box = poolBox.current?.getBoundingClientRect();
+    const seat = board.current?.querySelector(`[data-seat="${landing.player}"]`);
+    if (!from || !box || !seat) return;
+    /* a seat below (or above) the fold: the card heads for it and fades at
+       the edge of the screen */
+    const target = seat.getBoundingClientRect(), view = window.innerHeight || 0;
+    const offscreen = !rectVisible(target);
+    const to = offscreen ? { left:target.left, width:target.width, height:target.height,
+      top:target.top > view ? view - target.height * 0.6 : -target.height * 0.4 } : seat;
+    setArriving(landing.player);
+    fly({ left:box.left + from.left, top:box.top + from.top, width:from.width, height:from.height }, to, {
+      node:<PickFlyer state={state} player={landing.player}/>, duration:MOTION.cardFlight, arc:offscreen ? 0 : 36, fade:offscreen,
+    }).then(() => {
+      setArriving(current => current === landing.player ? null : current);
+      setLanded(landing.player);
+    });
+  } });
+  useEffect(() => {
+    if (!landed) return undefined;
+    const t = setTimeout(() => setLanded(null), MOTION.story);
+    return () => clearTimeout(t);
+  }, [landed]);
   const blocked = !!state.frozen || !!state.poker && !state.results?.[state.poker.id]
     || !!state.results?.[ev.id] || !!state.shelved?.[ev.id] || state.onDeck === ev.id
     || !!state.eventOps?.[ev.id]?.bettingOpenedAt || !!state.eventOps?.[ev.id]?.startedAt;
@@ -132,7 +167,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     focusAfterPick.current = true;
     return submit(`pick:${player}`, () => onPick(player, ref));
   };
-  return shell(<div className="fd-draft" ref={board} tabIndex={-1}>
+  return shell(<div className={`fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`} ref={board} tabIndex={-1}>
     <section className={`fd-draft-turn${myTurn ? " is-mine" : ""}${turn.complete ? " is-complete" : ""}`}
       aria-label="Current pick" style={identityStyle(state, turn.captain || draft.teams[0].captain)}>
       <div className="fd-draft-turn-copy" key={`${draft.id}:${turn.draftRevision}`}>
@@ -154,8 +189,8 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       {last ? `${disp(state,last.player)} joined ${disp(state,draft.teams[last.team].captain)}. ` : ""}
       {turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state,turn.captain)} to choose.`}
     </p>
-    {!turn.complete && <ol className="fd-draft-queue" aria-label="Upcoming pick order">
-      {remainingOrder.map(({ pick:pickIndex, team }, index) => <li key={pickIndex} aria-current={index === 0 ? "step" : undefined}>
+    {!turn.complete && <ol className="fd-draft-queue" aria-label="Upcoming pick order" ref={queueBox}>
+      {remainingOrder.map(({ pick:pickIndex, team }, index) => <li key={pickIndex} data-flip={pickIndex} aria-current={index === 0 ? "step" : undefined}>
         <small>{index === 0 ? "Now" : `Pick ${pickIndex + 1}`}</small><span>{disp(state,draft.teams[team].captain)}</span>
       </li>)}
     </ol>}
@@ -169,8 +204,9 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     <div className={`fd-draft-body${turn.complete ? " is-complete" : ""}`}>
     {!turn.complete && <section className="fd-draft-available" aria-label="Available players">
       <div className="fd-draft-section-title"><h3>Available</h3><span>{turn.remaining} left</span></div>
-      <div className="fd-draft-pool">
-        {draft.pool.map(player => <div className="fd-draft-candidate" key={player} style={identityStyle(state,player)}>
+      <div className="fd-draft-pool" ref={poolBox}>
+        {draft.pool.map(player => <div className={`fd-draft-candidate${pending === `pick:${player}` ? " is-lifting" : ""}`}
+          key={player} data-flip={player} style={identityStyle(state,player)}>
           <button type="button" className="fd-draft-avatar-link" disabled={!!pending || !onPlayer}
             onClick={() => onPlayer?.(player)} aria-label={`View ${disp(state,player)}'s player card`}>
             <Avatar state={state} p={player} size={36}/>
@@ -194,7 +230,8 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
           <small className="fd-draft-captain-label">Captain</small>
           <ol>{Array.from({ length:size - 1 }, (_,slot) => {
             const player = team.players[slot + 1];
-            return <li key={player || `empty:${slot}`} className={player ? `is-seated${player === last?.player ? " is-latest" : ""}` : "is-empty"}>
+            const seatClass = !player ? "is-empty" : `is-seated${player === last?.player ? " is-latest" : ""}${player === arriving ? " is-arriving" : ""}${player === landed ? " is-landed" : ""}`;
+            return <li key={player || `empty:${slot}`} data-seat={player || undefined} className={seatClass}>
               {player ? <PlayerLink state={state} player={player} onPlayer={onPlayer} disabled={!!pending}/>
                 : <><span className="fd-draft-empty-chip" aria-hidden="true"/><span>Pick {Array.from({ length:turn.totalPicks }, (_,k) => k).filter(k => snakeTeam(k,n) === index)[slot] + 1}</span></>}
             </li>;
@@ -246,6 +283,13 @@ function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
       })}
     </div>
     {!!draw.roles?.length && <DraftCrew state={state} roles={draw.roles} onPlayer={onPlayer}/>}
+  </div>;
+}
+
+/* what flies from the pool to the seat: the card as it was, lifted */
+function PickFlyer({ state, player }) {
+  return <div className="fd-draft-flyer" style={identityStyle(state, player)}>
+    <Avatar state={state} p={player} size={36}/><span>{disp(state, player)}</span>
   </div>;
 }
 

@@ -19,8 +19,11 @@
 .fd-draft-captain-order button span { overflow:hidden; text-overflow:ellipsis; }
 .fd-draft-captain-order button b { margin-left:auto; font-size:16px; color:var(--muted); }
 .fd-draft-pool { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.fd-draft-candidate { display:flex; align-items:center; min-width:0; border:1px solid var(--line); background:var(--bg); border-radius:8px; overflow:hidden; transition:border-color .15s,transform .15s; }
+.fd-draft-candidate { display:flex; align-items:center; min-width:0; border:1px solid var(--line); background:var(--bg); border-radius:8px; overflow:hidden; transition:border-color var(--motion-fast),transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast); }
 .fd-draft-candidate:has(.fd-draft-pick:not(:disabled)):hover { border-color:var(--sun); transform:translateY(-2px); }
+.fd-draft-candidate:has(.fd-draft-pick:not(:disabled):active) { transform:scale(.97); }
+/* a captain's own pick lifts off the pool while the write is pending */
+.fd-draft-candidate.is-lifting { border-color:var(--sun); transform:translateY(-3px) scale(1.03); box-shadow:var(--shadow-2); position:relative; z-index:1; }
 .fd-draft-select { display:flex; align-items:center; gap:8px; min-height:64px; width:100%; padding:8px; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
 .fd-draft-select span { flex:1; min-width:0; overflow-wrap:anywhere; font-size:12px; font-weight:600; }
 .fd-draft-select b { color:var(--muted); font-size:15px; }
@@ -33,21 +36,30 @@
 .fd-draft-pick small { font-size:10px; color:var(--sun); }
 .fd-draft-pick:disabled small { color:var(--muted); }
 .fd-draft-turn { position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 16px 22px; background:var(--bg); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-.fd-draft-turn.is-mine { border-color:var(--sun); background:var(--sun-tint); }
+.fd-draft-turn.is-mine { border-color:transparent; background:var(--sun-tint); }
 .fd-draft-turn.is-complete { border-color:var(--green); }
-.fd-draft-turn-copy { min-width:0; animation:fd-draft-turn .3s ease-out both; }
+.fd-draft-turn-copy { min-width:0; }
+.fd-draft.is-fresh .fd-draft-turn-copy { animation:fd-draft-turn .3s var(--ease-out) both; }
 .fd-draft-turn small { display:block; color:var(--muted2); font-size:10px; font-weight:600; }
 .fd-draft-turn h2 { margin:5px 0 7px; font:700 clamp(32px,5vw,46px)/.98 var(--fd-display); text-transform:uppercase; overflow-wrap:anywhere; }
 .fd-draft-turn.is-mine h2 { color:var(--sun); }
 .fd-draft-turn p { font-size:11px; line-height:1.5; margin:0; color:var(--muted2); }
-.fd-draft-turn-chip { display:block; transform:rotate(-9deg); animation:fd-draft-chip .45s cubic-bezier(.2,.8,.25,1.2) both; }
+.fd-draft-turn-chip { display:block; transform:rotate(-9deg); }
+.fd-draft.is-passing .fd-draft-turn-chip { animation:fd-draft-chip .45s var(--ease-land) .3s both; }
+/* your pick: the border breathes on the shared heartbeat (motion.js aligns
+   every fd-beat animation to the server clock) */
+.fd-draft-turn.is-mine::after { content:""; position:absolute; inset:0; border:1px solid var(--sun); border-radius:9px; pointer-events:none;
+  animation:fd-beat var(--motion-beat) ease-in-out infinite; }
+:root[data-fd-link=down] .fd-draft-turn.is-mine::after { animation:none; }
 .fd-draft-progress { position:absolute; bottom:0; left:0; width:100%; height:4px; background:var(--line); }
-.fd-draft-progress>span { display:block; height:100%; background:var(--sun); transition:width .35s ease-out; }
+.fd-draft-progress>span { display:block; height:100%; background:var(--sun); }
+.fd-draft.is-fresh .fd-draft-progress>span { transition:width .35s var(--ease-out) .2s; }
 .fd-draft-queue { display:flex; gap:5px; padding:0; margin:-6px 0 0; list-style:none; overflow-x:auto; }
 .fd-draft-queue li { flex:1; min-width:58px; padding:8px; border:1px solid var(--line); border-radius:6px; }.fd-draft-queue li[aria-current] { border-color:var(--sun); background:var(--sun-tint); }
 .fd-draft-queue small { display:block; color:var(--muted); font-size:9px; margin-bottom:4px; }
 .fd-draft-queue span { display:block; font-size:11px; font-weight:600; overflow-wrap:anywhere; }
-.fd-draft-latest { display:flex; align-items:center; gap:8px; min-height:52px; border-block:1px solid var(--line); animation:fd-draft-land .4s ease-out both; }
+.fd-draft-latest { display:flex; align-items:center; gap:8px; min-height:52px; border-block:1px solid var(--line); }
+.fd-draft.is-fresh .fd-draft-latest { animation:fd-draft-land .4s var(--ease-out) .45s both; }
 .fd-draft-pick-stamp { font:700 28px var(--fd-display); color:var(--sun); }
 .fd-draft-latest>span:last-child { margin-left:auto; font-size:11px; color:var(--muted2); text-align:right; }
 .fd-draft-person { display:flex; align-items:center; gap:7px; min-width:0; min-height:44px; max-width:100%; padding:2px 0; background:none; color:var(--ink); border:0; text-align:left; cursor:pointer; }
@@ -57,6 +69,7 @@
 .fd-draft-teams { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
 .fd-draft-team { min-width:0; padding:10px; border:1px solid var(--line); border-top:3px solid var(--draft-color); border-radius:8px; background:var(--bg); }
 .fd-draft-team.is-picking { border-color:var(--sun); }
+.fd-draft.is-fresh .fd-draft-team { transition:border-color var(--motion-base) ease-out .5s; }
 .fd-draft-team header { display:flex; justify-content:space-between; gap:6px; font-size:10px; color:var(--muted); margin-bottom:5px; }
 .fd-draft-team.is-yours header small { color:var(--sun); }
 .fd-draft-team.is-yours { border-color:var(--sun); border-top-color:var(--draft-color); }
@@ -65,8 +78,14 @@
 .fd-draft-captain-label { display:block; margin:-3px 0 10px 37px; font-size:9px; color:var(--muted); }
 .fd-draft-team ol { margin:0; padding:0; list-style:none; }
 .fd-draft-team li { border-top:1px solid var(--line); min-height:46px; }
-.fd-draft-team .is-seated { animation:fd-draft-land .35s ease-out both; }
 .fd-draft-team .is-latest { background:var(--sun-tint); }
+/* the seat a flying pick is headed for stays empty until it lands */
+.fd-draft-team .is-arriving>* { opacity:0; }
+.fd-draft-team .is-landed>* { animation:fd-draft-seat var(--motion-base) var(--ease-land) both; }
+/* the card in flight (drawn in the flight layer, outside .fd-draft) */
+.fd-draft-flyer { box-sizing:border-box; width:100%; height:100%; display:flex; align-items:center; gap:8px; padding:0 10px;
+  border:1px solid var(--sun); border-radius:8px; background:var(--bg); box-shadow:var(--shadow-2); color:var(--ink);
+  font:650 13px/1.1 var(--fd-body); overflow:hidden; white-space:nowrap; }
 .fd-draft-team .is-empty { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:11px; }
 .fd-draft-empty-chip { width:28px; height:28px; border:1px dashed var(--line); border-radius:50%; flex-shrink:0; }
 .fd-draft-footer { display:grid; gap:10px; border-top:1px solid var(--line); padding-top:12px; }
@@ -88,6 +107,7 @@
 .fd-draft-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
 @keyframes fd-draft-chip { from { opacity:0; transform:translateY(-15px) rotate(-28deg) scale(.8); } to { opacity:1; transform:translateY(0) rotate(-9deg) scale(1); } }
 @keyframes fd-draft-land { from { opacity:0; transform:translateY(-8px) scale(.96); } to { opacity:1; transform:none; } }
+@keyframes fd-draft-seat { 0% { transform:translateY(0); } 45% { transform:translateY(-3px); } 100% { transform:none; } }
 @keyframes fd-draft-turn { from { opacity:.3; transform:translateY(5px); } to { opacity:1; transform:none; } }
 @media(min-width:700px) {
   .fd-draft-pool { grid-template-columns:repeat(3,minmax(0,1fr)); }

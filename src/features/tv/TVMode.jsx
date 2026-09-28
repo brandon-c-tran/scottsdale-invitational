@@ -21,6 +21,8 @@ import {
   duelBoard, spotlightPlayer,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
+import { TVDraft } from "./TVDraft.jsx";
+import { TVPoker } from "./TVPoker.jsx";
 import {
   ChampionMoment, TVBracket, StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
   TrophyCard,
@@ -215,35 +217,9 @@ function TowersView({ state, rows, head = null, height, towers, fallback, splits
   );
 }
 
-/* compact standings rail beside a live event; during poker it lists the
-   seated players' dealt starting chips, busts marked, and anyone away apart */
-function Rail({ state, standings, allTied, rankDeltas = {}, poker = null }) {
-  if (poker) {
-    const rows = pokerTableRows(state, standings);
-    const seated = rows.filter(r => !r.away), away = rows.filter(r => r.away);
-    return (
-      <aside className="tv-rail">
-        <div className="tv-rail-head tv-label">Starting chips</div>
-        {seated.map(r => (
-          <div key={r.player} className={`tv-rail-row${r.busted ? " is-out" : ""}`}>
-            <Avatar state={state} p={r.player} size={36} />
-            <span className="tv-name">{disp(state, r.player)}</span>
-            {r.busted ? <span className="tv-out-tag">Out</span> : <span className="tv-pts">{fmt(r.starting)}</span>}
-          </div>
-        ))}
-        {away.length > 0 && <>
-          <div className="tv-rail-head tv-label is-sub">Away</div>
-          {away.map(r => (
-            <div key={r.player} className="tv-rail-row is-away">
-              <Avatar state={state} p={r.player} size={36} />
-              <span className="tv-name">{disp(state, r.player)}</span>
-              <span className="tv-away-tag">Away</span>
-            </div>
-          ))}
-        </>}
-      </aside>
-    );
-  }
+/* compact standings rail beside a live event (the poker table has its own,
+   TVPoker.jsx) */
+function Rail({ state, standings, allTied, rankDeltas = {} }) {
   return (
     <aside className="tv-rail">
       <div className="tv-rail-head tv-label">Standings</div>
@@ -544,131 +520,6 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
   return flat;
 }
 
-function TVPoker({ state, standings, now }) {
-  const pk = state.poker;
-  if (!pk) return null;
-  if (!pk.startedAt) {
-    const rows = pokerTableRows(state, standings);
-    const away = rows.filter(r => r.away);
-    return (
-      <div className="tv-pane">
-        <div style={{ display:"flex", alignItems:"center", gap:24, marginBottom:18 }}>
-          <GameMark id="poker" size={84} />
-          <div>
-            <div className="tv-label">Championship Poker</div>
-            <div className="tv-display" style={{ fontSize:56, color:"var(--bone)" }}>Starting chips</div>
-          </div>
-          <div style={{ marginLeft:"auto", textAlign:"right" }}>
-            <div className="tv-display" style={{ fontSize:64, color:"var(--sun)" }}>{fmt(pk.total)}</div>
-            <div className="tv-label">chips in play</div>
-          </div>
-        </div>
-        <div className="tv-buyin-grid">
-          {rows.filter(r => !r.away).map(r => (
-            <div key={r.player} className="tv-buyin-cell">
-              <Avatar state={state} p={r.player} size={48} />
-              <div className="tv-buyin-who">
-                <div className="tv-name">{disp(state, r.player)}</div>
-                <div className="tv-display tv-buyin-total">{fmt(r.starting)}</div>
-              </div>
-              <DenomStacks stack={r.starting} size={40} className="tv-buyin-stacks" />
-            </div>
-          ))}
-        </div>
-        {away.length > 0 && (
-          <div className="tv-away-group">
-            <span className="tv-label">Away</span>
-            {away.map(r => <span key={r.player} className="tv-away-name">
-              <Avatar state={state} p={r.player} size={40} />{disp(state, r.player)}</span>)}
-          </div>
-        )}
-      </div>
-    );
-  }
-  const clk = pokerClock(pk, now);
-  return (
-    <>
-      <div className="tv-pane tv-center" style={{ gap:10 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-          <GameMark id="poker" size={64} />
-          <span className="tv-label">Level {clk.idx + 1} of {pk.levels.length}</span>
-        </div>
-        <div className="tv-display tv-blinds">{fmt(clk.sb)} / {fmt(clk.bb)}</div>
-        <div className="tv-label">Blinds</div>
-        <div className={`tv-clock${!clk.paused && !clk.final && clk.msLeft < 60000 ? " is-late" : ""}`}>
-          {clk.paused ? "Paused" : clk.final ? "Final level" : mmss(clk.msLeft)}</div>
-        {clk.paused && <div className="tv-body">{mmss(clk.msLeft)} left in this level</div>}
-        <div className="tv-body">{pokerSeats(pk).length - pk.outs.length} still in</div>
-      </div>
-      <Rail state={state} standings={standings} poker />
-    </>
-  );
-}
-
-/* the draft, broadcast style: the on-the-clock captain, the last pick, the
-   team columns filling, the pool waiting. Flat outline, no pulsing glow. */
-function TVDraft({ state, ev, d }) {
-  const T = d.teams.length;
-  const poolEmpty = d.pool.length === 0;
-  const onClock = poolEmpty ? -1 : snakeTeam(d.picks.length, T);
-  const cur = onClock >= 0 ? d.teams[onClock].captain : null;
-  const last = d.picks[d.picks.length - 1];
-  const round = Math.floor(d.picks.length / T) + 1;
-  return (
-    <div className="tv-pane">
-      <div style={{ display:"flex", alignItems:"center", gap:26, marginBottom:16 }}>
-        {poolEmpty ? (
-          <div className="tv-display" style={{ fontSize:60, color:"var(--sun)" }}>Draft complete</div>
-        ) : (
-          <div style={{ display:"flex", alignItems:"center", gap:20 }}>
-            <Avatar state={state} p={cur} size={96} ring />
-            <div>
-              <div className="tv-label">{ev.name} draft · round {round}, pick {d.picks.length + 1}</div>
-              <div className="tv-display" style={{ fontSize:60, color:"var(--bone)" }}>{disp(state, cur)}'s pick</div>
-            </div>
-          </div>
-        )}
-        {last && (
-          <div key={d.picks.length} className="tv-card" style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:16,
-            padding:"12px 22px", border:"2px solid var(--ink)", animation:"si-flag .55s ease-out both" }}>
-            <span className="tv-label">Pick {d.picks.length}</span>
-            <Avatar state={state} p={last.player} size={56} />
-            <div>
-              <div className="tv-display" style={{ fontSize:36 }}>{disp(state, last.player)}</div>
-              <div className="tv-label">to {disp(state, d.teams[last.team].captain)}</div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="tv-draft-cols" style={{ gridTemplateColumns:`repeat(${T},1fr)` }}>
-        {d.teams.map((t, i) => (
-          <div key={i} className={`tv-draft-team${i === onClock ? " is-clock" : ""}`}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:10, marginBottom:8,
-              borderBottom:"1.5px solid var(--ink)" }}>
-              <Avatar state={state} p={t.captain} size={40} />
-              <span className="tv-display" style={{ fontSize:32, flex:1, overflow:"hidden", textOverflow:"ellipsis",
-                whiteSpace:"nowrap" }}>{disp(state, t.captain)}</span>
-              <span className="tv-display" style={{ fontSize:30, color:"var(--muted)" }}>{t.players.length}</span>
-            </div>
-            {t.players.map(p => (
-              <div key={p} className="tv-draft-player">
-                <Avatar state={state} p={p} size={36} /><span>{disp(state, p)}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-      {!poolEmpty && (
-        <div style={{ display:"flex", alignItems:"center", gap:14, marginTop:14 }}>
-          <span className="tv-label" style={{ flexShrink:0 }}>Still available</span>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            {d.pool.map(p => <Avatar key={p} state={state} p={p} size={44} />)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null }) {
   const kind = scene.active.kind;

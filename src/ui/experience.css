@@ -16,6 +16,8 @@
   --night:#202b2a; --night2:#2b3835; --night-deep:#151c1c;
   --bone:#f2eddf; --night-text:#c6cfc3; --night-text2:#a7b5ac;
   --silver:#8c99a4; --bronze:#c08454;
+  /* the finale's poker chips, one flat color per denomination */
+  --poker-25:#4f9a67; --poker-100:#363b3b; --poker-500:#7c5cab; --poker-1000:#e0ad45;
   --sun-tint:rgba(228,212,119,.12); --clay-tint:rgba(229,143,123,.15);
   --green-tint:rgba(161,198,154,.14); --accent-tint:rgba(178,165,207,.14);
   --bone-line:rgba(251,243,228,.16); --chip-mark:rgba(251,243,228,.75); --night-line:rgba(251,243,228,.12);

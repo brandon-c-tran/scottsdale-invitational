@@ -388,7 +388,8 @@ test("C11/C27 sheets: Starting stacks writes only on Deal and start; Crown names
   let deals = 0;
   const sheet = render(PokerSetupSheet, { state, onClose:() => {}, onDeal:() => { deals++; return { ok:true }; } });
   assert.deepEqual(state, before, "Opening the preview writes nothing");
-  assert.match(sheet.html, /Topped up 200 to the minimum/);
+  /* the top-up is marked on the seat, not narrated */
+  assert.match(sheet.html, /aria-label="Minimum stack, 200 added"/);
   assert.match(sheet.html, /is-away/);
   assert.match(sheet.html, /Away, not dealt in/);
   await sheet.click("Deal and start");

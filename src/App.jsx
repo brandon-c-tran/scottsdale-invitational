@@ -19,6 +19,7 @@ import { Board } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
 import { Wagers, wagerPickLabel, RACK_DENOMS, mergeWagerLines } from "./features/wagers/Wagers.jsx";
+import { DenomStacks, ChipTray } from "./features/poker/PokerChips.jsx";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useId, lazy, Suspense } from "react";
 import { PlayerIdentityProvider } from "./features/identity/PlayerIdentityContext.js";
 import { Avatar, AvatarStack, BankChip, BetChipCluster } from "./features/identity/PlayerIdentity.jsx";
@@ -2197,7 +2198,6 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
             {myRow && d ? (
               <div style={{ fontFamily:SANS, fontSize:12.5, color:BONE, marginTop:2 }}>
                 Starting stack: <b>{fmt(myRow.pts)}</b>
-                {d.length ? `, take ${d.map(x => `${x.n} x ${x.v}`).join(" + ")}` : ""}
               </div>
             ) : (
               <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pk.total)} chips in play</div>
@@ -2206,6 +2206,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
           <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
             border:"1.5px solid var(--ghost-line)" }}>All stacks</button>
         </div>
+        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks stack={myRow.pts} size={26} /></div>}
         {notSeated}
         {gm && (confirmCancel ? (
           <div style={{ padding:"0 14px 12px" }}>
@@ -2383,21 +2384,19 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   const away = standings.filter(r => !seats.includes(r.player));
   return (
     <Sheet title="Starting stacks" onClose={onClose}>
-      {dealt.map(r => {
-        const d = pokerDenoms(r.pts);
-        return (
-          <div key={r.player} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0",
-            borderBottom:"1px solid var(--line)" }}>
-            <Avatar state={state} p={r.player} size={28} />
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)", flex:1,
-              minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
-            <span style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
-              {d.map(x => `${x.n} x ${x.v}`).join(" + ") || "0"}</span>
-            <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
-              textAlign:"right" }}>{fmt(r.pts)}</span>
-          </div>
-        );
-      })}
+      {dealt.map(r => (
+        <div key={r.player} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0",
+          borderBottom:"1px solid var(--line)" }}>
+          <Avatar state={state} p={r.player} size={28} />
+          <span style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
+            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)",
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
+            <DenomStacks stack={r.pts} size={30} />
+          </span>
+          <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
+            textAlign:"right" }}>{fmt(r.pts)}</span>
+        </div>
+      ))}
       {away.length > 0 && <div style={{ padding:"10px 0 0" }}>
         {away.map(r => (
           <div key={r.player} style={{ display:"flex", alignItems:"center", gap:10, padding:"5px 0",
@@ -2412,10 +2411,9 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
         <span style={{ ...label, flex:1 }}>Chips in play</span>
         <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--signal-text)" }}>{fmt(pk.total)}</span>
       </div>
-      {gm && <div style={{ display:"flex", alignItems:"center", gap:10, padding:"0 0 14px" }}>
-        <span style={{ ...label, flex:1 }}>The tray</span>
-        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>
-          {pokerInventory(pk.startingStacks || standings.map(r => r.pts)).map(x => `${x.n} x ${x.v}`).join(" + ")}</span>
+      {gm && <div className="fd-stack-tray" style={{ margin:"0 0 14px" }}>
+        <span style={label}>The tray</span>
+        <ChipTray inventory={pokerInventory(pk.startingStacks || standings.map(r => r.pts))} />
       </div>}
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Start the table</Btn>}
     </Sheet>

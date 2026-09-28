@@ -1,12 +1,12 @@
 import React, { useRef, useState } from "react";
-import { disp, pokerDenoms, pokerInventory, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
+import { disp, pokerInventory, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { DenomStacks, ChipTray, GrantMark } from "../poker/PokerChips.jsx";
 import { namesOf } from "./directorPill.js";
 import "./director.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
-const chipsText = stack => pokerDenoms(stack).map(chip => `${chip.n} x ${fmt(chip.v)}`).join(" + ") || "0";
 
 /* One write at a time behind a pending guard; a failure keeps the sheet
    open with the error and the same button as the retry. */
@@ -50,21 +50,25 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
   const grants = preview.rows.filter(row => row.grant > 0);
   return <Sheet title="Starting stacks" subtitle={`${preview.rows.length} seats · ${fmt(preview.total)} chips`}
     onClose={onClose} onBack={onBack} busy={commit.pending}>
-    {preview.rows.map(row => <div className="fd-stack-row" key={row.player}>
+    {preview.rows.map(row => <div className={`fd-stack-row${row.grant > 0 ? " is-grant" : ""}`} key={row.player}>
       <Avatar state={state} p={row.player} size={30} />
       <span><b>{disp(state, row.player)}</b>
-        <small>{chipsText(row.stack)}</small>
-        {row.grant > 0 && <small className="is-grant">Topped up {fmt(row.grant)} to the minimum</small>}</span>
-      <strong>{fmt(row.stack)}</strong>
+        <DenomStacks stack={row.stack} size={30} /></span>
+      <span className="fd-stack-total"><strong>{fmt(row.stack)}</strong><GrantMark grant={row.grant} /></span>
     </div>)}
     {away.map(({ player, pts }) => <div className="fd-stack-row is-away" key={player}>
       <Avatar state={state} p={player} size={30} />
       <span><b>{disp(state, player)}</b><small>Away, not dealt in</small></span>
       <strong>{fmt(dealt?.unseated?.[player] ?? pts)}</strong>
     </div>)}
+    <div className="fd-stack-tray">
+      <span>The tray</span>
+      <ChipTray inventory={preview.inventory || []} />
+    </div>
     <div className="fd-stack-summary">
-      <div><span>The tray</span><strong>{(preview.inventory || []).map(chip => `${chip.n} x ${fmt(chip.v)}`).join(" + ")}</strong></div>
-      {grants.length > 0 && <div><span>Minimum stack</span><strong>{grants.length} topped up</strong></div>}
+      {grants.length > 0 && <div><span>Minimum stack</span><strong className="fd-stack-grants">
+        {grants.map(row => <Avatar key={row.player} state={state} p={row.player} size={20} />)}
+        <GrantMark grant={grants.reduce((sum, row) => sum + row.grant, 0)} /></strong></div>}
       {voids > 0 && <div><span>Voids {voids} open duel{voids === 1 ? "" : "s"}</span>
         {duels.length > 0 && <strong>{duels.map(duel => duel.label).join(", ")}</strong>}</div>}
     </div>

@@ -179,7 +179,7 @@ test("an unanswered challenge lapses without a timer and reserves nothing", () =
   challenge(s, evan, sahil);
   challenge(s, evan, dan);
   challenge(s, evan, eli);
-  fail(s, "sendDuel", { to:ROSTER[5], stake:100 }, guest(evan), /Three challenges a day/);
+  fail(s, "sendDuel", { to:ROSTER[5], stake:100 }, guest(evan), /Daily limit of 3 challenges/);
 });
 
 test("pokerSetup is never blocked by duels and voids the unplayed ones in the same write", () => {

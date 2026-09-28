@@ -96,7 +96,7 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
   { id:"die", n:4, session:"fri", value:400, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
+    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
   /* ── Saturday morning · 800 pts ── */
   { id:"bball", n:5, session:"sam", value:800, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
     teamCfg:{ teams:4, size:3, bracket:4 },
@@ -122,7 +122,7 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
   { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
+    desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
   /* ── Saturday night · 1600 pts ── */
   { id:"flip", n:13, session:"san", value:1600, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
     teamCfg:{ teams:2, size:6 },
@@ -136,7 +136,7 @@ const RAW_BUILTIN_EVENTS = [
   { id:"ragecage", n:16, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
   { id:"gauntlet", n:17, session:"san", value:1600, name:"The Gauntlet", kind:"solo", game:"gauntlet",
-    desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
+    desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean run wins." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
   { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
@@ -163,12 +163,12 @@ const OVERFLOW_ROLE_META = Object.freeze({
   "on-deck": Object.freeze({
     label:"On-deck lead",
     short:"Next up",
-    detail:"Keeps the next matchup ready to go.",
+    detail:"Gets the next matchup ready.",
   }),
   "sit-out": Object.freeze({
     label:"Event host",
     short:"Host",
-    detail:"Resets the station and keeps play moving.",
+    detail:"Resets the station between games.",
   }),
 });
 const overflowRoleMeta = role => OVERFLOW_ROLE_META[role] || OVERFLOW_ROLE_META["sit-out"];
@@ -192,32 +192,32 @@ const BUILTIN_EVENTS = RAW_BUILTIN_EVENTS.map(ev => ({
 const GAMES = {
   putting: { name:"Putting", howto:{ players:"Solo", gear:["Putter","One ball"],
     objective:"Sink it, or finish closest to the pin.",
-    steps:["Set up at the marked spot.","Putt for the hole, distance counts.","Closest ball beats a miss, a make beats everything.","Lowest strokes or closest putt wins, by event."],
+    steps:["Putt from the marked spot.","A make beats any miss. Otherwise the closest ball wins."],
     win:"Long Putt: closest of three attempts. Nine-Hole: fewest total strokes. Ties go to sudden death." } },
   "8ball": { name:"8-Ball", howto:{ players:"Pairs", gear:["Pool table","Full rack","Two cues"],
     objective:"Clear your group, then sink the 8.",
-    steps:["Break, then split stripes and solids.","Partners alternate shots.","Clear your group of seven. A scratch is ball in hand for them.","Call and sink the 8 to win."],
-    win:"First pair to legally pot the 8 takes the rack." } },
+    steps:["Break, then split stripes and solids.","Partners alternate shots.","A scratch gives the other pair ball in hand.","Call the 8 before you shoot it."],
+    win:"First pair to legally sink the 8 wins." } },
   pong: { name:"Beer Pong", howto:{ players:"Pairs", gear:["Table","Ten cups","Two balls"],
     objective:"Sink every cup on the far end first.",
-    steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted.","Clear their last cup to win."],
+    steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted."],
     win:"First pair to sink all their cups wins.", house:"Redemption throw in the semis and final." } },
   die: { name:"Beer Die", howto:{ players:"Pairs", gear:["Table","One die","Four cups","A pour"],
-    objective:"Land the die in their cup, or make them flub the catch.",
-    steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table, no darting it, no skying it.","They catch it one-handed off the bounce, or you score.","Sink it in a cup for the instant kill."],
-    win:"First pair to the set score wins. Sinking the die ends it on the spot.",
+    objective:"Land the die in their cup, or make them miss the catch.",
+    steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table. No darting it, no skying it.","They catch it one-handed off the bounce, or you score."],
+    win:"First pair to the set score wins. Sinking the die in a cup ends it on the spot.",
     house:"Call your own height on the toss. A plunk means chug." } },
   basketball: { name:"Basketball", variants:[
     { id:"1v1", label:"1v1", howto:{ players:"Solo, heats then a final", gear:["Half court","One ball"],
-      objective:"Beat your man to five.",
-      steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls.","First to five, win by one."],
+      objective:"Score five before your opponent.",
+      steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls."],
       win:"First to five wins the game. Best record in your heat moves on." } },
     { id:"3v3", label:"3v3", howto:{ players:"Teams of three", gear:["Half court","One ball"],
-      objective:"Outscore them to seven.",
-      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls.","First to seven, win by one."],
+      objective:"Score seven before the other team.",
+      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls."],
       win:"First team to seven wins." } },
     { id:"5v5", label:"5v5", howto:{ players:"Two teams of five", gear:["Full court","One ball","A clock"],
-      objective:"Be ahead when the horn sounds.",
+      objective:"Be ahead when time runs out.",
       steps:["Tip off to start.","Twos inside the arc, threes beyond it.","Clear past half on a change of possession.","Call your own fouls.","Two halves, running clock."],
       win:"Ahead at the horn wins.", house:"No hard contact." } },
   ]},
@@ -227,15 +227,15 @@ const GAMES = {
     win:"To eleven, win by two, cap fifteen." } },
   pingpong: { name:"Ping Pong", howto:{ players:"Solo", gear:["Table","Paddles","One ball"],
     objective:"Win points until eleven.",
-    steps:["Rally for serve, then serve two and hand it over.","Serve must clear the net and bounce once each side.","Let it bounce once on your side before returning.","Games to eleven, win by two."],
-    win:"Games to eleven, win by two. Best in the final takes it." } },
+    steps:["Rally for serve, then serve two and hand it over.","Serve must clear the net and bounce once each side.","Let it bounce once on your side before returning."],
+    win:"Games to eleven, win by two. The winner of the final takes the event." } },
   foosball: { name:"Foosball", howto:{ players:"Pairs", gear:["Foosball table","One ball"],
     objective:"Score on their goal, defend yours.",
-    steps:["Split the rods with your partner.","Serve through the side hole.","Pass and shoot. A full spin wipes the goal.","Dead ball resets to the serve.","Ball in their goal scores."],
+    steps:["Split the rods with your partner.","Serve through the side hole.","No spinning. A goal off a full spin does not count.","A dead ball goes back to the serve."],
     win:"First pair to ten goals wins." } },
   volleyball: { name:"Volleyball", howto:{ players:"Two teams", gear:["Sand court","Net","One ball"],
     objective:"Ground the ball on their side.",
-    steps:["Serve from behind the line.","Three touches a side, clean contact only.","Rotate on every side-out.","Win the rally, win the point."],
+    steps:["Serve from behind the line.","Three touches a side, clean contact only.","Rotate on every side-out.","Every rally scores a point."],
     win:"Best two of three sets to fifteen, win by two, cap seventeen." } },
   pickleball: { name:"Pickleball", howto:{ players:"Pairs", gear:["Court","Paddles","One ball"],
     objective:"Win the rally without faulting in the kitchen.",
@@ -247,21 +247,20 @@ const GAMES = {
     win:"First team down the line wins the round. Best of three." } },
   beerio: { name:"Beerio Kart", howto:{ players:"Heats of four", gear:["Switch","Four controllers","A beer each"],
     objective:"Win the race, but finish your beer to count.",
-    steps:["Draw into a heat of four.","Crack a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the line, or sit there until it is gone."],
+    steps:["Open a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the finish line, or wait there until it is gone."],
     win:"Best finishes advance to the final. Highest total wins." } },
   ragecage: { name:"Rage Cage", howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
-    objective:"Never get caught holding a ball. Empty the ring before you.",
-    steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it. Last player standing wins."],
+    objective:"Sink your ball and pass it on before you get stacked.",
+    steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it."],
     win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
-    steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
-    win:"Chip leader takes the championship. Elimination order settles the busts.",
-    house:"No wagers, duels, or rulings while cards are live." } },
+    steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
+    win:"Chip leader takes the championship. Final chip counts are the final standings, and elimination order ranks the busts." } },
   gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
     objective:"Clear five stations faster than everyone else.",
     steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
-    win:"Fastest clean run takes 1st. The clock settles ties.",
+    win:"Fastest clean run takes 1st.",
     house:"One runner at a time. Someone times each run." } },
 };
 
@@ -282,7 +281,7 @@ const wagerMult = w => w?.kind === "outright" ? (Number.isInteger(w.mult) ? w.mu
    DUEL_STAKE is only the default. The offer lifecycle lives by resolveDuel. */
 const DUEL_STAKE = PT;
 const DUEL_GAMES = {
-  quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
+  quickdraw: { name:"Quick Draw", desc:"Tap when the screen flashes. Fastest tap wins. Tapping early is a foul." },
 };
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
@@ -1642,7 +1641,7 @@ function pokerSetupPreview(state) {
   const seated = rows.filter(row => !isAway(state, row.player));
   const distribution = pokerDistribution(seated);
   const blockers = [];
-  if (!ev) blockers.push("No poker finale on the slate");
+  if (!ev) blockers.push("No poker finale scheduled");
   else {
     if (state.frozen) blockers.push("The board is frozen");
     if (state.shelved?.[ev.id]) blockers.push("The finale is shelved");

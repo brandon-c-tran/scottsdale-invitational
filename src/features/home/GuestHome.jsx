@@ -109,10 +109,10 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
           {current.contest.sides.map((side,index) => <div className="fd-home-side" key={String(side.key)}>
             {index > 0 && current.contest.kind === "match" && <span className="fd-home-versus">vs</span>}
             <People state={state} players={side.players} onPlayer={onPlayer} /></div>)}
-          {away ? <p className="fd-home-personal">Sitting out this one</p>
+          {away ? <p className="fd-home-personal">You are marked away</p>
             : mine && <p className="fd-home-personal">{mine}{role && <small>{role}</small>}</p>}
         </div>
-      : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">Sitting out this one</p></div>
+      : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">You are marked away</p></div>
         : <Assignment current={current} state={state} onPlayer={onPlayer} />)}
     {path && <button type="button" className="fd-home-path" onClick={() => onBracket(event)}
       aria-label={`${path.text}. Open the full ${event.name} bracket`}>
@@ -185,7 +185,6 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         className="fd-home-winner" aria-label={`View ${disp(state, row.player)}'s player card`}>
         <Avatar state={state} p={row.player} size={68} /><strong>{disp(state, row.player)}</strong></button>)}
       {leaders[0] && <p><strong>{fmt(leaders[0].pts)}</strong> chips</p>}
-      {state.frozen && leaders.length > 1 && <p>Tied. One pressure putt decides it.</p>}
       {ownRow && !leaders.some(row => row.player === me) && <OwnFinish row={ownRow} me={me} />}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>

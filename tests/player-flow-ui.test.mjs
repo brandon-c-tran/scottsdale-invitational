@@ -431,7 +431,7 @@ test("a duel ante accounts for both balances, reserved antes, duplicate pairs, a
   daily.duels = ROSTER.slice(2, 5).map((to, i) => ({
     id:`today-${i}`, status:"void", from:me, to, stake:100, ts:Date.now(),
   }));
-  assert.match(controls(PlayerSheet, daily).html, /Three challenges a day, max/);
+  assert.match(controls(PlayerSheet, daily).html, /Daily limit of 3 challenges reached/);
 });
 
 test("a challenge waits for acknowledgment, rejects duplicate taps, and only closes on success", async () => {

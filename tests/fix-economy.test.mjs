@@ -353,7 +353,7 @@ test("the table always keeps a chip holder, a counted 0 is a bust, and no count 
   for (let i = 10; i >= 2; i--) act(s, "pokerBust", { player:ROSTER[i] }, guest(ROSTER[i]));
   act(s, "pokerCount", { player:ROSTER[0], count:total }, guest(ROSTER[0]));
   act(s, "pokerBust", { player:ROSTER[1] }, guest(ROSTER[1]));
-  fail(s, "pokerBust", { player:ROSTER[0] }, gm(), /hold the chips/);
+  fail(s, "pokerBust", { player:ROSTER[0] }, gm(), /last player in cannot bust/);
   act(s, "pokerResult", { noScene:true });
   const rows = computeStandings(s);
   const rank = p => rows.find(row => row.player === p).rank;

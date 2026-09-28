@@ -59,7 +59,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   /* the winner targets are their own rows; the bracket stays a picture */
   const showEntrants = !isFfa && (!isBracket || canChoose);
   const instruction = ordering ? `Tap ${ORD.slice(0, needed).join(needed > 2 ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ")}.`
-    : selectingQualifiers ? `Choose ${advance - 1} more to advance.` : isBracket ? "Tap the winning team." : "Tap the winner.";
+    : selectingQualifiers ? `Choose ${advance - 1} more to advance.` : "";
   return <section className="fd-contest" aria-label="Current contest" aria-busy={pending}>
     <div className="fd-contest-toolbar">
       <div><strong>{isBracket ? contestName(state, ev, contest) : contest.label || ev.name}</strong>
@@ -70,7 +70,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       {gm && running && isFfa && <button type="button" className="fd-contest-primary" disabled={pending || !onResult}
         onClick={() => act(async () => { const result = await onResult(); return result === true ? {ok:true} : result; })}>Enter result</button>}
     </div>
-    {gm && running && !isFfa && <p className="fd-contest-instruction">{instruction}</p>}
+    {gm && running && !isFfa && instruction && <p className="fd-contest-instruction">{instruction}</p>}
     {showEntrants && <div className="fd-contest-entrants" aria-label={contest.label}>
       {contest.sides.map(side => {
         const name = nameOf(state, side), selected = winner === side.key;

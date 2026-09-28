@@ -91,7 +91,7 @@ test("numeric denomination entries update the actual total and submit it",async(
   assert.equal(view.total(),"Total1,725");
   view.change(1000,2).change(500,3).change(100,4).change(25,5);
   assert.equal(view.total(),"Total4,025");
-  view.click("That is my count");
+  view.click("Save count");
   assert.deepEqual(saved,[4025]);
   await view.settled();
   assert.deepEqual(view.errors(),[]);
@@ -113,23 +113,23 @@ test("blank counts mean zero, invalid numeric text is ignored, and decrement nev
 test("failed asynchronous saves retain counts and error; acknowledged retry sends the unchanged total",async()=>{
   let acknowledge;
   const saved=[],view=counter({onDone:total=>{saved.push(total);return new Promise(resolve=>{acknowledge=resolve;});}});
-  view.change(100,8).change(25,3).click("That is my count");
+  view.change(100,8).change(25,3).click("Save count");
   assert.equal(view.total(),"Total875");
   assert.ok(view.controls().every(control=>control.props.disabled===true));
   acknowledge({ok:false,error:"Connection failed"});await view.settled();
   assert.deepEqual(view.errors(),["Connection failed"]);
   assert.equal(view.input(100).props.value,"8");assert.equal(view.input(25).props.value,"3");
-  view.click("That is my count");
+  view.click("Save count");
   assert.deepEqual(view.errors(),[]);assert.deepEqual(saved,[875,875]);
   acknowledge({ok:true});await view.settled();
   assert.deepEqual(view.errors(),[]);assert.equal(view.total(),"Total875");
-  assert.equal(!!view.button("That is my count").props.disabled,false);
+  assert.equal(!!view.button("Save count").props.disabled,false);
 });
 
 test("pending save ignores repeated taps and edits captured before the disabled controls render",async()=>{
   let acknowledge;
   const saved=[],view=counter({start:500,onDone:total=>{saved.push(total);return new Promise(resolve=>{acknowledge=resolve;});}});
-  const staleSave=view.button("That is my count").props.onClick;
+  const staleSave=view.button("Save count").props.onClick;
   const staleEdit=view.input(100).props.onChange;
   const staleAdd=view.button("Add one 1000 chip").props.onClick;
   staleSave();staleSave();staleEdit({target:{value:"9"}});staleAdd();view.render();
@@ -144,16 +144,16 @@ test("missing success acknowledgements and thrown saves preserve the draft and e
   for(const response of [undefined,null,{}, {ok:"true"}]){
     let attempts=0;
     const view=counter({start:625,onDone:()=>++attempts===1?response:{ok:true}});
-    view.click("That is my count");await view.settled();
+    view.click("Save count");await view.settled();
     assert.equal(view.total(),"Total625");
     assert.match(view.errors()[0]||"",/not saved|Try again/i);
-    view.click("That is my count");await view.settled();
+    view.click("Save count");await view.settled();
     assert.deepEqual(view.errors(),[]);assert.equal(attempts,2);
   }
   const view=counter({start:725,onDone:()=>{throw new Error("Offline");}});
-  view.click("That is my count");await view.settled();
+  view.click("Save count");await view.settled();
   assert.equal(view.total(),"Total725");assert.deepEqual(view.errors(),["Offline"]);
-  assert.equal(!!view.button("That is my count").props.disabled,false);
+  assert.equal(!!view.button("Save count").props.disabled,false);
 });
 
 function finishedBracket(id) {
@@ -194,7 +194,7 @@ test("a completed first-place-only bracket displays its winner without asking th
   const view=resultControls(state,ev);
   assert.match(view.html,/fd-result-winner/);
   for(const player of winner)assert.ok(view.html.includes(player));
-  assert.doesNotMatch(view.html,/<fieldset|Pick player by player/);
+  assert.doesNotMatch(view.html,/<fieldset|Pick by player/);
   assert.deepEqual([...view.buttons.keys()],["Close","Post official result"]);
   view.post();assert.deepEqual(view.saved[0][0],winner);
 });
@@ -228,13 +228,13 @@ test("a direct team contest returns to whole-team winners after lower-place play
   assert.equal(applyAction(state,"lockAndStart",{evId:ev.id,contestId:contest.id,contestRevision:contest.revision},gm).ok,true);
   assert.equal(applyAction(state,"beginResultEntry",{evId:ev.id},gm).ok,true);
   const teams=state.draws[ev.id].teams;
-  assert.doesNotMatch(resultControls(state,ev).html,/Pick player by player/);
+  assert.doesNotMatch(resultControls(state,ev).html,/Pick by player/);
   /* a paid place left empty stops the post, so runners-up are filled first */
   const view=resultControls(state,ev,[
-    {buttonPrefix:"Runners-up"}, "Pick player by player instead", ...teams[0].players, {buttonPrefix:"Winners"},
+    {buttonPrefix:"Runners-up"}, "Pick by player", ...teams[0].players, {buttonPrefix:"Winners"},
     teamLabel(state,teams[1]),
   ]);
-  assert.doesNotMatch(view.html,/Pick player by player|Back to teams/);
+  assert.doesNotMatch(view.html,/Pick by player|Back to teams/);
   view.post();
   assert.deepEqual(view.saved[0][0],teams[1].players);
   assert.deepEqual(view.saved[0][1],teams[0].players);

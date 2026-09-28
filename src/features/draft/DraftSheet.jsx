@@ -90,7 +90,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
 
   if (!draft) return shell(<div className="fd-draft">
     <div className="fd-draft-section-title"><h2>Choose {n} captains</h2><span>{n} teams of {size}</span></div>
-    <p className="fd-draft-note">Captain order is pick order. It reverses each round.</p>
+    <p className="fd-draft-note">Pick order reverses each round.</p>
     <div className="fd-draft-methods" aria-label="Choose captains">
       {[["pick","Choose"],["seed","Balanced"],["random","Random"]].map(([id,text]) =>
         <button type="button" key={id} aria-pressed={method === id} disabled={!!pending}
@@ -136,9 +136,9 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       <div className="fd-draft-turn-copy" key={`${draft.id}:${turn.draftRevision}`}>
         <small>{turn.complete ? `${draft.teams.length} teams · ${size} players each` : `Round ${turn.round} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`}</small>
         <h2>{turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`}</h2>
-        <p>{turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm."
-          : canPick ? gm && !myTurn ? `Picking for ${disp(state, turn.captain)}` : "Choose a player."
-            : "Only captains pick."}</p>
+        {(turn.complete || canPick && gm && !myTurn) && <p>{turn.complete
+          ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm."
+          : `Picking for ${disp(state, turn.captain)}`}</p>}
       </div>
       <span className="fd-draft-turn-chip" key={`${draft.id}:${turn.captain || "done"}`} aria-hidden="true">
         <BankChip p={turn.captain || draft.teams[0].captain} size={64}/>
@@ -166,7 +166,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     {error && <p className="fd-draft-error" role="alert">{error}</p>}
     <div className={`fd-draft-body${turn.complete ? " is-complete" : ""}`}>
     {!turn.complete && <section className="fd-draft-available" aria-label="Available players">
-      <div className="fd-draft-section-title"><h3>{canPick ? "Make your pick" : "Available"}</h3><span>{turn.remaining} left</span></div>
+      <div className="fd-draft-section-title"><h3>Available</h3><span>{turn.remaining} left</span></div>
       <div className="fd-draft-pool">
         {draft.pool.map(player => <div className="fd-draft-candidate" key={player} style={identityStyle(state,player)}>
           <button type="button" className="fd-draft-avatar-link" disabled={!!pending || !onPlayer}

@@ -1025,8 +1025,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (!n) return notify(probe.error || "Rejected");
     const who = probe.extra.signedUp.map(p => disp(state, p)).join(", ");
     if (!window.confirm(`${n} ${n === 1 ? "person has" : "people have"} checked in:\n${who}\n\n`
-      + "Rerunning reopens the chip race and releases every claimed color.\nTheir names, numbers, sizes and flights are kept.\n\nRerun anyway?"))
-      return notify("Left alone");
+      + "Rerunning releases every claimed chip color.\nTheir names, numbers, sizes and flights are kept.\n\nRerun anyway?"))
+      return notify("Check-in not reopened");
     act("rerunOnboarding", { force: true }, "Check-in reopens on every phone");
   };
   /* replay the whole flow on THIS device, from the install gate. Clears the
@@ -1780,7 +1780,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           const cleared = await clearResult(modal.ev, reason);
           if (cleared.ok) {
             setModal(null);
-            notify("Result cleared for correction. Betting stays closed.");
+            notify("Result cleared. Betting stays closed.");
           }
         }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
@@ -2244,7 +2244,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
             color: clk.msLeft < 60000 && !clk.last ? "var(--live2)" : "var(--sun)" }}>
             {clk.paused ? mmss(clk.msLeft) : clk.final ? "LAST" : mmss(clk.msLeft)}</div>
           <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--night-text2)", marginTop:3 }}>
-            {clk.paused ? "paused" : clk.final ? "count them down" : "to the next level"}</div>
+            {clk.paused ? "paused" : clk.final ? "count your stack" : "to the next level"}</div>
         </div>
       </div>
 
@@ -2345,7 +2345,6 @@ function ChipCounter({ start, onDone }) {
   const total = denominations.reduce((sum,value)=>sum+Number(counts[value]||0)*value,0);
   const set = (value,count)=>{if (!saving.current) setCounts(current=>({...current,[value]:count}));};
   return <div className="fd-chip-counter">
-    <p>Count your stack by chip.</p>
     {denominations.map(value=><div className="fd-chip-count-row" key={value}>
       <label htmlFor={countId+value}>{fmt(value)} chips</label>
       <button type="button" disabled={pending || !Number(counts[value])} aria-label={"Remove one "+value+" chip"}
@@ -2363,7 +2362,7 @@ function ChipCounter({ start, onDone }) {
       try {const result=await onDone(total);if(result?.ok !== true)setError(result?.error || "Count not saved. Try again.");}
       catch(failure){setError(failure?.message || "Count not saved. Try again.");}
       finally {saving.current=false;setPending(false);}
-    }} style={{width:"100%"}}>{pending ? "Saving…" : "That is my count"}</ActionButton>
+    }} style={{width:"100%"}}>{pending ? "Saving…" : "Save count"}</ActionButton>
   </div>;
 }
 
@@ -2377,7 +2376,6 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
   const away = standings.filter(r => !seats.includes(r.player));
   return (
     <Sheet title="Starting stacks" onClose={onClose}>
-      <p style={pStyle}>Everyone takes their own stack from the tray.</p>
       {dealt.map(r => {
         const d = pokerDenoms(r.pts);
         return (
@@ -2442,7 +2440,6 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const allIn = counted.length === alive.length;
   return (
     <Sheet title="The table" onClose={onClose} busy={pending}>
-      <p style={pStyle}>Everyone counts their own stack from their phone. Tap a row to fix one.</p>
       {seats.map(p => {
         const out = outSet.has(p);
         const c = pk.counts?.[p];
@@ -2477,7 +2474,7 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
       </div>
       {allIn && sum !== pk.total && (
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
-          {sum > pk.total ? `${fmt(sum - pk.total)} over` : `${fmt(pk.total - sum)} short`}. Chips get miscounted, you can still post.
+          {sum > pk.total ? `${fmt(sum - pk.total)} over` : `${fmt(pk.total - sum)} short`}.
         </div>
       )}
       {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
@@ -2577,16 +2574,13 @@ function EventCrewCard({ state, roles, compact=false, onPlayer }) {
       background:"var(--paper2)", border:"1px solid rgba(194,88,50,0.38)" }}>
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
         <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)" }}>
-          {assignments.length} {assignments.length === 1 ? "assignment" : "assignments"}
-        </span>
       </div>
       {assignments.map((item, index) => {
         const meta = overflowRoleMeta(item.role);
         if (onPlayer) return <button type="button" key={`${item.player}-${index}`} className="fd-crew-link"
           onClick={() => onPlayer(item.player)} aria-label={`View ${disp(state,item.player)}'s player card`}>
           <Avatar state={state} p={item.player} size={30} />
-          <span><strong>{disp(state,item.player)}</strong><small>{meta.detail}</small></span>
+          <span><strong>{disp(state,item.player)}</strong></span>
           <small>{meta.label}</small>
         </button>;
         return (
@@ -2598,9 +2592,6 @@ function EventCrewCard({ state, roles, compact=false, onPlayer }) {
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13, color:"var(--ink)",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 {disp(state, item.player)}
-              </div>
-              <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.35, color:"var(--muted2)" }}>
-                {meta.detail}
               </div>
             </div>
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--accent2)",
@@ -2772,7 +2763,6 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
         {table && <div className="fd-event-awards">{awardPlan(ev, draw).map(row => <span key={row.place}>
           <small>{row.place === "crew" ? "Crew" : SLOT_META[row.place].label}{row.split ? " (each side)" : ""}</small>
           <strong>+{fmt(row.pts)}</strong></span>)}</div>}
-        {ev.finale && <p>Your final chip count is your final standing.</p>}
       </details>
       {!contestActive && onBets && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
       {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={()=>setHowTo(false)}/>}
@@ -2873,19 +2863,15 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                       borderRadius:14, padding:"11px 12px", marginBottom:10 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
                         <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
-                        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)" }}>
-                          {overflowAssignments.length} {overflowAssignments.length === 1 ? "assignment" : "assignments"}
-                        </span>
                       </div>
                       <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.4, color:"var(--muted2)",
                         marginBottom:9 }}>
                         {table?.[2] > 0
-                          ? `These jobs keep the event moving. Crew do not compete and earn the 3rd-place award, +${fmt(table[2])}.`
-                          : "These jobs keep the event moving. Crew do not compete or score in this one."}
+                          ? `Crew do not compete and earn the 3rd-place award, +${fmt(table[2])}.`
+                          : "Crew do not compete or score."}
                       </div>
                       {overflowAssignments.map(({ player }, index) => {
                         const role = outRoles[player] || "sit-out";
-                        const meta = overflowRoleMeta(role);
                         return (
                           <div key={player} style={{ display:"flex", alignItems:"center", gap:9,
                             padding:index ? "9px 0 0" : "0", marginTop:index ? 9 : 0,
@@ -2893,11 +2879,8 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                             <Avatar state={state} p={player} size={32} />
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-                                marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                                 {disp(state, player)}
-                              </div>
-                              <div style={{ fontFamily:SANS, fontSize:10.5, lineHeight:1.3, color:"var(--muted2)" }}>
-                                {meta.detail}
                               </div>
                             </div>
                             <select aria-label={`${disp(state, player)} event crew role`} value={role}
@@ -2916,13 +2899,9 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                   )}
                 </>
               )}
-              <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
-                {participantFit.ok
-                  ? `Teams balance from ratings and results.${overflowAssignments.length
-                    ? " Event crew assignments save with the draw."
-                    : ""}${announceNext ? "" : " Teams stay hidden until this event is announced."}`
-                  : participantFit.error}
-              </div>
+              {(!participantFit.ok || !announceNext) && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
+                {participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error}
+              </div>}
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                 {/* the next event draws and announces in one write, intro first */}
                 <Btn disabled={!participantFit.ok || setupPending}
@@ -3048,7 +3027,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
             confirmScrap
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                   <ActionButton variant="commit" onClick={() => { onClearStages(); setConfirmScrap(false); }} style={{ flex:1 }}>
-                    Scrap {st.kind === "heats" ? "heats" : "pools"}, sure</ActionButton>
+                    Scrap {st.kind === "heats" ? "heats" : "pools"}</ActionButton>
                   <ActionButton variant="tertiary" onClick={() => setConfirmScrap(false)} style={{ flex:1 }}>Keep</ActionButton>
                 </div>
               : <ActionButton variant="destructive" onClick={() => setConfirmScrap(true)} style={{ width:"100%", marginBottom:10 }}>
@@ -3097,9 +3076,9 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           {res && confirmClear && (
             <div style={{ marginTop:10, padding:"12px 13px", background:"var(--paper2)",
               border:"1px solid var(--line)", borderRadius:14 }}>
-              <div style={{ ...label, marginBottom:6 }}>Why is this result being cleared?</div>
+              <div style={{ ...label, marginBottom:6 }}>Reason for clearing</div>
               <input value={clearReason} onChange={event => setClearReason(event.target.value)}
-                maxLength={100} placeholder="Example: signed scorecard needs re-entry"
+                maxLength={100} aria-label="Reason for clearing"
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)",
                   borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
                   fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
@@ -3258,7 +3237,7 @@ function AddEventSheet({ state, onClose, save }) {
         ))}
       </div>
       <Btn disabled={!name.trim() || !!shapeError} onClick={() => save(build())} style={{ width:"100%", fontSize:16, padding:"14px" }}>
-        Add to the slate</Btn>
+        Add event</Btn>
     </Sheet>
   );
 }
@@ -3421,7 +3400,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       {!!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && (
         <button onClick={() => setByPlayer(v => !v)} style={{ background:"none", border:"none", cursor:"pointer",
           fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", minHeight:44, padding:"6px 0", display:"block" }}>
-          {byPlayer ? "Back to teams" : "Pick player by player instead"}</button>
+          {byPlayer ? "Back to teams" : "Pick by player"}</button>
       )}
       </fieldset>}
       {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
@@ -3447,9 +3426,9 @@ function ResultSheet({ ev, state, onClose, save }) {
       ) : (
         <div style={{ marginTop:4, padding:"12px 13px", background:"var(--paper2)",
           border:"1px solid var(--line)", borderRadius:14 }}>
-          <div style={{ ...label, marginBottom:6 }}>Why is the official result changing?</div>
+          <div style={{ ...label, marginBottom:6 }}>Reason for the correction</div>
           <input value={correctionReason} disabled={pending} onChange={event => setCorrectionReason(event.target.value)}
-            maxLength={100} placeholder="Example: 2nd and 3rd were reversed"
+            maxLength={100} aria-label="Reason for the correction"
             style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)",
               borderRadius:10, padding:"11px 12px", color:"var(--ink)", fontFamily:SANS,
               fontWeight:600, fontSize:14, marginBottom:9, outline:"none" }} />
@@ -4146,7 +4125,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
       </div>
       {!legal && delta !== 0 && <p style={{ ...pStyle, color:"var(--clay)", textAlign:"center" }}>Rulings move in {step}s.</p>}
       <input value={reason} disabled={pending} onChange={e => setReason(e.target.value)} maxLength={80} aria-label="Ruling reason"
-        placeholder="Reason, e.g. pressure putt" style={{ ...field, width:"100%", marginBottom:14 }} />
+        placeholder="Reason" style={{ ...field, width:"100%", marginBottom:14 }} />
       {error && <p role="alert" style={{ color:"var(--clay)", fontSize:13 }}>{error}</p>}
       <Btn disabled={!legal || pending} onClick={() => run(() => save(delta, reason.trim()))}
         style={{ width:"100%", fontSize:16, padding:"14px" }}>{pending ? "Saving…" : "Apply"}</Btn>
@@ -4163,7 +4142,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
             </div>
             {removing === a.id && <div style={{ display:"flex", gap:8, marginTop:6 }}>
               <input value={removeReason} disabled={pending} onChange={e => setRemoveReason(e.target.value)} maxLength={100}
-                aria-label="Why is this ruling removed" placeholder="Why remove it" style={{ ...field, flex:1, minWidth:0 }} />
+                aria-label="Why is this ruling removed" placeholder="Reason" style={{ ...field, flex:1, minWidth:0 }} />
               <Btn kind="danger" disabled={!removeReason.trim() || pending}
                 onClick={() => run(async () => { const result = await onRemove(a.id, removeReason.trim());
                   if (result?.ok) setRemoving(null); return result; })}>Remove</Btn>
@@ -4377,15 +4356,11 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
       </div>
       <div hidden={section !== "travel"}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
-          textTransform:"uppercase", color:"var(--ink)", marginBottom:12 }}>Information I need</div>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
           flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
         <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
       {walkoutTab && <div hidden={section !== "walkout"}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, lineHeight:1,
-          textTransform:"uppercase", color:"var(--ink)", marginBottom:5 }}>Walkout song</div>
         {spotifyCatalogEnabled ? <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
           enabled={spotifyCatalogEnabled} /> : <SpotifyTrackCard track={walkoutSaved} />}
       </div>}
@@ -4532,7 +4507,7 @@ function ShowControlSheet({
   };
   const last = state.showControl?.history?.[0] || null;
   const startOptions = [
-    { kind:"opening", label:"Opening", note:"Field Day title and room handoff" },
+    { kind:"opening", label:"Opening", note:"Title, then the roster" },
     operation.event && {
       kind:"event-intro",
       eventId:operation.event.id,
@@ -4765,18 +4740,15 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
             userSelect:"text" }}>{status.redirectUri || "Callback URL unavailable"}</div>
           <Btn kind="ghost" onClick={() => navigator.clipboard?.writeText(status.redirectUri || "")}
             disabled={!status.redirectUri} style={{ width:"100%", marginTop:9 }}>Copy callback URL</Btn>
-          <div style={{ ...pStyle, fontSize:11.5, marginTop:12 }}>
-            Credentials stay in Cloudflare and never enter the browser, tournament state, or exports.</div>
         </div>
       ) : !status.connected ? (
         <div>
           <Tag tone="gold">{status.reconnect ? "Reconnect needed" : "Ready to authorize"}</Tag>
           <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
             textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
-            {status.reconnect ? "Reconnect Spotify" : "One commissioner session"}</div>
+            {status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</div>
           <div style={{ ...pStyle, marginBottom:14 }}>
-            Spotify will ask for playback access. Use the Premium account that will control
-            the weekend speaker.</div>
+            Use the Spotify Premium account that controls the speaker.</div>
           <Btn onClick={connect} disabled={!!busy}
             style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…"
               : status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</Btn>

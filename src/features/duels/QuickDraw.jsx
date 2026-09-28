@@ -187,7 +187,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
       : <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--night-text)", textTransform:"uppercase" }}>Anyone</span>}
   </div>;
   const stakeLine = <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text2)", marginBottom:26 }}>
-    {fmt(duel.stake)} each, winner takes the pot</div>;
+    {fmt(duel.stake)} each, winner takes {fmt(2 * duel.stake)}</div>;
   const notNow = <button type="button" onClick={onClose} disabled={!!busy} style={quiet}>Not now</button>;
   const closeOnly = message => wrap(<>
     {heading("Duel")}
@@ -274,7 +274,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
       <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: run.foul ? 56 : 76, color: run.foul ? "var(--live2)" : BONE,
         textTransform:"uppercase", lineHeight:1, margin:"8px 0 4px", animation:"si-flag .5s both" }}>
         {run.foul ? "Foul" : `${run.ms} ms`}</div>
-      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)" }}>Too early. That is a foul.</div>}
+      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)" }}>Too early.</div>}
       {save.status === "pending" && <div role="status" style={{ ...lineStyle, color:"var(--night-text2)", marginTop:10 }}>
         Saving your draw…</div>}
       <div style={{ margin:"26px 0", width:"100%", maxWidth:360 }}>
@@ -294,7 +294,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
             ))}
           </div>
         ) : duel.status === "open" && save.status === "saved" && opp ? (
-          <div style={lineStyle}>Waiting on {disp(state, opp)}.<br/>It settles when they play.</div>
+          <div style={lineStyle}>Waiting on {disp(state, opp)}.</div>
         ) : null}
       </div>
       {res.settled && (

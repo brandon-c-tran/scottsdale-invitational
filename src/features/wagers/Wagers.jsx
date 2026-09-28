@@ -394,7 +394,6 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
         <span className={`fd-wagers-status${marketOpen ? " is-open" : ""}`}>
           <i aria-hidden="true" />{status}
         </span>
-        {marketOpen && <p>Tap + to add. Tap your chips to remove.</p>}
       </div>
     </header> : <PageHeading title="Bets" />}
 
@@ -402,7 +401,6 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       <div className="fd-wagers-waiting-copy">
         <h2>{state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale"
           : state.live ? "Between events" : "Betting opens with the first event"}</h2>
-        {!state.frozen && !finaleClosed && state.live && <p>Betting opens when an event goes on deck.</p>}
         {!state.frozen && !finaleClosed && <ActionButton variant="secondary" onClick={onEvents}>Browse the events</ActionButton>}
       </div>
     </section>}
@@ -417,7 +415,6 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       </div>
       {contest && picks.length > 0 ? <section className={`fd-wagers-market fd-wagers-contest is-${contest.kind}`}
         aria-label={contest.label}>
-        {restriction && <p className="fd-wagers-participant-note">{restriction}</p>}
         <div className="fd-wagers-picks">
           {picks.map(pick => <MarketPick {...pick} key={`${contest.id}:${pick.key}`} />)}
         </div>

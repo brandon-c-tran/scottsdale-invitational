@@ -451,10 +451,11 @@ function TournamentApp({ tournament }) {
     if (player) completeReturningGuest(player);
   }, [ready, onboardStep, serverYou, state]); // eslint-disable-line
 
-  /* The TV's update reload waits until no ceremony is on screen. */
+  /* The TV's update reload waits until no ceremony is on screen. The TV
+     sets the flag itself from what its canvas is actually showing. */
   useEffect(() => {
-    if (typeof window !== "undefined") window.__FD_CEREMONY__ = !!(intro || reveal || activeShowScene);
-  }, [intro, reveal, activeShowScene]);
+    if (typeof window !== "undefined" && !tv) window.__FD_CEREMONY__ = !!(intro || reveal);
+  }, [intro, reveal, tv]);
 
   /* One summary per broadcast for this device's player, built from a
      before/after diff of their own row split by source. Several results in
@@ -1401,19 +1402,14 @@ function TournamentApp({ tournament }) {
   if (tv) {
     return (
       <Shell tv environment={environment}>
+        {/* the TV draws the intro and the draw inside its own canvas */}
         <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
-          EventSpotlight={EventSpotlight} phaseOf={phaseOf}
+          EventSpotlight={EventSpotlight}
+          ceremony={tvCeremonyHold ? null : { intro, handoff:introHasQueuedReveal, reveal,
+            onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
           onExit={() => setTv(false)} />
-        {!tvCeremonyHold && intro && (() => {
-          const iev = events.find(e => e.id === intro);
-          return iev && !state.results[iev.id]
-            ? <EventIntro state={state} ev={iev} big auto handoff={introHasQueuedReveal}
-                onClose={() => setIntro(null)} /> : null;
-        })()}
-        {!tvCeremonyHold && reveal &&
-          <Reveal key={reveal.id} state={state} reveal={reveal} big auto onClose={closeReveal} />}
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1921,62 +1917,10 @@ function TournamentApp({ tournament }) {
 }
 
 /* event intro: when betting opens, the event announces itself on every phone
-   and the TV: phase band, game mark, name, and the game's hero animation. */
-function EventIntro({ state, ev, big, auto, handoff, onClose, onBets }) {
-  const ph = phaseOf(ev);
-  const session = SESSIONS.find(s => s.id === ev.session);
-  const format = ev.finale ? "Finale" : ev.kind === "solo" ? "Individual"
-    : ev.kind === "pairs" ? "Pairs" : "Team event";
-  const closeRef = useRef(onClose); closeRef.current = onClose;
-  useEffect(() => {
-    if (!auto) return;
-    const t = setTimeout(() => closeRef.current(), prefersReducedMotion() ? 2200 : 7000);
-    return () => clearTimeout(t);
-  }, [auto]);
-  if (!big) return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets}
+   with the game's own moment. The TV draws its own inside the canvas. */
+function EventIntro({ state, ev, handoff, onClose, onBets }) {
+  return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets}
     holdMs={prefersReducedMotion() ? 650 : 2800} visual={<GameMoment gameId={ev.game}/>}/>;
-  return (
-    <div className="si-event-intro fd-night" onClick={auto ? undefined : onClose}
-      style={{ position:"fixed", inset:0, zIndex:290, background:"rgba(23,16,9,0.985)",
-        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        padding:"calc(28px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom))",
-        overflowY:"auto" }}>
-      <div aria-hidden="true" style={{ position:"absolute", inset:"0 0 auto", height:5, background:ph.bg }} />
-      <div style={{ display:"inline-flex", alignItems:"center", gap:9, color:"var(--night-text)",
-        animation:"si-intro-copy .35s .08s both" }}>
-        <span style={{ width:7, height:7, borderRadius:99, background:ph.bg }} />
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:big ? 15 : 11,
-          letterSpacing:"0.16em", textTransform:"uppercase" }}>
-          On deck{session ? ` · ${session.label}` : ""}{ev.value ? ` · ${fmt(ev.value)} chips` : ""}
-        </span>
-      </div>
-      <div style={{ margin:big ? "18px 0 2px" : "10px 0 0" }}>
-        <EventSpotlight gameId={ev.game} big={big} />
-      </div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? "clamp(56px,7vw,110px)" : 44,
-        lineHeight:0.92, textAlign:"center", textTransform:"uppercase", color:BONE,
-        maxWidth:big ? 1050 : 430, animation:"si-intro-copy .45s .28s both" }}>{ev.name}</div>
-      <div style={{ fontFamily:SANS, fontWeight:700, fontSize:big ? 15 : 11.5,
-        letterSpacing:"0.14em", textTransform:"uppercase", color:ph.bg, marginTop:big ? 15 : 10,
-        animation:"si-intro-copy .4s .4s both" }}>{format}</div>
-      {ev.desc && <div style={{ fontFamily:SANS, fontSize:big ? "clamp(15px,1.45vw,20px)" : 14,
-        lineHeight:1.55, color:"var(--night-text)", textAlign:"center", maxWidth:big ? 720 : 355,
-        marginTop:big ? 18 : 13, animation:"si-intro-copy .4s .52s both" }}>{ev.desc}</div>}
-      {handoff && <div style={{ display:"inline-flex", alignItems:"center", gap:8, fontFamily:SANS,
-        fontWeight:700, fontSize:big ? 14 : 11.5, letterSpacing:"0.14em", textTransform:"uppercase",
-        color:"var(--sun)", marginTop:big ? 26 : 20, animation:"si-intro-copy .3s .65s both" }}>
-        <span className="si-event-dot" /><span className="si-event-dot si-event-dot-2" />
-        <span className="si-event-dot si-event-dot-3" /> Drawing teams
-      </div>}
-      {!auto && !handoff && (
-        <div onClick={e => e.stopPropagation()}
-          style={{ display:"flex", gap:10, marginTop:24, animation:"si-intro-copy .3s .7s both" }}>
-          {onBets && <Btn onClick={onBets} style={{ fontSize:16, padding:"13px 28px" }}>To the bets</Btn>}
-          <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:16, padding:"13px 28px" }}>Close</Btn>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ─────────── shell ─────────── */
@@ -4776,87 +4720,9 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
   );
 }
 
-function Reveal({ state, reveal, big, auto, onClose, onBets, onPlayer }) {
-  const teamItems = reveal.versus ? 1 : (reveal.groups?.length || 0);
-  const crew = reveal.crew || [];
-  const items = teamItems + (crew.length ? 1 : 0);
-  const reducedMotion = prefersReducedMotion();
-  const [shown, setShown] = useState(() => reducedMotion ? items : 0);
-  useEffect(() => {
-    if (shown >= items) return;
-    const t = setTimeout(() => setShown(s => s + 1), shown === 0 ? 900 : 1300);
-    return () => clearTimeout(t);
-  }, [shown, items]);
-  const doneAll = shown >= items;
-  const closeRef = useRef(onClose); closeRef.current = onClose;
-  useEffect(() => {
-    if (!auto || !doneAll) return;
-    const t = setTimeout(() => closeRef.current(), reducedMotion ? 2200 : 6000);
-    return () => clearTimeout(t);
-  }, [auto, doneAll, reducedMotion]);
-  if (!big) return <DrawAnnouncement state={state} reveal={reveal} onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;
-  return (
-    <div className="fd-night" style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(32,24,17,0.97)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      padding:"calc(30px + env(safe-area-inset-top)) 20px calc(30px + env(safe-area-inset-bottom))",
-      overflowY:"auto" }}>
-      <div style={{ ...label, fontSize: big ? 15 : 11, color:"var(--sun)", animation:"si-in .4s both" }}>{reveal.title}</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 64 : 36, color:BONE, textTransform:"uppercase",
-        lineHeight:0.95, marginBottom: big ? 28 : 20, animation:"si-in .4s .1s both", textAlign:"center" }}>{reveal.subtitle}</div>
-
-      {reveal.versus ? (
-        <div style={{ width:"100%", maxWidth: big ? 900 : 470,
-          visibility: shown > 0 ? "visible" : "hidden",
-          animation: shown > 0 ? "si-flag .55s both" : "none" }}>
-          <VersusDraw state={state} teams={reveal.versus} size={big ? "lg" : "md"} />
-        </div>
-      ) : (
-        <div style={{ display:"grid", gap: big ? 16 : 10, width:"100%", maxWidth: big ? 1100 : 460,
-          gridTemplateColumns: big ? `repeat(${teamItems === 4 ? 2 : Math.min(teamItems,3)}, 1fr)`
-            : teamItems > 3 ? "1fr 1fr" : "1fr" }}>
-          {reveal.groups.map((g, i) => (
-            <div key={i} style={{ visibility: i < shown ? "visible" : "hidden",
-              animation: i < shown ? "si-flag .55s both" : "none",
-              background:CARD_BG, border:"1px solid rgba(156,69,38,0.45)", borderRadius:14,
-              padding: big ? "18px 20px" : "14px 15px", boxShadow:"var(--shadow-2)" }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: big ? 26 : 16,
-                color:"var(--accent2)", marginBottom:8 }}>{g.title}</div>
-              {g.lines.map((ln, j) => (
-                <React.Fragment key={j}>
-                  {g.vs && j > 0 && (
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize: big ? 14 : 11,
-                      letterSpacing:"0.18em", color:"var(--muted)", textTransform:"uppercase",
-                      padding:"1px 0 1px 4px", animation: i < shown ? "si-in .3s .3s both" : "none" }}>vs</div>
-                  )}
-                  <div style={{ display:"flex", alignItems:"center", gap:9, padding:"3px 0",
-                    animation: i < shown ? `si-in .3s ${0.25 + j*0.15}s both` : "none" }}>
-                    <AvatarStack state={state} players={ln.avatars} size={big ? 34 : 26} max={3} />
-                    <span style={{ fontFamily:SANS, fontWeight:600, fontSize: big ? 20 : 14.5, color:"var(--ink)" }}>
-                      {ln.text}</span>
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-      {crew.length > 0 && (
-        <div style={{ width:"100%", maxWidth:big ? 760 : 470,
-          visibility:shown > teamItems ? "visible" : "hidden",
-          animation:shown > teamItems ? "si-flag .55s both" : "none" }}>
-          <EventCrewCard state={state} roles={crew} />
-        </div>
-      )}
-      {doneAll && !auto && (
-        <div style={{ display:"flex", gap:10, marginTop: big ? 30 : 22, animation:"si-in .3s both" }}>
-          {onBets && <Btn onClick={onBets} style={{ fontSize:16, padding:"13px 28px" }}>To the bets</Btn>}
-          <Btn kind={onBets ? "ghost" : "primary"} onClick={onClose} style={{ fontSize:16, padding:"13px 28px" }}>Close</Btn>
-        </div>
-      )}
-      {!doneAll && !auto && <button onClick={() => setShown(items)} style={{ marginTop:20, background:"none",
-        border:"none", color:"var(--night-text)", fontFamily:SANS, fontSize:12.5, cursor:"pointer" }}>skip</button>}
-    </div>
-  );
+/* the draw on a phone; the TV draws its own inside the canvas */
+function Reveal({ state, reveal, onClose, onBets, onPlayer }) {
+  return <DrawAnnouncement state={state} reveal={reveal} onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;
 }
 
 /* ─────────── rules ─────────── */

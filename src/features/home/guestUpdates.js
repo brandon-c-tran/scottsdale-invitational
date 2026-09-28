@@ -219,13 +219,16 @@ function winnersText(state, evId, players) {
 
 /* What changed while this device looked away, and where to read it: a result
    opens that event, settled bets open the settled list, anything else opens
-   the standings. `results` lists every event the line already reports. */
+   the standings. The line is one line: the change it opens, then a count of
+   the rest ("Since 8:00 PM · Volleyball: Adi won · 2 more"); `detail` spells
+   everything out for the accessible name. `results` lists every event the
+   line reports. */
 export function sinceSummary(saved, state, me, events, standings, now = Date.now()) {
   if (!saved || saved.me !== me || now - Number(saved.at || 0) < SINCE_ABSENCE) return null;
   const row = standings.find(item => item.player === me);
   if (!row) return null;
   const parts = [];
-  let route = null;
+  let route = null, lead = null, extraResults = 0;
   const changed = Object.entries(state.results || {})
     .filter(([evId, result]) => result?.slots?.[0]?.length && saved.results?.[evId] !== resultKey(result))
     .sort(([, a], [, b]) => (b.correctedAt || b.ts || 0) - (a.correctedAt || a.ts || 0));
@@ -234,6 +237,8 @@ export function sinceSummary(saved, state, me, events, standings, now = Date.now
     const text = saved.results?.[evId] !== undefined ? `Correction · ${eventName(events, evId)}`
       : `${eventName(events, evId)}: ${winnersText(state, evId, result.slots[0])} won`;
     parts.push(changed.length > 1 ? `${changed.length} results · ${text}` : text);
+    lead = text;
+    extraResults = changed.length - 1;
     route = { type:"event", evId };
   }
   const seen = new Set(saved.settled || []);
@@ -245,7 +250,7 @@ export function sinceSummary(saved, state, me, events, standings, now = Date.now
   }
   if (count) {
     parts.push(`your ${count === 1 ? "bet" : "bets"} ${signed(net)}`);
-    route = route || { type:"settled" };
+    if (!route) { route = { type:"settled" }; lead = parts[parts.length - 1]; }
   }
   const seenDuels = new Set(saved.duels || []);
   let duelNet = 0, duelCount = 0;
@@ -259,11 +264,18 @@ export function sinceSummary(saved, state, me, events, standings, now = Date.now
   if (rulings.length) parts.push(`${rulings.length === 1 ? "ruling" : `${rulings.length} rulings`} ${
     signed(rulings.reduce((sum, item) => sum + (Number(item.delta) || 0), 0))}`);
   const moved = Number(saved.rank) - row.rank;
-  if (saved.rank && moved) parts.push(`${moved > 0 ? "up" : "down"} ${Math.abs(moved)} ${
-    Math.abs(moved) === 1 ? "place" : "places"}, now ${ord(row.rank)}`);
+  if (saved.rank && moved) {
+    parts.push(`${moved > 0 ? "up" : "down"} ${Math.abs(moved)} ${Math.abs(moved) === 1 ? "place" : "places"}, now ${ord(row.rank)}`);
+    /* the standings open on your place, so that leads when nothing else routes */
+    if (!route) lead = parts[parts.length - 1];
+  }
   if (!parts.length && saved.pts !== undefined && row.pts !== saved.pts) parts.push(`${signed(row.pts - saved.pts)} chips`);
   if (!parts.length) return null;
-  return { text:[`Since ${clock(saved.at)}`, ...parts].join(" · "), route:route || { type:"standings" },
+  lead = lead || parts[0];
+  const since = `Since ${clock(saved.at)}`;
+  const more = parts.length - 1 + extraResults;
+  return { text:[since, lead, more ? `${more} more` : null].filter(Boolean).join(" · "),
+    detail:[since, ...parts].join(" · "), route:route || { type:"standings" },
     results:changed.map(([evId]) => evId) };
 }
 

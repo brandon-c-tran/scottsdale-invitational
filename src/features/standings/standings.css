@@ -82,11 +82,11 @@ button.fd-now-card { cursor:pointer; }
 .fd-standing-flags { display:flex; gap:6px; margin-top:3px;
   font:700 8px/1.2 var(--fd-body); letter-spacing:.07em; }
 .fd-standing-you { color:var(--muted2); }
-.fd-standing-out { color:var(--clay); }
+.fd-standing-out { color:var(--clay-text); }
 .fd-standing-score { display:flex; align-items:flex-end; flex-direction:column; gap:3px; }
 .fd-standing-score>strong { font:700 30px/.95 var(--fd-display); font-variant-numeric:tabular-nums; }
 .fd-standing-delta { display:inline-flex; align-items:center; gap:2px; color:var(--green); font:700 9px/1 var(--fd-body); }
-.fd-standing-delta.is-down { color:var(--clay); }
+.fd-standing-delta.is-down { color:var(--clay-text); }
 .fd-standing-stats { grid-column:3/-1; }
 .fd-standing-stats:empty { display:none; }
 .fd-standing-stats>div { margin-top:6px !important; }

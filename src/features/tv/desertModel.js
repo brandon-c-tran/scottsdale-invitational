@@ -1,35 +1,19 @@
 /* Desert Clock and the constellation: which session the TV sky shows, where
    each winner's star sits, and the paper-cut horizon as flat paths for any
-   band size. Pure, so every TV draws the same sky from the same state. */
+   band size. Pure, so every TV draws the same sky from the same state.
+   The session itself comes from ui/phase.js, the same function that
+   themes every phone, so the room's sky and the phones never disagree. */
 
-export const DESERT_PHASES = ["fri", "sam", "sap", "san", "fin"];
+import { PHASES, weekendPhase } from "../../ui/phase.js";
+
+export const DESERT_PHASES = PHASES;
+export const desertPhase = weekendPhase;
 /* light skies carry --ink0 text; the rest keep bone */
 export const DESERT_DAY = Object.freeze(["sam", "sap"]);
 /* winners' stars show from Saturday night on */
 export const DESERT_NIGHT = Object.freeze(["san", "fin"]);
 export const isDaySky = phase => DESERT_DAY.includes(phase);
 export const isNightSky = phase => DESERT_NIGHT.includes(phase);
-
-const posted = res => Number(res?.confirmedAt || res?.ts) || 0;
-
-/* The session the weekend is in: the finale once the table is dealt or the
-   weekend is frozen, then the event in play, then the last event posted,
-   then the one being prepared. Before any of that it is Friday. */
-export function desertPhase(state, events = [], { liveEvent = null, operationEvent = null } = {}) {
-  const valid = session => DESERT_PHASES.includes(session);
-  if (state?.frozen || state?.poker) return "fin";
-  if (events.some(ev => ev.finale && state?.results?.[ev.id])) return "fin";
-  if (valid(liveEvent?.session)) return liveEvent.session;
-  let latest = null;
-  for (const ev of events) {
-    const res = state?.results?.[ev.id];
-    if (res?.slots?.[0]?.length && valid(ev.session) && (!latest || posted(res) > latest.at))
-      latest = { session:ev.session, at:posted(res) };
-  }
-  if (latest) return latest.session;
-  if (state?.live && valid(operationEvent?.session)) return operationEvent.session;
-  return "fri";
-}
 
 /* FNV-1a, for a little stable jitter per event id */
 function hash(text) {

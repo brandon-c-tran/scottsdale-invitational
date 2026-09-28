@@ -103,7 +103,7 @@
   font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:25px; }
 .fd-profile-number-error { margin-top:10px; padding:8px 10px;
   border:1px solid var(--danger-line); border-radius:6px; background:var(--clay-tint);
-  color:var(--clay); font:600 12px/1.4 'Inter',sans-serif; }
+  color:var(--clay-text); font:600 12px/1.4 'Inter',sans-serif; }
 .fd-chip-picker { container-type:inline-size; }
 .fd-chip-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr));
   gap:6px; margin-bottom:18px; }

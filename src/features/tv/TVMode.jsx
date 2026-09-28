@@ -26,7 +26,8 @@ import {
   TrophyCard,
 } from "./TVCards.jsx";
 import { DesertBand } from "./DesertBand.jsx";
-import { desertPhase, constellationStars, isDaySky, isNightSky } from "./desertModel.js";
+import { constellationStars, isDaySky, isNightSky } from "./desertModel.js";
+import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
@@ -776,8 +777,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const correction = champion ? null : correctionMoment(state, events, now);
 
   /* the Desert Clock: the session's sky behind the masthead, the whole
-     horizon behind the towers; winners' stars from Saturday night on */
-  const phase = desertPhase(state, events, { liveEvent:liveEv, operationEvent:operationEv });
+     horizon behind the towers; winners' stars from Saturday night on. The
+     phones' surfaces read the same weekendPhase. */
+  const phase = weekendPhase(state, events, { liveEvent:liveEv, operationEvent:operationEv });
   const day = isDaySky(phase);
   const stars = useMemo(() => constellationStars(state, events), [state.results, events]); // eslint-disable-line react-hooks/exhaustive-deps
   const skyStars = isNightSky(phase) ? stars : EMPTY;

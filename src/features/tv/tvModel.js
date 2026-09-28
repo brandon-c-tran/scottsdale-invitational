@@ -8,6 +8,7 @@ import {
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
 import { constellationStars, constellationLines } from "./desertModel.js";
+import { liveEventOf, openEvent } from "../../ui/phase.js";
 import { contestStacks, contestOfEntry, settledStacks, eventWinnerStacks } from "../wagers/betStacks.js";
 
 export const TV_WIDTH = 1920;
@@ -114,17 +115,9 @@ export const ambientIndex = (count, now, period = TV_AMBIENT_MS) =>
 
 /* ── what is live, and what is next ──
    A shelved or posted event is never live, and a draw prepared for a later
-   event is not play: live is the open market, or an event actually in play. */
-const openEvent = (state, ev) => !!ev && !state.results?.[ev.id] && !state.shelved?.[ev.id];
-export function tvLiveEvent(state, events, operationEv = null) {
-  const playable = ev => openEvent(state, ev) && !ev.finale;
-  if (!state.frozen) {
-    const onDeck = events.find(ev => ev.id === state.onDeck);
-    if (playable(onDeck)) return onDeck;
-  }
-  if (playable(operationEv) && eventInPlay(state, operationEv)) return operationEv;
-  return events.find(ev => playable(ev) && eventInPlay(state, ev)) || null;
-}
+   event is not play: live is the open market, or an event actually in play.
+   The phones' session theme reads the same function (ui/phase.js). */
+export const tvLiveEvent = liveEventOf;
 /* The next event is the first one that has not started: the operation
    event itself when it is only being prepared. Only live or posted events
    are skipped. */

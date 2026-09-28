@@ -40,7 +40,7 @@
 .fd-player-antes button:disabled { opacity:.3; cursor:default; }
 .fd-player-antes button>span { font:600 11px/1 var(--fd-body); }
 .fd-player-antes button:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
-.fd-player-duel .fd-player-error { color:var(--clay); font-weight:600; }
+.fd-player-duel .fd-player-error { color:var(--clay-text); font-weight:600; }
 .fd-player-duel-results { margin-top:16px; padding-top:12px; border-top:1px solid var(--line); }
 .fd-player-duel-score { display:flex; align-items:baseline; gap:10px; margin:6px 0 4px; }
 .fd-player-duel-score strong { font:700 30px/1 var(--fd-display); color:var(--ink); }
@@ -52,4 +52,4 @@
 .fd-player-duel-results li small { display:block; margin-top:2px; color:var(--muted2); font-size:11px; }
 .fd-player-duel-results li>strong { flex-shrink:0; font-weight:600; color:var(--muted2); }
 .fd-player-duel-results li.is-won>strong { color:var(--green); }
-.fd-player-duel-results li.is-lost>strong { color:var(--clay); }
+.fd-player-duel-results li.is-lost>strong { color:var(--clay-text); }

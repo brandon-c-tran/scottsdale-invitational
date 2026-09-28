@@ -31,8 +31,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   the editor, live player card, and profile/photo save orchestration;
   `features/travel/` owns shared trip presentation and entry. Feature modules
   must not import from App. Shared semantic tokens are in
-  `src/ui/experience.css`; all guest pages use the green-charcoal dark palette.
-  `.fd-night` keeps TV and live surfaces on that same palette. `features/home/`,
+  `src/ui/experience.css`; all guest pages use the one dark palette, whose
+  surfaces follow the weekend's session (TH1 below). `.fd-night` keeps TV and
+  live surfaces on that same palette. `features/home/`,
   `features/weekend/`, `features/standings/`, and `features/wagers/` own the
   returning home, events/weekend reference, live board, and wagering UI.
   `features/draft/` owns captain setup, the live snake draft, and its Home entry;
@@ -92,6 +93,23 @@ The identity color selection colors the entire player card, front and back,
 with readable ink derived from that color. Keep the profile/check-in preview
 and public card on the same saved identity color, including photo frames and
 card ornament; it is not only a chip or thin accent rail.
+
+**TH1, the living weekend (Sept 28):** the surface ramp shifts by session.
+`weekendPhase(state, events, { liveEvent, operationEvent })` in `src/ui/phase.js`
+is the one pure source: Friday until `state.live`, the finale once dealt or
+frozen, else the event in play, the last posted result, the event being
+prepared. `usePhaseTheme` (App) puts it on the root as `data-phase`, and the
+TV's DesertBand sky reads the same function, so phones and the TV never
+disagree. `:root` in experience.css is Friday (bg #0e191c, blue-slate);
+`:root[data-phase=sam|sap|san|fin]` swap only bg/paper/paper2 (the night ramp
+aliases them), muted/muted2, chrome, scrim, shadows and `--phase` (sand,
+adobe, oxblood, near-black). Bone, gold, accents, `--ink0`, chip colors and
+player cards never change. A change while open eases 1.5s via the
+`fd-phase-shift` class, never on first load, instantly under reduced motion.
+`theme-color` follows `--bg` except on staging, which keeps #101A33. A 3px
+`--phase` line tops the header. Text in the clay family uses `--clay-text`
+(`--clay` is fill and line only); `--disabled` and every body-text token hold
+4.5:1 on every surface in every phase (`tests/living-theme.test.mjs`).
 
 The original per-game SVG moments belong in the phone announcement and TV
 spotlight. An atomic announcement/draw must play the short intro first, then
@@ -556,15 +574,17 @@ edits. This preview never connects to the tournament and is not deployed.
   skins; half of those are deliberately loud (saw, flame, star, bolt, wave,
   crown) but all stay flat, one ink, and clear of the number in the middle.
 - Field Day look: sun-faded rec-tournament at night, championship seriousness.
-  FULL DARK: warm near-black surfaces (bg/paper/paper2 night ramp), --ink is
+  FULL DARK: near-black surfaces tinted by session (bg/paper/paper2, the night
+  ramp aliases them; TH1), --ink is
   the primary TEXT color (bone), --ink0 is the absolute brown-black reserved
   for marks, poker chips, and anything sitting on sun. Barlow Condensed
   display for scores/ranks/event names, Inter for everything functional, no
   serif (fonts load in index.html, never via CSS import). Semantic tokens in
-  `src/ui/experience.css` (:root) are the only color source: no raw hex outside :root and
+  `src/ui/experience.css` (:root and its data-phase blocks) are the only color source: no raw hex outside :root and
   PLAYER_COLORS, tints via the --*-tint tokens, shadows via --shadow-1/2/3
-  (deep warm, never pure black), radii 6/10/14/16/99. Phase palette: pool
-  (Fri), sun (Sat AM), terracotta (Sat PM), clay (Sat night), night (Finale).
+  (deep, tinted per session, never pure black), radii 6/10/14/16/99. Phase
+  line (--phase): pool (Fri), sun (Sat AM), terracotta (Sat PM), coral clay
+  (Sat night), sun (Finale).
   Flat scorecard components, chip identity for players (30 claimable colors
   plus 6 edge-tick skins, first come first serve, gray until claimed, locked
   once the weekend goes live except one first claim by a still-gray straggler), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone

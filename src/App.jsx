@@ -15,7 +15,7 @@ import { guestLedger, summarizeUpdate, updateHaptic, freshResults, resultMarkers
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
 import { filterRevealCandidates } from "./features/weekend/drawReveal.js";
-import { Board } from "./features/standings/Standings.jsx";
+import { Board, postedLine } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
 import { Wagers, wagerPickLabel, RACK_DENOMS, mergeWagerLines } from "./features/wagers/Wagers.jsx";
@@ -66,6 +66,7 @@ import {
 } from "./lib/client.js";
 
 import { Shell } from "./ui/Shell.jsx";
+import { usePhaseTheme } from "./ui/usePhaseTheme.js";
 import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/theme.js";
 import { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet } from "./ui/controls.jsx";
 
@@ -399,6 +400,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   }, [tvSceneMode?.until]);
   const tvCeremonyHold = !!tvSceneMode?.covers;
   const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
+  /* the session's surfaces, the same phase the TV sky draws */
+  usePhaseTheme({ state, events, operationEvent:weekendOperation.event, settled:ready });
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
@@ -1649,7 +1652,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
 
       {/* modals */}
       {modal?.type === "howto" && <HowToSheet gameId={modal.ev.game} variant={modal.ev.variant} ev={modal.ev} onClose={() => setModal(null)} />}
-      {modal?.type === "standings" && <Sheet title={champion ? "Final standings" : "Standings"} onClose={() => setModal(null)} onBack={modalBack}>
+      {modal?.type === "standings" && <Sheet title={champion ? "Final standings" : "Standings"} subtitle={postedLine(state, events)} onClose={() => setModal(null)} onBack={modalBack}>
         <Board embedded GameMark={GameMark} StatPills={StatPills} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch}
           state={state} standings={standings} me={me} deltas={deltas} allTied={allTied}
           champion={champion} coChamps={coChamps} gm={gmView} events={events}
@@ -1981,7 +1984,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
                   border:away ? "1.5px solid var(--clay)" : "1px solid var(--line)", color:"var(--ink)" }}>
                 <Avatar state={state} p={p} size={28} />
                 <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:13 }}>{disp(state, p)}</span>
-                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:away ? "var(--clay)" : "var(--muted2)" }}>
+                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:away ? "var(--clay-text)" : "var(--muted2)" }}>
                   {away ? "Away" : "Here"}</span>
               </button>;
             })}
@@ -2117,9 +2120,9 @@ function StatPills({ row, atRisk = 0, onSun }) {
   const bits = [
     row.wins > 0 && { k:"win", v: row.wins, tone: onSun ? "var(--ink0)" : "var(--signal-text)" },
     row.betNet !== 0 && { k:"bet", v: `${row.betNet > 0 ? "+" : ""}${fmt(row.betNet)}`,
-      tone: onSun ? "var(--ink0)" : row.betNet > 0 ? "var(--green)" : "var(--clay)" },
+      tone: onSun ? "var(--ink0)" : row.betNet > 0 ? "var(--green)" : "var(--clay-text)" },
     row.duelNet !== 0 && { k:"duel", v: `${row.duelNet > 0 ? "+" : ""}${fmt(row.duelNet)}`,
-      tone: onSun ? "var(--ink0)" : row.duelNet > 0 ? "var(--green)" : "var(--clay)" },
+      tone: onSun ? "var(--ink0)" : row.duelNet > 0 ? "var(--green)" : "var(--clay-text)" },
     atRisk > 0 && { k:"bet", v: `${fmt(atRisk)} at risk`, tone:"var(--live2)" },
   ].filter(Boolean);
   if (!bits.length) return null;
@@ -2278,7 +2281,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
               <button onClick={() => { if (confirmOut) { onBust(me); setConfirmOut(false); } else setConfirmOut(true); }}
                 style={{ ...seatButton,
                   background: confirmOut ? "var(--clay)" : "transparent",
-                  color: confirmOut ? BONE : "var(--clay)",
+                  color: confirmOut ? BONE : "var(--clay-text)",
                   border:"1.5px solid var(--danger-line)" }}>
                 {confirmOut ? "Tap again, you are out" : "I busted"}</button>
             </div>
@@ -2302,7 +2305,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
           <span style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text)", flex:1 }}>
             {counted.length} of {alive} counted{allIn ? `, ${fmt(countSum)} of ${fmt(pk.total)}` : ""}
             {allIn && countSum !== pk.total && (
-              <span style={{ color:"var(--clay)" }}> ({countSum > pk.total
+              <span style={{ color:"var(--clay-text)" }}> ({countSum > pk.total
                 ? `${fmt(countSum - pk.total)} over` : `${fmt(pk.total - countSum)} short`})</span>
             )}
           </span>
@@ -2478,11 +2481,11 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)" }}>of {fmt(pk.total)}</span>
       </div>
       {allIn && sum !== pk.total && (
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
+        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay-text)", marginBottom:10 }}>
           {sum > pk.total ? `${fmt(sum - pk.total)} over` : `${fmt(pk.total - sum)} short`}.
         </div>
       )}
-      {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
+      {error && <p role="alert" style={{color:"var(--clay-text)",fontSize:13}}>{error}</p>}
       <Btn disabled={!allIn || pending} onClick={()=>act(onPost)} style={{ width:"100%", marginTop:8 }}>
         {allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`}</Btn>
     </Sheet>
@@ -2526,22 +2529,7 @@ function resultImpact(state, events, latest, standings) {
   return parts.join(". ");
 }
 
-/* the now zone: one slot above the standings. Live progress beats a fresh
-   result beats the next event; betting-open already lives in the header. */
-
-
-
 /* ─────────── slate ─────────── */
-/* phase colors: each session of the weekend gets its own band */
-const PHASE = {
-  fri: { bg:"var(--pool)",   fg:BONE },
-  sam: { bg:"var(--sun)",    fg:"var(--ink0)" },
-  sap: { bg:"var(--accent)", fg:BONE },
-  san: { bg:"var(--clay)",   fg:BONE },
-  fin: { bg:"var(--night)",  fg:"var(--sun)" },
-};
-const phaseOf = ev => PHASE[ev?.session] || { bg:"var(--paper2)", fg:"var(--ink)" };
-
 function PlayerLinks({ state, players, onPlayer, size=26 }) {
   return <div className="fd-player-links">{players.map(p => <button type="button" key={p}
     className="fd-player-link" onClick={() => onPlayer(p)} aria-label={`View ${disp(state,p)}'s player card`}>
@@ -2848,11 +2836,11 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                   fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"7px 12px", borderRadius:10,
                   background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
                   border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-                  color: diff !== 0 ? "var(--clay)" : "var(--ink)" }}>
+                  color: diff !== 0 ? "var(--clay-text)" : "var(--ink)" }}>
                   {inPlayers.length} competitors {showOuts ? "▴" : "▾"}</button>
               </div>
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
-                color: diff !== 0 ? "var(--clay)" : "var(--muted)" }}>
+                color: diff !== 0 ? "var(--clay-text)" : "var(--muted)" }}>
                 Format: {shape.teams} teams of {shape.size}, fits {fit}.
                 {diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
               </div>
@@ -2990,7 +2978,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                             style={centeredGridCell(i, present.length, 3, 5)} />)}
                         </div>
                       )}
-                      {!heatsFit && <p role="alert" style={{ ...pStyle, color:"var(--clay)", fontSize:13 }}>
+                      {!heatsFit && <p role="alert" style={{ ...pStyle, color:"var(--clay-text)", fontSize:13 }}>
                         Heats need at least 2 players each</p>}
                     </>
                   )}
@@ -3227,7 +3215,7 @@ function AddEventSheet({ state, onClose, save }) {
         ))}
       </div>
       {(shapeError || shapeNote) && <p role={shapeError ? "alert" : undefined}
-        style={{ ...pStyle, marginTop:-6, fontSize:12.5, color:shapeError ? "var(--clay)" : "var(--muted2)" }}>
+        style={{ ...pStyle, marginTop:-6, fontSize:12.5, color:shapeError ? "var(--clay-text)" : "var(--muted2)" }}>
         {shapeError || shapeNote}</p>}
       {/* borrow a known game's mark, hero, and how-to; none = the FD chip */}
       <div style={{ ...label, marginBottom:6 }}>Looks like</div>
@@ -3408,7 +3396,7 @@ function ResultSheet({ ev, state, onClose, save }) {
           {byPlayer ? "Back to teams" : "Pick by player"}</button>
       )}
       </fieldset>}
-      {error && <p role="alert" style={{color:"var(--clay)",fontSize:13}}>{error}</p>}
+      {error && <p role="alert" style={{color:"var(--clay-text)",fontSize:13}}>{error}</p>}
       {emptyCheck && emptyPaid.length > 0 && <div role="alert" style={{ marginBottom:10, padding:"12px 13px",
         background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14 }}>
         {emptyPaid.map(i => <p key={i} style={{ ...pStyle, margin:"0 0 6px" }}>
@@ -3957,7 +3945,7 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
         <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
           Next: {status.next}</div>
         {status.blockers.length > 0 && (
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay)", marginTop:4 }}>
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay-text)", marginTop:4 }}>
             Blocked: {status.blockers.join(" · ")}</div>
         )}
       </div>
@@ -4024,7 +4012,7 @@ function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
         Reopening check-in releases every claimed chip color. Profiles, photos,
         ratings, shirt sizes, and flights stay saved.</div>
 
-      <div style={{ ...sect, color:"var(--clay)" }}>Danger zone</div>
+      <div style={{ ...sect, color:"var(--clay-text)" }}>Danger zone</div>
       <div style={{ border:"1px solid var(--danger-line)", borderRadius:10, padding:"11px 12px" }}>
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
           Reset game progress</div>
@@ -4056,7 +4044,7 @@ function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfi
           <li>Device claims, private ratings, and trip details</li>
           <li>Event additions, edits, and order</li>
         </ul>
-        <div style={{ ...label, color:"var(--clay)", marginTop:14 }}>Cleared</div>
+        <div style={{ ...label, color:"var(--clay-text)", marginTop:14 }}>Cleared</div>
         <ul style={listStyle}>
           <li>Results, wagers, rulings, draws, brackets, heats, pools, and drafts</li>
           <li>Duels, poker, shelved events, and weekend live or frozen state</li>
@@ -4071,7 +4059,7 @@ function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfi
             Reset the {environment} game on every connected screen.</span>
         </label>
         {busy && (
-          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay)", marginBottom:10 }}>
+          <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--clay-text)", marginBottom:10 }}>
             Stop the running rehearsal first.</div>
         )}
         <div style={{ display:"flex", gap:8 }}>
@@ -4124,14 +4112,14 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
             setDelta(v === "" || v === "-" ? 0 : Math.trunc(Number(v)) || 0);
           }}
           style={{ ...field, width:130, textAlign:"center", fontFamily:DISPLAY, fontWeight:800, fontSize:34, padding:"6px 8px",
-            color: delta >= 0 ? "var(--green)" : "var(--clay)" }} />
+            color: delta >= 0 ? "var(--green)" : "var(--clay-text)" }} />
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) + step)} style={{ fontSize:19, width:54 }}
           aria-label={`Plus ${step}`}>+</Btn>
       </div>
-      {!legal && delta !== 0 && <p style={{ ...pStyle, color:"var(--clay)", textAlign:"center" }}>Rulings move in {step}s.</p>}
+      {!legal && delta !== 0 && <p style={{ ...pStyle, color:"var(--clay-text)", textAlign:"center" }}>Rulings move in {step}s.</p>}
       <input value={reason} disabled={pending} onChange={e => setReason(e.target.value)} maxLength={80} aria-label="Ruling reason"
         placeholder="Reason" style={{ ...field, width:"100%", marginBottom:14 }} />
-      {error && <p role="alert" style={{ color:"var(--clay)", fontSize:13 }}>{error}</p>}
+      {error && <p role="alert" style={{ color:"var(--clay-text)", fontSize:13 }}>{error}</p>}
       <Btn disabled={!legal || pending} onClick={() => run(() => save(delta, reason.trim()))}
         style={{ width:"100%", fontSize:16, padding:"14px" }}>{pending ? "Saving…" : "Apply"}</Btn>
       {rulings.length > 0 && <div style={{ marginTop:18 }}>
@@ -4140,7 +4128,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
           <div key={a.id} style={{ borderTop:"1px solid var(--line)", padding:"8px 0" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, minHeight:44 }}>
               <strong style={{ fontFamily:DISPLAY, fontSize:19, minWidth:64,
-                color:a.delta >= 0 ? "var(--green)" : "var(--clay)" }}>{a.delta > 0 ? "+" : ""}{fmt(a.delta)}</strong>
+                color:a.delta >= 0 ? "var(--green)" : "var(--clay-text)" }}>{a.delta > 0 ? "+" : ""}{fmt(a.delta)}</strong>
               <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>{a.reason || "No reason"}{countLabel(a)}</span>
               {a.reason !== "Minimum stack" && removing !== a.id && <Btn kind="ghost" disabled={pending}
                 onClick={() => { setRemoving(a.id); setRemoveReason(""); }}>Remove</Btn>}
@@ -4282,8 +4270,8 @@ function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPl
           ))}
         </>
       )}
-      {!fit.ok && <p role="alert" style={{ ...pStyle, color:"var(--clay)", fontSize:13 }}>{fit.error}</p>}
-      {error && <p role="alert" style={{ ...pStyle, color:"var(--clay)", fontSize:13 }}>{error}</p>}
+      {!fit.ok && <p role="alert" style={{ ...pStyle, color:"var(--clay-text)", fontSize:13 }}>{fit.error}</p>}
+      {error && <p role="alert" style={{ ...pStyle, color:"var(--clay-text)", fontSize:13 }}>{error}</p>}
       <ActionButton disabled={!fit.ok || pending} onClick={confirm} style={{ width:"100%", fontSize:16, padding:"14px" }}>
         {pending ? "Drawing…" : "Announce and draw"}</ActionButton>
     </Sheet>
@@ -4377,7 +4365,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
-      {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay)", marginTop:14 }}>{error}</div>}
+      {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
       <ActionButton disabled={busy || !display.trim()} pending={busy} onClick={() => submit(() => save(changedFields()))}
         style={{ width:"100%", fontSize:16, padding:"14px" }}>Save</ActionButton>
       </div>
@@ -4471,7 +4459,7 @@ function WalkoutTrackPicker({ value, onChange, enabled }) {
               style={{ minHeight:46, padding:"10px 13px" }}>{busy ? "Searching" : "Search"}</Btn>
           </div>
           {error && <div role="alert" style={{ fontFamily:SANS, fontSize:12.5,
-            color:"var(--clay)", marginTop:8 }}>{error}</div>}
+            color:"var(--clay-text)", marginTop:8 }}>{error}</div>}
           {!!results.length && (
             <div style={{ display:"grid", gap:7, marginTop:10 }}>
               {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
@@ -4773,7 +4761,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
                 color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis",
                 whiteSpace:"nowrap" }}>{status.account?.displayName || "Spotify"}</div>
               <div style={{ fontFamily:SANS, fontSize:11.5,
-                color:status.premium === false ? "var(--clay)" : "var(--muted)" }}>
+                color:status.premium === false ? "var(--clay-text)" : "var(--muted)" }}>
                 {status.premium === false ? `${status.account?.product || "Free"} account · playback needs Premium`
                   : status.account?.product || "account"}</div>
             </div>
@@ -4852,7 +4840,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
       )}
       {error && <div role="alert" style={{ marginTop:13, padding:"10px 11px",
         border:"1px solid var(--danger-line)", borderRadius:9, background:"var(--clay-tint)",
-        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--clay)",
+        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--clay-text)",
         lineHeight:1.4 }}>{error}</div>}
     </Sheet>
   );

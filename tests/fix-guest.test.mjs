@@ -224,8 +224,10 @@ test("since you looked summarizes an absence from this device's own memory", () 
     pickPlayers:[ROSTER[3], ROSTER[4]], stake:100 }];
   const text = ui.sinceLine(saved, state, me, events, computeStandings(state), saved.at + 10 * 60_000);
   assert.match(text, /^Since \d{1,2}:\d{2} (AM|PM) · /);
-  assert.ok(text.includes(`${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won`));
-  assert.ok(text.includes("your bet +200"));
+  assert.match(text, new RegExp(`· ${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won · \\d+ more$`),
+    "the result it opens leads; the rest is a count");
+  const summary = ui.sinceSummary(saved, state, me, events, computeStandings(state), saved.at + 10 * 60_000);
+  assert.ok(summary.detail.includes("your bet +200"), "the accessible name spells out the rest");
   assert.equal(ui.sinceLine({ ...saved, me:ROSTER[1] }, state, me, events, computeStandings(state), saved.at + 10 * 60_000), null);
 });
 
@@ -481,13 +483,14 @@ test("G9 G21: the since line names duels, rulings, corrections and places, and r
   moved.duels = [{ id:"qd", from:me, to:ROSTER[7], stake:300, status:"open", runs:{ [me]:{ ms:200 }, [ROSTER[7]]:{ ms:260 } } }];
   moved.adjustments.push({ id:"r1", player:me, delta:1000, ts:2, reason:"Style" });
   const text = ui.sinceSummary(saved, moved, me, events, computeStandings(moved), later);
-  assert.match(text.text, /· duel \+300 · ruling \+1,000 · up 1 place, now 2nd$/);
+  assert.match(text.detail, /· duel \+300 · ruling \+1,000 · up 1 place, now 2nd$/);
+  assert.match(text.text, /^Since .* · up 1 place, now 2nd · 2 more$/, "one line: the place it opens, then a count");
   assert.doesNotMatch(text.text, /↑|↓/);
   assert.deepEqual(text.route, { type:"standings" });
 
   const routes = [];
   const view = render(ui.GuestHome, homeProps(moved, me, { since:text, onSince:route => routes.push(route) }));
-  view.click(`${text.text}. View standings`);
+  view.click(`${text.detail}. View standings`);
   assert.deepEqual(routes, [{ type:"standings" }]);
 });
 

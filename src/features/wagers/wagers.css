@@ -70,7 +70,7 @@
 .fd-wagers-retract:not(:disabled):hover,.fd-wagers-other:not(:disabled):hover { background:var(--ink-tint); }
 .fd-wagers-retract:disabled { cursor:wait; }
 .fd-wagers-other:disabled { cursor:default; }
-.fd-wagers-pick-error { margin:0; padding:7px 8px; border-top:1px solid var(--danger-line); color:var(--clay); font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
+.fd-wagers-pick-error { margin:0; padding:7px 8px; border-top:1px solid var(--danger-line); color:var(--clay-text); font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
 .fd-wagers-pick.is-pending-place .fd-wagers-chip-well { color:var(--sun); border-style:solid; animation:fd-chip-pending .7s ease-in-out infinite alternate; }
 .fd-wagers-pick.is-pending-remove .fd-wagers-retract .fd-stack-tap:last-of-type { animation:fd-chip-pending .7s ease-in-out infinite alternate; }
 /* a decided contest settling on the board */
@@ -81,10 +81,10 @@
 .fd-wagers-settle-zone > strong { font:700 20px/1 var(--fd-wagers-numerals); font-variant-numeric:tabular-nums; padding-bottom:4px; }
 .fd-wagers-settle-zone.is-won > strong { color:var(--green); }
 .fd-wagers-settle-zone.is-lost { --bank-x:46px; --bank-y:18px; }
-.fd-wagers-settle-zone.is-lost > strong { color:var(--clay); }
+.fd-wagers-settle-zone.is-lost > strong { color:var(--clay-text); }
 .fd-wagers-settle .fd-stacks { gap:2px 4px; }
 @keyframes fd-settle-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-.fd-wagers-limit { color:var(--clay); font-size:12px; line-height:1.5; }
+.fd-wagers-limit { color:var(--clay-text); font-size:12px; line-height:1.5; }
 .fd-wagers-history { border-top:1px solid var(--line); }
 .fd-wagers-event + .fd-wagers-history { margin-top:20px; }
 .fd-wagers-history > summary { display:flex; align-items:center; gap:8px; min-height:48px; padding:8px 0; list-style:none; cursor:pointer; font-size:13px; font-weight:650; }
@@ -100,7 +100,7 @@
 .fd-wagers-void-confirm { display:flex; flex-basis:100%; flex-wrap:wrap; align-items:center; gap:8px; color:var(--ink); font-size:12.5px; }
 .fd-wagers-void-confirm span { flex:1 1 100%; }
 .fd-wagers-void, .fd-wagers-void-confirm button { min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:var(--paper); color:var(--ink); font:600 12px/1.2 var(--fd-body); cursor:pointer; }
-.fd-wagers-void { color:var(--clay); }
+.fd-wagers-void { color:var(--clay-text); }
 .fd-wagers-void-confirm button.is-commit { border-color:var(--ink0); background:var(--clay); color:var(--bone); }
 .fd-wagers-void-confirm button:disabled { opacity:.5; cursor:default; }
 .fd-wagers-ledger-player { display:flex; align-items:center; justify-content:center; flex-shrink:0; min-width:44px; min-height:44px; border:0; background:none; padding:0; border-radius:50%; cursor:pointer; }
@@ -116,7 +116,7 @@
 .fd-wagers-line-result > small { display:block; color:var(--muted); font-size:8px; font-weight:700; letter-spacing:.08em; }
 .fd-wagers-line-result > strong { display:block; font-family:var(--fd-wagers-numerals); font-size:24px; font-weight:700; line-height:1.15; font-variant-numeric:tabular-nums; }
 .fd-wagers-line.is-won .fd-wagers-line-result > strong { color:var(--green); }
-.fd-wagers-line.is-lost .fd-wagers-line-result > strong { color:var(--clay); }
+.fd-wagers-line.is-lost .fd-wagers-line-result > strong { color:var(--clay-text); }
 .fd-wagers-void { margin-top:7px; font-size:11px !important; padding:8px !important; min-height:44px !important; }
 .fd-wagers-settled-list { border-top:1px solid var(--line); }
 .fd-wagers-settled { border-bottom:1px solid var(--line); }
@@ -127,7 +127,7 @@
 .fd-wagers-settled-person > strong { min-width:0; font-size:12px; overflow-wrap:anywhere; }
 .fd-wagers-net { font-family:var(--fd-wagers-numerals); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
 .fd-wagers-net.is-up { color:var(--green); }
-.fd-wagers-net.is-down { color:var(--clay); }
+.fd-wagers-net.is-down { color:var(--clay-text); }
 .fd-wagers-settled-arrow { font-size:21px; font-weight:300; width:18px; text-align:right; color:var(--muted2); }
 .fd-wagers-settled-detail { padding:0 10px; background:var(--paper); border-top:1px dashed var(--line); margin-bottom:10px; border-radius:10px; }
 .fd-wagers-settled-detail .fd-wagers-line:last-child { border-bottom:0; }
@@ -150,7 +150,7 @@
 .fd-wagers-meter-notch { position:absolute; top:-5px; bottom:-5px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
 .fd-wagers-meter.is-capped .fd-wagers-meter-notch { width:4px; margin-left:-2px; background:var(--sun); }
 .fd-wagers-meter.is-capped .fd-wagers-meter-top strong { color:var(--muted2); }
-.fd-wagers-meter.is-over .fd-wagers-meter-scale .is-exposure { color:var(--clay); }
+.fd-wagers-meter.is-over .fd-wagers-meter-scale .is-exposure { color:var(--clay-text); }
 .fd-wagers-pick-main.is-capped:disabled { opacity:1; }
 .fd-wagers-pick-main.is-capped .fd-wagers-chip-well { opacity:.35; }
 .fd-wagers-pick-main.is-capped .fd-wagers-pick-add { color:var(--muted2); }

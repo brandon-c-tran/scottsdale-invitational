@@ -196,3 +196,5 @@
   background:transparent; color:var(--sun); font:600 12px/1 var(--fd-body); cursor:pointer; }
 .fd-weekend-event-bracket:hover { background:var(--sun-tint); }
 .fd-weekend-event-bracket:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
+.fd-weekend-trophy h2 { font:700 25px/1.1 var(--fd-display); margin:0; color:var(--ink); }
+.fd-weekend-trophy .fd-trophy { margin-top:4px; }

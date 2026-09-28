@@ -8,6 +8,7 @@ import {
   wagerMatchesContest,
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
+import { constellationStars, constellationLines } from "./desertModel.js";
 
 export const TV_WIDTH = 1920;
 export const TV_HEIGHT = 1080;
@@ -666,7 +667,11 @@ export function championView(state, events, standings) {
   });
   const lead = top[0].player;
   const stats = playerWeekendStats(state, events, standings, lead);
+  /* the weekend's winners as stars; the champion's own joined in order */
+  const stars = constellationStars(state, events);
   return {
+    stars,
+    lines:constellationLines(stars, top.map(row => row.player)),
     players:top.map(row => row.player),
     pts:top[0].pts,
     wins:top[0].wins,

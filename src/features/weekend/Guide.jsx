@@ -4,6 +4,7 @@ import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
 import { VenueCard, FlightPass } from "../travel/Travel.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
 import { isStandalone } from "../check-in/install.js";
+import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
 import "./weekend.css";
 
 const format = value => Number(value).toLocaleString("en-US");
@@ -28,6 +29,7 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
   const logistics = state?.logistics || {};
   const profile = state?.profiles?.[me] || {};
   const games = Object.entries(GAMES);
+  const plates = trophyPlates(state || {}, events);
   const hasIn = !!cleanLeg(profile.flightIn);
   const hasOut = !!cleanLeg(profile.flightOut);
   const changeTab = (event, index) => {
@@ -127,6 +129,11 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
     </div>
 
     <div id="fd-weekend-panel-games" role="tabpanel" aria-labelledby="fd-weekend-tab-games" hidden={section !== "games"}>
+      <section className="fd-weekend-guide-section fd-weekend-trophy" aria-labelledby="fd-guide-trophy-title">
+        <div className="fd-weekend-awards-heading"><h2 id="fd-guide-trophy-title">Trophy</h2>
+          <span>{plates.filter(plate => plate.posted).length} of {plates.length}</span></div>
+        <TrophyPlates state={state || {}} events={events} cup={124} />
+      </section>
       <section className="fd-weekend-guide-section">
         <div className="fd-weekend-game-directory">{games.map(([id, game]) => {
           const objective = (game.howto || game.variants?.[0]?.howto)?.objective || "";

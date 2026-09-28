@@ -122,7 +122,7 @@ assert(a.state.live === false && b.state.live === false,
   assert(!earlyDuel.ok, "duels wait for the first game (rejected: " + earlyDuel.error + ")");
 }
 /* directed presentation is durable and independent from the tournament loop */
-r = await a.dispatch("startShowScene", { kind:"event-intro", eventId:"putt" });
+r = await a.dispatch("startShowScene", { kind:"opening" });
 assert(r.ok, "GM starts a directed event scene");
 await b.waitVersion(a.version);
 const showId = b.state.showControl?.active?.id;

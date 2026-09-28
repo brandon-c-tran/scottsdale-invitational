@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SESSIONS, AWARDS, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
@@ -7,6 +7,10 @@ import { SectionHeading } from "../../ui/layout.jsx";
 import { Leaderboard } from "../standings/Standings.jsx";
 import { bracketPath, deriveHomeModel } from "./homeModel.js";
 import { DraftEntry } from "../draft/DraftSheet.jsx";
+import { contestStacks } from "../wagers/betStacks.js";
+import { contestWinLines, winLineFor } from "../standings/winImpact.js";
+import { WinLine } from "../standings/WinLine.jsx";
+import { useFreshChange } from "../../lib/motion.js";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -75,9 +79,31 @@ export function personalLine({ current, state }) {
   return a.partners?.length ? `With ${names(state, a.partners)}` : null;
 }
 
-function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPlayer, GameMark }) {
+/* M10: when your own match becomes the current contest freshly, a gold line
+   sweeps the card once and "You're playing" stamps in, then rests as a
+   plain label. Returns the change id while it plays, else null. */
+function useYoureUp(contest, me) {
+  const yours = contest && me && contest.players?.includes(me)
+    && (contest.kind !== "ffa" || contest.sides.length === 2) ? contest.id : null;
+  const change = useFreshChange(yours, me || "");
+  const [playing, setPlaying] = useState(null);
+  useLayoutEffect(() => {
+    if (!change.animate || !change.to) return undefined;
+    setPlaying(change.changeId);
+    const timer = setTimeout(() => setPlaying(current => current === change.changeId ? null : current), 1400);
+    return () => clearTimeout(timer);
+  }, [change.changeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  return yours ? playing : null;
+}
+
+function EventFocus(props) {
+  return props.model.current ? <EventTable {...props} /> : null;
+}
+
+/* X1: the current contest as one compact card: the event, its sides with
+   what is bet on each and what a win means, and the actions. */
+function EventTable({ model, state, me, events, standings, onOpen, onRules, onBets, onBracket, onPlayer, GameMark }) {
   const current = model.current;
-  if (!current) return null;
   const event = current.event;
   const before = model.mode === "before";
   const rules = hasGameRules(event);
@@ -94,27 +120,57 @@ function EventFocus({ model, state, me, onOpen, onRules, onBets, onBracket, onPl
   const mine = !before && !away && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
     && !current.contest.players?.includes(me) && !(path?.mine && a?.match)
     ? personalLine({ current, state, model }) : null;
-  return <section className={`fd-home-focus${running ? " is-running" : ""}`} aria-label={`${event.name}: ${current.status}`}>
-    <div className="fd-home-focus-top"><span className="fd-home-eyebrow">{(running || current.lifecycle.phase === "betting-open")
-      && <i className="fd-beat-dot" aria-hidden="true" />}{current.status}</span>
-      {before ? <span>{sessionOf(event)}</span> : rules && <button type="button" className="fd-home-text-link"
+  const contest = !before ? current.contest : null;
+  const sided = contest?.kind !== "ffa" && contest?.sides?.length > 0;
+  const playing = !!contest?.players?.includes(me);
+  const youUp = useYoureUp(contest, me);
+  const pots = sided ? contestStacks(state, events, contest) : null;
+  /* X8: a wide field shows only your own side's line */
+  const ownSide = contest?.kind === "ffa" ? contest.sides.find(side => side.players.includes(me))?.key : undefined;
+  const lines = useMemo(() => !contest || (!sided && ownSide === undefined) ? []
+    : contestWinLines(state, event, contest, { events, standings, keys:sided ? null : [ownSide] }),
+  [state, event.id, contest?.id, events, standings, sided, ownSide]); // eslint-disable-line react-hooks/exhaustive-deps
+  const twoUp = sided && contest.sides.length === 2 && contest.sides.every(side => side.players.length <= 2);
+  return <section className={`fd-home-focus${running ? " is-running" : ""}${youUp ? " is-your-turn" : ""}`}
+    aria-label={`${event.name}: ${current.status}`}>
+    {youUp && <i className="fd-home-sweep" key={youUp} aria-hidden="true" />}
+    <div className="fd-home-focus-top">
+      <button type="button" className="fd-home-event-title" onClick={() => onOpen(event)} aria-label={`Open ${event.name}`}>
+        <span className="fd-home-event-mark"><GameMark id={event.game} size={40} /></span>
+        <span className="fd-home-event-text"><span className="fd-home-eyebrow">{(running || current.lifecycle.phase === "betting-open")
+          && <i className="fd-beat-dot" aria-hidden="true" />}{current.status}{before && sessionOf(event) ? ` · ${sessionOf(event)}` : ""}</span>
+          <h2>{event.name}</h2>
+          {event.value && <small>{fmt(AWARDS[event.value]?.[0] ?? event.value)} chips to win</small>}</span>
+      </button>
+      {!before && rules && <button type="button" className="fd-home-text-link"
         aria-label={`${event.name} rules`} onClick={() => onRules(event)}>Rules <Arrow /></button>}</div>
-    <button type="button" className="fd-home-event-title" onClick={() => onOpen(event)} aria-label={`Open ${event.name}`}>
-      <span><h2>{event.name}</h2>{event.value && <small>{fmt(AWARDS[event.value]?.[0] ?? event.value)} chips to win</small>}</span>
-      <span className="fd-home-event-mark"><GameMark id={event.game} size={72} /></span>
-    </button>
     {before && event.desc && <p className="fd-home-event-description">{event.desc}</p>}
-    {!before && current.contest?.kind !== "ffa" && current.contest?.sides?.length > 0
-      ? <div className="fd-home-assignment"><div className="fd-home-contest-label">{current.contest.label}
-          {current.contest.players?.includes(me) && <span>You’re playing</span>}</div>
-          {current.contest.sides.map((side,index) => <div className="fd-home-side" key={String(side.key)}>
-            {index > 0 && current.contest.kind === "match" && <span className="fd-home-versus">vs</span>}
-            <People state={state} players={side.players} onPlayer={onPlayer} /></div>)}
+    {sided
+      ? <div className="fd-home-assignment"><div className="fd-home-contest-label">{contest.label}
+          {playing && <span className={youUp ? "is-stamping" : undefined} key={youUp || "rest"}>You’re playing</span>}</div>
+          <div className={`fd-home-sides${twoUp ? " is-two" : ""}`}>
+            {contest.sides.map((side, index) => {
+              const pot = pots?.get(side.key)?.total || 0;
+              const backed = !!pots?.get(side.key)?.stacks.some(stack => stack.player === me);
+              return <React.Fragment key={String(side.key)}>
+                {index > 0 && twoUp && <span className="fd-home-versus" aria-hidden="true">vs</span>}
+                <div className={`fd-home-side${side.players.includes(me) || backed ? " is-mine" : ""}`}>
+                  <People state={state} players={side.players} onPlayer={onPlayer} />
+                  {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}>
+                    <strong>{fmt(pot)}</strong> bet</span>}
+                  <WinLine line={winLineFor(lines, side.key)} className="fd-home-side-win" />
+                </div>
+              </React.Fragment>;
+            })}
+          </div>
           {away ? <p className="fd-home-personal">You are marked away</p>
             : mine && <p className="fd-home-personal">{mine}{role && <small>{role}</small>}</p>}
         </div>
       : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">You are marked away</p></div>
-        : <Assignment current={current} state={state} onPlayer={onPlayer} />)}
+        : <>
+          <Assignment current={current} state={state} onPlayer={onPlayer} />
+          {winLineFor(lines, ownSide) && <div className="fd-home-own-win"><WinLine line={winLineFor(lines, ownSide)} /></div>}
+        </>)}
     {path && <button type="button" className="fd-home-path" onClick={() => onBracket(event)}
       aria-label={`${path.text}. Open the full ${event.name} bracket`}>
       <span>{path.text}</span><span className="fd-home-path-link">Full bracket <Arrow /></span></button>}
@@ -157,9 +213,10 @@ function FlightsQuestion({ onYes, onNotYet }) {
 }
 
 export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
-  onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
+  onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet }) {
   const model = deriveHomeModel({ state, me, events, standings });
+  const exposed = !!model.standing?.exposure && model.mode === "live";
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
   const ownRow = (standings || []).find(row => row.player === me);
@@ -190,7 +247,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
       {ownRow && !leaders.some(row => row.player === me) && <OwnFinish row={ownRow} me={me} />}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
-    </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
+    </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
 
     {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
 
@@ -208,7 +265,11 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
     </section>}
 
     <section className="fd-home-leaderboard" aria-label="Leaderboard">
-      <SectionHeading title="Leaderboard" action={<button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button>} />
+      {/* your exposure sits beside the one standings route; your bar draws it */}
+      <SectionHeading title="Leaderboard" action={<span className="fd-home-board-actions">
+        {exposed && !!model.standing.atRisk && <button type="button" className="fd-home-exposure" onClick={onBets}>{fmt(model.standing.atRisk)} in bets ↗</button>}
+        {exposed && !!model.standing.duelAntes && <span className="fd-home-exposure">{fmt(model.standing.duelAntes)} in duels</span>}
+        <button type="button" onClick={onStandings} className="fd-home-text-link">Standings <Arrow /></button></span>} />
       {sinceText && <div className="fd-home-since">
         <button type="button" onClick={() => onSince?.(sinceRoute)} aria-label={`${sinceDetail}. ${
           sinceRoute?.type === "event" ? "Open the event" : sinceRoute?.type === "settled" ? "View settled bets" : "View standings"}`}>
@@ -216,11 +277,8 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         {onSinceDismiss && <button type="button" className="fd-home-since-dismiss" onClick={onSinceDismiss}
           aria-label="Dismiss">✕</button>}
       </div>}
-      {!!model.standing?.exposure && !finale && !complete && <div className="fd-home-exposure">
-        {!!model.standing.atRisk && <button type="button" onClick={onBets}>{fmt(model.standing.atRisk)} in bets ↗</button>}
-        {!!model.standing.duelAntes && <span>{fmt(model.standing.duelAntes)} in duels</span>}
-      </div>}
       <Leaderboard state={state} standings={standings} me={me} onPlayer={onPlayer} starting={before} deltas={deltas}
+        StatPills={StatPills} myAtRisk={model.standing?.atRisk || 0}
         scoreLabel={finale ? "STARTING CHIPS" : undefined} ariaLabel={finale ? "Poker starting stacks" : undefined} />
     </section>
 

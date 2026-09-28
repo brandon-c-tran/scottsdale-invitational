@@ -1573,7 +1573,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       <main id="fd-main" className="fd-main" style={{
         paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 0,
         paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
-        {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark}
+        {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark} StatPills={StatPills}
           onEvents={() => setTab("sched")}
           onOpen={ev => setModal({type:"event", ev})}
           onRules={ev => setModal({type:"howto", ev})} onBracket={ev => setModal({type:"bracket", ev})}

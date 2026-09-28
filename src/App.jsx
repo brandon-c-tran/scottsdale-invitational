@@ -14,7 +14,7 @@ import { deriveHomeModel } from "./features/home/homeModel.js";
 import { guestLedger, summarizeUpdate, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
-import { filterRevealCandidates } from "./features/weekend/drawReveal.js";
+import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
@@ -459,6 +459,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
     (state.draws?.[intro] && !seenReveals.includes(state.draws[intro].id)) ||
     (state.stages?.[intro] && !seenReveals.includes(state.stages[intro].id))
   );
+  /* a device that hears the announcement after the room's intro is over
+     goes straight to the draw instead of flashing the intro */
+  const shownIntro = introHasQueuedReveal && state.eventOps?.[intro]?.announcedAt
+    && introRemainingMs(state, intro, { now:serverNow(), reducedMotion:prefersReducedMotion() }) <= 0 ? null : intro;
 
   /* chip: a roster name puts that player's claimed chip and number on the
      toast; without one the FD mark carries it. Kills the inbox-notif look. */
@@ -647,7 +651,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* A Quick Draw run in progress (Steady or the flash) holds every
      announcement and draw ceremony until the tap lands or the run is left. */
   const [duelHold, setDuelHold] = useState(false);
-  const INTRO_HOLD = prefersReducedMotion() ? 650 : 2800;
   const introAt = useRef(0);
   const prevOnDeck = useRef("UNSET");
   // An atomic draw + announcement reaches both effects in the same render.
@@ -690,9 +693,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
       /* A solo announcement owns the screen until it closes. Only a reveal
          for that same event is allowed to continue this ceremony. */
       if (next.evId !== intro) return;
-      /* let the announcement have its beat, then step aside for the teams */
-      const t = setTimeout(() => setIntro(null),
-        Math.max(0, INTRO_HOLD - (Date.now() - introAt.current)));
+      /* let the announcement have its beat, then step aside for the teams
+         at the room's shared handoff (server-anchored; see drawReveal.js) */
+      const t = setTimeout(() => setIntro(null), introRemainingMs(state, intro, { now:serverNow(),
+        localStart:introAt.current, reducedMotion:prefersReducedMotion() }));
       return () => clearTimeout(t);
     }
     setReveal(next);
@@ -1522,7 +1526,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
           EventSpotlight={EventSpotlight}
-          ceremony={tvCeremonyHold ? null : { intro, handoff:introHasQueuedReveal, reveal,
+          ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
           onExit={() => setTv(false)} />
         <Confetti burst={burst} />
@@ -2019,15 +2023,15 @@ function TournamentApp({ tournament, onUpdateReload }) {
           {toast.action && <button type="button" className="fd-toast-action" onClick={toast.action.fn}>{toast.action.label}</button>}
         </div>
       )}
-      {intro && onboardStep >= 99 && !duelHold && (() => {
-        const iev = events.find(e => e.id === intro);
+      {shownIntro && onboardStep >= 99 && !duelHold && (() => {
+        const iev = events.find(e => e.id === shownIntro);
         return iev && !state.results[iev.id] ? (
           <EventIntro state={state} ev={iev} handoff={introHasQueuedReveal} onClose={() => setIntro(null)}
             onBets={!introHasQueuedReveal && state.onDeck === iev.id
               ? () => { setIntro(null); setModal(null); setTab("bets"); } : null} />
         ) : null;
       })()}
-      {reveal && !duelHold && <Reveal key={reveal.id} state={state} reveal={reveal} onClose={closeReveal}
+      {reveal && !duelHold && <Reveal key={reveal.id} state={state} reveal={reveal} me={me} onClose={closeReveal}
         onPlayer={p => {
           const ev = events.find(event => event.id === reveal.evId);
           closeReveal();
@@ -2045,7 +2049,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
    with the game's own moment. The TV draws its own inside the canvas. */
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
   return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets}
-    holdMs={prefersReducedMotion() ? 650 : 2800} visual={<GameMoment gameId={ev.game}/>}/>;
+    holdMs={prefersReducedMotion() ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS} visual={<GameMoment gameId={ev.game}/>}/>;
 }
 
 /* ─────────── shell ─────────── */
@@ -4848,9 +4852,9 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
   );
 }
 
-/* the draw on a phone; the TV draws its own inside the canvas */
-function Reveal({ state, reveal, onClose, onBets, onPlayer }) {
-  return <DrawAnnouncement state={state} reveal={reveal} onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;
+/* the draw on a phone, on the room's clock; the TV draws its own inside the canvas */
+function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
+  return <DrawAnnouncement state={state} reveal={reveal} me={me} synced onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;
 }
 
 /* ─────────── rules ─────────── */

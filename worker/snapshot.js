@@ -1,3 +1,5 @@
+import { isMomentStorageKey } from "./moments.js";
+
 const SNAPSHOT_FORMAT = "field-day-snapshot";
 const SNAPSHOT_VERSION = 1;
 /* v5-v7 snapshots remain importable; hydration adds current metadata maps. */
@@ -20,6 +22,9 @@ function isPortableStorageKey(key) {
     && key.length <= 256
     && key !== "gmToken"
     && !key.startsWith("private:")
+    /* photo desk photos have their own export (worker/moments.js): a
+       weekend of them would outgrow this one JSON body and every backup */
+    && !isMomentStorageKey(key)
     && !INTERNAL_BACKUP_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 

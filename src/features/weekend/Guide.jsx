@@ -5,12 +5,13 @@ import { VenueCard, FlightPass } from "../travel/Travel.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
 import { isStandalone } from "../check-in/install.js";
 import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
+import { PhotoDesk } from "../photos/PhotoDesk.jsx";
 import "./weekend.css";
 
 const format = value => Number(value).toLocaleString("en-US");
 const AWARD_NAMES = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
   "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
-const SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"]];
+const SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"], ["photos", "Photos"]];
 
 function Rule({ number, title, meta, children }) {
   return <details className="fd-weekend-rule">
@@ -21,7 +22,8 @@ function Rule({ number, title, meta, children }) {
   </details>;
 }
 
-export function Guide({ events, state, me, onProfile, section: controlledSection, onSection, GameMark, HowToSheet }) {
+export function Guide({ events, state, me, gm = false, onProfile, onPlayer = null, section: controlledSection, onSection,
+  GameMark, HowToSheet }) {
   const [localSection, setLocalSection] = useState("trip");
   const section = controlledSection ?? localSection;
   const setSection = next => { setLocalSection(next); onSection?.(next); };
@@ -145,6 +147,9 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
           </button>;
         })}</div>
       </section>
+    </div>
+    <div id="fd-weekend-panel-photos" role="tabpanel" aria-labelledby="fd-weekend-tab-photos" hidden={section !== "photos"}>
+      {section === "photos" && <PhotoDesk state={state || {}} me={me} gm={gm} onPlayer={onPlayer} />}
     </div>
     {howToEv && HowToSheet && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
   </div>;

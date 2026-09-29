@@ -1,0 +1,19 @@
+/* D11 photo desk on the TV: an ambient turn, full width under the masthead.
+   Canvas pixels; text 24px and up. Each layer is opaque (its own backdrop)
+   and fades in over the last one on the story fade (motion.css), so a
+   portrait over a landscape is still one clean crossfade. An animation, not
+   a transition: a cached photo is ready before the first paint. Reduced
+   motion cuts (shell.css drops every animation). */
+@keyframes tv-photo-in { from { opacity:0; } to { opacity:1; } }
+.tv-photos { position:absolute; inset:0; overflow:hidden; background:var(--night-deep); animation:si-fade .5s ease-out; }
+.tv-photo-layer { position:absolute; inset:0; opacity:0; background:var(--night-deep); }
+.tv-photo-layer.is-shown { opacity:1; animation:tv-photo-in var(--motion-story) var(--ease-out) both; }
+.tv-photo-layer.is-under { opacity:1; }
+.tv-photo-layer img { display:block; width:100%; height:100%; }
+.tv-photo-layer.is-cover img { object-fit:cover; }
+.tv-photo-layer.is-contain img { object-fit:contain; }
+.tv-photo-caption { position:absolute; left:56px; bottom:28px; display:flex; align-items:center; gap:16px;
+  padding:10px 28px 10px 10px; border-radius:99px; background:var(--chrome); border:1px solid var(--line);
+  box-shadow:var(--shadow-2); opacity:0; }
+.tv-photo-caption.is-shown { opacity:1; animation:tv-photo-in var(--motion-story) var(--ease-out) both; }
+.tv-photo-name { font:700 34px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }

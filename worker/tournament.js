@@ -47,6 +47,7 @@ import {
 } from "./spotify.js";
 import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
 import { alertsFor } from "./pushAlerts.js";
+import { MomentDesk } from "./moments.js";
 
 const tokenEncoder = new TextEncoder();
 /* The Durable Object value limit is 2 MB; warn well before it. */
@@ -113,6 +114,13 @@ export class Tournament {
     this.bootId = crypto.randomUUID();
     this.appliedActions = new Map();
     this.socketFallback = new WeakMap();
+    /* D11: the photo desk keeps its own keys, outside "state" */
+    this.momentDesk = new MomentDesk({
+      storage:ctx.storage,
+      playerFor:device => isActivePlayer(this.claims?.[device]) ? this.claims[device] : null,
+      isGmToken:async token => !!await this.gmTokenId(token),
+      onChange:() => this.broadcastState("moments"),
+    });
     ctx.blockConcurrencyWhile(async () => this.hydrateFromStorage());
   }
 
@@ -161,6 +169,13 @@ export class Tournament {
     this.gmToken = (await this.ctx.storage.get("gmToken")) || null;
     this.gmTokens = (await this.ctx.storage.get(GM_TOKENS_KEY)) || {};
     this.claims = (await this.ctx.storage.get("claims")) || {}; // deviceId -> player
+    await this.momentDesk.load();
+  }
+
+  /* every frame's state: the tournament projection plus the photo desk's
+     public records (worker/publicState.js) */
+  serializer() {
+    return createStateSerializer(this.state, { moments:this.momentDesk?.index });
   }
 
   /* the id of the commissioner token presented, or null */
@@ -220,6 +235,8 @@ export class Tournament {
 
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
     if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
+    if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
+      return this.momentDesk.handle(req, url);
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
@@ -798,6 +815,12 @@ export class Tournament {
       }});
     }
 
+    /* the photo desk's own export (not part of a portable snapshot) */
+    if (url.pathname === "/api/admin/moments" && req.method === "GET")
+      return Response.json(this.momentDesk.adminIndex(), { headers:{ "Cache-Control":"no-store" } });
+    if (url.pathname.startsWith("/api/admin/moments/") && req.method === "GET")
+      return this.momentDesk.read(req, url.pathname.split("/").pop(), false, { admin:true });
+
     if (url.pathname === "/api/admin/snapshot/validate" && req.method === "POST") {
       let snapshot;
       try { snapshot = await this.readBoundedJson(req); }
@@ -942,7 +965,7 @@ export class Tournament {
   }
 
   sendState(ws, extra = {}) {
-    try { ws.send(this.stateFrame(ws, createStateSerializer(this.state), extra)); } catch {}
+    try { ws.send(this.stateFrame(ws, this.serializer(), extra)); } catch {}
   }
 
   async webSocketMessage(ws, raw) {
@@ -1036,7 +1059,7 @@ export class Tournament {
         this.claims = nextClaims;
         /* The claim changes what this device may see (its own ratings and
            travel answers), so its sockets get their view before the ack. */
-        const serialize = createStateSerializer(this.state);
+        const serialize = this.serializer();
         for (const socket of this.ctx.getWebSockets?.() || []) {
           if (this.socketMeta(socket).deviceId !== deviceId) continue;
           try { socket.send(this.stateFrame(socket, serialize)); } catch {}
@@ -1107,7 +1130,7 @@ export class Tournament {
        the new board first (a resolved dispatch has always meant the state
        it produced is already on screen), then the ack, then every other
        socket. Each frame carries the applied id. */
-    const serialize = createStateSerializer(this.state);
+    const serialize = this.serializer();
     const shared = { environment:this.environment, capabilities:this.capabilities };
     try { ws.send(this.stateFrame(ws, serialize, { lastAction:type }, shared)); } catch {}
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
@@ -1280,7 +1303,7 @@ export class Tournament {
      same viewer share one serialized state; only the small frame head is
      per socket. */
   broadcastState(lastAction, {
-    serialize = createStateSerializer(this.state),
+    serialize = this.serializer(),
     shared = { environment:this.environment, capabilities:this.capabilities },
     skip = null,
   } = {}) {

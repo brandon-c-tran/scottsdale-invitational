@@ -43,6 +43,8 @@ import { useServerNow } from "./serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
 import { useRoomSound } from "./roomSound.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
+import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
+import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -725,7 +727,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   useEffect(() => () => { if (typeof window !== "undefined") window.__FD_CEREMONY__ = false; }, []);
 
   const board = useMemo(() => duelBoard(state), [state]);
-  const ambient = useMemo(() => {
+  /* D11: photos take ambient turns only in a real gap */
+  const photos = useMemo(() => tvPhotoRotation(state), [state.moments]); // eslint-disable-line react-hooks/exhaustive-deps
+  const photoGap = tvPhotoGap({ loading:connection.mode === "loading", final, directed, result:!!resultModel,
+    poker:!!state.poker && !state.results?.[state.poker.id], draft:!!draftLive, live:!!liveEv,
+    intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff });
+  const ambientCards = useMemo(() => {
     const s = ["board"];
     if (final) return s;
     if (joinNeeded && qrUrl) s.push("join");
@@ -739,6 +746,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     if (Object.keys(state.profiles || {}).length) s.push("spotlight");
     return s;
   }, [final, joinNeeded, qrUrl, nextEv, latest, openBook.length, state.live, allTied, board.recent.length, state.profiles]);
+  const ambient = photoGap ? withPhotoTurns(ambientCards, photos.length) : ambientCards;
   /* server time picks the card, so every TV in the house shows the same one;
      reduced motion still rotates, it just cuts instead of fading */
   const scene = ambient[ambientIndex(ambient.length, now)] || "board";
@@ -839,6 +847,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
         <div className="tv-display" style={{ fontSize:28, color:"var(--ink0)", marginTop:10 }}>Player check-in</div>
       </div>
     </div>;
+  } else if (scene === "photos" && photos.length) {
+    content = <TVPhotoCard state={state} list={photos} now={now} />;
   } else if (scene === "next" && nextEv) {
     content = <NextUpCard ev={nextEv} />;
   } else if (scene === "latest" && latest) {

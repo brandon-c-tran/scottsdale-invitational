@@ -270,7 +270,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   });
   const [weekendSection, setWeekendSection] = useState(() => {
     const saved = sessionRead("fd-weekend-section");
-    return ["trip", "rules", "games"].includes(saved) ? saved : "trip";
+    return ["trip", "rules", "games", "photos"].includes(saved) ? saved : "trip";
   });
   useEffect(() => { sessionWrite("fd-tab", tab); }, [tab]);
   useEffect(() => { sessionWrite("fd-weekend-section", weekendSection); }, [weekendSection]);
@@ -1478,7 +1478,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             return failed || { ok:true };
           }} />}
         {tab === "bets" && gmView && <DuelDesk state={state} onVoid={voidDuel} onVoidAll={voidOpenDuels} />}
-        {tab === "guide" && <Guide events={events} state={state} me={me}
+        {tab === "guide" && <Guide events={events} state={state} me={me} gm={gmView}
           section={weekendSection} onSection={setWeekendSection}
           onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
           GameMark={GameMark} HowToSheet={HowToSheet} />}

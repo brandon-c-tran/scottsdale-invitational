@@ -38,9 +38,22 @@ The app currently uses the Durable Object KV API:
   subscription, keyed by device id; the player is the device's claim at send
   time) and `private:push:sent` (which alerts already went out, for dedupe)
 
+- the photo desk (D11, `worker/moments.js`): `moment:index` (one small
+  record per photo: id, author player id, times, size, hidden flag; never a
+  device id), `moment:full:<id>` (the re-encoded JPEG, EXIF stripped, at most
+  1.5 MB) and `moment:thumb:<id>` (its grid thumbnail). Hard caps: 200
+  photos, 150 MB, 40 per player, 12 uploads a minute per player
+
 Snapshot export enumerates storage so future portable keys are included.
-`gmToken`, all `private:*` integration records, and internal
-`m1:pre-restore:*` keys are deliberately excluded.
+`gmToken`, all `private:*` integration records, internal
+`m1:pre-restore:*` keys, and every `moment:*` key are deliberately excluded.
+
+The photo desk is excluded because a portable snapshot is one JSON body
+capped at 8 MB and 256 entries, and every restore, reset or QA rewind copies
+every portable key into an internal backup in one transaction: a weekend of
+photos would break both. Photos therefore survive a restore, a game-progress
+reset and a QA rewind untouched, cannot be imported from a snapshot, and are
+kept by their own export (below).
 
 Cloudflare SQLite-backed Durable Objects also support point-in-time recovery
 for the embedded database, including KV data. PITR is a secondary emergency
@@ -165,6 +178,27 @@ Validation must fail for:
 - invalid metadata
 - a referenced photo missing from entries
 - a payload over configured bounds
+
+## Photo desk export
+
+The weekend's photos are not in a portable snapshot. Export them into a new
+folder (never the repository), with the same authentication as a snapshot:
+
+```powershell
+npm.cmd run moments:export -- --url http://127.0.0.1:5173 --out .\snapshots\moments-local
+```
+
+Production needs the same approval and flag as a production snapshot:
+
+```powershell
+npm.cmd run moments:export -- --url https://fielddayseries.com --out .\snapshots\moments-YYYYMMDD-HHMM --confirm production-export
+```
+
+The folder gets every photo as `<id>.jpg` (hidden ones included) and
+`moments.json` with each record (author player id, times, size). It never
+overwrites a file. Take one after the weekend, before any cleanup, and treat
+it like a snapshot: private, outside the repository. Deleting a photo in the
+app removes its bytes; the export is the only copy after that.
 
 ## Non-production restore rehearsal
 

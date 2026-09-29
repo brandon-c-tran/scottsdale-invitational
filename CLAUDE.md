@@ -536,7 +536,19 @@ no specific question, poll, or new endpoint has been implemented yet.
    and commissioner mode is unlocked. Reset requires the exact confirmation
    payload and creates one rotating internal pre-reset backup before the clean
    state is published. Production import, restore, and internal-backup recovery
-   remain hard disabled.
+   remain hard disabled. QA fast-forward (`qaAdvance`, worker/qa.js, targets in
+   shared/qa.js: `locker`, `event:<id>:open|mid|done`, `session:<id>`,
+   `poker:set|live|counted`, `crowned`, `step`, `finish`) reaches a point in ONE
+   write by running the real reducers on the working copy with synthetic
+   player contexts; seeded, no scenes, no Spotify, never fills a touched
+   profile and fills none in production. QA checkpoints live in private
+   `private:qa:*` keys (never in snapshots, backups or frames); `qaRestore`
+   replaces only the game-progress keys a reset clears. Both need the qa
+   capability plus a commissioner token, a rewind or restore also needs
+   progressReset, both make the rotating pre-reset backup, production always
+   needs the reset confirmation (anywhere, discarding results or bets does),
+   and live poker cards need `confirmPokerLive`. The console is
+   `src/features/qa/`; the slow live driver stays as "Play it live".
 12. **Show Control is recoverable presentation state, not tournament truth.**
    State schema `v:8` introduced `showControl`. Its active scene and step are
    persisted by the Durable Object, so every TV reconstructs after refresh or
@@ -583,6 +595,10 @@ no specific question, poll, or new endpoint has been implemented yet.
 - `npm run test:e2e` - full game loop over two local WebSocket clients (dev
   server must be running; production URLs are rejected; resets local state)
 - `npm run snapshot:validate -- <file>` - offline, read-only snapshot validation
+- QA console (commissioner, QA mode): "Jump to" any event's Open/Mid/Done, a
+  session's end, the poker stages or Crowned in one write (crowned from empty
+  runs in well under 100 ms); "Sim contest" and "Finish event" step the
+  current event; checkpoints save and restore game progress.
 - `/dev/contest-preview.html` - local development rehearsal using actual
   Wagers, ContestPanel, player cards, and `applyAction` against sample state in
   memory. Includes FFA, a six-team bracket, two-through heats plus final, and

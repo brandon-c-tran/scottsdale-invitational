@@ -14,6 +14,7 @@ import {
 import { checkInComplete } from "../shared/checkin.js";
 import { BUILD_ID } from "../shared/build.js";
 import { applyAction } from "./actions.js";
+import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
 import { createStateSerializer } from "./publicState.js";
 import { WAGER_OPS_KEY, hydrateStoredState, splitStoredState } from "./state.js";
 import {
@@ -60,6 +61,14 @@ const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
 /* the weekend speaker: chosen once in Audio Director, sent with every cue */
 const SPOTIFY_DEVICE_KEY = "private:spotify:device";
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
+/* QA checkpoints: named game-progress saves, private (never in a snapshot,
+   a backup, or any frame). An index plus one key per checkpoint, so no
+   value approaches the per-value limit. */
+const QA_CHECKPOINT_INDEX_KEY = "private:qa:checkpoints";
+const QA_CHECKPOINT_PREFIX = "private:qa:checkpoint:";
+const QA_CHECKPOINT_ID = /^cp[a-z0-9]{6,40}$/;
+/* writes that replace game progress keep one rotating pre-reset backup */
+const RESET_BACKUP_ACTIONS = new Set(["resetTournament", "qaAdvance", "qaRestore"]);
 const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 const SPOTIFY_SEARCH_LIMIT = 12;
 const spotifyJson = (body, status = 200) => Response.json(body, {
@@ -911,6 +920,12 @@ export class Tournament {
       meta = this.setSocketMeta(ws, { ...meta, gm:isGm, gmId });
       viewChanged = !meta.tv;
     }
+    if (type === "qaCheckpoints" || type === "qaCheckpointSave" || type === "qaCheckpointDelete") {
+      if (viewChanged) this.sendState(ws);
+      return reply(await this.qaCheckpointCommand(type, payload, isGm));
+    }
+    const qaCheckpoint = type === "qaRestore" && isGm && this.capabilities.qa
+      ? await this.qaCheckpointBody(payload?.id) : null;
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
@@ -921,6 +936,8 @@ export class Tournament {
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
+      qa:this.capabilities.qa,
+      ...(qaCheckpoint ? { qaCheckpoint } : {}),
     });
     if (!result.ok) {
       if (viewChanged) this.sendState(ws);
@@ -937,7 +954,7 @@ export class Tournament {
     let persisted;
     try {
       persisted = await this.persist(nextState, {
-        backupPrefix:type === "resetTournament" ? INTERNAL_RESET_BACKUP_PREFIX : null,
+        backupPrefix:RESET_BACKUP_ACTIONS.has(type) ? INTERNAL_RESET_BACKUP_PREFIX : null,
       });
     } catch (error) {
       console.error(JSON.stringify({ event:"persist-failed", action:type,
@@ -956,6 +973,53 @@ export class Tournament {
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
+  }
+
+  /* ── QA checkpoints (commissioner, QA capability) ──
+     Saving and deleting never touch the tournament, so nothing broadcasts;
+     restoring is the qaRestore action, one write like any other. */
+  async qaCheckpointIndex() {
+    const list = await this.ctx.storage.get(QA_CHECKPOINT_INDEX_KEY);
+    return Array.isArray(list) ? list.filter(item => QA_CHECKPOINT_ID.test(item?.id || "")) : [];
+  }
+
+  async qaCheckpointBody(id) {
+    if (typeof id !== "string" || !QA_CHECKPOINT_ID.test(id)) return null;
+    return (await this.ctx.storage.get(`${QA_CHECKPOINT_PREFIX}${id}`)) || null;
+  }
+
+  async qaCheckpointCommand(type, payload, isGm) {
+    if (!isGm) return { ok:false, error:"Commissioner only" };
+    if (!this.capabilities.qa) return { ok:false, error:"QA is unavailable" };
+    let list = await this.qaCheckpointIndex();
+    if (type === "qaCheckpointSave") {
+      if (list.length >= QA_CHECKPOINT_LIMIT)
+        return { ok:false, error:`${QA_CHECKPOINT_LIMIT} saved. Delete one first` };
+      const now = Date.now();
+      const summary = qaCheckpointSummary(this.state);
+      const meta = {
+        id:`cp${now.toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`,
+        name:cleanCheckpointName(payload?.name) || summary.label,
+        savedAt:now,
+        v:this.state.v,
+        version:this.version,
+        summary,
+      };
+      list = [meta, ...list];
+      await this.ctx.storage.put({
+        [`${QA_CHECKPOINT_PREFIX}${meta.id}`]:{ ...meta, progress:qaProgressOf(this.state) },
+        [QA_CHECKPOINT_INDEX_KEY]:list,
+      });
+      return { ok:true, extra:{ checkpoints:list, saved:meta.id } };
+    }
+    if (type === "qaCheckpointDelete") {
+      const id = typeof payload?.id === "string" ? payload.id : "";
+      if (!list.some(item => item.id === id)) return { ok:true, extra:{ checkpoints:list, unchanged:true } };
+      list = list.filter(item => item.id !== id);
+      await this.ctx.storage.put(QA_CHECKPOINT_INDEX_KEY, list);
+      await this.ctx.storage.delete(`${QA_CHECKPOINT_PREFIX}${id}`);
+    }
+    return { ok:true, extra:{ checkpoints:list } };
   }
 
   async persistAndBroadcast(lastAction, nextState = this.state, options = {}) {

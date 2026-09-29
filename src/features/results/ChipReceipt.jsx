@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { MOTION, fly, useCountBetween, useReducedMotion } from "../../lib/motion.js";
-import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, signedAmount } from "./resultMoment.js";
+import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, receiptDockStyle, signedAmount } from "./resultMoment.js";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
@@ -48,6 +48,19 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
     });
     return () => timers.forEach(clearTimeout);
   }, [moment?.id, version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* dock against the chrome actually on screen: below the header (which
+     grows with the staging bar), or above the Bets rack when it shows */
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof document === "undefined") return;
+    const header = document.querySelector(".fd-header")?.getBoundingClientRect();
+    const rack = document.querySelector(".fd-wagers-rack")?.getBoundingClientRect();
+    const place = receiptDockStyle({ dock, headerBottom:header?.bottom ?? null,
+      rackTop:rack && rack.height ? rack.top : null, viewportHeight:window.innerHeight });
+    el.style.top = place?.top || "";
+    el.style.bottom = place?.bottom || "";
+  }, [dock, moment?.id, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* it leaves after it has been read; a new line restarts the clock */
   const hold = RECEIPT_HOLD_MS + countDelay;

@@ -14,7 +14,7 @@ import {
   STACK_CAP, decidedContest, faceRect, groupStacks, hoverRect, orderStacks, rackTargetFor,
   stackChipCount, stacksTotal, settledStacks,
 } from "./betStacks.js";
-import { EASE, MOTION, fly, flightTarget, prefersReducedMotion, useFlightTarget, useFreshChange, useMotionFrame } from "../../lib/motion.js";
+import { EASE, MOTION, fly, flightTarget, prefersReducedMotion, useFlightTarget, useFreshChange, useMotionFrame, useStageHold } from "../../lib/motion.js";
 import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 import { WinLine } from "../standings/WinLine.jsx";
 import "./wagers.css";
@@ -301,6 +301,8 @@ function RackChip({ value, me, disabled, selected, onClick }) {
 const HOME_FLIGHT_AT = 1300;
 function HeldBoard({ state, me, held, view, onSkip }) {
   const mineRef = useRef(null);
+  /* the chips-moved receipt waits until this board has said it */
+  useStageHold(`bets:held:${held.id}`, true);
   const paid = (view.sides.find(side => side.won)?.stacks || [])
     .filter(item => item.player === me).reduce((sum, item) => sum + item.paid, 0);
   useEffect(() => {

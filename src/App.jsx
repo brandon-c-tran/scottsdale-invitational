@@ -32,9 +32,9 @@ import { InstallHint } from "./features/check-in/InstallHint.jsx";
 import { TVMode } from "./features/tv/TVMode.jsx";
 import { nextOpenMatch, cueCandidates, cuePlayingUntil, tvSceneView } from "./features/tv/tvModel.js";
 import { serverNow, useServerClockSync } from "./lib/serverClock.js";
-import { MotionRoot } from "./lib/motion.js";
+import { MotionRoot, useStageHeld } from "./lib/motion.js";
 import { currentFrame } from "./lib/frameGate.js";
-import { chipSnapshot, freshContestWins, mergeMoments, resultMoment } from "./features/results/resultMoment.js";
+import { chipSnapshot, freshContestWins, mergeMoments, receiptDock, resultMoment } from "./features/results/resultMoment.js";
 import { ChipReceipt } from "./features/results/ChipReceipt.jsx";
 import { ChipShower } from "./features/results/ChipShower.jsx";
 import { LastCardLayer } from "./features/results/LastCard.jsx";
@@ -626,6 +626,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (buzz) haptic(buzz);
   }, [state, standings, events, me, ready, onboardStep, notify]); // eslint-disable-line react-hooks/exhaustive-deps
   /* X5: the crown plays once per phone, then Home reopens the last card */
+  /* a board settling a contest in place plays first; the receipt follows */
+  const stageHeld = useStageHeld();
   const lastCard = useCrownMoment({ state, standings, me, ready, active:!tv && onboardStep >= 99 });
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it
@@ -758,6 +760,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const draftNudge = useRef("");
   useEffect(() => {
     if (!me || !ready) return;
+    /* a nudge for a turn that has passed (picked for them, or the draft
+       closed) leaves with it */
+    const retire = () => setToast(t => t?.draftTurn ? null : t);
     for (const [eid, d] of Object.entries(state.drafts || {})) {
       if (!d?.pool?.length) continue;
       const cur = d.teams[snakeTeam(d.picks.length, d.teams.length)]?.captain;
@@ -766,11 +771,19 @@ function TournamentApp({ tournament, onUpdateReload }) {
       if (draftNudge.current === key) return;
       draftNudge.current = key;
       const draftEvent = events.find(e => e.id === eid);
+      /* the open draft already says "Your pick": the tick is enough */
+      if (modalRef.current?.type === "draft" && modalRef.current.ev?.id === eid) {
+        retire();
+        if (!tv) haptic("pick");
+        return;
+      }
       notify(`Your pick · ${draftEvent?.name || "Draft"}`, draftEvent
         ? { label:"Open draft", fn:() => { setModal({type:"draft",ev:draftEvent}); setToast(null); } } : null, "gold", me);
+      setToast(t => t && t.msg === `Your pick · ${draftEvent?.name || "Draft"}` ? { ...t, draftTurn:key } : t);
       if (!tv) haptic("pick");
       return;
     }
+    retire();
   }, [state.drafts, me, events, ready]); // eslint-disable-line
 
   /* a drafted player hears it from the captain who picked them, once */
@@ -2059,8 +2072,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setModal(null); setTab("bets"); } : null} />}
-      {moment && <ChipReceipt moment={moment} onDismiss={() => setMoment(null)}
-        dock={tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? "top" : "bottom"}
+      {moment && !stageHeld && <ChipReceipt moment={moment} onDismiss={() => setMoment(null)}
+        dock={receiptDock({ tab, modal })}
         onStandings={() => { setMoment(null); setModal({ type:"standings" }); }}
         onSettled={() => { setMoment(null); setModal(null); setSettledOpen(true); setTab("bets"); }} />}
       <ChipShower burst={shower} p={me} />

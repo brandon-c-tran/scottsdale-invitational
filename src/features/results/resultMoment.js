@@ -153,6 +153,12 @@ export function resultMoment({ prev, next, prevState, state, events = allEventsO
     const was = prev.wagers[id];
     return was && was.status !== "pending" && was.status !== now.status;
   });
+  /* a settled bet that went back to pending or flipped outcome was moved by
+     a corrected contest, not voided: only a bet that became void is one */
+  const settledMoved = Object.entries(next.wagers).some(([id, now]) => {
+    const was = prev.wagers[id];
+    return was && was.status !== "pending" && was.status !== now.status && now.status !== "void";
+  });
   const rulingRemoved = Object.keys(prev.rulings).some(id => !next.rulings[id]);
   const correction = !!frame?.correction || rewound || wagerRewound || rulingRemoved;
   const delta = next.pts - prev.pts;
@@ -164,7 +170,7 @@ export function resultMoment({ prev, next, prevState, state, events = allEventsO
 
   if (correction) {
     const cause = rulingRemoved && !rewound && !wagerRewound ? "Ruling removed"
-      : !rewound && (wagerRewound || voided) ? "Bet voided" : "Result corrected";
+      : !rewound && !settledMoved && (wagerRewound || voided) ? "Bet voided" : "Result corrected";
     if (delta) return { kind:"notice", delta, text:`${cause}: ${signedAmount(delta)}` };
     if (voided) return { kind:"notice", delta:0, text:`Bet voided: ${fmt(voided)} returned` };
     return null;
@@ -269,6 +275,26 @@ export function rankMove(from, to) {
   if (!from || !to || !moved) return null;
   const n = Math.abs(moved);
   return { up:moved > 0, text:`${moved > 0 ? "▲" : "▼"} ${n} ${n === 1 ? "place" : "places"}` };
+}
+
+/* Where the receipt docks. On Home it sits under the header so the
+   leaderboard it just moved stays in view (the leaderboard is never covered
+   on Home); everywhere else it rises from the bottom, above the Bets rack
+   when one is showing, so a sheet's header and the next contest's sides
+   stay clear. */
+export function receiptDock({ tab, modal = null } = {}) {
+  return tab === "board" && !modal ? "top" : "bottom";
+}
+/* The docked card's offset from measured chrome: under the header's bottom
+   edge, or above the rack's top edge. Null keeps the stylesheet default. */
+export const RECEIPT_GAP = 8;
+export function receiptDockStyle({ dock, headerBottom = null, rackTop = null, viewportHeight = null } = {}) {
+  if (dock === "top" && Number.isFinite(headerBottom) && headerBottom > 0)
+    return { top:`${Math.round(headerBottom + RECEIPT_GAP)}px` };
+  if (dock === "bottom" && Number.isFinite(rackTop) && Number.isFinite(viewportHeight)
+      && rackTop > 0 && rackTop < viewportHeight)
+    return { bottom:`${Math.round(viewportHeight - rackTop + RECEIPT_GAP)}px` };
+  return null;
 }
 
 /* the receipt holds this long after its lines land, then leaves */

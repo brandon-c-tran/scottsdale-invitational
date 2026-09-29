@@ -378,7 +378,7 @@ function AdvanceMoment({ state, moment, slot = false }) {
   /* over a bracket, the card keeps to the contest's space so the bracket
      below can carry the winners forward */
   if (slot) return (
-    <div className="tv-advance is-slot" role="status">
+    <div className={`tv-advance is-slot${chips ? " has-settle" : ""}`} role="status">
       <div className="tv-advance-who">
         <div className="tv-label">{moment.round}</div>
         <div className="tv-advance-line">
@@ -487,7 +487,7 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
         <div className="tv-result-head">
           <GameMark id={model.game} size={96} />
           <div>
-            <div className="tv-label" style={{ color:"var(--sun)" }}>Final{model.kind === "stacks" ? " · final stacks" : ""}</div>
+            <div className="tv-label" style={{ color:"var(--sun)" }}>{model.kind === "stacks" ? "Final stacks" : "Final"}</div>
             <div className="tv-display tv-result-name">{model.eventName}</div>
           </div>
         </div>

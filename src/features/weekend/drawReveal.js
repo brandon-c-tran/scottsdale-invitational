@@ -68,7 +68,9 @@ export function buildEventReveal(state, ev, kind) {
       const a = resolveSlot(bracket, match.a), b = resolveSlot(bracket, match.b);
       if (a === null || b === null) return;
       seated.add(a); seated.add(b);
-      groups.push({ title:`${names[0] || "Round 1"}${bracket.rounds[0].length > 1 ? ` ${index + 1}` : ""}`,
+      /* numbered matches read singular: "Semifinal 1", like the contest labels */
+      const numbered = bracket.rounds[0].length > 1;
+      groups.push({ title:numbered ? `${String(names[0] || "Round").replace(/s$/, "")} ${index + 1}` : names[0] || "Round 1",
         vs:true, lines:[line(a), line(b)] });
     });
     const byes = draw.teams.map((_, index) => index).filter(index => !seated.has(index));

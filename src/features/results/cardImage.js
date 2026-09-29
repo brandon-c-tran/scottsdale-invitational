@@ -168,3 +168,25 @@ export async function shareCardImage(blob, name, nav = typeof navigator === "und
   }
   return "preview";
 }
+
+/* D7 "Save all cards": every card in one share sheet when the browser takes
+   several files ("shared"); else "each" when it takes one at a time (the
+   caller steps through them, one share per tap), else "preview" (press and
+   hold each image). A cancelled sheet is "cancelled". */
+export async function shareCardImages(blobs, names, nav = typeof navigator === "undefined" ? null : navigator) {
+  const files = [];
+  try {
+    (blobs || []).forEach((blob, index) => { if (blob) files.push(new File([blob], names[index], { type:"image/png" })); });
+  } catch { return "preview"; }
+  if (!files.length) return "preview";
+  try {
+    if (nav?.share && nav.canShare?.({ files })) {
+      await nav.share({ files });
+      return "shared";
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") return "cancelled";
+  }
+  try { if (nav?.share && nav.canShare?.({ files:[files[0]] })) return "each"; } catch {}
+  return "preview";
+}

@@ -172,6 +172,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   poster" draws the same composition (`results/posterImage.js`). The player card back is the
   season sheet and head-to-head (`features/profile/seasonStats.js`, pure,
   derived; Rematch only opens the duel send flow).
+- **The weekend, kept (D7) and Table view (D8):** once the board is frozen,
+  Weekend's first section is the edition (`EDITION.label`, `results/Keepsake.jsx`
+  on the pure `results/keepsake.js`): the champion, all 13 last cards (tap
+  opens one to save), the lead's path (`leadPath` replays every
+  `chipHistory` on one timeline), one plate per event with its final order
+  and its bracket, D6's awards when revealed ones exist in state
+  (`keptAwards`), and a `photos` slot. Derived from the frozen state, no
+  clock or live contest, so it outlives the weekend. The commissioner's
+  "Save all cards" shares 13 PNGs in one sheet, else one per tap, else
+  press and hold. During live poker a seated player still in gets "Table
+  view" on the table card (`poker/TableView.jsx`, pure `poker/tableView.js`):
+  level and blinds as large as the width allows, the clock, the dealt
+  stack; ticks land on the server second so the level turns (M17 roll) on
+  the stored boundary with the TV; Screen Wake Lock where the browser has
+  it, re-asked on return, released on Exit or when the table ends.
 
 ## Current redesign direction
 

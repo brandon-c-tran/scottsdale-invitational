@@ -4,6 +4,7 @@ import { CompetitionBracket } from "./features/weekend/CompetitionBracket.jsx";
 import { EventAnnouncement, DrawAnnouncement } from "./features/weekend/EventAnnouncement.jsx";
 import { DraftSheet, DraftEntry } from "./features/draft/DraftSheet.jsx";
 import { PokerBlinds, PokerSeatChips } from "./features/poker/PokerMotion.jsx";
+import { TableViewEntry } from "./features/poker/TableView.jsx";
 import { buildEventReveal, pendingReveal, revealReady } from "./features/weekend/drawReveal.js";
 import "./features/weekend/event-sheet.css";
 import { HomeDuels } from "./features/home/HomeDuels.jsx";
@@ -270,10 +271,11 @@ function TournamentApp({ tournament, onUpdateReload }) {
   });
   const [weekendSection, setWeekendSection] = useState(() => {
     const saved = sessionRead("fd-weekend-section");
-    return ["trip", "rules", "games"].includes(saved) ? saved : "trip";
+    /* none chosen: Weekend opens on Trip, or on the edition once frozen */
+    return ["kept", "trip", "rules", "games"].includes(saved) ? saved : null;
   });
   useEffect(() => { sessionWrite("fd-tab", tab); }, [tab]);
-  useEffect(() => { sessionWrite("fd-weekend-section", weekendSection); }, [weekendSection]);
+  useEffect(() => { if (weekendSection) sessionWrite("fd-weekend-section", weekendSection); }, [weekendSection]);
   const tabScroll = useRef({});
   const setTab = next => {
     if (next === tab) { window.scrollTo({ top:0, behavior:"instant" }); return; }
@@ -1481,6 +1483,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         {tab === "guide" && <Guide events={events} state={state} me={me}
           section={weekendSection} onSection={setWeekendSection}
           onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
+          standings={standings} gm={gmView} onBracket={ev => setModal({type:"bracket", ev})}
           GameMark={GameMark} HowToSheet={HowToSheet} />}
       </main>
 
@@ -2129,6 +2132,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
       </div>
 
       <div className="fd-seat-chips-row"><PokerSeatChips state={state} pk={pk} /></div>
+      <TableViewEntry state={state} me={me} />
       {/* your seat: bust yourself, count yourself. The GM never types for you. */}
       {notSeated}
       {me && !unseated && outIdx < 0 && (

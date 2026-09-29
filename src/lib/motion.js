@@ -33,6 +33,8 @@
      signedChips(n)                    "+400" / "−500"
      fly(from, to, options)            Promise<boolean>: a clone flies between rects
      registerFlightTarget(name, el), useFlightTarget(name), flightTarget(name)
+     holdStage(id), useStageHold(id, on), useStageHeld()
+                                       one in-place celebration at a time
      MotionRoot                        mounted once in App: flight layer + heartbeat
      alignHeartbeat()                  re-phase every beat to the server clock */
 
@@ -462,6 +464,45 @@ export function fly(from, to, options = {}) {
       });
     }, () => { done(); resolve(false); });
   }));
+}
+
+/* ── stage holds ──
+   A surface that plays a result in place (the Bets board holding a decided
+   contest) claims the stage while it plays, so a second celebration (the
+   chips-moved receipt) waits its turn instead of covering it. A hold is
+   presentation only: it never delays state, and every hold ends on its own
+   (MAX_STAGE_HOLD_MS) even if its owner never releases it. */
+export const MAX_STAGE_HOLD_MS = 6000;
+const stageHolds = new Map();
+const stageSubs = new Set();
+const stageNotify = () => stageSubs.forEach(fn => fn());
+export function holdStage(id, { now = Date.now(), maxMs = MAX_STAGE_HOLD_MS } = {}) {
+  if (!id) return () => {};
+  const token = {};
+  stageHolds.set(id, { token, until:now + maxMs });
+  stageNotify();
+  const timer = typeof setTimeout === "function" ? setTimeout(() => release(), maxMs) : 0;
+  timer?.unref?.();
+  function release() {
+    clearTimeout(timer);
+    if (stageHolds.get(id)?.token !== token) return;
+    stageHolds.delete(id);
+    stageNotify();
+  }
+  return release;
+}
+export function stageHeld(now = Date.now()) {
+  for (const [id, hold] of stageHolds) if (hold.until <= now) stageHolds.delete(id);
+  return stageHolds.size > 0;
+}
+const subscribeStage = fn => { stageSubs.add(fn); return () => stageSubs.delete(fn); };
+/* true while any surface holds the stage */
+export function useStageHeld() {
+  return useSyncExternalStore(subscribeStage, () => stageHeld(), () => false);
+}
+/* hold the stage under `id` while `active` is true */
+export function useStageHold(id, active) {
+  useEffect(() => active && id ? holdStage(id) : undefined, [id, active]);
 }
 
 /* ── heartbeat ──

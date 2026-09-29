@@ -62,6 +62,15 @@
 .tv-advance.is-slot .tv-advance-stamp { font-size:96px; }
 .tv-advance.is-slot .tv-advance-detail { font-size:30px; }
 .tv-advance.is-slot .tv-settle { margin-top:0; flex-shrink:0; }
+/* with the settled chips beside it, the winners' faces sit over their name
+   so a pair or team name keeps one line instead of wrapping word by word */
+.tv-advance.is-slot.has-settle { gap:32px; }
+.tv-advance.is-slot.has-settle .tv-advance-who { flex:1 1 440px; min-width:420px; }
+.tv-advance.is-slot.has-settle .tv-advance-line { flex-direction:column; align-items:flex-start; gap:10px; }
+.tv-advance.is-slot.has-settle .tv-advance-name { font-size:56px; max-width:100%; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.tv-advance.is-slot.has-settle .tv-advance-stamp { font-size:88px; }
+.tv-advance.is-slot.has-settle .tv-settle { flex-shrink:1; min-width:0; }
 
 /* ── the crown ── */
 .tv-canvas:has(.tv-crown) .tv-mast { z-index:2; }

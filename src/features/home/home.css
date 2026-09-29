@@ -69,8 +69,8 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
 .fd-home-betting small .fd-beat-dot { width:5px; height:5px; margin-right:6px; vertical-align:1px; color:var(--sun); }
 .fd-home-betting>span:last-child { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--sun); }
 .fd-home-result { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:6px 0; border-bottom:1px solid var(--line); }
-.fd-home-result-event { display:block; flex:1; min-width:0; min-height:44px; background:none; border:0; color:var(--ink); padding:4px 0; text-align:left; cursor:pointer; }
-.fd-home-result-event strong { display:block; font:600 19px/1.1 var(--fd-display); overflow-wrap:anywhere; }
+.fd-home-result-event { display:block; flex:1 1 150px; min-width:0; min-height:44px; background:none; border:0; color:var(--ink); padding:4px 0; text-align:left; cursor:pointer; }
+.fd-home-result-event strong { display:block; font:600 19px/1.1 var(--fd-display); overflow-wrap:break-word; text-wrap:balance; }
 .fd-home-result .fd-home-player-links { flex:0 1 auto; }
 .fd-home-result-award { font:600 22px/1 var(--fd-display); color:var(--sun); }
 .fd-home-upcoming .fd-section-heading { margin:22px 0 3px; }

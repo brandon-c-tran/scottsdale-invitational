@@ -954,7 +954,10 @@ export class Tournament {
     let persisted;
     try {
       persisted = await this.persist(nextState, {
-        backupPrefix:RESET_BACKUP_ACTIONS.has(type) ? INTERNAL_RESET_BACKUP_PREFIX : null,
+        /* a forward QA jump or Sim contest discards nothing, so only a rewind
+           (or a restore or reset) pays for the photo-sized backup */
+        backupPrefix:RESET_BACKUP_ACTIONS.has(type) && (type !== "qaAdvance" || result.extra?.rewound)
+          ? INTERNAL_RESET_BACKUP_PREFIX : null,
       });
     } catch (error) {
       console.error(JSON.stringify({ event:"persist-failed", action:type,

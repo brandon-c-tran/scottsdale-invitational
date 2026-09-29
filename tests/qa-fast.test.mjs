@@ -594,3 +594,18 @@ test("the console lists every jump with 44px targets and keeps the live driver",
     dispatch:async () => ({ ok:true }), environment:"staging", notify:noop }));
   assert.ok(bar.includes("Sim contest") && bar.includes("Console"));
 });
+
+test("a forward jump or Sim contest makes no backup; a rewind makes the rotating one", async () => {
+  const { memory, asGm } = await objectWith();
+  const backups = () => [...memory.entries.keys()].filter(key => key.startsWith("m1:pre-reset:") && key.endsWith(":manifest")).length;
+  const forward = await asGm("qaAdvance", { target:"event:pong:mid", seed:5 });
+  assert.equal(forward.ok, true, forward.error);
+  assert.equal(forward.extra.backupKey, undefined);
+  assert.equal((await asGm("qaAdvance", { target:"step" })).ok, true);
+  assert.equal(backups(), 0, "moving forward discards nothing, so it copies nothing");
+  const back = await asGm("qaAdvance", { target:"locker", confirm:RESET_PROGRESS_CONFIRMATION });
+  assert.equal(back.ok, true, back.error);
+  assert.equal(back.extra.rewound, true);
+  assert.ok(back.extra.backupKey?.startsWith("m1:pre-reset:"));
+  assert.equal(backups(), 1);
+});

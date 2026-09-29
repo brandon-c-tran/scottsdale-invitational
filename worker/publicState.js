@@ -14,11 +14,15 @@
    - Ballots (D6, shared/prompts.js projectPrompts): drafts are the
      commissioner's, answers never leave, a viewer gets their own back, and
      a question's totals appear only after the TV reveals it.
+   - Photo desk records (worker/moments.js) are not in state; the Durable
+     Object passes its index in. Everyone gets the visible ones, the
+     commissioner also the hidden ones; never byte counts or device ids.
 
    Viewers: { isGm, player }. An unclaimed device and the TV route get the
    public view. */
 import * as core from "../shared/core.js";
 import { projectPrompts } from "../shared/prompts.js";
+import { publicMoments } from "./moments.js";
 
 const { isActivePlayer } = core;
 
@@ -31,7 +35,7 @@ const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
 const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments"]);
 
 function normalizeViewer(viewer) {
   return {
@@ -96,34 +100,37 @@ function sharedProjection(state) {
   return out;
 }
 
-/* The small part that differs by viewer. */
-function viewerProjection(state, viewer) {
+/* The small part that differs by viewer. `extras.moments` is the photo
+   desk's index; a frame carries it only when it has something to show. */
+function viewerProjection(state, viewer, extras = {}) {
   const { isGm, player } = normalizeViewer(viewer);
   const seeds = state?.seeds || {};
   const profiles = state?.profiles || {};
+  const moments = publicMoments(extras?.moments, { isGm });
   return {
     seeds:isGm ? seeds : player && seeds[player] ? { [player]:seeds[player] } : {},
     profiles:isGm ? profiles : Object.fromEntries(Object.entries(profiles)
       .map(([id, profile]) => [id, id === player ? profile : publicProfile(profile)])),
     duels:redactDuels(state?.duels || [], { isGm, player }),
     prompts:projectPrompts(state?.prompts, { isGm, player }),
+    ...(moments.length ? { moments } : {}),
   };
 }
 
-function publicState(state, viewer) {
-  return JSON.parse(JSON.stringify({ ...sharedProjection(state), ...viewerProjection(state, viewer) }, scrub));
+function publicState(state, viewer, extras = {}) {
+  return JSON.parse(JSON.stringify({ ...sharedProjection(state), ...viewerProjection(state, viewer, extras) }, scrub));
 }
 
 /* One serializer per broadcast: the shared part is stringified once and each
    viewer class adds only its own seeds/profiles/duels. */
-function createStateSerializer(state) {
+function createStateSerializer(state, extras = {}) {
   let shared = null;
   const cache = new Map();
   return viewer => {
     const key = viewerKey(viewer);
     if (cache.has(key)) return cache.get(key);
     if (shared === null) shared = JSON.stringify(sharedProjection(state), scrub);
-    const own = JSON.stringify(viewerProjection(state, viewer), scrub);
+    const own = JSON.stringify(viewerProjection(state, viewer, extras), scrub);
     const json = shared === "{}" ? own : `${shared.slice(0, -1)},${own.slice(1)}`;
     cache.set(key, json);
     return json;

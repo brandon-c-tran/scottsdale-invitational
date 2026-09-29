@@ -1,0 +1,32 @@
+/* D11 photo desk on the phone: Weekend's Photos section, the grid, and the
+   photo sheet. Tokens only (experience.css). */
+.fd-photo-desk-head { display:flex; align-items:center; gap:10px; min-height:44px; margin-bottom:12px; }
+.fd-photo-desk-count { font:700 13px/1 var(--fd-body); color:var(--muted2); font-variant-numeric:tabular-nums; }
+.fd-photo-add { margin-left:auto; min-height:44px; padding:0 16px; border-radius:10px; cursor:pointer;
+  border:1px solid var(--action-fill); background:var(--action-fill); color:var(--action-ink);
+  font:700 13px/1 var(--fd-body); font-variant-numeric:tabular-nums; }
+.fd-photo-add:disabled { cursor:default; opacity:.7; }
+.fd-photo-line { margin:0 0 12px; font:600 12px/1.5 var(--fd-body); color:var(--muted2); }
+
+.fd-photo-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:4px; }
+.fd-photo-tile { position:relative; display:block; aspect-ratio:1; min-height:44px; padding:0; border:0;
+  border-radius:6px; overflow:hidden; background:var(--paper2); cursor:pointer; }
+.fd-photo-tile img { display:block; width:100%; height:100%; object-fit:cover; }
+.fd-photo-tile-by { position:absolute; left:5px; bottom:5px; display:flex; }
+.fd-photo-tile.is-hidden img { opacity:.4; }
+.fd-photo-tile-flag { position:absolute; top:5px; left:5px; padding:3px 6px; border-radius:6px;
+  background:var(--chrome); color:var(--clay-text); font:700 10px/1 var(--fd-body); letter-spacing:.06em;
+  text-transform:uppercase; }
+
+.fd-photo-author { width:44px; height:44px; padding:0; border:0; border-radius:99px; background:none;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.fd-photo-stage { display:flex; justify-content:center; touch-action:pan-y; }
+.fd-photo-frame { width:100%; max-height:64vh; border-radius:10px; overflow:hidden; background:var(--paper2); }
+.fd-photo-frame img { display:block; width:100%; height:100%; object-fit:contain; animation:si-fade .25s ease-out; }
+.fd-photo-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+.fd-photo-nav { display:flex; align-items:center; gap:10px; }
+.fd-photo-count { min-width:52px; text-align:center; font:600 12px/1 var(--fd-body); color:var(--muted2);
+  font-variant-numeric:tabular-nums; }
+.fd-photo-actions { display:flex; gap:8px; margin-left:auto; }
+.fd-photo-confirm { display:flex; margin-top:10px; }
+.fd-photo-error { margin:10px 0 0; font:600 12px/1.5 var(--fd-body); color:var(--clay-text); }

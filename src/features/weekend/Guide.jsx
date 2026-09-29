@@ -7,12 +7,14 @@ import { isStandalone } from "../check-in/install.js";
 import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
 import { Keepsake } from "../results/Keepsake.jsx";
 import { KEPT_SECTION, keepsakeOpen } from "../results/keepsake.js";
+import { PhotoDesk } from "../photos/PhotoDesk.jsx";
+import { PhotoGrid } from "../photos/PhotoGrid.jsx";
 import "./weekend.css";
 
 const format = value => Number(value).toLocaleString("en-US");
 const AWARD_NAMES = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
   "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
-const BASE_SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"]];
+const BASE_SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"], ["photos", "Photos"]];
 
 function Rule({ number, title, meta, children }) {
   return <details className="fd-weekend-rule">
@@ -63,7 +65,9 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
     {kept && <div id={`fd-weekend-panel-${KEPT_SECTION}`} role="tabpanel" aria-labelledby={`fd-weekend-tab-${KEPT_SECTION}`}
       hidden={section !== KEPT_SECTION}>
       {section === KEPT_SECTION && <Keepsake state={state} events={events} standings={standings} me={me} gm={gm}
-        onPlayer={onPlayer} onBracket={onBracket} photos={photos} />}
+        onPlayer={onPlayer} onBracket={onBracket}
+        photos={photos ?? (state?.moments?.some(item => !item.hidden)
+          ? <PhotoGrid state={state} me={me} gm={gm} onPlayer={onPlayer} limit={12} /> : null)} />}
     </div>}
 
     <div id="fd-weekend-panel-trip" role="tabpanel" aria-labelledby="fd-weekend-tab-trip" hidden={section !== "trip"}>
@@ -158,6 +162,9 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
           </button>;
         })}</div>
       </section>
+    </div>
+    <div id="fd-weekend-panel-photos" role="tabpanel" aria-labelledby="fd-weekend-tab-photos" hidden={section !== "photos"}>
+      {section === "photos" && <PhotoDesk state={state || {}} me={me} gm={gm} onPlayer={onPlayer} />}
     </div>
     {howToEv && HowToSheet && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
   </div>;

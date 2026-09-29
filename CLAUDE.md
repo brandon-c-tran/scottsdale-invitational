@@ -223,6 +223,25 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   winner (a tie stamps each), on the server clock from `reveal.at` with S10
   and S14 through `roomSound.js`; phones hold that winner until the stamp.
 
+- **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
+  add weekend photos from Weekend > Photos (camera roll or camera). The phone
+  resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no
+  EXIF); `POST /api/moments` (multipart, `X-Field-Day-Device`, claimed
+  players only, 20 s deadline) re-reads the JPEG's real size and strips
+  APP1/APP13/comments. Each photo is two DO values (`moment:full:<id>`,
+  `moment:thumb:<id>`) plus `moment:index`; caps 200 photos, 150 MB, 40 per
+  player, 12 a minute. Not tournament state and not portable (a snapshot's
+  8 MB body and every backup would outgrow it): restore, reset and QA rewinds
+  never touch it, and `npm run moments:export` keeps it (runbook). Frames
+  carry only `state.moments` records `{ id, by, at, takenAt, w, h }`, hidden
+  ones for the commissioner only; no device id, no version bump (the broadcast
+  names `lastAction:"moments"`). Authors delete their own; the commissioner
+  hides, shows or deletes any. `PhotoGrid` (read-only, tap to view) is the
+  reusable grid. The TV adds "photos" turns to the ambient rotation only in a
+  gap (`tvPhotoGap`: never loading, final, a scene, a result, poker, a draft,
+  a live event, an intro, a reveal or a face-off), newest 30, one per 6 s on
+  the server clock, each opaque layer fading in over the last.
+
 ## Current redesign direction
 
 **September 5 correction is authoritative.** Brandon rejected the light

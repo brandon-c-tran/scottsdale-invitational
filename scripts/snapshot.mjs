@@ -145,8 +145,36 @@ async function recoverBackup() {
   console.log(JSON.stringify(body, null, 2));
 }
 
+/* The photo desk is not in a portable snapshot (worker/moments.js). This
+   copies it into a new folder: every photo as <id>.jpg, hidden ones too,
+   plus moments.json with each record (author player id, times, size). */
+async function exportMoments() {
+  requireToken();
+  const url = targetUrl();
+  const out = args.out && resolve(String(args.out));
+  if (!url || !out) throw new Error("Usage: moments:export -- --url <url> --out <folder>");
+  if (isProductionHost(url) && args.confirm !== "production-export")
+    throw new Error("Production export requires --confirm production-export");
+  const auth = { Authorization: `Bearer ${token}` };
+  const { body } = await responseJson(await fetch(`${url}/api/admin/moments`, { headers: auth }));
+  await mkdir(out, { recursive: true });
+  let bytes = 0;
+  for (const moment of body.moments || []) {
+    if (!/^m[a-z0-9]{10,32}$/.test(moment.id || "")) throw new Error("Unexpected photo id");
+    const response = await fetch(`${url}/api/admin/moments/${moment.id}`, { headers: auth });
+    if (!response.ok) throw new Error(`Photo ${moment.id} failed: ${response.status}`);
+    const data = new Uint8Array(await response.arrayBuffer());
+    bytes += data.byteLength;
+    await writeFile(resolve(out, `${moment.id}.jpg`), data, { flag: "wx" });
+  }
+  await writeFile(resolve(out, "moments.json"), `${JSON.stringify(body.moments || [], null, 2)}\n`, { flag: "wx" });
+  console.log(JSON.stringify({ ok: true, folder: out, photos: (body.moments || []).length, bytes }, null, 2));
+}
+
 try {
-  if (command === "validate") {
+  if (command === "moments") {
+    await exportMoments();
+  } else if (command === "validate") {
     const file = args._[0];
     if (!file) throw new Error("Usage: snapshot:validate -- <file>");
     await validateFile(file);
@@ -157,7 +185,7 @@ try {
   } else if (command === "recover") {
     await recoverBackup();
   } else {
-    throw new Error("Expected command: validate, export, restore, or recover");
+    throw new Error("Expected command: validate, export, restore, recover, or moments");
   }
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));

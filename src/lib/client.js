@@ -435,6 +435,50 @@ export async function uploadPhoto(player, dataUrl) {
   }
 }
 
+/* D11 photo desk (worker/moments.js). The upload is a form with the resized
+   photo and its thumbnail, sent as this device; the 20-second deadline is the
+   profile photo's. Deletes and hides are small and get 8 seconds. */
+const MOMENT_UPLOAD_MS = 20000;
+const MOMENT_EDIT_MS = 8000;
+async function momentRequest(path, init, { ms, timeout, failed }) {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), ms);
+  try {
+    const r = await fetch(path, { ...init, signal:controller.signal });
+    const body = await r.json().catch(() => ({}));
+    return r.ok ? { ok:true, ...body } : { ...body, ok:false, error:body.error || failed, status:r.status };
+  } catch {
+    return { ok:false, error:controller.signal.aborted ? timeout : failed };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+const momentHeaders = () => ({ "X-Field-Day-Device":deviceId,
+  ...(gmToken ? { Authorization:`Bearer ${gmToken}` } : {}) });
+export function uploadMoment({ photo, thumb, takenAt = null }) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  form.append("thumb", thumb, "thumb.jpg");
+  if (takenAt) form.append("takenAt", String(takenAt));
+  return momentRequest("/api/moments", { method:"POST", headers:{ "X-Field-Day-Device":deviceId }, body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const deleteMoment = id => momentRequest(`/api/moments/${encodeURIComponent(id)}`,
+  { method:"DELETE", headers:momentHeaders() },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't delete. Try again." });
+export const setMomentHidden = (id, hidden) => momentRequest(`/api/moments/${encodeURIComponent(id)}`,
+  { method:"POST", headers:{ ...momentHeaders(), "Content-Type":"application/json" }, body:JSON.stringify({ hidden }) },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't save. Try again." });
+/* a hidden photo is served only to the commissioner, so it cannot be an
+   <img src>: fetch it with the token and hand back an object URL */
+export async function hiddenMomentUrl(id, thumb = false) {
+  try {
+    const r = await fetch(`/api/moments/${encodeURIComponent(id)}${thumb ? "/thumb" : ""}`,
+      { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {
   try {

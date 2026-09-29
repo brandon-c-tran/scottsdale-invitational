@@ -276,7 +276,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [weekendSection, setWeekendSection] = useState(() => {
     const saved = sessionRead("fd-weekend-section");
     /* none chosen: Weekend opens on Trip, or on the edition once frozen */
-    return ["kept", "trip", "rules", "games"].includes(saved) ? saved : null;
+    return ["kept", "trip", "rules", "games", "photos"].includes(saved) ? saved : null;
   });
   useEffect(() => { sessionWrite("fd-tab", tab); }, [tab]);
   useEffect(() => { if (weekendSection) sessionWrite("fd-weekend-section", weekendSection); }, [weekendSection]);
@@ -1485,7 +1485,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             return failed || { ok:true };
           }} />}
         {tab === "bets" && gmView && <DuelDesk state={state} onVoid={voidDuel} onVoidAll={voidOpenDuels} />}
-        {tab === "guide" && <Guide events={events} state={state} me={me}
+        {tab === "guide" && <Guide events={events} state={state} me={me} gm={gmView}
           section={weekendSection} onSection={setWeekendSection}
           onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
           standings={standings} gm={gmView} onBracket={ev => setModal({type:"bracket", ev})}

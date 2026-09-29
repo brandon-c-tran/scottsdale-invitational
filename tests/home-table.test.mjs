@@ -9,7 +9,7 @@ import {
   AWARDS, BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket, resolveCurrentContest,
 } from "../shared/core.js";
 import { contestWinLines, winSlots, joinNames, ordinal, winLineFor } from "../src/features/standings/winImpact.js";
-import { BAR_FLOOR, MAX_UNITS, barScale, barUnit, chipBar, rowMoves, soleLeader, BOARD_BEATS }
+import { BAR_FLOOR, barScale, chipBar, rowMoves, soleLeader, BOARD_BEATS }
   from "../src/features/standings/boardModel.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -128,20 +128,13 @@ test("X8: a wide field line is per player, and keys limit the work to your own s
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22].map(ordinal), ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd"]);
 });
 
-test("X1: the chip bar is one unit per 100 while legible, with your exposure outlined at its end", () => {
+test("X1: the chip bar is one solid run to scale, with your exposure outlined at its end", () => {
   assert.equal(barScale([{ pts:1000 }, { pts:900 }]), BAR_FLOOR);
   assert.equal(barScale([{ pts:4600 }]), 4600);
-  assert.equal(barUnit(4600), 100);
-  assert.equal(barUnit(9000), 200);
-  assert.ok(barUnit(40000) / 1 >= 40000 / MAX_UNITS);
-  const bar = chipBar({ pts:1000, scale:2000, bets:300, duels:100 });
-  assert.equal(bar.slots, 20);
-  assert.equal(bar.cells.length, 10);
-  assert.deepEqual(bar.cells.map(cell => cell.kind), [...Array(6).fill("held"), "bets", "bets", "bets", "duels"]);
-  assert.equal(chipBar({ pts:-300, scale:2000 }).cells.length, 0, "a negative balance draws nothing");
-  const partial = chipBar({ pts:1050, scale:2000 });
-  assert.equal(partial.cells.length, 11);
-  assert.ok(partial.cells.at(-1).w < partial.cells[0].w, "a part unit draws short");
+  assert.deepEqual(chipBar({ pts:1000, scale:2000, bets:300, duels:100 }), { held:30, bets:15, duels:5 });
+  assert.deepEqual(chipBar({ pts:4600, scale:4600 }), { held:100, bets:0, duels:0 }, "the leader fills the track");
+  assert.deepEqual(chipBar({ pts:-300, scale:2000 }), { held:0, bets:0, duels:0 }, "a negative balance draws nothing");
+  assert.deepEqual(chipBar({ pts:200, scale:2000, bets:500 }), { held:0, bets:10, duels:0 }, "exposure never outruns the stack");
 });
 
 test("M2 + M3: moves, the sole leader, and the beat order are pure", () => {
@@ -163,14 +156,14 @@ test("X1: every row carries a chip bar in its own color, and only your row outli
   const html = render(ui.Leaderboard, { state, standings:computeStandings(state), me:ROSTER[0], onPlayer:noop,
     myAtRisk:300, StatPills:StubMark }, state);
   assert.equal((html.match(/class="fd-chip-bar"/g) || []).length, ROSTER.length);
-  assert.equal((html.match(/class="is-bets"/g) || []).length, 3, "three 100s riding on your bar");
-  assert.equal((html.match(/class="is-duels"/g) || []).length, 0);
-  assert.ok(html.includes(`fill="${CHIP_COLORS[0].hex}"`), "your bar wears your identity color");
+  assert.equal((html.match(/class="fd-chip-bar-risk is-bets"/g) || []).length, 1, "your 300 riding is one outlined end");
+  assert.equal((html.match(/is-duels/g) || []).length, 0);
+  assert.ok(html.includes(`background:${CHIP_COLORS[0].hex}`), "your bar wears your identity color");
   /* first render: nothing is mid-animation */
   assert.doesNotMatch(html, /fd-rank-roll|fd-lead-sweep|fd-standing-rise|is-popping|data-new-leader/);
   const frozen = render(ui.Leaderboard, { state:{ ...state, frozen:true }, standings:computeStandings(state), me:ROSTER[0],
     onPlayer:noop, myAtRisk:300 }, state);
-  assert.doesNotMatch(frozen, /class="is-bets"/, "a frozen board draws no exposure");
+  assert.doesNotMatch(frozen, /is-bets/, "a frozen board draws no exposure");
 });
 
 test("X1 + X8: Home's contest card shows each side's bets and win line, players still open cards", () => {

@@ -125,20 +125,18 @@ function ChampionPanel({ state, champion, coChamps, onPlayer }) {
   </section>;
 }
 
-/* X1: one unit per 100 chips (a coarser unit once the leader is far ahead)
-   in the player's identity color. Your own chips riding on bets are the
-   gold outlined units at the end of your bar, duel antes the muted ones:
-   what is at risk is what would leave it. */
+/* X1: one solid bar in the player's identity color, to scale against the
+   leader over a faint track. Your own chips riding on bets are the gold
+   outlined end of your bar, duel antes the muted one: what is at risk is
+   what would leave it. */
 export function ChipBar({ p, pts, scale, bets = 0, duels = 0 }) {
   const identity = usePlayerIdentity(p);
   const bar = chipBar({ pts, scale, bets, duels });
-  return <svg className="fd-chip-bar" viewBox={`0 0 ${bar.slots} 1`} preserveAspectRatio="none"
-    aria-hidden="true" focusable="false">
-    {bar.cells.map(cell => cell.kind === "held"
-      ? <rect key={cell.x} x={cell.x} y={0} width={cell.w} height={1} fill={identity.color} />
-      : <rect key={cell.x} x={cell.x + 0.05} y={0.1} width={Math.max(0.1, cell.w - 0.1)} height={0.8}
-        className={cell.kind === "bets" ? "is-bets" : "is-duels"} vectorEffect="non-scaling-stroke" />)}
-  </svg>;
+  return <span className="fd-chip-bar" aria-hidden="true">
+    {bar.held > 0 && <span className="fd-chip-bar-held" style={{ width:`${bar.held}%`, background:identity.color }} />}
+    {bar.bets > 0 && <span className="fd-chip-bar-risk is-bets" style={{ width:`${bar.bets}%` }} />}
+    {bar.duels > 0 && <span className="fd-chip-bar-risk is-duels" style={{ width:`${bar.duels}%` }} />}
+  </span>;
 }
 
 /* M2: a fresh rank change rolls the old digits out and the new ones in,

@@ -89,6 +89,22 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   duel send/accept, winner tap), never for remote events or Quick Draw's
   reaction; the device Haptics toggle is its only gate.
   `/dev/motion-preview.html` rehearses all of it without a socket.
+- **Results on your phone** (`src/features/results/`): a fresh broadcast that
+  moves YOUR chips docks one receipt above the tab bar (`ChipReceipt`, from
+  the pure `resultMoment` diff of `chipSnapshot`s: place and award, each bet
+  settling, duels, rulings, won chips flying into a counting total; swipe or
+  tap away, it leaves on its own, later moments merge in). It replaced the
+  result toast. A correction or returned bet is one quiet toast line
+  ("Result corrected: −400"); a catch-up says nothing (the since line owns
+  absences). Only your own win (event, match, bet) showers YOUR identity
+  chips (`ChipShower`); phones never play confetti, the TV keeps its burst.
+  The crown (`useCrownMoment`, `crownKey`) plays once per phone: the champion
+  moment (the champion's own phone floods with their color), then this
+  phone's last card (`lastCardModel`, `chipHistory` replays the weekend and
+  always ends on the board's number); a phone that missed it opens straight
+  to the card, and Home's "Your last card" reopens it. Save card draws a
+  1080x1350 PNG (`cardImage.js`) and hands it to `navigator.share`, else
+  shows it to press and hold. `/dev/results-preview.html` rehearses all of it.
 
 ## Current redesign direction
 

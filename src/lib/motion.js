@@ -28,6 +28,7 @@
      useMotionFrame()                  the latest classified state frame
      useFreshChange(value, key?)       { fresh, animate, changeId, from, to }
      useCountUp(value, { key, step })  { value, delta, changeId, counting }
+     useCountBetween(from, to, opts)   a count that mounts with its change
      countValueAt(from, to, p, step)   the stepped number at progress p
      signedChips(n)                    "+400" / "−500"
      fly(from, to, options)            Promise<boolean>: a clone flies between rects
@@ -223,6 +224,38 @@ export function useCountUp(value, { key = null, step = PT, duration = MOTION.cou
   return { value:display, delta, changeId:change.changeId, counting:!!running };
 }
 const clock = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+/* A count whose ends are already known when it mounts: a receipt or a
+   champion's stack that appears WITH its change, so there is no earlier
+   render for useCountUp to compare against. The caller decides whether the
+   moment is fresh (`play`); reduced motion or play:false shows `to` at once.
+   A new `to` counts on from the number on screen. */
+export function useCountBetween(from, to, { play = true, step = PT, duration = MOTION.count, delay = 0 } = {}) {
+  const reduced = useReducedMotion();
+  const animate = play && !reduced && typeof requestAnimationFrame === "function";
+  const anim = useRef(null);
+  const painted = useRef(animate ? from : to);
+  const [, rerender] = useState(0);
+  if (!animate) anim.current = null;
+  else if (!anim.current || anim.current.to !== to)
+    anim.current = { from:painted.current, to, start:clock() + delay, done:false };
+  const run = anim.current;
+  const display = run ? countValueAt(run.from, run.to, (clock() - run.start) / duration, step) : to;
+  useLayoutEffect(() => { painted.current = display; });
+  useEffect(() => {
+    if (!run || run.done) return undefined;
+    let raf = 0;
+    const loop = () => {
+      if (anim.current !== run) return;
+      if (clock() - run.start >= duration) run.done = true;
+      rerender(n => n + 1);
+      if (!run.done) raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [run, duration]);
+  return display;
+}
 
 /* ── flight ──
    One fixed layer, pointer-events:none, above every sheet. A flight clones a

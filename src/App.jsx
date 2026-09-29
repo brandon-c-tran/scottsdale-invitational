@@ -12,7 +12,7 @@ import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
 import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
 import { GuestHome, hasGameRules } from "./features/home/GuestHome.jsx";
 import { deriveHomeModel } from "./features/home/homeModel.js";
-import { guestLedger, summarizeUpdate, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
+import { guestLedger, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
@@ -33,6 +33,12 @@ import { TVMode } from "./features/tv/TVMode.jsx";
 import { nextOpenMatch, cueCandidates, cuePlayingUntil, tvSceneView } from "./features/tv/tvModel.js";
 import { serverNow, useServerClockSync } from "./lib/serverClock.js";
 import { MotionRoot } from "./lib/motion.js";
+import { currentFrame } from "./lib/frameGate.js";
+import { chipSnapshot, freshContestWins, mergeMoments, resultMoment } from "./features/results/resultMoment.js";
+import { ChipReceipt } from "./features/results/ChipReceipt.jsx";
+import { ChipShower } from "./features/results/ChipShower.jsx";
+import { LastCardLayer } from "./features/results/LastCard.jsx";
+import { useCrownMoment } from "./features/results/useCrownMoment.js";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import qrcode from "qrcode-generator";
@@ -368,6 +374,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   }, [modal]);
   const [intro, setIntro] = useState(null);
   const [burst, setBurst] = useState(0);
+  /* X2 / M19: this phone's own receipt and its own chip shower */
+  const [moment, setMoment] = useState(null);
+  const [shower, setShower] = useState(0);
   const [toast, setToast] = useState(null);
   const [seenReveals, setSeenReveals] = useState(() => {
     try { return JSON.parse(localGet("si-seen-v5") || "[]"); } catch { return []; }
@@ -582,31 +591,45 @@ function TournamentApp({ tournament, onUpdateReload }) {
     else setModal({ type:"standings" });
   };
 
-  /* One summary per broadcast for this device's player, built from a
-     before/after diff of their own row split by source. Several results in
-     one update join into one line instead of replacing each other. The
-     update the since line just reported is not said twice. */
+  /* X2: one receipt per fresh broadcast that moved this device's player's
+     chips, from a before/after diff of their own row split by source. A
+     receipt still on screen takes the next one in. A correction is one quiet
+     line; a catch-up is the since line's job, and the update the since line
+     just reported is not said twice. M19: only this player's own wins shower
+     their own chips; other people's results only move numbers. The TV keeps
+     its room-wide burst. */
   const ledgerRef = useRef(null);
+  const snapRef = useRef(null);
+  const prevStateRef = useRef(null);
   const resultsSeenRef = useRef(null);
   const frozenRef = useRef(null);
   useEffect(() => {
     if (!ready) return;
     const markers = resultMarkers(state);
-    /* confetti only for a fresh first result, never for a correction */
-    if (resultsSeenRef.current && (freshResults(resultsSeenRef.current, state).length
+    if (tv && resultsSeenRef.current && (freshResults(resultsSeenRef.current, state).length
         || (state.frozen && frozenRef.current === false))) setBurst(b => b + 1);
     resultsSeenRef.current = markers;
     frozenRef.current = !!state.frozen;
     const next = me ? guestLedger(state, me, events, standings) : null;
     const prev = ledgerRef.current;
     ledgerRef.current = next;
-    if (onboardStep < 99 || sinceShownFor.current === state) return;
+    const nextSnap = me ? chipSnapshot(state, me, events, standings) : null;
+    const prevSnap = snapRef.current;
+    snapRef.current = nextSnap;
+    const prevState = prevStateRef.current;
+    prevStateRef.current = state;
+    if (tv || onboardStep < 99 || sinceShownFor.current === state) return;
     const playing = modalRef.current?.type === "duelPlay" ? modalRef.current.id : null;
-    const summary = summarizeUpdate(prev, next, { state, events, skipDuel:playing });
-    if (summary) notify(summary.msg, null, summary.tone, summary.chip);
+    const frame = currentFrame();
+    const found = resultMoment({ prev:prevSnap, next:nextSnap, prevState, state, events, frame, skipDuel:playing });
+    if (found?.kind === "notice") notify(found.text, null, undefined, me);
+    else if (found) setMoment(current => current ? mergeMoments(current, found, { state, prevState, events }) : found);
+    if (frame.fresh && me && (found?.celebrate || freshContestWins(prevState, state, me).length)) setShower(n => n + 1);
     const buzz = tv ? null : updateHaptic(prev, next, { state, skipDuel:playing });
     if (buzz) haptic(buzz);
   }, [state, standings, events, me, ready, onboardStep, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* X5: the crown plays once per phone, then Home reopens the last card */
+  const lastCard = useCrownMoment({ state, standings, me, ready, active:!tv && onboardStep >= 99 });
 
   /* GM can rerun onboarding for everyone; each device compares the epoch it
      finished. A device that finished before it ever stored one adopts the
@@ -1554,8 +1577,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           back={() => setOnboardStep(s => Math.max(0, s - 1))}
           done={() => { setOnboardStep(99); saveMine("si-onboard-v5","yes");
             saveMine("si-onboard-epoch", String(state.onboardEpoch || 0));
-            setTab("board"); setBurst(b => b + 1); }} /></Suspense> : <LoadingScreen />}
-        <Confetti burst={burst} />
+            setTab("board"); setShower(n => n + 1); }} /></Suspense> : <LoadingScreen />}
       </Shell>
     );
   }
@@ -1587,7 +1609,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
             return result;
           }}
-          onPlayer={p => setModal({type:"player", p})}
+          onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
             onPlayer={p => setModal({type:"player", p})}
@@ -2040,7 +2062,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setModal(null); setTab("bets"); } : null} />}
-      <Confetti burst={burst} />
+      {moment && <ChipReceipt moment={moment} onDismiss={() => setMoment(null)}
+        dock={tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? "top" : "bottom"}
+        onStandings={() => { setMoment(null); setModal({ type:"standings" }); }}
+        onSettled={() => { setMoment(null); setModal(null); setSettledOpen(true); setTab("bets"); }} />}
+      <ChipShower burst={shower} p={me} />
+      {lastCard.open && <LastCardLayer key={lastCard.open.key} state={state} me={me} events={events}
+        standings={standings} mode={lastCard.open.mode} onClose={lastCard.close}
+        onStandings={() => { lastCard.close(); setTab("board"); setModal({ type:"standings" }); }} />}
       {!loaded && <LoadingScreen />}
     </Shell>
   );

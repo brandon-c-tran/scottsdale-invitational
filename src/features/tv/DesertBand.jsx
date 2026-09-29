@@ -1,6 +1,6 @@
 import React, { memo, useId, useMemo, useRef } from "react";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
-import { desertScene, FIXED_STARS, isNightSky } from "./desertModel.js";
+import { desertScene, FIXED_STARS, isNightSky, skyStarLayout } from "./desertModel.js";
 
 /* The Desert Clock: a paper-cut Scottsdale horizon, every layer one flat
    fill from the --desert-* tokens. A phase change swaps fills in six hard
@@ -24,13 +24,7 @@ function DesertBandView({ phase = "fri", width = 1920, height = 118, variant = "
   /* where stars may sit: the whole sky, or (on the TV backdrop) one fixed
      patch clear of the masthead type, the same in every view */
   const box = starBox || { left:0, right:width, top:scene.sky.top, bottom:scene.sky.bottom };
-  const small = box.bottom - box.top < 80;
-  const at = star => {
-    const spread = small ? 7 : 12;
-    return [Math.round(box.left + star.x * (box.right - box.left) + star.dx * spread),
-      Math.round(box.top + star.y * (box.bottom - box.top) + star.dy * spread)];
-  };
-  const starR = small ? 3.5 : 5.5;
+  const { at, starR, fixed, fixedR } = skyStarLayout(box);
   /* stars that arrive after this band mounted pop in; a refreshed TV
      shows them already there */
   const seen = useRef(null);
@@ -49,11 +43,10 @@ function DesertBandView({ phase = "fri", width = 1920, height = 118, variant = "
       </defs>
       <rect className="tv-desert-sky" width={width} height={height} />
       <g className={`tv-desert-stars${night ? " is-on" : ""}`}>
-        {FIXED_STARS.map(([x, y], i) => (
-          <circle key={i} className="tv-desert-star" cx={Math.round(box.left + x * (box.right - box.left))}
-            cy={Math.round(box.top + y * 3 * (box.bottom - box.top))}
-            r={small ? 1.6 : 2} style={{ opacity:0.35 + (i % 3) * 0.2 }} />
-        ))}
+        {FIXED_STARS.map((point, i) => {
+          const [cx, cy] = fixed(point);
+          return <circle key={i} className="tv-desert-star" cx={cx} cy={cy} r={fixedR} style={{ opacity:0.35 + (i % 3) * 0.2 }} />;
+        })}
       </g>
       <g className="tv-desert-disc" style={{ transform:`translate(${disc.x}px, ${disc.y}px)` }}>
         <circle r={scene.discR} />

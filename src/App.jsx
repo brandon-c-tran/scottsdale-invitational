@@ -1948,7 +1948,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         onSettled={() => { setMoment(null); setModal(null); setSettledOpen(true); setTab("bets"); }} />}
       <ChipShower burst={shower} p={me} />
       {lastCard.open && <LastCardLayer key={lastCard.open.key} state={state} me={me} events={events}
-        standings={standings} mode={lastCard.open.mode} onClose={lastCard.close}
+        standings={standings} mode={lastCard.open.mode} gm={gmView} onClose={lastCard.close}
         onStandings={() => { lastCard.close(); setTab("board"); setModal({ type:"standings" }); }} />}
       {!loaded && <LoadingScreen />}
     </Shell>

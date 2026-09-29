@@ -307,7 +307,7 @@ test("the receipt, the last card and Home's way back render their real content",
   assert.match(moment_, /fd-crown-flood/, "the champion's own phone floods");
   const other = render(React.createElement(ui.LastCardLayer, { state, me:standings[5].player, events, standings, mode:"moment",
     onClose:() => {}, onStandings:() => {} }), state.profiles);
-  assert.doesNotMatch(other, /fd-crown-flood/, "everyone else sees the moment without the flood");
+  assert.match(other, /fd-crown-flood/, "D1: every phone floods with the champion's color");
   assert.match(other, /Skip/);
 
   const StubMark = () => null;

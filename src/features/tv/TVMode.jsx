@@ -28,7 +28,12 @@ import {
 import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { TVBracket } from "./TVBracket.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
-import { useBracketMotion, useCrownMoment } from "./tvMotion.js";
+import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
+import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
+import { FaceOff } from "./TVFaceOff.jsx";
+import { faceOffView, useFaceOff } from "./faceOff.js";
+import { frozenAmbient } from "../results/classPhoto.js";
+import { crownAnchor } from "../results/crownTiming.js";
 import { DesertBand } from "./DesertBand.jsx";
 import { constellationStars, isDaySky, isNightSky } from "./desertModel.js";
 import { weekendPhase } from "../../ui/phase.js";
@@ -548,7 +553,8 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
 }
 
 
-function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null, crown = null }) {
+function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null, crown = null,
+  classMoment = null }) {
   const kind = scene.active.kind;
   if (kind === "standings") {
     const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={false}
@@ -558,6 +564,9 @@ function DirectedScene({ state, events, scene, now, standings, rankDeltas, reduc
       height={towers.height} towers={towers} fallback={flat} /> : flat;
   }
   if (kind === "champion") {
+    /* D3: the champion scene's second step is the class photo */
+    if (scene.stepKey === "class")
+      return <ClassPhoto state={state} events={events} standings={scene.standings} moment={classMoment} />;
     const view = championView(state, events, scene.standings);
     return view ? <ChampionMoment state={state} view={view} standings={scene.standings} moment={crown} /> : null;
   }
@@ -651,6 +660,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   /* M14 and M18: what moves, fresh only, from the write's own server time */
   const bracketMotion = useBracketMotion(state, activeBracketEv, upNext ? [upNext.r, upNext.m] : null);
   const crown = useCrownMoment(state, showScene);
+  /* D2 and D3: the face-off at a fresh lock, the class photo's entrance */
+  const faceOff = useFaceOff(state, liveEv, liveContest);
+  const classMoment = useClassMoment(showScene);
   const slotAdvance = !!advance && advance.kind === "match" && !!activeBracketEv;
 
   const resultMoment = resultMomentFor(state, events, now, sceneView, showScene);
@@ -691,7 +703,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
 
   /* the update reload waits for a gap in what is actually on screen */
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
-    reveal:ceremonyReveal, dock });
+    reveal:ceremonyReveal, dock }) || !!faceOff;
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
   }, [busy]);
@@ -741,10 +753,16 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     bandTall = towers.on && (kind === "standings"
       || (winnerPhase?.phase === "standings" && !!winnerModel && winnerModel.kind !== "stacks"));
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
-      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} crown={crown} />;
+      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} crown={crown}
+      classMoment={classMoment} />;
   } else if (champion) {
-    const view = championView(state, events, standings);
-    content = view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
+    /* D3: once the crown has held, the frozen TV takes turns between the
+       champion and the class photo on the server clock */
+    const frame = frozenAmbient({ now, crownAt:crown?.anchor || crownAnchor(state) || 0, crownMs:CROWN_TIMING.total,
+      period:TV_AMBIENT_MS });
+    const view = frame === "champion" ? championView(state, events, standings) : null;
+    content = frame === "class" ? <ClassPhoto state={state} events={events} standings={standings} />
+      : view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
     const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
     bandTall = towers.on && resultPhase.phase === "standings" && resultModel.kind !== "stacks";
@@ -785,6 +803,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
                 <div className="tv-body" style={{ marginTop:20 }}>{payoutLine(liveEv)}</div>
               </div>}
         {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
+        {faceOff && inContest && (() => {
+          const view = faceOffView(state, liveEv, liveContest, events);
+          return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff} /> : null;
+        })()}
       </div>
       <Rail state={state} standings={standings} allTied={allTied} rankDeltas={rankDeltas} />
     </>;

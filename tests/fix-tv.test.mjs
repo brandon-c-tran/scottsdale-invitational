@@ -239,7 +239,8 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
   act(frozen, "advanceShowScene", { id:frozen.showControl.active.id });
   act(frozen, "advanceShowScene", { id:frozen.showControl.active.id });
   act(frozen, "setFrozen", { f:true });
-  act(frozen, "startShowScene", { kind:"champion" });
+  /* crowning starts the champion scene; a board frozen without one gets it by hand */
+  if (frozen.showControl.active?.kind !== "champion") act(frozen, "startShowScene", { kind:"champion" });
   const champ = renderTv(frozen, { now:frozen.showControl.active.startedAt + 1000 });
   assert.ok(champ.includes("tv-champ"));
   assert.ok(!champ.includes("tv-ticker"));
@@ -747,7 +748,8 @@ test("T20/T21: champion, progress, race, duels, and spotlight models", () => {
   assert.equal(view.path[0].label, "1st Long Putt");
   assert.equal(readableInk("#E39A3B"), "var(--ink0)");
   assert.equal(readableInk("#2F7E83"), "var(--bone)");
-  const html = renderTv(state, { showControl:false });
+  /* D3: a frozen TV takes turns with the class photo; this is the champion's turn */
+  const html = renderTv(state, { showControl:false, now:Math.floor(Date.now() / 24000) * 24000 + 1000 });
   assert.ok(html.includes("tv-champ") && html.includes(">Final<"));
   assert.ok(!html.includes("tv-ticker") && !html.includes("is-live"), "final: no ticker, no pulsing dot");
   const progress = weekendProgress(state, allEventsOf(state));

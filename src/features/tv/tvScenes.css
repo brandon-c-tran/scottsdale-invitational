@@ -137,3 +137,53 @@
   90% { transform:translateY(-24px) rotateY(720deg); animation-timing-function:ease-in; }
   100% { transform:translateY(0) rotateY(720deg); }
 }
+
+/* ── D3: the class photo ──
+   Full frame over the masthead: the same 1920x1080 composition as the saved
+   poster (results/classPhoto.js). Fresh, the rows fill front to back and the
+   champion lands last; the resting style is the end state. */
+.tv-canvas:has(.tv-class) .tv-mast { visibility:hidden; }
+.tv-class { position:absolute; left:0; top:-118px; width:1920px; height:1080px; z-index:4; overflow:hidden; background:var(--bg); }
+.tv-class-sky { position:absolute; left:0; top:0; will-change:transform; }
+.tv-class-title { position:absolute; left:0; right:0; margin:0; text-align:center; font-family:var(--fd-display); font-weight:700;
+  line-height:1; text-transform:uppercase; letter-spacing:.01em; color:var(--bone); white-space:nowrap; }
+.tv-class-title b { font-weight:700; color:var(--sun); }
+.tv-class-chip { position:absolute; display:block; }
+.tv-class-tag { position:absolute; box-sizing:border-box; display:grid; place-items:center; border-radius:50%;
+  border:3px solid var(--ink0); background:var(--bone); color:var(--ink0); font-family:var(--fd-display); font-weight:800; line-height:1; }
+.tv-class-name, .tv-class-stack { position:absolute; text-align:center; font-family:var(--fd-display); font-weight:700; line-height:1;
+  white-space:nowrap; overflow:hidden; }
+.tv-class-name { color:var(--bone); }
+.tv-class-stack { color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-class-slot.is-first .tv-class-tag { background:var(--sun); }
+.tv-class-slot.is-first .tv-class-name { color:var(--sun); }
+.tv-class-slot.is-first .tv-class-stack { color:var(--bone); }
+.tv-class.is-playing .tv-class-slot > * { animation:tv-class-in 420ms var(--ease-land) calc(var(--tl) + var(--at)) both; }
+.tv-class.is-playing .tv-class-title { animation:tv-crown-in 400ms ease-out calc(var(--tl) + 1500ms) both; }
+@keyframes tv-class-in { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:none; } }
+
+/* ── D2: the face-off at lock ──
+   Over the live pane: both sides slide in from their own edges, VS stamps,
+   their record and win lines follow, and at MOTION.beat the whole card lifts
+   off the normal layout underneath. Resting style is the end state. */
+.tv-faceoff { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:26px; padding:20px 56px 28px; background:var(--night); overflow:hidden;
+  animation:tv-faceoff-out 400ms ease-in calc(var(--tl) + var(--faceoff-settle, 2000ms)) both; }
+@keyframes tv-faceoff-out { from { opacity:1; } to { opacity:0; } }
+.tv-faceoff-head { display:flex; align-items:baseline; gap:20px; }
+.tv-faceoff-round { font-size:56px; line-height:1; color:var(--sun); }
+.tv-faceoff-sides { width:100%; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:center; gap:32px; }
+.tv-faceoff-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:18px; text-align:center; }
+.tv-faceoff-side.is-left { animation:tv-faceoff-left 560ms var(--ease-out) calc(var(--tl) + 0ms) both; }
+.tv-faceoff-side.is-right { animation:tv-faceoff-right 560ms var(--ease-out) calc(var(--tl) + 0ms) both; }
+@keyframes tv-faceoff-left { from { opacity:0; transform:translateX(-760px); } to { opacity:1; transform:none; } }
+@keyframes tv-faceoff-right { from { opacity:0; transform:translateX(760px); } to { opacity:1; transform:none; } }
+.tv-faceoff-chips { display:flex; justify-content:center; gap:14px; }
+.tv-faceoff-chips.is-wrap { flex-wrap:wrap; max-width:640px; }
+.tv-faceoff-name { max-width:100%; line-height:.95; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-faceoff-line { min-height:34px; max-width:100%; animation:tv-crown-in 300ms ease-out calc(var(--tl) + 900ms) both; }
+.tv-faceoff-vs { width:124px; height:124px; border-radius:50%; display:grid; place-items:center; background:var(--sun); color:var(--ink0);
+  font:700 italic 56px/1 var(--fd-display); animation:tv-faceoff-vs 320ms var(--ease-land) calc(var(--tl) + 420ms) both; }
+@keyframes tv-faceoff-vs { from { opacity:0; transform:scale(1.8) rotate(-8deg); } to { opacity:1; transform:none; } }
+.tv-faceoff-record { min-height:56px; font-size:56px; line-height:1; color:var(--sun);
+  animation:tv-crown-in 300ms ease-out calc(var(--tl) + 760ms) both; }

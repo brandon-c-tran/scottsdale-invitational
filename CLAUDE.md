@@ -100,7 +100,9 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   chips (`ChipShower`); phones never play confetti, the TV keeps its burst
   for results (its crown is the M18 scene, not confetti).
   The crown (`useCrownMoment`, `crownKey`) plays once per phone: the champion
-  moment (the champion's own phone floods with their color), then this
+  moment (D1: every phone floods with the champion's color on the TV's own
+  `CROWN_TIMING` beat, anchored by `crownAnchor` in `results/crownTiming.js`;
+  a tie floods nobody, a phone reached after the flood opens its card), then this
   phone's last card (`lastCardModel`, `chipHistory` replays the weekend and
   always ends on the board's number); a phone that missed it opens straight
   to the card, and Home's "Your last card" reopens it. Save card draws a
@@ -124,7 +126,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Poker stacks build chip by chip on a fresh deal, blinds roll, a bust tips
   flat (`features/tv/TVPoker.jsx`, `src/lib/motionKit.js`). TV bracket advance
   and the crown live in `features/tv/tvMotion.js`, `TVBracket.jsx`,
-  `TVChampion.jsx`, anchored on server times. The player card back is the
+  `TVChampion.jsx`, anchored on server times. A fresh lock of a two-sided
+  contest opens the TV live scene on a face-off (D2, `tv/faceOff.js`: photo
+  chips, head-to-head only when they have met, X8 lines) for one beat. The
+  champion scene's optional second step, and the frozen TV's ambient turn,
+  is the class photo (D3, `results/classPhoto.js`); the commissioner's "Save
+  poster" draws the same composition (`results/posterImage.js`). The player card back is the
   season sheet and head-to-head (`features/profile/seasonStats.js`, pure,
   derived; Rematch only opens the duel send flow).
 

@@ -36,11 +36,14 @@ const SHOW_SCENE_DEFINITIONS = Object.freeze({
     intensity:"routine",
     steps:Object.freeze(["board"]),
   }),
+  /* the crown, then (D3) the class photo: all thirteen in final order.
+     The second step is the commissioner's to take; the champion holds
+     until then. A one-step record from before reads as the first step. */
   champion: Object.freeze({
     label:"Champion",
     intensity:"major",
     requiresFrozen:true,
-    steps:Object.freeze(["champion"]),
+    steps:Object.freeze(["champion", "class"]),
   }),
 });
 
@@ -225,7 +228,7 @@ function resolveShowScene(state, events = []) {
    room. A beat's label is the short verb the pill shows; its subject is
    the thing it acts on, drawn on the pill's second line. */
 const REPLAY_WINDOW_MS = 15 * 60 * 1000;
-const ADVANCE_LABELS = { winner:{ winner:"Show standings" } };
+const ADVANCE_LABELS = { winner:{ winner:"Show standings" }, champion:{ champion:"Class photo" } };
 const directorBeat = (type, label, extra = {}) =>
   ({ type, label, enabled:true, blockers:[], ...extra });
 

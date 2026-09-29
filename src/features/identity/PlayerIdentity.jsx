@@ -38,6 +38,13 @@ function AvatarStack({ state, players, size=24, max=4 }) {
     </div>
   );
 }
+/* the loud skins' marks, shared with the saved poster's canvas chips */
+const CHIP_SKIN_PATHS = Object.freeze({
+  flame:"M0 -3.9C1.9 -1.5 2.3 -0.5 2.3 0.6 2.3 2.1 1.3 3 0 3S-2.3 2.1 -2.3 0.6C-2.3-0.5-1.9-1.5 0-3.9Z",
+  star:"M0 -3C0.35-0.9 0.55-0.7 2.7-0.35 0.55 0 0.35 0.2 0 2.3c-0.35-2.1-0.55-2.3-2.7-2.65C-0.55-0.7-0.35-0.9 0-3Z",
+  bolt:"M-2.7-2.4 0 .2 2.7-2.4 2.7.2 0 2.9-2.7.2 0-2.4Z",
+  crown:"M-6.2 3.4 -5-3.6-2.1-0.9 0-5.2 2.1-0.9 5-3.6 6.2 3.4Z",
+});
 const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
   const pt = (r, deg) => {
     const a = deg * Math.PI / 180;
@@ -78,13 +85,9 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
   }
   /* symmetric teardrop: the earlier version had an inner curl that read as a
      comma once it was 3px on a phone */
-  if (skin === "flame") return around(6,
-    "M0 -3.9C1.9 -1.5 2.3 -0.5 2.3 0.6 2.3 2.1 1.3 3 0 3S-2.3 2.1 -2.3 0.6C-2.3-0.5-1.9-1.5 0-3.9Z",
-    edge - 0.6);
-  if (skin === "star") return around(6,
-    "M0 -3C0.35-0.9 0.55-0.7 2.7-0.35 0.55 0 0.35 0.2 0 2.3c-0.35-2.1-0.55-2.3-2.7-2.65C-0.55-0.7-0.35-0.9 0-3Z",
-    edge - 0.9);
-  if (skin === "bolt") return around(6, "M-2.7-2.4 0 .2 2.7-2.4 2.7.2 0 2.9-2.7.2 0-2.4Z", edge - 0.8);
+  if (skin === "flame") return around(6, CHIP_SKIN_PATHS.flame, edge - 0.6);
+  if (skin === "star") return around(6, CHIP_SKIN_PATHS.star, edge - 0.9);
+  if (skin === "bolt") return around(6, CHIP_SKIN_PATHS.bolt, edge - 0.8);
   if (skin === "wave") {
     const n = 60, d = [];
     for (let i = 0; i <= n; i++) {
@@ -98,7 +101,7 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
      every skin has to leave the middle of the chip clear, because the stamp
      in there is the whole point of the chip. */
   if (skin === "crown") return (
-    <path d="M-6.2 3.4 -5-3.6-2.1-0.9 0-5.2 2.1-0.9 5-3.6 6.2 3.4Z"
+    <path d={CHIP_SKIN_PATHS.crown}
       fill={ink} transform={`translate(${cx} ${cx - 8.3})`} />
   );
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
@@ -202,4 +205,4 @@ function BetChipCluster({ chips, size=22, max=3, onRetract, reserveAction=false 
   );
 }
 
-export { Avatar, AvatarStack, ChipFace, BankChip, BetChipCluster };
+export { Avatar, AvatarStack, ChipFace, BankChip, BetChipCluster, CHIP_SKIN_PATHS };

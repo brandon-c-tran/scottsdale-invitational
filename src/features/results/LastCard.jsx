@@ -4,15 +4,14 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
 import { useCountBetween, useReducedMotion } from "../../lib/motion.js";
+import { serverNow } from "../../lib/serverClock.js";
 import { chartModel, lastCardModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage } from "./cardImage.js";
+import { PHONE_CROWN as P, crownAnchor, crownPhonePlan } from "./crownTiming.js";
+import { SavePoster } from "./SavePoster.jsx";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
-/* the champion moment holds this long before the card turns over; the
-   champion's own phone floods with their color first, so it holds longer */
-export const CROWN_HOLD_MS = 3200;
-export const CROWN_FLOOD_HOLD_MS = 3900;
 
 /* The card's chip: one ink, edge ticks, the jersey number. The saved image
    draws the same chip (cardImage.js drawCardChip). */
@@ -74,32 +73,40 @@ export function LastCardFace({ model, turn = false }) {
   </article>;
 }
 
-function ChampionMoment({ leaders, flood, floodColor, floodInk, onSkip }) {
+/* D1: the phone half of the crown, on the TV's own server instant. The
+   champion's face appears where the TV's row rises to, their color floods
+   the whole screen on the same beat as the TV, their chip drops and turns,
+   and the stack counts in 25s. --tl is minus the ms already gone when this
+   phone joined, so every delay reads "this long after the crown". A tie
+   stays on night. */
+function ChampionMoment({ leaders, elapsed, flood, floodColor, floodInk, onSkip }) {
   const pts = leaders[0]?.pts || 0;
-  const count = useCountBetween(0, pts, { play:true, step:CHIP_MIN, delay:flood ? 1900 : 1300, duration:1000 });
+  const count = useCountBetween(0, pts, { play:true, step:CHIP_MIN, delay:P.count - elapsed, duration:P.countMs });
   const name = leaders.map(leader => leader.name).join(" & ");
   return <div className={`fd-crown-moment${flood ? " is-flood" : ""}`}
-    style={flood ? { "--crown-color":floodColor, "--crown-ink":floodInk } : undefined}
+    style={{ "--tl":`${-Math.round(elapsed)}ms`, ...(flood ? { "--crown-color":floodColor, "--crown-ink":floodInk } : null) }}
     onClick={onSkip} role="presentation">
+    <p className="fd-crown-kicker">Final standings</p>
+    {flood && <span className="fd-crown-origin" aria-hidden="true"><ChipFace p={leaders[0].player} size={72} flat /></span>}
     {flood && <div className="fd-crown-flood" aria-hidden="true" />}
     <div className="fd-crown-stage">
       <div className="fd-crown-coins">{leaders.map(leader => <span key={leader.player} className="fd-crown-coin">
         <ChipFace p={leader.player} size={leaders.length > 1 ? 118 : 164} flat /></span>)}</div>
       <p className="fd-crown-tag">{leaders.length > 1 ? "Tied for the championship" : "Champion"}</p>
       <h1 className="fd-crown-name" aria-label={name}>{[...name.toUpperCase()].map((letter, index) =>
-        <span key={index} aria-hidden="true" style={{ "--fd-letter":index }}>{letter === " " ? " " : letter}</span>)}</h1>
+        <span key={index} aria-hidden="true" style={{ "--fd-letter":index }}>{letter === " " ? " " : letter}</span>)}</h1>
       <p className="fd-crown-stack"><b>{fmt(count)}</b> chips</p>
     </div>
     <button type="button" className="fd-crown-skip" onClick={event => { event.stopPropagation(); onSkip(); }}>Skip</button>
   </div>;
 }
 
-/* The crown on a phone (X5 + the phone half of M18): the champion moment,
-   then this phone's own last card. The champion's phone floods with their
-   color first; everyone else sees the moment on the night palette. A tap
-   anywhere skips the hold. Reduced motion, or a crown this phone missed,
-   opens straight to the card. */
-export function LastCardLayer({ state, me, events, standings, mode = "card", onClose, onStandings }) {
+/* The crown on a phone (X5, M18 phone, D1): every phone floods with the
+   champion's color on the TV's beat, holds, then turns to its own last
+   card. A tap anywhere skips the hold. Reduced motion, a crown this phone
+   missed, or one that reached it after the flood opens straight to the
+   card. The commissioner can also save the class photo poster (D3). */
+export function LastCardLayer({ state, me, events, standings, mode = "card", gm = false, onClose, onStandings }) {
   const reduced = useReducedMotion();
   const leaders = useMemo(() => standings.filter(row => row.rank === 1)
     .map(row => ({ player:row.player, pts:row.pts, name:state.profiles?.[row.player]?.display || row.player })),
@@ -107,16 +114,19 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", onC
   const subject = me && standings.some(row => row.player === me) ? me : leaders[0]?.player;
   const model = useMemo(() => subject ? lastCardModel(state, subject, { events, standings }) : null,
     [state, subject, events, standings]);
-  const mine = !!me && leaders.some(leader => leader.player === me);
-  const floodIdentity = usePlayerIdentity(mine ? me : leaders[0]?.player);
+  const floodIdentity = usePlayerIdentity(leaders[0]?.player);
   const cardIdentity = usePlayerIdentity(subject);
-  const [phase, setPhase] = useState(mode === "moment" && !reduced ? "moment" : "card");
+  /* the plan is fixed from the frame that crowned, on the server clock */
+  const plan = useRef(null);
+  if (!plan.current) plan.current = crownPhonePlan({ anchor:crownAnchor(state), now:serverNow(),
+    fresh:mode === "moment", reduced, tied:leaders.length > 1 });
+  const [phase, setPhase] = useState(plan.current.mode);
   const turned = useRef(phase === "moment");
   useEffect(() => {
     if (phase !== "moment") return undefined;
-    const timer = setTimeout(() => setPhase("card"), mine ? CROWN_FLOOD_HOLD_MS : CROWN_HOLD_MS);
+    const timer = setTimeout(() => setPhase("card"), plan.current.turnIn);
     return () => clearTimeout(timer);
-  }, [phase, mine]);
+  }, [phase]);
 
   /* the image is drawn as soon as the card is up, so Save card can hand it
      to the share sheet inside the tap */
@@ -144,8 +154,8 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", onC
   if (!model || !leaders.length) return null;
   const champion = leaders[0];
   return <div className="fd-crown fd-night" role="dialog" aria-modal="true" aria-label="Final standings">
-    {phase === "moment" ? <ChampionMoment leaders={leaders} flood={mine} floodColor={floodIdentity.color}
-      floodInk={cardInk(floodIdentity.color)} onSkip={() => setPhase("card")} />
+    {phase === "moment" ? <ChampionMoment leaders={leaders} elapsed={plan.current.elapsed} flood={plan.current.flood}
+      floodColor={floodIdentity.color} floodInk={cardInk(floodIdentity.color)} onSkip={() => setPhase("card")} />
       : <div className={`fd-crown-card${turned.current ? " is-arriving" : ""}`}>
         <div className="fd-crown-bar"><span className="fd-kicker">Final standings</span>
           <button type="button" className="fd-crown-close" aria-label="Close" onClick={onClose}>✕</button></div>
@@ -160,6 +170,7 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", onC
           <button type="button" className="fd-crown-save" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save card"}</button>
           <button type="button" className="fd-crown-board" onClick={onStandings}>Leaderboard <span aria-hidden="true">↗</span></button>
         </div>
+        {gm && <SavePoster state={state} events={events} standings={standings} />}
       </div>}
     {preview && <div className="fd-crown-preview" role="dialog" aria-label="Saved card">
       <img src={preview} alt={`${model.name}'s last card`} />

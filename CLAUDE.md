@@ -589,8 +589,8 @@ foundation, the Table Home, chip flight and settle, result receipt and own-chip
 showers, the last card, synced draw reveals, TV bracket advance and crown,
 draft and finale motion, season card back, iOS tap tick, queued + taps) builds
 on the September 27 second pass: 537 tests and the 139-check local e2e pass,
-deployed to staging as version `63f01ffa-ad02-426a-92bd-a5cae8f00132` (build
-`5319a88`). The previous staging build is tag `staging-4f6789d5`; the one
+deployed to staging as version `d40d49ac-17e6-48b7-a1c3-97101cd3bb68` (build
+`4adc871`, with the solid leaderboard bar and photo chips). The previous staging build is tag `staging-4f6789d5`; the one
 before is `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for

@@ -654,10 +654,11 @@ The September 28 Living Field Day pass (TH1 phase theme, the motion
 foundation, the Table Home, chip flight and settle, result receipt and own-chip
 showers, the last card, synced draw reveals, TV bracket advance and crown,
 draft and finale motion, season card back, iOS tap tick, queued + taps) builds
-on the September 27 second pass: 565 tests and the 139-check local e2e pass,
-deployed to staging as version `cfcb75ae-9396-40c1-8206-108f4d4c2d05` (build
-`5a6a207`, with photo chips, 1v1 Basketball as a 13-player bracket, and QA
-fast-forward). The previous staging build is tag `staging-d40d49ac`; the one
+on the September 27 second pass: 644 tests and the 139-check local e2e pass,
+deployed to staging as version `f9d09da0-5865-4a08-81de-4f2f6eda851b` (build
+`9c986b0`, with the sound system, walkout silence, pocket alerts, the room
+flood, face-off, class photo, weekend facts and run of show). The previous
+staging build is tag `staging-cfcb75ae`; the one
 before is `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for

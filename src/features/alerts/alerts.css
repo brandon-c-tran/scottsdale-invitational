@@ -1,0 +1,16 @@
+/* Pocket alerts: the Home card matches the flights question; the profile
+   row matches Haptics. */
+.fd-home-alerts { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:12px 0 0;
+  padding:0 0 0 12px; border:1px solid var(--line); border-radius:10px; background:var(--paper2);
+  font-size:13px; color:var(--ink); }
+.fd-home-alerts>span { flex:1; min-width:0; }
+.fd-home-alerts button { min-width:64px; min-height:44px; padding:0 12px; border:0;
+  border-left:1px solid var(--line); background:none; color:var(--sun); font:600 13px/1 var(--fd-body);
+  cursor:pointer; }
+.fd-home-alerts button:last-of-type { color:var(--muted2); }
+.fd-home-alerts button:disabled { color:var(--disabled); cursor:default; }
+.fd-home-alerts p { flex-basis:100%; margin:0 0 8px; color:var(--live2); font-size:12px; }
+.fd-alerts-row>span:first-child { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.fd-alerts-row small { color:var(--muted2); font:12px/1.4 var(--fd-body); }
+.fd-alerts-row .fd-alerts-error { color:var(--live2); }
+.fd-alerts-blocked { flex-shrink:0; color:var(--muted2); font:500 12px/1.4 var(--fd-body); }

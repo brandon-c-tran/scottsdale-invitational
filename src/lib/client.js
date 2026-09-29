@@ -68,6 +68,7 @@ const DEFAULT_CAPABILITIES = {
   audioDirector:false,
   audioCatalog:false,
   audioPlayback:false,
+  push:false,
 };
 const snapshot = {
   state: EMPTY_STATE,
@@ -90,6 +91,8 @@ const snapshot = {
   serverBuild: null,
   /* the Worker runs a newer build than this bundle */
   updateReady: false,
+  /* the VAPID public key pocket alerts subscribe with, when alerts are on */
+  pushKey: null,
 };
 let cached = { ...snapshot };
 const listeners = new Set();
@@ -120,9 +123,13 @@ function wsUrl() {
   return `${proto}//${location.host}/ws`;
 }
 
+/* whether this page is on screen: a phone looking at the app gets no pocket
+   alert, so hello and ping say so and hiding says so at once */
+const pageVisible = () => typeof document === "undefined" || document.hidden !== true;
+
 function sendHello() {
   const nonce = ++helloSeq;
-  send({ type:"hello", payload:{ view:isTvRoute() ? "tv" : "app", nonce } });
+  send({ type:"hello", payload:{ view:isTvRoute() ? "tv" : "app", nonce, visible:pageVisible() } });
   return nonce;
 }
 
@@ -186,7 +193,7 @@ function connect() {
     pingTimer = setInterval(() => {
       if (ws !== socket) return;
       const sentAt = Date.now();
-      send({ type: "ping" });
+      send({ type: "ping", payload:{ visible:pageVisible() } });
       clearTimeout(pongTimer);
       pongTimer = setTimeout(() => { if (ws === socket && lastInbound < sentAt) forceReconnect(); },
         PONG_DEADLINE_MS);
@@ -219,6 +226,7 @@ function receiveState(msg) {
     snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
     snapshot.environment = msg.environment || "production";
     snapshot.capabilities = msg.capabilities || { ...DEFAULT_CAPABILITIES };
+    snapshot.pushKey = typeof msg.pushKey === "string" ? msg.pushKey : null;
     if ("you" in msg) snapshot.you = msg.you || null;
   }
   /* A frame sent before the server read this socket's token says nothing
@@ -395,7 +403,7 @@ if (typeof window !== "undefined") {
   connect();
   let hiddenAt = null;
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (document.hidden) { hiddenAt = Date.now(); send({ type:"presence", payload:{ visible:false } }); return; }
     const away = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = null;
     if (snapshot.updateReady && away >= UPDATE_AWAY_MS && autoReloadAllowed() && reloadForUpdate()) return;

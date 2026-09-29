@@ -63,6 +63,20 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and reports a timed-out write as uncertain until the next state settles it.
   Every frame carries a build id: the TV reloads between ceremonies and phones
   offer Update ready.
+- **Pocket alerts (Web Push, A10):** `worker/pushAlerts.js` picks, from the
+  board before and after each persisted write, "You're playing" (your
+  contest became current; not a wide free-for-all), "Your pick" and
+  "{Name} challenged you", only for the player concerned and never the
+  actor, deduped per player+reason+contest, skipped while that player's
+  socket says the app is on screen (hello/ping/presence carry `visible`).
+  `worker/push.js` sends them after the broadcast (RFC 8291 aes128gcm +
+  RFC 8292 VAPID on WebCrypto), never blocking or failing a write, and drops
+  subscriptions the push service calls gone. `public/sw.js` has only push and
+  notificationclick handlers: no fetch handler, no cache. The ask is its own
+  control (`features/alerts/`: the Alerts row beside Haptics and one
+  dismissible Home card for an installed app that never answered), never
+  part of check-in. Off unless `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`
+  secrets and the `VAPID_SUBJECT` var are set (`capabilities.push`).
 - **Motion foundation** (`src/lib/motion.js`, tokens in `src/ui/motion.css`):
   every animated surface uses it. `MOTION`/`EASE` are the named timings
   (count 750, delta 1100, row 560, stamp 320, flight 340, settle hold 2400,
@@ -559,6 +573,9 @@ no specific question, poll, or new endpoint has been implemented yet.
 13. **Provider credentials are private infrastructure state.** Spotify client
    credentials are Worker secrets. Application tokens stay in Worker memory;
    GM access and refresh tokens use `private:spotify:*` Durable Object keys.
+   Web Push subscriptions (`private:push:subs`, by device id) and the sent
+   ledger (`private:push:sent`) are private keys too; the VAPID private key
+   is a Worker secret.
    Private keys, GM tokens, and internal backups are excluded from portable
    snapshots. Clients never receive raw state: every socket gets a
    `publicState` projection (worker/publicState.js). Ratings go to the GM and
@@ -735,5 +752,5 @@ back to the GameMark, then the FD chip. Nothing else to wire.
 - [ ] Sudden-death pressure putt flow for championship ties
 - [ ] Odds tuning option: payout scaling by field size
 - [ ] Photo optimization (resize server-side, R2 if state grows)
-- [ ] Web Push for betting-open and results (installed PWAs, iOS 16.4+)
+- [x] Web Push pocket alerts: You're playing, Your pick, challenges (installed PWAs, iOS 16.4+)
 - [ ] Service worker offline shell (installed PWA currently needs network to boot)

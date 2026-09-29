@@ -42,6 +42,8 @@ import {
   spotifyConfigured,
   spotifyRedirectUri,
 } from "./spotify.js";
+import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
+import { alertsFor } from "./pushAlerts.js";
 
 const tokenEncoder = new TextEncoder();
 /* The Durable Object value limit is 2 MB; warn well before it. */
@@ -69,7 +71,12 @@ const QA_CHECKPOINT_PREFIX = "private:qa:checkpoint:";
 const QA_CHECKPOINT_ID = /^cp[a-z0-9]{6,40}$/;
 /* writes that replace game progress keep one rotating pre-reset backup */
 const RESET_BACKUP_ACTIONS = new Set(["resetTournament", "qaAdvance", "qaRestore"]);
+/* writes that never send pocket alerts */
+const QUIET_ACTIONS = RESET_BACKUP_ACTIONS;
 const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
+/* a phone counts as looking at the app when its socket said so recently;
+   a foreground phone pings every 25 seconds */
+const PRESENCE_FRESH_MS = 40 * 1000;
 const SPOTIFY_SEARCH_LIMIT = 12;
 const spotifyJson = (body, status = 200) => Response.json(body, {
   status,
@@ -111,6 +118,12 @@ export class Tournament {
       ? this.env.APP_ENV : "production";
   }
 
+  /* parsed once per instance; null when the key pair or subject is missing */
+  get vapid() {
+    if (this.vapidCache === undefined) this.vapidCache = vapidConfig(this.env);
+    return this.vapidCache;
+  }
+
   get capabilities() {
     const configured = ["local", "staging", "production"].includes(this.env.APP_ENV);
     const isolated = this.environment === "local" || this.environment === "staging";
@@ -130,6 +143,8 @@ export class Tournament {
       audioPlayback:configured
         && this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
         && spotifyConfigured(this.env),
+      /* pocket alerts: on only with a complete VAPID key pair and subject */
+      push:configured && !!this.vapid,
     };
   }
 
@@ -766,12 +781,14 @@ export class Tournament {
     try { meta = ws?.deserializeAttachment?.() ?? null; } catch {}
     if (!meta || typeof meta !== "object") meta = this.socketFallback.get(ws) || null;
     return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
-      gmId:typeof meta?.gmId === "string" ? meta.gmId : null };
+      gmId:typeof meta?.gmId === "string" ? meta.gmId : null,
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0 };
   }
 
   setSocketMeta(ws, meta) {
     const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
-      gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null };
+      gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null,
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0 };
     try { ws?.serializeAttachment?.(clean); } catch {}
     if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
     return clean;
@@ -799,6 +816,7 @@ export class Tournament {
   stateFrame(ws, serialize, extra = {}, shared = null) {
     const meta = this.socketMeta(ws);
     const viewer = this.viewerFor(meta);
+    const capabilities = shared?.capabilities ?? this.capabilities;
     const head = JSON.stringify({
       type:"state",
       version:this.version,
@@ -808,7 +826,9 @@ export class Tournament {
          phone whose token was revoked leaves its commissioner screens */
       ...(meta.deviceId ? { gm:viewer.isGm } : {}),
       environment:shared?.environment ?? this.environment,
-      capabilities:shared?.capabilities ?? this.capabilities,
+      capabilities,
+      /* the VAPID public key a phone subscribes with; public by nature */
+      ...(capabilities.push ? { pushKey:this.vapid.publicKey } : {}),
       build:BUILD_ID,
       boot:this.bootId,
       applied:meta.deviceId ? this.appliedActions.get(meta.deviceId) || [] : [],
@@ -834,20 +854,32 @@ export class Tournament {
     let meta = this.socketMeta(ws);
     const presented = validDeviceId(msg.deviceId);
     if (meta.deviceId && presented && presented !== meta.deviceId) {
-      if (type === "hello" || type === "ping") return;
+      if (type === "hello" || type === "ping" || type === "presence") return;
       return reply({ ok:false, error:"This connection belongs to another device. Reload." });
     }
     if (!meta.deviceId && presented) meta = this.setSocketMeta(ws, { ...meta, deviceId:presented });
     const deviceId = meta.deviceId;
 
+    /* Presence rides hello, ping and a hidden notice: a phone looking at
+       the app gets no pocket alert. A client that never says is foreground. */
+    const visible = typeof payload?.visible === "boolean" ? payload.visible : null;
     if (type === "hello") {
       const gmId = await this.gmTokenId(gmToken);
-      meta = this.setSocketMeta(ws, { ...meta, tv:payload?.view === "tv", gm:!!gmId, gmId });
+      meta = this.setSocketMeta(ws, { ...meta, tv:payload?.view === "tv", gm:!!gmId, gmId,
+        fg:visible !== false, seenAt:Date.now() });
       const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       return;
     }
-    if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {} return; }
+    if (type === "ping" || type === "presence") {
+      meta = this.setSocketMeta(ws, { ...meta, fg:visible ?? (type === "ping" ? meta.fg : false),
+        seenAt:Date.now() });
+      if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {}
+      return;
+    }
+
+    if (type === "pushSubscribe" || type === "pushUnsubscribe")
+      return reply(await this.pushCommand(type, payload, deviceId));
 
     if (type === "gmUnlock") {
       /* a 4-digit pin needs a brake: ten misses lock the door for a minute */
@@ -951,6 +983,7 @@ export class Tournament {
       if (viewChanged) this.sendState(ws);
       return reply({ ...result, version:this.version });
     }
+    const before = this.state;
     let persisted;
     try {
       persisted = await this.persist(nextState, {
@@ -976,6 +1009,56 @@ export class Tournament {
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
+    /* rehearsal jumps and resets move the board, not the room: no alerts */
+    if (!QUIET_ACTIONS.has(type))
+      this.queueAlerts(before, this.state, isActivePlayer(claimed) ? claimed : null);
+  }
+
+  /* ── pocket alerts (worker/push.js) ──
+     A device subscribes for whoever it has claimed; the alert follows the
+     claim at send time. Alerts go out after the write persisted and its
+     broadcast left, never hold up or fail a write, and skip a player who is
+     looking at the app right now. */
+  async pushCommand(type, payload, deviceId) {
+    if (!deviceId) return { ok:false, error:"Reload and try again" };
+    if (type === "pushUnsubscribe") {
+      await dropSubscription(this.ctx.storage, deviceId,
+        typeof payload?.endpoint === "string" ? payload.endpoint : null);
+      return { ok:true };
+    }
+    if (!this.capabilities.push) return { ok:false, error:"Alerts are off" };
+    if (!isActivePlayer(this.claims[deviceId])) return { ok:false, error:"Check in first" };
+    const sub = cleanSubscription(payload, { environment:this.environment });
+    if (!sub) return { ok:false, error:"This browser can't take alerts" };
+    await saveSubscription(this.ctx.storage, deviceId, sub);
+    return { ok:true };
+  }
+
+  playerLooking(player, now = Date.now()) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      const meta = this.socketMeta(ws);
+      if (!meta.tv && meta.fg && now - meta.seenAt < PRESENCE_FRESH_MS
+          && meta.deviceId && this.claims[meta.deviceId] === player) return true;
+    }
+    return false;
+  }
+
+  queueAlerts(before, after, actor) {
+    if (!this.capabilities.push) return null;
+    let alerts;
+    try { alerts = alertsFor(before, after, { actor }).filter(alert => !this.playerLooking(alert.player)); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"push-select-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    if (!alerts.length) return null;
+    /* dedupe is serialized; the sends themselves run side by side */
+    const claimed = this.alertGate = (this.alertGate || Promise.resolve())
+      .then(() => claimAlerts(this.ctx.storage, alerts)).catch(() => []);
+    const work = claimed.then(fresh => deliverAlerts(fresh, { storage:this.ctx.storage, env:this.env,
+      claims:this.claims, fetchImpl:this.pushFetch || fetch })).catch(() => null);
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
   }
 
   /* ── QA checkpoints (commissioner, QA capability) ──

@@ -34,6 +34,9 @@ The app currently uses the Durable Object KV API:
 - `gmToken`
 - `photo:<player-id>`
 - private integration records such as `private:spotify:*`
+- pocket alert records: `private:push:subs` (each device's Web Push
+  subscription, keyed by device id; the player is the device's claim at send
+  time) and `private:push:sent` (which alerts already went out, for dedupe)
 
 Snapshot export enumerates storage so future portable keys are included.
 `gmToken`, all `private:*` integration records, and internal
@@ -251,6 +254,68 @@ mutation and requires explicit approval:
 ```powershell
 npx.cmd wrangler secret put GM_PIN
 ```
+
+## Pocket alerts (Web Push)
+
+Pocket alerts ("You're playing", "Your pick", "{Name} challenged you") need
+one VAPID key pair per environment. `VAPID_SUBJECT` is already a checked-in
+var (`https://fielddayseries.com`, the contact Apple and Google see). The pair
+is two Worker secrets, `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Until both
+are set the Worker reports `capabilities.push:false`, no phone shows the
+Alerts row or the Home card, and nothing is sent. No Apple developer account
+is involved: iOS 16.4+ takes Web Push for home-screen apps directly.
+
+Generate a pair and store both halves through Wrangler's stdin, so the private
+key is never displayed, typed, or written to disk. Each command prints only
+the public key:
+
+```powershell
+node scripts/vapid-keys.mjs --put staging
+node scripts/vapid-keys.mjs --put production
+```
+
+The production command is a production mutation and requires approval. Each
+`wrangler secret put` publishes a new version of that Worker with the secret;
+the code is unchanged, so running it before or after the deploy that ships
+alerts are both fine.
+
+Manual alternative, with a pair from any Web Push key tool (for example
+`npx.cmd web-push generate-vapid-keys`), pasted into Wrangler's private prompts:
+
+```powershell
+npx.cmd wrangler secret put VAPID_PUBLIC_KEY --env staging
+npx.cmd wrangler secret put VAPID_PRIVATE_KEY --env staging
+npx.cmd wrangler secret put VAPID_PUBLIC_KEY
+npx.cmd wrangler secret put VAPID_PRIVATE_KEY
+```
+
+Never place the private key in `wrangler.jsonc`, a snapshot, chat, or a
+command argument. The two halves only work as a pair: store them together.
+
+Check after deploy: open the installed app on an iPhone. Home shows "Get
+alerts when you're up"; Turn on, then Allow. Profile > Alerts reads on. Close
+the app and have another player challenge you; the notification opens Home.
+
+Replacing the pair (run the command again) invalidates every subscription.
+Each phone that already allowed alerts subscribes again with the new key the
+next time it opens the app. To turn alerts off, delete either secret:
+
+```powershell
+npx.cmd wrangler secret delete VAPID_PRIVATE_KEY --env staging
+npx.cmd wrangler secret delete VAPID_PRIVATE_KEY
+```
+
+QA fast-forward, checkpoint restore and the game-progress reset never send
+alerts. Every other write does, in every environment: a production dry run
+driven through the normal commissioner controls alerts guests who turned
+alerts on. Rehearse alerts on staging, or delete `VAPID_PRIVATE_KEY` in
+production for the dry run and run `node scripts/vapid-keys.mjs --put
+production` after it; each phone that allowed alerts subscribes again with the
+new pair the next time it opens the app.
+
+Local rehearsal can put a throwaway pair in `.dev.vars.local` (see
+`.dev.vars.example`). The local environment also accepts a loopback push
+endpoint for testing; staging and production accept only real push services.
 
 ## Import a snapshot into staging
 

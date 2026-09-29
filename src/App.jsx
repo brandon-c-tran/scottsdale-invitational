@@ -65,6 +65,8 @@ import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
 import { useDuelClock } from "./features/duels/useDuelClock.js";
 import { DirectorPill } from "./features/director/DirectorPill.jsx";
 import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
+import { CallBar } from "./features/call/CallBar.jsx";
+import { CallChip } from "./features/call/CallChip.jsx";
 import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { directorPill } from "./features/director/directorPill.js";
@@ -1497,6 +1499,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
                 {cueRack(false)}
               </div>
             )}
+            {gmView && ready && <CallChip state={state} events={events} director={director} notify={notify} />}
             {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
               director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
           </div>
@@ -1900,6 +1903,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setModal(null); setTab("bets"); } : null} />}
+      <CallBar state={state} hidden={gmView || !me} />
       {moment && !stageHeld && <ChipReceipt moment={moment} onDismiss={() => setMoment(null)}
         dock={receiptDock({ tab, modal })}
         onStandings={() => { setMoment(null); setModal({ type:"standings" }); }}

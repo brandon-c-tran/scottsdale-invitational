@@ -7,6 +7,8 @@ import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { drawRevealGroups, drawStepAt, drawStepDelay, revealTimeline, startDrawPlayback } from "./drawReveal.js";
 import { playSound } from "../../lib/sound.js";
+import { drawPath } from "./drawPath.js";
+import { DrawPathLine } from "./DrawPath.jsx";
 import { currentFrame } from "../../lib/frameGate.js";
 import "./announcement.css";
 
@@ -87,6 +89,13 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
   const you = usePlayerIdentity(me);
   const youStyle = { "--fd-you":you.color, "--fd-you-ink":you.isLight ? "var(--ink0)" : "var(--bone)" };
   const complete = shown >= total;
+  /* D10: the live ceremony that turned your card ends on your path; a
+     spectator's, and every replay from the event sheet, ends as before */
+  const path = synced && mineIndex >= 0 ? drawPath(state, reveal, me) : null;
+  const actions = <div className="fd-announcement-actions">
+    {onBets && <ActionButton onClick={onBets}>Place chips</ActionButton>}
+    <ActionButton variant={onBets ? "secondary" : "primary"} onClick={onClose}>Done</ActionButton>
+  </div>;
   const skip = () => playback.current?.skip();
   const replay = () => {
     playback.current?.stop();
@@ -131,9 +140,11 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
     {!!reveal.crew?.length && <div className={`fd-draw-crew ${complete ? "is-revealed" : "is-covered"}`} aria-hidden={!complete}>
       {reveal.crew.map(role=><div key={role.player}>{playerButton(role.player,complete)}<span>{overflowRoleMeta(role.role).label}</span></div>)}
     </div>}
-    <div className="fd-announcement-actions">
-      {onBets && <ActionButton onClick={onBets}>Place chips</ActionButton>}
-      <ActionButton variant={onBets ? "secondary" : "primary"} onClick={onClose}>Done</ActionButton>
-    </div>
+    {path && complete
+      ? <div className={`fd-draw-footer${animate ? " is-drawing" : ""}`} style={youStyle} key={`path-${run}`}>
+          <DrawPathLine state={state} path={path} me={me} animate={animate} />
+          {actions}
+        </div>
+      : actions}
   </Sheet>;
 }

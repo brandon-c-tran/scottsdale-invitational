@@ -1,0 +1,52 @@
+/* D9 "To the TV". The phone bar sits over the top of the app (and over
+   any sheet, which makes room under it) for as long as the call is up;
+   the commissioner's chip rides beside the director pill. */
+.fd-call-bar { position:fixed; top:0; left:0; right:0; z-index:320; padding:calc(env(safe-area-inset-top, 0px) + 6px) 10px 0;
+  pointer-events:none; }
+.fd-call-inner { position:relative; display:flex; align-items:center; gap:10px; max-width:540px; margin:0 auto; min-height:52px;
+  padding:4px 4px 4px 14px; border:1px solid var(--sun); border-radius:14px; background:var(--night); color:var(--bone);
+  box-shadow:var(--shadow-3); overflow:hidden; pointer-events:auto; }
+.fd-call-glyph { flex:0 0 auto; color:var(--sun); }
+.fd-call-glyph-screen { opacity:.28; }
+.fd-call-text { flex:1; min-width:0; margin:0; display:flex; align-items:baseline; flex-wrap:wrap; gap:0 8px; }
+.fd-call-text span { font:700 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; color:var(--sun); }
+.fd-call-text b { font:700 21px/1.1 var(--fd-display); letter-spacing:.02em; color:var(--bone); overflow-wrap:anywhere; }
+.fd-call-x { flex:0 0 auto; width:44px; height:44px; border:0; border-radius:10px; background:none; color:var(--night-text);
+  font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-call-x:focus-visible { outline:2px solid var(--sun); outline-offset:-2px; }
+/* the call's remaining time drains along the bottom edge, on the room's clock */
+.fd-call-time { position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--sun); transform-origin:left;
+  transform:scaleX(0); animation:fd-call-drain var(--call-ms, 90s) linear var(--call-elapsed, 0ms) both; }
+@keyframes fd-call-drain { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+.fd-call-bar.is-arriving .fd-call-inner { animation:fd-call-in var(--motion-story, 720ms) var(--ease-land) both; }
+.fd-call-bar.is-arriving .fd-call-glyph-screen { animation:fd-call-screen 1.2s steps(1, end) .35s both; }
+@keyframes fd-call-in { from { transform:translateY(calc(-100% - 20px)); } to { transform:none; } }
+@keyframes fd-call-screen { 0%, 50% { opacity:1; } 25%, 75% { opacity:.28; } 100% { opacity:.28; } }
+@media (prefers-reduced-motion: reduce) {
+  .fd-call-bar.is-arriving .fd-call-inner, .fd-call-bar.is-arriving .fd-call-glyph-screen { animation:none; }
+  /* the time line keeps its place, still */
+  .fd-call-time { animation:none; transform:none; opacity:.5; }
+}
+/* a sheet opened under the bar starts below it */
+html[data-fd-call] .fd-sheet-overlay .si-sheet { max-height:calc(100dvh - 72px - env(safe-area-inset-top, 0px)); }
+
+/* the commissioner's chip */
+.fd-call-chip-row { display:flex; align-items:center; justify-content:flex-end; gap:8px; max-width:100%; }
+.fd-call-chip { display:flex; align-items:center; gap:9px; min-height:44px; max-width:100%; padding:6px 16px 6px 13px;
+  border:1px solid var(--bone-line); border-radius:99px; background:var(--night); color:var(--sun); box-shadow:var(--shadow-2);
+  cursor:pointer; text-align:left; }
+button.fd-call-chip:disabled { opacity:.6; cursor:default; }
+.fd-call-chip-text { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.fd-call-chip-text b { font:700 13px/1.15 var(--fd-body); color:var(--bone); }
+.fd-call-chip.is-live { border-color:var(--sun); }
+.fd-call-chip-text small { font:600 11.5px/1.25 var(--fd-body); color:var(--night-text); overflow-wrap:anywhere; }
+.fd-call-chip.is-compact { justify-content:center; width:44px; height:44px; padding:0; border-color:var(--bone-line);
+  color:var(--night-text); }
+.fd-call-chip.is-live { cursor:default; padding-right:4px; }
+.fd-call-chip.is-live .fd-call-glyph-screen { opacity:1; }
+.fd-call-chip-end, .fd-call-chip-cancel { min-height:44px; min-width:44px; padding:0 12px; border:1px solid var(--bone-line);
+  border-radius:99px; background:var(--night); color:var(--night-text); font:700 12.5px/1 var(--fd-body); cursor:pointer; }
+.fd-call-chip-end { border:0; color:var(--bone); }
+.fd-call-chip-cancel { box-shadow:var(--shadow-2); padding:0; }
+.fd-call-chip-end:disabled { opacity:.5; cursor:default; }
+.fd-call-chip:focus-visible, .fd-call-chip-end:focus-visible, .fd-call-chip-cancel:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }

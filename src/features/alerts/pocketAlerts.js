@@ -6,7 +6,7 @@
    and PushManager exist. Everywhere else nothing here renders. */
 import { dispatch, localGet, localSet } from "../../lib/client.js";
 
-export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel"]);
+export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "call"]);
 export const ALERTS_ASKED_KEY = "si-alerts-asked";
 export const SW_URL = "/sw.js";
 

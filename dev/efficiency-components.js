@@ -446,6 +446,11 @@ function playerStrength(state, p, sport, rows) {
   const aps = rows.map((x) => x.awardPts), ws = rows.map((x) => x.wins);
   return 0.35 * norm(sv[sport] ?? 2, 1, 4) + 0.15 * norm(overall, 1, 4) + 0.35 * norm(r?.awardPts ?? 0, Math.min(...aps), Math.max(...aps)) + 0.15 * norm(r?.wins ?? 0, Math.min(...ws), Math.max(...ws));
 }
+function bracketMatchName(bracket, r, m) {
+  const name = bracketRoundName(bracket?.size, r);
+  if ((bracket?.rounds?.[r]?.length || 1) <= 1) return name;
+  return /\d$/.test(name) ? `${name} Match ${m + 1}` : `${name.replace(/s$/, "")} ${m + 1}`;
+}
 function resolveSlot(br, slot) {
   if (!slot) return null;
   if (slot.t !== void 0) return slot.t;
@@ -660,8 +665,7 @@ function contestEntryLabel(state, ev, entry) {
     const [r, m] = entry.match;
     const br = state.brackets?.[ev?.id];
     const size = state.draws?.[ev?.id]?.teams?.length || br?.size;
-    const round = ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
-    return (br?.rounds?.[r]?.length || 1) > 1 ? `${singularRound(round)} ${m + 1}` : round;
+    return bracketMatchName({ size, rounds: br?.rounds }, r, m);
   }
   if (entry.kind === "heat") return state.stages?.[ev?.id]?.groups?.[entry.group]?.name || `Heat ${Number(entry.group) + 1}`;
   return "Final";
@@ -885,7 +889,7 @@ function eventInPlay(state, ev) {
   if (phase === "in-progress" || phase === "result-entry") return true;
   return phase === "betting-locked" && !!state.eventOps?.[ev.id]?.bettingLockedAt;
 }
-var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isActivePlayer, isAway, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, disp, shuffle, snakeTeam, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, splitThird, postCountRuling, postCountRulingApplies, ROUND_NAMES, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, singularRound, contestOfEntry, contestUndoAvailability, contestCorrections, refundText, duelPairText, lifecycleAction;
+var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isActivePlayer, isAway, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, shapeLabel, disp, shuffle, snakeTeam, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, splitThird, postCountRuling, postCountRulingApplies, MAX_BRACKET, ROUND_NAMES, bracketRoundName, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, contestOfEntry, contestUndoAvailability, contestCorrections, refundText, duelPairText, lifecycleAction;
 var init_core = __esm({
   "shared/core.js"() {
     ROSTER_CONFIG = [
@@ -1072,6 +1076,8 @@ var init_core = __esm({
         game: "putting",
         desc: "Nine holes, lowest total strokes. Max 5 per hole."
       },
+      /* a bracket of everyone present: entrants are teams of one, seeded by the
+         draw, and the top seeds take the byes */
       {
         id: "bball1",
         n: 11,
@@ -1082,8 +1088,8 @@ var init_core = __esm({
         sport: "bball",
         game: "basketball",
         variant: "1v1",
-        stageCfg: { kind: "heats", nGroups: 3, advance: 1 },
-        desc: "Round-robin heats, then a final. Ones to 5, make it take it, win by 1."
+        teamCfg: { teams: 13, size: 1, bracket: 13 },
+        desc: "Single elimination, everyone in. Ones to 5, make it take it, win by 1."
       },
       {
         id: "pickleball",
@@ -1246,11 +1252,11 @@ var init_core = __esm({
       } },
       basketball: { name: "Basketball", variants: [
         { id: "1v1", label: "1v1", howto: {
-          players: "Solo, heats then a final",
+          players: "Solo, single elimination",
           gear: ["Half court", "One ball"],
           objective: "Score five before your opponent.",
           steps: ["Check the ball up top.", "Everything counts one.", "Make it, take it.", "Call your own fouls."],
-          win: "First to five wins the game. Best record in your heat moves on."
+          win: "First to five wins the game. Win the final to take the event."
         } },
         { id: "3v3", label: "3v3", howto: {
           players: "Teams of three",
@@ -1453,6 +1459,7 @@ var init_core = __esm({
       "eventEdits",
       "eventOrder"
     ]);
+    shapeLabel = (fit2) => !fit2 ? "" : fit2.size === 1 ? `${fit2.teams} players` : `${fit2.teams} teams of ${fit2.size}`;
     disp = (state, p) => state.profiles?.[p]?.display || p;
     shuffle = (arr) => {
       const a = [...arr];
@@ -1497,13 +1504,18 @@ var init_core = __esm({
     splitThird = (each, sides) => sides > 1 ? Math.floor(each / sides / PT) * PT : each;
     postCountRuling = (a, stacksRes = null) => a.pokerRevision !== void 0 || !!stacksRes && a.ts > stacksRes.ts;
     postCountRulingApplies = (a, stacksRes) => !!stacksRes && (a.pokerRevision !== void 0 ? Number(a.pokerRevision) === Number(stacksRes.revision || 1) : a.ts > stacksRes.ts);
+    MAX_BRACKET = 16;
     ROUND_NAMES = {
       2: ["Final"],
       3: ["Semifinal", "Final"],
       4: ["Semifinals", "Final"],
       5: ["Play-in", "Semifinals", "Final"],
-      6: ["Play-in", "Semifinals", "Final"]
+      6: ["Play-in", "Semifinals", "Final"],
+      7: ["Quarterfinals", "Semifinals", "Final"],
+      8: ["Quarterfinals", "Semifinals", "Final"]
     };
+    for (let n = 9; n <= MAX_BRACKET; n++) ROUND_NAMES[n] = ["Round 1", "Quarterfinals", "Semifinals", "Final"];
+    bracketRoundName = (size, r) => ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
     bracketChampion = (br) => {
       const last = br.rounds[br.rounds.length - 1][0];
       return last.winner ?? null;
@@ -1526,7 +1538,6 @@ var init_core = __esm({
     needsStageSetup = (state, ev) => !!ev.stageCfg && !state.stages?.[ev.id] && !(!state.eventOps?.[ev.id]?.contest && (state.onDeck === ev.id || state.eventOps?.[ev.id]?.startedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || state.eventOps?.[ev.id]?.bettingLockedAt || state.eventOps?.[ev.id]?.resultEntryAt));
     wideField = (contest) => contest?.kind === "ffa" && contest.sides.length > 2;
     contestMult = (contest) => wideField(contest) ? OUTRIGHT_MULT : 1;
-    singularRound = (name) => String(name || "").replace(/s$/, "");
     contestOfEntry = (evId, entry) => ({
       id: entry.id,
       eventId: evId,
@@ -2247,12 +2258,15 @@ function resolvePlayerIdentity(profiles, player) {
     color: claimedColor?.hex ?? CHIP_GRAY,
     isLight: !!claimedColor?.light,
     skin: CHIP_SKINS.includes(profile?.skin) ? profile.skin : "ticks",
-    num: profile?.num ?? (rosterIndex < 0 ? null : rosterIndex + 1)
+    num: profile?.num ?? (rosterIndex < 0 ? null : rosterIndex + 1),
+    photo: photoUrl(profile, player)
   };
 }
+var photoUrl;
 var init_playerIdentity = __esm({
   "src/features/identity/playerIdentity.js"() {
     init_core();
+    photoUrl = (profile, player) => profile?.photoV ? `/api/photo/${encodeURIComponent(player)}?v=${profile.photoV}` : null;
   }
 });
 
@@ -2280,7 +2294,7 @@ var init_PlayerIdentityContext = __esm({
 import React4, { useId, useState as useState5 } from "react";
 function Avatar({ state, p, size = 34, ring, style }) {
   const prof = state.profiles?.[p];
-  const photo = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
+  const photo = photoUrl(prof, p);
   const [failed, setFailed] = useState5(null);
   const src = photo && failed !== photo ? photo : null;
   const initials = (prof?.display || p || "").slice(0, 2).toUpperCase();
@@ -2334,14 +2348,17 @@ function ChipFace({
   size = 18,
   empty,
   stamp: stampOverride,
+  fallback,
   skin: skinOverride,
   color: colorOverride,
   isLight: lightOverride,
   valueRing = false,
   flat = false
 }) {
-  const clipId = `chip-edge-${useId().replace(/:/g, "")}`;
+  const uid = useId().replace(/:/g, "");
+  const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
+  const [failed, setFailed] = useState5(null);
   if (empty) return /* @__PURE__ */ React4.createElement("div", { style: {
     width: size,
     height: size,
@@ -2356,8 +2373,8 @@ function ChipFace({
   const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const num = identity.num;
-  const stamp = stampOverride != null ? stampOverride : num;
+  const photo = stampOverride == null && size >= PHOTO_MIN && identity.photo && failed !== identity.photo ? identity.photo : null;
+  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : identity.num;
   return /* @__PURE__ */ React4.createElement(
     "svg",
     {
@@ -2371,11 +2388,23 @@ function ChipFace({
         filter: size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none"
       }
     },
-    /* @__PURE__ */ React4.createElement("defs", null, /* @__PURE__ */ React4.createElement("clipPath", { id: clipId }, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "14.7" }))),
+    /* @__PURE__ */ React4.createElement("defs", null, /* @__PURE__ */ React4.createElement("clipPath", { id: clipId }, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "14.7" })), photo && /* @__PURE__ */ React4.createElement("clipPath", { id: faceId }, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3" }))),
     /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "14.7", fill: color, stroke: "var(--ink0)", strokeWidth: "1.45" }),
     /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "13.25", fill: "none", stroke: inlayLine, strokeWidth: ".65", opacity: ".72" }),
     /* @__PURE__ */ React4.createElement("g", { clipPath: `url(#${clipId})` }, chipMarks(skin, 16, 12.4, skinInk)),
-    /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "8.75", fill: inlay, stroke: inlayLine, strokeWidth: ".8" }),
+    photo ? /* @__PURE__ */ React4.createElement(React4.Fragment, null, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "var(--paper2)" }), /* @__PURE__ */ React4.createElement(
+      "image",
+      {
+        href: photo,
+        x: "6.7",
+        y: "6.7",
+        width: "18.6",
+        height: "18.6",
+        preserveAspectRatio: "xMidYMid slice",
+        clipPath: `url(#${faceId})`,
+        onError: () => setFailed(photo)
+      }
+    ), /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "none", stroke: skinInk, strokeWidth: ".9" })) : /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "8.75", fill: inlay, stroke: inlayLine, strokeWidth: ".8" }),
     /* @__PURE__ */ React4.createElement(
       "path",
       {
@@ -2410,7 +2439,7 @@ function ChipFace({
         opacity: ".48"
       }
     ),
-    size >= 20 && stamp != null && /* @__PURE__ */ React4.createElement(
+    !photo && size >= 20 && stamp != null && stamp !== "" && /* @__PURE__ */ React4.createElement(
       "text",
       {
         x: "16",
@@ -2429,11 +2458,12 @@ function ChipFace({
 function BankChip({ p, size = 18, empty, val }) {
   return /* @__PURE__ */ React4.createElement(ChipFace, { p, size, empty, stamp: val, valueRing: val != null });
 }
-var chipMarks;
+var chipMarks, PHOTO_MIN;
 var init_PlayerIdentity = __esm({
   "src/features/identity/PlayerIdentity.jsx"() {
     init_theme();
     init_PlayerIdentityContext();
+    init_playerIdentity();
     chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
       const pt = (r, deg) => {
         const a = deg * Math.PI / 180;
@@ -2533,6 +2563,7 @@ var init_PlayerIdentity = __esm({
       );
       return lines(8, 22.5, edge - 3, edge + 0.6, 2.4);
     };
+    PHOTO_MIN = 24;
   }
 });
 
@@ -2604,7 +2635,7 @@ var init_chip_coin = __esm({
 
 // src/features/identity/ChipCoin.jsx
 import React17, { useEffect as useEffect10, useRef as useRef12, useState as useState15 } from "react";
-function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = false, className = "" }) {
+function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = false, className = "" }) {
   const identity = usePlayerIdentity(p);
   const reduced = useReducedMotion();
   const spinRef = useRef12(null);
@@ -2629,7 +2660,7 @@ function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = false, clas
     cancelAnimationFrame(frame2.current);
     clearTimeout(settle.current);
   }, []);
-  if (reduced) return /* @__PURE__ */ React17.createElement("span", { className: `fd-coin is-static ${className}`, style: { width: size, height: size }, "aria-hidden": "true" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp }));
+  if (reduced) return /* @__PURE__ */ React17.createElement("span", { className: `fd-coin is-static ${className}`, style: { width: size, height: size }, "aria-hidden": "true" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp, fallback }));
   const paint = () => {
     frame2.current = 0;
     if (spinRef.current) spinRef.current.style.transform = `rotateY(${angle.current.toFixed(2)}deg)`;
@@ -2724,7 +2755,7 @@ function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = false, clas
         className: `fd-coin-facet${ink ? " is-ink" : ""}`,
         style: { "--i": index }
       }
-    )), /* @__PURE__ */ React17.createElement("span", { className: "fd-coin-face is-front" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp })), /* @__PURE__ */ React17.createElement("span", { className: "fd-coin-face is-back" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp }))))
+    )), /* @__PURE__ */ React17.createElement("span", { className: "fd-coin-face is-front" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp, fallback })), /* @__PURE__ */ React17.createElement("span", { className: "fd-coin-face is-back" }, /* @__PURE__ */ React17.createElement(ChipFace, { p, size, stamp, fallback }))))
   );
 }
 var angleOf;
@@ -4531,7 +4562,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
-  if (locked) return /* @__PURE__ */ React32.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React32.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React32.createElement("div", null, /* @__PURE__ */ React32.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React32.createElement("p", null, "Chips are locked for the weekend.")));
+  if (locked) return /* @__PURE__ */ React32.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React32.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React32.createElement("div", null, /* @__PURE__ */ React32.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React32.createElement("p", null, "Chips are locked for the weekend.")));
   return /* @__PURE__ */ React32.createElement("div", { className: "fd-chip-picker", style: {
     background: "var(--paper)",
     border: embedded ? "none" : "1px solid var(--line)",
@@ -4544,7 +4575,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     borderRadius: "50%",
     background: "var(--sun-tint)",
     border: "1px solid var(--line)"
-  } }), /* @__PURE__ */ React32.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React32.createElement(ChipFace, { p: me, size: 70, stamp }))), /* @__PURE__ */ React32.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React32.createElement("div", { style: {
+  } }), /* @__PURE__ */ React32.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React32.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React32.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React32.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 10,
@@ -4658,7 +4689,7 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
         opacity: locked && skin !== sk ? 0.55 : 1
       }
     },
-    /* @__PURE__ */ React32.createElement(ChipFace, { p: me, size: 42, skin: sk, stamp }),
+    /* @__PURE__ */ React32.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
     /* @__PURE__ */ React32.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
@@ -4952,11 +4983,8 @@ var REPLAY_WINDOW_MS = 15 * 60 * 1e3;
 function contestName(state, ev, contest) {
   if (!contest) return ev?.name || "";
   if (contest.kind === "match" && Array.isArray(contest.match)) {
-    const bracket = state.brackets?.[ev?.id];
     const [r, m] = contest.match;
-    const round = bracket?.rounds?.[r] || [];
-    const name = (ROUND_NAMES[bracket?.size] || [])[r] || `Round ${r + 1}`;
-    return round.length > 1 ? `${name.replace(/s$/, "")} ${m + 1}` : name;
+    return bracketMatchName(state.brackets?.[ev?.id] || {}, r, m);
   }
   if (contest.kind === "ffa") return ev?.name || contest.label || "";
   if (contest.kind === "stage-final" || contest.kind === "final") return "Final";
@@ -4993,39 +5021,42 @@ import React5, { useEffect as useEffect4, useRef as useRef3 } from "react";
 function bracketLayout(bracket) {
   const rounds = bracket?.rounds || [];
   const centers = rounds.map((round) => round.map(() => null));
-  let cursor = 0;
-  const place = (r, m) => {
-    const match = rounds[r]?.[m];
-    if (!match) return cursor;
-    const side = (slot) => {
-      if (slot?.w) return place(slot.w[0], slot.w[1]);
-      const center2 = cursor + 0.25;
-      cursor += 0.5;
-      return center2;
-    };
-    const leaf = !match.a?.w && !match.b?.w;
-    let center;
-    if (leaf) {
-      center = cursor + 0.5;
-      cursor += 1;
-    } else center = (side(match.a) + side(match.b)) / 2;
-    centers[r][m] = center;
-    return center;
-  };
+  const at = { cursor: 0 };
   const last = rounds.length - 1;
-  if (last >= 0) rounds[last].forEach((_, m) => place(last, m));
+  if (last >= 0) rounds[last].forEach((_, m) => placeTree(rounds, centers, last, m, at));
   rounds.forEach((round, r) => round.forEach((_, m) => {
     if (centers[r][m] === null) {
-      centers[r][m] = cursor + 0.5;
-      cursor += 1;
+      centers[r][m] = at.cursor + 0.5;
+      at.cursor += 1;
     }
   }));
-  return { centers, units: Math.max(cursor, 1) };
+  return { centers, units: Math.max(at.cursor, 1) };
+}
+function placeTree(rounds, centers, r, m, at) {
+  const match = rounds[r]?.[m];
+  if (!match) return at.cursor;
+  const side = (slot) => {
+    if (slot?.w) return placeTree(rounds, centers, slot.w[0], slot.w[1], at);
+    const center2 = at.cursor + 0.25;
+    at.cursor += 0.5;
+    return center2;
+  };
+  const leaf = !match.a?.w && !match.b?.w;
+  let center;
+  if (leaf) {
+    center = at.cursor + 0.5;
+    at.cursor += 1;
+  } else center = (side(match.a) + side(match.b)) / 2;
+  centers[r][m] = center;
+  return center;
 }
 var SIZES2 = {
   full: { head: 22, row: 48, gap: 14, minCol: 210, colGap: 34 },
-  compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 }
+  compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 },
+  /* a field past eight: the same picture at a glance, tighter rows */
+  compactTall: { head: 0, row: 22, gap: 6, minCol: 0, colGap: 14 }
 };
+var COMPACT_ROUNDS = { Quarterfinals: "Quarters", Semifinals: "Semis" };
 var statusOf = (contest, isCurrent) => !isCurrent ? null : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : contest.phase === "awaiting-result" ? "Awaiting result" : "Up next";
 function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false, pickable = true }) {
   const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
@@ -5040,12 +5071,12 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
     if (card) el.scrollLeft = Math.max(0, card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2);
   }, [compact, active?.[0], active?.[1]]);
   if (!bracket || !draw) return null;
-  const dims = SIZES2[compact ? "compact" : "full"];
-  const cardH = dims.head + dims.row * 2 + 1 + 2;
-  const unit = cardH + dims.gap;
   const rounds = bracket.rounds;
   const R = rounds.length;
   const { centers, units } = bracketLayout(bracket);
+  const dims = SIZES2[!compact ? "full" : R >= 4 ? "compactTall" : "compact"];
+  const cardH = dims.head + dims.row * 2 + 1 + 2;
+  const unit = cardH + dims.gap;
   const height = Math.ceil(units * unit);
   const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
   const colLeft = (r) => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
@@ -5091,7 +5122,7 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
         style: { left: colLeft(r), width: `calc(${colW})`, top: topOf(r, m), height: cardH },
         "aria-label": `${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`
       },
-      !compact && /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React5.createElement("span", null, round.length > 1 ? `${(names[r] || "Match").replace(/s$/, "")} ${m + 1}` : names[r] || "Match"), status && /* @__PURE__ */ React5.createElement("strong", null, status)),
+      !compact && /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React5.createElement("span", null, bracketMatchName(bracket, r, m)), status && /* @__PURE__ */ React5.createElement("strong", null, status)),
       sides.map((key, index) => {
         const team = key === null || key === void 0 ? null : draw.teams[key];
         const won = decided2 && match.winner === key, lost = decided2 && !!team && !won;
@@ -5127,7 +5158,7 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
       })
     );
   })));
-  const heads = /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-heads", style: { minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap } }, rounds.map((_, r) => /* @__PURE__ */ React5.createElement("span", { key: r, style: { left: colLeft(r), width: `calc(${colW})` } }, names[r] || `Round ${r + 1}`)));
+  const heads = /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-heads", style: { minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap } }, rounds.map((_, r) => /* @__PURE__ */ React5.createElement("span", { key: r, style: { left: colLeft(r), width: `calc(${colW})` } }, compact && R >= 4 && COMPACT_ROUNDS[names[r]] || names[r] || `Round ${r + 1}`)));
   if (compact) return /* @__PURE__ */ React5.createElement("div", { className: "fd-competition-bracket is-compact", "aria-hidden": "true" }, /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-scroll" }, heads, stage));
   return /* @__PURE__ */ React5.createElement("section", { className: "fd-competition-bracket", "aria-label": `${ev.name} bracket`, "aria-busy": pending }, /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-scroll", ref: scroller }, heads, stage));
 }
@@ -6964,7 +6995,6 @@ init_motion();
 import React20, { useCallback as useCallback2, useLayoutEffect as useLayoutEffect7, useMemo as useMemo3, useRef as useRef15, useState as useState17 } from "react";
 
 // src/features/standings/boardModel.js
-init_core();
 var BOARD_BEATS = Object.freeze({
   count: 150,
   // numbers start counting in 100s, the change rises off them
@@ -10593,7 +10623,7 @@ function EventSheet({
     role: OVERFLOW_ROLES.includes(outRoles[player]) ? outRoles[player] : "sit-out"
   }));
   const isPoker = !!ev.finale;
-  const canHeats = ev.kind === "solo" && !res && !isPoker;
+  const canHeats = ev.kind === "solo" && !ev.teamCfg && !res && !isPoker;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
   const stageKind = canHeats ? "heats" : "pools";
   const stageEntrantCount = canHeats ? inPlayers.length : draw?.teams?.length || 0;
@@ -10655,7 +10685,7 @@ function EventSheet({
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React52.createElement("div", { style: { ...label, flex: 1 } }, "Draw teams"), /* @__PURE__ */ React52.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+      return /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React52.createElement("div", { style: { ...label, flex: 1 } }, shape.size === 1 ? "Draw the bracket" : "Draw teams"), /* @__PURE__ */ React52.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
         cursor: "pointer",
         fontFamily: SANS,
         fontWeight: 700,
@@ -10670,7 +10700,7 @@ function EventSheet({
         fontSize: 12.5,
         marginBottom: 8,
         color: diff !== 0 ? "var(--clay-text)" : "var(--muted)"
-      } }, "Format: ", shape.teams, " teams of ", shape.size, ", fits ", fit2, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React52.createElement(
+      } }, "Format: ", shapeLabel(shape), shape.size === 1 ? "" : `, fits ${fit2}`, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React52.createElement(
         PlayerChip,
         {
           key: p,

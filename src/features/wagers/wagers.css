@@ -165,11 +165,12 @@
 .fd-wagers-rack { position:fixed; left:50%; bottom:calc(var(--fd-nav-height,74px) + 6px); transform:translateX(-50%); z-index:48; width:min(calc(100vw - 24px),510px); border-radius:14px; padding:9px 14px 10px; background:var(--paper); color:var(--ink); border:1px solid var(--line); box-shadow:var(--shadow-3); }
 .fd-wagers-meter { position:relative; padding:0 2px; font-variant-numeric:tabular-nums; }
 .fd-wagers-meter-top,.fd-wagers-meter-scale { position:relative; }
-.fd-wagers-meter-top { height:22px; }
+.fd-wagers-meter-top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; min-height:26px; margin-bottom:6px; }
 .fd-wagers-meter-scale { height:15px; margin-top:4px; color:var(--muted2); font-size:10px; line-height:15px; }
-.fd-wagers-meter-top strong,.fd-wagers-meter-scale > span { position:absolute; top:0; white-space:nowrap; }
-.fd-wagers-meter-top strong { transform:translateX(-50%); font-family:var(--fd-wagers-numerals); font-size:21px; font-weight:700; line-height:22px; color:var(--sun); transition:left .2s ease; }
-.fd-wagers-meter-scale .is-exposure { left:0; color:var(--sun); font-weight:600; }
+.fd-wagers-meter-scale > span { position:absolute; top:0; white-space:nowrap; }
+.fd-wagers-meter-top small { margin-left:6px; color:var(--muted2); font:600 11px/1 var(--fd-body); letter-spacing:.02em; }
+.fd-wagers-meter-down { color:var(--sun); font:600 14px/1 var(--fd-body); white-space:nowrap; }
+.fd-wagers-meter-top strong { font-family:var(--fd-wagers-numerals); font-size:24px; font-weight:700; line-height:1; color:var(--sun); }
 .fd-wagers-meter-scale .is-cap { transform:translateX(-50%); color:var(--ink); font-weight:600; }
 .fd-wagers-meter-scale .is-stack { right:0; }
 .fd-wagers-meter-bar { position:relative; height:10px; border:1px solid var(--line); border-radius:3px; background:var(--bg); }
@@ -181,7 +182,7 @@
 .fd-wagers-meter-notch { position:absolute; top:-5px; bottom:-5px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
 .fd-wagers-meter.is-capped .fd-wagers-meter-notch { width:4px; margin-left:-2px; background:var(--sun); }
 .fd-wagers-meter.is-capped .fd-wagers-meter-top strong { color:var(--muted2); }
-.fd-wagers-meter.is-over .fd-wagers-meter-scale .is-exposure { color:var(--clay-text); }
+.fd-wagers-meter.is-over .fd-wagers-meter-down { color:var(--clay-text); }
 .fd-wagers-pick-main.is-capped:disabled { opacity:1; }
 .fd-wagers-pick-main.is-capped .fd-wagers-chip-well { opacity:.35; }
 .fd-wagers-pick-main.is-capped .fd-wagers-pick-add { color:var(--muted2); }

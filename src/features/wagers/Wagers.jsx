@@ -408,12 +408,13 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
   const over = Math.max(0, exposure - cap);
   const capped = room < PT && pts - exposure >= PT;
-  const gapMid = Math.min(92, Math.max(8, (at(Math.min(exposure, cap)) + at(Math.min(cap, pts))) / 2));
   return <div className={`fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`} role="meter"
     aria-label="Chips at risk" aria-valuemin={0} aria-valuemax={Math.max(cap, exposure)} aria-valuenow={exposure}
     aria-valuetext={`${fmt(exposure)} at risk, ${fmt(cap)} maximum, ${fmt(pts)} in your stack${duels ? `, ${fmt(duels)} reserved for duels` : ""}`}>
+    {/* one fixed readout: what is left to bet, and what is already down */}
     <div className="fd-wagers-meter-top" aria-hidden="true">
-      <strong style={{ left:capped ? `${Math.min(92, Math.max(8, at(cap)))}%` : `${gapMid}%` }}>{fmt(room)}</strong>
+      <span className="fd-wagers-meter-room"><strong>{fmt(room)}</strong><small>to bet</small></span>
+      {exposure > 0 && <span className="fd-wagers-meter-down">{fmt(exposure)}<small>in bets</small></span>}
     </div>
     <div className="fd-wagers-meter-bar" aria-hidden="true">
       {betsIn > 0 && <span className="is-bets" style={{ left:0, width:pct(betsIn) }} />}
@@ -422,7 +423,6 @@ function StackMeter({ pts, cap, bets, duels, room }) {
       <i className="fd-wagers-meter-notch" style={{ left:pct(cap) }} />
     </div>
     <div className="fd-wagers-meter-scale" aria-hidden="true">
-      {exposure > 0 && <span className="is-exposure">{fmt(exposure)}</span>}
       <span className="is-cap" style={{ left:`${Math.min(92, Math.max(8, at(cap)))}%` }}>{fmt(cap)}</span>
       {at(cap) <= 72 && <span className="is-stack">{fmt(pts)}</span>}
     </div>

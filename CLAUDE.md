@@ -381,7 +381,8 @@ no specific question, poll, or new endpoint has been implemented yet.
    duel antes, anything past the notch after a correction is drawn in the loss
    color, and the gap between them is what is left to bet. When the cap binds,
    + reads "Max N". It stays up when you are maxed out, since that is when
-   it explains the most, and it is labelled with numbers, never a phrase.
+   it explains the most. One fixed readout above the bar says what is left
+   ("2,000 to bet") and what is down ("300 in bets"); nothing floats over the bar.
    Tapping + on an eligible side of the current contest adds that chip, with
    its value stamped on its face. Tapping your stack retrieves its last chip.
    Player identity targets open player cards independently of chip actions.

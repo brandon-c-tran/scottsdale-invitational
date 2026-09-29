@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, disp, snakeTeam, resolveWager, resolveCurrentContest, resolveWeekendOperation,
-  pokerClock,
+  ROSTER, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation,
 } from "../../../shared/core.js";
 import { resolveShowScene } from "../../../shared/show.js";
 import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
@@ -10,14 +9,13 @@ import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { wagerPickLabel, mergeWagerLines } from "../wagers/Wagers.jsx";
 import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
-import { DenomStacks } from "../poker/PokerChips.jsx";
 import { STACK_CAP, contestStacks, stackName, stackGeometry, pickStacks } from "../wagers/betStacks.js";
 import {
-  fmt, signed, mmss, editionLabel, payoutLine, oddsLine, phaseBand, placeName, sessionLabel,
+  fmt, signed, editionLabel, payoutLine, oddsLine, phaseBand, placeName, sessionLabel,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
-  pokerTableRows, pokerSeats, tvConnection, tickerItems, tickerPage, tvBusy, championView,
+  tvConnection, tickerItems, tickerPage, tvBusy, championView,
   duelBoard, spotlightPlayer,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";

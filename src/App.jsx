@@ -597,19 +597,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
      line; a catch-up is the since line's job, and the update the since line
      just reported is not said twice. M19: only this player's own wins shower
      their own chips; other people's results only move numbers. The TV keeps
-     its room-wide burst. */
+     its room-wide burst for results; its crown has its own scene (M18). */
   const ledgerRef = useRef(null);
   const snapRef = useRef(null);
   const prevStateRef = useRef(null);
   const resultsSeenRef = useRef(null);
-  const frozenRef = useRef(null);
   useEffect(() => {
     if (!ready) return;
     const markers = resultMarkers(state);
-    if (tv && resultsSeenRef.current && (freshResults(resultsSeenRef.current, state).length
-        || (state.frozen && frozenRef.current === false))) setBurst(b => b + 1);
+    if (tv && resultsSeenRef.current && freshResults(resultsSeenRef.current, state).length) setBurst(b => b + 1);
     resultsSeenRef.current = markers;
-    frozenRef.current = !!state.frozen;
     const next = me ? guestLedger(state, me, events, standings) : null;
     const prev = ledgerRef.current;
     ledgerRef.current = next;

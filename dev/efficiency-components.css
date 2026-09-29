@@ -6470,7 +6470,12 @@ button.fd-home-exposure {
   position: relative;
 }
 .fd-wagers-meter-top {
-  height: 22px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+  margin-bottom: 6px;
 }
 .fd-wagers-meter-scale {
   height: 15px;
@@ -6479,25 +6484,28 @@ button.fd-home-exposure {
   font-size: 10px;
   line-height: 15px;
 }
-.fd-wagers-meter-top strong,
 .fd-wagers-meter-scale > span {
   position: absolute;
   top: 0;
   white-space: nowrap;
 }
-.fd-wagers-meter-top strong {
-  transform: translateX(-50%);
-  font-family: var(--fd-wagers-numerals);
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 22px;
-  color: var(--sun);
-  transition: left .2s ease;
+.fd-wagers-meter-top small {
+  margin-left: 6px;
+  color: var(--muted2);
+  font: 600 11px/1 var(--fd-body);
+  letter-spacing: .02em;
 }
-.fd-wagers-meter-scale .is-exposure {
-  left: 0;
+.fd-wagers-meter-down {
   color: var(--sun);
-  font-weight: 600;
+  font: 600 14px/1 var(--fd-body);
+  white-space: nowrap;
+}
+.fd-wagers-meter-top strong {
+  font-family: var(--fd-wagers-numerals);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--sun);
 }
 .fd-wagers-meter-scale .is-cap {
   transform: translateX(-50%);
@@ -6547,7 +6555,7 @@ button.fd-home-exposure {
 .fd-wagers-meter.is-capped .fd-wagers-meter-top strong {
   color: var(--muted2);
 }
-.fd-wagers-meter.is-over .fd-wagers-meter-scale .is-exposure {
+.fd-wagers-meter.is-over .fd-wagers-meter-down {
   color: var(--clay-text);
 }
 .fd-wagers-pick-main.is-capped:disabled {
@@ -11362,11 +11370,18 @@ button.fd-home-exposure {
   align-items: center;
   gap: 4px;
 }
+.fd-sheet-header:has(> .fd-sheet-dock:not(:empty)) {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
 .fd-sheet-dock {
+  order: 1;
+  flex: 1 0 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
-  flex-shrink: 0;
 }
 .fd-sheet-dock:empty {
   display: none;

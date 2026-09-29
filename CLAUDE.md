@@ -161,9 +161,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Poker stacks build chip by chip on a fresh deal, blinds roll, a bust tips
   flat (`features/tv/TVPoker.jsx`, `src/lib/motionKit.js`). TV bracket advance
   and the crown live in `features/tv/tvMotion.js`, `TVBracket.jsx`,
-  `TVChampion.jsx`, anchored on server times. A fresh lock of a two-sided
-  contest opens the TV live scene on a face-off (D2, `tv/faceOff.js`: photo
-  chips, head-to-head only when they have met, X8 lines) for one beat. The
+  `TVChampion.jsx`, anchored on server times. The order in the room is
+  face-off, then bets, then lock: when a two-sided contest freshly opens for
+  betting, every TV plays a face-off (D2, `tv/faceOff.js`: photo chips,
+  head-to-head only when they have met, X8 lines) on the server clock after
+  the draw reveal or the previous contest's decided moment, then settles
+  into the betting board. Nothing plays at lock but its sound. The
   champion scene's optional second step, and the frozen TV's ambient turn,
   is the class photo (D3, `results/classPhoto.js`); the commissioner's "Save
   poster" draws the same composition (`results/posterImage.js`). The player card back is the

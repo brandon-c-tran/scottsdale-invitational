@@ -1578,7 +1578,7 @@ function subscribeFrame(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
-var REWIND_ACTIONS, INITIAL, frame, listeners, currentFrame;
+var REWIND_ACTIONS, JUMP_ACTIONS, INITIAL, frame, listeners, currentFrame;
 var init_frameGate = __esm({
   "src/lib/frameGate.js"() {
     REWIND_ACTIONS = Object.freeze(/* @__PURE__ */ new Set([
@@ -1600,6 +1600,7 @@ var init_frameGate = __esm({
       "clearDraw",
       "clearStages"
     ]));
+    JUMP_ACTIONS = Object.freeze(/* @__PURE__ */ new Set(["qaAdvance", "qaRestore"]));
     INITIAL = Object.freeze({
       version: 0,
       seq: 0,
@@ -4780,7 +4781,7 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React61, { useEffect as useEffect38, useRef as useRef46, useState as useState49 } from "react";
+import React61, { useEffect as useEffect39, useRef as useRef46, useState as useState50 } from "react";
 function InvitationArt() {
   return /* @__PURE__ */ React61.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React61.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React61.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React61.createElement("span", null, EDITION.year)), /* @__PURE__ */ React61.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React61.createElement("span", null, "FIELD"), /* @__PURE__ */ React61.createElement("span", null, "DAY", /* @__PURE__ */ React61.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React61.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React61.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React61.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React61.createElement("span", null, /* @__PURE__ */ React61.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React61.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React61.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React61.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React61.createElement("span", null, EDITION.short, /* @__PURE__ */ React61.createElement("br", null), "2026")));
 }
@@ -4808,21 +4809,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState49(me || null);
-  const [ratings, setRatings] = useState49({});
-  const [display, setDisplay] = useState49("");
-  const [photo, setPhoto] = useState49(null);
-  const [num, setNum] = useState49("");
-  const [size, setSize] = useState49(null);
-  const [flightsBooked, setFlightsBooked] = useState49(null);
-  const [flightIn, setFlightIn] = useState49(null);
-  const [flightOut, setFlightOut] = useState49(null);
-  const [busy, setBusy] = useState49(false);
-  const [error, setError] = useState49("");
+  const [selected, setSelected] = useState50(me || null);
+  const [ratings, setRatings] = useState50({});
+  const [display, setDisplay] = useState50("");
+  const [photo, setPhoto] = useState50(null);
+  const [num, setNum] = useState50("");
+  const [size, setSize] = useState50(null);
+  const [flightsBooked, setFlightsBooked] = useState50(null);
+  const [flightIn, setFlightIn] = useState50(null);
+  const [flightOut, setFlightOut] = useState50(null);
+  const [busy, setBusy] = useState50(false);
+  const [error, setError] = useState50("");
   const submit = useRef46(createCheckInSubmission());
   const heading = useRef46(null);
   const hydratedPlayer = useRef46(null);
-  useEffect38(() => {
+  useEffect39(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -4835,7 +4836,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect38(() => {
+  useEffect39(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -6307,6 +6308,15 @@ var PARTS = Object.freeze([
     }
   },
   {
+    id: "faceOff",
+    name: "The sides meet",
+    ms: 600,
+    play: (E, t) => {
+      M.drum(E, t, { f: NOTE.D2, dec: 0.5, gain: 0.55 });
+      M.knock(E, t + 0.02, { pitch: 0.85, gain: 0.45 });
+    }
+  },
+  {
     id: "crowd",
     name: "Several chips at once",
     ms: 300,
@@ -6372,6 +6382,8 @@ function scheduleTime({ at, now, currentTime = 0, outputLatency = 0, lateMs = LA
   const latency = Math.max(0, Number(outputLatency) || 0);
   return Math.max(currentTime + 5e-3, currentTime + ahead / 1e3 - latency);
 }
+var GM_YIELD_MS = 400;
+var ackYields = (id, lastYouAt, target) => id === "S25" && Number.isFinite(Number(lastYouAt)) && Number(lastYouAt) > 0 && Math.abs(Number(target) - Number(lastYouAt)) <= GM_YIELD_MS;
 var engine = {
   ctx: null,
   E: null,
@@ -6386,6 +6398,7 @@ var engine = {
   chips: null,
   timers: /* @__PURE__ */ new Set(),
   walkoutTimer: null,
+  lastYouAt: 0,
   factory: null,
   installed: false
 };
@@ -6498,7 +6511,9 @@ function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = nul
     const target = at === null || at === void 0 ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
     if (!Number.isFinite(target) || target - now < -lateMs) return null;
     if (isHushed(Math.max(now, target))) return null;
+    if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
     if (seenKey(key)) return null;
+    if (bus === "you") engine.lastYouAt = target;
     const fire = () => {
       if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
       const c = engine.ctx;
@@ -6538,6 +6553,7 @@ function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = nul
 }
 
 // src/features/weekend/EventAnnouncement.jsx
+init_frameGate();
 function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3e3, visual, now: clockNow = serverNow }) {
   const contest = resolveCurrentContest(state, ev);
   const detail = [
@@ -6605,6 +6621,7 @@ function DrawAnnouncement({
   const mineIndex = me ? groups.findIndex((group) => group.lines.some((line) => (line.avatars || []).includes(me))) : -1;
   useEffect7(() => {
     if (startAt === null || mineIndex < 0 || !reducedMotion && mineIndex < joined) return;
+    if (!currentFrame().fresh) return;
     playSound("S4", { at: reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key: `card:${reveal.id}` });
   }, [reveal.id]);
   const you = usePlayerIdentity(me);
@@ -8481,7 +8498,6 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
   const over = Math.max(0, exposure - cap);
   const capped = room < PT && pts - exposure >= PT;
-  const gapMid = Math.min(92, Math.max(8, (at(Math.min(exposure, cap)) + at(Math.min(cap, pts))) / 2));
   return /* @__PURE__ */ React31.createElement(
     "div",
     {
@@ -8493,9 +8509,9 @@ function StackMeter({ pts, cap, bets, duels, room }) {
       "aria-valuenow": exposure,
       "aria-valuetext": `${fmt5(exposure)} at risk, ${fmt5(cap)} maximum, ${fmt5(pts)} in your stack${duels ? `, ${fmt5(duels)} reserved for duels` : ""}`
     },
-    /* @__PURE__ */ React31.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, /* @__PURE__ */ React31.createElement("strong", { style: { left: capped ? `${Math.min(92, Math.max(8, at(cap)))}%` : `${gapMid}%` } }, fmt5(room))),
+    /* @__PURE__ */ React31.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, /* @__PURE__ */ React31.createElement("span", { className: "fd-wagers-meter-room" }, /* @__PURE__ */ React31.createElement("strong", null, fmt5(room)), /* @__PURE__ */ React31.createElement("small", null, "to bet")), exposure > 0 && /* @__PURE__ */ React31.createElement("span", { className: "fd-wagers-meter-down" }, fmt5(exposure), /* @__PURE__ */ React31.createElement("small", null, "in bets"))),
     /* @__PURE__ */ React31.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React31.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React31.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React31.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React31.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
-    /* @__PURE__ */ React31.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, exposure > 0 && /* @__PURE__ */ React31.createElement("span", { className: "is-exposure" }, fmt5(exposure)), /* @__PURE__ */ React31.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt5(cap)), at(cap) <= 72 && /* @__PURE__ */ React31.createElement("span", { className: "is-stack" }, fmt5(pts)))
+    /* @__PURE__ */ React31.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, /* @__PURE__ */ React31.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt5(cap)), at(cap) <= 72 && /* @__PURE__ */ React31.createElement("span", { className: "is-stack" }, fmt5(pts)))
   );
 }
 function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
@@ -8845,7 +8861,7 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React62, { useState as useState50, useEffect as useEffect39, useLayoutEffect as useLayoutEffect16, useRef as useRef47, useMemo as useMemo14, useCallback as useCallback7, useId as useId4, lazy, Suspense } from "react";
+import React62, { useState as useState51, useEffect as useEffect40, useLayoutEffect as useLayoutEffect16, useRef as useRef47, useMemo as useMemo14, useCallback as useCallback7, useId as useId4, lazy, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
@@ -9011,7 +9027,7 @@ function PlayerSheet({
 init_InstallHint();
 
 // src/features/tv/TVMode.jsx
-import React47, { useEffect as useEffect26, useMemo as useMemo9, useRef as useRef34, useState as useState37 } from "react";
+import React47, { useEffect as useEffect27, useMemo as useMemo9, useRef as useRef34, useState as useState38 } from "react";
 
 // node_modules/qrcode-generator/dist/qrcode.mjs
 var qrcode = function(typeNumber, errorCorrectionLevel) {
@@ -10866,14 +10882,14 @@ init_core();
 init_seasonStats();
 init_motion();
 init_serverClock();
-import { useRef as useRef32 } from "react";
+import { useEffect as useEffect24, useRef as useRef32, useState as useState36 } from "react";
 var FACEOFF_TIMING = Object.freeze({
   slide: 0,
   slideMs: 560,
   // each side slides in from its own edge
   vs: 420,
   vsMs: 320,
-  // VS stamps between them
+  // VS stamps between them (the room's one beat)
   h2h: 760,
   h2hMs: 300,
   // their record, when they have met
@@ -10882,7 +10898,7 @@ var FACEOFF_TIMING = Object.freeze({
   // X8: what a win does
   settle: MOTION.beat,
   settleMs: 400,
-  // it lifts off the normal layout
+  // it lifts off the betting board
   total: MOTION.beat + 400
 });
 
@@ -10910,7 +10926,7 @@ var PHONE_CROWN = Object.freeze({
 
 // src/features/tv/TowersBoard.jsx
 init_towersModel();
-import React45, { Component, useEffect as useEffect24, useState as useState36 } from "react";
+import React45, { Component, useEffect as useEffect25, useState as useState37 } from "react";
 
 // src/features/tv/TVMode.jsx
 init_towersModel();
@@ -10935,7 +10951,7 @@ var FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milesto
 // src/features/tv/roomSound.js
 init_core();
 init_motion();
-import { useEffect as useEffect25, useRef as useRef33 } from "react";
+import { useEffect as useEffect26, useRef as useRef33 } from "react";
 init_serverClock();
 var SETTLE_SOUND = Object.freeze({ lose: 700, pay: 1300 });
 
@@ -10949,13 +10965,13 @@ init_frameGate();
 
 // src/features/results/ChipReceipt.jsx
 init_PlayerIdentity();
-import React48, { useEffect as useEffect27, useLayoutEffect as useLayoutEffect13, useRef as useRef35 } from "react";
+import React48, { useEffect as useEffect28, useLayoutEffect as useLayoutEffect13, useRef as useRef35 } from "react";
 init_motion();
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
-import React49, { useEffect as useEffect28, useMemo as useMemo10, useState as useState38 } from "react";
+import React49, { useEffect as useEffect29, useMemo as useMemo10, useState as useState39 } from "react";
 
 // src/features/results/LastCard.jsx
 init_core();
@@ -10964,7 +10980,7 @@ init_PlayerIdentityContext();
 init_PlayerPass();
 init_motion();
 init_serverClock();
-import React51, { useEffect as useEffect30, useMemo as useMemo11, useRef as useRef37, useState as useState40 } from "react";
+import React51, { useEffect as useEffect31, useMemo as useMemo11, useRef as useRef37, useState as useState41 } from "react";
 
 // src/features/results/cardImage.js
 var IMAGE_W = 1080;
@@ -10974,7 +10990,7 @@ var W = IMAGE_W / U;
 var H = IMAGE_H / U;
 
 // src/features/results/SavePoster.jsx
-import React50, { useEffect as useEffect29, useRef as useRef36, useState as useState39 } from "react";
+import React50, { useEffect as useEffect30, useRef as useRef36, useState as useState40 } from "react";
 
 // src/features/results/posterImage.js
 init_PlayerIdentity();
@@ -10982,7 +10998,7 @@ init_playerIdentity();
 
 // src/features/results/useCrownMoment.js
 init_motion();
-import { useCallback as useCallback4, useEffect as useEffect31, useState as useState41 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect32, useState as useState42 } from "react";
 
 // src/App.jsx
 init_install();
@@ -10993,22 +11009,22 @@ init_core();
 init_PlayerIdentity();
 init_controls();
 init_theme();
-import React52, { useCallback as useCallback5, useEffect as useEffect32, useLayoutEffect as useLayoutEffect14, useRef as useRef38, useState as useState42 } from "react";
+import React52, { useCallback as useCallback5, useEffect as useEffect33, useLayoutEffect as useLayoutEffect14, useRef as useRef38, useState as useState43 } from "react";
 var FOUL = Object.freeze({ ms: null, foul: true });
 
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React53, { useRef as useRef39, useState as useState43 } from "react";
+import React53, { useRef as useRef39, useState as useState44 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
-import React55, { useEffect as useEffect34, useRef as useRef41, useState as useState44 } from "react";
+import React55, { useEffect as useEffect35, useRef as useRef41, useState as useState45 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_serverClock();
-import React54, { useEffect as useEffect33, useRef as useRef40 } from "react";
+import React54, { useEffect as useEffect34, useRef as useRef40 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
@@ -11017,7 +11033,7 @@ var RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
 // src/features/director/CueRack.jsx
 init_core();
 init_theme();
-import React56, { useEffect as useEffect35, useState as useState45, useSyncExternalStore as useSyncExternalStore3 } from "react";
+import React56, { useEffect as useEffect36, useState as useState46, useSyncExternalStore as useSyncExternalStore3 } from "react";
 init_serverClock();
 
 // shared/audio.js
@@ -11030,11 +11046,11 @@ import React57 from "react";
 
 // src/features/qa/useQaFast.js
 init_core();
-import { useCallback as useCallback6, useEffect as useEffect36, useRef as useRef42, useState as useState46 } from "react";
+import { useCallback as useCallback6, useEffect as useEffect37, useRef as useRef42, useState as useState47 } from "react";
 
 // src/features/qa/QASheet.jsx
 init_core();
-import React58, { useEffect as useEffect37, useMemo as useMemo12, useRef as useRef43, useState as useState47 } from "react";
+import React58, { useEffect as useEffect38, useMemo as useMemo12, useRef as useRef43, useState as useState48 } from "react";
 
 // shared/qa.js
 init_core();
@@ -11051,7 +11067,7 @@ init_controls();
 init_core();
 init_controls();
 init_PlayerIdentity();
-import React59, { useRef as useRef44, useState as useState48 } from "react";
+import React59, { useRef as useRef44, useState as useState49 } from "react";
 
 // src/ui/Shell.jsx
 import React60 from "react";
@@ -11178,7 +11194,7 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
   const countId = useId4(), saving = useRef47(false);
-  const [counts, setCounts] = useState50(() => {
+  const [counts, setCounts] = useState51(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -11186,7 +11202,7 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState50(false), [error, setError] = useState50("");
+  const [pending, setPending] = useState51(false), [error, setError] = useState51("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
@@ -11231,8 +11247,8 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState50(null);
-  const [pending, setPending] = useState50(false), [error, setError] = useState50("");
+  const [fixing, setFixing] = useState51(null);
+  const [pending, setPending] = useState51(false), [error, setError] = useState51("");
   const saving = useRef47(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
@@ -11520,27 +11536,27 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState50(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState51(false);
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value];
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState50(false);
-  const [confirmRemove, setConfirmRemove] = useState50(false);
-  const [confirmClear, setConfirmClear] = useState50(false);
-  const [clearReason, setClearReason] = useState50("");
-  const [confirmScrap, setConfirmScrap] = useState50(false);
-  const [confirmShelve, setConfirmShelve] = useState50(false);
+  const [confirmRedraw, setConfirmRedraw] = useState51(false);
+  const [confirmRemove, setConfirmRemove] = useState51(false);
+  const [confirmClear, setConfirmClear] = useState51(false);
+  const [clearReason, setClearReason] = useState51("");
+  const [confirmScrap, setConfirmScrap] = useState51(false);
+  const [confirmShelve, setConfirmShelve] = useState51(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState50(false);
-  const [howTo, setHowTo] = useState50(false);
-  const [more, setMore] = useState50(false);
-  const [eName, setEName] = useState50("");
-  const [eDesc, setEDesc] = useState50("");
-  const [eValue, setEValue] = useState50(400);
-  const [eSession, setESession] = useState50(null);
+  const [editOpen, setEditOpen] = useState51(false);
+  const [howTo, setHowTo] = useState51(false);
+  const [more, setMore] = useState51(false);
+  const [eName, setEName] = useState51("");
+  const [eDesc, setEDesc] = useState51("");
+  const [eValue, setEValue] = useState51(400);
+  const [eSession, setESession] = useState51(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -11548,16 +11564,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState50(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState50(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState50(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState50(""), [swapIn, setSwapIn] = useState50("");
-  const [showOuts, setShowOuts] = useState50(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState50(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState50(null);
-  const [advance, setAdvance] = useState50(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState50(false);
-  const [contestPending, setContestPending] = useState50(false);
+  const [suggested] = useState51(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState51(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState51(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState51(""), [swapIn, setSwapIn] = useState51("");
+  const [showOuts, setShowOuts] = useState51(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState51(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState51(null);
+  const [advance, setAdvance] = useState51(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState51(false);
+  const [contestPending, setContestPending] = useState51(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -11566,7 +11582,7 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState50("");
+  const [setupError, setSetupError] = useState51("");
   const setupBusy = useRef47(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
@@ -12076,7 +12092,7 @@ function EventSheet({
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState50(false);
+  const [pending, setPending] = useState51(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -12145,13 +12161,13 @@ function ResultSheet({ ev, state, onClose, save }) {
     }
     return [[], [], []];
   }, []);
-  const [slots, setSlots] = useState50(initial);
-  const [active, setActive] = useState50(editableSlots[0] ?? 0);
-  const [byPlayer, setByPlayer] = useState50(false);
-  const [confirmCorrection, setConfirmCorrection] = useState50(false);
-  const [correctionReason, setCorrectionReason] = useState50("");
-  const [pending, setPending] = useState50(false), [error, setError] = useState50("");
-  const [emptyCheck, setEmptyCheck] = useState50(null);
+  const [slots, setSlots] = useState51(initial);
+  const [active, setActive] = useState51(editableSlots[0] ?? 0);
+  const [byPlayer, setByPlayer] = useState51(false);
+  const [confirmCorrection, setConfirmCorrection] = useState51(false);
+  const [correctionReason, setCorrectionReason] = useState51("");
+  const [pending, setPending] = useState51(false), [error, setError] = useState51("");
+  const [emptyCheck, setEmptyCheck] = useState51(null);
   const saving = useRef47(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;

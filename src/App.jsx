@@ -1480,7 +1480,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
               </div>
             )}
             {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
-              onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
+              director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
           </div>
         );
       })()}

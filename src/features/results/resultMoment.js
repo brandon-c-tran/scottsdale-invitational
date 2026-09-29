@@ -10,6 +10,7 @@
 
 import { PT, START, allEventsOf, computeStandings, contestStackOf, disp, resolveDuel, resolveWager,
   resultAwards, stageEntrantView, teamLabel, wagerMult } from "../../../shared/core.js";
+import { freshFactFor } from "./weekendFacts.js";
 
 const fmt = n => Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
 export const ordinal = n => {
@@ -217,9 +218,13 @@ export function resultMoment({ prev, next, prevState, state, events = allEventsO
 
   const eventIds = [...new Set(lines.map(line => line.eventId).filter(Boolean))];
   const head = momentHeading({ lines, eventIds, prevState, state, events });
+  /* D4: the fact this step made true about you, as one line; a fact is
+     garnish, so it can never cost the receipt */
+  let fact = null;
+  try { fact = freshFactFor(prevState, state, me, events); } catch { fact = null; }
   return {
     kind:"receipt", id:`r${now}`, lines, from:prev.pts, to:next.pts, rankFrom:prev.rank, rankTo:next.rank,
-    ...head, eventIds, me,
+    ...head, eventIds, me, fact:fact ? fact.own : null,
     celebrate:lines.some(line => line.won && line.delta > 0),
     animate:true,
   };
@@ -266,6 +271,7 @@ export function mergeMoments(current, incoming, { state, prevState, events } = {
     : state ? momentHeading({ lines, eventIds, prevState, state, events: events || allEventsOf(state) })
       : { title:"Your chips", subtitle:null, chip:null };
   return { ...current, lines, eventIds, ...head, to:incoming.to, rankTo:incoming.rankTo,
+    fact:incoming.fact || current.fact || null,
     celebrate:current.celebrate || incoming.celebrate, version:(current.version || 0) + 1 };
 }
 

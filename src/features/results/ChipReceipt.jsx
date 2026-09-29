@@ -74,7 +74,7 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
   const move = rankMove(moment.rankFrom, moment.rankTo);
   const hasBets = lines.some(line => line.kind === "bet");
   const summary = `${moment.title}. ${lines.map(line => `${line.label} ${signedAmount(line.delta)}`).join(", ")}. ${
-    fmt(moment.to)} chips, ${ordinal(moment.rankTo)}`;
+    fmt(moment.to)} chips, ${ordinal(moment.rankTo)}${moment.fact ? `. ${moment.fact}` : ""}`;
 
   /* a swipe down or a tap on the card (not its buttons) puts it away */
   const down = event => {
@@ -125,6 +125,7 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
       <span className="fd-receipt-rank"><b>{ordinal(moment.rankTo)}</b>
         {move && <small className={move.up ? "is-up" : "is-down"}>{move.text}</small>}</span>
     </div>
+    {moment.fact && <p className="fd-receipt-fact" style={{ "--fd-line-delay":`${countDelay}ms` }}>{moment.fact}</p>}
     {(onStandings || (hasBets && onSettled)) && <div className="fd-receipt-actions">
       {onStandings && <button type="button" onClick={onStandings}>Standings <Arrow /></button>}
       {hasBets && onSettled && <button type="button" onClick={onSettled}>Settled bets <Arrow /></button>}

@@ -50,6 +50,11 @@
 .fd-receipt-rank small { font:700 12px/1.4 var(--fd-body); }
 .fd-receipt-rank small.is-up { color:var(--green); }
 .fd-receipt-rank small.is-down { color:var(--live2); }
+/* D4: one fact about you, after the count lands */
+.fd-receipt-fact { margin:0 14px 10px; padding-top:8px; border-top:1px solid var(--line); color:var(--sun);
+  font:700 16px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; overflow-wrap:anywhere; }
+.is-live .fd-receipt-fact { animation:fd-receipt-line var(--motion-base) var(--ease-out) backwards;
+  animation-delay:var(--fd-line-delay, 0ms); }
 .fd-receipt-actions { display:flex; gap:8px; padding:0 14px 12px; }
 .fd-receipt-actions button { flex:1; min-height:44px; border:1px solid var(--line); border-radius:10px; background:none;
   color:var(--ink); font:600 14px/1 var(--fd-body); cursor:pointer; }

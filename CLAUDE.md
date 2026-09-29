@@ -103,6 +103,27 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   duel send/accept, winner tap), never for remote events or Quick Draw's
   reaction; the device Haptics toggle is its only gate.
   `/dev/motion-preview.html` rehearses all of it without a socket.
+- **Sound** (Sept 29, `src/lib/sound.js`, kit in `src/lib/soundKit.js`):
+  26 synthesized sounds (no files) in one key, one lazy AudioContext, and
+  `playSound(id, { bus, at, pan, key })` is the only way anything sounds; no
+  other module touches Web Audio (`tests/sound-engine.test.mjs` scans).
+  Buses: `room` plays only on the TV, `you` (the owner's own taps and
+  moments) and `gm` (the director pill's acknowledgement, S25/S26) only on a
+  phone. Sound rides motion: only a fresh frame sounds a remote moment
+  (`freshFrameNow`), server-anchored cues (`cueAt`) land on `serverNow()`
+  minus `outputLatency` and drop when 300 ms late, so a load, reload,
+  reconnect, catch-up or correction is silent; reduced motion plays a
+  sequence's one summary sound. Hush: silent while
+  `state.showControl.audio.walkout` is set and `serverNow() < until` (the
+  Worker writes it; the client only reads it) and from Quick Draw's armed
+  until the reaction is captured. Phones use an "ambient" audio session and
+  unlock inside taps; losses never sound on a phone and no counter ticks. The
+  TV's beats are one hook (`features/tv/roomSound.js`), the phone's remote
+  moments another (`features/home/phoneSound.js`); the room reverb follows
+  `weekendPhase`. The profile's Sound switch (`si-sound`) sits under Haptics;
+  a TV whose context is suspended shows "Click for sound", and the
+  commissioner menu copies the Chrome kiosk shortcut that keeps TV sound
+  across reloads. `/dev/sound-preview.html?selftest` renders every recipe.
 - **Results on your phone** (`src/features/results/`): a fresh broadcast that
   moves YOUR chips docks one receipt above the tab bar (`ChipReceipt`, from
   the pure `resultMoment` diff of `chipSnapshot`s: place and award, each bet

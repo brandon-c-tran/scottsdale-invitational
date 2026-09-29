@@ -4,6 +4,7 @@ import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { lastWinnerUndo } from "./directorPill.js";
 import { tapTick } from "../../lib/haptics.js";
 import { RunOfShowPanel, RunOfShowToggle, useHold } from "./RunOfShow.jsx";
+import { playSound } from "../../lib/sound.js";
 import "./director.css";
 
 /* A recorded winner can be taken back with one tap for this long. */
@@ -35,11 +36,18 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer, 
     busy.current = true; setPending(true); setError("");
     try {
       const result = await onWrite(run.write, run.payload);
-      if (result?.ok !== true) { setError(result?.error || "Not saved. Try again."); return result; }
+      /* A7: saved on the server's acknowledgement, not on the tap */
+      if (result?.ok !== true) {
+        /* a declined weekend-start confirm is not a failure */
+        if (result && !result.extra?.needsStartConfirm) playSound("S26", { bus:"gm" });
+        setError(result?.error || "Not saved. Try again."); return result;
+      }
+      playSound("S25", { bus:"gm" });
       if (run.recorded) setRecent({ name:run.recorded, evId:run.payload.evId, at:Date.now(),
         posted:!!result.extra?.posted });
       return result;
     } catch (failure) {
+      playSound("S26", { bus:"gm" });
       setError(failure?.message || "Not saved. Try again.");
       return { ok:false, error:failure?.message };
     } finally { busy.current = false; setPending(false); }

@@ -66,7 +66,7 @@ export function pickStacks(wagers, labelOf) {
 
 /* the side a ticket stands on, in the contest's own keys; a team outright
    in a free-for-all is matched by its players when it predates teamIdx */
-function sideKeyOf(state, contest, wager) {
+export function sideKeyOf(state, contest, wager) {
   if (contest.kind === "ffa" && wager.pickTeam) {
     const side = contest.sides?.find(item => item.players.length === wager.pickPlayers?.length
       && item.players.every(p => wager.pickPlayers.includes(p)));

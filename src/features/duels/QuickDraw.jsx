@@ -6,6 +6,7 @@ import { BONE, CARD_BG, DISPLAY, SANS, label } from "../../ui/theme.js";
 import { duelView, duelsOpen } from "./duelView.js";
 import { useDuelClock } from "./useDuelClock.js";
 import { tapTick } from "../../lib/haptics.js";
+import { setQuickDrawHush } from "../../lib/sound.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const duelTime = r => (r.foul ? "foul" : `${r.ms}ms`);
@@ -98,7 +99,10 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
   const hold = useRef(onHold);
   hold.current = onHold;
   useEffect(() => { hold.current?.(running); }, [running]);
+  /* silence from armed until the reaction is captured: no sound can pass for GO */
+  useEffect(() => { setQuickDrawHush(running); }, [running]);
   useEffect(() => () => {
+    setQuickDrawHush(false);
     clearTimeout(timer.current);
     if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(frame.current);
     hold.current?.(false);

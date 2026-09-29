@@ -12,6 +12,7 @@ import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 import { WinLine } from "../standings/WinLine.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { AlertsCard } from "../alerts/Alerts.jsx";
+import { playSound } from "../../lib/sound.js";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -89,6 +90,8 @@ function useYoureUp(contest, me) {
   const change = useFreshChange(yours, me || "");
   const [playing, setPlaying] = useState(null);
   useLayoutEffect(() => {
+    /* S9 with the stamp; reduced motion keeps the sound, not the sweep */
+    if (change.fresh && change.to) playSound("S9", { key:`up:${change.to}` });
     if (!change.animate || !change.to) return undefined;
     setPlaying(change.changeId);
     const timer = setTimeout(() => setPlaying(current => current === change.changeId ? null : current), 1400);

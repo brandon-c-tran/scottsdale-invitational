@@ -6,6 +6,7 @@ import {
 import { DISPLAY, SANS } from "../../ui/theme.js";
 import { ActionButton } from "../../ui/controls.jsx";
 import { haptic, tapTick } from "../../lib/haptics.js";
+import { playSound, unlockSound } from "../../lib/sound.js";
 import { PageHeading } from "../../ui/layout.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
@@ -164,11 +165,18 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       back:() => {}, cancel:() => {},
     };
   };
+  /* A4: the chip under your thumb, in the tap itself: placed, taken back, or
+     meeting your limit */
+  const chipSound = kind => {
+    unlockSound();
+    playSound(kind === "place" ? capLabel ? "S7" : "S5" : "S6");
+  };
   const act = (kind, callback, queuedTap = false) => {
     if (pendingRef.current) {
       if (kind === "place" && pendingKindRef.current === "place" && !queuedTap
           && queueRef.current.length < PLACE_QUEUE) {
         tapTick();
+        chipSound(kind);
         queueRef.current.push(callback);
         setQueued(queueRef.current.length);
       }
@@ -176,6 +184,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     }
     /* the iOS tick belongs to the tap itself, before any await */
     if (!queuedTap) tapTick();
+    if (!queuedTap) chipSound(kind);
     pendingRef.current = true;
     pendingKindRef.current = kind;
     const before = live.current.mineTotal;
@@ -203,6 +212,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
             if (outcome?.ok === true) { haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
             else if (!landed(kind, before, live.current.mineTotal)) {
               setActionError(kind === "place" ? "Not placed" : "Not removed");
+              playSound("S26");
               flight?.back();
             } else flight?.land();
             pendingRef.current = false;
@@ -211,7 +221,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         } else flight?.land();
         return result;
       }
-      if (result?.ok === false) { setActionError(result.error || "Bet not saved."); flight?.back(); }
+      if (result?.ok === false) { setActionError(result.error || "Bet not saved."); playSound("S26"); flight?.back(); }
       else if (result?.ok === true) { saved = true; haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
       else flight?.cancel();
       return result;
@@ -219,6 +229,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     const fail = error => {
       const message = error?.message || "Bet not saved.";
       setActionError(message);
+      playSound("S26");
       flight?.back();
       return { ok:false, error:message };
     };

@@ -46,6 +46,29 @@ Legacy outright and advancement tickets retain their original settlement
 contracts and payouts. An existing mid-event snapshot is not converted into
 a different kind of wager by the new interface.
 
+## Sound: September 29, 2026
+
+The TV is the room's voice; a phone sounds only for its owner's own taps and
+moments. Every sound is synthesized (`src/lib/soundKit.js`) and played through
+one engine (`src/lib/sound.js`); `/dev/sound-preview.html` rehearses all of it
+and `?selftest` renders every recipe offline.
+
+**TV setup.** Chrome only starts sound after a click, and the TV reloads
+itself for new builds, so launch the TV laptop from a desktop shortcut:
+
+    chrome --kiosk --autoplay-policy=no-user-gesture-required https://fielddayseries.com/tv
+
+The commissioner menu's "TV sound shortcut" copies it for the current origin.
+A TV opened any other way shows "Click for sound" in the canvas corner until
+someone clicks; kiosk mode hides the browser chrome, and Exit TV stays on the
+canvas.
+
+Browser checks: a first load, a reload and a reconnect are silent; a draw's
+card sounds land on the same server times as its cards on every TV; phones
+play nothing for other people's moments; a walkout
+(`showControl.audio.walkout` until `until`) and an armed Quick Draw are
+silent; the Sound toggle sits under Haptics on the profile.
+
 ## Announcement crash fix: September 7, 2026
 
 The staging browser captured `ReferenceError: Cannot access 'pn' before

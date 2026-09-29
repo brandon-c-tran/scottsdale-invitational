@@ -584,12 +584,14 @@ no specific question, poll, or new endpoint has been implemented yet.
   an existing mid-event scenario; switch guest/commissioner/player and simulate
   failed acknowledgements. No WebSocket, persistent storage, or remote data.
 
-The September 27 second pass (the re-audit's bugs and improvements, a strict
-copy pass, and the delight features: tilt card, chip coin, Android haptics,
-Chip Towers, Desert Clock, trophy plates) supersedes the September 26 fix
-pass: 409 tests and the 139-check local e2e pass, deployed to staging as
-version `4f6789d5-2703-48cb-b790-9f75d3beaee3` (build `33a6736`, with visual bet and poker stacks). The previous
-staging baseline is tag `staging-7c2c9f15`. The first
+The September 28 Living Field Day pass (TH1 phase theme, the motion
+foundation, the Table Home, chip flight and settle, result receipt and own-chip
+showers, the last card, synced draw reveals, TV bracket advance and crown,
+draft and finale motion, season card back, iOS tap tick, queued + taps) builds
+on the September 27 second pass: 537 tests and the 139-check local e2e pass,
+deployed to staging as version `63f01ffa-ad02-426a-92bd-a5cae8f00132` (build
+`5319a88`). The previous staging build is tag `staging-4f6789d5`; the one
+before is `staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet

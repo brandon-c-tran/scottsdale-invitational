@@ -1,12 +1,10 @@
 import React from "react";
-import { ROSTER, ROUND_NAMES, EDITION, disp, resolveSlot, teamLabel, stageEntrantView } from "../../../shared/core.js";
+import { ROSTER, EDITION, disp, stageEntrantView } from "../../../shared/core.js";
 import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
-import { bracketLayout } from "../weekend/CompetitionBracket.jsx";
 import { TrophyHero, TrophyPlates, trophyPlates } from "../weekend/Trophy.jsx";
-import { DesertBand } from "./DesertBand.jsx";
 import {
   fmt, signed, editionLabel, readableInk, phaseBand, placeName, stackRace, weekendProgress, duelBoard,
   playerWeekendStats,
@@ -14,128 +12,9 @@ import {
 
 export { TrophyHero };
 
-/* The champion, full frame, in their own identity color the way their
-   player card wears it: the trophy under the night sky of the weekend's
-   winners with the champion's own stars joined, a plate for every event
-   winner, the final stack, wins, and the path to the title. A tie stays on
-   night. */
-export function ChampionMoment({ state, view }) {
-  const lead = view.players[0];
-  const identity = usePlayerIdentity(lead);
-  const color = view.tied ? null : identity.color;
-  const ink = color ? readableInk(color) : "var(--bone)";
-  const names = view.players.map(p => disp(state, p));
-  const many = view.plates.length > 7;
-  const skyH = many ? 330 : 420;
-  return (
-    <div className="tv-pane tv-champ-pane">
-      <div className={`tv-champ${view.tied ? " is-tied" : ""}`}
-        style={color ? { background:color, color:ink, "--champ-ink":ink } : undefined}>
-        <div className="tv-champ-prize">
-          <div className="tv-champ-sky" style={{ height:skyH }}>
-            <DesertBand phase="fin" variant="full" width={740} height={skyH} stars={view.stars} lines={view.lines} showStars />
-            <div className="tv-champ-trophy"><TrophyHero size={many ? 250 : 320} plate="FIELD DAY" /></div>
-          </div>
-          <div className="tv-plates" style={{ gridTemplateColumns:view.plates.length > 7 ? "1fr 1fr" : "1fr" }}>
-            {view.plates.map(plate => (
-              <div key={plate.eventId} className="tv-plate"><b>{plate.name}</b><span>{plate.winner}</span></div>
-            ))}
-          </div>
-        </div>
-        <div className="tv-champ-body">
-          <div className="tv-champ-tag">Champion</div>
-          <div className="tv-champ-faces">
-            {view.players.map(p => <Avatar key={p} state={state} p={p} size={view.players.length > 1 ? 180 : 230}
-              style={{ border:"5px solid var(--champ-ink, var(--bone))" }} />)}
-          </div>
-          <div className="tv-champ-name" style={{ fontSize:names.join(" & ").length > 18 ? 104 : 150 }}>
-            {names.join(" & ")}</div>
-          <div className="tv-champ-stats">
-            <span><b>{fmt(view.pts)}</b> final stack</span>
-            <span><b>{view.wins}</b> win{view.wins === 1 ? "" : "s"}</span>
-            {view.betNet !== 0 && <span><b>{signed(view.betNet)}</b> bets</span>}
-          </div>
-          {!view.tied && view.path.length > 0 && (
-              <div className="tv-champ-path">
-                {view.path.map(item => <span key={item.eventId}>{item.label}</span>)}
-              </div>
-            )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── the bracket, drawn, at TV scale ──
-   The same layout the phones draw (bracketLayout), rounds as columns and
-   each winner carried forward, with every pair named. */
-const BRACKET_SIZES = {
-  strip:{ row:36, gap:10, colGap:30, faces:0 },
-  full:{ row:62, gap:20, colGap:56, faces:40 },
-};
-export function TVBracket({ state, ev, hot = null, size = "strip" }) {
-  const bracket = state.brackets?.[ev?.id], draw = state.draws?.[ev?.id];
-  if (!bracket || !draw) return null;
-  const dims = BRACKET_SIZES[size];
-  const cardH = dims.row * 2 + 3;
-  const unit = cardH + dims.gap;
-  const rounds = bracket.rounds;
-  const R = rounds.length;
-  const { centers, units } = bracketLayout(bracket);
-  const height = Math.ceil(units * unit - dims.gap);
-  const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
-  const colLeft = r => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
-  const topOf = (r, m) => centers[r][m] * unit - unit / 2;
-  const rowY = (r, m, index) => topOf(r, m) + 1 + dims.row / 2 + index * (dims.row + 1);
-  const names = ROUND_NAMES[bracket.size] || [];
-  const lines = [];
-  rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
-    if (!slot?.w) return;
-    const [fr, fm] = slot.w;
-    const y1 = centers[fr][fm] * unit - unit / 2 + cardH / 2, y2 = rowY(r, m, index);
-    const top = Math.min(y1, y2) - 2, h = Math.abs(y2 - y1) + 4;
-    const a = ((y1 - top) / h) * 100, b = ((y2 - top) / h) * 100;
-    const decided = rounds[fr][fm].winner !== null && rounds[fr][fm].winner !== undefined;
-    lines.push(<svg key={`${r}-${m}-${index}`} className={`tv-bracket-line${decided ? " is-on" : ""}`} aria-hidden="true"
-      viewBox="0 0 100 100" preserveAspectRatio="none"
-      style={{ left:`calc(${colLeft(fr)} + ${colW})`, width:dims.colGap, top, height:h }}>
-      <path d={`M0 ${a} H50 V${b} H100`} vectorEffect="non-scaling-stroke" />
-    </svg>);
-  })));
-  return (
-    <div className={`tv-bracket is-${size}`} aria-label={`${ev.name} bracket`}>
-      <div className="tv-bracket-heads">
-        {rounds.map((_, r) => <span key={r} className="tv-label" style={{ left:colLeft(r), width:`calc(${colW})` }}>
-          {names[r] || `Round ${r + 1}`}</span>)}
-      </div>
-      <div className="tv-bracket-stage" style={{ height }}>
-        {lines}
-        {rounds.map((round, r) => round.map((match, m) => {
-          const decided = match.winner !== null && match.winner !== undefined;
-          const isHot = !!hot && hot[0] === r && hot[1] === m;
-          return (
-            <div key={`${r}-${m}`} className={`tv-bracket-match${isHot ? " is-hot" : ""}`}
-              style={{ left:colLeft(r), width:`calc(${colW})`, top:topOf(r, m), height:cardH }}>
-              {[resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)].map((key, index) => {
-                const team = key === null || key === undefined ? null : draw.teams[key];
-                const won = decided && match.winner === key, lost = decided && !!team && !won;
-                return (
-                  <div key={index} className={`tv-bracket-team${won ? " is-won" : ""}${lost ? " is-lost" : ""}${team ? "" : " is-empty"}`}
-                    style={{ height:dims.row }}>
-                    {dims.faces > 0 && team && <span className="tv-bracket-faces">
-                      {team.players.slice(0, 3).map(p => <Avatar key={p} state={state} p={p} size={dims.faces} />)}</span>}
-                    <span className="tv-bracket-name">{team ? teamLabel(state, team) : "TBD"}</span>
-                    {won && <span className="tv-bracket-won" aria-label="won">✓</span>}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        }))}
-      </div>
-    </div>
-  );
-}
+/* The champion (M18) and the drawn bracket (M14) have their own modules. */
+export { ChampionMoment } from "./TVChampion.jsx";
+export { TVBracket } from "./TVBracket.jsx";
 
 /* heats and pools with every entrant named; qualifiers stay bright */
 export function StageGroups({ state, ev }) {
@@ -191,7 +70,7 @@ export function WeekendProgressCard({ state, events }) {
                   {row.status === "done" ? <>
                     {row.winners.slice(0, 3).map(p => <ChipFace key={p} p={p} size={40} />)}
                     <span>{row.winnerName}</span>
-                  </> : row.status === "live" ? <span className="is-live">Live</span>
+                  </> : row.status === "live" ? <span className="is-live"><i className="fd-beat-dot tv-beat" aria-hidden="true" />Live</span>
                     : row.status === "skipped" ? <span>Skipped</span> : null}
                 </span>
               </div>

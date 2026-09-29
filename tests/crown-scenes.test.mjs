@@ -14,7 +14,7 @@ import { applyAction } from "./support/confirmed-start.mjs";
 import { CROWN_TIMING, nextLatch } from "../src/features/tv/tvMotion.js";
 import { freshChangeStep, MOTION } from "../src/lib/motion.js";
 
-/* D1 (the room floods on the crown), D2 (the face-off at lock) and D3 (the
+/* D1 (the room floods on the crown), D2 (the face-off before the bets) and D3 (the
    class photo and the poster): pure timing, selection and layout models, the
    real reducers for the scene step, and the real components' markup. */
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -144,7 +144,7 @@ test("D1: the phone moment floods on every phone and sits on the TV's timeline",
   assert.ok(!/#[0-9a-f]{3,6}\b|gradient/i.test(css), "tokens only, flat");
 });
 
-/* ── D2: the face-off at lock ── */
+/* ── D2: the face-off before the bets ── */
 const bracketOpen = () => {
   const state = { ...structuredClone(EMPTY_STATE), profiles:profiles() };
   act(state, "announceAndDraw", { evId:"bball1", players:ROSTER });

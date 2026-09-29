@@ -218,6 +218,7 @@ function FlightsQuestion({ onYes, onNotYet }) {
 
 export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
+  awardsContent = null,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const exposed = !!model.standing?.exposure && model.mode === "live";
@@ -257,6 +258,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
 
     {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
     <AlertsCard me={me} />
+    {awardsContent}
 
     {model.mode === "live" && duelContent}
     {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>

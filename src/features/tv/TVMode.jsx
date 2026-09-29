@@ -43,6 +43,8 @@ import { useServerNow } from "./serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
 import { useRoomSound } from "./roomSound.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
+import { AwardsReveal } from "../awards/TVAwards.jsx";
+import { awardOnTv } from "../../../shared/prompts.js";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -707,6 +709,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   /* D2: the face-off when a two-sided contest opens for bets, after the
      intro and draw or the decided contest (faceOffStart); anything still
      covering the live pane then holds it (faceOffGate) */
+  /* D6: the award being revealed holds the room (nothing is in play) */
+  const award = useMemo(() => awardOnTv(state, events), [state, events]);
   const liveCovered = !!(sceneIntroEv || ceremonyIntroEv || ceremonyReveal || directed || resultModel);
   const faceOff = useFaceOff(state, liveEv, liveContest, { covered:liveCovered });
   /* A3: the room's sounds, on the same beats and server anchors */
@@ -718,7 +722,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
 
   /* the update reload waits for a gap in what is actually on screen */
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
-    reveal:ceremonyReveal, dock }) || !!faceOff;
+    reveal:ceremonyReveal, dock }) || !!faceOff || !!award;
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
   }, [busy]);
@@ -747,7 +751,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const items = tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest, upNext, upNextDraw,
     onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts });
 
-  const showTicker = !final && !(directed && sceneView.ticker === false) && connection.mode !== "loading";
+  const showTicker = !final && !(directed && sceneView.ticker === false) && !award && connection.mode !== "loading";
   const towers = {
     on:towersMode === "3d",
     height:1080 - 6 - 118 - (showTicker ? 74 : 0),
@@ -771,6 +775,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
       standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} crown={crown}
       classMoment={classMoment} />;
+  } else if (award) {
+    content = <AwardsReveal key={`${award.ballotId}:${award.index}`} state={state} view={award} now={now}
+      reducedMotion={reducedMotion} />;
   } else if (champion) {
     /* D3: once the crown has held, the frozen TV takes turns between the
        champion and the class photo on the server clock */
@@ -895,7 +902,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
         <DesertBand phase={phase} variant={bandTall ? "full" : "strip"} width={1920} height={bandTall ? 118 + TOWER_TABLE : 118}
           stars={skyStars} starBox={STAR_BOX} className="tv-backdrop" />
         <Masthead state={state} onDeckEv={onDeckEv} connection={connection} lastUpdateAt={lastUpdateAt}
-          showOnDeck={!final && !directed && !liveShown} final={final} dock={dockNode} day={day} />
+          showOnDeck={!final && !directed && !liveShown && !award} final={final} dock={dockNode} day={day} />
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
         </main>

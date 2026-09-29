@@ -112,9 +112,18 @@ broadcast when they are host-only; both transport and storage belong behind
 the existing single authoritative Durable Object. Any new persisted records
 must participate in snapshot validation, backup/restore, and reset preservation.
 
-This is a recorded future capability, not an implemented endpoint or a published
-poll. First resolve the returning-home hierarchy, then add the question mechanism
-when the first concrete request is ready. No production migration is implied.
+Implemented Sept 29 for the first concrete request, Saturday-night awards (D6):
+`shared/prompts.js` (model and per-viewer projection), `worker/prompts.js`
+(reducers shared by the socket actions and the HTTP endpoints), `state.prompts`
+(ballots plus per-voter answers, preserved by a progress reset, carried by
+snapshots, never in a frame), `GET/POST /api/admin/prompts`,
+`POST /api/admin/prompts/:id/(publish|close|reopen|reveal|end)`,
+`DELETE /api/admin/prompts/:id`, `GET /api/admin/prompts/:id/results` with the
+existing GM token, and `GET /api/prompts`, `POST /api/prompts/:id/responses`
+by device claim. Only single-choice questions whose options are players exist
+so far; results visibility is "totals once revealed", and the first revealed
+award deletes the per-voter answers. No production migration: an old state
+hydrates an empty `prompts`.
 
 This brief expands the earlier M2 restriction against a broad redesign. Earlier PRDs remain records of existing behavior and unfinished work; they do not limit the new design scope. Existing production data and tournament correctness remain compatibility requirements.
 
@@ -196,7 +205,7 @@ A previous Worker version alone may not reverse a future schema change. Any migr
 - [x] Replace hidden player identity state and extract shared avatars and chips.
 - [x] Extract check-in, profile editing, and travel presentation into guest feature modules.
 - [ ] Prioritize the returning guest home with saved identity, current plans, and a place for new requests; avoid further FTUX expansion.
-- [ ] Add reusable questions/polls with endpoint-based host authoring when a concrete question is ready.
+- [x] Add reusable questions/polls with endpoint-based host authoring when a concrete question is ready (D6 awards, Sept 29).
 - [ ] Separate guest features, host operation, show sequencing, and QA from the application root.
 - [ ] Split domain and server responsibilities behind compatible facades where that materially improves clarity.
 - [ ] Implement the chosen design and motion system across the connected guest journeys.

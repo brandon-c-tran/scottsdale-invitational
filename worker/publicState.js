@@ -11,10 +11,14 @@
    - Shirt size and flights are for the commissioner and the owner. Name,
      number, chip, photo and walkout stay public: every card renders them.
    - Logistics stay public (the house, and Brandon's own times).
+   - Ballots (D6, shared/prompts.js projectPrompts): drafts are the
+     commissioner's, answers never leave, a viewer gets their own back, and
+     a question's totals appear only after the TV reveals it.
 
    Viewers: { isGm, player }. An unclaimed device and the TV route get the
    public view. */
 import * as core from "../shared/core.js";
+import { projectPrompts } from "../shared/prompts.js";
 
 const { isActivePlayer } = core;
 
@@ -27,7 +31,7 @@ const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
 const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts"]);
 
 function normalizeViewer(viewer) {
   return {
@@ -102,6 +106,7 @@ function viewerProjection(state, viewer) {
     profiles:isGm ? profiles : Object.fromEntries(Object.entries(profiles)
       .map(([id, profile]) => [id, id === player ? profile : publicProfile(profile)])),
     duels:redactDuels(state?.duels || [], { isGm, player }),
+    prompts:projectPrompts(state?.prompts, { isGm, player }),
   };
 }
 

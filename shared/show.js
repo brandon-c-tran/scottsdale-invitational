@@ -4,6 +4,7 @@
 
 import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants,
   contestUndoAvailability, isAway, bracketMatchName } from "./core.js";
+import { awardsRevealBlocker, revealBallot, revealedCount } from "./prompts.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -410,7 +411,31 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
     }
   }
 
+  /* D6: a closed ballot owes the room its awards, one tap per award, when
+     nothing is being played or bet on; the reveal waits for a free room */
+  const awards = awardsBeat(state, events);
+  if (awards) return { ...operation, scene:null, extras:[], nextAction:awards.nextAction, secondary:awards.secondary };
   return base;
+}
+
+function awardsBeat(state, events) {
+  const ballot = revealBallotOrClosed(state);
+  if (!ballot || ballot.reveal?.done || awardsRevealBlocker(state, events)) return null;
+  const n = ballot.questions.length, shown = revealedCount(ballot);
+  if (shown >= n) return { nextAction:directorBeat("end-awards", "End awards", { ballotId:ballot.id,
+    subject:`${n} of ${n} awards shown` }), secondary:null };
+  const next = ballot.questions[shown];
+  return { nextAction:directorBeat("reveal-award", shown ? "Next award" : "Reveal awards", { ballotId:ballot.id,
+    step:shown + 1, subject:`${next.title} · ${shown + 1} of ${n}` }),
+  secondary:{ type:"skip-awards", label:"Skip", ballotId:ballot.id } };
+}
+/* the ballot being revealed, else the newest closed one not yet shown */
+function revealBallotOrClosed(state) {
+  const revealing = revealBallot(state);
+  if (revealing && !revealing.reveal.done) return revealing;
+  return (Array.isArray(state.prompts?.ballots) ? state.prompts.ballots : [])
+    .filter(ballot => ballot?.status === "closed" && !ballot.reveal)
+    .sort((a, b) => (Number(b.closedAt) || 0) - (Number(a.closedAt) || 0))[0] || null;
 }
 const SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
 

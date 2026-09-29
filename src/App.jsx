@@ -67,6 +67,8 @@ import { DirectorPill } from "./features/director/DirectorPill.jsx";
 import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
 import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
+import { AwardsHome } from "./features/awards/AwardsHome.jsx";
+import { AwardsDesk, deskNote } from "./features/awards/AwardsDesk.jsx";
 import { directorPill } from "./features/director/directorPill.js";
 import { PokerSetupSheet, CrownSheet } from "./features/director/FinaleSheets.jsx";
 import {
@@ -1454,6 +1456,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlayer={p => setModal({type:"player", p})}
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
+          awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
@@ -1566,6 +1569,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
             {lockerRoomAvailability(state).enabled && <MenuRow name="Back to the locker room"
               onClick={() => pushModal({type:"lockerRoom"})} />}
           </MenuGroup>}
+          <MenuGroup title="Awards night">
+            <MenuRow name="Awards" note={deskNote(state)} onClick={() => pushModal({type:"awards"})} />
+          </MenuGroup>
           <MenuGroup title="Fix something">
             {state.onDeck && <MenuRow name="Lock bets"
               note={onDeckEv?.name || null}
@@ -1602,6 +1608,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
           </MenuGroup>
         </Sheet>
       )}
+      {gmView && modal?.type === "awards" && <AwardsDesk state={state} events={events} notify={notify}
+        onClose={() => setModal(null)} onBack={modalBack} />}
       {gmView && showControlAllowed && modal?.type === "showControl" && (
         <ShowControlSheet
           state={state}

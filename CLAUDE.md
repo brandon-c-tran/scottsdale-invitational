@@ -97,7 +97,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   result toast. A correction or returned bet is one quiet toast line
   ("Result corrected: −400"); a catch-up says nothing (the since line owns
   absences). Only your own win (event, match, bet) showers YOUR identity
-  chips (`ChipShower`); phones never play confetti, the TV keeps its burst.
+  chips (`ChipShower`); phones never play confetti, the TV keeps its burst
+  for results (its crown is the M18 scene, not confetti).
   The crown (`useCrownMoment`, `crownKey`) plays once per phone: the champion
   moment (the champion's own phone floods with their color), then this
   phone's last card (`lastCardModel`, `chipHistory` replays the weekend and
@@ -105,6 +106,27 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   to the card, and Home's "Your last card" reopens it. Save card draws a
   1080x1350 PNG (`cardImage.js`) and hands it to `navigator.share`, else
   shows it to press and hold. `/dev/results-preview.html` rehearses all of it.
+- **The living board** (Sept 28, all on the motion foundation): Home is the
+  Table (one compact contest card, then 13 ~47px rows each with a flat bar of
+  that player's chips in their color, your pending bets as gold outlined
+  units; `features/standings/boardModel.js`); a fresh standings change counts
+  in 100s, slides rows, rolls ranks and warms a new leader. "You're playing"
+  stamps when your match becomes current. `contestWinLines`
+  (`features/standings/winImpact.js`) is the one pure "Win: Sahil to 1st" line
+  per side on Home, Bets and the TV (only a win that posts a result has one).
+  Bets: a placed chip flies from the rack and hovers until the ack
+  (`fly(..., { hold })`), a failure flies it home; a fresh decision holds the
+  decided board `MOTION.settleHold` (WON stamp, losing stacks to the bank,
+  your winnings into the Home tab), a tap skips, then the next contest deals
+  in. `FitStacks` keeps any number of bettors off a side's total on the TV.
+  Draft picks fly into their seat (phone FlightLayer, TV in-canvas);
+  `features/tv/TVDraft.jsx` fills the TV with seat silhouettes and a chip wall.
+  Poker stacks build chip by chip on a fresh deal, blinds roll, a bust tips
+  flat (`features/tv/TVPoker.jsx`, `src/lib/motionKit.js`). TV bracket advance
+  and the crown live in `features/tv/tvMotion.js`, `TVBracket.jsx`,
+  `TVChampion.jsx`, anchored on server times. The player card back is the
+  season sheet and head-to-head (`features/profile/seasonStats.js`, pure,
+  derived; Rematch only opens the duel send flow).
 
 ## Current redesign direction
 
@@ -323,8 +345,12 @@ no specific question, poll, or new endpoint has been implemented yet.
    A team or heats event is ONE GM tap (`announceAndDraw`), confirmed from a
    crew line prefilled with whoever has sat out least: draw, bracket seed, and
    betting open land in one server write and one broadcast, so every phone
-   plays the intro then hands over to the reveal by itself after
-   `INTRO_HOLD`. Drawing before the announcement put matchups on screen
+   plays the intro then hands over to the reveal by itself. The announcing
+   write stamps `eventOps[ev].announcedAt` (server time; cleared by
+   `resetContestSetup` and `clearDraw`), and every phone and the TV time the
+   intro, handoff and each card's turn from it on the shared server clock, so
+   the room turns cards together and a late screen joins mid-sequence; your
+   own card rings in your color. Old states without it time themselves. Drawing before the announcement put matchups on screen
    before anyone knew the game, and a manual close made the GM tap twice. A
    plain `runDraw` for a later event is held, unseen, on every screen until
    that event is announced (`revealReady`).

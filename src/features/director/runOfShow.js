@@ -26,7 +26,11 @@ const sceneSubject = (kind, step) => {
   return definition ? `On TV: ${definition.label}, ${step + 1} of ${definition.steps.length}` : "";
 };
 /* the director's own verb for leaving a scene step */
-const advanceLabel = (kind, step) => kind === "winner" && step === 0 ? "Show standings" : "Continue";
+const advanceLabel = (kind, step) => kind === "winner" && step === 0 ? "Show standings"
+  : kind === "champion" && step === 0 ? "Class photo" : "Continue";
+/* after the crown the champion scene still owes its class photo step */
+const championBeats = () => (SHOW_SCENE_DEFINITIONS.champion?.steps.length || 1) > 1
+  ? [beat("advance-scene", advanceLabel("champion", 0), sceneSubject("champion", 0))] : [];
 
 /* The contests an event still has to play, in the order the server opens
    them, named the way the pill names them. A bracket or heats that are not
@@ -105,7 +109,7 @@ function lifecycleAfter(state, events, director, showControl) {
   const now = director?.nextAction;
   const ev = director?.event || null;
   if (!now) return [];
-  if (now.type === "crown-champion") return [];
+  if (now.type === "crown-champion") return showControl ? championBeats() : [];
   if (ev?.finale || ["setup-poker", "start-poker", "run-poker", "post-poker-result"].includes(now.type))
     return pokerBeats(state, ev, now.type, showControl);
   const out = [];
@@ -168,7 +172,7 @@ function sceneAfter(state, events, now) {
     const cleared = active?.kind === "winner" ? { ...state, showControl:{ ...state.showControl, active:null } } : base;
     return { beats:[beat("advance-scene", "Show standings", sceneSubject("winner", 0))], state:retireScene(cleared, winner) };
   }
-  if (now.type === "start-champion-scene") return { beats:[], state:null };
+  if (now.type === "start-champion-scene") return { beats:championBeats(), state:null };
   return { beats:[], state };
 }
 

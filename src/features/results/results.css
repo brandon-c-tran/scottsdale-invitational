@@ -74,14 +74,24 @@
 .fd-crown { position:fixed; inset:0; z-index:420; background:var(--bg); color:var(--ink); overflow:hidden; }
 .fd-crown-moment { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; cursor:pointer;
   padding:calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 24px); }
-.fd-crown-flood { position:absolute; inset:0; background:var(--crown-color);
-  animation:fd-crown-flood 700ms var(--ease-out) backwards; clip-path:circle(150% at 50% 38%); }
+/* D1: every delay is "this long after the crown" on the TV's server clock
+   (--tl is minus the ms already gone when this phone joined, CROWN_TIMING) */
+.fd-crown-kicker { position:absolute; left:0; right:0; top:calc(env(safe-area-inset-top) + 28px); margin:0; text-align:center;
+  color:var(--muted2); font:700 12px/1 var(--fd-body); letter-spacing:.24em; text-transform:uppercase;
+  animation:fd-crown-out 300ms ease-in calc(var(--tl, 0ms) + 1450ms) both; }
+.fd-crown-origin { position:absolute; left:50%; top:38%; transform:translate(-50%, -50%);
+  animation:fd-crown-origin 600ms var(--ease-land) calc(var(--tl, 0ms) + 850ms) both; }
+@keyframes fd-crown-origin { from { opacity:0; transform:translate(-50%, -50%) scale(.4); } }
+.fd-crown-flood { position:absolute; inset:0; background:var(--crown-color); clip-path:circle(150% at 50% 38%);
+  animation:fd-crown-flood 700ms cubic-bezier(.65,0,.35,1) calc(var(--tl, 0ms) + 1450ms) both; }
 @keyframes fd-crown-flood { from { clip-path:circle(0 at 50% 38%); } to { clip-path:circle(150% at 50% 38%); } }
-.fd-crown-moment.is-flood { color:var(--crown-ink); }
-.fd-crown-stage { position:relative; display:grid; justify-items:center; gap:10px; text-align:center; --fd-crown-t0:0ms; }
-.fd-crown-moment.is-flood .fd-crown-stage { --fd-crown-t0:600ms; }
+/* the ink turns with the flood, so nothing sits dark on night before it */
+.fd-crown-moment.is-flood { color:var(--crown-ink); animation:fd-crown-ink 1ms linear calc(var(--tl, 0ms) + 1650ms) both; }
+@keyframes fd-crown-ink { from { color:var(--ink); } to { color:var(--crown-ink); } }
+@keyframes fd-crown-out { to { opacity:0; } }
+.fd-crown-stage { position:relative; display:grid; justify-items:center; gap:10px; text-align:center; }
 .fd-crown-coins { display:flex; gap:12px; perspective:600px; margin-bottom:10px; }
-.fd-crown-coin { display:block; animation:fd-crown-coin 1200ms var(--ease-out) backwards; animation-delay:var(--fd-crown-t0); }
+.fd-crown-coin { display:block; animation:fd-crown-coin 1200ms var(--ease-out) calc(var(--tl, 0ms) + 2000ms) both; }
 @keyframes fd-crown-coin {
   0% { opacity:0; transform:translateY(-60vh) rotateY(0deg); }
   8% { opacity:1; }
@@ -90,15 +100,14 @@
   100% { transform:translateY(0) rotateY(720deg); }
 }
 .fd-crown-tag { margin:0; font:700 13px/1 var(--fd-body); letter-spacing:.3em; text-transform:uppercase; color:var(--sun);
-  animation:fd-crown-tag var(--motion-stamp) var(--ease-land) backwards; animation-delay:calc(var(--fd-crown-t0) + 700ms); }
+  animation:fd-crown-tag var(--motion-stamp) var(--ease-land) calc(var(--tl, 0ms) + 2300ms) both; }
 .fd-crown-moment.is-flood .fd-crown-tag { color:inherit; }
 @keyframes fd-crown-tag { from { opacity:0; transform:scale(1.6); letter-spacing:.6em; } }
 .fd-crown-name { margin:0; font:700 clamp(52px,17vw,88px)/.9 var(--fd-display); letter-spacing:.01em; overflow-wrap:anywhere; }
-.fd-crown-name span { display:inline-block; animation:fd-crown-letter 340ms var(--ease-land) backwards;
-  animation-delay:calc(var(--fd-crown-t0) + 800ms + var(--fd-letter) * 60ms); }
+.fd-crown-name span { display:inline-block; animation:fd-crown-letter 340ms var(--ease-land) both;
+  animation-delay:calc(var(--tl, 0ms) + 2400ms + var(--fd-letter) * 60ms); }
 @keyframes fd-crown-letter { from { opacity:0; transform:translateY(40px); } }
-.fd-crown-stack { margin:4px 0 0; font:600 15px/1 var(--fd-body); animation:fd-crown-fade var(--motion-base) ease-out backwards;
-  animation-delay:calc(var(--fd-crown-t0) + 1100ms); }
+.fd-crown-stack { margin:4px 0 0; font:600 15px/1 var(--fd-body); animation:fd-crown-fade 200ms ease-out calc(var(--tl, 0ms) + 2700ms) both; }
 .fd-crown-stack b { font:700 40px/1 var(--fd-display); font-variant-numeric:tabular-nums; margin-right:4px; }
 @keyframes fd-crown-fade { from { opacity:0; } }
 .fd-crown-skip { position:absolute; right:16px; bottom:calc(env(safe-area-inset-bottom) + 16px); min-width:64px; min-height:44px;
@@ -124,6 +133,11 @@
 .fd-crown-save { border:0; background:var(--action-fill); color:var(--action-ink); }
 .fd-crown-save:disabled { opacity:.7; }
 .fd-crown-board { border:1px solid var(--line); background:none; color:var(--ink); }
+/* D3: the commissioner's poster, under the card's own actions */
+.fd-crown-poster { display:block; width:100%; min-height:48px; margin-top:8px; border:1px solid var(--sun); border-radius:12px;
+  background:none; color:var(--sun); font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-crown-poster:disabled { opacity:.7; }
+.fd-crown-card .fd-crown-preview { position:fixed; }
 .fd-crown-preview { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:12px; padding:calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 16px); background:var(--scrim);
   backdrop-filter:blur(8px); }

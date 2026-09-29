@@ -75,6 +75,22 @@ export const DISC = {
 };
 export const FIXED_STARS = [[.11, .13], [.26, .08], [.475, .17], [.63, .07], [.81, .14], [.925, .23], [.375, .27], [.725, .28]];
 
+/* where stars sit in a band: the sky box (the whole sky, or the TV
+   backdrop's fixed patch); a small box packs stars and belts tighter.
+   Shared with the saved poster so both draw the same sky. */
+export function skyStarLayout(box) {
+  const small = box.bottom - box.top < 80;
+  const spread = small ? 7 : 12;
+  return {
+    small,
+    starR:small ? 3.5 : 5.5,
+    fixedR:small ? 1.6 : 2,
+    at:star => [Math.round(box.left + star.x * (box.right - box.left) + star.dx * spread),
+      Math.round(box.top + star.y * (box.bottom - box.top) + star.dy * spread)],
+    fixed:([x, y]) => [Math.round(box.left + x * (box.right - box.left)), Math.round(box.top + y * 3 * (box.bottom - box.top))],
+  };
+}
+
 const r1 = n => Math.round(n * 10) / 10;
 function skyline(points, { width, horizon, amp, x0 = 0, x1 = 1, envelope = () => 1, bottom }) {
   const at = ([x, h]) => [r1((x0 + x * (x1 - x0)) * width), r1(horizon - h * amp * envelope(x0 + x * (x1 - x0)))];

@@ -255,7 +255,8 @@ const crowned = (showControl) => {
 
 test("the champion frame floods in their color with readable ink; a reload shows it at rest", () => {
   const state = crowned(false);
-  const html = renderTv(state);
+  /* D3: a frozen TV takes turns with the class photo; this is the champion's turn */
+  const html = renderTv(state, { now:Math.floor(Date.now() / 24000) * 24000 + 1000 });
   assert.match(html, /class="tv-crown is-flood is-ink-bone is-flooded"/);
   assert.match(html, /--champ-color:#2F7E83/);
   assert.match(html, /class="tv-crown-flood"/);

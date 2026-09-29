@@ -22,6 +22,8 @@
      S18 a draft pick landing in its seat (MOTION.cardFlight)
      S20 a fresh deal, S21 blinds up, S22 a bust
      S23/S24/S10/S1 the crown on CROWN_TIMING
+     D6  an award: its ballot chips (the chip density rule), then S10 and
+         S14 as the winner stamps, on AWARD_TIMING from reveal.at
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -40,6 +42,8 @@ import { levelAnchor, levelRoll } from "../poker/pokerMotion.js";
 import { ADVANCE_TIMING as A, CROWN_TIMING as C } from "./tvMotion.js";
 import { FACEOFF_TIMING } from "./faceOff.js";
 import { TV_ADVANCE_MS } from "./tvModel.js";
+import { awardOnTv } from "../../../shared/prompts.js";
+import { awardCues } from "../awards/awardsModel.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -117,6 +121,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     poker:pk ? { id:pk.id, ts:Number(pk.ts) || 0, started:!!pk.startedAt, outs:(pk.outs || []).length,
       posted:!!state.results?.[pk.id] } : null,
     scene:active && !showScene.staleReason ? { id:active.id, kind:active.kind, startedAt:Number(active.startedAt) || 0 } : null,
+    award:awardOnTv(state, events),
   };
 }
 
@@ -191,6 +196,11 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
     const held = decided && Math.abs(now - decided) <= TV_ADVANCE_MS + 5000 ? decided + TV_ADVANCE_MS : 0;
     add("S15", Math.max(now, held), { key:`lead:${next.leader}:${now}` });
   }
+
+  /* D6: the next award turns on the TV */
+  const award = next.award, before = prev.award;
+  if (award && !(before && before.ballotId === award.ballotId && before.index === award.index))
+    awardCues(award, { reduced }).forEach(cue => cues.push(cue));
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))

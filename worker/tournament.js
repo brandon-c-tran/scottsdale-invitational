@@ -47,6 +47,7 @@ import {
 } from "./spotify.js";
 import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
 import { alertsFor } from "./pushAlerts.js";
+import { projectPrompts } from "../shared/prompts.js";
 
 const tokenEncoder = new TextEncoder();
 /* The Durable Object value limit is 2 MB; warn well before it. */
@@ -218,6 +219,11 @@ export class Tournament {
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
+    /* D6 ballots: the GM token authors, a device claim answers (ahead of
+       /api/admin/, whose production auth is the snapshot token) */
+    if (url.pathname === "/api/admin/prompts" || url.pathname.startsWith("/api/admin/prompts/")
+        || url.pathname === "/api/prompts" || url.pathname.startsWith("/api/prompts/"))
+      return this.handlePrompts(req, url);
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
     if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
 
@@ -256,6 +262,98 @@ export class Tournament {
     }
 
     return new Response("Not found", { status: 404 });
+  }
+
+  /* One write from an HTTP request, on the same path a socket action takes:
+     the same reducer, persisted, then broadcast to every screen. */
+  async applyHttpAction(type, payload, { isGm = false, player = null, deviceId = null } = {}) {
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, type, payload, {
+      isGm, player, deviceId, actionId:null, environment:this.environment,
+      progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
+    });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast(type, nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"persist-failed", action:type,
+        error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false, error:"Couldn't save. Try again." };
+    }
+    return result;
+  }
+
+  /* ── D6 ballots over HTTP (docs/REFOUNDATION.md) ──
+     GET  /api/admin/prompts                 every ballot, drafts included (GM token)
+     POST /api/admin/prompts                 save a draft { ballot } (GM token)
+     POST /api/admin/prompts/:id/:command    publish, close, reopen, reveal { step }, end
+     DELETE /api/admin/prompts/:id           discard
+     GET  /api/admin/prompts/:id/results     revealed totals only
+     GET  /api/prompts                       published ballots for this device's player
+     POST /api/prompts/:id/responses         { questionId, choice } (device claim)
+     Both read the same per-viewer projection a frame carries: answers never
+     leave, and totals appear only after the TV reveals them. */
+  async handlePrompts(req, url) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const readBody = async () => {
+      if (Number(req.headers.get("Content-Length") || 0) > 16384) return null;
+      const text = await req.text();
+      if (text.length > 16384) return null;
+      if (!text) return {};
+      try { const parsed = JSON.parse(text); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null; }
+      catch { return null; }
+    };
+    const answer = result => result.ok
+      ? json({ ok:true, ...(result.extra?.unchanged ? { unchanged:true } : {}), ...(result.extra?.id ? { id:result.extra.id } : {}) })
+      : json({ ok:false, error:result.error }, 400);
+    const parts = url.pathname.split("/").filter(Boolean).slice(1).map(part => decodeURIComponent(part));
+    const admin = parts[0] === "admin";
+    const [, id = null, command = null, extra = null] = admin ? parts.slice(1) : parts;
+    if (extra !== null) return json({ ok:false, error:"Not found" }, 404);
+
+    if (admin) {
+      if (!await this.gmAuthorized(req)) return json({ ok:false, error:"Commissioner authentication required" }, 403);
+      const view = () => projectPrompts(this.state.prompts, { isGm:true });
+      if (!id) {
+        if (req.method === "GET") return json({ ok:true, ...view() });
+        if (req.method !== "POST") return json({ ok:false, error:"Method not allowed" }, 405);
+        const body = await readBody();
+        if (!body) return json({ ok:false, error:"Bad request" }, 400);
+        return answer(await this.applyHttpAction("promptSave", body.ballot || body, { isGm:true }));
+      }
+      if (req.method === "DELETE" && !command)
+        return answer(await this.applyHttpAction("promptDiscard", { id }, { isGm:true }));
+      if (req.method === "GET" && (command === "results" || !command)) {
+        const ballot = view().ballots.find(item => item.id === id);
+        if (!ballot) return json({ ok:false, error:"No such ballot" }, 404);
+        return json({ ok:true, ballot });
+      }
+      const types = { publish:"promptPublish", close:"promptClose", reopen:"promptReopen", reveal:"promptReveal",
+        end:"promptRevealEnd" };
+      if (req.method !== "POST" || !Object.hasOwn(types, command || "")) return json({ ok:false, error:"Not found" }, 404);
+      const body = await readBody();
+      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      return answer(await this.applyHttpAction(types[command], { id, ...(body.step !== undefined ? { step:body.step } : {}) },
+        { isGm:true }));
+    }
+
+    /* a guest is whoever this device claimed */
+    const deviceId = validDeviceId(req.headers.get("X-Field-Day-Device"));
+    const player = deviceId && isActivePlayer(this.claims[deviceId]) ? this.claims[deviceId] : null;
+    if (!player) return json({ ok:false, error:"Check in first" }, 403);
+    if (!id && req.method === "GET") {
+      const ballots = projectPrompts(this.state.prompts, { player }).ballots;
+      return json({ ok:true, ballots, pending:ballots.filter(ballot => ballot.status === "open").flatMap(ballot =>
+        ballot.questions.filter(question => !ballot.mine?.[question.id]).map(question => ({ ballotId:ballot.id,
+          questionId:question.id }))) });
+    }
+    if (id && command === "responses" && req.method === "POST") {
+      const body = await readBody();
+      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      return answer(await this.applyHttpAction("promptRespond",
+        { id, questionId:body.questionId, choice:body.choice ?? null }, { player, deviceId }));
+    }
+    return json({ ok:false, error:"Not found" }, 404);
   }
 
   async gmAuthorized(req) {

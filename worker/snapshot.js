@@ -125,6 +125,14 @@ function validateSnapshot(snapshot) {
   } else {
     if (!SUPPORTED_STATE_VERSIONS.has(state.v)) errors.push("Unsupported stored state version");
     if (metadata?.stateSchemaVersion !== state.v) errors.push("State schema metadata does not match state");
+    /* D6 ballots (optional: older snapshots have none) */
+    if (state.prompts !== undefined) {
+      const prompts = state.prompts;
+      if (!prompts || typeof prompts !== "object" || Array.isArray(prompts)
+          || !Array.isArray(prompts.ballots) || prompts.ballots.length > 64
+          || !prompts.responses || typeof prompts.responses !== "object" || Array.isArray(prompts.responses))
+        errors.push("State ballots are malformed");
+    }
     if (!state.profiles || typeof state.profiles !== "object" || Array.isArray(state.profiles))
       errors.push("State profiles must be an object");
     else {

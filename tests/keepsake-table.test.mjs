@@ -146,20 +146,29 @@ test("a tie keeps whoever led into it", () => {
   assert.equal(lead.leadChanges, 1);
 });
 
-test("awards show only when revealed, from whichever shape D6 stores, and never read voters", () => {
+test("awards show once the TV reveals them, from the real ballot, never with voters", () => {
   assert.deepEqual(keptAwards(CROWNED), []);
-  const [a, b, c] = ROSTER;
-  assert.deepEqual(keptAwards({ awards:{ results:[{ id:"fraud", title:"Fraud of the Weekend", winners:[a] }] } })
-    .map(award => [award.title, award.winners, award.tie]), [["Fraud of the Weekend", [a], false]]);
-  const prompts = {
-    p1:{ id:"p1", title:"Sharpshooter", status:"revealed", totals:{ [a]:3, [b]:3, [c]:1 }, votes:{ [c]:a } },
-    p2:{ id:"p2", title:"Media MVP", status:"open", totals:{ [a]:5 } },
-    p3:{ id:"p3", title:"Teammate", revealedAt:5, winners:[c] },
-  };
-  const awards = keptAwards({ prompts });
-  assert.deepEqual(awards.map(award => [award.title, award.winners.sort(), award.tie]),
-    [["Sharpshooter", [a, b].sort(), true], ["Teammate", [c], false]]);
-  assert.ok(!JSON.stringify(awards).includes('"votes"'), "voters are never read");
+  const state = structuredClone(EMPTY_STATE);
+  let n = 0;
+  const gm = () => ({ isGm:true, player:null, deviceId:"gm", actionId:`k${++n}` });
+  const guest = player => ({ isGm:false, player, deviceId:`d-${player}`, actionId:`k${++n}` });
+  const act = (type, payload, ctx = gm()) => { const r = applyAction(state, type, payload, ctx); assert.equal(r.ok, true, r.error); };
+  act("promptPublish", { ballot:{ id:"bkeepsake1", kind:"awards", questions:[
+    { id:"qfraud", title:"Fraud of the weekend", nominees:null, allowSelf:false },
+    { id:"qclutch", title:"Most clutch", nominees:null, allowSelf:false },
+  ] } });
+  for (const player of ROSTER) {
+    act("promptRespond", { id:"bkeepsake1", questionId:"qfraud", choice:player === ROSTER[0] ? ROSTER[1] : ROSTER[0] }, guest(player));
+    act("promptRespond", { id:"bkeepsake1", questionId:"qclutch", choice:player === ROSTER[2] ? ROSTER[1] : ROSTER[2] }, guest(player));
+  }
+  act("promptClose", { id:"bkeepsake1" });
+  assert.deepEqual(keptAwards(state), [], "nothing before the reveal");
+  act("promptReveal", { id:"bkeepsake1", step:1 });
+  const awards = keptAwards(state);
+  assert.deepEqual(awards.map(award => [award.title, award.winners, award.tie]), [["Fraud of the weekend", [ROSTER[0]], false]],
+    "only the revealed award, with its winner");
+  assert.equal(awards[0].totals[ROSTER[0]], ROSTER.length - 1);
+  assert.ok(!JSON.stringify(awards).includes("responses"), "voters are never read");
 });
 
 test("Weekend leads with the edition once frozen; Save all cards is the commissioner's", () => {

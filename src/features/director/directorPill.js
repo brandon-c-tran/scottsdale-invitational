@@ -9,7 +9,9 @@ import {
 import { postedFinalUndo } from "../../../shared/show.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
-const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene"];
+const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene",
+  /* D6: the awards can follow the crown */
+  "reveal-award", "end-awards"];
 /* writes that open the weekend when it is not live yet */
 const WEEKEND_WRITES = ["announceEvent", "announceAndDraw", "setOnDeck", "startEvent", "lockAndStart", "pokerStart"];
 
@@ -80,6 +82,12 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       break;
     case "replay-winner-scene":
       run = { write:"replayWinnerScene", payload:{ eventId:beat.eventId } };
+      break;
+    case "reveal-award":
+      run = { write:"promptReveal", payload:{ id:beat.ballotId, step:beat.step } };
+      break;
+    case "end-awards":
+      run = { write:"promptRevealEnd", payload:{ id:beat.ballotId } };
       break;
     case "start-opening-scene":
       run = { write:"startShowScene", payload:{ kind:"opening" } };
@@ -171,6 +179,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     extras.push({ label:"Skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
   if (director.secondary?.type === "skip-event" && ev)
     extras.push({ label:"Skip", run:{ open:"skipEvent", evId:ev.id } });
+  if (director.secondary?.type === "skip-awards")
+    extras.push({ label:"Skip", run:{ write:"promptRevealEnd", payload:{ id:director.secondary.ballotId } } });
   if (director.secondary?.type === "skip-replay")
     extras.push({ label:"Skip", run:{ write:"skipWinnerReplay", payload:{ eventId:director.secondary.eventId } } });
 

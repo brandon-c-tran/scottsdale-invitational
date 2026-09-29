@@ -6,6 +6,7 @@
    the weekend (nothing here reads a clock, a socket or a live contest). */
 
 import { EDITION, SESSIONS, START, allEventsOf, computeStandings, disp, teamLabel } from "../../../shared/core.js";
+import { awardResults } from "../../../shared/prompts.js";
 import { chipHistory, lastCardModel } from "./lastCard.js";
 
 export const KEPT_SECTION = "kept";
@@ -91,34 +92,14 @@ export function leadPath(state, events = allEventsOf(state), standings = compute
   return { steps, changes, leadChanges:Math.max(0, changes.length - 1), leaders:[...led] };
 }
 
-/* D6's superlatives, when that feature has put revealed results in state.
-   Read defensively: this file does not own the awards shape, and nothing
-   shows until an award is revealed. Accepts `state.awards.results`
-   ([{ title, winners }]) or revealed prompts in `state.prompts` carrying
-   per-nominee totals. Voters are never read. */
+/* D6's superlatives, once the TV has revealed them: shared/prompts.js
+   awardResults, in the order they were revealed, with each nominee's total.
+   Voters are never read (they no longer exist once an award is revealed). */
 export function keptAwards(state) {
-  const out = [];
-  const push = (id, title, winners, totals = null) => {
-    const list = (winners || []).filter(player => typeof player === "string" && player);
-    if (!title || !list.length) return;
-    out.push({ id:String(id ?? out.length), title:String(title), winners:list, tie:list.length > 1, totals });
-  };
-  const direct = state?.awards?.results;
-  if (Array.isArray(direct)) direct.forEach((award, index) => push(award?.id ?? index, award?.title, award?.winners));
-  const prompts = Array.isArray(state?.prompts) ? state.prompts : Object.values(state?.prompts || {});
-  for (const prompt of prompts) {
-    if (!prompt || typeof prompt !== "object") continue;
-    const revealed = prompt.revealed === true || prompt.status === "revealed" || Number(prompt.revealedAt) > 0;
-    if (!revealed) continue;
-    if (Array.isArray(prompt.winners)) { push(prompt.id, prompt.title, prompt.winners); continue; }
-    const totals = prompt.totals || prompt.results || prompt.tally;
-    if (!totals || typeof totals !== "object") continue;
-    const counts = Object.entries(totals).map(([player, n]) => [player, Number(n) || 0]).filter(([, n]) => n > 0);
-    if (!counts.length) continue;
-    const top = Math.max(...counts.map(([, n]) => n));
-    push(prompt.id, prompt.title, counts.filter(([, n]) => n === top).map(([player]) => player), Object.fromEntries(counts));
-  }
-  return out;
+  return awardResults(state).slice().reverse()
+    .filter(award => award.title && award.winners?.length)
+    .map(award => ({ id:`${award.ballotId}:${award.questionId}`, title:award.title, winners:[...award.winners],
+      tie:award.winners.length > 1, totals:award.counts || null }));
 }
 
 /* The whole section. Cards are in final standings order. */

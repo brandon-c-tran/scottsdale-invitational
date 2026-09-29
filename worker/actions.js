@@ -32,6 +32,7 @@ import { validateSpotifyTrack } from "../shared/audio.js";
 import { liveCall, sameCallTarget, validateCall } from "../shared/call.js";
 import { QA_PROGRESS_KEYS } from "../shared/qa.js";
 import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
+import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
@@ -217,6 +218,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
+  /* D6: ballots never touch the board */
+  ...PROMPT_ACTION_TYPES,
 ]);
 /* QA writes are rehearsal tools on a server that may hold real guests.
    Anything outside local and staging counts as production. Production always
@@ -453,6 +456,8 @@ const playingElsewhere = (state, evId, force) => {
 };
 
 export const ACTIONS = {
+  /* D6: awards ballots (worker/prompts.js), honors only */
+  ...PROMPT_ACTIONS,
   /* ── identity / profile ── */
   saveProfile(state, {
     player, display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack,

@@ -200,6 +200,28 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   stack; ticks land on the server second so the level turns (M17 roll) on
   the stored boundary with the TV; Screen Wake Lock where the browser has
   it, re-asked on return, released on Exit or when the table ends.
+- **Awards night (D6, Sept 29):** the reusable prompt/response feature from
+  `docs/REFOUNDATION.md`, used for Saturday-night superlatives. HONORS ONLY:
+  nothing in `shared/prompts.js` (model, projection) or `worker/prompts.js`
+  (reducers `promptSave`, `promptPublish`, `promptClose`, `promptReopen`,
+  `promptRespond`, `promptReveal`, `promptRevealEnd`, `promptDiscard`) reads
+  or writes chips, wagers, markets, results or standings, and they run on a
+  frozen board or a dealt table. `state.prompts = { ballots, responses }` is
+  guest input (a progress reset and QA keep it; snapshots carry it). Frames
+  carry `projectPrompts` only: drafts are the GM's, answers never leave, a
+  player gets their own back, everyone gets the turnout ("N of 13 voted"),
+  and an award's totals appear only once the TV reveals it; the first
+  revealed award deletes every per-voter answer. HTTP: GM token under
+  `/api/admin/prompts`, device claim under `/api/prompts`, the same reducers
+  as the socket actions. Guests vote from one Home row that opens in place
+  (`features/awards/AwardsHome.jsx`, photo chips, never yourself unless the
+  award allows it); the commissioner writes, publishes, closes and reveals
+  from Commissioner > Awards (`AwardsDesk.jsx`) or the director pill
+  ("Reveal awards", "Next award", Skip), which offers the reveal only while
+  nothing is being played or bet on. The TV (`TVAwards.jsx`, `awardsModel.js`)
+  lays anonymous sun chips on the nominees round by round, then stamps the
+  winner (a tie stamps each), on the server clock from `reveal.at` with S10
+  and S14 through `roomSound.js`; phones hold that winner until the stamp.
 
 ## Current redesign direction
 
@@ -365,10 +387,10 @@ app with the full group and most have completed check-in. Focus subsequent
 design work on an existing guest returning after an update. Keep FTUX usable
 for stragglers, but do not expand it unnecessarily or reset it for a redesign.
 Preserve device/claim/completion markers and all existing guest answers.
-Brandon may later add questions, activity votes, or restaurant polls. Plan one
-reusable prompt/response feature with endpoint-based host authoring if useful,
-separate from onboarding. Its details are recorded in `docs/REFOUNDATION.md`;
-no specific question, poll, or new endpoint has been implemented yet.
+Brandon may later add questions, activity votes, or restaurant polls. The one
+reusable prompt/response feature (`shared/prompts.js`, endpoints under
+`/api/prompts` and `/api/admin/prompts`) is separate from onboarding; its
+first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
 
 ## Core invariants (do not break)
 
@@ -810,7 +832,7 @@ back to the GameMark, then the FD chip. Nothing else to wire.
 - [ ] Brandon's feature notes (pending, ask him)
 - [x] PWA manifest + icons + add-to-home-screen flow (install gate opens onboarding)
 - [x] E2E test: tests/e2e.mjs, full loop over WebSocket
-- [ ] Awards voting Saturday night (Fraud of the Weekend, etc.)
+- [x] Awards voting Saturday night: D6 ballots, TV reveal (honors only)
 - [ ] Sudden-death pressure putt flow for championship ties
 - [ ] Odds tuning option: payout scaling by field size
 - [ ] Photo optimization (resize server-side, R2 if state grows)

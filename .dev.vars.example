@@ -5,3 +5,8 @@ GM_PIN=0000
 # then register http://127.0.0.1:5173/api/spotify/callback.
 # SPOTIFY_CLIENT_ID=
 # SPOTIFY_CLIENT_SECRET=
+
+# Optional pocket alerts (Web Push). A throwaway P-256 VAPID pair for local
+# use only; never reuse a staging or production key here.
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=

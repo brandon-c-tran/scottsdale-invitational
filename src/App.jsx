@@ -15,6 +15,7 @@ import { deriveHomeModel } from "./features/home/homeModel.js";
 import { guestLedger, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
+import { AlertsToggle, usePocketAlerts } from "./features/alerts/Alerts.jsx";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
@@ -440,6 +441,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
       notify(result === "denied" ? "Spotify connection cancelled" : "Spotify connection failed");
     }
   }, [audioDirectorAllowed, gmView, notify]);
+
+  /* a tapped pocket alert opens Home, or the draft for Your pick */
+  usePocketAlerts({ connected, you:tournament.you, capabilities, pushKey:tournament.pushKey,
+    ready:ready && onboardStep === 99 && !tv, onRoute:route => {
+      if (!ready || onboardStep !== 99 || tv) return false;
+      const ev = route.reason === "pick" ? events.find(item => item.id === route.ev) : null;
+      if (ev && state.drafts?.[ev.id]) setModal({ type:"draft", ev });
+      else { setModal(null); setTab("board"); }
+      return true;
+    } });
 
   /* re-claim identity on every (re)connect so the server knows who this device is */
   useEffect(() => { if (connected && me) dispatch("claim", { player: me }); }, [connected, me]);
@@ -4013,6 +4024,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         num={num} setNum={setNum} size={size} setSize={setSize}
         onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
       <VibrationToggle />
+      <AlertsToggle />
       </div>
       <div hidden={section !== "travel"}>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}

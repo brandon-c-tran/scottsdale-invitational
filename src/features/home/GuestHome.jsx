@@ -11,6 +11,7 @@ import { contestStacks } from "../wagers/betStacks.js";
 import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 import { WinLine } from "../standings/WinLine.jsx";
 import { useFreshChange } from "../../lib/motion.js";
+import { AlertsCard } from "../alerts/Alerts.jsx";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -252,6 +253,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
     </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
 
     {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
+    <AlertsCard me={me} />
 
     {model.mode === "live" && duelContent}
     {bettingElsewhere && <button type="button" className="fd-home-betting" onClick={onBets}>

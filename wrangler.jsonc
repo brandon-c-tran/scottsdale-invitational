@@ -18,6 +18,10 @@
   "vars": {
     "APP_ENV": "production",
     "APP_VERSION": "m2-audio-director-1",
+    /* pocket alerts: the contact push services see. VAPID_PUBLIC_KEY and
+       VAPID_PRIVATE_KEY are Worker secrets (docs/production-data-runbook.md);
+       without both, alerts stay off and no phone offers them. */
+    "VAPID_SUBJECT": "https://fielddayseries.com",
     "QA_ENABLED": "true",
     "PROGRESS_RESET_ENABLED": "true",
     "M2_SHOW_CONTROL_ENABLED": "true",
@@ -42,12 +46,18 @@
       },
       "vars": {
         "APP_ENV": "local",
+        /* placeholders so a throwaway pair in .dev.vars.local is loaded:
+           with `secrets` declared, local dev only reads .dev.vars keys that
+           are required or already vars. Empty keeps alerts off. */
+        "VAPID_PUBLIC_KEY": "",
+        "VAPID_PRIVATE_KEY": "",
         "APP_VERSION": "m2-audio-director-1",
         "QA_ENABLED": "true",
         "PROGRESS_RESET_ENABLED": "true",
         "M2_SHOW_CONTROL_ENABLED": "true",
         "M2_AUDIO_CATALOG_ENABLED": "true",
-        "M2_AUDIO_PLAYBACK_ENABLED": "true"
+        "M2_AUDIO_PLAYBACK_ENABLED": "true",
+        "VAPID_SUBJECT": "https://fielddayseries.com"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]
@@ -67,7 +77,8 @@
         "PROGRESS_RESET_ENABLED": "true",
         "M2_SHOW_CONTROL_ENABLED": "true",
         "M2_AUDIO_CATALOG_ENABLED": "true",
-        "M2_AUDIO_PLAYBACK_ENABLED": "true"
+        "M2_AUDIO_PLAYBACK_ENABLED": "true",
+        "VAPID_SUBJECT": "https://fielddayseries.com"
       },
       "durable_objects": {
         "bindings": [{ "name": "TOURNAMENT", "class_name": "Tournament" }]

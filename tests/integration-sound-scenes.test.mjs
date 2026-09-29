@@ -239,6 +239,16 @@ test("the cue rack beside the pill: a pair or a team wraps as names, one or two 
   assert.ok(four.every(([aria], i) => aria === `Play ${players[i]}&#x27;s walkout`), "the full action stays the label");
 });
 
+test("docked cues take their own header row, so a sheet title never collapses into a column", () => {
+  const css = read("src/features/director/director.css");
+  assert.match(css, /\.fd-sheet-header:has\(> \.fd-sheet-dock:not\(:empty\)\) \{ flex-wrap:wrap;/);
+  assert.match(css, /\.fd-sheet-dock \{ order:1; flex:1 0 100%;/, "after Close in the flow, on a row of its own");
+  const { Sheet, SheetDock } = bundle("isc-sheet", `export { Sheet, SheetDock } from "./src/ui/controls.jsx";`);
+  const html = renderToStaticMarkup(React.createElement(SheetDock.Provider, { value:React.createElement("button", null, "Evan") },
+    React.createElement(Sheet, { title:"1v1 Basketball", headerActions:React.createElement("button", null, "Rules"), onClose:() => {} })));
+  assert.match(html, /fd-sheet-heading[^]*fd-sheet-header-actions[^]*fd-sheet-dock[^]*aria-label="Close"/);
+});
+
 /* ── source contracts ── */
 
 test("the phone's own card (S4) rings only while the phone follows live", () => {

@@ -380,7 +380,7 @@ export function advanceMoment(state, ev, now) {
   /* the decided contest's chips: winners grow by their payout, the rest go
      back to the bank. Derived from resolveWager, so a correction redraws it. */
   const settle = settledStacks(state, [ev], contestOfEntry(ev.id, last));
-  return { players, name, round, verb:won ? (plural ? "Win" : "Wins") : (plural ? "Advance" : "Advances"),
+  return { kind:last.kind, players, name, round, verb:won ? (plural ? "Win" : "Wins") : (plural ? "Advance" : "Advances"),
     detail, beat, next, decidedAt:last.decidedAt, id:last.id, settle };
 }
 

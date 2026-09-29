@@ -24,10 +24,13 @@ import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
 import { TVPoker } from "./TVPoker.jsx";
 import {
-  ChampionMoment, TVBracket, StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
+  StageGroups, WeekendProgressCard, StackRaceCard, DuelBoardCard, SpotlightCard, RosterWall,
   TrophyCard,
 } from "./TVCards.jsx";
 import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
+import { TVBracket } from "./TVBracket.jsx";
+import { ChampionMoment } from "./TVChampion.jsx";
+import { useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { DesertBand } from "./DesertBand.jsx";
 import { constellationStars, isDaySky, isNightSky } from "./desertModel.js";
 import { weekendPhase } from "../../ui/phase.js";
@@ -35,6 +38,7 @@ import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
 import "./tv.css";
+import "./tvScenes.css";
 
 const EMPTY = [];
 /* the backdrop's stars keep one patch of sky, right of the masthead type
@@ -335,7 +339,7 @@ function ContestBoard({ state, events, ev, contest }) {
 
 /* a finished bracket or stage waiting on its official result: the room sees
    who won it and the whole draw, never the commissioner's next step */
-function DecidedWinner({ state, ev, winner }) {
+function DecidedWinner({ state, ev, winner, motion = null }) {
   const plural = winner.players.length > 1;
   return (
     <div className="tv-decided">
@@ -346,7 +350,7 @@ function DecidedWinner({ state, ev, winner }) {
         <div className="tv-display tv-decided-name">{winner.name}</div>
         <div className="tv-display tv-decided-stamp">{plural ? "Win" : "Wins"}</div>
       </div>
-      {state.brackets?.[ev.id] ? <TVBracket state={state} ev={ev} size="full" /> : <StageGroups state={state} ev={ev} />}
+      {state.brackets?.[ev.id] ? <TVBracket state={state} ev={ev} size="full" motion={motion} /> : <StageGroups state={state} ev={ev} />}
     </div>
   );
 }
@@ -371,8 +375,26 @@ function SettleBoard({ state, settle, size = 56 }) {
   );
 }
 
-function AdvanceMoment({ state, moment }) {
+function AdvanceMoment({ state, moment, slot = false }) {
   const chips = !!moment.settle?.any;
+  /* over a bracket, the card keeps to the contest's space so the bracket
+     below can carry the winners forward */
+  if (slot) return (
+    <div className="tv-advance is-slot" role="status">
+      <div className="tv-advance-who">
+        <div className="tv-label">{moment.round}</div>
+        <div className="tv-advance-line">
+          <div style={{ display:"flex", gap:10, flexShrink:0 }}>
+            {moment.players.map(p => <Avatar key={p} state={state} p={p} size={80} ring />)}
+          </div>
+          <div className="tv-display tv-advance-name">{moment.name}</div>
+        </div>
+        <div key={moment.id} className="tv-display tv-advance-stamp">{moment.verb}</div>
+        {moment.detail && <div className="tv-advance-detail">{moment.detail}</div>}
+      </div>
+      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} />
+    </div>
+  );
   return (
     <div className={`tv-advance${chips ? " has-settle" : ""}`} role="status">
       <div className="tv-label">{moment.round}</div>
@@ -528,7 +550,7 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
 }
 
 
-function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null }) {
+function DirectedScene({ state, events, scene, now, standings, rankDeltas, reducedMotion, towers = null, crown = null }) {
   const kind = scene.active.kind;
   if (kind === "standings") {
     const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={false}
@@ -539,7 +561,7 @@ function DirectedScene({ state, events, scene, now, standings, rankDeltas, reduc
   }
   if (kind === "champion") {
     const view = championView(state, events, scene.standings);
-    return view ? <ChampionMoment state={state} view={view} /> : null;
+    return view ? <ChampionMoment state={state} view={view} standings={scene.standings} moment={crown} /> : null;
   }
   if (kind === "opening") {
     if (scene.stepKey === "room") return <RosterWall state={state} />;
@@ -628,6 +650,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const liveContest = liveEv ? resolveCurrentContest(state, liveEv) : null;
   const advance = liveEv ? advanceMoment(state, liveEv, now) : null;
   const decided = liveEv && !liveContest ? decidedWinner(state, liveEv) : null;
+  /* M14 and M18: what moves, fresh only, from the write's own server time */
+  const bracketMotion = useBracketMotion(state, activeBracketEv, upNext ? [upNext.r, upNext.m] : null);
+  const crown = useCrownMoment(state, showScene);
+  const slotAdvance = !!advance && advance.kind === "match" && !!activeBracketEv;
 
   const resultMoment = resultMomentFor(state, events, now, sceneView, showScene);
   const resultModel = useMemo(() => resultMoment ? resultPresentation(state, events, resultMoment.eventId) : null,
@@ -717,10 +743,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     bandTall = towers.on && (kind === "standings"
       || (winnerPhase?.phase === "standings" && !!winnerModel && winnerModel.kind !== "stacks"));
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
-      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} />;
+      standings={standings} rankDeltas={rankDeltas} reducedMotion={reducedMotion} towers={towers} crown={crown} />;
   } else if (champion) {
     const view = championView(state, events, standings);
-    content = view ? <ChampionMoment state={state} view={view} /> : null;
+    content = view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
     const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
     bandTall = towers.on && resultPhase.phase === "standings" && resultModel.kind !== "stacks";
@@ -745,17 +771,22 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
           </div>
         </div>
         {inContest ? <>
+          <div className="tv-contest-slot">
           <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} />
-          {activeBracketEv && <TVBracket state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null} />}
+          {slotAdvance && <AdvanceMoment state={state} moment={advance} slot />}
+          </div>
+          {activeBracketEv && <TVBracket state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null}
+            motion={bracketMotion} />}
           {!activeBracketEv && activeStageEv && <StageGroups state={state} ev={activeStageEv} />}
-        </> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} />
-          : activeBracketEv ? <TVBracket state={state} ev={activeBracketEv} size="full" />
+        </> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} motion={bracketMotion} />
+          : activeBracketEv ? <TVBracket state={state} ev={activeBracketEv} size="full"
+            hot={upNext ? [upNext.r, upNext.m] : null} motion={bracketMotion} />
             : activeStageEv ? <StageGroups state={state} ev={activeStageEv} />
               : <div className="tv-card tv-center" style={{ flex:1, padding:36 }}>
                 <GameMark id={liveEv.game} size={130} />
                 <div className="tv-body" style={{ marginTop:20 }}>{payoutLine(liveEv)}</div>
               </div>}
-        {advance && <AdvanceMoment state={state} moment={advance} />}
+        {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
       </div>
       <Rail state={state} standings={standings} allTied={allTied} rankDeltas={rankDeltas} />
     </>;

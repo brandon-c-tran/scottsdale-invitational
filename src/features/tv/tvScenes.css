@@ -1,0 +1,130 @@
+/* The TV's bracket advance (M14) and crown (M18). Tokens only, flat, text
+   24px and up. Every animation runs from the scene's shared server instant:
+   --tl is minus the ms already elapsed when this TV started the timeline,
+   so a delay of calc(var(--tl) + 700ms) is "700ms after the write". Each
+   element's resting style is its end state, so reduced motion (shell.css
+   removes every animation) and a TV joining late both show the frame. */
+
+/* ── the bracket ── */
+.tv-bracket-team { position:relative; }
+.tv-bracket-line.is-on path { stroke-width:3px; }
+.tv-bracket-team.is-lost .tv-bracket-faces { opacity:.45; filter:grayscale(1); }
+/* the match being played: one outline that travels, not a border per card */
+.tv-bracket-upnow { position:absolute; z-index:2; border:3px solid var(--sun); border-radius:14px; pointer-events:none; }
+.tv-bracket-upnow-tab { position:absolute; right:-3px; top:-38px; display:inline-flex; align-items:center; padding:5px 12px 4px;
+  border-radius:8px 8px 0 8px; background:var(--sun); color:var(--ink0); font:800 24px/1 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.tv-bracket-upnow-tab .fd-beat-dot.tv-beat { width:12px; height:12px; margin-right:8px; vertical-align:0; }
+
+/* the winning row: a sun copy wipes across it and WON stamps, then it
+   settles back to the bracket's own won style */
+.tv-br-win { position:absolute; inset:0; display:flex; align-items:center; gap:10px; padding:0 14px; background:var(--sun);
+  color:var(--ink0); animation:tv-br-wipe 240ms var(--ease-out) calc(var(--tl) + 0ms) both,
+    tv-br-unfill 500ms ease-in-out calc(var(--tl) + 2700ms) both; }
+.tv-bracket-team .tv-br-win .tv-bracket-name { color:var(--ink0); }
+.tv-br-stamp { flex-shrink:0; font:800 28px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;
+  animation:tv-br-stamp var(--motion-stamp) var(--ease-land) calc(var(--tl) + 120ms) both; }
+.tv-bracket.is-full .tv-br-stamp { font-size:34px; }
+@keyframes tv-br-wipe { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }
+@keyframes tv-br-unfill { from { opacity:1; } to { opacity:0; } }
+@keyframes tv-br-stamp { from { opacity:0; transform:scale(1.6) rotate(-8deg); } to { opacity:1; transform:none; } }
+/* the losing row steps back */
+.tv-bracket-team.is-lose-moment .tv-bracket-name { animation:tv-br-lose-name 300ms ease-out calc(var(--tl) + 250ms) both; }
+.tv-bracket-team.is-lose-moment .tv-bracket-faces { animation:tv-br-lose-faces 300ms ease-out calc(var(--tl) + 250ms) both; }
+@keyframes tv-br-lose-name { from { color:var(--bone); } to { color:var(--muted); } }
+@keyframes tv-br-lose-faces { from { opacity:1; filter:none; } to { opacity:.45; filter:grayscale(1); } }
+/* the rail draws sun behind the riders, who land in the next slot */
+.tv-br-rail { position:absolute; left:0; top:0; z-index:1; overflow:visible; pointer-events:none; }
+.tv-br-rail path { fill:none; stroke:var(--sun); stroke-width:3px; stroke-dasharray:1; stroke-dashoffset:0;
+  animation:tv-br-draw 800ms cubic-bezier(.65,0,.35,1) calc(var(--tl) + 760ms) both; }
+@keyframes tv-br-draw { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+.tv-br-token { position:absolute; left:0; top:0; z-index:3; box-sizing:border-box; display:flex; align-items:center; gap:4px;
+  padding:5px; border-radius:99px; background:var(--paper); border:3px solid var(--sun); box-shadow:var(--shadow-2);
+  opacity:0; pointer-events:none; will-change:transform; }
+.tv-bracket-team.is-arriving > :not(.tv-br-was) { animation:tv-br-arrive 160ms ease-out calc(var(--tl) + 1540ms) both; }
+.tv-br-was { position:absolute; left:14px; top:0; bottom:0; display:flex; align-items:center;
+  animation:tv-br-leave 120ms ease-out calc(var(--tl) + 1540ms) both; }
+.tv-br-was .tv-bracket-name { color:var(--muted); }
+@keyframes tv-br-arrive { from { opacity:0; } to { opacity:1; } }
+@keyframes tv-br-leave { from { opacity:1; } to { opacity:0; } }
+.tv-bracket-match.is-landing { animation:tv-br-land 320ms var(--ease-out) calc(var(--tl) + 1540ms) forwards; }
+@keyframes tv-br-land { 0% { transform:none; border-color:var(--sun); } 40% { transform:translateY(5px); border-color:var(--sun); }
+  100% { transform:none; border-color:var(--line); } }
+
+/* the decided match's card sits in the contest's own space, so the bracket
+   under it stays in view while the winners move through it */
+.tv-contest-slot { position:relative; flex:1; min-height:0; display:flex; flex-direction:column; }
+.tv-advance.is-slot { flex-direction:row; align-items:center; justify-content:space-between; gap:36px; padding:16px 32px;
+  text-align:left; border:3px solid var(--sun); border-radius:18px; }
+.tv-advance-who { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+.tv-advance-line { display:flex; align-items:center; gap:18px; min-width:0; max-width:100%; }
+.tv-advance.is-slot .tv-advance-name { font-size:64px; min-width:0; }
+.tv-advance.is-slot .tv-advance-stamp { font-size:96px; }
+.tv-advance.is-slot .tv-advance-detail { font-size:30px; }
+.tv-advance.is-slot .tv-settle { margin-top:0; flex-shrink:0; }
+
+/* ── the crown ── */
+.tv-canvas:has(.tv-crown) .tv-mast { z-index:2; }
+.tv-mast-title, .tv-mast-edition, .tv-status { transition:color .3s; }
+.tv-canvas:has(.tv-crown.is-flooded.is-ink-dark) :is(.tv-mast-title, .tv-mast-edition, .tv-status) { color:var(--ink0); }
+.tv-canvas:has(.tv-crown.is-flooded.is-ink-bone) :is(.tv-mast-title, .tv-mast-edition, .tv-status) { color:var(--bone); }
+.tv-crown { position:absolute; inset:0; }
+/* the champion's color, the whole screen under the masthead's type */
+.tv-crown-flood { position:absolute; left:0; right:0; top:-118px; bottom:0; z-index:2; background:var(--champ-color); }
+.tv-crown.is-playing .tv-crown-flood { animation:tv-crown-flood 700ms cubic-bezier(.65,0,.35,1) calc(var(--tl) + 1450ms) both; }
+@keyframes tv-crown-flood { from { clip-path:circle(0px at var(--flood-x) var(--flood-y)); }
+  to { clip-path:circle(2100px at var(--flood-x) var(--flood-y)); } }
+
+.tv-crown .tv-champ { position:absolute; z-index:3; inset:0; margin:0; padding:16px 56px 44px; gap:48px;
+  background:transparent; border:0; border-radius:0; color:var(--champ-ink, var(--bone)); }
+.tv-crown.is-tied .tv-champ { inset:4px 56px 20px; padding:34px 48px; background:var(--night2); border:3px solid var(--sun);
+  border-radius:18px; }
+.tv-crown .tv-champ-faces { align-items:center; gap:28px; }
+.tv-crown-coin { display:inline-block; flex-shrink:0; perspective:1400px; }
+.tv-crown-coin-spin { display:block; transform-style:preserve-3d; }
+.tv-crown-word { display:inline-block; white-space:nowrap; }
+.tv-crown-letter { display:inline-block; }
+
+/* the prelude: the final standings as they stood */
+.tv-crown-prelude { position:absolute; inset:0; z-index:1; }
+.tv-crown-title { position:absolute; left:56px; top:8px; font-size:52px; line-height:1; color:var(--bone);
+  animation:tv-crown-out 300ms ease-in calc(var(--tl) + 400ms) both; }
+.tv-crown-row { position:absolute; left:56px; right:56px; height:56px; display:flex; align-items:center; gap:18px; padding:0 22px;
+  border-radius:12px; background:var(--paper); border:1px solid var(--line); transform-origin:50% 50%;
+  animation:tv-crown-step 320ms cubic-bezier(.55,0,1,.45) both; }
+.tv-crown-row .tv-rank { font:700 30px/1 var(--fd-display); width:40px; text-align:center; color:var(--muted); }
+.tv-crown-row .tv-name { flex:1; min-width:0; font:700 28px/1 var(--fd-body); color:var(--ink); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.tv-crown-row .tv-pts { font:800 34px/1 var(--fd-display); color:var(--ink); min-width:130px; text-align:right; }
+.tv-crown-row.is-champ { z-index:1; border:2px solid var(--sun); animation:tv-crown-rise 600ms cubic-bezier(.65,0,.35,1) both; }
+.tv-crown-row.is-champ .tv-rank, .tv-crown-row.is-champ .tv-pts { color:var(--sun); }
+.tv-crown.is-tied.is-playing .tv-crown-prelude { animation:tv-crown-out 300ms ease-in calc(var(--tl) + 1800ms) both; }
+@keyframes tv-crown-out { from { opacity:1; } to { opacity:0; } }
+@keyframes tv-crown-step { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(28px); } }
+@keyframes tv-crown-rise { from { transform:none; } to { transform:translateY(var(--rise)) scale(var(--rise-scale)); } }
+
+/* the frame arrives over the flood */
+.tv-crown.is-playing .tv-champ-prize { animation:tv-crown-in 400ms ease-out calc(var(--tl) + 1950ms) both; }
+.tv-crown.is-playing .tv-crown-coin-spin { animation:tv-crown-coin 1200ms linear calc(var(--tl) + 2000ms) both; }
+.tv-crown.is-playing .tv-crown-photo { animation:tv-crown-pop 320ms var(--ease-land) calc(var(--tl) + 2900ms) both; }
+.tv-crown.is-playing .tv-champ-tag { animation:tv-crown-stamp 300ms var(--ease-land) calc(var(--tl) + 2300ms) both; }
+.tv-crown.is-playing .tv-crown-letter { animation:tv-crown-letter 340ms var(--ease-land) both; }
+.tv-crown.is-playing .tv-champ-stats { animation:tv-crown-in 200ms ease-out calc(var(--tl) + 2700ms) both; }
+.tv-crown.is-playing .tv-champ-path span { animation:tv-crown-slide 300ms var(--ease-out) both; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line { animation:tv-line-draw 300ms ease-in-out calc(var(--tl) + 3700ms) both !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(2) { animation-delay:calc(var(--tl) + 4000ms) !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(3) { animation-delay:calc(var(--tl) + 4300ms) !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(n+4) { animation-delay:calc(var(--tl) + 4500ms) !important; }
+@keyframes tv-crown-in { from { opacity:0; } to { opacity:1; } }
+@keyframes tv-crown-pop { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:none; } }
+@keyframes tv-crown-stamp { from { opacity:0; transform:scale(1.35); } to { opacity:1; transform:none; } }
+@keyframes tv-crown-letter { from { opacity:0; transform:translateY(60px); } to { opacity:1; transform:none; } }
+@keyframes tv-crown-slide { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:none; } }
+/* a fall, two full turns, one hop, face up */
+@keyframes tv-crown-coin {
+  0% { transform:translateY(-760px) rotateY(0deg); animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  68% { transform:translateY(0) rotateY(720deg); }
+  80% { transform:translateY(0) rotateY(720deg); animation-timing-function:ease-out; }
+  90% { transform:translateY(-24px) rotateY(720deg); animation-timing-function:ease-in; }
+  100% { transform:translateY(0) rotateY(720deg); }
+}

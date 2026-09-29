@@ -16,7 +16,7 @@ const angleOf = transform => {
    of flat facets. Drag spins it on its axis; release lands it face up. A
    claim mints it (drop, two turns, land). Reduced motion is the flat face.
    A tap is left alone so a card around the coin still flips. */
-export function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = false, className = "" }) {
+export function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = false, className = "" }) {
   const identity = usePlayerIdentity(p);
   const reduced = useReducedMotion();
   const spinRef = useRef(null);
@@ -41,7 +41,7 @@ export function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = fals
   useEffect(() => () => { cancelAnimationFrame(frame.current); clearTimeout(settle.current); }, []);
 
   if (reduced) return <span className={`fd-coin is-static ${className}`} style={{ width:size, height:size }} aria-hidden="true">
-    <ChipFace p={p} size={size} stamp={stamp} />
+    <ChipFace p={p} size={size} stamp={stamp} fallback={fallback} />
   </span>;
 
   const paint = () => {
@@ -117,8 +117,8 @@ export function ChipCoin({ p, size = 48, stamp, mint = false, mintOnMount = fals
         <span className="fd-coin-spin" ref={spinRef}>
           {inserts.map((ink, index) => <span key={index} className={`fd-coin-facet${ink ? " is-ink" : ""}`}
             style={{ "--i":index }} />)}
-          <span className="fd-coin-face is-front"><ChipFace p={p} size={size} stamp={stamp} /></span>
-          <span className="fd-coin-face is-back"><ChipFace p={p} size={size} stamp={stamp} /></span>
+          <span className="fd-coin-face is-front"><ChipFace p={p} size={size} stamp={stamp} fallback={fallback} /></span>
+          <span className="fd-coin-face is-back"><ChipFace p={p} size={size} stamp={stamp} fallback={fallback} /></span>
         </span>
       </span>
     </span>

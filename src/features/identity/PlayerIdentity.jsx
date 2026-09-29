@@ -1,11 +1,12 @@
 import React, { useId, useState } from "react";
 import { DISPLAY, SANS, BONE } from "../../ui/theme.js";
 import { usePlayerIdentity } from "./PlayerIdentityContext.js";
+import { photoUrl } from "./playerIdentity.js";
 
 /* A missing or failed photo falls back to initials on the player's color. */
 function Avatar({ state, p, size=34, ring, style }) {
   const prof = state.profiles?.[p];
-  const photo = prof?.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${prof.photoV}` : null;
+  const photo = photoUrl(prof, p);
   const [failed, setFailed] = useState(null);
   const src = photo && failed !== photo ? photo : null;
   const initials = (prof?.display || p || "").slice(0,2).toUpperCase();
@@ -102,10 +103,17 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
   );
   return lines(8, 22.5, edge - 3, edge + 0.6, 2.4); // ticks, the default
 };
-function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
+/* The middle of an identity chip is the player's face: their saved photo,
+   inset like a portrait medallion. Without one (or while it fails) it is
+   `fallback` (the editor's typed number) or the saved number. An explicit
+   `stamp` always wins: a bet's value, a blind level, or "" for blank. */
+const PHOTO_MIN = 24;
+function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: skinOverride,
   color: colorOverride, isLight: lightOverride, valueRing=false, flat=false }) {
-  const clipId = `chip-edge-${useId().replace(/:/g, "")}`;
+  const uid = useId().replace(/:/g, "");
+  const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
+  const [failed, setFailed] = useState(null);
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
     border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
   const color = colorOverride || identity.color;
@@ -114,26 +122,33 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, skin: skinOverride,
   const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const num = identity.num;
-  const stamp = stampOverride != null ? stampOverride : num;
+  const photo = stampOverride == null && size >= PHOTO_MIN && identity.photo && failed !== identity.photo
+    ? identity.photo : null;
+  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : identity.num;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
       style={{ flexShrink:0, display:"block",
         filter:size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
       <defs>
         <clipPath id={clipId}><circle cx="16" cy="16" r="14.7" /></clipPath>
+        {photo && <clipPath id={faceId}><circle cx="16" cy="16" r="9.3" /></clipPath>}
       </defs>
       <circle cx="16" cy="16" r="14.7" fill={color} stroke="var(--ink0)" strokeWidth="1.45"/>
       <circle cx="16" cy="16" r="13.25" fill="none" stroke={inlayLine} strokeWidth=".65" opacity=".72" />
       <g clipPath={`url(#${clipId})`}>{chipMarks(skin, 16, 12.4, skinInk)}</g>
-      <circle cx="16" cy="16" r="8.75" fill={inlay} stroke={inlayLine} strokeWidth=".8" />
+      {photo ? <>
+        <circle cx="16" cy="16" r="9.3" fill="var(--paper2)" />
+        <image href={photo} x="6.7" y="6.7" width="18.6" height="18.6" preserveAspectRatio="xMidYMid slice"
+          clipPath={`url(#${faceId})`} onError={() => setFailed(photo)} />
+        <circle cx="16" cy="16" r="9.3" fill="none" stroke={skinInk} strokeWidth=".9" />
+      </> : <circle cx="16" cy="16" r="8.75" fill={inlay} stroke={inlayLine} strokeWidth=".8" />}
       <path d="M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4" fill="none"
         stroke="rgba(255,255,255,.38)" strokeWidth=".75" strokeLinecap="round" opacity=".65" />
       <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
         stroke="rgba(23,16,9,.45)" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
       {valueRing && <circle cx="16" cy="16" r="7.25" fill="none" strokeWidth=".8"
         stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
-      {size >= 20 && stamp != null && (
+      {!photo && size >= 20 && stamp != null && stamp !== "" && (
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
           fontFamily={DISPLAY} fontWeight="700" fontSize={valueRing && stamp >= 100 ? 8.7 : 11.7}
           fill={light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>

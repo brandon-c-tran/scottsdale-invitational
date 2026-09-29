@@ -111,7 +111,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
   if (locked) return <div className="fd-profile-chip-locked">
-    <ChipCoin key={justClaimed ? "minted" : "locked"} p={me} size={48} stamp={stamp} mintOnMount={justClaimed} />
+    <ChipCoin key={justClaimed ? "minted" : "locked"} p={me} size={48} fallback={stamp} mintOnMount={justClaimed} />
     <div><strong>{CHIP_SKIN_META[skin] || "Classic"} pattern</strong><p>Chips are locked for the weekend.</p></div>
   </div>;
   return (
@@ -123,7 +123,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           <span aria-hidden="true" style={{ position:"absolute", inset:4, borderRadius:"50%",
             background:"var(--sun-tint)", border:"1px solid var(--line)" }} />
           <div style={{ position:"relative" }}>
-            <ChipFace p={me} size={70} stamp={stamp} />
+            <ChipFace p={me} size={70} fallback={stamp} />
           </div>
         </div>
         <div style={{ flex:1, minWidth:0 }}>
@@ -203,7 +203,7 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
               border: skin === sk ? "1.5px solid var(--sun)" : "1px solid var(--line)",
               boxShadow:skin === sk ? "inset 0 -2px 0 var(--sun)" : "none",
               opacity: locked && skin !== sk ? 0.55 : 1 }}>
-            <ChipFace p={me} size={42} skin={sk} stamp={stamp} />
+            <ChipFace p={me} size={42} skin={sk} fallback={stamp} />
             <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5,
               color:skin === sk ? "var(--ink)" : "var(--muted2)", lineHeight:1.1 }}>
               {CHIP_SKIN_META[sk] || sk}

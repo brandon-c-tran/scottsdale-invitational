@@ -19,7 +19,7 @@ test("saved chip selections and player numbers retain their existing presentatio
       const profile = Object.freeze({ color:color.hex, skin, num:0 });
       const profiles = Object.freeze({ [player]:profile });
       assert.deepEqual(resolvePlayerIdentity(profiles, player), {
-        color:color.hex, isLight:!!color.light, skin, num:0,
+        color:color.hex, isLight:!!color.light, skin, num:0, photo:null,
       });
     }
   }
@@ -27,7 +27,7 @@ test("saved chip selections and player numbers retain their existing presentatio
 });
 
 test("missing or invalid chip selections use the previous gray and classic defaults", () => {
-  const expected = { color:CHIP_GRAY, isLight:false, skin:"ticks", num:1 };
+  const expected = { color:CHIP_GRAY, isLight:false, skin:"ticks", num:1, photo:null };
   for (const profiles of [undefined, null, {}, { [player]:null }, {
     [player]:{ color:"unclaimed-color", skin:"unknown-skin", num:null },
   }]) {
@@ -47,7 +47,7 @@ test("independent profile sets never share a player's appearance", () => {
   assert.equal(resolvePlayerIdentity(first, player).num, 7);
   assert.equal(resolvePlayerIdentity(second, player).num, 14);
   assert.deepEqual(resolvePlayerIdentity(first, player), {
-    color:lightColor.hex, isLight:true, skin:"crown", num:7,
+    color:lightColor.hex, isLight:true, skin:"crown", num:7, photo:null,
   });
   assert.deepEqual(first, original);
 });

@@ -9,6 +9,7 @@ import {
   AWARDS, BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket, resolveCurrentContest,
 } from "../shared/core.js";
 import { contestWinLines, winSlots, joinNames, ordinal, winLineFor } from "../src/features/standings/winImpact.js";
+import { resolvePlayerIdentity } from "../src/features/identity/playerIdentity.js";
 import { BAR_FLOOR, barScale, chipBar, rowMoves, soleLeader, BOARD_BEATS }
   from "../src/features/standings/boardModel.js";
 
@@ -20,6 +21,7 @@ const compiled = buildSync({
     export { Wagers } from "./src/features/wagers/Wagers.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
     export { TVWinLine } from "./src/features/tv/TVCards.jsx";
+    export { ChipFace } from "./src/features/identity/PlayerIdentity.jsx";
   `, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "three"],
   loader:{ ".css":"empty" }, write:false, logLevel:"silent",
@@ -196,4 +198,19 @@ test("X8 reaches the Bets board and the TV live scene", () => {
   assert.match(tv, /Win: /);
   assert.match(tv, /font:600 28px/, "TV text stays at or above 24px");
   assert.equal(render(ui.TVWinLine, { lines:[null], sideKey:0 }, state), "");
+});
+
+test("an identity chip wears the saved photo; value chips and blanks keep their stamp", () => {
+  const face = (profiles, props) => renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles },
+    React.createElement(ui.ChipFace, { p:ROSTER[0], size:48, ...props })));
+  assert.equal(resolvePlayerIdentity({ [ROSTER[0]]:{ photoV:3 } }, ROSTER[0]).photo, `/api/photo/${encodeURIComponent(ROSTER[0])}?v=3`);
+  const withPhoto = { [ROSTER[0]]:{ color:CHIP_COLORS[0].hex, num:7, photoV:3 } };
+  assert.match(face(withPhoto, {}), /<image href="\/api\/photo\/[^"]+\?v=3"/);
+  assert.doesNotMatch(face(withPhoto, {}), />7<\/text>/, "the photo replaces the number");
+  assert.match(face({ [ROSTER[0]]:{ num:7 } }, {}), />7<\/text>/, "no photo keeps the number");
+  assert.match(face({ [ROSTER[0]]:{ num:7 } }, { fallback:"12" }), />12<\/text>/, "the editor previews the typed number");
+  assert.match(face(withPhoto, { stamp:500 }), />500<\/text>/, "a value chip keeps its value");
+  assert.doesNotMatch(face(withPhoto, { stamp:500 }), /<image/);
+  assert.doesNotMatch(face(withPhoto, { stamp:"" }), /<image|<text/, "a blank stamp stays blank");
+  assert.doesNotMatch(face(withPhoto, { size:20 }), /<image/, "too small for a face");
 });

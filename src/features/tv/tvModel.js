@@ -496,7 +496,7 @@ export function tickerRuling(state) {
 /* Ticker tags are filled with a light token and set in --ink0, so every tag
    clears 4.5:1 (clay is too dark for either ink; rulings use live2). */
 /* D4: the weekend's newest facts ride beside the latest result */
-export const FACT_TONES = Object.freeze({ streak:"var(--sun)", first:"var(--pool)", wins:"var(--olive)", bet:"var(--green)" });
+export const FACT_TONES = Object.freeze({ streak:"var(--sun)", first:"var(--pool)", wins:"var(--accent)", bet:"var(--green)" });
 export const TICKER_FACTS = 2;
 export function tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest,
   upNext, upNextDraw, onDeckEv, openWon, nextEv, now, facts = [] }) {

@@ -369,6 +369,7 @@ test("run of show: how long the event has run, and who is away", () => {
   assert.deepEqual(model.away.map(item => item.player), [ben]);
   assert.equal(model.replay, null);
   assert.equal(ui.runOfShow(state, events, null, { now:started + 75 * 60000 }).started.text, "1 hr 15 min ago");
+  assert.equal(ui.runOfShow(state, events, null, { now:started + 20000 }).started.text, "<1 min ago");
   /* nothing started before the lock */
   assert.equal(ui.runOfShow(structuredClone(EMPTY_STATE), events, null, {}).started, null);
 });

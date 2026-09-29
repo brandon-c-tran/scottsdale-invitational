@@ -203,6 +203,7 @@ export function projectBeats(state, events = allEventsOf(state), director = null
 
 const minutes = ms => {
   const total = Math.max(0, Math.floor(ms / 60000));
+  if (total < 1) return "<1 min";
   if (total < 60) return `${total} min`;
   return `${Math.floor(total / 60)} hr ${total % 60} min`;
 };

@@ -30,3 +30,9 @@
 .fd-runshow-toggle:focus-visible, .fd-runshow-x:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
 /* a hold must not select text or raise the iOS callout */
 .fd-director-pill, .fd-director-head { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+/* the list button rides beside the pill, or in the winner card's head */
+.fd-runshow-row { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.fd-runshow-row > .fd-director-pill { min-width:0; }
+.fd-runshow-headrow { display:flex; align-items:flex-start; }
+.fd-runshow-headrow .fd-director-head { flex:1; min-width:0; }
+.fd-runshow-headrow .fd-runshow-toggle { flex:0 0 auto; margin:6px 6px 0 0; box-shadow:none; }

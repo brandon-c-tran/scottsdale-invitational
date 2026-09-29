@@ -1,0 +1,79 @@
+/* D7: Weekend's edition section. Flat, tokens only; each last card wears
+   its owner's identity color with ink read from it. */
+.fd-kept { color:var(--ink); }
+/* the champion, with the cup */
+.fd-kept-champ { display:flex; align-items:center; gap:12px; padding:10px 8px 10px 14px; border-radius:14px; background:var(--paper2);
+  border:1px solid var(--line); overflow:hidden; }
+.fd-kept-champ-chips { display:flex; gap:4px; flex-shrink:0; }
+.fd-kept-champ-name { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.fd-kept-champ-name small { font:700 10px/1.3 var(--fd-body); letter-spacing:.12em; text-transform:uppercase; color:var(--sun); }
+.fd-kept-champ-name b { font:700 30px/.95 var(--fd-display); text-transform:uppercase; overflow-wrap:anywhere; }
+.fd-kept-champ-name strong { font:700 22px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
+
+.fd-kept-section { margin-top:28px; }
+.fd-kept-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.fd-kept-head h3 { margin:0; font:700 25px/1.1 var(--fd-display); color:var(--ink); }
+.fd-kept-head > span { font:500 12px/1.3 var(--fd-body); color:var(--muted2); font-variant-numeric:tabular-nums; }
+
+/* a player: photo chip, and the name when it stands alone */
+.fd-kept-player { display:inline-flex; align-items:center; gap:7px; min-height:44px; min-width:44px; justify-content:center;
+  padding:0; border:0; background:none; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.fd-kept-player.is-named { justify-content:flex-start; padding-right:4px; }
+.fd-kept-player > span { font:650 13px/1.2 var(--fd-body); white-space:nowrap; }
+.fd-kept-player:disabled { cursor:default; }
+.fd-kept-player:focus-visible, .fd-kept-card:focus-visible, .fd-kept-save-all:focus-visible { outline:2px solid var(--accent2); outline-offset:3px; border-radius:8px; }
+
+/* the rack of last cards */
+.fd-kept-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:8px; }
+.fd-kept-card { display:flex; flex-direction:column; align-items:stretch; gap:3px; min-width:0; min-height:124px; padding:10px 10px 9px;
+  border:0; border-radius:14px; background:var(--card-color); color:var(--card-ink); text-align:left; cursor:pointer;
+  box-shadow:var(--shadow-1); transition:transform var(--motion-fast) var(--ease-out); }
+.fd-kept-card:active { transform:scale(.97); }
+.fd-kept-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
+.fd-kept-card-top b { font:700 30px/.85 var(--fd-display); }
+.fd-kept-card-top span { font:700 10px/1 var(--fd-body); letter-spacing:.08em; opacity:.8; }
+.fd-kept-card > strong { font:700 17px/1 var(--fd-display); text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-kept-card svg { display:block; width:100%; height:32px; margin-top:auto; overflow:visible; }
+.fd-kept-card-pts { font:700 18px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-kept-save-all { display:block; width:100%; min-height:48px; margin-top:12px; border:1px solid var(--sun); border-radius:12px;
+  background:none; color:var(--sun); font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-kept-save-all:disabled { opacity:.7; cursor:default; }
+
+/* the lead */
+.fd-kept-lead { position:relative; width:100%; }
+.fd-kept-lead svg { display:block; width:100%; height:100%; overflow:visible; }
+.fd-kept-lead-base { stroke:var(--line); stroke-width:1; stroke-dasharray:2 3; }
+.fd-kept-lead-num { fill:var(--ink); font:700 15px var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-kept-lead-tick line { stroke:var(--muted); }
+.fd-kept-lead-tick text { fill:var(--muted2); font:700 8px var(--fd-body); letter-spacing:.08em; }
+.fd-kept-lead-mark { position:absolute; width:24px; height:24px; transform:translate(-50%, calc(-100% - 5px)); pointer-events:none; }
+.fd-kept-leaders { display:flex; flex-wrap:wrap; gap:0 14px; margin-top:6px; }
+
+/* the plates: each event's name engraved like the trophy's, then its order */
+.fd-kept-plates, .fd-kept-places, .fd-kept-awards { list-style:none; margin:0; padding:0; }
+.fd-kept-plate { padding:12px 0 8px; border-top:1px solid var(--line); }
+.fd-kept-plate:last-child { border-bottom:1px solid var(--line); }
+.fd-kept-plate-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; }
+.fd-kept-plate-name { min-width:0; padding:4px 9px 3px; border-radius:4px; border:1.5px solid var(--ink0); background:var(--bone); color:var(--ink0);
+  font:700 15px/1.1 var(--fd-display); text-transform:uppercase; letter-spacing:.03em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-kept-plate-session { flex-shrink:0; font:600 11px/1.2 var(--fd-body); color:var(--muted2); }
+.fd-kept-plate.is-blank .fd-kept-plate-name { background:transparent; color:var(--muted2); border-color:var(--line); }
+.fd-kept-blank { margin:6px 0 4px; font:500 12px/1.3 var(--fd-body); color:var(--muted2); }
+.fd-kept-places li { display:grid; grid-template-columns:34px minmax(0, 1fr); align-items:center; column-gap:6px; }
+.fd-kept-place { font:700 15px/1 var(--fd-display); color:var(--muted2); text-transform:uppercase; }
+.fd-kept-places li.is-first .fd-kept-place { color:var(--sun); font-size:18px; }
+.fd-kept-people { display:flex; flex-wrap:wrap; align-items:center; gap:0 8px; min-width:0; }
+.fd-kept-team { grid-column:2; margin:-6px 0 4px; font:500 12px/1.3 var(--fd-body); color:var(--muted2); }
+.fd-kept-plate .fd-bracket-peek { margin-top:6px; }
+
+.fd-kept-awards li { display:flex; flex-direction:column; gap:2px; padding:10px 0; border-top:1px solid var(--line); }
+.fd-kept-award-title { font:700 17px/1.1 var(--fd-display); text-transform:uppercase; letter-spacing:.02em; }
+.fd-kept-awards .fd-kept-team { margin:0; }
+
+.fd-kept-sheet .fd-lastcard { margin-top:2px; }
+.fd-crown-preview.fd-kept-preview { position:fixed; z-index:450; }
+.fd-kept-step { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+.fd-kept-step button { min-width:96px; }
+.fd-crown-preview .fd-kept-step .fd-kept-share { background:var(--action-fill); color:var(--action-ink); border-color:var(--action-fill); }
+
+@media (prefers-reduced-motion: reduce) { .fd-kept-card { transition:none; } }

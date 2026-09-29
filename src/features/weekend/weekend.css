@@ -179,6 +179,7 @@
 .fd-weekend-tabs { display:flex; gap:5px; padding:4px; border:1px solid var(--line); background:var(--paper); border-radius:10px; margin-bottom:16px; }
 .fd-weekend-tabs button { flex:1; min-height:44px; border:0; border-radius:6px; background:transparent; color:var(--muted2); font:700 13px var(--fd-body); cursor:pointer; }
 .fd-weekend-tabs button[aria-selected="true"] { background:var(--sun); color:var(--ink0); }
+.fd-weekend-tabs.has-kept button { flex:1 1 auto; padding:0 8px; white-space:nowrap; }
 .fd-weekend-overview { margin-bottom:18px; }
 .fd-weekend-overview h2, .fd-weekend-flights-heading h2 { margin:0 0 10px; font:700 25px/1.05 var(--fd-display); color:var(--ink); }
 .fd-weekend-overview p { font-size:13px; line-height:1.6; color:var(--muted2); margin:0 0 12px; }

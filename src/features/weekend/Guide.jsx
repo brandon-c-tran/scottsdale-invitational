@@ -5,12 +5,14 @@ import { VenueCard, FlightPass } from "../travel/Travel.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
 import { isStandalone } from "../check-in/install.js";
 import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
+import { Keepsake } from "../results/Keepsake.jsx";
+import { KEPT_SECTION, keepsakeOpen } from "../results/keepsake.js";
 import "./weekend.css";
 
 const format = value => Number(value).toLocaleString("en-US");
 const AWARD_NAMES = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
   "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
-const SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"]];
+const BASE_SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"]];
 
 function Rule({ number, title, meta, children }) {
   return <details className="fd-weekend-rule">
@@ -21,9 +23,14 @@ function Rule({ number, title, meta, children }) {
   </details>;
 }
 
-export function Guide({ events, state, me, onProfile, section: controlledSection, onSection, GameMark, HowToSheet }) {
-  const [localSection, setLocalSection] = useState("trip");
-  const section = controlledSection ?? localSection;
+export function Guide({ events, state, me, onProfile, section: controlledSection, onSection, GameMark, HowToSheet,
+  standings, gm = false, onPlayer, onBracket, photos = null }) {
+  const [localSection, setLocalSection] = useState(null);
+  /* once the board is frozen the edition's own section leads, and opens first */
+  const kept = keepsakeOpen(state);
+  const SECTIONS = kept ? [[KEPT_SECTION, EDITION.label], ...BASE_SECTIONS] : BASE_SECTIONS;
+  const chosen = controlledSection ?? localSection;
+  const section = chosen && SECTIONS.some(([id]) => id === chosen) ? chosen : kept ? KEPT_SECTION : "trip";
   const setSection = next => { setLocalSection(next); onSection?.(next); };
   const [howToEv, setHowToEv] = useState(null);
   const logistics = state?.logistics || {};
@@ -46,12 +53,18 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
 
   return <div className="fd-weekend fd-weekend-guide">
     <PageHeading kicker={EDITION.long} title="Weekend" />
-    <div className="fd-weekend-tabs" role="tablist" aria-label="Weekend">
+    <div className={`fd-weekend-tabs${kept ? " has-kept" : ""}`} role="tablist" aria-label="Weekend">
       {SECTIONS.map(([id, title], index) => <button key={id} id={`fd-weekend-tab-${id}`} type="button"
         role="tab" aria-selected={section === id} aria-controls={`fd-weekend-panel-${id}`}
         tabIndex={section === id ? 0 : -1} onClick={() => setSection(id)}
         onKeyDown={event => changeTab(event, index)}>{title}</button>)}
     </div>
+
+    {kept && <div id={`fd-weekend-panel-${KEPT_SECTION}`} role="tabpanel" aria-labelledby={`fd-weekend-tab-${KEPT_SECTION}`}
+      hidden={section !== KEPT_SECTION}>
+      {section === KEPT_SECTION && <Keepsake state={state} events={events} standings={standings} me={me} gm={gm}
+        onPlayer={onPlayer} onBracket={onBracket} photos={photos} />}
+    </div>}
 
     <div id="fd-weekend-panel-trip" role="tabpanel" aria-labelledby="fd-weekend-tab-trip" hidden={section !== "trip"}>
       <section className="fd-weekend-guide-section fd-weekend-trip">

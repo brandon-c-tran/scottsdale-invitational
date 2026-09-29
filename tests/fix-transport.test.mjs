@@ -711,6 +711,21 @@ test("C10: the client learns its commissioner view from its own hello and follow
   client.setGmToken(null);
 });
 
+test("signing back in after signing out is not read as a revocation", () => {
+  const ws = current();
+  if (ws.readyState !== 1) ws.open();
+  client.setGmToken("token-first");
+  ws.receive(stateFrame({ gm:true, hello:lastHello(ws).payload.nonce }));
+  client.setGmToken(null);
+  ws.receive(stateFrame({ gm:false, hello:lastHello(ws).payload.nonce }));
+  assert.equal(snap().gm, false, "signed out: the server says no");
+  client.setGmToken("token-again");
+  assert.equal(snap().gm, null, "the view hears the unknown at once, not the old false");
+  ws.receive(stateFrame({ gm:true, hello:lastHello(ws).payload.nonce }));
+  assert.equal(snap().gm, true);
+  client.setGmToken(null);
+});
+
 test("uploads, sheets and the rest of the transport keep their shapes", () => {
   assert.equal(typeof client.reportClientError, "function");
   assert.equal(typeof client.reloadForUpdate, "function");

@@ -51,6 +51,9 @@ export const setGmToken = t => {
   /* unknown until the server answers a hello carrying the new token */
   snapshot.gm = null;
   gmHelloFloor = helloSeq + 1;
+  /* publish the unknown at once: a view still holding the last "false"
+     would read a fresh sign-in as a revocation and sign it straight out */
+  emit();
   /* the server decides each connection's view at hello: ask again */
   if (ws?.readyState === 1) sendHello();
 };

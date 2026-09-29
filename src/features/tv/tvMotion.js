@@ -99,29 +99,34 @@ export function bracketAdvanceMotion(br, fromSig, toSig, { hotTo = null } = {}) 
 
 /* Bracket geometry in canvas pixels, the same numbers TVBracket lays out
    with percentages: columns share the width, each match centred on what
-   feeds it (bracketLayout's centres, in card units). */
-export function bracketGeometry({ rounds, centers, units }, dims, width = 0) {
+   feeds it (bracketLayout's centres, in card units). `rounds` is the column
+   count; a mirrored bracket also passes each match's column and the way its
+   winner travels (mirroredLayout's cols and dirs). */
+export function bracketGeometry({ rounds, centers, units, cols = null, dirs = null }, dims, width = 0) {
   const R = rounds;
   const cardH = dims.row * 2 + 3;
   const unit = cardH + dims.gap;
   const colW = Math.max(0, (width - (R - 1) * dims.colGap) / R);
-  const left = r => r * (colW + dims.colGap);
+  const col = (r, m) => cols?.[r]?.[m] ?? r;
+  const left = (r, m) => col(r, m) * (colW + dims.colGap);
   const top = (r, m) => centers[r][m] * unit - unit / 2;
   const rowY = (r, m, index) => top(r, m) + 1 + dims.row / 2 + index * (dims.row + 1);
-  return { cardH, unit, colW, height:Math.ceil(units * unit - dims.gap), left, top, rowY,
-    center:(r, m) => top(r, m) + cardH / 2 };
+  return { cardH, unit, colW, height:Math.ceil(units * unit - dims.gap), col, left, top, rowY,
+    dir:(r, m) => dirs?.[r]?.[m] ?? 1, center:(r, m) => top(r, m) + cardH / 2 };
 }
 
 /* the connector a winner rides: out of its card, down the elbow, into the
-   next card, and a little way along its slot */
+   next card, and a little way along its slot. On a mirrored bracket's right
+   half the winner leaves by the left edge and travels left. */
 export function railPoints(geo, dims, from, target, into = 0) {
-  const x0 = geo.left(from.r) + geo.colW;
+  const dir = geo.dir ? geo.dir(from.r, from.m) : 1;
+  const x0 = geo.left(from.r, from.m) + (dir > 0 ? geo.colW : 0);
   const y1 = geo.center(from.r, from.m);
-  const xm = x0 + dims.colGap / 2;
-  const x3 = geo.left(target.r);
+  const xm = x0 + dir * dims.colGap / 2;
+  const x3 = geo.left(target.r, target.m) + (dir > 0 ? 0 : geo.colW);
   const y2 = geo.rowY(target.r, target.m, target.index);
   const pts = [[x0, y1], [xm, y1], [xm, y2], [x3, y2]];
-  if (into > 0) pts.push([x3 + into, y2]);
+  if (into > 0) pts.push([x3 + dir * into, y2]);
   return pts;
 }
 export const railPath = pts => pts.slice(0, 4).map(([x, y], i) => `${i ? "L" : "M"}${round2(x)} ${round2(y)}`).join("");

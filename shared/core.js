@@ -117,9 +117,11 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
   { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
     desc:"Nine holes, lowest total strokes. Max 5 per hole." },
+  /* a bracket of everyone present: entrants are teams of one, seeded by the
+     draw, and the top seeds take the byes */
   { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
-    stageCfg:{ kind:"heats", nGroups:3, advance:1 },
-    desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
+    teamCfg:{ teams:13, size:1, bracket:13 },
+    desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
   { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
@@ -208,10 +210,10 @@ const GAMES = {
     win:"First pair to the set score wins. Sinking the die in a cup ends it on the spot.",
     house:"Call your own height on the toss. A plunk means chug." } },
   basketball: { name:"Basketball", variants:[
-    { id:"1v1", label:"1v1", howto:{ players:"Solo, heats then a final", gear:["Half court","One ball"],
+    { id:"1v1", label:"1v1", howto:{ players:"Solo, single elimination", gear:["Half court","One ball"],
       objective:"Score five before your opponent.",
       steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls."],
-      win:"First to five wins the game. Best record in your heat moves on." } },
+      win:"First to five wins the game. Win the final to take the event." } },
     { id:"3v3", label:"3v3", howto:{ players:"Teams of three", gear:["Half court","One ball"],
       objective:"Score seven before the other team.",
       steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls."],
@@ -438,6 +440,9 @@ function teamFit(ev, count = ROSTER.length) {
   const size = Math.floor(count / cfg.teams);
   return size >= 1 ? { teams:cfg.teams, size, bracket:null, reduced:true } : null;
 }
+/* the format line a commissioner reads: "6 teams of 2", or "13 players"
+   when every entrant is one person */
+const shapeLabel = fit => !fit ? "" : fit.size === 1 ? `${fit.teams} players` : `${fit.teams} teams of ${fit.size}`;
 function eventCapacity(ev, count) {
   const policy = participationForEvent(ev);
   if (policy.type === "strict-teams") {
@@ -1185,10 +1190,60 @@ function makeBracket(n) {
     [ {a:{t:0},b:{w:[0,0]},winner:null}, {a:{t:1},b:{w:[0,1]},winner:null} ],
     [ {a:{w:[1,0]},b:{w:[1,1]},winner:null} ],
   ]};
+  if (Number.isInteger(n) && n >= 7 && n <= MAX_BRACKET) return seededBracket(n);
   return null;
 }
+/* 2 to 6 keep the hand-drawn shapes above: stored brackets depend on them. */
+const MAX_BRACKET = 16;
+/* seeds 1..P in standard bracket order: 1 meets P in the first round, and
+   the top two seeds can meet only in the final */
+function seedOrder(P) {
+  let order = [1];
+  while (order.length < P) {
+    const n = order.length * 2;
+    order = order.flatMap(seed => [seed, n + 1 - seed]);
+  }
+  return order;
+}
+/* A single-elimination bracket of n entrants (draw index = seed - 1) in the
+   next power of two. A seed whose first opponent does not exist takes a bye
+   and enters the next round directly, as a {t} slot, the way the 5 and 6
+   shapes seat their byes. Round 1 holds only the matches actually played. */
+function seededBracket(n) {
+  let P = 2;
+  while (P < n) P *= 2;
+  const order = seedOrder(P);
+  const rounds = [[]];
+  let entries = [];
+  for (let i = 0; i < P; i += 2) {
+    const [hi, lo] = [order[i], order[i + 1]];
+    if (lo > n) { entries.push({ t:hi - 1 }); continue; }
+    rounds[0].push({ a:{ t:hi - 1 }, b:{ t:lo - 1 }, winner:null });
+    entries.push({ w:[0, rounds[0].length - 1] });
+  }
+  for (let r = 1; entries.length > 1; r++) {
+    rounds[r] = [];
+    const next = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      rounds[r].push({ a:entries[i], b:entries[i + 1], winner:null });
+      next.push({ w:[r, rounds[r].length - 1] });
+    }
+    entries = next;
+  }
+  return { size:n, rounds };
+}
 const ROUND_NAMES = { 2:["Final"], 3:["Semifinal","Final"], 4:["Semifinals","Final"],
-  5:["Play-in","Semifinals","Final"], 6:["Play-in","Semifinals","Final"] };
+  5:["Play-in","Semifinals","Final"], 6:["Play-in","Semifinals","Final"],
+  7:["Quarterfinals","Semifinals","Final"], 8:["Quarterfinals","Semifinals","Final"] };
+for (let n = 9; n <= MAX_BRACKET; n++) ROUND_NAMES[n] = ["Round 1","Quarterfinals","Semifinals","Final"];
+/* A round's name, and one match's short name: "Semifinal 2", "Final",
+   "Round 1 Match 3" (a numbered round keeps "Match" so it reads). */
+const bracketRoundName = (size, r) => ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
+function bracketMatchName(bracket, r, m) {
+  const name = bracketRoundName(bracket?.size, r);
+  if ((bracket?.rounds?.[r]?.length || 1) <= 1) return name;
+  return /\d$/.test(name) ? `${name} Match ${m + 1}` : `${name.replace(/s$/, "")} ${m + 1}`;
+}
 function resolveSlot(br, slot) {
   if (!slot) return null;
   if (slot.t !== undefined) return slot.t;
@@ -1464,7 +1519,6 @@ function contestStackOf(state, evId) {
   if (Array.isArray(op.contestStack)) return op.contestStack;
   return op.lastContest ? [op.lastContest] : [];
 }
-const singularRound = name => String(name || "").replace(/s$/, "");
 /* the short name a commissioner reads: "Play-in 1", "Semifinal 2", "Final", "Heat 3" */
 function contestEntryLabel(state, ev, entry) {
   if (!entry) return "";
@@ -1473,8 +1527,7 @@ function contestEntryLabel(state, ev, entry) {
     const [r, m] = entry.match;
     const br = state.brackets?.[ev?.id];
     const size = state.draws?.[ev?.id]?.teams?.length || br?.size;
-    const round = ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
-    return (br?.rounds?.[r]?.length || 1) > 1 ? `${singularRound(round)} ${m + 1}` : round;
+    return bracketMatchName({ size, rounds:br?.rounds }, r, m);
   }
   if (entry.kind === "heat") return state.stages?.[ev?.id]?.groups?.[entry.group]?.name || `Heat ${Number(entry.group) + 1}`;
   return "Final";
@@ -1818,7 +1871,7 @@ export {
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
-  teamFit, suggestParticipants,
+  teamFit, shapeLabel, suggestParticipants,
   normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
@@ -1833,7 +1886,7 @@ export {
   contestStackOf, contestEntryLabel, applyContestCorrection, contestCorrectionAvailability, contestCorrections,
   correctionText, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview,
   playerStrength, strengthMap, refineTeams,
-  makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion, bracketMatchOpen, bracketOrder,
+  makeBracket, ROUND_NAMES, MAX_BRACKET, bracketRoundName, bracketMatchName, resolveSlot, qaBracketMatchWager, bracketChampion, bracketMatchOpen, bracketOrder,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
   contestMult, wagerSide, contestSideOf,

@@ -1831,7 +1831,7 @@ export const ACTIONS = {
     const bets = drawBetsError(state, evId, "stage draw"); if (bets) return bets;
     if (!cfg || !["heats", "pools"].includes(cfg.kind) || !Number.isInteger(cfg.nGroups) || cfg.nGroups < 2 || cfg.nGroups > 4)
       return err("Bad stage setup");
-    if (state.brackets[evId]) return err("This event uses a bracket");
+    if (state.brackets[evId] || ev.teamCfg?.bracket) return err("This event uses a bracket");
     if (ev.stageCfg && ev.stageCfg.kind !== cfg.kind) return err(`This event uses ${ev.stageCfg.kind}`);
     let entrantType, keys, drawId = null, roles = null;
     if (cfg.kind === "heats") {

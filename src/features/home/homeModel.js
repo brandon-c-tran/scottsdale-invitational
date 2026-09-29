@@ -1,5 +1,5 @@
 import {
-  PT, ROUND_NAMES, ROSTER, allEventsOf, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
+  PT, ROUND_NAMES, ROSTER, allEventsOf, bracketMatchName, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
   duelReserve, maxRisk, overflowRoleMeta, participationForEvent,
   resolveEventLifecycle, resolveCurrentContest, resolveSlot, resolveWeekendOperation,
   stageEntrantView, stageFinalists, stacksPosted, teamLabel, wagerBoardEvent,
@@ -27,9 +27,8 @@ function bracketAssignment(bracket, draw, teamIndex) {
   const isCurrent = !!current && current.r === next.r && current.m === next.m;
   /* The undecided side names the match whose winner fills it. */
   const rawOpponent = bracket.rounds[next.r][next.m][next.a === teamIndex ? "b" : "a"];
-  const feederRound = rawOpponent?.w ? (ROUND_NAMES[bracket.size] || [])[rawOpponent.w[0]] : null;
   const feeder = awaitingOpponent && rawOpponent?.w
-    ? `${(feederRound || "Round").replace(/s$/, "")} ${rawOpponent.w[1] + 1}` : null;
+    ? bracketMatchName(bracket, rawOpponent.w[0], rawOpponent.w[1]) : null;
   return {
     match:{ r:next.r, m:next.m, a:next.a, b:next.b,
       roundName:(ROUND_NAMES[bracket.size] || [])[next.r] || "Match",
@@ -75,7 +74,8 @@ function playerAssignment(state, event, me) {
   if (event.teamCfg || policy.type === "strict-teams") {
     const teamIndex = draw?.teams?.findIndex(team => team.players.includes(me)) ?? -1;
     if (teamIndex < 0) return { ...empty, kind:"pending",
-      label:draft && !draw ? "Draft in progress" : draw ? "Assignment pending" : "Teams not drawn" };
+      label:draft && !draw ? "Draft in progress" : draw ? "Assignment pending"
+        : event.teamCfg?.size === 1 ? "Bracket not drawn" : "Teams not drawn" };
     const team = draw.teams[teamIndex];
     const partners = team.players.filter(player => player !== me);
     const assignment = { ...empty, kind:"team", label:partners.length === 1 ? "Your partner" : "Your team",
@@ -181,7 +181,7 @@ export function bracketPath(state, event, me) {
   if (!bracket || !draw || state.results?.[event.id]) return null;
   const names = ROUND_NAMES[bracket.size] || [];
   const round = r => (names[r] || "Match").replace(/s$/, "");
-  const matchName = (r, m) => bracket.rounds[r]?.length > 1 ? `${round(r)} ${m + 1}` : round(r);
+  const matchName = (r, m) => bracketMatchName(bracket, r, m);
   const contest = resolveCurrentContest(state, event);
   const current = contest?.kind === "match" ? contest.match : null;
   const isCurrent = (r, m) => !!current && current[0] === r && current[1] === m;
@@ -203,7 +203,9 @@ export function bracketPath(state, event, me) {
           : next.slot?.w ? `winner of ${matchName(next.slot.w[0], next.slot.w[1])}` : null;
         steps.push(opponent ? `${round(next.r)} vs ${opponent}` : round(next.r));
       }
-      if (steps.length) return { mine:true, text:steps.join(" → ") };
+      /* one line however deep the bracket: only the latest round won stays */
+      const won = steps.filter(step => step.endsWith("✓")).length;
+      if (steps.length) return { mine:true, text:steps.slice(Math.max(0, won - 1)).join(" → ") };
     }
   }
   const open = bracketOrder(bracket).filter(([r, m]) => unresolved(bracket.rounds[r][m]) && !isCurrent(r, m));

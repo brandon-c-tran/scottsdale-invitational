@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { disp, resolveSlot, resolveCurrentContest, ROUND_NAMES, teamLabel } from "../../../shared/core.js";
+import { bracketMatchName, disp, resolveSlot, resolveCurrentContest, ROUND_NAMES, teamLabel } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import "./competition-bracket.css";
 
@@ -10,36 +10,75 @@ import "./competition-bracket.css";
 export function bracketLayout(bracket) {
   const rounds = bracket?.rounds || [];
   const centers = rounds.map(round => round.map(() => null));
-  let cursor = 0;
-  const place = (r, m) => {
-    const match = rounds[r]?.[m];
-    if (!match) return cursor;
-    const side = slot => {
-      if (slot?.w) return place(slot.w[0], slot.w[1]);
-      const center = cursor + 0.25;
-      cursor += 0.5;
-      return center;
-    };
-    const leaf = !match.a?.w && !match.b?.w;
-    let center;
-    if (leaf) { center = cursor + 0.5; cursor += 1; }
-    else center = (side(match.a) + side(match.b)) / 2;
-    centers[r][m] = center;
-    return center;
-  };
+  const at = { cursor:0 };
   const last = rounds.length - 1;
-  if (last >= 0) rounds[last].forEach((_, m) => place(last, m));
+  if (last >= 0) rounds[last].forEach((_, m) => placeTree(rounds, centers, last, m, at));
   /* anything no final reaches (never in built brackets) still gets a row */
   rounds.forEach((round, r) => round.forEach((_, m) => {
-    if (centers[r][m] === null) { centers[r][m] = cursor + 0.5; cursor += 1; }
+    if (centers[r][m] === null) { centers[r][m] = at.cursor + 0.5; at.cursor += 1; }
   }));
-  return { centers, units:Math.max(cursor, 1) };
+  return { centers, units:Math.max(at.cursor, 1) };
+}
+function placeTree(rounds, centers, r, m, at) {
+  const match = rounds[r]?.[m];
+  if (!match) return at.cursor;
+  const side = slot => {
+    if (slot?.w) return placeTree(rounds, centers, slot.w[0], slot.w[1], at);
+    const center = at.cursor + 0.25;
+    at.cursor += 0.5;
+    return center;
+  };
+  const leaf = !match.a?.w && !match.b?.w;
+  let center;
+  if (leaf) { center = at.cursor + 0.5; at.cursor += 1; }
+  else center = (side(match.a) + side(match.b)) / 2;
+  centers[r][m] = center;
+  return center;
+}
+
+/* A wide bracket drawn from both ends toward a final in the middle, the way
+   a TV draws a field of 16: each half is laid out as bracketLayout lays out
+   a whole bracket, the left half reads left to right, the right half right
+   to left, and the shorter half is centred on the taller. cols gives each
+   match its column, dirs the way its winner travels (1 right, -1 left). */
+export function mirroredLayout(bracket) {
+  const rounds = bracket?.rounds || [];
+  const R = rounds.length, final = rounds[R - 1]?.[0];
+  if (R < 2 || rounds[R - 1].length !== 1 || !final?.a?.w || !final?.b?.w) return null;
+  const centers = rounds.map(round => round.map(() => null));
+  const cols = rounds.map(round => round.map(() => null));
+  const dirs = rounds.map(round => round.map(() => 1));
+  const colCount = 2 * (R - 1) + 1;
+  const halves = [final.a.w, final.b.w].map(([r, m], half) => {
+    const at = { cursor:0 }, members = [];
+    placeTree(rounds, centers, r, m, at);
+    const walk = (wr, wm) => {
+      members.push([wr, wm]);
+      cols[wr][wm] = half ? colCount - 1 - wr : wr;
+      dirs[wr][wm] = half ? -1 : 1;
+      const match = rounds[wr][wm];
+      [match.a, match.b].forEach(slot => { if (slot?.w) walk(slot.w[0], slot.w[1]); });
+    };
+    walk(r, m);
+    return { units:at.cursor, members };
+  });
+  const units = Math.max(1, ...halves.map(half => half.units));
+  halves.forEach(half => half.members.forEach(([r, m]) => { centers[r][m] += (units - half.units) / 2; }));
+  /* every match hangs off the final in a built bracket; anything else draws flat */
+  if (cols.slice(0, R - 1).some(round => round.some(col => col === null))) return null;
+  centers[R - 1][0] = (centers[final.a.w[0]][final.a.w[1]] + centers[final.b.w[0]][final.b.w[1]]) / 2;
+  cols[R - 1][0] = R - 1;
+  return { centers, cols, dirs, colCount, units };
 }
 
 const SIZES = {
   full:{ head:22, row:48, gap:14, minCol:210, colGap:34 },
   compact:{ head:0, row:28, gap:10, minCol:0, colGap:18 },
+  /* a field past eight: the same picture at a glance, tighter rows */
+  compactTall:{ head:0, row:22, gap:6, minCol:0, colGap:14 },
 };
+/* round heads that fit a quarter of a phone */
+const COMPACT_ROUNDS = { Quarterfinals:"Quarters", Semifinals:"Semis" };
 
 const statusOf = (contest, isCurrent) => !isCurrent ? null
   : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open"
@@ -64,12 +103,12 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
   }, [compact, active?.[0], active?.[1]]); // eslint-disable-line
   if (!bracket || !draw) return null;
 
-  const dims = SIZES[compact ? "compact" : "full"];
-  const cardH = dims.head + dims.row * 2 + 1 + 2;
-  const unit = cardH + dims.gap;
   const rounds = bracket.rounds;
   const R = rounds.length;
   const { centers, units } = bracketLayout(bracket);
+  const dims = SIZES[!compact ? "full" : R >= 4 ? "compactTall" : "compact"];
+  const cardH = dims.head + dims.row * 2 + 1 + 2;
+  const unit = cardH + dims.gap;
   const height = Math.ceil(units * unit);
   /* columns share the stage width; a full bracket never squeezes below minCol */
   const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
@@ -109,8 +148,7 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
       return <div key={`${r}-${m}`} className={`fd-bracket-match${highlighted ? " is-current" : ""}${decided ? " is-decided" : ""}`}
         style={{ left:colLeft(r), width:`calc(${colW})`, top:topOf(r, m), height:cardH }}
         aria-label={`${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`}>
-        {!compact && <div className="fd-bracket-match-label"><span>{round.length > 1
-          ? `${(names[r] || "Match").replace(/s$/, "")} ${m + 1}` : names[r] || "Match"}</span>
+        {!compact && <div className="fd-bracket-match-label"><span>{bracketMatchName(bracket, r, m)}</span>
           {status && <strong>{status}</strong>}</div>}
         {sides.map((key, index) => {
           const team = key === null || key === undefined ? null : draw.teams[key];
@@ -144,7 +182,8 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
   </div>;
 
   const heads = <div className="fd-bracket-heads" style={{ minWidth:compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap }}>
-    {rounds.map((_, r) => <span key={r} style={{ left:colLeft(r), width:`calc(${colW})` }}>{names[r] || `Round ${r + 1}`}</span>)}
+    {rounds.map((_, r) => <span key={r} style={{ left:colLeft(r), width:`calc(${colW})` }}>
+      {(compact && R >= 4 && COMPACT_ROUNDS[names[r]]) || names[r] || `Round ${r + 1}`}</span>)}
   </div>;
 
   if (compact) return <div className="fd-competition-bracket is-compact" aria-hidden="true">

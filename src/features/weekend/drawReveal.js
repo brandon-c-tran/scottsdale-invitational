@@ -1,4 +1,4 @@
-import { coalescePendingReveals, disp, ROUND_NAMES, resolveSlot, stageEntrantView, teamLabel } from "../../../shared/core.js";
+import { bracketMatchName, coalescePendingReveals, disp, ROUND_NAMES, resolveSlot, stageEntrantView, teamLabel } from "../../../shared/core.js";
 
 /* A draw reveal only matters while its event is still ahead. Events that
    started, posted, or were shelved retire their ceremony silently; an
@@ -69,8 +69,7 @@ export function buildEventReveal(state, ev, kind) {
       if (a === null || b === null) return;
       seated.add(a); seated.add(b);
       /* numbered matches read singular: "Semifinal 1", like the contest labels */
-      const numbered = bracket.rounds[0].length > 1;
-      groups.push({ title:numbered ? `${String(names[0] || "Round").replace(/s$/, "")} ${index + 1}` : names[0] || "Round 1",
+      groups.push({ title:bracketMatchName(bracket, 0, index),
         vs:true, lines:[line(a), line(b)] });
     });
     const byes = draw.teams.map((_, index) => index).filter(index => !seated.has(index));

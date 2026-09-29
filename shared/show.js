@@ -3,7 +3,7 @@
    and standings view is resolved from current authoritative state. */
 
 import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants,
-  contestUndoAvailability, isAway, ROUND_NAMES } from "./core.js";
+  contestUndoAvailability, isAway, bracketMatchName } from "./core.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -234,11 +234,8 @@ const directorBeat = (type, label, extra = {}) =>
 function contestName(state, ev, contest) {
   if (!contest) return ev?.name || "";
   if (contest.kind === "match" && Array.isArray(contest.match)) {
-    const bracket = state.brackets?.[ev?.id];
     const [r, m] = contest.match;
-    const round = bracket?.rounds?.[r] || [];
-    const name = (ROUND_NAMES[bracket?.size] || [])[r] || `Round ${r + 1}`;
-    return round.length > 1 ? `${name.replace(/s$/, "")} ${m + 1}` : name;
+    return bracketMatchName(state.brackets?.[ev?.id] || {}, r, m);
   }
   if (contest.kind === "ffa") return ev?.name || contest.label || "";
   if (contest.kind === "stage-final" || contest.kind === "final") return "Final";

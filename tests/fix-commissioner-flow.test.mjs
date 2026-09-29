@@ -186,46 +186,47 @@ test("C19: a bracket final's recorded winner posts the result in the same write,
   assert.equal(postedFinalUndo(state, ev).enabled, false);
 });
 
+/* three heats, one through each: a three-way stage final */
 test("C18: a stage final records a finish order and posts once the paid places are known", () => {
   const setup = () => {
-    const state = fresh(["bball1"]); state.live = true;
-    act(state, "announceAndDraw", { evId:"bball1" });
+    const state = fresh(["beerio"]); state.live = true;
+    act(state, "announceAndDraw", { evId:"beerio", cfg:{ nGroups:3 } });
     let contest;
-    while ((contest = current(state, "bball1")) && contest.kind === "heat") {
-      if (contest.phase === "betting-open") act(state, "lockAndStart", { evId:"bball1", ...refs(contest) });
-      const live = current(state, "bball1");
-      act(state, "recordContestWinner", { evId:"bball1", ...refs(live), winner:live.sides[0].key });
+    while ((contest = current(state, "beerio")) && contest.kind === "heat") {
+      if (contest.phase === "betting-open") act(state, "lockAndStart", { evId:"beerio", ...refs(contest) });
+      const live = current(state, "beerio");
+      act(state, "recordContestWinner", { evId:"beerio", ...refs(live), winner:live.sides[0].key });
     }
-    act(state, "lockAndStart", { evId:"bball1", ...refs(current(state, "bball1")) });
+    act(state, "lockAndStart", { evId:"beerio", ...refs(current(state, "beerio")) });
     return state;
   };
-  const state = setup(), final = current(state, "bball1"), keys = final.sides.map(side => side.key);
+  const state = setup(), final = current(state, "beerio"), keys = final.sides.map(side => side.key);
   assert.equal(final.kind, "stage-final");
   assert.equal(keys.length, 3);
-  refuse(state, "recordContestWinner", { evId:"bball1", ...refs(final), winner:keys[0], order:[keys[1], keys[0]], postResult:true },
+  refuse(state, "recordContestWinner", { evId:"beerio", ...refs(final), winner:keys[0], order:[keys[1], keys[0]], postResult:true },
     /finish order/);
-  act(state, "recordContestWinner", { evId:"bball1", ...refs(final), winner:keys[1], qualifiers:[keys[1]],
+  act(state, "recordContestWinner", { evId:"beerio", ...refs(final), winner:keys[1], qualifiers:[keys[1]],
     order:[keys[1], keys[2], keys[0]], postResult:true });
-  assert.deepEqual(state.results.bball1.slots, [[keys[1]], [keys[2]], [keys[0]]]);
+  assert.deepEqual(state.results.beerio.slots, [[keys[1]], [keys[2]], [keys[0]]]);
 
   /* only the winner: the final is recorded and the result waits for entry */
-  const partial = setup(), next = current(partial, "bball1");
-  act(partial, "recordContestWinner", { evId:"bball1", ...refs(next), winner:next.sides[0].key, postResult:true });
-  assert.equal(partial.results.bball1, undefined);
-  assert.equal(resolveEventLifecycle(partial, eventOf(partial, "bball1")).phase, "result-entry");
+  const partial = setup(), next = current(partial, "beerio");
+  act(partial, "recordContestWinner", { evId:"beerio", ...refs(next), winner:next.sides[0].key, postResult:true });
+  assert.equal(partial.results.beerio, undefined);
+  assert.equal(resolveEventLifecycle(partial, eventOf(partial, "beerio")).phase, "result-entry");
 });
 
 test("C18 UI: the actual finalists are tapped 1st, 2nd, 3rd and Record order sends the order", async () => {
-  const state = fresh(["bball1"]); state.live = true;
-  act(state, "announceAndDraw", { evId:"bball1" });
+  const state = fresh(["beerio"]); state.live = true;
+  act(state, "announceAndDraw", { evId:"beerio", cfg:{ nGroups:3 } });
   let contest;
-  while ((contest = current(state, "bball1")) && contest.kind === "heat") {
-    if (contest.phase === "betting-open") act(state, "lockAndStart", { evId:"bball1", ...refs(contest) });
-    const live = current(state, "bball1");
-    act(state, "recordContestWinner", { evId:"bball1", ...refs(live), winner:live.sides[0].key });
+  while ((contest = current(state, "beerio")) && contest.kind === "heat") {
+    if (contest.phase === "betting-open") act(state, "lockAndStart", { evId:"beerio", ...refs(contest) });
+    const live = current(state, "beerio");
+    act(state, "recordContestWinner", { evId:"beerio", ...refs(live), winner:live.sides[0].key });
   }
-  act(state, "lockAndStart", { evId:"bball1", ...refs(current(state, "bball1")) });
-  const ev = eventOf(state, "bball1"), final = current(state, "bball1");
+  act(state, "lockAndStart", { evId:"beerio", ...refs(current(state, "beerio")) });
+  const ev = eventOf(state, "beerio"), final = current(state, "beerio");
   const [a, b, c] = final.sides.map(side => side.key);
   const sent = [];
   const props = { state, ev, me:"Brandon", gm:true, onPlayer:() => {}, onLock:() => ({ ok:true }), onUndo:() => ({ ok:true }),
@@ -238,7 +239,7 @@ test("C18 UI: the actual finalists are tapped 1st, 2nd, 3rd and Record order sen
   assert.ok(view.named(`Remove ${b} from 1st`));
   assert.equal((await view.click("Record order")).ok, true);
   assert.deepEqual(sent, [{ ...refs(final), winner:b, qualifiers:[b], order:[b, c, a], postResult:true }]);
-  assert.deepEqual(state.results.bball1.slots, [[b], [c], [a]]);
+  assert.deepEqual(state.results.beerio.slots, [[b], [c], [a]]);
 });
 
 test("C12: the bracket keeps its picture; winner targets are their own rows beside it", () => {

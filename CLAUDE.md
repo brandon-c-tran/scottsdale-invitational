@@ -224,7 +224,12 @@ announcement/reveal sequence. Efficiency must not remove the anticipation,
 player-color motion, or acknowledgement feedback that makes a result legible.
 A bracket is drawn as a bracket: rounds are columns, each match sits between
 the matches that feed it, connector lines carry winners forward, and the live
-match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx). While
+match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
+`makeBracket` runs 2 to 16 entrants: 2 to 6 keep their stored hand-drawn
+shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
+1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
+shrinks it for Away). Past eight the TV draws the bracket from both ends toward
+a middle final (`mirroredLayout`) so it fits under the contest. While
 a bracket game is live, Home shows your path as one line ("Semifinal ✓ → Final
 vs winner of Semifinal 2 · Full bracket ↗", `bracketPath`), Bets shows the
 compact read-only bracket (`BracketPeek`, one target) under the board, the TV

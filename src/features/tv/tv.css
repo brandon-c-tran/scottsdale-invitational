@@ -163,6 +163,7 @@
 .tv-bracket-name { flex:1; min-width:0; font:700 26px/1 var(--fd-display); text-transform:uppercase; color:var(--bone);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-bracket.is-full .tv-bracket-name { font-size:34px; }
+.tv-bracket.is-mirrored.is-full .tv-bracket-name { font-size:30px; }
 .tv-bracket-team.is-won .tv-bracket-name, .tv-bracket-won { color:var(--sun); }
 .tv-bracket-won { font:800 28px/1 var(--fd-display); }
 .tv-bracket-team.is-lost .tv-bracket-name { color:var(--muted); }

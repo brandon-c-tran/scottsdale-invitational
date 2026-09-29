@@ -29,6 +29,7 @@ import {
   championIdentity,
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
+import { liveCall, sameCallTarget, validateCall } from "../shared/call.js";
 import { QA_PROGRESS_KEYS } from "../shared/qa.js";
 import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
 
@@ -212,7 +213,7 @@ const rememberWagerOp = (state, requestKey, record) => {
 };
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
-  "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
+  "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene", "callEveryone", "endCall",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
@@ -693,6 +694,29 @@ export const ACTIONS = {
     });
     rememberShowCommand(control.active, commandId, "retry", fingerprint);
     return ok({ sceneId:control.active.id, retryOf:prior.id });
+  },
+
+  /* D9 "To the TV": presentation only. A call names a ceremony, every
+     phone shows it for CALL_MS, and pocket alerts go to phones that are not
+     looking (worker/pushAlerts.js). Its own write, never part of an
+     official one; a second tap on the call already up is the same call. */
+  callEveryone(state, request, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const checked = validateCall(state, allEventsOf(state), request);
+    if (!checked.ok) return err(checked.error);
+    const now = Date.now();
+    const current = liveCall(state, now);
+    if (current && sameCallTarget(current, checked.call)) return ok({ unchanged:true, callId:current.id });
+    const control = showControlOf(state);
+    control.call = { id:`call-${now}-${crypto.randomUUID().slice(0, 8)}`, at:now, ...checked.call };
+    return ok({ callId:control.call.id });
+  },
+  endCall(state, { id } = {}, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const call = state.showControl?.call;
+    if (!call || (id && call.id !== id) || !liveCall(state)) return ok({ unchanged:true });
+    showControlOf(state).call = null;
+    return ok();
   },
 
   /* ── wagers (players) ── */

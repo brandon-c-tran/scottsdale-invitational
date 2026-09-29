@@ -77,6 +77,19 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   dismissible Home card for an installed app that never answered), never
   part of check-in. Off unless `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`
   secrets and the `VAPID_SUBJECT` var are set (`capabilities.push`).
+- **To the TV (D9) and your path (D10):** `callEveryone` / `endCall` (GM
+  only, their own writes, allowed on a frozen board and at the poker table)
+  set `showControl.call = { id, at, kind, eventId, label }`, presentation
+  only; `shared/call.js` builds the label from the event and derives expiry
+  (`CALL_MS` 90 s). A second tap on the live call is a no-op. The chip beside
+  the pill (`features/call/CallChip.jsx`) offers the next ceremony beat's call
+  in one tap, else a TV button (two taps). Guest phones show one bar
+  (`CallBar`, dismissal per device per call, S16 on a fresh call) and
+  `pushAlerts.js` sends "To the TV" to every present player not looking.
+  A synced draw reveal that turned your card ends on your path
+  (`weekend/drawPath.js`, `DrawPath.jsx`) in a sticky footer above Place chips:
+  bracket stops to the final with opponents' photo chips, or your heat/pool
+  and the final; spectators, crew and replays see nothing new.
 - **Motion foundation** (`src/lib/motion.js`, tokens in `src/ui/motion.css`):
   every animated surface uses it. `MOTION`/`EASE` are the named timings
   (count 750, delta 1100, row 560, stamp 320, flight 340, settle hold 2400,

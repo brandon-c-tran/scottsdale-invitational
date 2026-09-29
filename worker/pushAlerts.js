@@ -1,21 +1,23 @@
 /* Which pocket alerts a write owes, from the board before and after it.
    Pure: no storage, no network, no clock beyond what it is given.
 
-   Three moments, each only to the player it is about, never to the player
+   Four moments, each only to the players it is about, never to the player
    whose tap caused it:
    - playing: your contest became the current one (the same rule as Home's
      "You're playing" stamp: a contest you are in, not a wide free-for-all).
    - pick: it became your turn in a captains draft.
    - duel: someone sent a challenge to you by name.
+   - call: the commissioner called everyone to the TV (D9), to every
+     present player.
    Each carries a dedupe key (player + reason + contest) so a correction
    that reopens the same contest, a retry, or a replay never alerts twice. */
 
 import {
-  allEventsOf, disp, draftTurn, isActivePlayer, isAway, resolveCurrentContest,
+  ROSTER, allEventsOf, disp, draftTurn, isActivePlayer, isAway, resolveCurrentContest,
   resolveWeekendOperation, teamLabel, DUEL_GAMES,
 } from "../shared/core.js";
 
-export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel"]);
+export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "call"]);
 const LIVE_PHASES = new Set(["betting-open", "betting-locked", "in-progress"]);
 
 /* the current contest, while it is open or being played */
@@ -92,11 +94,24 @@ function duelAlerts(prev, next) {
     }));
 }
 
+/* D9: a new call (a new id) reaches every present player once. Phones
+   looking at the app already show the bar; tournament.js skips them. */
+function callAlerts(prev, next) {
+  const call = next?.showControl?.call;
+  if (!call || typeof call.id !== "string" || call.id === prev?.showControl?.call?.id) return [];
+  return ROSTER.filter(player => isActivePlayer(player) && !isAway(next, player)).map(player => ({
+    player, reason:"call", key:`call:${player}:${call.id}`,
+    message:{ title:"To the TV", body:typeof call.label === "string" ? call.label : "", tag:`call:${call.id}`,
+      topic:"call", url:"/?alert=call" },
+  }));
+}
+
 /* `actor` is the player claimed by the device that made the write (null for
    an unclaimed commissioner device); they already know. */
 export function alertsFor(prev, next, { actor = null } = {}) {
   if (!next || prev === next) return [];
-  const alerts = [...playingAlerts(prev || {}, next), ...pickAlerts(prev || {}, next), ...duelAlerts(prev || {}, next)];
+  const alerts = [...playingAlerts(prev || {}, next), ...pickAlerts(prev || {}, next), ...duelAlerts(prev || {}, next),
+    ...callAlerts(prev || {}, next)];
   const seen = new Set();
   return alerts.filter(alert => {
     if (!alert.player || alert.player === actor || seen.has(alert.key)) return false;

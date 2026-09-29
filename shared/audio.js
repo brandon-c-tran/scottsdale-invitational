@@ -67,10 +67,101 @@ function validateSpotifyTrack(value) {
   };
 }
 
+/* ── the walkout silence contract (Spotify Developer Policy III.7) ──
+   state.showControl.audio = { walkout:{ player, trackId, startedAt, until } | null }
+   in server ms. Only the Worker writes it: when a cue's play succeeds, and
+   again when it confirms or loses the song on the speaker. It is cleared on
+   pause/stop, when Spotify reports the song is no longer playing, and by an
+   alarm once `until` passes. Presentation only: it never gates an official
+   write. Every phone and TV keeps Field Day's own sounds silent while
+   `walkout && serverNow() < walkout.until`. `player` is null for a track
+   played from Audio Director search; `trackId` is null only for a resume
+   whose track could not be read. */
+const WALKOUT_MAX_MS = 4 * 60 * 1000;
+const WALKOUT_MIN_MS = 5000;
+/* a confirmation moves `until` only when the song drifted this far */
+const WALKOUT_DRIFT_MS = 5000;
+
+const finiteMs = value => Number.isFinite(value) && value >= 0 ? Math.floor(value) : null;
+
+/* how long a song started at `positionMs` still plays, bounded both ways */
+function walkoutRemainingMs({ durationMs, positionMs = 0 } = {}) {
+  const duration = Math.floor(Number(durationMs));
+  if (!Number.isFinite(duration) || duration < 1000 || duration > MAX_TRACK_DURATION_MS)
+    return WALKOUT_MAX_MS;
+  const position = Math.max(0, Math.floor(Number(positionMs) || 0));
+  return Math.max(WALKOUT_MIN_MS, Math.min(WALKOUT_MAX_MS, duration - position));
+}
+
+/* The one validator for a stored or proposed record. `players`, when given,
+   is the set of legal player ids. Anything malformed reads as no walkout. */
+function cleanWalkout(value, { players = null } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const player = value.player === null || value.player === undefined ? null
+    : typeof value.player === "string" && value.player.length <= 40
+      && (!players || players.includes(value.player)) ? value.player : undefined;
+  if (player === undefined) return null;
+  const trackId = value.trackId === null || value.trackId === undefined ? null
+    : SPOTIFY_TRACK_ID.test(value.trackId) ? value.trackId : undefined;
+  if (trackId === undefined) return null;
+  const startedAt = finiteMs(value.startedAt);
+  const until = finiteMs(value.until);
+  if (startedAt === null || until === null || until <= startedAt) return null;
+  return { player, trackId, startedAt, until };
+}
+
+function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0 }, options) {
+  const start = finiteMs(startedAt);
+  if (start === null) return null;
+  return cleanWalkout({ player, trackId, startedAt:start,
+    until:start + walkoutRemainingMs({ durationMs, positionMs }) }, options);
+}
+
+/* the stored record, live or not */
+const walkoutOf = state => cleanWalkout(state?.showControl?.audio?.walkout);
+
+/* the record while the song is still expected to play, else null */
+function walkoutLive(state, now) {
+  const walkout = walkoutOf(state);
+  return walkout && now < walkout.until ? walkout : null;
+}
+
+/* What a fresh read of the speaker means for the stored record: the same
+   song still playing keeps it (moving `until` to the song's real end when it
+   drifted), anything else clears it. Returns the next record, or null. */
+function reconcileWalkout(walkout, playback, now) {
+  if (!walkout) return null;
+  const track = playback?.track;
+  if (!playback?.playing || !track?.trackId) return null;
+  if (walkout.trackId && walkout.trackId !== track.trackId) return null;
+  const remaining = Math.max(0, Number(track.durationMs) - Number(playback.progressMs || 0));
+  if (!Number.isFinite(remaining) || remaining <= 0) return null;
+  const target = now + Math.min(remaining, WALKOUT_MAX_MS);
+  const capped = remaining > WALKOUT_MAX_MS;
+  const until = capped
+    ? (walkout.until - now < WALKOUT_MAX_MS / 2 ? target : walkout.until)
+    : (Math.abs(target - walkout.until) > WALKOUT_DRIFT_MS ? target : walkout.until);
+  return { ...walkout, trackId:track.trackId, until:Math.max(until, walkout.startedAt + 1) };
+}
+
+const sameWalkout = (left, right) => (!left && !right) || (!!left && !!right
+  && left.player === right.player && left.trackId === right.trackId
+  && left.startedAt === right.startedAt && left.until === right.until);
+
 export {
   MAX_TRACK_DURATION_MS,
   SPOTIFY_TRACK_ID,
   SPOTIFY_TRACK_URI,
+  WALKOUT_DRIFT_MS,
+  WALKOUT_MAX_MS,
+  WALKOUT_MIN_MS,
+  buildWalkout,
   cleanSpotifyImageUrl,
+  cleanWalkout,
+  reconcileWalkout,
+  sameWalkout,
   validateSpotifyTrack,
+  walkoutLive,
+  walkoutOf,
+  walkoutRemainingMs,
 };

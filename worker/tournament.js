@@ -12,6 +12,9 @@ import {
   ALL_PLAYERS, ROSTER, isActivePlayer,
 } from "../shared/core.js";
 import { checkInComplete } from "../shared/checkin.js";
+import {
+  SPOTIFY_TRACK_URI, buildWalkout, reconcileWalkout, sameWalkout, walkoutLive, walkoutOf,
+} from "../shared/audio.js";
 import { BUILD_ID } from "../shared/build.js";
 import { applyAction } from "./actions.js";
 import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
@@ -364,6 +367,93 @@ export class Tournament {
     }
   }
 
+  /* -- the walkout silence contract (shared/audio.js) --
+     Presentation state beside the scene, written only here: after a cue's
+     play succeeds, after the speaker confirms or loses the song, on pause,
+     and by the alarm at `until`. Its write is its own version and never part
+     of an official action; a failed write is logged and the request that
+     caused it still answers with Spotify's outcome. */
+  async setWalkout(walkout, reason) {
+    const current = walkoutOf(this.state);
+    if (sameWalkout(current, walkout)) return current;
+    const nextState = structuredClone(this.state);
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    nextState.showControl = { ...control, audio:{ ...(control.audio || {}), walkout:walkout || null } };
+    try {
+      await this.persistAndBroadcast(reason, nextState);
+    } catch (error) {
+      console.error(JSON.stringify({ event:"walkout-write-failed", reason,
+        error:String(error?.message || error).slice(0, 300) }));
+      return current;
+    }
+    if (walkout) {
+      try { await this.ctx.storage.setAlarm?.(walkout.until + 250); } catch {}
+    }
+    return walkout;
+  }
+
+  /* an action that rebuilt showControl (a progress reset or a QA jump) does
+     not stop the song on the speaker, so a live walkout stays */
+  carryWalkout(nextState) {
+    const live = walkoutLive(this.state, Date.now());
+    if (!live || walkoutOf(nextState)) return;
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    nextState.showControl = { ...control, audio:{ ...(control.audio || {}), walkout:live } };
+  }
+
+  /* the one alarm this object sets: clear a walkout once its song is over */
+  async alarm() {
+    const walkout = walkoutOf(this.state);
+    if (!walkout) return;
+    if (Date.now() < walkout.until) {
+      try { await this.ctx.storage.setAlarm?.(walkout.until + 250); } catch {}
+      return;
+    }
+    await this.setWalkout(null, "walkoutEnded");
+  }
+
+  /* a player's saved cue for this track, when exactly one player saved it */
+  walkoutPlayerFor(trackId) {
+    if (!trackId) return null;
+    const owners = Object.entries(this.state.profiles || {})
+      .filter(([player, profile]) => isActivePlayer(player) && profile?.walkoutTrack?.trackId === trackId)
+      .map(([player]) => player);
+    return owners.length === 1 ? owners[0] : null;
+  }
+
+  /* Called only after Spotify accepted the play. A cue's length comes from
+     the player's saved track; a search result sends its own; a resume reads
+     the speaker once and otherwise assumes the longest walkout. Never throws:
+     the song is already playing. */
+  async stampWalkout({ uri, player, positionMs, durationMs }) {
+    const startedAt = Date.now();
+    try {
+      if (uri) {
+        const trackId = uri.match(SPOTIFY_TRACK_URI)?.[1] || null;
+        const saved = player ? this.state.profiles?.[player]?.walkoutTrack : null;
+        const length = saved?.trackId === trackId ? saved.durationMs : durationMs;
+        return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs }),
+          "walkoutStart");
+      }
+      let playback = null;
+      try { playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
+      const trackId = playback?.track?.trackId || null;
+      return await this.setWalkout(buildWalkout({
+        player:player || this.walkoutPlayerFor(trackId),
+        trackId,
+        startedAt,
+        durationMs:playback?.track?.durationMs,
+        positionMs:playback?.progressMs || 0,
+      }), "walkoutStart");
+    } catch (error) {
+      console.error(JSON.stringify({ event:"walkout-stamp-failed",
+        error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    }
+  }
+
   spotifyCallbackRedirect(req, status) {
     const url = new URL(req.url);
     url.pathname = "/";
@@ -504,10 +594,17 @@ export class Tournament {
           this.spotifyUserApi("/me/player/devices"),
           this.spotifyUserApi("/me/player"),
         ]);
+        const playback = compactSpotifyPlayback(playbackBody);
+        /* the speaker is the truth: a walkout ends when its song stops */
+        const stored = walkoutOf(this.state);
+        const walkout = stored
+          ? await this.setWalkout(reconcileWalkout(stored, playback, Date.now()), "walkoutSync")
+          : null;
         return spotifyJson({
           ok:true,
           devices:(deviceBody?.devices || []).map(compactSpotifyDevice).filter(Boolean),
-          playback:compactSpotifyPlayback(playbackBody),
+          playback,
+          walkout,
         });
       } catch (error) {
         const failure = publicSpotifyError(error);
@@ -527,11 +624,16 @@ export class Tournament {
         ? body.deviceId : "";
       const positionMs = Math.max(0, Math.min(12 * 60 * 60 * 1000,
         Math.floor(Number(body?.positionMs) || 0)));
+      const cuePlayer = body?.player === undefined || body?.player === null ? null : body.player;
+      if (cuePlayer !== null && !isActivePlayer(cuePlayer))
+        return spotifyJson({ ok:false, error:"Invalid player" }, 400);
       try {
         const speaker = await this.spotifySpeaker(deviceId);
         await this.spotifyPlayOnSpeaker(speaker,
           uri ? { uris:[uri], position_ms:positionMs } : {});
-        return spotifyJson({ ok:true, deviceId:speaker || null });
+        const walkout = await this.stampWalkout({ uri, player:cuePlayer, positionMs,
+          durationMs:body?.durationMs });
+        return spotifyJson({ ok:true, deviceId:speaker || null, walkout });
       } catch (error) {
         const failure = publicSpotifyError(error);
         return spotifyJson(failure.body, failure.status);
@@ -549,7 +651,8 @@ export class Tournament {
           `/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
           { method:"PUT" },
         );
-        return spotifyJson({ ok:true });
+        await this.setWalkout(null, "walkoutStop");
+        return spotifyJson({ ok:true, walkout:null });
       } catch (error) {
         const failure = publicSpotifyError(error);
         return spotifyJson(failure.body, failure.status);
@@ -943,6 +1046,7 @@ export class Tournament {
       if (viewChanged) this.sendState(ws);
       return reply(result);
     }
+    this.carryWalkout(nextState);
     /* Explicit no-ops make retried result/transition actions idempotent:
        acknowledge them without incrementing the transport version or
        broadcasting a state that did not change. */
@@ -1097,7 +1201,7 @@ export class Tournament {
     shared = { environment:this.environment, capabilities:this.capabilities },
     skip = null,
   } = {}) {
-    for (const ws of this.ctx.getWebSockets()) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
       if (ws === skip) continue;
       try { ws.send(this.stateFrame(ws, serialize, { lastAction }, shared)); } catch {}
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { BONE, DISPLAY, SANS, label } from "./theme.js";
 import { useSheetPresence } from "./sheetMotion.js";
 
@@ -132,12 +132,17 @@ function MenuGroup({ title, children }) {
   );
 }
 
+/* Something the app keeps reachable in every sheet header (the
+   commissioner's walkout Stop). Nothing is docked by default. */
+const SheetDock = createContext(null);
+
 let openSheets = 0;
 let pageOverflow = "";
 function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100 }) {
   const dialog = useRef(null);
   const overlay = useRef(null);
   useSheetPresence(overlay, dialog);
+  const dock = useContext(SheetDock);
   const current = useRef({ busy, onClose });
   current.current = { busy, onClose };
   useEffect(() => {
@@ -182,6 +187,7 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
             style={{ fontSize:18, marginLeft:-6 }}>‹</IconButton>}
           <div className="fd-sheet-heading"><div>{title}</div>{subtitle && <small>{subtitle}</small>}</div>
           {headerActions && <div className="fd-sheet-header-actions">{headerActions}</div>}
+          {dock && <div className="fd-sheet-dock">{dock}</div>}
           <IconButton label="Close" onClick={onClose} size={44} disabled={busy} style={{ fontSize:14 }}>✕</IconButton>
         </div>
         <div className="fd-sheet-body">
@@ -192,4 +198,4 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
   );
 }
 
-export { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet };
+export { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet, SheetDock };

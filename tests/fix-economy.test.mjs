@@ -447,17 +447,17 @@ test("the result sheet prefills split 3rd and a stage runner-up, and asks before
   assert.equal(pbView.saved.length, 1, "every paid place is filled, so it posts");
   assert.equal(pbView.saved[0][2].length, 4);
 
-  /* 1v1 basketball pays 1,200 / 800 / 400 */
-  const pp = heats("bball1");
-  lock(pp, "bball1"); win(pp, "bball1", current(pp, "bball1").sides[0].key);
-  const stage = pp.stages.bball1;
-  const view = sheet(pp, event(pp, "bball1"), ["Post official result"]);
+  /* Beerio Kart pays 1,600 / 800 / 400 */
+  const pp = heats("beerio");
+  lock(pp, "beerio"); win(pp, "beerio", current(pp, "beerio").sides[0].key);
+  const stage = pp.stages.beerio;
+  const view = sheet(pp, event(pp, "beerio"), ["Post official result"]);
   assert.equal(view.saved.length, 0, "an empty paid place stops the post");
   assert.match(view.html, /3rd place pays 400\. Nobody selected\./);
   assert.doesNotMatch(view.html, /2nd place pays/, "the two-finalist runner-up is prefilled");
   assert.match(view.html, /Leave empty/);
   const runner = stage.groups.flatMap(g => g.through).find(key => key !== stage.finalWinner);
-  const left = sheet(pp, event(pp, "bball1"), ["Post official result", "Leave empty"]);
+  const left = sheet(pp, event(pp, "beerio"), ["Post official result", "Leave empty"]);
   assert.deepEqual(left.saved[0].slice(0, 2), [[stage.finalWinner], [runner]]);
   assert.deepEqual(left.saved[0][2], []);
 });

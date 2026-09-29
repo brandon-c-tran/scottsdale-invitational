@@ -203,7 +203,8 @@ test("every shipped strict team format yields exact QA participants and group si
   assert.ok(makeBracket(6));
   /* short rooms: a play-in seeds five teams into a four-team bracket */
   assert.equal(makeBracket(5).rounds.length, 3);
-  assert.equal(makeBracket(7), null);
+  assert.equal(makeBracket(7).rounds.length, 3);
+  assert.equal(makeBracket(17), null);
 });
 
 test("shared lifecycle drives one guarded GM action from setup through completion", () => {

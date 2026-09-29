@@ -52,7 +52,7 @@ import {
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, draftTurn,
   RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelLapsesAt, duelOpen, duelPhase, duelRoom, duelsSentToday,
-  presentPlayers, suggestParticipants, teamFit, refundText, bracketOrder, bracketMatchOpen,
+  presentPlayers, suggestParticipants, teamFit, shapeLabel, refundText, bracketOrder, bracketMatchOpen,
   correctionText, announcementTakeBack, lockerRoomAvailability, postCountRulingApplies,
 } from "../shared/core.js";
 import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
@@ -1186,7 +1186,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   };
   /* heats for a few solo events and pools for spike, so the stage machinery
      gets exercised; everything else keeps its native format */
-  const SIM_HEAT_IDS = ["pingpong", "bball1", "beerio"];
+  const SIM_HEAT_IDS = ["pingpong", "beerio"];
   const simEnsureFormat = async ev => {
     const s = stateRef.current;
     if (s.results[ev.id]) return;
@@ -2771,7 +2771,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
     role: OVERFLOW_ROLES.includes(outRoles[player]) ? outRoles[player] : "sit-out",
   }));
   const isPoker = !!ev.finale;
-  const canHeats = ev.kind === "solo" && !res && !isPoker;
+  const canHeats = ev.kind === "solo" && !ev.teamCfg && !res && !isPoker;
   const canPools = ev.teamCfg && draw && !br && draw.teams.length >= 4 && !res;
   const stageKind = canHeats ? "heats" : "pools";
   const stageEntrantCount = canHeats ? inPlayers.length : (draw?.teams?.length || 0);
@@ -2872,7 +2872,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
             return (
             <>
               <div style={{ display:"flex", alignItems:"center", marginBottom:4 }}>
-                <div style={{ ...label, flex:1 }}>Draw teams</div>
+                <div style={{ ...label, flex:1 }}>{shape.size === 1 ? "Draw the bracket" : "Draw teams"}</div>
                 <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
                   fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"7px 12px", borderRadius:10,
                   background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
@@ -2882,7 +2882,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
               </div>
               <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
                 color: diff !== 0 ? "var(--clay-text)" : "var(--muted)" }}>
-                Format: {shape.teams} teams of {shape.size}, fits {fit}.
+                Format: {shapeLabel(shape)}{shape.size === 1 ? "" : `, fits ${fit}`}.
                 {diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
               </div>
               {showOuts && (
@@ -4264,7 +4264,7 @@ function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPl
   const fit = heats
     ? (playing.length >= (ev.stageCfg?.nGroups || 2) * 2 ? { ok:true } : { ok:false, error:"Heats need at least 2 players each" })
     : validateEventParticipants(ev, playing, present);
-  const shape = !heats && fit.ok && fit.fit ? `${fit.fit.teams} teams of ${fit.fit.size}` : null;
+  const shape = !heats && fit.ok && fit.fit ? shapeLabel(fit.fit) : null;
   const toggle = player => setCrew(current => current.some(item => item.player === player)
     ? current.filter(item => item.player !== player)
     : [...current, { player, role:OVERFLOW_ROLES[current.length % OVERFLOW_ROLES.length] }]);

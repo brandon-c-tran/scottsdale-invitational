@@ -46,7 +46,7 @@ function configureEvent(state, event) {
       .map(player => ({ player, role:"scorekeeper" }));
     act(state, "runDraw", { evId:event.id, players, roles });
   }
-  if (["pingpong", "bball1", "beerio"].includes(event.id)) {
+  if (["pingpong", "beerio"].includes(event.id)) {
     act(state, "runStages", {
       evId:event.id,
       cfg:{ kind:"heats", nGroups:3, advance:1, players:[...ROSTER] },

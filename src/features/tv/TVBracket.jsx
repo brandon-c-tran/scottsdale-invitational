@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { ROUND_NAMES, resolveSlot, teamLabel } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
-import { bracketLayout } from "../weekend/CompetitionBracket.jsx";
+import { bracketLayout, mirroredLayout } from "../weekend/CompetitionBracket.jsx";
 import { EASE } from "../../lib/motion.js";
 import { ADVANCE_TIMING as T, bracketGeometry, railPoints, railPath, tokenKeyframes, useTimeline } from "./tvMotion.js";
 
@@ -16,13 +16,29 @@ const BRACKET_SIZES = {
   strip:{ row:36, gap:10, colGap:30, faces:0, token:30, tab:false },
   full:{ row:62, gap:20, colGap:56, faces:40, token:40, tab:true },
 };
+/* A field past eight (four rounds) is drawn from both ends toward the final
+   in the middle, so it keeps the height of a six-team bracket. Its columns
+   are narrower: names only, and the round heads shortened to fit. */
+const MIRRORED_SIZES = {
+  strip:{ row:36, gap:10, colGap:26, faces:0, token:30, tab:false },
+  full:{ row:52, gap:16, colGap:34, faces:0, token:36, tab:true },
+};
+const TALL_FULL = { row:52, gap:16, colGap:56, faces:36, token:36, tab:true };
+const MIRROR_FROM_ROUNDS = 4;
+const SHORT_ROUNDS = { Quarterfinals:"Quarters", Semifinals:"Semis" };
 const OUTLINE = 6;
 const keyOf = (r, m) => `${r}-${m}`;
 const sameMatch = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
 
 export function TVBracket({ state, ev, hot = null, size = "strip", motion = null }) {
   const bracket = state.brackets?.[ev?.id], draw = state.draws?.[ev?.id];
-  const dims = BRACKET_SIZES[size] || BRACKET_SIZES.strip;
+  const mirror = (bracket?.rounds?.length || 0) >= MIRROR_FROM_ROUNDS ? mirroredLayout(bracket) : null;
+  const layout = mirror || (bracket ? bracketLayout(bracket) : null);
+  const sizes = mirror ? MIRRORED_SIZES : BRACKET_SIZES;
+  /* a full eight-team bracket (four first-round rows) steps its rows down to
+     stay under a winner banner */
+  const tall = !mirror && size === "full" && layout?.units > 3.5;
+  const dims = tall ? TALL_FULL : sizes[size] || sizes.strip;
   const timeline = useTimeline(bracket && draw && motion ? motion.id : null, motion?.anchor, T.total);
   const stage = useRef(null);
   const [width, setWidth] = useState(0);
@@ -34,13 +50,19 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
 
   const rounds = bracket.rounds;
   const R = rounds.length;
-  const layout = bracketLayout(bracket);
   const { centers } = layout;
-  const geo = bracketGeometry({ rounds:R, centers, units:layout.units }, dims, width);
+  /* columns, not rounds: a mirrored bracket has every round but the final twice */
+  const C = mirror ? mirror.colCount : R;
+  const geo = bracketGeometry({ rounds:C, centers, units:layout.units, cols:mirror?.cols, dirs:mirror?.dirs }, dims, width);
   const { cardH, height } = geo;
-  const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
-  const colLeft = (r, px = 0) => `calc(${colW} * ${r} + ${r * dims.colGap + px}px)`;
+  const colW = `((100% - ${(C - 1) * dims.colGap}px) / ${C})`;
+  const colLeft = (c, px = 0) => `calc(${colW} * ${c} + ${c * dims.colGap + px}px)`;
   const names = ROUND_NAMES[bracket.size] || [];
+  const heads = Array.from({ length:C }, (_, c) => {
+    const r = c < R ? c : C - 1 - c;
+    const name = names[r] || `Round ${r + 1}`;
+    return mirror ? SHORT_ROUNDS[name] || name : name;
+  });
 
   /* what this step moves, by match */
   const moving = new Map(), arriving = new Map();
@@ -60,20 +82,24 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
     const decided = rounds[fr][fm].winner !== null && rounds[fr][fm].winner !== undefined;
     /* the rail the winners are riding draws itself on top */
     const riding = moving.has(keyOf(fr, fm)) && width > 0;
+    /* a right-half connector leaves its card's left edge */
+    const leftward = geo.dir(fr, fm) < 0;
     lines.push(<svg key={`${r}-${m}-${index}`} className={`tv-bracket-line${decided && !riding ? " is-on" : ""}`} aria-hidden="true"
       viewBox="0 0 100 100" preserveAspectRatio="none"
-      style={{ left:`calc(${colLeft(fr)} + ${colW})`, width:dims.colGap, top, height:h }}>
-      <path d={`M0 ${a} H50 V${b} H100`} vectorEffect="non-scaling-stroke" />
+      style={{ left:leftward ? colLeft(geo.col(fr, fm), -dims.colGap) : `calc(${colLeft(geo.col(fr, fm))} + ${colW})`,
+        width:dims.colGap, top, height:h }}>
+      <path d={leftward ? `M100 ${a} H50 V${b} H0` : `M0 ${a} H50 V${b} H100`} vectorEffect="non-scaling-stroke" />
     </svg>);
   })));
 
   const hotFrom = playing ? motion.hotFrom : null;
   const outlineMoves = playing && !sameMatch(hotFrom, hot);
   return (
-    <div className={`tv-bracket is-${size}${playing ? " is-advancing" : ""}`} aria-label={`${ev.name} bracket`} style={style}>
+    <div className={`tv-bracket is-${size}${mirror ? " is-mirrored" : ""}${playing ? " is-advancing" : ""}`}
+      aria-label={`${ev.name} bracket`} style={style}>
       <div className="tv-bracket-heads">
-        {rounds.map((_, r) => <span key={r} className="tv-label" style={{ left:colLeft(r), width:`calc(${colW})` }}>
-          {names[r] || `Round ${r + 1}`}</span>)}
+        {heads.map((name, c) => <span key={c} className="tv-label" style={{ left:colLeft(c), width:`calc(${colW})` }}>
+          {name}</span>)}
       </div>
       <div ref={stage} className="tv-bracket-stage" style={{ height }}>
         {lines}
@@ -84,7 +110,7 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
           const isHot = !!hot && hot[0] === r && hot[1] === m;
           return (
             <div key={`${r}-${m}`} className={`tv-bracket-match${isHot ? " is-up" : ""}${landing ? " is-landing" : ""}`}
-              style={{ left:colLeft(r), width:`calc(${colW})`, top:geo.top(r, m), height:cardH }}>
+              style={{ left:colLeft(geo.col(r, m)), width:`calc(${colW})`, top:geo.top(r, m), height:cardH }}>
               {[resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)].map((key, index) => {
                 const team = key === null || key === undefined ? null : draw.teams[key];
                 const won = decided && match.winner === key, lost = decided && !!team && !won;
@@ -139,7 +165,7 @@ function UpNowOutline({ at, from = null, leaving = false, geo, dims, colLeft, co
       if (leaving) animation = node.animate([{ opacity:1 }, { opacity:0 }], timing);
       else if (!from) animation = node.animate([{ opacity:0 }, { opacity:1 }], timing);
       else if (width > 0) {
-        const dx = geo.left(from[0]) - geo.left(r), dy = geo.top(from[0], from[1]) - geo.top(r, m);
+        const dx = geo.left(from[0], from[1]) - geo.left(r, m), dy = geo.top(from[0], from[1]) - geo.top(r, m);
         animation = node.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:"translate(0px, 0px)" }], timing);
       }
     } catch { animation = null; }
@@ -147,7 +173,7 @@ function UpNowOutline({ at, from = null, leaving = false, geo, dims, colLeft, co
   }, [motionId, playing, width]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={el} className={`tv-bracket-upnow${leaving ? " is-leaving" : ""}`} aria-hidden="true"
-      style={{ left:colLeft(r, -OUTLINE), width:`calc(${colW} + ${OUTLINE * 2}px)`, top:geo.top(r, m) - OUTLINE,
+      style={{ left:colLeft(geo.col(r, m), -OUTLINE), width:`calc(${colW} + ${OUTLINE * 2}px)`, top:geo.top(r, m) - OUTLINE,
         height:geo.cardH + OUTLINE * 2 }}>
       {dims.tab && <span className="tv-bracket-upnow-tab"><i className="fd-beat-dot tv-beat" />Up now</span>}
     </div>

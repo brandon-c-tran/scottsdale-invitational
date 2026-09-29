@@ -410,7 +410,7 @@ test("a busy weekend keeps every stored value well under the 2 MB limit", t => {
       act("runDraw", { evId:event.id, players,
         roles:ROSTER.filter(player => !chosen.has(player)).map(player => ({ player, role:"scorekeeper" })) });
     }
-    if (["pingpong", "bball1", "beerio"].includes(event.id))
+    if (["pingpong", "beerio"].includes(event.id))
       act("runStages", { evId:event.id, cfg:{ kind:"heats", nGroups:3, advance:1, players:[...ROSTER] } });
     else if (event.id === "spike") act("runStages", { evId:event.id, cfg:{ kind:"pools", nGroups:2, advance:1 } });
   };

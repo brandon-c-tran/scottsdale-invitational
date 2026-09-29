@@ -495,8 +495,11 @@ export function tickerRuling(state) {
 
 /* Ticker tags are filled with a light token and set in --ink0, so every tag
    clears 4.5:1 (clay is too dark for either ink; rulings use live2). */
+/* D4: the weekend's newest facts ride beside the latest result */
+export const FACT_TONES = Object.freeze({ streak:"var(--sun)", first:"var(--pool)", wins:"var(--olive)", bet:"var(--green)" });
+export const TICKER_FACTS = 2;
 export function tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest,
-  upNext, upNextDraw, onDeckEv, openWon, nextEv, now }) {
+  upNext, upNextDraw, onDeckEv, openWon, nextEv, now, facts = [] }) {
   const items = [];
   if (draftLive && draftLive.d.pool.length) {
     const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
@@ -511,6 +514,8 @@ export function tickerItems({ state, events, standings, allTied, draftLive, live
     items.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0, 4),
       text:`${latest.ev.name}: ${groups.length > 3 ? `${groups.length} tied` : groups.map(group => group.name).join(", ")}` });
   }
+  [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(fact => items.push({ tag:fact.tag,
+    tone:FACT_TONES[fact.kind] || "var(--accent)", players:(fact.players || []).slice(0, 4), text:fact.text }));
   if (upNext && upNextDraw) items.push({ tag:"Up now", tone:"var(--sun)",
     players:[...upNextDraw.teams[upNext.a].players, ...upNextDraw.teams[upNext.b].players].slice(0, 4),
     text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });

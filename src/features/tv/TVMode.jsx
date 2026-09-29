@@ -35,6 +35,7 @@ import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
+import { weekendFacts } from "../results/weekendFacts.js";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -716,8 +717,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
      reduced motion still rotates, it just cuts instead of fading */
   const scene = ambient[ambientIndex(ambient.length, now)] || "board";
 
+  const facts = useMemo(() => weekendFacts(state, events), [state, events]);
   const items = tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest, upNext, upNextDraw,
-    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now });
+    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts });
 
   const showTicker = !final && !(directed && sceneView.ticker === false) && connection.mode !== "loading";
   const towers = {

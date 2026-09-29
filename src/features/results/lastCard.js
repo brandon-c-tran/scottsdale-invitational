@@ -18,8 +18,8 @@ const stacksResultOf = state => {
 };
 
 /* When a wager's contest was decided: its recorded contest, else the event
-   result, else when it was placed. */
-function wagerSettledAt(state, wager) {
+   result, else when it was placed. `entry` is the recorded contest, if any. */
+export function wagerSettlement(state, wager) {
   const stack = contestStackOf(state, wager.eventId);
   let entry = null;
   if (wager.kind === "match") entry = stack.find(item => item.kind === "match"
@@ -27,9 +27,10 @@ function wagerSettledAt(state, wager) {
   else if (wager.kind === "heat" || (wager.kind === "stage" && !wager.final))
     entry = stack.find(item => item.kind === "heat" && item.group === wager.group);
   else if (wager.final) entry = stack.find(item => item.kind !== "match" && item.kind !== "heat");
-  return Number(entry?.decidedAt) || Number(state.results?.[wager.eventId]?.ts)
-    || Math.max(0, ...(wager.chips || []).map(chip => Number(chip?.ts) || 0), Number(wager.ts) || 0);
+  return { entry, at:Number(entry?.decidedAt) || Number(state.results?.[wager.eventId]?.ts)
+    || Math.max(0, ...(wager.chips || []).map(chip => Number(chip?.ts) || 0), Number(wager.ts) || 0) };
 }
+const wagerSettledAt = (state, wager) => wagerSettlement(state, wager).at;
 
 const duelSettledAt = duel => Math.max(Number(duel.ts) || 0,
   ...Object.values(duel.runs || {}).map(run => Number(run?.ts) || 0));
@@ -59,12 +60,12 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
     const result = resolveDuel(duel);
     if (!result.settled || result.push) continue;
     const stake = Number(duel.stake) || 0;
-    changes.push({ at:duelSettledAt(duel), delta:result.winner === player ? stake : -stake, kind:"duel",
+    changes.push({ at:duelSettledAt(duel), delta:result.winner === player ? stake : -stake, kind:"duel", id:duel.id,
       status:result.winner === player ? "won" : "lost", other:duel.from === player ? duel.to : duel.from });
   }
   for (const ruling of state.adjustments || []) {
     if (ruling?.player !== player || ruling.removedAt || postCountRuling(ruling)) continue;
-    changes.push({ at:Number(ruling.ts) || 0, delta:Number(ruling.delta) || 0, kind:"ruling" });
+    changes.push({ at:Number(ruling.ts) || 0, delta:Number(ruling.delta) || 0, kind:"ruling", id:ruling.id });
   }
   const order = { award:0, bet:1, duel:2, ruling:3 };
   return changes.map((change, index) => ({ ...change, index }))

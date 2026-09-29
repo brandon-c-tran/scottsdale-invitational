@@ -685,7 +685,3 @@ export function cueCandidates(state, events, { scene = null, operationEvent = nu
   }
   return { reason:null, players:[] };
 }
-
-/* whether a walkout cue is still sounding, for the chip's Stop state */
-export const cuePlayingUntil = (track, startedAt) =>
-  startedAt + Math.max(5000, Math.min(90000, (Number(track?.durationMs) || 60000) - (Number(track?.startMs) || 0)));

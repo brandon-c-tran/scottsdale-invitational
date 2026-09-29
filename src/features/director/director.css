@@ -50,3 +50,7 @@
 .fd-stack-summary div { display:flex; justify-content:space-between; align-items:center; gap:12px; }
 .fd-stack-summary strong { color:var(--ink); }
 .fd-stack-summary .fd-stack-grants { display:flex; align-items:center; gap:4px; }
+
+/* walkout cues docked in a sheet header (ui/controls.jsx SheetDock) */
+.fd-sheet-dock { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.fd-sheet-dock:empty { display:none; }

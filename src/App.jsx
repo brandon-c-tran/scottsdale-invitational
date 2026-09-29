@@ -30,7 +30,7 @@ import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
 import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
 import { TVMode } from "./features/tv/TVMode.jsx";
-import { nextOpenMatch, cueCandidates, cuePlayingUntil, tvSceneView } from "./features/tv/tvModel.js";
+import { nextOpenMatch, cueCandidates, tvSceneView } from "./features/tv/tvModel.js";
 import { serverNow, useServerClockSync } from "./lib/serverClock.js";
 import { MotionRoot, useStageHeld } from "./lib/motion.js";
 import { currentFrame } from "./lib/frameGate.js";
@@ -60,6 +60,7 @@ import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
 import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
 import { useDuelClock } from "./features/duels/useDuelClock.js";
 import { DirectorPill } from "./features/director/DirectorPill.jsx";
+import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
 import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { directorPill } from "./features/director/directorPill.js";
@@ -78,7 +79,7 @@ import {
 import { Shell } from "./ui/Shell.jsx";
 import { usePhaseTheme } from "./ui/usePhaseTheme.js";
 import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/theme.js";
-import { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet } from "./ui/controls.jsx";
+import { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet, SheetDock } from "./ui/controls.jsx";
 
 const Onboarding = lazy(() => import("./features/check-in/Onboarding.jsx")
   .then(module => ({ default:module.Onboarding })));
@@ -169,73 +170,6 @@ function Confetti({ burst }) {
       ))}
     </div>
   );
-}
-
-
-/* The audio cue is a chip beside the pill, never a wire into a scene:
-   playback happens only on an explicit tap, and its failure is a toast,
-   not a scene problem. One chip per relevant player covers ties and teams.
-   While a cue sounds its chip becomes Stop. */
-/* survives the rack unmounting under a sheet, so Stop is still there after */
-const cueMemory = { playing:null, reconnect:false };
-function CueRack({ state, cues, notify, onAudio }) {
-  const [busy, setBusy] = useState("");
-  const [playing, setPlayingState] = useState(() =>
-    cueMemory.playing && cueMemory.playing.until > Date.now() ? cueMemory.playing : null);
-  const [reconnect, setReconnectState] = useState(cueMemory.reconnect);
-  const setPlaying = value => { cueMemory.playing = value; setPlayingState(value); };
-  const setReconnect = value => { cueMemory.reconnect = value; setReconnectState(value); };
-  useEffect(() => {
-    if (!playing) return undefined;
-    const t = setTimeout(() => setPlaying(null), Math.max(0, playing.until - Date.now()));
-    return () => clearTimeout(t);
-  }, [playing]);
-  const failed = (result, fallback) => {
-    if (result.code === "reauthorize") setReconnect(true);
-    notify(result.error || fallback);
-  };
-  const play = async item => {
-    if (busy) return;
-    setBusy(item.player);
-    const result = await spotifyPlay({ uri:item.track.uri, positionMs:item.track.startMs || 0 });
-    setBusy("");
-    if (result.ok) {
-      setReconnect(false);
-      setPlaying({ player:item.player, until:cuePlayingUntil(item.track, Date.now()) });
-      notify(`${disp(state, item.player)} cue playing`, null, "gold", item.player);
-    } else failed(result, "Playback failed");
-  };
-  const stop = async () => {
-    if (busy) return;
-    setBusy("stop");
-    const result = await spotifyPause();
-    setBusy("");
-    if (result.ok) setPlaying(null);
-    else failed(result, "Could not stop playback");
-  };
-  const chip = (key, { onClick, active = false, pending = false, glyph, text }) => (
-    <button key={key} type="button" disabled={!!busy} aria-busy={pending || undefined} onClick={onClick}
-      style={{ display:"flex", alignItems:"center", gap:7, minHeight:44, background:active ? "var(--sun)" : "var(--night)",
-        border:"1px solid var(--sun)", color:active ? "var(--ink0)" : "var(--sun)", borderRadius:99,
-        padding:"8px 14px", cursor:busy ? "default" : "pointer", opacity:busy && !pending ? 0.6 : 1,
-        boxShadow:"var(--shadow-2)", maxWidth:"78vw" }}>
-      <span aria-hidden="true" style={{ fontSize:13 }}>{glyph}</span>
-      <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, whiteSpace:"nowrap",
-        overflow:"hidden", textOverflow:"ellipsis" }}>{text}</span>
-    </button>
-  );
-  if (reconnect) return chip("reconnect", { onClick:() => { setReconnect(false); onAudio?.(); },
-    glyph:"♪", text:"Reconnect Spotify in Audio Director" });
-  return cues.map(item => {
-    const sounding = playing?.player === item.player;
-    return chip(item.player, {
-      onClick:() => sounding ? stop() : play(item),
-      active:sounding,
-      pending:busy === item.player || (sounding && busy === "stop"),
-      glyph:sounding ? "■" : "♪",
-      text:`${sounding ? "Stop" : "Play"} ${disp(state, item.player)}'s walkout`,
-    });
-  });
 }
 
 /* A one-item final row should read as the end of a deliberate roster, not as
@@ -395,6 +329,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const showControlAllowed = capabilities.showControl === true;
   const audioDirectorAllowed = capabilities.audioDirector === true;
   const audioCatalogAllowed = capabilities.audioCatalog === true;
+  useWalkoutWatch(state, gmView && capabilities.audioPlayback === true);
   const qaActive = qaAllowed && qa;
 
   const events = useMemo(() => allEventsOf(state), [state]);
@@ -1461,7 +1396,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
     );
   }
 
+  /* walkout cues: beside the pill, and docked in the header of any open
+     sheet so a playing walkout can always be stopped */
+  const cueRack = gmView && audioDirectorAllowed ? docked => <CueRack docked={docked} state={state}
+    candidates={cueCandidates(state, events, { scene:activeShowScene, operationEvent:director.event,
+      now:serverNow() }).players}
+    notify={notify} onAudio={() => setModal({type:"audioDirector"})} /> : null;
   return (
+    <SheetDock.Provider value={cueRack && modal?.type !== "audioDirector" ? cueRack(true) : null}>
     <Shell environment={environment}>
       <AppHeader state={state} me={me} onHome={() => setTab("board")}
         onProfile={() => setModal({type:"profile"})} onMenu={() => setModal({type:"menu"})} gm={gmView}
@@ -1525,22 +1467,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
       </main>
 
       {(() => {
-        const cueTracks = gmView && audioDirectorAllowed
-          ? cueCandidates(state, events, { scene:activeShowScene, operationEvent:director.event, now:serverNow() })
-              .players.map(player => ({ player, track:state.profiles?.[player]?.walkoutTrack }))
-              .filter(item => item.track)
-          : [];
-        if ((!gmView && !cueTracks.length) || modal) return null;
+        if (!gmView || modal) return null;
         return (
           <div style={{ position:"fixed", right:14, zIndex:56,
             bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
               : tab === "bets" && me && onDeckEv && !state.frozen ? 232 : 84}px + env(safe-area-inset-bottom))`,
             display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-            {!!cueTracks.length && (
+            {cueRack && (
               <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-end", gap:8,
                 maxWidth:"78vw", maxHeight:"40vh", overflowY:"auto" }}>
-                <CueRack state={state} cues={cueTracks} notify={notify}
-                  onAudio={() => setModal({type:"audioDirector"})} />
+                {cueRack(false)}
               </div>
             )}
             {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
@@ -1952,6 +1888,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         onStandings={() => { lastCard.close(); setTab("board"); setModal({ type:"standings" }); }} />}
       {!loaded && <LoadingScreen />}
     </Shell>
+    </SheetDock.Provider>
   );
 }
 
@@ -4421,6 +4358,8 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
       uri:track.uri,
       deviceId,
       positionMs:track.startMs || 0,
+      player:playerName,
+      durationMs:track.durationMs,
     });
     setBusy("");
     if (!result.ok) return setError(result.error || "Playback failed");
@@ -4454,8 +4393,8 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
             textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
             Connect the Spotify app</div>
           <div style={{ ...pStyle, marginBottom:14 }}>
-            Add <b>SPOTIFY_CLIENT_ID</b> and <b>SPOTIFY_CLIENT_SECRET</b> as staging
-            Worker secrets, then register this exact callback URL in Spotify:</div>
+            Add <b>SPOTIFY_CLIENT_ID</b> and <b>SPOTIFY_CLIENT_SECRET</b> as Worker
+            secrets, then register this exact callback URL in Spotify:</div>
           <div style={{ padding:"11px 12px", border:"1px solid var(--line)", borderRadius:10,
             background:"var(--paper2)", fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
             fontSize:11.5, lineHeight:1.45, overflowWrap:"anywhere", color:"var(--ink)",

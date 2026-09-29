@@ -470,11 +470,14 @@ export const spotifyAuthorize = () =>
   spotifyRequest("authorize", { method:"POST", gm:true });
 export const spotifyDisconnect = () =>
   spotifyRequest("disconnect", { method:"POST", gm:true });
-export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs = 0 } = {}) =>
+/* `player` names a walkout cue and `durationMs` bounds a searched track, so
+   the Worker can stamp how long Field Day's own sounds stay silent */
+export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs = 0, player = null,
+  durationMs = null } = {}) =>
   spotifyRequest("play", {
     method:"POST",
     gm:true,
-    body:{ uri, deviceId:targetDevice, positionMs },
+    body:{ uri, deviceId:targetDevice, positionMs, player, durationMs },
   });
 export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
   spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });

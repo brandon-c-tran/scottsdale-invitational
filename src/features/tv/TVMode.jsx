@@ -663,8 +663,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   /* M14 and M18: what moves, fresh only, from the write's own server time */
   const bracketMotion = useBracketMotion(state, activeBracketEv, upNext ? [upNext.r, upNext.m] : null);
   const crown = useCrownMoment(state, showScene);
-  /* D2 and D3: the face-off at a fresh lock, the class photo's entrance */
-  const faceOff = useFaceOff(state, liveEv, liveContest);
+  /* D3: the class photo's entrance */
   const classMoment = useClassMoment(showScene);
   const slotAdvance = !!advance && advance.kind === "match" && !!activeBracketEv;
 
@@ -672,8 +671,6 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const resultModel = useMemo(() => resultMoment ? resultPresentation(state, events, resultMoment.eventId) : null,
     [state, events, resultMoment?.eventId]); // eslint-disable-line react-hooks/exhaustive-deps
   const correction = champion ? null : correctionMoment(state, events, now);
-  /* A3: the room's sounds, on the same beats and server anchors */
-  useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now });
 
   /* the Desert Clock: the session's sky behind the masthead, the whole
      horizon behind the towers; winners' stars from Saturday night on. The
@@ -701,6 +698,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const ceremonyReveal = !sceneIntroEv ? ceremony?.reveal || null : null;
   const ceremonyIntroEv = !sceneIntroEv && !ceremonyReveal && ceremony?.intro
     ? events.find(e => e.id === ceremony.intro && !state.results?.[e.id]) || null : null;
+  /* D2: the face-off when a two-sided contest opens for bets, after the
+     intro and draw or the decided contest (faceOffStart); anything still
+     covering the live pane then holds it (faceOffGate) */
+  const liveCovered = !!(sceneIntroEv || ceremonyIntroEv || ceremonyReveal || directed || resultModel);
+  const faceOff = useFaceOff(state, liveEv, liveContest, { covered:liveCovered });
+  /* A3: the room's sounds, on the same beats and server anchors */
+  useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now, faceOff });
 
   const dock = final ? null : dockCard({ now, correction,
     lead:leadCard && !directed && !resultModel ? leadCard : null,

@@ -6,13 +6,19 @@
      S2  the event intro, at eventOps.announcedAt
      S3  each draw card, at revealTimeline().revealAt + drawStepDelay(i, n),
          panned to the card's column
+     faceOff  D2, a low drum and knock as the face-off's VS stamps (the
+         face-off itself waits for the intro, the draw or the decided
+         contest, so this beat never lands on theirs)
      S8  betting locks (lockAndStart), at bettingLockedAt
      S5  chips landing on the board, through the density rule
      S10 WON, S11 losing stacks to the bank, S12 the payout, and for a
          bracket the ride, the landing and a quiet UP NOW bell, on
          ADVANCE_TIMING from the decision's own write time
      S14 a result posted (or a winner scene starting)
-     S15 a new leader (the ChipTowers lead ring and the flat board's leader)
+     S15 a new leader (the ChipTowers lead ring and the flat board's
+         leader). A lead that changes with a decided contest rings when
+         its lead card docks, after the contest's moment (dockCard); one
+         that changes with a posted result leaves the frame to S14.
      S18 a draft pick landing in its seat (MOTION.cardFlight)
      S20 a fresh deal, S21 blinds up, S22 a bust
      S23/S24/S10/S1 the crown on CROWN_TIMING
@@ -32,6 +38,8 @@ import { buildEventReveal, drawStepDelay, revealReady, revealTimeline } from "..
 import { sideKeyOf } from "../wagers/betStacks.js";
 import { levelAnchor, levelRoll } from "../poker/pokerMotion.js";
 import { ADVANCE_TIMING as A, CROWN_TIMING as C } from "./tvMotion.js";
+import { FACEOFF_TIMING } from "./faceOff.js";
+import { TV_ADVANCE_MS } from "./tvModel.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -104,6 +112,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
   return {
     announced, reveals, locks, results, drafts, chips,
     leader:leaderRows.map(row => row.player).sort().join("+"),
+    decidedAt:liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0,
     frozen:!!state.frozen,
     poker:pk ? { id:pk.id, ts:Number(pk.ts) || 0, started:!!pk.startedAt, outs:(pk.outs || []).length,
       posted:!!state.results?.[pk.id] } : null,
@@ -173,9 +182,15 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
     if (next.scene.kind === "opening") add("S1", next.scene.startedAt, { key:`scene:${next.scene.id}` });
   }
 
-  /* a new leader, never on the crown itself */
-  if (!next.frozen && next.leader && prev.leader && next.leader !== prev.leader)
-    add("S15", now, { key:`lead:${next.leader}:${now}` });
+  /* a new leader, never on the crown itself. A posted result owns its frame
+     (S14); a lead that came with a decided contest rings when its lead card
+     docks, after that contest's moment (tvModel dockCard/advanceHoldUntil),
+     not on top of its WON. */
+  if (!next.frozen && next.leader && prev.leader && next.leader !== prev.leader && !rang) {
+    const decided = Number(next.decidedAt) || 0;
+    const held = decided && Math.abs(now - decided) <= TV_ADVANCE_MS + 5000 ? decided + TV_ADVANCE_MS : 0;
+    add("S15", Math.max(now, held), { key:`lead:${next.leader}:${now}` });
+  }
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))
@@ -230,6 +245,13 @@ export function crownCues(crown, { reduced = false } = {}) {
   ];
 }
 
+/* D2: one restrained beat as the face-off's VS stamps. The face-off is
+   fresh-gated and never plays under reduced motion, so neither does this. */
+export function faceOffCues(faceOff) {
+  if (!faceOff?.id || !Number.isFinite(Number(faceOff.anchor))) return [];
+  return [{ id:"faceOff", at:Number(faceOff.anchor) + FACEOFF_TIMING.vs, key:`faceoff:${faceOff.id}` }];
+}
+
 /* The fresh gate: the first snapshot (a load, a TV joining late) and any
    frame that is not fresh (a reconnect, a catch-up, a correction) owe the
    room nothing. */
@@ -250,7 +272,8 @@ const reducedNow = () => typeof window !== "undefined" && !!window.matchMedia?.(
 /* The TV's one sound hook (TVMode): state beats on fresh frames, the
    decided contest and the crown from the moments TVMode already derives,
    and the blind clock rolling on its own. */
-export function useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now }) {
+export function useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now,
+  faceOff = null }) {
   const snap = roomSnapshot(state, events, { standings, allTied, liveEv, showScene });
   const last = useRef(null);
   useEffect(() => {
@@ -268,6 +291,14 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
     if (!freshFrameNow()) return;
     playCues(advanceCues(advance, bracketMotion, { reduced:reducedNow() }));
   }, [advanceId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* the face-off is fresh-gated already (useFaceOff), and plays once */
+  const faced = useRef(null);
+  useEffect(() => {
+    if (!faceOff?.id || faced.current === faceOff.id) return;
+    faced.current = faceOff.id;
+    playCues(faceOffCues(faceOff));
+  }, [faceOff?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* the crown moment is fresh-gated already (useCrownMoment) */
   const crowned = useRef(null);

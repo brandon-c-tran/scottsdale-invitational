@@ -7,6 +7,7 @@ import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { drawRevealGroups, drawStepAt, drawStepDelay, revealTimeline, startDrawPlayback } from "./drawReveal.js";
 import { playSound } from "../../lib/sound.js";
+import { currentFrame } from "../../lib/frameGate.js";
 import "./announcement.css";
 
 export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3000, visual, now:clockNow = serverNow }) {
@@ -77,6 +78,10 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
   const mineIndex = me ? groups.findIndex(group => group.lines.some(line => (line.avatars || []).includes(me))) : -1;
   useEffect(() => {
     if (startAt === null || mineIndex < 0 || (!reducedMotion && mineIndex < joined)) return;
+    /* only a phone following live: a draw this phone is catching up on (a
+       first load, a reconnect, a rehearsal jump) shows its cards silently,
+       as the TV's S3 is silent then */
+    if (!currentFrame().fresh) return;
     playSound("S4", { at:reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key:`card:${reveal.id}` });
   }, [reveal.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const you = usePlayerIdentity(me);

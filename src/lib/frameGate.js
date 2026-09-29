@@ -9,8 +9,9 @@
         after a connect or reconnect is a catch-up, never news),
      4. the phone is not settling after a return to the foreground (from the
         foreground probe until that probe's hello is answered),
-     5. the page is visible, and
-     6. it is not a correction: a result overwrite or clear, a contest
+     5. the page is visible,
+     6. it is not a rehearsal jump (JUMP_ACTIONS), and
+     7. it is not a correction: a result overwrite or clear, a contest
         correction or undo, a void, a removed ruling, a take-back, a poker
         cancel, or any frame that adds a correction entry to eventOps.
    Everything else renders its end state at once. */
@@ -22,6 +23,11 @@ export const REWIND_ACTIONS = Object.freeze(new Set([
   "removeAdjustment", "undoDraftPick", "cancelDraft", "takeBackAnnouncement", "returnToLockerRoom",
   "resetTournament", "restoreEvent", "pokerCancel", "pokerUnbust", "clearDraw", "clearStages",
 ]));
+
+/* Rehearsal jumps: one write that plays many reducers to land on a named
+   point of the weekend (the QA console). Their frames are a teleport, not
+   news: the screens show where the board landed, silently. */
+export const JUMP_ACTIONS = Object.freeze(new Set(["qaAdvance", "qaRestore"]));
 
 /* The newest correction stamp in state: the count of entries and the latest
    `at` across every event's correction history. Entries are capped per event,
@@ -66,10 +72,11 @@ export function classifyFrame({ msg, prevState = null, hadState = false, settlin
   hidden = false, accepted = true } = {}) {
   const lastAction = typeof msg?.lastAction === "string" ? msg.lastAction : null;
   const resync = typeof msg?.hello === "number";
-  const live = accepted && !!lastAction && !resync && hadState && !settling && !hidden;
+  const jump = !!lastAction && JUMP_ACTIONS.has(lastAction);
+  const live = accepted && !!lastAction && !resync && hadState && !settling && !hidden && !jump;
   const correction = accepted && isCorrectionFrame(prevState, msg?.state, lastAction);
   const reason = !accepted ? "stale" : !hadState ? "first" : resync ? "resync"
-    : settling ? "settling" : hidden ? "hidden" : !lastAction ? "quiet"
+    : settling ? "settling" : hidden ? "hidden" : !lastAction ? "quiet" : jump ? "jump"
       : correction ? "correction" : "fresh";
   return { live, correction, fresh:live && !correction, reason, lastAction };
 }

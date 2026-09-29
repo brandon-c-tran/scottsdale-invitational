@@ -14,7 +14,7 @@ import { applyAction } from "./support/confirmed-start.mjs";
 import { CROWN_TIMING, nextLatch } from "../src/features/tv/tvMotion.js";
 import { freshChangeStep, MOTION } from "../src/lib/motion.js";
 
-/* D1 (the room floods on the crown), D2 (the face-off at lock) and D3 (the
+/* D1 (the room floods on the crown), D2 (the face-off before the bets) and D3 (the
    class photo and the poster): pure timing, selection and layout models, the
    real reducers for the scene step, and the real components' markup. */
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -144,40 +144,39 @@ test("D1: the phone moment floods on every phone and sits on the TV's timeline",
   assert.ok(!/#[0-9a-f]{3,6}\b|gradient/i.test(css), "tokens only, flat");
 });
 
-/* ── D2: the face-off at lock ── */
+/* ── D2: the face-off before the bets ── */
 const bracketOpen = () => {
   const state = { ...structuredClone(EMPTY_STATE), profiles:profiles() };
   act(state, "announceAndDraw", { evId:"bball1", players:ROSTER });
   return state;
 };
-test("D2: only a fresh lock of a two-sided contest plays, and it keys on the lock's own time", () => {
-  assert.equal(ui.faceOffPlays("betting-open", "in-progress"), true);
-  assert.equal(ui.faceOffPlays("betting-locked", "in-progress"), true);
-  assert.equal(ui.faceOffPlays(null, "in-progress"), false, "a first render (reload, late TV) never plays");
-  assert.equal(ui.faceOffPlays("in-progress", "awaiting-result"), false);
-  assert.equal(ui.faceOffPlays("betting-open", "betting-open"), false);
-  assert.ok(ui.FACEOFF_TIMING.settle === MOTION.beat, "it settles after one beat");
-
-  /* the latch the hook runs: a fresh phase step builds the moment, a
-     stale-frame step does not */
-  const committed = { value:"betting-open", key:"bball1:c", frameSeq:1, changeId:0, from:"betting-open", to:"betting-open" };
-  const freshStep = freshChangeStep(committed, { value:"in-progress", key:"bball1:c", frame:{ fresh:true, seq:2, at:Date.now() } });
-  const latch = nextLatch(null, { change:{ ...freshStep, animate:true }, key:"bball1:c",
-    build:(from, to) => ui.faceOffPlays(from, to) ? { anchor:1 } : null });
-  assert.ok(latch.moment, "a fresh lock latches a face-off");
-  const quiet = freshChangeStep(committed, { value:"in-progress", key:"bball1:c", frame:{ fresh:false, seq:2, at:Date.now() } });
-  assert.equal(quiet.fresh, false, "a catch-up frame shows the normal layout");
-
+test("D2: a two-sided contest opening for bets plays, before the bets and not at the lock", () => {
   const state = bracketOpen();
   const ev = allEventsOf(state).find(item => item.id === "bball1");
-  const before = Date.now();
+  const open = resolveCurrentContest(state, ev);
+  assert.equal(open.phase, "betting-open");
+  const key = ui.faceOffKey(ev, open);
+  assert.equal(key, `bball1:${open.id}`);
+  assert.equal(ui.faceOffPlays(null, key), true, "the market opening");
+  assert.equal(ui.faceOffPlays(key, key), false);
+  assert.equal(ui.faceOffPlays(key, null), false, "the lock closes the market: nothing plays");
+  assert.ok(ui.FACEOFF_TIMING.settle === MOTION.beat, "it settles after one beat");
   act(state, "lockAndStart", { evId:"bball1", ...ref(state, "bball1") });
-  const contest = resolveCurrentContest(state, ev);
-  assert.equal(contest.phase, "in-progress");
-  const lockedAt = state.eventOps.bball1.bettingLockedAt;
-  assert.ok(lockedAt >= before);
-  assert.equal(ui.faceOffAnchor(state, ev, lockedAt + 300), lockedAt, "anchored on the lock write");
-  assert.equal(ui.faceOffAnchor(state, ev, lockedAt + 60_000), lockedAt + 60_000, "an old lock plays from now");
+  assert.equal(ui.faceOffKey(ev, resolveCurrentContest(state, ev)), null, "a locked contest is not a face-off");
+  const wide = { ...open, sides:[...open.sides, { key:99, players:["Ben"] }] };
+  assert.equal(ui.faceOffKey(ev, wide), null, "a free-for-all never is");
+
+  /* the latch the hook runs: a fresh step to a new open contest builds the
+     moment, a catch-up frame does not */
+  const committed = { value:null, key:"tv-contest", frameSeq:1, changeId:0, from:null, to:null };
+  const freshStep = freshChangeStep(committed, { value:key, key:"tv-contest", frame:{ fresh:true, seq:2, at:Date.now() } });
+  const latch = nextLatch(null, { change:{ ...freshStep, animate:true }, key:"tv-contest",
+    build:(from, to) => ui.faceOffPlays(from, to) ? { anchor:1 } : null });
+  assert.ok(latch.moment, "a fresh opening latches a face-off");
+  const quiet = freshChangeStep(committed, { value:key, key:"tv-contest", frame:{ fresh:false, seq:2, at:Date.now() } });
+  assert.equal(quiet.fresh, false, "a catch-up frame shows the betting board");
+  assert.equal(freshChangeStep(null, { value:key, key:"tv-contest", frame:{ fresh:true, seq:2, at:Date.now() } }).fresh,
+    false, "a first render (reload, late TV) never plays");
 });
 
 test("D2: two sides, their photo chips, and a record only when they have met", () => {

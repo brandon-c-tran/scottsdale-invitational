@@ -4035,8 +4035,8 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         num={num} setNum={setNum} size={size} setSize={setSize}
         onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
       <VibrationToggle />
-      <AlertsToggle />
       <SoundToggle />
+      <AlertsToggle />
       </div>
       <div hidden={section !== "travel"}>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}

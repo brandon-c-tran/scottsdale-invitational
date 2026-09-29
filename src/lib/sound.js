@@ -102,6 +102,14 @@ export function scheduleTime({ at, now, currentTime = 0, outputLatency = 0, late
   return Math.max(currentTime + 0.005, currentTime + ahead / 1000 - latency);
 }
 
+/* The commissioner's "saved" (S25) is a courtesy: when this phone's own
+   moment sounded for the same write (You're playing lands with the ack of
+   the winner tap that seated him), the ack stays quiet instead of stacking
+   on it. A failure (S26) always sounds. */
+export const GM_YIELD_MS = 400;
+export const ackYields = (id, lastYouAt, target) => id === "S25" && Number.isFinite(Number(lastYouAt))
+  && Number(lastYouAt) > 0 && Math.abs(Number(target) - Number(lastYouAt)) <= GM_YIELD_MS;
+
 /* A remote moment may sound only on a fresh frame that arrived just now. */
 export function freshFrameNow(frame = currentFrame(), now = Date.now()) {
   return !!frame?.fresh && now - (Number(frame.at) || 0) <= SOUND_FRESH_MS;
@@ -110,7 +118,7 @@ export function freshFrameNow(frame = currentFrame(), now = Date.now()) {
 /* ── the live engine ── */
 const engine = {
   ctx:null, E:null, surface:"phone", room:"fri", walkout:null, quickDraw:false, hushed:false,
-  resuming:false, unlockedOnce:false, keys:[], chips:null, timers:new Set(), walkoutTimer:null,
+  resuming:false, unlockedOnce:false, keys:[], chips:null, timers:new Set(), walkoutTimer:null, lastYouAt:0,
   factory:null, installed:false,
 };
 const listeners = new Set();
@@ -282,7 +290,9 @@ export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, ke
     const target = at === null || at === undefined ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
     if (!Number.isFinite(target) || target - now < -lateMs) return null;
     if (isHushed(Math.max(now, target))) return null;
+    if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
     if (seenKey(key)) return null;
+    if (bus === "you") engine.lastYouAt = target;
     const fire = () => {
       if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
       const c = engine.ctx;
@@ -354,6 +364,6 @@ export function __resetSoundEngine({ factory = null } = {}) {
   clearTimeout(engine.walkoutTimer);
   try { engine.ctx?.close?.(); } catch {}
   Object.assign(engine, { ctx:null, E:null, surface:"phone", room:"fri", walkout:null, quickDraw:false, hushed:false,
-    resuming:false, unlockedOnce:false, keys:[], chips:null, timers:new Set(), walkoutTimer:null, factory });
+    resuming:false, unlockedOnce:false, keys:[], chips:null, timers:new Set(), walkoutTimer:null, lastYouAt:0, factory });
 }
 export const __soundEngine = () => engine;

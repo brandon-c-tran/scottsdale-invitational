@@ -321,6 +321,8 @@ export const PARTS = Object.freeze([
     play:(E, t) => { M.bell(E, t, NOTE.A4, { gain:0.7 }); M.bell(E, t + 0.17, NOTE.D5, { gain:0.7 });
       M.bell(E, t + 0.34, NOTE.Fs5, { gain:0.65 }); M.bell(E, t + 0.62, NOTE.A5, { gain:0.55, dec:4 });
       M.drum(E, t + 0.62, { f:NOTE.D2, dec:1.2, gain:0.6 }); } },
+  { id:"faceOff", name:"The sides meet", ms:600,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.5, gain:0.55 }); M.knock(E, t + 0.02, { pitch:0.85, gain:0.45 }); } },
   { id:"crowd", name:"Several chips at once", ms:300,
     play:(E, t, o = {}) => riffle(E, t, Math.max(3, Math.min(6, o.n || 4)), { gain:0.7, gap:0.04 }) },
 ].map(Object.freeze));

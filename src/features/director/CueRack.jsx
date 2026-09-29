@@ -67,6 +67,9 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
   const sounding = soundingWalkout(walkout, serverNow());
   const all = cueRackItems(state, candidates, sounding);
   const items = docked ? dockItems(all) : all;
+  /* beside the pill, more than two cues (a pair, a team) carry just the
+     name, so they wrap into rows instead of a column over the screen */
+  const short = docked || items.length > 2;
 
   const failed = (result, fallback) => {
     if (result.code === "reauthorize") setCueState({ reconnect:true });
@@ -121,7 +124,7 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
       active:item.sounding,
       pending:busy === item.player || (item.sounding && busy === "stop"),
       glyph:item.sounding ? "■" : "♪",
-      text:docked ? (item.sounding ? `Stop${name ? ` ${name}` : ""}` : name) : full,
+      text:short ? (item.sounding ? `Stop${name ? ` ${name}` : ""}` : name) : full,
       aria:full,
     });
   });

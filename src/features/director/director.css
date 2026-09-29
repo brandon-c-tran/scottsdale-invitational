@@ -51,6 +51,9 @@
 .fd-stack-summary strong { color:var(--ink); }
 .fd-stack-summary .fd-stack-grants { display:flex; align-items:center; gap:4px; }
 
-/* walkout cues docked in a sheet header (ui/controls.jsx SheetDock) */
-.fd-sheet-dock { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+/* walkout cues docked in a sheet header (ui/controls.jsx SheetDock), on a
+   row of their own under the title, so a sheet with header actions never
+   squeezes its title into a column at 390px; Close stays top right */
+.fd-sheet-header:has(> .fd-sheet-dock:not(:empty)) { flex-wrap:wrap; row-gap:4px; }
+.fd-sheet-dock { order:1; flex:1 0 100%; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; }
 .fd-sheet-dock:empty { display:none; }

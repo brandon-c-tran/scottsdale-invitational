@@ -162,10 +162,10 @@
 .tv-class.is-playing .tv-class-title { animation:tv-crown-in 400ms ease-out calc(var(--tl) + 1500ms) both; }
 @keyframes tv-class-in { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:none; } }
 
-/* ── D2: the face-off at lock ──
+/* ── D2: the face-off, before the bets ──
    Over the live pane: both sides slide in from their own edges, VS stamps,
    their record and win lines follow, and at MOTION.beat the whole card lifts
-   off the normal layout underneath. Resting style is the end state. */
+   off the betting board underneath. Resting style is the end state. */
 .tv-faceoff { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:26px; padding:20px 56px 28px; background:var(--night); overflow:hidden;
   animation:tv-faceoff-out 400ms ease-in calc(var(--tl) + var(--faceoff-settle, 2000ms)) both; }

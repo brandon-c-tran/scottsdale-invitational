@@ -22,8 +22,8 @@ function FaceOffSide({ side, from, lines }) {
 }
 
 /* D2: both sides, face to face, over the live pane until it settles into
-   the normal layout underneath. Every delay is "this long after the lock"
-   (--tl, as the crown and the bracket advance use it). */
+   the betting board underneath. Every delay is "this long after the
+   face-off's start" (--tl, as the crown and the bracket advance use it). */
 export function FaceOff({ state, events, ev, contest, view, moment }) {
   const lines = useContestWinLines(state, ev, contest, events);
   return (

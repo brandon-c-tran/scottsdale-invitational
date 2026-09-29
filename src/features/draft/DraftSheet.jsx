@@ -4,7 +4,8 @@ import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { tapTick } from "../../lib/haptics.js";
-import { MOTION, fly, rectVisible, useFreshChange } from "../../lib/motion.js";
+import { MOTION, fly, prefersReducedMotion, rectVisible, useFreshChange } from "../../lib/motion.js";
+import { playSound, unlockSound } from "../../lib/sound.js";
 import { useFlip, useFreshHold } from "../../lib/motionKit.js";
 import { landedPick } from "./draftModel.js";
 import "./draft.css";
@@ -164,8 +165,11 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   const pick = player => {
     if (!canPick || saving.current) return;
     tapTick();
+    unlockSound();
     focusAfterPick.current = true;
-    return submit(`pick:${player}`, () => onPick(player, ref));
+    /* S18: the card slaps down as it lands in its seat */
+    return submit(`pick:${player}`, () => onPick(player, ref),
+      () => playSound("S18", { bus:"you", delayMs:prefersReducedMotion() ? 0 : MOTION.cardFlight }));
   };
   return shell(<div className={`fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`} ref={board} tabIndex={-1}>
     <section className={`fd-draft-turn${myTurn ? " is-mine" : ""}${turn.complete ? " is-complete" : ""}`}

@@ -35,6 +35,8 @@ import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
+import { useRoomSound } from "./roomSound.js";
+import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -657,6 +659,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   const resultModel = useMemo(() => resultMoment ? resultPresentation(state, events, resultMoment.eventId) : null,
     [state, events, resultMoment?.eventId]); // eslint-disable-line react-hooks/exhaustive-deps
   const correction = champion ? null : correctionMoment(state, events, now);
+  /* A3: the room's sounds, on the same beats and server anchors */
+  useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now });
 
   /* the Desert Clock: the session's sky behind the masthead, the whole
      horizon behind the towers; winners' stars from Saturday night on. The
@@ -867,6 +871,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
           handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} />}
         {ceremonyReveal && <TVDrawReveal key={ceremonyReveal.id} state={state} events={events} reveal={ceremonyReveal}
           reducedMotion={reducedMotion} onDone={ceremony?.onRevealDone || null} />}
+        <SoundUnlockChip />
       </div>
       <button type="button" className={`tv-exit${pointerActive ? "" : " is-idle"}`} onClick={onExit}
         aria-label="Exit TV mode">Exit TV</button>

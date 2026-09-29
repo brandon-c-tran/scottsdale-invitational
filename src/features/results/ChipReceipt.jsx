@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { MOTION, fly, useCountBetween, useReducedMotion } from "../../lib/motion.js";
+import { playSound } from "../../lib/sound.js";
 import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, receiptDockStyle, signedAmount } from "./resultMoment.js";
 import "./results.css";
 
@@ -31,6 +32,11 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
 
   /* won chips leave each line's stack for the total, once per line */
   useLayoutEffect(() => {
+    /* S12, or S17 for a duel: one riffle as the first won chips land (losses
+       are silent; reduced motion keeps the riffle, not the flight) */
+    const won = moment?.animate ? lines.findIndex(line => line.delta > 0 && !flown.current.has(line.id)) : -1;
+    if (won >= 0) playSound(lines.slice(won).every(line => line.delta <= 0 || line.kind === "duel") ? "S17" : "S12",
+      { delayMs:animate ? won * LINE_STAGGER + 120 + MOTION.flight + 180 : 0, key:`receipt:${moment.id}:${version}` });
     if (!animate || !moment) return undefined;
     const timers = [];
     lines.forEach((line, index) => {

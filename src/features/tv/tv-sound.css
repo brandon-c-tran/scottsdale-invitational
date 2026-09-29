@@ -1,0 +1,6 @@
+/* A5: the TV's one sound control, inside the 1920x1080 canvas, above the
+   ticker in the bottom-left corner; gone after the click. */
+.tv-sound-chip { position:absolute; left:32px; bottom:98px; z-index:40; display:inline-flex; align-items:center; gap:12px;
+  min-height:60px; padding:0 26px 0 20px; border:0; border-radius:99px; background:var(--sun); color:var(--ink0);
+  font:600 26px/1 'Inter', system-ui, sans-serif; box-shadow:var(--shadow-2); cursor:pointer; }
+.tv-sound-chip:focus-visible { outline:3px solid var(--bone); outline-offset:3px; }

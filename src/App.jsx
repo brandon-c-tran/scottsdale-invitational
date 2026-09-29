@@ -15,6 +15,9 @@ import { deriveHomeModel } from "./features/home/homeModel.js";
 import { guestLedger, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
+import { SoundToggle } from "./features/profile/SoundToggle.jsx";
+import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
+import { usePhoneSounds } from "./features/home/phoneSound.js";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
@@ -415,7 +418,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const tvCeremonyHold = !!tvSceneMode?.covers;
   const weekendOperation = useMemo(() => resolveWeekendOperation(state, events), [state, events]);
   /* the session's surfaces, the same phase the TV sky draws */
-  usePhaseTheme({ state, events, operationEvent:weekendOperation.event, settled:ready });
+  const livingPhase = usePhaseTheme({ state, events, operationEvent:weekendOperation.event, settled:ready });
+  /* A1: sound follows the surface, the session's room and the walkout hush */
+  useSoundSystem({ state, tv, phase:livingPhase });
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
@@ -627,6 +632,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
     const buzz = tv ? null : updateHaptic(prev, next, { state, skipDuel:playing });
     if (buzz) haptic(buzz);
   }, [state, standings, events, me, ready, onboardStep, notify]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* A4: the lead, a challenge, your draft turn: sounds only for this phone's own player */
+  usePhoneSounds({ state, standings, me, active:ready && !tv && onboardStep >= 99 });
   /* X5: the crown plays once per phone, then Home reopens the last card */
   /* a board settling a contest in place plays first; the receipt follows */
   const stageHeld = useStageHeld();
@@ -1630,6 +1637,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
           <MenuGroup title="Setup and records">
             <MenuRow name="Trip details" onClick={() => pushModal({type:"logistics"})} />
             <MenuRow name="Travel sheet" onClick={() => pushModal({type:"travelSheet"})} />
+            {/* A5: launched this way, the TV keeps its sound after every reload */}
+            <MenuRow name="TV sound shortcut" note={tvKioskCommand(window.location.origin)}
+              onClick={() => (navigator.clipboard?.writeText ? navigator.clipboard.writeText(tvKioskCommand(window.location.origin))
+                : Promise.reject(new Error("no clipboard"))).then(() => notify("Shortcut copied"), () => notify("Copy failed. Type it from the note."))} />
             {qaAllowed && <MenuRow name={qa ? "QA mode off" : "QA mode"}
               onClick={() => { toggleQa(); setModal(null); }} />}
             {capabilities.snapshotExport && <MenuRow name="Export snapshot" onClick={async () => {
@@ -4076,6 +4087,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         num={num} setNum={setNum} size={size} setSize={setSize}
         onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
       <VibrationToggle />
+      <SoundToggle />
       </div>
       <div hidden={section !== "travel"}>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}

@@ -5,7 +5,8 @@ import { GameMark } from "../../ui/GameMark.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { drawRevealGroups, drawStepAt, revealTimeline, startDrawPlayback } from "./drawReveal.js";
+import { drawRevealGroups, drawStepAt, drawStepDelay, revealTimeline, startDrawPlayback } from "./drawReveal.js";
+import { playSound } from "../../lib/sound.js";
 import "./announcement.css";
 
 export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3000, visual, now:clockNow = serverNow }) {
@@ -70,6 +71,14 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
     playback.current = next;
     return () => next.stop();
   }, [reveal.id, total, animate, run, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* S4: your card rings on your phone the instant the room turns it (the
+     TV's S3 lands on the same server time); reduced motion rings once as
+     the whole draw shows */
+  const mineIndex = me ? groups.findIndex(group => group.lines.some(line => (line.avatars || []).includes(me))) : -1;
+  useEffect(() => {
+    if (startAt === null || mineIndex < 0 || (!reducedMotion && mineIndex < joined)) return;
+    playSound("S4", { at:reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key:`card:${reveal.id}` });
+  }, [reveal.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const you = usePlayerIdentity(me);
   const youStyle = { "--fd-you":you.color, "--fd-you-ink":you.isLight ? "var(--ink0)" : "var(--bone)" };
   const complete = shown >= total;

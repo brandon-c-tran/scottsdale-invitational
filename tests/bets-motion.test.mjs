@@ -157,6 +157,37 @@ test("M4: the pending guard still admits one write at a time; flights ride along
   assert.equal(picks[0].stake, 100);
 });
 
+test("roulette taps: + tapped while a chip saves queues behind it, one write at a time; a failure drops the rest", async () => {
+  const run = async outcome => {
+    const { state, bystanders } = liveMatch();
+    const me = bystanders[0];
+    const picks = [], resolvers = [];
+    let clicks = [];
+    const createElement = React.createElement;
+    React.createElement = (type, props, ...children) => {
+      if (type === "button" && props?.onClick && /^Place a chip on/.test(props["aria-label"] || "")) clicks.push(props.onClick);
+      return createElement(type, props, ...children);
+    };
+    try {
+      renderToStaticMarkup(createElement(PlayerIdentityProvider, { profiles:state.profiles },
+        createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
+          wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onRetract() {}, onPlayer() {},
+          onPick:pick => { picks.push(pick); return new Promise(resolve => resolvers.push(resolve)); } })));
+    } finally { React.createElement = createElement; }
+    for (let i = 0; i < 7; i++) clicks[0]();
+    assert.equal(picks.length, 1, "only one write is in flight");
+    const settle = async () => { resolvers.at(-1)(outcome); await new Promise(resolve => setTimeout(resolve, 0)); };
+    for (let i = 0; i < 6 && resolvers.length > picks.length - 1 && picks.length === resolvers.length; i++) {
+      const before = picks.length;
+      await settle();
+      if (picks.length === before) break;
+    }
+    return picks.length;
+  };
+  assert.equal(await run({ ok:true }), 5, "the first write and four queued taps all land, in order");
+  assert.equal(await run({ ok:false, error:"Over your limit" }), 1, "a refused chip clears the queue");
+});
+
 test("M5: a decided contest is read from the record: winner, settled stacks, payouts", () => {
   const { state, bystanders } = liveMatch();
   const [a, b, c] = bystanders;

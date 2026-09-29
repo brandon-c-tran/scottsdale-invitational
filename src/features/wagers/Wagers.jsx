@@ -71,12 +71,17 @@ function mergeWagerLines(list) {
 export const isUncertainResult = result => result?.ok !== true && (result?.uncertain === true
   || result?.status === "uncertain" || /no response/i.test(String(result?.error || "")));
 
+const PLACE_QUEUE = 4;
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
   roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
   const pendingRef = useRef(false);
+  /* roulette taps: a + tapped while a chip is saving queues behind it (one
+     write at a time still), up to PLACE_QUEUE; any failure clears the queue */
+  const pendingKindRef = useRef(null), queueRef = useRef([]);
+  const [queued, setQueued] = useState(0);
   /* M4: the chip in the air for the write in flight (presentation only) */
   const wellRef = useRef(null), mineRef = useRef(null), flightRef = useRef(null);
   const mine = bets.filter(x => x.w.player === me).sort((a, b) => {
@@ -159,18 +164,34 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       back:() => {}, cancel:() => {},
     };
   };
-  const act = (kind, callback) => {
-    if (pendingRef.current) return;
+  const act = (kind, callback, queuedTap = false) => {
+    if (pendingRef.current) {
+      if (kind === "place" && pendingKindRef.current === "place" && !queuedTap
+          && queueRef.current.length < PLACE_QUEUE) {
+        tapTick();
+        queueRef.current.push(callback);
+        setQueued(queueRef.current.length);
+      }
+      return;
+    }
     /* the iOS tick belongs to the tap itself, before any await */
-    tapTick();
+    if (!queuedTap) tapTick();
     pendingRef.current = true;
-    const before = mineTotal;
+    pendingKindRef.current = kind;
+    const before = live.current.mineTotal;
     setPendingAction(kind);
     setActionError(null);
     const flight = kind === "place" ? placeFlight() : retractFlight();
     flightRef.current = flight;
-    let holding = false;
-    const finish = () => { if (!holding) pendingRef.current = false; setPendingAction(null); };
+    let holding = false, saved = false;
+    const finish = () => {
+      if (!holding) { pendingRef.current = false; pendingKindRef.current = null; }
+      setPendingAction(null);
+      const next = saved && !holding && alive.current ? queueRef.current.shift() : null;
+      if (!next) queueRef.current = [];
+      setQueued(queueRef.current.length);
+      if (next) act("place", next, true);
+    };
     const check = result => {
       if (isUncertainResult(result)) {
         if (!landed(kind, before, live.current.mineTotal)) {
@@ -191,7 +212,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         return result;
       }
       if (result?.ok === false) { setActionError(result.error || "Bet not saved."); flight?.back(); }
-      else if (result?.ok === true) { haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
+      else if (result?.ok === true) { saved = true; haptic(kind === "place" ? "place" : "retract"); flight?.land(); }
       else flight?.cancel();
       return result;
     };
@@ -237,7 +258,8 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     <div className="fd-wagers-felt" role="group" aria-label={`Bets on ${name}`} aria-busy={!!busyKind}>
       {sideTotal > 0 && <span className="fd-wagers-felt-total">{fmt(sideTotal)}</span>}
       <div className={`fd-wagers-felt-stacks${tagged ? " has-tag" : ""}`}>
-        <button type="button" ref={wellRef} className={`fd-wagers-pick-main${capLabel ? " is-capped" : ""}`} disabled={!canPick || !!busyKind}
+        <button type="button" ref={wellRef} className={`fd-wagers-pick-main${capLabel ? " is-capped" : ""}`}
+          disabled={!canPick || (!!busyKind && !(pendingAction === "place" && !checking && queued < PLACE_QUEUE))}
           onClick={() => act("place", onPick)} aria-label={canPick ? `Place a chip on ${name}` : name}
           aria-description={unavailableReason || capReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
           {unavailableReason ? <span className="fd-wagers-pick-closed">{unavailableLabel}</span> : marketOpen && players.length > 0 ? <>

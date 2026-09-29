@@ -390,7 +390,7 @@ test("tapTick toggles a hidden switch through its label and leaves nothing behin
 
 test("the tick is wired into the user's own taps and never the Quick Draw reaction", () => {
   const src = path => read(path);
-  assert.match(src("src/features/wagers/Wagers.jsx"), /if \(pendingRef\.current\) return;\s*\/\*[^*]*\*\/\s*tapTick\(\);/);
+  assert.match(src("src/features/wagers/Wagers.jsx"), /queueRef\.current\.length < PLACE_QUEUE\) \{\s*tapTick\(\);[\s\S]*\/\* the iOS tick belongs to the tap itself[^*]*\*\/\s*if \(!queuedTap\) tapTick\(\);/);
   assert.match(src("src/features/wagers/Wagers.jsx"), /onClick=\{\(\) => \{ tapTick\(\); setDenom\(value\); \}\}/);
   assert.match(src("src/features/draft/DraftSheet.jsx"), /if \(!canPick \|\| saving\.current\) return;\s*tapTick\(\);/);
   assert.match(src("src/features/duels/DuelCard.jsx"), /if \(action === "accept"\) tapTick\(\);/);

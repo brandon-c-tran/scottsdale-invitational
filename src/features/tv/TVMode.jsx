@@ -663,6 +663,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   /* M14 and M18: what moves, fresh only, from the write's own server time */
   const bracketMotion = useBracketMotion(state, activeBracketEv, upNext ? [upNext.r, upNext.m] : null);
   const crown = useCrownMoment(state, showScene);
+  /* D3: the frozen TV's rotation keys on the crown, read once; a later
+     write (a walkout, the scene ending) moves state.updatedAt and must not
+     restart the champion's hold */
+  const crownAt = useRef(null);
+  if (!state.frozen) crownAt.current = null;
+  else if (!crownAt.current) crownAt.current = crown?.anchor || crownAnchor(state) || 0;
   /* D3: the class photo's entrance */
   const classMoment = useClassMoment(showScene);
   const slotAdvance = !!advance && advance.kind === "match" && !!activeBracketEv;
@@ -768,7 +774,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
   } else if (champion) {
     /* D3: once the crown has held, the frozen TV takes turns between the
        champion and the class photo on the server clock */
-    const frame = frozenAmbient({ now, crownAt:crown?.anchor || crownAnchor(state) || 0, crownMs:CROWN_TIMING.total,
+    const frame = frozenAmbient({ now, crownAt:crown?.anchor || crownAt.current || 0, crownMs:CROWN_TIMING.total,
       period:TV_AMBIENT_MS });
     const view = frame === "champion" ? championView(state, events, standings) : null;
     content = frame === "class" ? <ClassPhoto state={state} events={events} standings={standings} />

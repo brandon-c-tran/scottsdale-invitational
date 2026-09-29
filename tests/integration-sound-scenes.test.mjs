@@ -254,6 +254,20 @@ test("the profile's device rows: Haptics, then Sound, then Alerts", () => {
   assert.ok(at("VibrationToggle") > 0 && at("VibrationToggle") < at("SoundToggle") && at("SoundToggle") < at("AlertsToggle"));
 });
 
+test("the frozen TV keys its champion / class photo rotation on the crown, read once", async () => {
+  const { frozenAmbient } = await import("../src/features/results/classPhoto.js");
+  const crownAt = 1_000_000, period = 12_000, crownMs = 4_800;
+  assert.equal(frozenAmbient({ now:crownAt + crownMs + period - 1, crownAt, crownMs, period }), "champion");
+  const later = crownAt + 60_000;
+  const turn = frozenAmbient({ now:later, crownAt, crownMs, period });
+  assert.equal(frozenAmbient({ now:later, crownAt:later - 100, crownMs, period }), "champion",
+    "re-reading the anchor from a later write would restart the champion's hold");
+  assert.ok(["class", "champion"].includes(turn));
+  const source = read("src/features/tv/TVMode.jsx");
+  assert.match(source, /else if \(!crownAt\.current\) crownAt\.current = crown\?\.anchor \|\| crownAnchor\(state\) \|\| 0;/);
+  assert.match(source, /crownAt:crown\?\.anchor \|\| crownAt\.current \|\| 0/);
+});
+
 test("the TV wires the face-off under the cover gate and hands it to the room's voice", () => {
   const source = read("src/features/tv/TVMode.jsx");
   assert.match(source, /const liveCovered = !!\(sceneIntroEv \|\| ceremonyIntroEv \|\| ceremonyReveal \|\| directed \|\| resultModel\);/);

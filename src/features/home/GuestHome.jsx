@@ -158,7 +158,7 @@ function FlightsQuestion({ onYes, onNotYet }) {
 
 export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, pokerContent, duelContent,
-  since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet }) {
+  since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
@@ -188,6 +188,8 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         <Avatar state={state} p={row.player} size={68} /><strong>{disp(state, row.player)}</strong></button>)}
       {leaders[0] && <p><strong>{fmt(leaders[0].pts)}</strong> chips</p>}
       {ownRow && !leaders.some(row => row.player === me) && <OwnFinish row={ownRow} me={me} />}
+      {state.frozen && onLastCard && <button type="button" className="fd-lastcard-entry" onClick={onLastCard}>
+        {me ? "Your last card" : "The champion's card"}<Arrow /></button>}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
     </section> : <EventFocus model={model} state={state} me={me} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}

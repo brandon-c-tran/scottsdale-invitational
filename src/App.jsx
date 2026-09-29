@@ -60,6 +60,8 @@ import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
 import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
 import { useDuelClock } from "./features/duels/useDuelClock.js";
 import { DirectorPill } from "./features/director/DirectorPill.jsx";
+import { QABar } from "./features/qa/QABar.jsx";
+import { QASheet } from "./features/qa/QASheet.jsx";
 import { directorPill } from "./features/director/directorPill.js";
 import { PokerSetupSheet, CrownSheet } from "./features/director/FinaleSheets.jsx";
 import {
@@ -1276,14 +1278,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
     await simDo("saveResult", { evId: ev.id, slots, noScene:true }, `Posting the ${ev.name} result`);
     await simWait(800);
   };
-  const simFastForward = async () => {
-    for (let i = 0; i < 20; i++) {
-      const s = stateRef.current;
-      const nxt = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
-      if (!nxt || nxt.finale) return;
-      await simPlayEvent();
-    }
-  };
   /* duels between sim players; me never sends, so my 3-a-day stays free */
   const simDuelPools = s => {
     const events2 = allEventsOf(s);
@@ -1346,79 +1340,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
     await simDo("claim", { player: from });
     await simTry("playDuel", { id, ...simDuelRun() }, `${from} draws`);
   };
-  /* clean book: void whatever is still pending so the poker gate opens */
-  const simSettleBook = async () => {
-    const s = stateRef.current;
-    const events2 = allEventsOf(s);
-    for (const w of s.wagers) {
-      if (resolveWager(s, w, events2).status === "pending")
-        await simDo("voidWager", { id: w.id }, "Voiding open wagers");
-    }
-    if ((s.duels || []).some(d => duelOpen(d)))
-      await simDo("voidOpenDuels", {}, "Voiding open duels");
-    /* a negative stack needs no ruling: the finale deals it as 0 */
-    await simWait(300);
-  };
   const simPokerAlive = () => (stateRef.current.poker?.seats || ROSTER).filter(q =>
     !(stateRef.current.poker?.outs || []).some(o => o.player === q));
-  const simPokerNight = async ({ through = "result" } = {}) => {
-    await simFastForward();
-    await simSettleBook();
-    if (!stateRef.current.poker) {
-      await simDo("pokerSetup", {}, "Setting the table");
-      await simWait(400);
-    }
-    if (through === "setup") return;
-    if (!stateRef.current.poker?.startedAt) {
-      await simDo("pokerStart", {}, "Start the table");
-      await simWait(400);
-    }
-    for (let b = 0; b < 4 && simPokerAlive().length > 3; b++) {
-      const pool = simPokerAlive().filter(q => q !== me);
-      if (!pool.length) break;
-      await simDo("pokerBust", { player: rnd(pool) }, "Busting a player");
-      await simWait(500);
-    }
-    const poker = stateRef.current.poker;
-    const done = poker.counts || {};
-    if (through === "live") {
-      for (const q of shuffle(simPokerAlive().filter(q => q !== me && done[q] === undefined)).slice(0, 2)) {
-        await simDo("pokerCount", { player: q, count: rnd([40, 60, 80, 100]) * CHIP_MIN }, `${q} counts down`);
-        await simWait(300);
-      }
-      return;
-    }
-    /* exact chip split of what the counted stacks have not claimed yet */
-    const todo = simPokerAlive().filter(q => done[q] === undefined);
-    if (todo.length) {
-      const counted = Object.values(done).reduce((a, b) => a + b, 0);
-      let left = Math.max(0, Math.floor((poker.total - counted) / CHIP_MIN));
-      const weights = todo.map(() => 0.2 + Math.random());
-      const wsum = weights.reduce((a, b) => a + b, 0);
-      for (let i = 0; i < todo.length; i++) {
-        const share = i === todo.length - 1 ? left
-          : Math.min(left, Math.round(left * weights[i] / wsum));
-        left -= share;
-        await simDo("pokerCount", { player: todo[i], count: share * CHIP_MIN }, `${todo[i]} counts down`);
-        await simWait(250);
-      }
-    }
-    await simDo("pokerResult", { noScene:true }, "Posting the counts");
-    await simWait(400);
-  };
-  const simCrown = async () => {
-    await simPokerNight({ through: "result" });
-    if (!stateRef.current.frozen) await simDo("setFrozen", { f: true }, "Crowning the champion");
-  };
-  const simOpenBetting = async () => {
-    const s = stateRef.current;
-    const ev = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
-    if (!ev || ev.finale) return;
-    await simEnsureFormat(ev);
-    await simDo("setOnDeck", { id: ev.id }, `Betting opens on ${ev.name}`);
-    await simWait(400);
-    await simBetsRound();
-  };
   const runSim = (fn, fast = false) => () => {
     if (simRef.current.running) return;
     simRef.current = { running: true, cancel: false, fast };
@@ -1429,60 +1352,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
     })();
   };
   const stopSim = () => { simRef.current.cancel = true; };
-  /* checkpoints: where the board is on the weekend's arc, derived only */
-  const simRank = s => {
-    const evs = allEventsOf(s);
-    const finale = evs.find(e => e.finale);
-    const rest = evs.filter(e => !e.finale && !s.shelved[e.id]);
-    const early = rest.filter(e => e.session === "fri" || e.session === "sam");
-    if (s.frozen) return 7;
-    if (finale && s.results[finale.id]) return 6;
-    if (pokerLive(s)) return 5;
-    if (s.poker) return 4;
-    if (rest.length && rest.every(e => s.results[e.id])) return 3.5;
-    if (early.length && early.every(e => s.results[e.id])) return 3;
-    if (Object.keys(s.results).length || s.onDeck) return 2;
-    if (s.live) return 1;
-    return 0;
-  };
-  const QA_PRESETS = [
-    { key:"locker", name:"Locker room", rank:0, note:`All ${ROSTER.length} checked in, chips claimed, not live`,
-      run: simCheckIn },
-    { key:"betting", name:"Betting open", rank:2, note:"Live, first event on deck, bets down",
-      run: async () => {
-        await simCheckIn();
-        await simOpenBetting();
-      } },
-    { key:"midsat", name:"Mid-Saturday", rank:3, note:"Friday and Sat AM played, duels settled",
-      run: async () => {
-        for (let i = 0; i < 12; i++) {
-          const s = stateRef.current;
-          const nxt = allEventsOf(s).find(e => !s.results[e.id] && !s.shelved[e.id]);
-          if (!nxt || nxt.finale || (nxt.session !== "fri" && nxt.session !== "sam")) break;
-          await simPlayEvent();
-        }
-        await simDuels(3);
-        await simOpenBetting();
-      } },
-    { key:"tableset", name:"Table set", rank:4, note:"Everything played, no open wagers, starting stacks dealt",
-      run: () => simPokerNight({ through:"setup" }) },
-    { key:"pokerlive", name:"Poker live", rank:5, note:"Clock running, busts in, counts started",
-      run: () => simPokerNight({ through:"live" }) },
-    { key:"crowned", name:"Champion crowned", rank:7, note:"Stacks are the standings, board frozen",
-      run: simCrown },
-  ];
-  const jumpTo = pre => {
-    setModal(null);
-    runSim(async () => {
-      if (simRank(stateRef.current) > pre.rank) {
-        await simDo("resetTournament", {
-          confirm:RESET_PROGRESS_CONFIRMATION,
-        }, "Resetting game progress");
-        await simWait(400);
-      }
-      await pre.run();
-    }, true)();
-  };
   /* standalone helpers refuse to poke a table with cards in the air */
   const qaGuard = fn => () => {
     const s = stateRef.current;
@@ -1685,7 +1554,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         sim={sim} onStop={stopSim} guestLens={guestLens}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         onOpen={() => setModal({ type:"qa" })}
-        onPlayNext={runSim(simPlayEvent)} />}
+        dispatch={dispatch} environment={environment} notify={notify} />}
 
       <AppNavigation tab={tab} onTab={setTab} live={state.live} badges={navBadges} />
 
@@ -1911,12 +1780,13 @@ function TournamentApp({ tournament, onUpdateReload }) {
           return saved;
         }}
         onRemove={(id, reason) => act("removeAdjustment", { id, reason }, "Ruling removed", { retry:true })} />}
-      {qaAllowed && modal?.type === "qa" && <QASheet rank={simRank(state)} presets={QA_PRESETS} busy={!!sim}
+      {qaAllowed && modal?.type === "qa" && <QASheet state={state} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens}
+        environment={environment} dispatch={dispatch} notify={notify}
         onSwitch={player => switchPlayer(player, false)}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
-        onJump={jumpTo} pokerOn={pokerLive(state)}
-        onPlayNext={() => { setModal(null); runSim(simPlayEvent)(); }}
+        pokerOn={pokerLive(state)}
+        onPlayLive={() => { setModal(null); runSim(simPlayEvent)(); }}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
         onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
@@ -3882,189 +3752,6 @@ const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
 
 /* ─────────── duels ───────────
    Quick Draw lives in features/duels: offers, the run, and the result. */
-
-/* ─────────── QA bar (GM only, real names) ─────────── */
-function QABar({ me, status, onExit, sim, onStop, guestLens, onLens,
-  onOpen, onPlayNext, minimized, onMin, top, onPos }) {
-  const small = { fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.08em",
-    textTransform:"uppercase", padding:"6px 10px", borderRadius:10, cursor:"pointer", flexShrink:0 };
-  if (minimized) return (
-    <button onClick={onMin} style={{ position:"fixed", left:14, zIndex:55,
-      bottom:"calc(74px + env(safe-area-inset-bottom))", display:"flex", alignItems:"center", gap:7,
-      background:"var(--sun)", color:"var(--ink0)", border:"1.5px solid var(--ink0)", borderRadius:99,
-      padding:"9px 14px", cursor:"pointer", fontFamily:DISPLAY, fontWeight:700, fontSize:14,
-      letterSpacing:"0.06em", boxShadow:"var(--shadow-2)" }}>
-      {sim && <span style={{ width:7, height:7, borderRadius:99, background:"var(--clay)",
-        animation:"si-pulse 1s infinite" }} />}
-      QA · {status.environment.toUpperCase()}</button>
-  );
-  return (
-    <div style={{ position:"fixed", zIndex:55, left:0, right:0, display:"flex", justifyContent:"center",
-      pointerEvents:"none",
-      ...(top ? { top:"calc(64px + env(safe-area-inset-top))" }
-              : { bottom:"calc(66px + env(safe-area-inset-bottom))" }) }}>
-      <div className="fd-night" style={{ width:"calc(100% - 20px)", maxWidth:520, pointerEvents:"auto",
-        background:"rgba(23,16,9,0.97)", border:"1px solid rgba(194,88,50,0.4)", borderRadius:14,
-        padding:"8px 10px", boxShadow:"var(--shadow-3)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
-          <span style={{ ...label, fontSize:10, color:"var(--sun)" }}>QA</span>
-          <Tag tone={status.environment === "production" ? "flame" : "gold"}>
-            {status.environment}</Tag>
-          <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--bone)", flex:1, minWidth:0,
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {status.current} · {status.phase}</span>
-          <button onClick={onPos} title="Dock top or bottom" style={{ background:"none", border:"1px solid var(--ghost-line)",
-            color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>{top ? "▾" : "▴"}</button>
-          <button onClick={onMin} title="Minimize" style={{ background:"none", border:"1px solid var(--ghost-line)",
-            color:"var(--bone)", width:26, height:26, borderRadius:10, fontSize:12.5, cursor:"pointer", flexShrink:0 }}>–</button>
-          <button onClick={onExit} style={{ background:"var(--paper2)", border:"1px solid var(--line)",
-            color:"var(--ink)", width:26, height:26, borderRadius:10, fontSize:11, cursor:"pointer", flexShrink:0 }}>✕</button>
-        </div>
-        {sim ? (
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ width:7, height:7, borderRadius:99, background:"var(--sun)",
-              animation:"si-pulse 1s infinite", flexShrink:0 }} />
-            <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--bone)", flex:1, minWidth:0,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{sim}</span>
-            <button onClick={onStop} style={{ ...small, background:"var(--clay)", border:"none", color:"var(--bone)" }}>Stop</button>
-          </div>
-        ) : (
-          <div style={{ display:"flex", alignItems:"center", gap:6, overflowX:"auto" }}>
-            <button onClick={onOpen} style={{ ...small,
-              background:"var(--sun)", border:"1px solid var(--ink0)", color:"var(--ink0)" }}>Console</button>
-            <button onClick={onPlayNext} style={{ ...small,
-              background:"var(--paper2)", border:"1px solid var(--line)", color:"var(--ink)" }}>Run next event</button>
-            <button onClick={onLens} style={{ ...small,
-              background: guestLens ? "var(--sun)" : "transparent",
-              border: guestLens ? "1px solid var(--ink0)" : "1px solid var(--ghost-line)",
-              color: guestLens ? "var(--ink0)" : "var(--bone)" }}>
-              {guestLens ? "Guest view on" : "Guest view"}</button>
-            <span style={{ marginLeft:"auto", fontFamily:SANS, fontSize:11.5, color:"var(--night-text)",
-              whiteSpace:"nowrap" }}>As <b style={{ color:"var(--bone)" }}>{me || "nobody"}</b></span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* QA jump sheet: checkpoints land the board at a named point in the weekend,
-   helpers poke one feature at a time. Everything runs the sim driver; the
-   bar shows progress and holds the Stop. */
-function QASheet({ rank, presets, busy, status, me, guestLens, onSwitch, onLens,
-  onJump, pokerOn, onPlayNext, onDuelMe, onDuels, onBets,
-  onBustOne, onCountRest, onRerun, onReplayMine, onResetRequest, onClose }) {
-  const [confirmRerun, setConfirmRerun] = useState(false);
-  const sect = { ...label, fontSize:10.5, margin:"14px 2px 8px" };
-  const stat = (value, name) => (
-    <div style={{ minWidth:0, background:"var(--paper2)", border:"1px solid var(--line)",
-      borderRadius:10, padding:"9px 10px" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:21, color:"var(--ink)",
-        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{value}</div>
-      <div style={{ ...label, fontSize:9.5, marginTop:2 }}>{name}</div>
-    </div>
-  );
-  return (
-    <Sheet title={`QA · ${status.environment}`} onClose={onClose}>
-      <div style={{ display:"flex", alignItems:"center", gap:8, margin:"0 2px 10px" }}>
-        <Tag tone={status.environment === "production" ? "flame" : "gold"}>
-          {status.environment}</Tag>
-        <span style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginLeft:"auto" }}>
-          state v{status.schema} · sync {status.version}</span>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:7 }}>
-        {stat(`${status.completed}/${status.total}`, "Events")}
-        {stat(status.pendingWagers, "Open bets")}
-        {stat(status.openDuels, "Open duels")}
-        {stat(`${status.profiles}/${ROSTER.length}`, "Profiles")}
-      </div>
-      <div style={{ marginTop:9, padding:"10px 12px", borderRadius:10,
-        background:"var(--ink-tint)", border:"1px solid var(--line)" }}>
-        <div style={{ ...label, fontSize:9.5 }}>Current</div>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:18, textTransform:"uppercase",
-          color:"var(--ink)", marginTop:2 }}>{status.current} · {status.phase}</div>
-        <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", marginTop:4 }}>
-          Next: {status.next}</div>
-        {status.blockers.length > 0 && (
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--clay-text)", marginTop:4 }}>
-            Blocked: {status.blockers.join(" · ")}</div>
-        )}
-      </div>
-
-      <div style={sect}>View as player</div>
-      <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
-        {ROSTER.map(player => (
-          <button key={player} disabled={busy} onClick={() => onSwitch(player)}
-            style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, padding:"7px 11px",
-              borderRadius:99, cursor:busy ? "default" : "pointer", flexShrink:0,
-              background:me === player ? "var(--sun)" : "var(--paper2)",
-              color:me === player ? "var(--ink0)" : "var(--ink)",
-              border:me === player ? "1px solid var(--ink0)" : "1px solid var(--line)",
-              opacity:busy ? 0.45 : 1 }}>{player}</button>
-        ))}
-      </div>
-      <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
-        <Btn kind={guestLens ? "primary" : "ghost"} onClick={onLens}>
-          {guestLens ? "Guest view on" : "Guest view"}</Btn>
-        <Btn kind="ghost" onClick={onReplayMine}>Redo check-in here</Btn>
-      </div>
-
-      <div style={sect}>Rehearsal checkpoints</div>
-      {presets.map(pre => {
-        const reached = rank >= pre.rank;
-        const resets = rank > pre.rank;
-        return (
-          <button key={pre.key} disabled={busy} onClick={() => onJump(pre)}
-            style={{ width:"100%", display:"flex", alignItems:"center", gap:10, textAlign:"left",
-              background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-              padding:"10px 12px", marginBottom:7, cursor:"pointer", opacity:busy ? 0.45 : 1 }}>
-            <span style={{ width:8, height:8, borderRadius:99, flexShrink:0,
-              background:reached ? "var(--sun)" : "transparent",
-              border:"1.5px solid " + (reached ? "var(--sun)" : "var(--muted)") }} />
-            <span style={{ flex:1, minWidth:0 }}>
-              <span style={{ display:"block", fontFamily:DISPLAY, fontWeight:700, fontSize:16.5,
-                letterSpacing:"0.03em", textTransform:"uppercase", color:"var(--ink)" }}>{pre.name}</span>
-              <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>{pre.note}</span>
-            </span>
-            {resets && <Tag>Resets first</Tag>}
-          </button>
-        );
-      })}
-
-      <div style={sect}>Quick tests</div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        <Btn kind="primary" disabled={busy} onClick={onPlayNext}>Run next event</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onBets}>Add bets</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onDuelMe}>Duel me</Btn>
-        <Btn kind="ghost" disabled={busy} onClick={onDuels}>Duels round</Btn>
-        {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onBustOne}>Bust one</Btn>}
-        {pokerOn && <Btn kind="ghost" disabled={busy} onClick={onCountRest}>Count the rest</Btn>}
-      </div>
-
-      <div style={sect}>All phones</div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-        {confirmRerun
-          ? <Btn kind="flame" onClick={() => { setConfirmRerun(false); onRerun(); }}>
-              Confirm, release every chip</Btn>
-          : <Btn kind="ghost" onClick={() => setConfirmRerun(true)}>Reopen check-in</Btn>}
-        {confirmRerun && <Btn kind="ghost" onClick={() => setConfirmRerun(false)}>Keep it closed</Btn>}
-      </div>
-      <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.5, margin:"7px 2px 0" }}>
-        Reopening check-in releases every claimed chip color. Profiles, photos,
-        ratings, shirt sizes, and flights stay saved.</div>
-
-      <div style={{ ...sect, color:"var(--clay-text)" }}>Danger zone</div>
-      <div style={{ border:"1px solid var(--danger-line)", borderRadius:10, padding:"11px 12px" }}>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
-          Reset game progress</div>
-        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)", lineHeight:1.45,
-          margin:"4px 0 9px" }}>
-          Clears the rehearsal and keeps people, travel, ratings, and the event setup.</div>
-        <Btn kind="danger" disabled={busy} onClick={onResetRequest}>Review reset</Btn>
-      </div>
-    </Sheet>
-  );
-}
 
 function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfirm }) {
   const [confirmed, setConfirmed] = useState(false);

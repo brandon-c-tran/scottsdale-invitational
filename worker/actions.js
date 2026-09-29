@@ -29,6 +29,8 @@ import {
   championIdentity,
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
+import { QA_PROGRESS_KEYS } from "../shared/qa.js";
+import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
@@ -213,8 +215,39 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
-  "setFrozen", "resetTournament",
+  "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
 ]);
+/* QA writes are rehearsal tools on a server that may hold real guests.
+   Anything outside local and staging counts as production. Production always
+   takes the reset confirmation; anywhere, a write that throws away recorded
+   results or bets takes it too, and live cards take their own confirm. */
+const qaProduction = ctx => !["local", "staging"].includes(ctx?.environment);
+const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+function qaGate(state, payload, ctx, discards) {
+  if (!ctx.qa) return err("QA is unavailable");
+  if (discards && !ctx.progressReset) return err("Game progress reset is unavailable");
+  if (pokerLive(state) && payload?.confirmPokerLive !== true)
+    return err("Cards are live at the table", { needsPokerConfirm:true });
+  if (payload?.confirm === RESET_PROGRESS_CONFIRMATION) return null;
+  const cost = qaProgressCost(state);
+  const lost = [cost.results && plural(cost.results, "result"), cost.bets && plural(cost.bets, "bet")].filter(Boolean);
+  if (discards && lost.length)
+    return err(`Replaces ${lost.join(" and ")}`, { needsConfirm:true, production:qaProduction(ctx), cost });
+  if (qaProduction(ctx))
+    return err(discards ? "Replaces production game progress" : "Changes production game progress",
+      { needsConfirm:true, production:true, cost });
+  return null;
+}
+/* a stored checkpoint value must have the shape a fresh state has */
+const progressShapeOk = (key, value) => {
+  const empty = EMPTY_STATE[key];
+  if (empty === null) return value === null || typeof value === "string"
+    || (!!value && typeof value === "object" && !Array.isArray(value));
+  if (Array.isArray(empty)) return Array.isArray(value);
+  if (typeof empty === "object") return !!value && typeof value === "object" && !Array.isArray(value);
+  return typeof value === typeof empty;
+};
+
 const WEEKEND_START_ACTIONS = new Set([
   "announceEvent", "announceAndDraw", "startEvent", "lockAndStart", "pokerStart",
 ]);
@@ -2476,6 +2509,50 @@ export const ACTIONS = {
     Object.assign(state, structuredClone(EMPTY_STATE));
     Object.assign(state, preserved);
     return ok({ preserved:[...RESET_PROGRESS_PRESERVED_KEYS] });
+  },
+  /* ── QA (commissioner, QA capability) ──
+     One write reaches a named point on the weekend by running the real
+     reducers on this working copy (worker/qa.js). The Durable Object makes
+     the rotating pre-reset backup before it persists. */
+  qaAdvance(state, payload, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ctx.qa) return err("QA is unavailable");
+    const target = parseQaTarget(state, payload?.target);
+    if (!target) return err("Unknown QA target");
+    const discards = qaNeedsRewind(state, target);
+    const gate = qaGate(state, payload, ctx, discards); if (gate) return gate;
+    const seed = cleanSeed(payload?.seed) ?? Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+    try {
+      const done = runQaAdvance(state, target, { applyAction, ctx, seed, production:qaProduction(ctx) });
+      if (!done.writes && !done.rewound) return ok({ unchanged:true, target:target.key, seed });
+      return ok({ target:target.key, ...done });
+    } catch (error) {
+      if (error instanceof QaStop) return err(error.message);
+      throw error;
+    }
+  },
+  /* Put a saved checkpoint's game progress back. The same contract as the
+     game-progress reset: only its keys change, so profiles, ratings,
+     logistics, the onboarding epoch and the event setup stay as they are
+     now, and claims, photos and tokens are not in state at all. The
+     Durable Object loads the checkpoint into ctx.qaCheckpoint. */
+  qaRestore(state, payload, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ctx.qa) return err("QA is unavailable");
+    const checkpoint = ctx.qaCheckpoint;
+    if (!checkpoint || typeof payload?.id !== "string" || checkpoint.id !== payload.id
+        || !checkpoint.progress || typeof checkpoint.progress !== "object")
+      return err("No such checkpoint");
+    if (Number(checkpoint.v || 0) > Number(state.v || EMPTY_STATE.v))
+      return err("That checkpoint is from a newer version");
+    if (QA_PROGRESS_KEYS.some(key => checkpoint.progress[key] !== undefined
+        && !progressShapeOk(key, checkpoint.progress[key])))
+      return err("That checkpoint is damaged");
+    const gate = qaGate(state, payload, ctx, true); if (gate) return gate;
+    resetProgress(state);
+    for (const key of QA_PROGRESS_KEYS)
+      if (checkpoint.progress[key] !== undefined) state[key] = structuredClone(checkpoint.progress[key]);
+    return ok({ restored:checkpoint.name, id:checkpoint.id });
   },
   /* the weekend sheet: where we sleep and how the host flies. GM writes it
      once, onboarding and the guide read it on every phone */

@@ -35,7 +35,7 @@ import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
 import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
 import { TVMode } from "./features/tv/TVMode.jsx";
-import { nextOpenMatch, cueCandidates, tvSceneView } from "./features/tv/tvModel.js";
+import { nextOpenMatch, tvSceneView } from "./features/tv/tvModel.js";
 import { serverNow, useServerClockSync } from "./lib/serverClock.js";
 import { MotionRoot, useStageHeld } from "./lib/motion.js";
 import { currentFrame } from "./lib/frameGate.js";
@@ -48,7 +48,7 @@ import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, AWARDS, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
+  ROSTER, AWARDS, awardTable, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
   DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
   pokerLive, pokerClock, pokerDenoms, pokerInventory, resultAwards, awardPlan, stacksPosted,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
@@ -66,11 +66,11 @@ import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
 import { useDuelClock } from "./features/duels/useDuelClock.js";
 import { DirectorPill } from "./features/director/DirectorPill.jsx";
 import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
-import { CallBar } from "./features/call/CallBar.jsx";
-import { CallChip } from "./features/call/CallChip.jsx";
 import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
+import { MvpHome } from "./features/mvp/MvpHome.jsx";
+import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
 import { AwardsDesk, deskNote } from "./features/awards/AwardsDesk.jsx";
 import { directorPill } from "./features/director/directorPill.js";
 import { PokerSetupSheet, CrownSheet } from "./features/director/FinaleSheets.jsx";
@@ -81,7 +81,7 @@ import {
 } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
-  spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect,
+  spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect, spotifyAutoWinSongs,
   spotifyPlay, spotifyPause, spotifyDevice,
 } from "./lib/client.js";
 
@@ -1145,9 +1145,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       await simWait(700);
     }
   };
-  /* heats for a few solo events and pools for spike, so the stage machinery
-     gets exercised; everything else keeps its native format */
-  const SIM_HEAT_IDS = ["pingpong", "beerio"];
+  /* heats for Beerio Kart, so the stage machinery gets exercised; everything
+     else keeps its native format */
+  const SIM_HEAT_IDS = ["beerio"];
   const simEnsureFormat = async ev => {
     const s = stateRef.current;
     if (s.results[ev.id]) return;
@@ -1176,7 +1176,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     const ev = allEventsOf(s0).find(e => !s0.results[e.id] && !s0.shelved[e.id]);
     if (!ev) throw new Error("Nothing left to play");
     if (ev.finale) throw new Error("The finale is poker, run it from the table");
-    const table = AWARDS[ev.value] || [0, 0, 0];
+    const table = awardTable(ev);
     await simEnsureFormat(ev);
     if (!stateRef.current.eventOps?.[ev.id]?.startedAt && stateRef.current.onDeck !== ev.id)
       await simDo("setOnDeck", { id:ev.id }, "Betting opens on " + ev.name);
@@ -1420,11 +1420,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
     );
   }
 
-  /* walkout cues: beside the pill, and docked in the header of any open
-     sheet so a playing walkout can always be stopped */
+  /* win songs play themselves; the rack beside the pill (and docked in the
+     header of any open sheet) is only the Stop for the one playing */
   const cueRack = gmView && audioDirectorAllowed ? docked => <CueRack docked={docked} state={state}
-    candidates={cueCandidates(state, events, { scene:activeShowScene, operationEvent:director.event,
-      now:serverNow() }).players}
+    candidates={[]}
     notify={notify} onAudio={() => setModal({type:"audioDirector"})} /> : null;
   return (
     <SheetDock.Provider value={cueRack && modal?.type !== "audioDirector" ? cueRack(true) : null}>
@@ -1461,6 +1460,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
           awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
+          mvpContent={<MvpHome state={state} me={me} events={events} onPlayer={p => setModal({type:"player", p})} />}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
@@ -1505,7 +1505,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
                 {cueRack(false)}
               </div>
             )}
-            {gmView && ready && <CallChip state={state} events={events} director={director} notify={notify} />}
             {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
               director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
           </div>
@@ -1552,6 +1551,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
+        songSnippets={capabilities.songSnippets === true}
         save={async prof => {
           const saved = await saveProfile(me, prof);
           if (saved.ok) { setModal(null); notify("Profile saved"); }
@@ -1914,7 +1914,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }}
         onBets={state.onDeck === reveal.evId && !state.results[reveal.evId]
           ? () => { closeReveal(); setModal(null); setTab("bets"); } : null} />}
-      <CallBar state={state} hidden={gmView || !me} />
       {moment && !stageHeld && <ChipReceipt moment={moment} onDismiss={() => setMoment(null)}
         dock={receiptDock({ tab, modal })}
         onStandings={() => { setMoment(null); setModal({ type:"standings" }); }}
@@ -2556,7 +2555,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
-  const table = AWARDS[ev.value];
+  const table = AWARDS[ev.value] ? awardTable(ev) : undefined;
   const shelvedNow = !!state.shelved[ev.id];
   const [confirmRedraw, setConfirmRedraw] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -2640,7 +2639,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
         <summary><span>Event info</span>{table?.[0] > 0 && <small>{fmt(table[0])} chips to win</small>}</summary>
         {ev.desc && <p>{ev.desc}</p>}
         {table && <div className="fd-event-awards">{awardPlan(ev, draw).map(row => <span key={row.place}>
-          <small>{row.place === "crew" ? "Crew" : SLOT_META[row.place].label}{row.split ? " (each side)" : ""}</small>
+          <small>{row.place === "crew" ? "Crew" : SLOT_META[row.place].label}</small>
           <strong>+{fmt(row.pts)}</strong></span>)}</div>}
       </details>
       {!contestActive && onBets && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
@@ -3142,14 +3141,14 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
 /* ─────────── result entry (GM, real names) ─────────── */
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
-  const table = AWARDS[ev.value] || [400, 0, 0];
+  const table = AWARDS[ev.value] || ev.pays ? awardTable(ev) : [400, 0, 0];
   const slotIdxs = table.map((v,i) => v>0 ? i : null).filter(i => i !== null);
   const bracket = state.brackets[ev.id], stage = state.stages[ev.id];
   const sequenced = !!state.eventOps?.[ev.id]?.contest;
   const winnerKnown = sequenced && ((bracket && bracketChampion(bracket) !== null)
     || (stage && stage.finalWinner !== null && stage.finalWinner !== undefined));
   const editableSlots = slotIdxs.filter(index => !winnerKnown || index !== 0);
-  /* what one player in each place is paid: a bracket's split 3rd included */
+  /* what one player in each place is paid */
   const paysEach = index => resultAwards(state, ev, { slots })
     .find(award => award.place === index)?.pts ?? table[index];
   const initial = useMemo(() => {
@@ -3161,7 +3160,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         const final = br.rounds[br.rounds.length-1][0];
         const a = resolveSlot(br, final.a), b = resolveSlot(br, final.b);
         const runner = champ === a ? b : a;
-        /* no 3rd-place game: both semifinal losers share 3rd */
+        /* no 3rd-place game: both semifinal losers take 3rd, each paid in full */
         const semis = br.rounds[br.rounds.length - 2] || [];
         const losers = semis.map(match => [resolveSlot(br, match.a), resolveSlot(br, match.b)]
           .find(side => side !== null && side !== match.winner)).filter(side => side !== undefined && draw.teams[side]);
@@ -3198,6 +3197,15 @@ function ResultSheet({ ev, state, onClose, save }) {
     finally {saving.current=false;setPending(false);}
   };
   const draw = state.draws[ev.id];
+  /* Two teams, one game: picking the winner is the whole result (the other
+     team is 2nd), so the sheet is one choice, not places to fill. */
+  const twoTeams = !winnerKnown && !bracket && !stage && ev.kind !== "solo" && draw?.teams?.length === 2;
+  const pickWinner = team => setSlots(prev => {
+    if (saving.current) return prev;
+    if (team.players.every(p => prev[0].includes(p))) return [[], [], []];
+    const other = draw.teams.find(item => item !== team);
+    return [[...team.players], table[1] > 0 && other ? [...other.players] : [], []];
+  });
   /* only a place some side could still fill: two teams have no 3rd */
   const sidesInPlay = draw?.teams?.length && ev.kind !== "solo" ? draw.teams.length : ROSTER.length;
   const emptyPaid = slotIdxs.filter(index => index > 0 && index < sidesInPlay && !slots[index].length);
@@ -3231,7 +3239,26 @@ function ResultSheet({ ev, state, onClose, save }) {
       {winnerKnown && <p style={{ ...pStyle, fontSize:12.5, color:"var(--muted2)" }}>{existing
         ? "To change the winner, clear the result and correct the final."
         : "To change the winner, correct the final from the event sheet."}</p>}
-      {!!editableSlots.length && <fieldset disabled={pending} style={{border:0,padding:0,margin:0,minWidth:0}}>
+      {twoTeams && <fieldset disabled={pending} style={{border:0,padding:0,margin:0,minWidth:0}}>
+        <div style={{ ...label, marginBottom:8 }}>Winner</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {draw.teams.map((team, i) => {
+            const won = team.players.length > 0 && team.players.every(p => slots[0].includes(p));
+            return <button key={i} type="button" onClick={() => pickWinner(team)} aria-pressed={won}
+              style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:8, minHeight:88,
+                padding:"12px", borderRadius:14, cursor:"pointer", textAlign:"left",
+                background:won ? GOLD_GRAD : "var(--paper)", border:won ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>
+              <AvatarStack state={state} players={team.players} size={26} max={5} />
+              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:won ? "var(--ink0)" : "var(--ink)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"100%" }}>{teamLabel(state, team)}</span>
+            </button>;
+          })}
+        </div>
+        {slots[0].length > 0 && <p style={{ ...pStyle, fontSize:12.5, color:"var(--muted2)", margin:"0 0 12px" }}>
+          +{fmt(paysEach(0))} each to the winners{table[1] > 0 ? `, +${fmt(paysEach(1))} each to the other team` : ""}
+          {table[2] > 0 && draw.roles?.length ? `, +${fmt(table[2])} each to the crew` : ""}.</p>}
+      </fieldset>}
+      {!twoTeams && !!editableSlots.length && <fieldset disabled={pending} style={{border:0,padding:0,margin:0,minWidth:0}}>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {editableSlots.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
@@ -3981,7 +4008,8 @@ function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPl
   );
 }
 
-function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled }) {
+function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled,
+  songSnippets = false }) {
   const [section, setSection] = useState(initialSection);
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
@@ -4036,7 +4064,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   };
   const walkoutSaved = state.profiles?.[me]?.walkoutTrack;
   const walkoutTab = spotifyCatalogEnabled || !!walkoutSaved;
-  const sections = [["card","Card"],["travel","Travel"],...(walkoutTab ? [["walkout","Walkout"]] : [])];
+  const sections = [["card","Card"],["travel","Travel"],...(walkoutTab ? [["walkout","Win song"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
@@ -4060,8 +4088,8 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
       </div>
       {walkoutTab && <div hidden={section !== "walkout"}>
-        {spotifyCatalogEnabled ? <WalkoutTrackPicker value={walkoutTrack} onChange={setWalkoutTrack}
-          enabled={spotifyCatalogEnabled} /> : <SpotifyTrackCard track={walkoutSaved} />}
+        {spotifyCatalogEnabled ? <WinSongPicker value={walkoutTrack} onChange={setWalkoutTrack} snippets={songSnippets} />
+          : <SpotifyTrackCard track={walkoutSaved} />}
       </div>}
       </fieldset>
       <div className="fd-profile-save">
@@ -4108,80 +4136,6 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
       </div>
       {action && <Btn kind="ghost" onClick={action}
         style={{ minHeight:44, padding:"8px 10px", fontSize:11, flexShrink:0 }}>{actionLabel}</Btn>}
-    </div>
-  );
-}
-
-function WalkoutTrackPicker({ value, onChange, enabled }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const runSearch = async () => {
-    if (query.trim().length < 2 || busy) return;
-    setBusy(true); setError("");
-    const result = await spotifySearch(query.trim());
-    setBusy(false);
-    if (!result.ok) {
-      setResults([]);
-      setError(result.error || "Search failed");
-      return;
-    }
-    setResults(result.tracks || []);
-  };
-  const maxStart = value ? Math.max(0, value.durationMs - 1000) : 0;
-  return (
-    <div>
-      {value && (
-        <div style={{ marginBottom:12 }}>
-          <SpotifyTrackCard track={value} />
-          <div style={{ marginTop:9, padding:"10px 11px", border:"1px solid var(--line)",
-            borderRadius:10, background:"var(--paper2)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:7 }}>
-              <div style={{ ...label, flex:1 }}>Start point</div>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12,
-                color:"var(--ink)" }}>{audioClock(value.startMs)}</div>
-            </div>
-            <input type="range" min="0" max={maxStart} step="5000" value={value.startMs || 0}
-              onChange={event => onChange({ ...value, startMs:Number(event.target.value) })}
-              aria-label="Walkout song start point" style={{ width:"100%", accentColor:"var(--accent)" }} />
-          </div>
-          <Btn kind="danger" onClick={() => onChange(null)}
-            style={{ width:"100%", marginTop:8, minHeight:44, padding:"9px 12px" }}>
-            Remove song</Btn>
-        </div>
-      )}
-      {enabled ? (
-        <>
-          <div style={{ display:"flex", gap:8 }}>
-            <input value={query} onChange={event => setQuery(event.target.value)}
-              onKeyDown={event => event.key === "Enter" && runSearch()}
-              maxLength={80} placeholder="Track or artist" aria-label="Search Spotify"
-              style={{ flex:1, minWidth:0, height:46, padding:"0 12px", borderRadius:10,
-                border:"1.5px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
-                fontFamily:SANS, fontSize:15, outline:"none" }} />
-            <Btn kind="dark" disabled={busy || query.trim().length < 2} onClick={runSearch}
-              style={{ minHeight:46, padding:"10px 13px" }}>{busy ? "Searching" : "Search"}</Btn>
-          </div>
-          {error && <div role="alert" style={{ fontFamily:SANS, fontSize:12.5,
-            color:"var(--clay-text)", marginTop:8 }}>{error}</div>}
-          {!!results.length && (
-            <div style={{ display:"grid", gap:7, marginTop:10 }}>
-              {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
-                action={() => { onChange(track); setResults([]); setQuery(""); }}
-                actionLabel="Choose" />)}
-            </div>
-          )}
-          <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)",
-            lineHeight:1.4, marginTop:9 }}>Search results and artwork provided by Spotify.</div>
-        </>
-      ) : (
-        <div style={{ padding:"10px 11px", border:"1px solid var(--line)", borderRadius:10,
-          background:"var(--paper2)", fontFamily:SANS, fontSize:12.5,
-          color:"var(--muted)", lineHeight:1.45 }}>
-          Spotify search is not configured in this environment.
-        </div>
-      )}
     </div>
   );
 }
@@ -4403,9 +4357,18 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
     });
     setBusy("");
     if (!result.ok) return setError(result.error || "Playback failed");
-    notify(playerName ? `${disp(state, playerName)} cue playing` : `${track.name} playing`,
+    notify(playerName ? `${disp(state, playerName)}'s song playing` : `${track.name} playing`,
       null, "gold", playerName);
     setTimeout(refreshPlayer, 450);
+  };
+  const toggleAuto = async () => {
+    if (busy) return;
+    const next = status.autoWinSongs === false;
+    setBusy("auto"); setError("");
+    const result = await spotifyAutoWinSongs(next);
+    setBusy("");
+    if (!result.ok) return setError(result.error || "Could not change win songs");
+    setStatus(current => ({ ...current, autoWinSongs:result.autoWinSongs }));
   };
   const playbackAction = async kind => {
     if (busy) return;
@@ -4476,6 +4439,13 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
               style={{ minHeight:38, padding:"8px 9px", fontSize:10.5 }}>Disconnect</Btn>
           </div>
 
+          <div className="fd-profile-vibration" style={{ marginBottom:14 }}>
+            <span id="fd-auto-win-label">Play win songs automatically</span>
+            <button type="button" role="switch" aria-checked={status.autoWinSongs !== false}
+              aria-labelledby="fd-auto-win-label" className="fd-switch" disabled={busy === "auto"}
+              onClick={toggleAuto}><span aria-hidden="true" /></button>
+          </div>
+
           <div style={{ ...label, marginBottom:6 }}>Playback device</div>
           <div style={{ display:"flex", gap:8, marginBottom:14 }}>
             <select value={deviceId} onChange={event => chooseDevice(event.target.value)}
@@ -4508,7 +4478,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
 
           {!!savedCues.length && (
             <div style={{ marginBottom:16 }}>
-              <div style={{ ...label, marginBottom:7 }}>Player cues</div>
+              <div style={{ ...label, marginBottom:7 }}>Win songs</div>
               <div style={{ display:"grid", gap:7 }}>
                 {savedCues.map(item => (
                   <div key={item.player}>

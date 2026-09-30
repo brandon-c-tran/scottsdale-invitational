@@ -521,6 +521,12 @@ export const spotifyStatus = () => spotifyRequest("status", { gm:true });
 export const spotifyPlayer = () => spotifyRequest("player", { gm:true });
 export const spotifySearch = query =>
   spotifyRequest(`search?q=${encodeURIComponent(query)}`, { gm:true });
+/* the song's album upload on YouTube, for playing the exact snippet */
+export const songSnippet = ({ trackId = "", name = "", artist = "", durationMs = 0 } = {}) =>
+  spotifyRequest(`snippet?${new URLSearchParams({ trackId, name, artist, durationMs:String(durationMs || 0) })}`, { gm:true });
+/* a 30-second clip for the Win song picker, played on this phone */
+export const songPreview = ({ isrc = "", name = "", artist = "" } = {}) =>
+  spotifyRequest(`preview?${new URLSearchParams({ isrc:isrc || "", name, artist })}`, { gm:true });
 export const spotifyAuthorize = () =>
   spotifyRequest("authorize", { method:"POST", gm:true });
 export const spotifyDisconnect = () =>
@@ -534,6 +540,8 @@ export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs
     gm:true,
     body:{ uri, deviceId:targetDevice, positionMs, player, durationMs },
   });
+export const spotifyAutoWinSongs = on =>
+  spotifyRequest("auto", { method:"POST", gm:true, body:{ on:!!on } });
 export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
   spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });
 export const spotifyPause =({ deviceId:targetDevice = "" } = {}) =>

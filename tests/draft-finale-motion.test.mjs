@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { EMPTY_STATE, ROSTER, BUILTIN_EVENTS, computeStandings, draftTurn, snakeTeam } from "../shared/core.js";
+import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, draftTurn, snakeTeam } from "../shared/core.js";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { draftSeats, draftBoard, landedPick } from "../src/features/draft/draftModel.js";
 import { levelRoll, levelAnchor, seatOrder, buildSchedule, CONTINUOUS_TICK_MS } from "../src/features/poker/pokerMotion.js";
@@ -43,14 +44,16 @@ const act = (state, type, payload = {}) => {
 };
 const render = (state, element) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider,
   { profiles:state.profiles }, element));
-const volley = BUILTIN_EVENTS.find(ev => ev.id === "volley");
+/* an even two-team draft (six a side plus one on crew): the slate's 5v5 is
+   everyone in at seven and six, so the even shape is the legacy Flip Cup */
+const flip = allEventsOf(withLegacyEvents(structuredClone(EMPTY_STATE), ["flip"])).find(ev => ev.id === "flip");
 const pool = ROSTER.slice(0, 12), captains = pool.slice(0, 2);
 function drafting(picks = 0) {
-  const state = structuredClone(EMPTY_STATE);
-  act(state, "startDraft", { evId:volley.id, captains, players:pool, roles:[{ player:ROSTER[12], role:"photographer" }] });
+  const state = withLegacyEvents(structuredClone(EMPTY_STATE), ["flip"]);
+  act(state, "startDraft", { evId:flip.id, captains, players:pool, roles:[{ player:ROSTER[12], role:"photographer" }] });
   for (let i = 0; i < picks; i++) {
-    const draft = state.drafts[volley.id], turn = draftTurn(draft);
-    act(state, "pickDraftPlayer", { evId:volley.id, player:draft.pool[0], draftId:turn.draftId,
+    const draft = state.drafts[flip.id], turn = draftTurn(draft);
+    act(state, "pickDraftPlayer", { evId:flip.id, player:draft.pool[0], draftId:turn.draftId,
       pickIndex:turn.pickIndex, draftRevision:turn.draftRevision });
   }
   return state;
@@ -59,7 +62,7 @@ function drafting(picks = 0) {
 /* ── the draft board ── */
 
 test("every team's seats follow the snake: numbered picks, filled in pick order", () => {
-  const state = drafting(3), draft = state.drafts[volley.id];
+  const state = drafting(3), draft = state.drafts[flip.id];
   const seats = draftSeats(draft);
   const T = draft.teams.length, total = draftTurn(draft).totalPicks;
   assert.equal(seats.length, T);
@@ -74,7 +77,7 @@ test("every team's seats follow the snake: numbered picks, filled in pick order"
 });
 
 test("the board lists the turn, the snake order after it, and the latest pick", () => {
-  const state = drafting(1), draft = state.drafts[volley.id];
+  const state = drafting(1), draft = state.drafts[flip.id];
   const board = draftBoard(draft, { upcoming:4 });
   assert.equal(board.upcoming.length, 4);
   assert.deepEqual(board.upcoming.map(item => item.pick), [2, 3, 4, 5]);
@@ -87,7 +90,7 @@ test("the board lists the turn, the snake order after it, and the latest pick", 
 });
 
 test("only one fresh pick on the same draft lands; undo, catch-up jumps and stale frames land nothing", () => {
-  const state = drafting(2), draft = state.drafts[volley.id];
+  const state = drafting(2), draft = state.drafts[flip.id];
   assert.deepEqual(landedPick(draft, { fresh:true, from:1, to:2 }), { player:draft.picks[1].player, team:draft.picks[1].team, pick:2 });
   assert.equal(landedPick(draft, { fresh:false, from:1, to:2 }), null, "not fresh");
   assert.equal(landedPick(draft, { fresh:true, from:3, to:2 }), null, "undo");
@@ -95,24 +98,24 @@ test("only one fresh pick on the same draft lands; undo, catch-up jumps and stal
   assert.equal(landedPick(draft, { fresh:true, from:2, to:3 }), null, "not what the draft holds");
   /* undo is a rewind frame: never fresh, so it plays nothing */
   const before = structuredClone(state), turn = draftTurn(draft);
-  act(state, "undoDraftPick", { evId:volley.id, draftId:turn.draftId, pickIndex:turn.pickIndex, draftRevision:turn.draftRevision });
+  act(state, "undoDraftPick", { evId:flip.id, draftId:turn.draftId, pickIndex:turn.pickIndex, draftRevision:turn.draftRevision });
   assert.equal(isCorrectionFrame(before, state, "undoDraftPick"), true);
 });
 
 test("the TV draft fills the canvas: numbered silhouettes, the chip wall, the captain on the clock", () => {
-  const state = drafting(3), draft = state.drafts[volley.id], turn = draftTurn(draft);
-  const html = render(state, React.createElement(TVDraft, { state, ev:volley, d:draft }));
+  const state = drafting(3), draft = state.drafts[flip.id], turn = draftTurn(draft);
+  const html = render(state, React.createElement(TVDraft, { state, ev:flip, d:draft }));
   const open = draftSeats(draft).flatMap(team => team.slots).filter(slot => !slot.player);
   assert.equal((html.match(/class="tv-draft-silhouette/g) || []).length, open.length);
   for (const slot of open) assert.match(html, new RegExp(`<text[^>]*>${slot.pick}</text>`));
   assert.equal((html.match(/class="tv-draft-silhouette is-next"/g) || []).length, 1, "the next seat is marked");
   assert.equal((html.match(/data-flip="[A-Za-z]+"/g) || []).length, draft.pool.length, "every available player is on the wall");
-  assert.match(html, new RegExp(`${volley.name} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`));
+  assert.match(html, new RegExp(`${flip.name} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`));
   assert.match(html, /tv-draft-who/);
   assert.match(html, /Pick 3<\/span>/, "the latest pick is marked in its seat");
   assert.doesNotMatch(html, /is-fresh|is-slam|is-arriving|tv-draft-flyer/, "a first render never animates");
   const done = drafting(10);
-  const complete = render(done, React.createElement(TVDraft, { state:done, ev:volley, d:done.drafts[volley.id] }));
+  const complete = render(done, React.createElement(TVDraft, { state:done, ev:flip, d:done.drafts[flip.id] }));
   assert.match(complete, /Teams picked/);
   assert.doesNotMatch(complete, /tv-draft-wall|tv-draft-silhouette/);
 });
@@ -125,8 +128,8 @@ test("TV draft text is never under 24px", () => {
 });
 
 test("the phone draft marks seats and pool cards for the flight and animates nothing on open", () => {
-  const state = drafting(2), draft = state.drafts[volley.id];
-  const html = render(state, React.createElement(DraftSheet, { ev:volley, state, gm:true, me:ROSTER[12],
+  const state = drafting(2), draft = state.drafts[flip.id];
+  const html = render(state, React.createElement(DraftSheet, { ev:flip, state, gm:true, me:ROSTER[12],
     standings:computeStandings(state), onClose() {}, onPlayer() {}, onPick:() => ({ ok:true }) }));
   for (const pick of draft.picks) assert.match(html, new RegExp(`data-seat="${pick.player}"`));
   for (const player of draft.pool) assert.match(html, new RegExp(`data-flip="${player}"`));

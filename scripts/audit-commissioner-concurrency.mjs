@@ -9,18 +9,23 @@ import {
   duelReserve,
 } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
+import { legacyEvent, withLegacyEvents } from "../tests/support/legacy-events.mjs";
+import { confirmStart } from "../tests/support/confirmed-start.mjs";
 
 const mode = process.argv.includes("--ws") ? "ws" : "memory";
 const endpoint = "ws://127.0.0.1:5183/ws";
 const actors = { a:{ player:ROSTER[0], isGm:true }, b:{ player:ROSTER[1], isGm:true },
   c:{ player:ROSTER[2], isGm:true }, guest:{ player:ROSTER[12], isGm:false }, tv:{ player:null, isGm:false } };
-const event = id => BUILTIN_EVENTS.find(ev => ev.id === id);
+/* The slate no longer has pairs pools; the in-memory run adds the old
+   Spikeball event (tests/support/legacy-events.mjs) so C23 still covers them. */
+const event = id => BUILTIN_EVENTS.find(ev => ev.id === id) || legacyEvent(id);
+const freshState = () => withLegacyEvents(structuredClone(EMPTY_STATE), ["spike"]);
 const ref = (state, evId) => {
   const contest = resolveCurrentContest(state, event(evId));
   return { contestId:contest.id, contestRevision:contest.revision };
 };
 const draftRef = state => {
-  const { draftId, pickIndex, draftRevision } = draftTurn(state.drafts.bball);
+  const { draftId, pickIndex, draftRevision } = draftTurn(state.drafts.volley);
   return { draftId, pickIndex, draftRevision };
 };
 const trace = [], results = [];
@@ -30,13 +35,14 @@ const cleanAck = ack => ({ ok:ack.ok, ...(ack.error ? { error:ack.error } : {}),
 const record = (actor, type, payload, ack) => { trace.push({ actor, type, payload, ack:cleanAck(ack) }); return ack; };
 
 function memory() {
-  let state = structuredClone(EMPTY_STATE), version = 0;
+  let state = freshState(), version = 0;
   return { get state() { return state; }, get version() { return version; },
-    async reset() { state = structuredClone(EMPTY_STATE); version = 0; },
+    async reset() { state = freshState(); version = 0; },
     async send(actor, type, payload = {}, options = {}) {
       const next = structuredClone(state), ctx = { ...actors[actor], deviceId:`audit-${actor}`,
         actionId:options.actionId || `audit-${++sequence}`, progressReset:true, showControl:true };
-      const ack = applyAction(next, type, payload, ctx);
+      /* the first game-opening write confirms the weekend start, as the pill's second tap does */
+      const ack = applyAction(next, type, confirmStart(type, payload), ctx);
       if (ack.ok && !ack.extra?.unchanged) { state = next; version++; }
       return record(actor, type, payload, { ...ack, version });
     },
@@ -159,7 +165,7 @@ async function resultReady() {
 }
 async function firstResult() { await resultReady(); await good("a", "saveResult", { evId:"putt", slots:[[ROSTER[3]]] }); }
 async function draft() {
-  const ev = event("bball"), players = defaultQaParticipants(ev);
+  const ev = event("volley"), players = defaultQaParticipants(ev);
   await good("a", "startDraft", { evId:ev.id, players, captains:players.slice(0, 4) });
 }
 async function table() { await good("a", "pokerSetup"); await good("a", "pokerStart"); }
@@ -204,13 +210,13 @@ try {
     return { accepted:1, rejected:2, errors:acks.filter(ack => !ack.ok).map(ack => ack.error) };
   });
   await check("C02", "Different simultaneous announcements keep one current market", async () => {
-    const acks = await race(["putt", "nine", "ragecage"].map((evId, index) => ["abc"[index], "announceEvent", { evId }]));
+    const acks = await race(["putt", "where", "ragecage"].map((evId, index) => ["abc"[index], "announceEvent", { evId }]));
     assert.equal(acks.filter(ack => ack.ok).length, 1);
     assert.equal(Object.values(api.state.eventOps).filter(op => op.contest?.phase === "betting-open").length, 1);
     return { accepted:1, current:api.state.onDeck };
   });
   await check("C03", "Three lock/start taps only start the current matchup once", async () => {
-    await open("bball"); const payload = { evId:"bball", ...ref(api.state, "bball") }, before = api.version;
+    await open("volley"); const payload = { evId:"volley", ...ref(api.state, "volley") }, before = api.version;
     const acks = await race(["a", "b", "c"].map(actor => [actor, "lockAndStart", payload]));
     assert.ok(acks.every(ack => ack.ok)); assert.equal(acks.filter(ack => ack.extra?.unchanged).length, 2);
     assert.equal(api.version, before + 1); assert.equal(api.state.onDeck, null);
@@ -226,13 +232,13 @@ try {
     return { racingChipAccepted:acks[0].ok, lateChipError:late.error };
   });
   await check("C05", "Competing matchup winners cannot skip or overwrite the next matchup", async () => {
-    await open("bball"); await good("a", "lockAndStart", { evId:"bball", ...ref(api.state, "bball") });
-    const current = resolveCurrentContest(api.state, event("bball"));
+    await open("volley"); await good("a", "lockAndStart", { evId:"volley", ...ref(api.state, "volley") });
+    const current = resolveCurrentContest(api.state, event("volley"));
     const commands = ["a", "b", "c"].map((actor, index) => [actor, "recordContestWinner",
-      { evId:"bball", ...ref(api.state, "bball"), winner:current.sides[index % 2].key }, { actionId:`winner-${++sequence}` }]);
+      { evId:"volley", ...ref(api.state, "volley"), winner:current.sides[index % 2].key }, { actionId:`winner-${++sequence}` }]);
     const acks = await race(commands), winnerIndex = acks.findIndex(ack => ack.ok);
     assert.equal(acks.filter(ack => ack.ok).length, 1);
-    const next = resolveCurrentContest(api.state, event("bball"));
+    const next = resolveCurrentContest(api.state, event("volley"));
     assert.equal(next.revision, current.revision + 1); assert.notEqual(next.id, current.id);
     const before = structuredClone(api.state), [actor, type, payload, options] = commands[winnerIndex];
     assert.equal((await good(actor, type, payload, options)).extra.unchanged, true);
@@ -240,40 +246,40 @@ try {
     return { accepted:1, rejected:2, nextRevision:next.revision };
   });
   await check("C06", "Two corrections of the previous matchup restore it only once", async () => {
-    await open("bball"); await good("a", "lockAndStart", { evId:"bball", ...ref(api.state, "bball") });
-    const current = resolveCurrentContest(api.state, event("bball"));
-    await good("a", "recordContestWinner", { evId:"bball", ...ref(api.state, "bball"), winner:current.sides[0].key });
-    const undo = contestUndoAvailability(api.state, event("bball"));
+    await open("volley"); await good("a", "lockAndStart", { evId:"volley", ...ref(api.state, "volley") });
+    const current = resolveCurrentContest(api.state, event("volley"));
+    await good("a", "recordContestWinner", { evId:"volley", ...ref(api.state, "volley"), winner:current.sides[0].key });
+    const undo = contestUndoAvailability(api.state, event("volley"));
     const acks = await race(["a", "b", "c"].map(actor => [actor, "undoLastContest",
-      { evId:"bball", contestId:undo.contestId, contestRevision:undo.contestRevision }]));
+      { evId:"volley", contestId:undo.contestId, contestRevision:undo.contestRevision }]));
     assert.equal(acks.filter(ack => ack.ok).length, 1);
-    const restored = resolveCurrentContest(api.state, event("bball"));
+    const restored = resolveCurrentContest(api.state, event("volley"));
     assert.equal(restored.id, current.id); assert.equal(restored.phase, "in-progress"); assert.equal(api.state.onDeck, null);
     return { accepted:1, restoredLocked:true };
   });
   await check("C07", "Three commissioners cannot make three draft picks from one turn", async () => {
-    await draft(); const draftId = api.state.drafts.bball.id, old = draftRef(api.state), available = [...api.state.drafts.bball.pool];
+    await draft(); const draftId = api.state.drafts.volley.id, old = draftRef(api.state), available = [...api.state.drafts.volley.pool];
     const acks = await race(["a", "b", "c"].map((actor, index) => [actor, "pickDraftPlayer",
-      { evId:"bball", ...old, player:available[index] }]));
-    assert.equal(acks.filter(ack => ack.ok).length, 1); assert.equal(api.state.drafts.bball.picks.length, 1);
-    assert.equal(api.state.drafts.bball.id, draftId);
-    const undo = { evId:"bball", ...draftRef(api.state) };
+      { evId:"volley", ...old, player:available[index] }]));
+    assert.equal(acks.filter(ack => ack.ok).length, 1); assert.equal(api.state.drafts.volley.picks.length, 1);
+    assert.equal(api.state.drafts.volley.id, draftId);
+    const undo = { evId:"volley", ...draftRef(api.state) };
     const undos = await race(["a", "b", "c"].map(actor => [actor, "undoDraftPick", undo]));
-    assert.equal(undos.filter(ack => ack.ok).length, 1); assert.equal(api.state.drafts.bball.picks.length, 0);
+    assert.equal(undos.filter(ack => ack.ok).length, 1); assert.equal(api.state.drafts.volley.picks.length, 0);
     assert.equal(draftRef(api.state).draftRevision, 2);
-    assert.equal((await send("a", "pickDraftPlayer", { evId:"bball", ...old, player:available[0] })).ok, false);
+    assert.equal((await send("a", "pickDraftPlayer", { evId:"volley", ...old, player:available[0] })).ok, false);
     return { picksAccepted:1, undosAccepted:1, staleAfterUndoRejected:true };
   });
   await check("C08", "Concurrent finalization preserves one exact drafted draw", async () => {
     await draft();
-    while (api.state.drafts.bball.pool.length) await good("a", "pickDraftPlayer",
-      { evId:"bball", ...draftRef(api.state), player:api.state.drafts.bball.pool[0] });
-    const expected = api.state.drafts.bball.teams.map(team => team.players), payload = { evId:"bball", ...draftRef(api.state) };
+    while (api.state.drafts.volley.pool.length) await good("a", "pickDraftPlayer",
+      { evId:"volley", ...draftRef(api.state), player:api.state.drafts.volley.pool[0] });
+    const expected = api.state.drafts.volley.teams.map(team => team.players), payload = { evId:"volley", ...draftRef(api.state) };
     const before = api.version, acks = await race(["a", "b", "c"].map(actor => [actor, "finalizeDraft", payload]));
     assert.ok(acks.every(ack => ack.ok)); assert.equal(api.version, before + 1);
-    assert.deepEqual(api.state.draws.bball.teams.map(team => team.players), expected);
+    assert.deepEqual(api.state.draws.volley.teams.map(team => team.players), expected);
     assert.equal(api.state.live, false);
-    return { accepted:3, writes:1, draftId:payload.draftId, drawId:api.state.draws.bball.id };
+    return { accepted:3, writes:1, draftId:payload.draftId, drawId:api.state.draws.volley.id };
   });
   await check("C09", "Conflicting first official results require an explicit correction", async () => {
     await resultReady();
@@ -373,22 +379,22 @@ try {
   await check("C20", "Guest authority cannot invoke commissioner mutations", async () => {
     for (const [type, payload] of [["announceEvent", { evId:"putt" }], ["pokerSetup", {}],
       ["setFrozen", { f:true }], ["saveResult", { evId:"putt", slots:[[ROSTER[0]]] }],
-      ["startDraft", { evId:"bball", players:defaultQaParticipants(event("bball")), captains:ROSTER.slice(0, 4) }]]) {
+      ["startDraft", { evId:"volley", players:defaultQaParticipants(event("volley")), captains:ROSTER.slice(0, 4) }]]) {
       const ack = await send("guest", type, payload); assert.equal(ack.ok, false); assert.match(ack.error, /Commissioner only/);
     }
     assert.equal(api.state.live, false); assert.equal(api.state.frozen, false);
     return { rejected:5 };
   });
   await check("C21", "Complete bracket, current-market bets, and final event result converge across roles", async () => {
-    await open("bball"); const result = await playAllMarkets("bball");
+    await open("volley"); const result = await playAllMarkets("volley");
     assert.equal(result.played, 3); assert.equal(api.state.onDeck, null);
     return { gameFamily:"four-team bracket", ...result };
   });
   await check("C22", "Three two-through heats plus their final settle winner bets correctly", async () => {
-    await good("a", "runStages", { evId:"pingpong", cfg:{ kind:"heats", nGroups:3, advance:2, players:[...ROSTER] } });
-    assert.equal(api.state.live, false); await open("pingpong");
-    const result = await playAllMarkets("pingpong"); assert.equal(result.played, 4);
-    assert.ok(api.state.stages.pingpong.groups.every(group => group.through.length === 2 && group.through.includes(group.winner)));
+    await good("a", "runStages", { evId:"beerio", cfg:{ kind:"heats", nGroups:3, advance:2, players:[...ROSTER] } });
+    assert.equal(api.state.live, false); await open("beerio");
+    const result = await playAllMarkets("beerio"); assert.equal(result.played, 4);
+    assert.ok(api.state.stages.beerio.groups.every(group => group.through.length === 2 && group.through.includes(group.winner)));
     return { gameFamily:"solo heats and final", ...result };
   });
   await check("C23", "Team pools and their final preserve the full winning teams", async () => {

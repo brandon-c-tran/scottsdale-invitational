@@ -32,6 +32,14 @@
 .fd-draw-people button:disabled,.fd-draw-crew button:disabled { cursor:default; }
 .fd-draw-card.is-revealed .fd-draw-people button { animation:fd-draw-player .38s cubic-bezier(.2,.8,.3,1) calc(.12s + var(--deal-index,0)*.055s) backwards; }
 .fd-draw-versus { display:block; border-top:1px solid var(--line); padding-top:3px; margin-top:3px; color:var(--muted2); font:600 10px/1.3 var(--fd-body); }
+/* the teams that skip round one: a full-width card, one tile per team */
+.fd-draw-announcement section.is-byes { grid-column:1/-1; }
+.fd-draw-byes { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:6px; }
+.fd-draw-bye { min-width:0; border:1px solid var(--line); border-radius:6px; background:var(--paper); padding:2px 8px; }
+.fd-draw-bye.is-mine { border:2px solid var(--fd-you); padding:1px 7px; }
+.fd-draw-card.is-revealed .fd-draw-bye { animation:fd-draw-bye-in .42s cubic-bezier(.2,.8,.3,1) calc(.1s + var(--deal-index,0)*.09s) backwards; }
+.fd-draw-card.is-settled .fd-draw-bye,.fd-draw-announcement.is-reduced .fd-draw-bye { animation:none; }
+@keyframes fd-draw-bye-in { from { transform:translateY(8px) scale(.96); opacity:0; } to { transform:none; opacity:1; } }
 .fd-draw-crew { display:flex; flex-wrap:wrap; gap:5px 14px; color:var(--muted2); font-size:11px; margin-top:10px; }
 .fd-draw-crew>div { display:flex; align-items:center; gap:8px; }
 .fd-draw-crew.is-covered { visibility:hidden; }
@@ -57,7 +65,7 @@
 @keyframes fd-draw-turn { from { transform:rotateY(-90deg); } to { transform:rotateY(0); } }
 @keyframes fd-draw-back { from { transform:rotateY(0); } to { transform:rotateY(90deg); visibility:hidden; } }
 @keyframes fd-draw-player { from { transform:translateX(-9px); opacity:0; } to { transform:none; opacity:1; } }
-@media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
+@media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-bye,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
 @media(max-width:359px) { .fd-draw-announcement { grid-template-columns:1fr; } }
 .fd-announcement-game { display:flex; align-items:center; justify-content:center; min-height:90px; padding:0 0 8px; overflow:hidden; }
 .fd-game-moment { display:grid; place-items:center; width:180px; height:82px; }

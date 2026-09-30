@@ -53,6 +53,18 @@
 .tv-ticker.is-paged .tv-ticker-item { flex:0 1 auto; min-width:0; padding-right:0; white-space:nowrap; }
 .tv-ticker.is-paged .tv-ticker-text { overflow:hidden; text-overflow:ellipsis; }
 
+/* now playing: a win song on the speaker, above the ticker, bottom left */
+.tv-now { position:absolute; left:56px; bottom:98px; z-index:12; display:flex; align-items:center; gap:22px;
+  max-width:760px; padding:16px 30px 16px 16px; border-radius:16px; background:var(--night2);
+  border:1.5px solid var(--ghost-line); box-shadow:var(--shadow-3); animation:si-flag .55s ease-out both; }
+.tv-now.is-mvp { border:2px solid var(--sun); }
+.tv-now-text { min-width:0; }
+.tv-now.is-mvp .tv-now-label { color:var(--sun); }
+.tv-now-name { font-size:48px; line-height:1; color:var(--bone); margin-top:4px; }
+.tv-now-track { font:600 26px/1.3 var(--fd-body); color:var(--night-text); margin-top:6px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (prefers-reduced-motion:reduce) { .tv-now { animation:none; } }
+
 /* standings: all thirteen, always */
 .tv-board { flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; }
 .tv-leader { display:flex; align-items:center; gap:24px; padding:14px 30px; border-radius:14px;
@@ -108,43 +120,45 @@
 .tv-sides { flex:1; min-height:0; display:grid; gap:14px; align-content:stretch; }
 .tv-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:14px; padding:18px 20px; border-radius:14px;
   background:var(--night2); border:1px solid var(--ghost-line); overflow:hidden; }
-.tv-side-top { display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px; min-width:0; }
+.tv-side-top { display:flex; flex-wrap:nowrap; align-items:center; gap:12px 18px; min-width:0; }
 .tv-side-faces { display:flex; flex-wrap:nowrap; gap:8px; flex-shrink:0; }
 .tv-side-name { flex:1 1 280px; min-width:0; font:700 52px/1 var(--fd-display); text-transform:uppercase; color:var(--bone);
   overflow-wrap:normal; word-break:normal; hyphens:none; }
+/* a side's name keeps two lines on every side, so both felts start level */
+.tv-side-top .tv-side-name { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.tv-sides.is-h2h .tv-side-top { height:104px; }
 .tv-side-total { flex-shrink:0; font:800 56px/.9 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-side-win { height:32px; min-width:0; }
 /* the felt: each bettor's own stack stands on the side it backs */
 .tv-felt { flex:1; min-height:0; position:relative; display:flex; flex-direction:column; justify-content:flex-end; gap:6px;
   padding:12px 18px 12px; border-radius:12px; background:var(--night-deep); border:1px solid var(--night-line); }
 .tv-felt > .tv-side-total { position:absolute; top:12px; right:18px; }
 .tv-felt.is-empty { justify-content:center; }
 .tv-felt-empty { font:600 26px/1.2 var(--fd-body); color:var(--night-text); }
-.tv-stacks { gap:8px 18px; }
-.tv-stacks .fd-stacks-name { max-width:120px; font:700 26px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase;
-  color:var(--bone); }
-.tv-stacks .fd-stack-tag { padding:3px 9px; border-width:2px; }
-.tv-stacks.has-tag { padding-top:26px; }
-/* a fitted felt (P1): same names and tags, the total pinned top right */
-.tv-stacks-fit .fd-stacks { gap:8px 18px; }
-.tv-stacks-fit .fd-stacks-name { max-width:120px; font:700 26px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase;
-  color:var(--bone); }
-.tv-stacks-fit .fd-stack-tag { padding:3px 9px; border-width:2px; }
-.tv-side.is-row .tv-stacks .fd-stacks-name { max-width:100%; }
+/* every stack: its amount on one value line, a first name under it */
+.tv-stacks, .tv-stacks-fit .fd-stacks { gap:8px 18px; }
+.tv-stacks .fd-stacks-name, .tv-stacks-fit .fd-stacks-name { max-width:120px; font:700 26px/1 var(--fd-display); letter-spacing:.02em;
+  text-transform:uppercase; color:var(--bone); }
+.tv-stacks .fd-stacks-value, .tv-stacks-fit .fd-stacks-value { font:700 24px/1 var(--fd-display); color:var(--bone); }
+.tv-stacks .fd-stacks-slot, .tv-stacks-fit .fd-stacks-slot { gap:6px; }
+.tv-sides:not(.is-h2h):not(.is-compact) .tv-side-top { height:80px; }
 .tv-sides:not(.is-h2h):not(.is-compact) .tv-side-name { font-size:40px; }
 .tv-sides:not(.is-h2h):not(.is-compact) .tv-side-total { font-size:48px; }
-/* a wide field: one row per side; a side with chips is felt, an empty one stays quiet */
-.tv-sides.is-compact { align-content:start; grid-auto-rows:auto; }
-.tv-side.is-row { flex-direction:row; align-items:center; gap:14px; padding:10px 14px; min-height:64px;
+/* a wide field: rows of one fixed height (set on the grid), one per side; a
+   side with chips is felt, an empty one stays quiet */
+.tv-sides.is-compact { align-content:start; }
+.tv-side.is-row { flex-direction:row; align-items:flex-start; gap:14px; padding:10px 14px; min-height:0;
   background:transparent; border-color:var(--night-line); }
 .tv-side.is-row.has-chips { background:var(--night-deep); border-color:var(--ghost-line); }
-.tv-side.is-row .tv-side-faces { gap:6px; align-self:flex-start; }
-.tv-side-id { flex:0 1 136px; min-width:0; display:flex; flex-direction:column; gap:6px; align-self:flex-start; padding-top:5px; }
+.tv-side.is-row .tv-side-faces { gap:6px; }
+.tv-side-id { flex:0 0 120px; min-width:0; display:flex; flex-direction:column; gap:6px; padding-top:5px; }
 .tv-side.is-row .tv-side-name { flex:none; font-size:32px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-side.is-row .tv-side-total { font-size:40px; }
-.tv-side.is-row .tv-stacks { flex:1; min-width:0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-  justify-items:center; align-items:end; gap:6px 8px; }
-.tv-side.is-row .tv-stacks .fd-stacks-slot { max-width:100%; }
-.tv-side.is-row .tv-stacks .fd-stacks-name { font-size:24px; }
+/* its stacks stand on the row's floor, each with room for a first name */
+.tv-side.is-row .tv-stacks { flex:1; min-width:0; align-self:stretch; display:flex; flex-wrap:nowrap; align-items:flex-end;
+  gap:8px; overflow:hidden; }
+.tv-side.is-row .tv-stacks .fd-stacks-slot { flex:0 1 auto; min-width:96px; max-width:50%; }
+.tv-side.is-row .tv-stacks .fd-stacks-name { max-width:100%; font-size:24px; }
 .tv-vs { align-self:center; width:72px; height:72px; border-radius:50%; display:grid; place-items:center;
   background:var(--sun); color:var(--ink0); font:700 italic 32px/1 var(--fd-display); }
 .tv-contest-foot { font:600 26px/1 var(--fd-body); color:var(--night-text); }
@@ -291,6 +305,9 @@
 .tv-reveal-card.is-shown { visibility:visible; animation:si-flag .55s ease-out both; }
 .tv-reveal-group { font-size:44px; line-height:1; color:var(--accent2); margin-bottom:4px; }
 .tv-reveal-versus-mark { font:700 24px/1 var(--fd-body); letter-spacing:.18em; text-transform:uppercase; color:var(--night-text); }
+/* a team that skips round one sits on its own tile inside the card */
+.tv-reveal-bye { padding:10px 18px; border-radius:10px; background:var(--night); border:1.5px solid var(--ghost-line); }
+.tv-reveal-card.is-shown .tv-reveal-bye { animation:si-flag .5s ease-out calc(.15s + var(--deal-index,0)*.12s) backwards; }
 .tv-draw-line { display:flex; align-items:center; gap:18px; min-width:0; }
 .tv-draw-faces { display:flex; flex-wrap:wrap; gap:8px; flex-shrink:0; max-width:60%; }
 .tv-draw-text { min-width:0; }
@@ -482,10 +499,11 @@
 .tv-desert-stars { opacity:0; transition:opacity 1.2s; }
 .tv-desert-stars.is-on { opacity:1; }
 .tv-desert-star { fill:var(--desert-star); }
-.tv-desert-star.is-winner { stroke:var(--bone); stroke-width:1.5px; }
+/* a thin bone edge keeps a dark chip color readable on the night sky */
+.tv-desert-star.is-winner { stroke:var(--bone); stroke-width:1px; stroke-linejoin:round; transform-origin:0 0; }
 .tv-desert-star.is-new { animation:tv-star-pop .36s ease-out both; }
-.tv-desert-line { stroke:var(--bone); stroke-width:2.5px; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:0;
-  animation:tv-line-draw .18s linear both; }
+.tv-desert-line { stroke:var(--bone); stroke-opacity:.7; stroke-width:1.5px; stroke-linecap:round; stroke-dasharray:1;
+  stroke-dashoffset:0; animation:tv-line-draw .18s linear both; }
 @keyframes tv-star-pop { 0% { transform:scale(0); } 70%, 85% { transform:scale(1.3); } 100% { transform:scale(1); } }
 @keyframes tv-line-draw { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
 

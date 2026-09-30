@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { EMPTY_STATE, ROSTER, BUILTIN_EVENTS, computeStandings, disp, draftTurn, snakeTeam } from "../shared/core.js";
+import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, disp, draftTurn, snakeTeam } from "../shared/core.js";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 import { applyAction } from "../worker/actions.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -34,7 +35,10 @@ const textOf = values => values.map(value => Array.isArray(value) ? textOf(value
     : typeof value === "string" || typeof value === "number" ? String(value) : "").join("");
 
 function fixture(started = true) {
-  const state = structuredClone(EMPTY_STATE), ev = BUILTIN_EVENTS.find(event => event.id === "volley");
+  /* an even two-team draft (six a side plus one on crew): the slate's 5v5 is
+     everyone in at seven and six, so the even shape is the legacy Flip Cup */
+  const state = withLegacyEvents(structuredClone(EMPTY_STATE), ["flip"]);
+  const ev = allEventsOf(state).find(event => event.id === "flip");
   state.profiles[ROSTER[0]] = { display:"Brandon T." };
   if (started) saved(state, "startDraft", { evId:ev.id, captains, players:pool, roles });
   return { state, ev };
@@ -264,8 +268,8 @@ for (const command of ["Confirm teams", "Discard draft"]) test(`${command} waits
 });
 
 test("frozen, completed, shelved and poker-locked boards disable draft mutations", () => {
-  for (const block of [state => { state.frozen = true; }, state => { state.results.volley = { slots:[] }; },
-    state => { state.shelved.volley = true; }, state => { state.poker = { id:"poker" }; }]) {
+  for (const block of [state => { state.frozen = true; }, state => { state.results.flip = { slots:[] }; },
+    state => { state.shelved.flip = true; }, state => { state.poker = { id:"poker" }; }]) {
     const { state, ev } = fixture(); block(state);
     const view = controls(state, ev);
     assert.match(view.html, /Draft paused\./);

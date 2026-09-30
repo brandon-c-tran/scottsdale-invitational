@@ -27,7 +27,7 @@ const compiled = await build({
       export const hasGmToken=()=>true;
       ${blocked(["dispatch", "uploadPhoto", "downloadSnapshot", "localSet", "getDeviceId", "setGmToken",
         "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect",
-        "spotifyPlay", "spotifyPause", "spotifyDevice"])}
+        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet"])}
     ` }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));
@@ -72,7 +72,7 @@ function phone({ gm = false, player = ROSTER[0] } = {}) {
 let command = 0;
 const host = () => ({ isGm:true, player:ROSTER[0], deviceId:"announcement-test", actionId:`announce-${++command}` });
 for (const gm of [false, true]) {
-  for (const [type, evId] of [["announceEvent", "putt"], ["announceAndDraw", "bball"]]) {
+  for (const [type, evId] of [["announceEvent", "putt"], ["announceAndDraw", "volley"]]) {
     test(`${gm ? "commissioner" : "guest"}: mounted App survives ${type} and its first live snapshot`, () => {
       const device = phone({ gm }), before = structuredClone(EMPTY_STATE);
       assert.match(device.render(before), /fd-home is-before/);

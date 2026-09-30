@@ -122,7 +122,12 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
             <section key={index} className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
               style={settledStyle(index)}>
               <div className="tv-display tv-reveal-group">{group.title}</div>
-              {group.lines.map((line, j) => (
+              {group.lines.map((line, j) => group.bye ? (
+                <div key={j} className="tv-reveal-bye"
+                  style={{ "--deal-index":j, ...(reducedMotion || index < joined ? { animation:"none" } : null) }}>
+                  <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize} />
+                </div>
+              ) : (
                 <React.Fragment key={j}>
                   {group.vs && j > 0 && <div className="tv-reveal-versus-mark">vs</div>}
                   <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize} />

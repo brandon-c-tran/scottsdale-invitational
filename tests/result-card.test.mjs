@@ -38,7 +38,8 @@ const ui = await load("result-card.cjs", `
 
 const events = BUILTIN_EVENTS;
 const putt = events.find(event => event.id === "putt");
-const nine = events.find(event => event.id === "nine");
+/* Rage Cage: the Saturday-night solo free-for-all; it pays 1st and 2nd the same (1,600, 1,600, 400) */
+const cage = events.find(event => event.id === "ragecage");
 const pairs = events.find(event => event.id === "8ball");
 const poker = events.find(event => event.id === "poker");
 const [me, khoa, sahil, adi] = ROSTER;
@@ -54,21 +55,21 @@ const moment = (before, after, frame = FRESH, extra = {}) =>
 test("a fresh result makes one receipt: your place, each bet settling, the total and the rank", () => {
   const before = fresh();
   before.wagers = [
-    { id:"w-khoa", player:me, kind:"outright", eventId:nine.id, pick:khoa, pickPlayers:[khoa], stake:200, mult:2 },
-    { id:"w-sahil", player:me, kind:"outright", eventId:nine.id, pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
+    { id:"w-khoa", player:me, kind:"outright", eventId:cage.id, pick:khoa, pickPlayers:[khoa], stake:200, mult:2 },
+    { id:"w-sahil", player:me, kind:"outright", eventId:cage.id, pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
   ];
   const after = structuredClone(before);
-  after.results[nine.id] = { slots:[[khoa], [me], []], ts:5, revision:1 };
+  after.results[cage.id] = { slots:[[khoa], [me], []], ts:5, revision:1 };
   const receipt = moment(before, after);
   assert.equal(receipt.kind, "receipt");
   assert.deepEqual(receipt.lines.map(line => [line.label, line.detail, line.delta]), [
-    ["2nd place", "Event award", 800],
+    ["2nd place", "Event award", 1600],
     [`Bet on ${khoa}`, "200 at 2:1", 400],
     [`Bet on ${sahil}`, "200 at 2:1", -200],
   ]);
   assert.equal(receipt.from, START);
-  assert.equal(receipt.to, START + 800 + 400 - 200);
-  assert.equal(receipt.title, nine.name);
+  assert.equal(receipt.to, START + 1600 + 400 - 200);
+  assert.equal(receipt.title, cage.name);
   assert.equal(receipt.subtitle, `${khoa} won`);
   assert.equal(receipt.chip, khoa, "the winner's chip heads the card");
   assert.equal(receipt.celebrate, true, "a won bet celebrates on the bettor's phone");
@@ -186,9 +187,9 @@ test("the shower is your own chips, seeded, and the same pieces on every render"
 function weekend() {
   const state = fresh();
   state.results[putt.id] = { slots:[[me], [khoa], [sahil]], ts:1000000, revision:1 };
-  state.results[nine.id] = { slots:[[khoa], [adi], [me]], ts:3000000, revision:1 };
+  state.results[cage.id] = { slots:[[khoa], [adi], [me]], ts:3000000, revision:1 };
   state.wagers = [
-    { id:"b1", player:me, kind:"outright", eventId:nine.id, pick:khoa, pickPlayers:[khoa], stake:300, mult:2 },
+    { id:"b1", player:me, kind:"outright", eventId:cage.id, pick:khoa, pickPlayers:[khoa], stake:300, mult:2 },
     { id:"b2", player:me, kind:"outright", eventId:putt.id, pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
   ];
   state.duels = [
@@ -206,7 +207,7 @@ test("the chip history replays the weekend in order and always lands on the boar
   assert.equal(history[0].pts, START);
   assert.equal(history.at(-1).pts, board);
   assert.deepEqual(history.map(step => step.pts), [1000, 1200, 1400, 1300, 1200, 2200]);
-  assert.deepEqual(history.map(step => step.session), ["fri", "fri", "fri", "fri", "fri", "sap"]);
+  assert.deepEqual(history.map(step => step.session), ["fri", "fri", "fri", "fri", "fri", "san"]);
 
   for (const player of ROSTER)
     assert.equal(ui.chipHistory(state, player, events).at(-1).pts,
@@ -238,7 +239,7 @@ test("the last card says only what happened: place, stack, wins, best bet, Quick
   assert.deepEqual(card.wins, [putt.name]);
   assert.deepEqual(card.facts.map(fact => [fact.id, fact.value]), [
     ["wins", putt.name], ["best", "+600"], ["qd", "1–1 · +100"], ["high", "2,200"]]);
-  assert.match(card.facts[1].label, new RegExp(`Best bet · ${khoa}, ${nine.name}`));
+  assert.match(card.facts[1].label, new RegExp(`Best bet · ${khoa}, ${cage.name}`));
   assert.equal(card.dates, "OCT 30 TO NOV 1");
   assert.equal(card.footer, `${ROSTER.length} PLAYERS · 3 EVENTS`);
 
@@ -278,15 +279,15 @@ const render = (element, profiles = fresh().profiles) =>
 
 test("the receipt, the last card and Home's way back render their real content", () => {
   const before = fresh();
-  before.wagers = [{ id:"w", player:me, kind:"outright", eventId:nine.id, pick:khoa, pickPlayers:[khoa], stake:200, mult:2 }];
+  before.wagers = [{ id:"w", player:me, kind:"outright", eventId:cage.id, pick:khoa, pickPlayers:[khoa], stake:200, mult:2 }];
   const after = structuredClone(before);
-  after.results[nine.id] = { slots:[[khoa], [me], []], ts:5, revision:1 };
+  after.results[cage.id] = { slots:[[khoa], [me], []], ts:5, revision:1 };
   const receipt = { ...moment(before, after), animate:false };
   const html = render(React.createElement(ui.ChipReceipt, { moment:receipt, onDismiss:() => {}, onStandings:() => {}, onSettled:() => {} }));
   assert.match(html, /2nd place/);
-  assert.match(html, /\+800/);
+  assert.match(html, /\+1,600/);
   assert.match(html, /Settled bets/);
-  assert.match(html, />2,200</, "reduced or static: the total shows its end state");
+  assert.match(html, />3,000</, "reduced or static: the total shows its end state");
   assert.doesNotMatch(html, /—/);
 
   const state = weekend();

@@ -122,7 +122,7 @@ export const PROMPT_ACTIONS = {
     if (ballot.status !== "open") return err("That ballot is not open");
     ballot.status = "closed";
     ballot.closedAt = Date.now();
-    ballot.tally = tallyBallot(ballot, prompts.responses);
+    ballot.tally = tallyBallot(ballot, prompts.responses, state);
     return ok({ id:ballot.id, voted:ballot.tally.turnout });
   },
 

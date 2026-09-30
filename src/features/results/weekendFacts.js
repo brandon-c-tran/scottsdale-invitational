@@ -60,6 +60,7 @@ const postedAt = result => Number(result?.confirmedAt || result?.ts) || 0;
    event's result is the same write as the result. */
 function anchorOf(state, change) {
   if (change.kind === "award") return `result:${change.eventId}`;
+  if (change.kind === "mvp") return `mvp:${change.eventId}`;
   if (change.kind === "duel") return `duel:${change.id || change.at}`;
   if (change.kind === "ruling") return `ruling:${change.id || change.at}`;
   const { entry } = wagerSettlement(state, change.wager || {});
@@ -118,7 +119,7 @@ function winFacts(state, events) {
    oldest write first */
 function chipWrites(state, events) {
   const writes = new Map();
-  const kindOrder = { award:0, bet:1, duel:2, ruling:3 };
+  const kindOrder = { award:0, mvp:1, bet:2, duel:3, ruling:4 };
   for (const player of ROSTER) {
     for (const change of chipChanges(state, player, events)) {
       const anchor = anchorOf(state, change);

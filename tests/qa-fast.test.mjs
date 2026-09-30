@@ -60,7 +60,7 @@ function assertCoherent(state, label) {
       assert.equal(row.pts, (stacks.stacks[row.player] ?? 0) + after, `${label}: ${row.player} is their counted stack`);
     } else {
       const ruled = rulings.reduce((sum, a) => sum + a.delta, 0);
-      assert.equal(row.pts, START + row.awardPts + row.betNet + row.duelNet + ruled,
+      assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.betNet + row.duelNet + ruled,
         `${label}: ${row.player} standings are derived`);
     }
   }
@@ -95,8 +95,9 @@ function assertCoherent(state, label) {
 
 test("targets parse against the slate and reject anything else", () => {
   const state = empty();
-  assert.deepEqual(parseQaTarget(state, "event:8ball:mid"), { kind:"event", key:"event:8ball:mid", evId:"8ball", phase:"mid", index:1 });
-  assert.equal(parseQaTarget(state, "session:fri").evId, "die");
+  assert.deepEqual(parseQaTarget(state, "event:die:mid"), { kind:"event", key:"event:die:mid", evId:"die", phase:"mid", index:1 });
+  assert.deepEqual(parseQaTarget(state, "event:8ball:mid"), { kind:"event", key:"event:8ball:mid", evId:"8ball", phase:"mid", index:7 });
+  assert.equal(parseQaTarget(state, "session:fri").evId, "where", "a session ends at its last event");
   assert.equal(parseQaTarget(state, "poker:live").phase, "live");
   for (const bad of ["event:poker:open", "event:nope:open", "event:putt:late", "poker:dealt", "session:fin",
     "event:putt:open:x", 7, null, "x".repeat(90)])
@@ -167,7 +168,7 @@ test("every event reaches open, mid and done from an empty board", () => {
 test("sessions, the finale stages and the crown", () => {
   const fri = reach("session:fri").state;
   slateOf(fri).filter(ev => ev.session === "fri").forEach(ev => assert.ok(fri.results[ev.id]));
-  assert.equal(qaEventStage(fri, eventById(fri, "bball")), 0);
+  assert.equal(qaEventStage(fri, eventById(fri, "bball5")), 0, "Saturday is untouched");
   assertCoherent(fri, "session:fri");
 
   const set = reach("poker:set").state;
@@ -218,20 +219,20 @@ test("crowned from empty is one fast write, and a seed repeats the weekend", () 
 });
 
 test("from a mid-weekend board it plays forward and keeps what really happened", () => {
-  let { state } = reach("event:8ball:open");
-  const ev = eventById(state, "8ball");
+  let { state } = reach("event:die:open");
+  const ev = eventById(state, "die");
   const contest = resolveCurrentContest(state, ev);
   const player = ROSTER.find(p => !contest.players.includes(p));
-  const real = applyAction(state, "placeWager", { wager:{ kind:"match", eventId:"8ball", evName:ev.name,
+  const real = applyAction(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name,
     drawId:contest.drawId, match:[...contest.match], matchName:contest.label, teamIdx:contest.sides[0].key,
     contestId:contest.id, contestRevision:contest.revision, pickPlayers:contest.sides[0].players, pickTeam:true,
     stake:PT } }, { player, deviceId:"real-phone", actionId:"tap-1" });
   assert.equal(real.ok, true, real.error);
-  const drawId = state.draws["8ball"].id;
+  const drawId = state.draws.die.id;
   const moved = reach("session:sam", state);
   assert.equal(moved.extra.rewound, false);
   state = moved.state;
-  assert.equal(state.draws["8ball"].id, drawId, "the real draw stays");
+  assert.equal(state.draws.die.id, drawId, "the real draw stays");
   const kept = state.wagers.find(wager => wager.id === real.extra.wagerId);
   assert.ok(kept, "the real bet survives and settles");
   assert.ok(["won", "lost"].includes(resolveWager(state, kept, allEventsOf(state)).status));
@@ -240,7 +241,7 @@ test("from a mid-weekend board it plays forward and keeps what really happened",
 
   /* an event already under way before the target finishes first */
   let mid = reach("event:pong:mid").state;
-  mid = reach("event:foosball:open", mid).state;
+  mid = reach("event:trivia:open", mid).state;
   assert.ok(mid.results.pong);
   assertCoherent(mid, "finish then open");
 });
@@ -248,11 +249,11 @@ test("from a mid-weekend board it plays forward and keeps what really happened",
 test("a target behind the board rewinds through a game-progress reset", () => {
   const { state } = reach("event:pickleball:done");
   const keep = { profiles:state.profiles, seeds:state.seeds, logistics:state.logistics };
-  const refused = advance(state, "event:8ball:open").result;
+  const refused = advance(state, "event:die:open").result;
   assert.equal(refused.ok, false);
   assert.equal(refused.extra.needsConfirm, true);
   assert.match(refused.error, /^Replaces \d+ results and \d+ bets$/);
-  const back = reach("event:8ball:open", state, { confirm:RESET_PROGRESS_CONFIRMATION });
+  const back = reach("event:die:open", state, { confirm:RESET_PROGRESS_CONFIRMATION });
   assert.equal(back.extra.rewound, true);
   assert.equal(back.state.results.pickleball, undefined);
   assert.ok(back.state.results.putt);
@@ -264,12 +265,12 @@ test("a target behind the board rewinds through a game-progress reset", () => {
 });
 
 test("reaching the same place twice changes nothing", () => {
-  const { state } = reach("event:spike:mid");
-  const again = advance(state, "event:spike:mid").result;
+  const { state } = reach("event:beerio:mid");
+  const again = advance(state, "event:beerio:mid").result;
   assert.equal(again.ok, true);
   assert.equal(again.extra.unchanged, true);
-  const done = reach("event:spike:done").state;
-  assert.equal(advance(done, "event:spike:done").result.extra.unchanged, true);
+  const done = reach("event:beerio:done").state;
+  assert.equal(advance(done, "event:beerio:done").result.extra.unchanged, true);
 });
 
 test("Sim contest and Finish event step the current event only", () => {
@@ -279,13 +280,13 @@ test("Sim contest and Finish event step the current event only", () => {
   state = reach("step", state).state;
   assert.ok(state.results.putt, "a free-for-all is one contest");
   state = reach("step", state).state;
-  assert.equal(state.onDeck, "8ball");
+  assert.equal(state.onDeck, "die");
   state = reach("step", state).state;
-  assert.equal(state.eventOps["8ball"].contestStack.length, 1, "one contest decided");
-  assert.equal(resolveCurrentContest(state, eventById(state, "8ball")).phase, "betting-open", "the next is open");
+  assert.equal(state.eventOps.die.contestStack.length, 1, "one contest decided");
+  assert.equal(resolveCurrentContest(state, eventById(state, "die")).phase, "betting-open", "the next is open");
   state = reach("finish", state).state;
-  assert.ok(state.results["8ball"]);
-  assert.equal(qaEventStage(state, eventById(state, "pong")), 0, "finish stops at the result");
+  assert.ok(state.results.die);
+  assert.equal(qaEventStage(state, eventById(state, "where")), 0, "finish stops at the result");
   assertCoherent(state, "steps");
 
   let poker = reach("poker:counted").state;
@@ -298,30 +299,31 @@ test("Sim contest and Finish event step the current event only", () => {
 
 test("a captains draft left running is finished the way a commissioner would, and prep is not progress", () => {
   let state = reach("session:fri").state;
-  const ev = eventById(state, "bball");
+  const ev = eventById(state, "bball5");
   const suggestion = suggestParticipants(state, ev);
   const captains = suggestion.players.slice(0, ev.teamCfg.teams);
-  const started = applyAction(state, "startDraft", { evId:"bball", captains, players:suggestion.players,
+  const started = applyAction(state, "startDraft", { evId:"bball5", captains, players:suggestion.players,
     roles:suggestion.roles }, LOCAL);
   assert.equal(started.ok, true, started.error);
   const drawn = applyAction(state, "runDraw", { evId:"volley", ...suggestParticipants(state, eventById(state, "volley")) }, LOCAL);
   assert.equal(drawn.ok, true, drawn.error);
   assert.equal(qaEventStage(state, eventById(state, "volley")), 0, "a draw alone is preparation");
-  assert.equal(qaNeedsRewind(state, parseQaTarget(state, "event:bball:open")), false);
+  assert.equal(qaNeedsRewind(state, parseQaTarget(state, "event:bball5:open")), false);
   const volleyDraw = state.draws.volley.id;
   state = reach("event:volley:open", state).state;
-  assert.equal(state.draws.bball.method, "draft", "the draft became the teams");
-  assert.deepEqual(state.draws.bball.teams.map(team => team.captain), captains);
+  assert.equal(state.draws.bball5.method, "draft", "the draft became the teams");
+  assert.deepEqual(state.draws.bball5.teams.map(team => team.captain), captains);
+  assert.deepEqual(state.draws.bball5.teams.map(team => team.players.length).sort(), [6, 7], "everyone plays, seven and six");
   assert.equal(state.draws.volley.id, volleyDraw, "a prepared draw is kept");
   assertCoherent(state, "draft");
 });
 
 test("the sheet's model marks where the board is, and prompts follow the environment", () => {
-  const state = reach("event:8ball:mid").state;
+  const state = reach("event:die:mid").state;
   const listed = qaTargets(state);
   const fri = listed.sessions.find(session => session.id === "fri");
   const putt = fri.events.find(row => row.id === "putt");
-  const pool = fri.events.find(row => row.id === "8ball");
+  const pool = fri.events.find(row => row.id === "die");
   assert.deepEqual(putt.phases.map(phase => phase.reached), [true, true, true]);
   assert.deepEqual(pool.phases.map(phase => [phase.reached, phase.current, phase.rewinds]),
     [[true, false, true], [true, true, false], [false, false, false]]);
@@ -330,7 +332,7 @@ test("the sheet's model marks where the board is, and prompts follow the environ
   assert.equal(qaTargets(empty()).locker.current, true);
   assert.deepEqual(qaTargets(reach("poker:live").state).poker.map(item => [item.reached, item.current]),
     [[true, false], [true, true], [false, false]]);
-  assert.equal(qaCheckpointSummary(state).label, "8-Ball Doubles · Mid");
+  assert.equal(qaCheckpointSummary(state).label, "Beer Die Doubles · Mid");
   const needs = { ok:false, error:"Replaces 1 result and 9 bets", extra:{ needsConfirm:true, production:false } };
   assert.equal(qaPrompt(needs, { production:false }).auto, true, "staging confirms a rewind itself");
   assert.equal(qaPrompt(needs, { production:true }).auto, false, "production always asks");

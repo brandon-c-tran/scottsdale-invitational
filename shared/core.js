@@ -47,7 +47,11 @@ const BUYIN_FLOOR = 6 * PT; // finale minimum: nobody sits down under 600
    below MAX_RISK. The rack meter draws this rather than stating it */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
-const AWARDS = { 400:[400,0,0], 800:[800,400,0], 1200:[1200,800,400], 1600:[1600,800,400] };
+/* The ladder: 1st takes the event value, 2nd half, 3rd a quarter. The keys
+   are the legal event values. An event may carry its own `pays` table
+   instead (5v5 pays winners only; Rage Cage pays 1st and 2nd the same). */
+const AWARDS = { 400:[400,200,100], 800:[800,400,200], 1200:[1200,600,300], 1600:[1600,800,400] };
+const awardTable = ev => Array.isArray(ev?.pays) && ev.pays.length === 3 ? ev.pays : AWARDS[ev?.value] || [0, 0, 0];
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
@@ -85,63 +89,51 @@ const SESSIONS = [
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const RAW_BUILTIN_EVENTS = [
-  /* ── Friday night · 400 pts ── */
+  /* ── Friday night · 400 ── */
   { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"8ball", n:2, session:"fri", value:400, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:3, session:"fri", value:400, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  { id:"die", n:4, session:"fri", value:400, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
+  { id:"die", n:2, session:"fri", value:400, name:"Beer Die Doubles", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
-  /* ── Saturday morning · 800 pts ── */
-  { id:"bball", n:5, session:"sam", value:800, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
-    teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
-  { id:"spike", n:6, session:"sam", value:800, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
-    teamCfg:{ teams:6, size:2 },
-    stageCfg:{ kind:"pools", nGroups:2, advance:1 },
-    desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
-  { id:"pingpong", n:7, session:"sam", value:800, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
-    stageCfg:{ kind:"heats", nGroups:3, advance:1 },
-    desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
-  { id:"foosball", n:8, session:"sam", value:800, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
-  /* ── Saturday afternoon · 1200 pts ── */
-  { id:"volley", n:9, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
-    teamCfg:{ teams:2, size:6 },
-    desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
-  { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
-    desc:"Nine holes, lowest total strokes. Max 5 per hole." },
-  /* a bracket of everyone present: entrants are teams of one, seeded by the
-     draw, and the top seeds take the byes */
-  { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
-    teamCfg:{ teams:13, size:1, bracket:13 },
-    desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
-  { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
+    desc:"Ten rounds from the group's past: five places and five photos. Guess where it is, or the month and year it was taken. Highest total wins." },
+  /* ── Saturday morning · 800 ── */
+  /* everyone plays: captains draft two sides of seven and six. Winners only. */
+  { id:"bball5", n:4, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+    teamCfg:{ teams:2, size:6 }, pays:[800, 0, 0],
+    participation:{ type:"all", allowSitOut:true, overflowRoles:[] },
+    desc:"Captains draft two sides, seven and six. Full court, twos and threes on the clock. Ahead at the horn wins." },
+  { id:"pickleball", n:5, session:"sam", value:800, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
-  /* ── Saturday night · 1600 pts ── */
-  { id:"flip", n:13, session:"san", value:1600, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
-    teamCfg:{ teams:2, size:6 },
-    desc:"Best of 3. Flip clean, next teammate goes." },
-  { id:"beerio", n:14, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  /* a bracket of everyone present: entrants are teams of one, seeded by the
+     draw, and the top seeds take the byes */
+  { id:"bball1", n:6, session:"sam", value:800, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+    teamCfg:{ teams:13, size:1, bracket:13 },
+    desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
+  /* ── Saturday afternoon · 1200 ── */
+  { id:"volley", n:7, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+    teamCfg:{ teams:4, size:3, bracket:4 },
+    desc:"Four teams of three, single elimination. Games to 15, win by 2. Rotate servers." },
+  { id:"8ball", n:8, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+    teamCfg:{ teams:6, size:2, bracket:6 },
+    desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
+  { id:"pong", n:9, session:"sap", value:1200, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+    teamCfg:{ teams:6, size:2, bracket:6 },
+    desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
+  /* ── Saturday night · 1600 ── */
+  { id:"trivia", n:10, session:"san", value:1600, name:"Trivia", kind:"team", game:"trivia",
+    teamCfg:{ teams:4, size:3, bracket:4 },
+    desc:"Four teams of three, single elimination. First correct answer scores. First team to 7 wins the match." },
+  { id:"ragecage", n:11, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+    pays:[1600, 1600, 400],
+    desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
+  { id:"beerio", n:12, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
-  { id:"bball5", n:15, session:"san", value:1600, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
-    teamCfg:{ teams:2, size:5 },
-    desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
-  { id:"ragecage", n:16, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
-    desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
-  { id:"gauntlet", n:17, session:"san", value:1600, name:"The Gauntlet", kind:"solo", game:"gauntlet",
-    desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean run wins." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
-  { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
+  { id:"poker", n:13, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
     desc:"Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
@@ -195,7 +187,7 @@ const GAMES = {
   putting: { name:"Putting", howto:{ players:"Solo", gear:["Putter","One ball"],
     objective:"Sink it, or finish closest to the pin.",
     steps:["Putt from the marked spot.","A make beats any miss. Otherwise the closest ball wins."],
-    win:"Long Putt: closest of three attempts. Nine-Hole: fewest total strokes. Ties go to sudden death." } },
+    win:"Closest of three attempts wins. Ties go to sudden death." } },
   "8ball": { name:"8-Ball", howto:{ players:"Pairs", gear:["Pool table","Full rack","Two cues"],
     objective:"Clear your group, then sink the 8.",
     steps:["Break, then split stripes and solids.","Partners alternate shots.","A scratch gives the other pair ball in hand.","Call the 8 before you shoot it."],
@@ -251,10 +243,25 @@ const GAMES = {
     objective:"Win the race, but finish your beer to count.",
     steps:["Open a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the finish line, or wait there until it is gone."],
     win:"Best finishes advance to the final. Highest total wins." } },
-  ragecage: { name:"Rage Cage", howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
+  ragecage: { name:"Rage Cage", howto:{ players:"Everyone, last standing", gear:["A cup per player","Center cup","Two balls"],
     objective:"Sink your ball and pass it on before you get stacked.",
-    steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it."],
-    win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
+    steps:["One cup each in a circle, the center cup filled by everyone. Two balls start on opposite sides.",
+      "Bounce into your cup. Make it on the first try and pass to anyone; otherwise pass left.",
+      "Make yours while the player to your left is still shooting and stack on them. Stacked players drink and are out.",
+      "The last two go head to head. The loser drinks the center cup."],
+    win:"Last one standing takes 1st, the final loser 2nd, the third-to-last out 3rd. 1st and 2nd pay the same." } },
+  where: { name:"Where and When", howto:{ players:"Solo", gear:["The TV"],
+    objective:"Place the moment: where it was, or when.",
+    steps:["Ten rounds, alternating a place and a photo from the group's life.",
+      "Place rounds: guess where it is. Photo rounds: guess the month and year.","45 seconds a round.",
+      "Each round scores up to 1,000. The closer the guess, the more it scores."],
+    win:"Highest total wins. Ties go to the best single round." } },
+  trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["The TV"],
+    objective:"Answer first and right.",
+    steps:["Four teams, single elimination, two teams a match.","A question goes up on the TV.",
+      "The first correct answer scores for that team.",
+      "Categories: the groom, the family, the group, a photo round, sports and pop culture."],
+    win:"First team to 7 correct wins the match." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
@@ -389,7 +396,7 @@ function cleanLogistics(stored) {
 const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
-  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, updatedAt:0 };
+  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -433,6 +440,13 @@ function teamFit(ev, count = ROSTER.length) {
   const cfg = ev?.teamCfg;
   if (!cfg || !Number.isInteger(cfg.teams) || !Number.isInteger(cfg.size)
       || cfg.teams < 2 || cfg.size < 1) return null;
+  /* everyone plays (the full court): the sides split whoever is present,
+     one apart at most ("7 v 6") */
+  if (participationForEvent(ev).type === "all") {
+    if (count < cfg.teams) return null;
+    const split = Array.from({ length:cfg.teams }, (_, i) => Math.floor(count / cfg.teams) + (i < count % cfg.teams ? 1 : 0));
+    return { teams:cfg.teams, size:split[0], bracket:null, reduced:count < cfg.teams * cfg.size, split };
+  }
   if (count >= cfg.teams * cfg.size)
     return { teams:cfg.teams, size:cfg.size, bracket:cfg.bracket || null, reduced:false };
   if (cfg.bracket || ev.kind === "pairs" || ev.stageCfg) {
@@ -444,7 +458,8 @@ function teamFit(ev, count = ROSTER.length) {
 }
 /* the format line a commissioner reads: "6 teams of 2", or "13 players"
    when every entrant is one person */
-const shapeLabel = fit => !fit ? "" : fit.size === 1 ? `${fit.teams} players` : `${fit.teams} teams of ${fit.size}`;
+const shapeLabel = fit => !fit ? "" : fit.split && new Set(fit.split).size > 1 ? fit.split.join(" v ")
+  : fit.size === 1 ? `${fit.teams} players` : `${fit.teams} teams of ${fit.size}`;
 function eventCapacity(ev, count) {
   const policy = participationForEvent(ev);
   if (policy.type === "strict-teams") {
@@ -531,6 +546,8 @@ function suggestParticipants(state, ev) {
   if (!ev.teamCfg) return ev.stageCfg?.kind === "heats" ? { players:present, roles:[], fit:null } : null;
   const fit = teamFit(ev, present.length);
   if (!fit) return null;
+  /* everyone plays (the 7 v 6 full court): no crew */
+  if (participationForEvent(ev).type === "all") return { players:present, roles:[], fit };
   const counts = {}, last = {};
   const tally = (roles, at) => (Array.isArray(roles) ? roles : []).forEach(item => {
     if (!item?.player) return;
@@ -967,25 +984,18 @@ function redactDuelsForViewer(duels, viewerPlayer) {
   });
 }
 
-/* Each place pays AWARDS per player. A bracket has no 3rd-place game, so the
-   two semifinal losers split 3rd: each side's share is floored to 100s, and an
-   award that cannot split evenly in 100s rounds down rather than invent chips.
-   Event crew (a draw's players left off every team) earn what a 3rd-place
-   player actually gets: the split share when the bracket splits 3rd, the
-   3rd-place award otherwise. Value-less events (the poker finale) pay nothing. */
-const splitThird = (each, sides) => sides > 1 ? Math.floor(each / sides / PT) * PT : each;
+/* Each place pays its award (awardTable) to every player in it: a team's
+   players each take the full amount. A bracket has no 3rd-place game, so
+   both semifinal losers take the full 3rd-place award. Event crew (a draw's
+   players left off every team) take the 3rd-place award too. Value-less
+   events (the poker finale) pay nothing. */
 function resultAwards(state, ev, res) {
-  const table = AWARDS[ev?.value] || [0, 0, 0];
+  const table = awardTable(ev);
   const draw = state.draws?.[ev?.id];
-  const bracket = !!state.brackets?.[ev?.id] && !!draw?.teams;
   const out = [];
-  let thirdEach = table[2] || 0;
+  const thirdEach = table[2] || 0;
   (res?.slots || []).forEach((players, place) => {
-    let each = table[place] || 0;
-    if (place === 2 && bracket)
-      each = splitThird(each, new Set((players || []).map(p =>
-        draw.teams.findIndex(team => team.players?.includes(p)))).size);
-    if (place === 2 && (players || []).length) thirdEach = each;
+    const each = table[place] || 0;
     (players || []).forEach(player => out.push({ player, place, pts:each }));
   });
   if (!res?.stacks && thirdEach > 0) {
@@ -998,12 +1008,10 @@ function resultAwards(state, ev, res) {
 }
 /* what an event pays before anyone plays it, for the event sheet */
 function awardPlan(ev, draw = null) {
-  const table = AWARDS[ev?.value] || [0, 0, 0];
+  const table = awardTable(ev);
   const crew = draw ? (draw.roles || []).length > 0
     : Number.isInteger(eventCapacity(ev)) && eventCapacity(ev) < ROSTER.length;
-  const rows = table.map((pts, place) => ({ place,
-    pts:place === 2 && ev?.teamCfg?.bracket ? splitThird(pts, 2) : pts,
-    split:place === 2 && !!ev?.teamCfg?.bracket }));
+  const rows = table.map((pts, place) => ({ place, pts }));
   return [
     ...rows,
     ...(crew ? [{ place:"crew", pts:rows[2].pts }] : []),
@@ -1020,9 +1028,32 @@ const postCountRulingApplies = (a, stacksRes) => !!stacksRes && (a.pokerRevision
   ? Number(a.pokerRevision) === Number(stacksRes.revision || 1)
   : a.ts > stacksRes.ts);
 
+/* ── Team MVP ──
+   state.mvp[evId] = { id, team, openedAt, closesAt, closedAt?, winner?, tally?, how? }
+   (plus the private `votes` map on the server until it closes). A team of
+   MVP_MIN_TEAM or more that wins an event votes one teammate MVP, who earns
+   MVP_PTS. Derived like an award: it pays only while that same team is still
+   the event's posted first place, so a correction or a cleared result takes
+   it back with no write of its own. */
+const MVP_PTS = PT;
+const MVP_MIN_TEAM = 3;
+const MVP_WINDOW_MS = 60 * 1000;
+const sameSet = (left, right) => Array.isArray(left) && Array.isArray(right)
+  && left.length === right.length && left.every(player => right.includes(player));
+function mvpStands(state, evId) {
+  const record = state?.mvp?.[evId], result = state?.results?.[evId];
+  return !!record && !!result && !result.stacks && sameSet(result.slots?.[0] || [], record.team || []);
+}
+const mvpOpen = (state, evId) => !!state?.mvp?.[evId] && !state.mvp[evId].closedAt && mvpStands(state, evId);
+function mvpAwards(state) {
+  return Object.entries(state?.mvp || {})
+    .filter(([evId, record]) => record?.closedAt && record.winner && mvpStands(state, evId))
+    .map(([eventId, record]) => ({ eventId, player:record.winner, pts:MVP_PTS, at:Number(record.closedAt) }));
+}
+
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
-  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {}, mvpPts = {};
+  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; mvpPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
@@ -1033,6 +1064,11 @@ function computeStandings(state) {
       awardPts[player] += award;
       if (place === 0) wins[player] += 1;
     });
+  });
+  mvpAwards(state).forEach(({ player, pts:award }) => {
+    if (pts[player] === undefined) return;
+    pts[player] += award;
+    mvpPts[player] += award;
   });
   (state.wagers || []).forEach(w => {
     const r = resolveWager(state, w, evs);
@@ -1076,7 +1112,8 @@ function computeStandings(state) {
     const i = (stacksRes?.outs || []).indexOf(p);
     return i >= 0 ? i : stacksRes?.stacks?.[p] === 0 ? -1 : Infinity;
   };
-  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p],
+    mvpPts:mvpPts[p] }))
     .sort((x,y) => lead(y.player) - lead(x.player) || y.pts - x.pts
       || (stacksRes ? outRank(y.player) - outRank(x.player) : 0)
       || y.wins - x.wins || x.player.localeCompare(y.player));
@@ -1719,6 +1756,9 @@ function pokerSetupPreview(state) {
       grant:row.grant, denominations:row.denominations })),
     inventory:distribution.inventory,
     voidDuels,
+    /* an open team MVP vote closes in the deal's write, with the votes it has */
+    closeMvps:Object.keys(state.mvp || {}).filter(evId => mvpOpen(state, evId))
+      .map(evId => ({ eventId:evId, name:events.find(item => item.id === evId)?.name || evId })),
     total:distribution.total,
     minimumCount:distribution.minimumCount,
   };
@@ -1869,7 +1909,7 @@ function resolveWeekendOperation(state, events = allEventsOf(state)) {
 
 export {
   ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer, isAway, presentPlayers,
-  AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  AWARDS, awardTable, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
@@ -1883,6 +1923,7 @@ export {
   duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor, pokerDenoms,
   pokerDistribution, pokerInventory,
   resultAwards, awardPlan, postCountRuling, postCountRulingApplies,
+  MVP_PTS, MVP_MIN_TEAM, MVP_WINDOW_MS, mvpStands, mvpOpen, mvpAwards,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   enforceExposure, refundTotals, voidWagerRecords,
   contestStackOf, contestEntryLabel, applyContestCorrection, contestCorrectionAvailability, contestCorrections,

@@ -17,6 +17,7 @@ import {
 import { resolveDirector } from "../shared/show.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { applyAction as rawApply } from "../worker/actions.js";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const load = async (name, contents) => {
@@ -48,8 +49,9 @@ const [evan, khoa, sahil, adi, ben] = ROSTER;
 const fresh = () => ({ ...structuredClone(EMPTY_STATE), live:true,
   profiles:Object.fromEntries(ROSTER.map((player, index) => [player, { display:player, num:index + 1,
     color:CHIP_COLORS[index % CHIP_COLORS.length].hex }])) });
-/* the solo free-for-alls, in slate order: putt 400, nine 1,200, ragecage and gauntlet 1,600 */
-const solo = events.filter(event => !event.teamCfg && !event.stageCfg && !event.finale);
+/* the solo free-for-alls, in slate order: putt and where 400, ragecage 1,600 */
+const isSolo = event => !event.teamCfg && !event.stageCfg && !event.finale;
+const solo = events.filter(isSolo);
 const inProvider = element => renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider,
   { profiles:fresh().profiles }, element));
 const post = (state, ev, first, at, second = [], third = []) => {
@@ -86,23 +88,27 @@ test("a second win, then three straight: one fact per result, the rarest", () =>
 });
 
 test("a loss in an event they played breaks the streak; crew duty does not", () => {
-  const state = withLeader(fresh());
-  post(state, solo[0], [evan], 1_000_000);
-  post(state, solo[1], [khoa], 2_000_000, [evan]);
-  post(state, solo[2], [evan], 3_000_000);
-  post(state, solo[3], [evan], 4_000_000);
-  let texts = ui.weekendFacts(state, events).map(fact => fact.text);
+  /* four solo free-for-alls: the slate's three plus The Gauntlet (legacy) */
+  const state = withLeader(withLegacyEvents(fresh(), ["gauntlet"]));
+  const four = allEventsOf(state).filter(isSolo);
+  assert.equal(four.length, 4);
+  post(state, four[0], [evan], 1_000_000);
+  post(state, four[1], [khoa], 2_000_000, [evan]);
+  post(state, four[2], [evan], 3_000_000);
+  post(state, four[3], [evan], 4_000_000);
+  let texts = ui.weekendFacts(state, allEventsOf(state)).map(fact => fact.text);
   assert.ok(!texts.some(text => text.includes("straight")));
   assert.ok(texts.includes(`${evan}'s third win`));
 
-  /* Evan on crew for Volleyball between his wins: still three straight */
+  /* Evan on crew for Volleyball (four teams of three) between his wins: still three straight */
   const crew = withLeader(fresh());
   const volley = events.find(event => event.id === "volley");
   const others = ROSTER.filter(player => player !== evan);
-  crew.draws = { volley:{ id:"d1", teams:[{ players:others.slice(0, 6) }, { players:others.slice(6, 12) }],
+  const trio = n => others.slice(n * 3, n * 3 + 3);
+  crew.draws = { volley:{ id:"d1", teams:[0, 1, 2, 3].map(n => ({ players:trio(n) })),
     roles:[{ player:evan, role:"ref" }] } };
   post(crew, solo[0], [evan], 1_000_000);
-  post(crew, volley, others.slice(0, 6), 2_000_000, others.slice(6, 12));
+  post(crew, volley, trio(0), 2_000_000, trio(1), [...trio(2), ...trio(3)]);
   post(crew, solo[1], [evan], 3_000_000);
   post(crew, solo[2], [evan], 4_000_000);
   texts = ui.weekendFacts(crew, events).map(fact => fact.text);
@@ -111,13 +117,13 @@ test("a loss in an event they played breaks the streak; crew duty does not", () 
 
 test("first to each thousand, and the biggest bet paid, from chip history", () => {
   const state = fresh();
-  const nine = events.find(event => event.id === "nine");
+  const cage = events.find(event => event.id === "ragecage");
   state.wagers = [
-    { id:"w1", player:khoa, kind:"outright", eventId:nine.id, pick:evan, pickPlayers:[evan], stake:500, mult:2, ts:1 },
+    { id:"w1", player:khoa, kind:"outright", eventId:cage.id, pick:evan, pickPlayers:[evan], stake:500, mult:2, ts:1 },
   ];
-  post(state, nine, [evan], 5_000_000, [sahil], [adi]);
+  post(state, cage, [evan], 5_000_000, [], [adi]);
   const facts = ui.weekendFacts(state, events);
-  /* Evan's 1,200 award takes him to 2,200; Khoa's +1,000 bet takes him to 2,000 in the same write */
+  /* Evan's 1,600 award takes him to 2,600; Khoa's +1,000 bet takes him to 2,000 in the same write */
   const first = facts.find(fact => fact.kind === "first");
   assert.equal(first.text, `First to 2,000: ${evan} and ${khoa}`);
   assert.equal(first.own, "First to 2,000");
@@ -165,15 +171,17 @@ test("facts are deterministic and a correction re-derives them", () => {
 });
 
 test("team wins name the team; the ticker shows the newest facts beside the latest result", () => {
-  const state = withLeader(fresh());
-  const volley = events.find(event => event.id === "volley");
+  /* two two-team games with the same sides: 5v5 and Flip Cup (legacy) */
+  const state = withLeader(withLegacyEvents(fresh(), ["flip"]));
+  const events = allEventsOf(state);
+  const bball5 = events.find(event => event.id === "bball5");
   const flip = events.find(event => event.id === "flip");
   const teamA = ROSTER.slice(0, 6), teamB = ROSTER.slice(6, 12);
   state.draws = {
-    volley:{ id:"d1", teams:[{ players:teamA, name:"Sun" }, { players:teamB, name:"Pool" }] },
+    bball5:{ id:"d1", teams:[{ players:teamA, name:"Sun" }, { players:teamB, name:"Pool" }] },
     flip:{ id:"d2", teams:[{ players:teamA, name:"Sun" }, { players:teamB, name:"Pool" }] },
   };
-  post(state, volley, teamA, 1_000_000, teamB);
+  post(state, bball5, teamA, 1_000_000);
   post(state, flip, teamA, 2_000_000, teamB);
   const facts = ui.weekendFacts(state, events);
   const wins = facts.find(fact => fact.kind === "wins");
@@ -384,13 +392,13 @@ test("run of show: a replay the TV owes shows while another winner is still on s
     apply(state, "beginResultEntry", { evId }, true);
     apply(state, "saveResult", { evId, slots:[[evan], [khoa], [sahil]] }, true);
   };
-  /* Long Putt plays its winner and standings, then Nine-Hole Putting posts */
-  state.eventOrder = ["putt", "nine", ...events.map(event => event.id).filter(id => id !== "putt" && id !== "nine")];
+  /* Long Putt plays its winner and standings, then Where and When posts */
+  state.eventOrder = ["putt", "where", ...events.map(event => event.id).filter(id => id !== "putt" && id !== "where")];
   play("putt");
   apply(state, "advanceShowScene", { id:state.showControl.active.id }, true);
-  play("nine");
+  play("where");
   assert.equal(state.showControl.active.kind, "winner");
-  /* the putt result is corrected while Nine-Hole's winner is on the TV */
+  /* the putt result is corrected while Where and When's winner is on the TV */
   apply(state, "saveResult", { evId:"putt", slots:[[khoa], [evan], [sahil]], confirmOverwrite:true,
     correctionReason:"1st and 2nd were reversed" }, true);
   const eventsNow = allEventsOf(state);

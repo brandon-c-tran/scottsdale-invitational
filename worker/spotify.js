@@ -173,6 +173,7 @@ function compactSpotifyTrack(track, startMs = 0) {
     imageUrl:track?.album?.images?.find(image => image?.url)?.url || null,
     explicit:track?.explicit === true,
     startMs,
+    isrc:track?.external_ids?.isrc,
   };
   const checked = validateSpotifyTrack(candidate);
   return checked.ok ? checked.track : null;
@@ -201,6 +202,8 @@ function compactSpotifyDevice(device) {
     active:device.is_active === true,
     restricted:device.is_restricted === true,
     volume:Number.isFinite(device.volume_percent) ? device.volume_percent : null,
+    /* some speakers (and every phone) refuse volume changes; win songs then skip the fades */
+    supportsVolume:device.supports_volume !== false,
   };
 }
 

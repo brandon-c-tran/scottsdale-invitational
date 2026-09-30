@@ -4,6 +4,7 @@
 const SPOTIFY_TRACK_ID = /^[A-Za-z0-9]{22}$/;
 const SPOTIFY_TRACK_URI = /^spotify:track:([A-Za-z0-9]{22})$/;
 const SPOTIFY_IMAGE_HOSTS = new Set(["i.scdn.co"]);
+const ISRC = /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/;
 const MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1000;
 
 const cleanText = (value, max) => {
@@ -49,6 +50,8 @@ function validateSpotifyTrack(value) {
   if (imageUrl === undefined) return { ok:false, error:"Invalid track image" };
   const requestedStart = Math.max(0, Math.floor(Number(value.startMs) || 0));
   const startMs = Math.min(requestedStart, Math.max(0, durationMs - 1000));
+  /* the recording's ISRC finds its on-phone preview clip */
+  const isrc = typeof value.isrc === "string" && ISRC.test(value.isrc.toUpperCase()) ? value.isrc.toUpperCase() : null;
 
   return {
     ok:true,
@@ -63,6 +66,7 @@ function validateSpotifyTrack(value) {
       imageUrl,
       explicit:value.explicit === true,
       startMs,
+      ...(isrc ? { isrc } : {}),
     },
   };
 }
@@ -76,8 +80,12 @@ function validateSpotifyTrack(value) {
    write. Every phone and TV keeps Field Day's own sounds silent while
    `walkout && serverNow() < walkout.until`. `player` is null for a track
    played from Audio Director search; `trackId` is null only for a resume
-   whose track could not be read. */
+   whose track could not be read. `auto` marks a win song the Worker started
+   itself (worker/winSong.js): its `until` never moves later, and the alarm
+   stops the speaker there, which is how a 30-second clip ends. */
 const WALKOUT_MAX_MS = 4 * 60 * 1000;
+/* a win song plays this long from its start point (worker/winSong.js) */
+const WIN_SONG_CLIP_MS = 30 * 1000;
 const WALKOUT_MIN_MS = 5000;
 /* a confirmation moves `until` only when the song drifted this far */
 const WALKOUT_DRIFT_MS = 5000;
@@ -107,14 +115,20 @@ function cleanWalkout(value, { players = null } = {}) {
   const startedAt = finiteMs(value.startedAt);
   const until = finiteMs(value.until);
   if (startedAt === null || until === null || until <= startedAt) return null;
-  return { player, trackId, startedAt, until };
+  return { player, trackId, startedAt, until, ...(value.auto === true ? { auto:true } : {}),
+    ...(value.mvp === true && player ? { mvp:true } : {}) };
 }
 
-function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0 }, options) {
+/* `clipMs` ends the record early (a win song's clip); never past the song.
+   `mvp` marks a team MVP's song so the TV can say so. */
+function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0, clipMs = null, auto = false,
+  mvp = false }, options) {
   const start = finiteMs(startedAt);
   if (start === null) return null;
-  return cleanWalkout({ player, trackId, startedAt:start,
-    until:start + walkoutRemainingMs({ durationMs, positionMs }) }, options);
+  const remaining = walkoutRemainingMs({ durationMs, positionMs });
+  const clip = finiteMs(clipMs);
+  return cleanWalkout({ player, trackId, startedAt:start, auto, mvp,
+    until:start + (clip ? Math.max(WALKOUT_MIN_MS, Math.min(remaining, clip)) : remaining) }, options);
 }
 
 /* the stored record, live or not */
@@ -141,12 +155,15 @@ function reconcileWalkout(walkout, playback, now) {
   const until = capped
     ? (walkout.until - now < WALKOUT_MAX_MS / 2 ? target : walkout.until)
     : (Math.abs(target - walkout.until) > WALKOUT_DRIFT_MS ? target : walkout.until);
-  return { ...walkout, trackId:track.trackId, until:Math.max(until, walkout.startedAt + 1) };
+  /* a win song's end is the clip's, earlier only if the song ends first */
+  const end = walkout.auto ? Math.min(until, walkout.until) : until;
+  return { ...walkout, trackId:track.trackId, until:Math.max(end, walkout.startedAt + 1) };
 }
 
 const sameWalkout = (left, right) => (!left && !right) || (!!left && !!right
   && left.player === right.player && left.trackId === right.trackId
-  && left.startedAt === right.startedAt && left.until === right.until);
+  && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto
+  && !!left.mvp === !!right.mvp);
 
 export {
   MAX_TRACK_DURATION_MS,
@@ -155,6 +172,7 @@ export {
   WALKOUT_DRIFT_MS,
   WALKOUT_MAX_MS,
   WALKOUT_MIN_MS,
+  WIN_SONG_CLIP_MS,
   buildWalkout,
   cleanSpotifyImageUrl,
   cleanWalkout,

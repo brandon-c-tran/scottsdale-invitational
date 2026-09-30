@@ -6,7 +6,7 @@
 
 import { CHIP_SKIN_PATHS } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
-import { FIXED_STARS, desertScene, constellationStars, skyStarLayout } from "../tv/desertModel.js";
+import { FIXED_STARS, desertScene, constellationStars, skyBoxClearOfDisc, skyStarLayout, starPoints } from "../tv/desertModel.js";
 import { CLASS_H, CLASS_W, classPhotoLayout, classPhotoModel } from "./classPhoto.js";
 
 const DISPLAY = "'Barlow Condensed', 'Arial Narrow', sans-serif";
@@ -175,7 +175,8 @@ export function drawPoster(ctx, { layout, colors, identities, photos = new Map()
   const fill = (d, color) => { const p = path(d); if (p) { ctx.fillStyle = color; ctx.fill(p); } };
   ctx.fillStyle = colors.sky; ctx.fillRect(0, 0, W, H);
   /* the night sky: the fixed stars, then every event winner's own */
-  const sky = skyStarLayout(layout.starBox || { left:0, right:W, top:scene.sky.top, bottom:scene.sky.bottom });
+  const sky = skyStarLayout(skyBoxClearOfDisc(layout.starBox || { left:0, right:W, top:scene.sky.top, bottom:scene.sky.bottom },
+    scene.disc.fin, scene.discR));
   FIXED_STARS.forEach((point, i) => {
     const [x, y] = sky.fixed(point);
     ctx.globalAlpha = 0.35 + (i % 3) * 0.2; ctx.fillStyle = colors.star;
@@ -185,8 +186,10 @@ export function drawPoster(ctx, { layout, colors, identities, photos = new Map()
   stars.forEach(star => {
     const [x, y] = sky.at(star);
     ctx.fillStyle = identities.get(star.player)?.color || colors.star;
-    ctx.beginPath(); ctx.arc(x, y, sky.starR, 0, Math.PI * 2); ctx.fill();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = colors.bone; ctx.stroke();
+    ctx.beginPath();
+    starPoints(sky.starR).forEach(([px, py], i) => (i ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py)));
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 1; ctx.lineJoin = "round"; ctx.strokeStyle = colors.bone; ctx.stroke();
   });
   const disc = scene.disc.fin;
   ctx.fillStyle = colors.disc; ctx.beginPath(); ctx.arc(disc.x, disc.y, scene.discR, 0, Math.PI * 2); ctx.fill();

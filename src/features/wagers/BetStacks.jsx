@@ -1,9 +1,11 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DISPLAY } from "../../ui/theme.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { COIN_FACETS, edgeInserts } from "../identity/chipCoin.js";
-import { STACK_CAP, STACK_TILT as TILT, fitLevels, groupStacks, stackChipCount, stackGeometry } from "./betStacks.js";
+import {
+  STACK_CAP, STACK_TILT as TILT, fitLevels, groupStacks, stackChipCount, stackGeometry, towerGap, towerTiers,
+} from "./betStacks.js";
 import "./bet-stacks.css";
 
 const fmt = n => (Number(n) || 0).toLocaleString("en-US");
@@ -43,14 +45,17 @@ function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
    its value is stamped. A new chip drops on; a settled winner grows by its
    payout and a loser slides back to the bank. Presentation only. */
 export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine = false, settle = null,
-  delay = 0, tag = true, tagSize = null, groups = null, chip = null, count = null }) {
+  delay = 0, tag = true, tagSize = null, groups = null, chip = null, count = null, tower = false }) {
   /* a poker chip is not anyone's: its color, edge and stamp come with it,
      and it stacks one chip per chip rather than one per 100 */
   const player = usePlayerIdentity(p);
   const identity = chip ? { color:chip.color, isLight:!!chip.isLight, skin:chip.skin || "quad", num:chip.stamp } : player;
   const chips = count ?? stackChipCount(stake);
   const paidChips = count == null ? stackChipCount(paid) : 0;
-  const shown = Math.max(1, Math.min(chips + paidChips, cap));
+  /* a bet board's stack past the cap stands a short tower on a break */
+  const tiers = tower ? towerTiers(chips + paidChips, cap) : 0;
+  const gap = tiers ? towerGap(size) : 0;
+  const shown = Math.max(1, Math.min(chips + paidChips, cap)) + tiers;
   /* a capped winner still visibly grows: its stake keeps its share of the cap */
   const base = settle === "won" && chips + paidChips > cap
     ? Math.max(1, Math.min(cap - 1, Math.round(cap * chips / (chips + paidChips))))
@@ -65,15 +70,18 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
     seen.current = { shown, from:shown > seen.current.shown ? seen.current.shown : shown };
   const dropped = settle ? 0 : Math.max(0, shown - seen.current.from);
 
-  const { D, pad, rx, ry, t, cx, width, yFace, height } = stackGeometry(size, shown, mine);
+  /* your ring rides on the felt under the stack; it never makes it taller */
+  const { D, pad, rx, ry, t, cx, width, yFace, height:body } = stackGeometry(size, shown);
+  const height = body + gap;
   const inserts = edgeInserts(identity.skin);
   const stroke = Math.max(0.8, D / 44);
   const light = identity.isLight;
   const value = stake + (settle === "won" ? paid : 0);
   const capped = chips + paidChips > cap;
+  const breakAt = shown - tiers;
 
   const chipAt = i => {
-    const yt = yFace + (shown - 1 - i) * t;
+    const yt = yFace + (shown - 1 - i) * t + (i < breakAt ? gap : 0);
     const isPaid = paying && i >= base;
     const isNew = !isPaid && i >= shown - dropped;
     return <g key={i} className={`fd-stack-chip${isPaid ? " is-paid" : ""}${isNew ? " is-drop" : ""}`}
@@ -95,15 +103,22 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
       start = end;
     });
   } else for (let i = 0; i < shown; i++) rims.push(chipAt(i));
+  /* the break under a tower: one bone line across the gap */
+  if (tiers) {
+    const yb = yFace + (shown - breakAt) * t + gap / 2;
+    rims.push(<path key="break" className="fd-stack-break" strokeWidth={Math.max(1.2, D / 22)}
+      d={`M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`} />);
+  }
   const rise = paying ? (shown - base) * t : 0;
   const stamp = identity.num;
   return (
     <span className={`fd-stack${light ? " is-light" : ""}${mine ? " is-mine" : ""}${settle ? ` is-${settle}` : ""}`}
       style={{ "--stack-color":identity.color, width, animationDelay:settle === "lost" ? `${delay}ms` : undefined }}
-      data-stack-player={chip ? undefined : p} data-chip-value={chip ? chip.stamp : undefined} data-stack-chips={shown}>
+      data-stack-player={chip ? undefined : p} data-chip-value={chip ? chip.stamp : undefined} data-stack-chips={shown}
+      data-stack-tower={tiers || undefined}>
       {capped && tag && <span className="fd-stack-tag" style={tagSize ? { fontSize:tagSize } : undefined}>{fmt(value)}</span>}
       <svg width={r2(width)} height={r2(height)} viewBox={`0 0 ${r2(width)} ${r2(height)}`} aria-hidden="true">
-        {mine && <ellipse className="fd-stack-ring" cx={r2(cx)} cy={r2(yFace + shown * t + 1.5)}
+        {mine && <ellipse className="fd-stack-ring" cx={r2(cx)} cy={r2(yFace + shown * t + gap + 1.5)}
           rx={r2(rx + 2.5)} ry={r2(ry + 2)} strokeWidth={Math.max(1.6, D / 18)} />}
         {rims}
         <g key={`face-${shown}`} className={`fd-stack-face${dropped ? " is-drop" : ""}${paying ? " is-rising" : ""}`}
@@ -123,58 +138,56 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
   );
 }
 
-/* The smallest bettors on a crowded side, as one pile: a fan of their own
-   flat identity chips (each still in its colour, overlapping), the group's
-   total stamped on its shoulder, "+N" where a name would sit. */
-export function StackGroup({ rest, size = 40, names = false, tagSize = null, label = true }) {
-  const mini = Math.max(14, Math.round(size * 0.72));
-  /* up to eight, four to a row: the back row peeks over the front one */
-  const fan = rest.stacks.slice(0, 8);
-  const step = Math.round(mini * 0.42), perRow = 4, rise = Math.round(mini * 0.42);
-  const rows = Math.ceil(fan.length / perRow);
-  const width = mini + step * (Math.min(perRow, fan.length) - 1);
-  const height = mini + (rows - 1) * rise;
+/* The chip a crowded side's smallest bettors fold into: drawn as a stack
+   like any other, one flat neutral color, "+N" on its face. */
+export const groupChip = count => ({ color:"var(--silver)", isLight:true, skin:"plain", stamp:`+${count}` });
+
+/* The smallest bettors on a crowded side, as one stack the size and shape of
+   the rest: "+N" on its face, their combined chips on the value line. */
+export function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, label = true, valueAt = "below" }) {
   const players = rest.players;
+  const value = <span className="fd-stacks-value">{fmt(rest.total)}</span>;
   return (
     <div className="fd-stacks-slot fd-stacks-group" role="img"
       aria-label={`${players.length} more: ${fmt(rest.total)} chips`}>
-      <span className="fd-stack fd-stack-fan">
-        <span className="fd-stack-tag is-group" style={tagSize ? { fontSize:tagSize } : undefined}>{fmt(rest.total)}</span>
-        <span className="fd-stack-fan-chips" style={{ width, height }}>
-          {fan.map((item, index) => <span key={item.player} className="fd-stack-fan-chip"
-            style={{ left:(index % perRow) * step + (index >= perRow ? Math.round(step / 2) : 0),
-              top:index >= perRow ? 0 : (rows - 1) * rise, zIndex:(index >= perRow ? 0 : 10) + perRow - (index % perRow) }}>
-            <ChipFace p={item.player} size={mini} stamp="" flat />
-          </span>)}
-        </span>
+      <span className="fd-stacks-body">
+        <ChipStack chip={groupChip(players.length)} count={stackChipCount(rest.total)} size={size} cap={cap}
+          tag={false} tower />
+        {valueAt === "side" && value}
       </span>
+      {valueAt !== "side" && value}
       {names && label && <span className="fd-stacks-name">+{players.length}</span>}
     </div>
   );
 }
 
-/* A side's stacks standing side by side, biggest first. On the TV a first
-   name sits under each stack; the stack itself is the amount. Past `slots`
-   the smallest collapse into one StackGroup. */
+/* A side's stacks standing side by side, biggest first, each with its amount
+   on one value line (beside the stack where a row is short) and, on the TV,
+   a first name under it. Past `slots` the smallest collapse into one
+   StackGroup. */
 export function BetStacks({ stacks, size = 40, names = null, cap = STACK_CAP, settle = null, delay = 0,
-  className = "", tagSize = null, mine = null, slots = Infinity }) {
+  className = "", mine = null, slots = Infinity, valueAt = "below" }) {
   if (!stacks?.length) return null;
-  const { shown, rest } = groupStacks(stacks, slots);
-  const tagged = !!rest || shown.some(item => stackChipCount(item.stake) + stackChipCount(item.paid || 0) > cap);
+  const { shown, rest } = groupStacks(stacks, slots, mine);
   return (
-    <div className={`fd-stacks${tagged ? " has-tag" : ""}${className ? ` ${className}` : ""}`}>
+    <div className={`fd-stacks${valueAt === "side" ? " is-value-side" : ""}${className ? ` ${className}` : ""}`}>
       {shown.map((item, index) => {
         const result = settle || item.status || null;
         const at = delay + index * 90;
+        const value = <span className="fd-stacks-value">{fmt(item.stake + (result === "won" ? item.paid || 0 : 0))}</span>;
         /* a lost stack leaves with its name */
         return <div key={item.player} className={`fd-stacks-slot${result === "lost" ? " is-lost" : ""}`}
           style={result === "lost" ? { animationDelay:`${at}ms` } : undefined}>
-          <ChipStack p={item.player} stake={item.stake} paid={item.paid || 0} size={size} cap={cap}
-            settle={result === "won" ? "won" : null} delay={at} tagSize={tagSize} mine={!!mine && item.player === mine} />
+          <span className="fd-stacks-body">
+            <ChipStack p={item.player} stake={item.stake} paid={item.paid || 0} size={size} cap={cap} tag={false} tower
+              settle={result === "won" ? "won" : null} delay={at} mine={!!mine && item.player === mine} />
+            {valueAt === "side" && value}
+          </span>
+          {valueAt !== "side" && value}
           {names && <span className="fd-stacks-name">{names(item.player)}</span>}
         </div>;
       })}
-      {rest && <StackGroup key="group" rest={rest} size={size} names={!!names} tagSize={tagSize} />}
+      {rest && <StackGroup key="group" rest={rest} size={size} cap={cap} names={!!names} valueAt={valueAt} />}
     </div>
   );
 }
@@ -186,7 +199,7 @@ function stacksFit(box, avoid) {
   const b = box.getBoundingClientRect();
   if (!(b.width > 0) || !(b.height > 0)) return true;
   const a = avoid?.getBoundingClientRect?.();
-  const parts = [...inner.querySelectorAll(".fd-stacks-slot, .fd-stack-tag")];
+  const parts = [...inner.querySelectorAll(".fd-stacks-slot")];
   return parts.every(el => {
     const r = el.getBoundingClientRect();
     if (r.top < b.top - 1 || r.left < b.left - 1 || r.right > b.right + 1 || r.bottom > b.bottom + 1) return false;
@@ -197,16 +210,30 @@ function stacksFit(box, avoid) {
 /* A felt that keeps every bettor on it legible (P1): the side's total sits
    top right and the stacks stand from the bottom up, biggest first. When
    they do not fit, the chips step down in size, then the smallest bettors
-   collapse into a "+N" pile, one more at a time, until nothing overflows or
-   touches the total. Measured before paint, so no frame ever overlaps. */
+   collapse into a "+N" stack, one more at a time, until nothing overflows or
+   touches the total. Measured before paint, so no frame ever overlaps.
+   Felts on one board share a ladder (`ladder`, the board's most bettors) and
+   a floor (`floor`, the deepest level any of them needed, reported through
+   `onLevel`), so every side of a contest draws the same chip size. */
 export function FitStacks({ stacks, total = 0, totalClass = "", chip = 64, cap = STACK_CAP, min = 30,
-  names = null, tagSize = null, className = "" }) {
+  names = null, className = "", ladder = null, floor = 0, onLevel = null, valueAt = "below" }) {
   const box = useRef(null), totalRef = useRef(null);
   const [boxSize, setBoxSize] = useState("");
-  const levels = useMemo(() => fitLevels(stacks.length, { chip, cap, min }), [stacks.length, chip, cap, min]);
-  const key = `${boxSize}|${chip}|${cap}|${stacks.map(item => `${item.player}:${item.stake}`).join(",")}`;
+  const count = Math.max(stacks.length, Number(ladder) || 0);
+  const levels = useMemo(() => fitLevels(count, { chip, cap, min }), [count, chip, cap, min]);
+  /* names and values are measured in the display face: refit once it loads */
+  const [fonts, setFonts] = useState(0);
+  useEffect(() => {
+    const faces = typeof document === "undefined" ? null : document.fonts;
+    if (!faces?.addEventListener) return undefined;
+    const refit = () => setFonts(value => value + 1);
+    faces.addEventListener("loadingdone", refit);
+    return () => faces.removeEventListener("loadingdone", refit);
+  }, []);
+  const key = `${boxSize}|${fonts}|${chip}|${cap}|${count}|${stacks.map(item => `${item.player}:${item.stake}`).join(",")}`;
   const [fit, setFit] = useState({ key:"", level:0 });
-  const level = Math.min(fit.key === key ? fit.level : 0, levels.length - 1);
+  const own = Math.min(fit.key === key ? fit.level : 0, levels.length - 1);
+  const level = Math.min(Math.max(own, Number(floor) || 0), levels.length - 1);
   useLayoutEffect(() => {
     const el = box.current;
     if (!el || typeof ResizeObserver !== "function") return undefined;
@@ -222,13 +249,16 @@ export function FitStacks({ stacks, total = 0, totalClass = "", chip = 64, cap =
   useLayoutEffect(() => {
     if (!boxSize) return;
     if (level < levels.length - 1 && !stacksFit(box.current, totalRef.current)) setFit({ key, level:level + 1 });
-    else if (fit.key !== key || fit.level !== level) setFit({ key, level });
+    else {
+      if (fit.key !== key || fit.level !== own) setFit({ key, level:own });
+      onLevel?.(own);
+    }
   });
   const step = levels[level] || { size:chip, cap, slots:Infinity };
   return (
     <div className={`fd-fit${className ? ` ${className}` : ""}`} ref={box} data-fit-level={level}>
       <BetStacks stacks={stacks} size={step.size} cap={step.cap} slots={step.slots} names={names}
-        tagSize={tagSize} className="fd-fit-stacks" />
+        className="fd-fit-stacks" valueAt={valueAt} />
       {total > 0 && <span ref={totalRef} className={`fd-fit-total${totalClass ? ` ${totalClass}` : ""}`}>{fmt(total)}</span>}
     </div>
   );

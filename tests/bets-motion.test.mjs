@@ -9,7 +9,7 @@ import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, contestUndoAvailabi
 import { applyAction } from "./support/confirmed-start.mjs";
 import {
   STACK_CAP, groupStacks, fitLevels, contestWinnerKey, decidedContest, decidedPayout, hoverRect, faceRect,
-  rackTargetFor, orderStacks,
+  rackTargetFor, orderStacks, STACK_TOWER, towerTiers, stackMaxHeight, stackGeometry,
 } from "../src/features/wagers/betStacks.js";
 import { legKeyframes, fly, MAX_HOLD_MS } from "../src/lib/motion.js";
 
@@ -106,7 +106,46 @@ test("P1: the TV felt and the phone board render every bettor or a +N group, the
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   assert.equal((html.match(/class="fd-wagers-other"/g) || []).length, 4, "two rows on a phone: the well and four stacks");
   assert.match(html, /aria-label="4 more: 1,000 chips"/, "the four smallest fold into one pile");
-  assert.match(html, /fd-wagers-felt-stacks has-tag/, "room is kept above for stamped values");
+  /* one value line under every stack and under the "+N" stack; nothing is
+     stamped above a stack, so no felt grows to make room for it */
+  const values = [...html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(match => match[1]);
+  assert.deepEqual(values, ["800", "700", "600", "500", "1,000"]);
+  assert.match(html, /data-chip-value="\+4"/, "the group is drawn as a stack with +N on its face");
+  assert.doesNotMatch(html, /fd-stack-tag|has-tag|fd-stack-fan/);
+});
+
+test("P1: your own stack keeps its biggest-first place and never folds into the group", () => {
+  const { state, bystanders } = liveMatch();
+  bystanders.slice(0, 8).forEach((player, i) => bet(state, player, 0, 100 * (i + 1)));
+  const render = me => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+    React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
+      wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
+  const order = html => [...html.matchAll(/data-stack-player="([^"]+)"/g)].map(match => match[1]);
+  /* the 700 bettor sees the same order a spectator sees, ringed in place */
+  const spectator = order(render(bystanders[8])), second = order(render(bystanders[6]));
+  assert.deepEqual(second, spectator);
+  /* the 100 bettor would fold into the group; their stack takes the last slot instead */
+  const smallest = render(bystanders[0]);
+  assert.deepEqual(order(smallest), [bystanders[7], bystanders[6], bystanders[5], bystanders[0]]);
+  assert.match(smallest, /Retract your last chip on/);
+  assert.match(smallest, /aria-label="4 more: 1,400 chips"/);
+});
+
+test("one cap everywhere: past it a stack stands a tower on a break, so 1,000, 1,200 and 2,500 differ", () => {
+  assert.equal(towerTiers(10), 0);
+  assert.equal(towerTiers(12), 1);
+  assert.equal(towerTiers(20), 1);
+  assert.equal(towerTiers(25), STACK_TOWER);
+  assert.equal(towerTiers(80), STACK_TOWER, "the tower never grows past its reserve");
+  const drawn = stake => {
+    const html = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:{} },
+      React.createElement(BetStacks, { stacks:[{ player:ROSTER[0], stake }], size:28 })));
+    return Number(html.match(/data-stack-chips="(\d+)"/)[1]);
+  };
+  assert.deepEqual([1000, 1200, 2500].map(drawn), [STACK_CAP, STACK_CAP + 1, STACK_CAP + 2]);
+  assert.ok(stackMaxHeight(28) > stackGeometry(28, STACK_CAP + STACK_TOWER).height, "the break is part of the reserve");
+  /* a fitted board never shortens the cap to make a stack fit */
+  assert.ok(fitLevels(12, { chip:64, min:34 }).every(level => level.cap === STACK_CAP));
 });
 
 test("M4: a waiting chip hovers over the stack, lands on its face, and flies home to its own rack slot", () => {

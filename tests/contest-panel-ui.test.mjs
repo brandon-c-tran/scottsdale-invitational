@@ -34,7 +34,7 @@ const textOf = values => values.map(value => Array.isArray(value) ? textOf(value
 
 function fixture(kind = "bracket", started = false, advance = 2) {
   const state = structuredClone(EMPTY_STATE); state.live = true;
-  const ev = evOf(kind === "bracket" ? "8ball" : kind === "heats" ? "pingpong" : "putt");
+  const ev = evOf(kind === "bracket" ? "8ball" : kind === "heats" ? "beerio" : "putt");
   if (kind === "bracket") saved(state, "announceAndDraw", { evId:ev.id, players:ROSTER.slice(0, 12), roles:[{ player:me, role:"photographer" }] });
   else {
     if (kind === "heats") saved(state, "runStages", { evId:ev.id, cfg:{ kind:"heats", nGroups:3, advance, players:[...ROSTER] } });
@@ -240,11 +240,12 @@ for (const kind of ["bracket", "heats"]) test(`actual guest board and host panel
     const host = controls(state, ev, { onLock:reference => act(state, "lockAndStart", { evId:ev.id, ...reference }) });
     assert.equal((await host.click("Lock bets and start")).ok, true);
     assert.equal(bettingControls(state, ev, spectator).buttons.filter(button => !button.disabled && button.name.startsWith("Place a chip on ")).length, 0);
-    /* a stage final of three or more is recorded as a finish order */
-    const other = contest.sides[1];
+    /* a stage final of three or more is recorded as a finish order of the
+       places the event pays (every event pays 1st, 2nd and 3rd) */
+    const [other, third] = contest.sides.slice(1);
     const selection = contest.kind === "heat" ? [`Winner: ${names(winner)}`,
       button => button.role === "checkbox" && button.name === `Also advances: ${names(backed)}`]
-      : contest.kind === "stage-final" ? [`1st: ${names(winner)}`, `2nd: ${names(other)}`] : [];
+      : contest.kind === "stage-final" ? [`1st: ${names(winner)}`, `2nd: ${names(other)}`, `3rd: ${names(third)}`] : [];
     const result = controls(state, ev, { onWinner:payload => act(state, "recordContestWinner", { evId:ev.id, ...payload }) }, selection);
     assert.equal((await result.click(contest.kind === "heat" ? "Record winner"
       : contest.kind === "stage-final" ? "Record order" : `Winner: ${names(winner)}`)).ok, true);

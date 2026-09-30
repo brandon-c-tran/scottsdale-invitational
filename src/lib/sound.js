@@ -255,6 +255,23 @@ export function setWalkout(walkout) {
   }
 }
 /* Quick Draw: closed from armed until the reaction is captured */
+/* ── song previews (features/music/previewPlayer.js) ──
+   The Win song picker's one media element lives here with every other
+   sound source. A preview is a sound the guest asked for, so while it plays
+   the iOS session is "playback" (the silent switch does not mute it) and
+   it goes back to "ambient" when the preview stops. */
+let previewAudio = null;
+export function previewAudioElement() {
+  if (!previewAudio && typeof Audio !== "undefined") previewAudio = new Audio();
+  return previewAudio;
+}
+export function setPreviewSession(playing) {
+  try {
+    if (engine.surface !== "tv" && globalThis.navigator?.audioSession)
+      globalThis.navigator.audioSession.type = playing ? "playback" : "ambient";
+  } catch {}
+}
+
 export function setQuickDrawHush(on) {
   if (engine.quickDraw === !!on) return;
   engine.quickDraw = !!on;

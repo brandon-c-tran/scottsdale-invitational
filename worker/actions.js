@@ -4,11 +4,11 @@
    ctx = { isGm, player } where player is the roster name this device claimed. */
 
 import {
-  ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, PT, MAX_RISK, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
+  ALL_PLAYERS, ROSTER, isActivePlayer, AWARDS, awardTable, PT, MAX_RISK, maxRisk, CHIP_MIN, cleanLeg, cleanLogistics, SESSIONS, EMPTY_STATE, SIZES, CHIP_COLORS, CHIP_SKINS, SPORTS, RATINGS, TEAM_NAMES, allEventsOf, disp, resolveWager, computeStandings, atRisk,
   drawTeams, splitIntoGroups, strengthMap, makeBracket, stageFinalists, shuffle, snakeTeam, draftTurn, resolveSlot, OUTRIGHT_MULT,
   DUEL_STAKE, DUEL_GAMES, DUEL_DAILY_LIMIT, resolveDuel, duelAccepted, duelPhase, duelOpen, duelReserve, duelRoom,
   duelBetween, duelsSentToday, pokerLive, stacksPosted, pokerLevels, pokerClockAnchor,
-  validateEventParticipants, normalizeOverflowRoles, presentPlayers, isAway, suggestParticipants, bracketMatchOpen, eventInPlay, GAMES,
+  validateEventParticipants, participationForEvent, normalizeOverflowRoles, presentPlayers, isAway, suggestParticipants, bracketMatchOpen, eventInPlay, GAMES,
   resolveEventLifecycle, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, bracketChampion, resultReadiness, contestUndoAvailability,
   pokerDistribution, wagerMult, contestMult, contestSideOf, stageEntrantView, resolveWeekendOperation,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
@@ -29,10 +29,10 @@ import {
   championIdentity,
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
-import { liveCall, sameCallTarget, validateCall } from "../shared/call.js";
 import { QA_PROGRESS_KEYS } from "../shared/qa.js";
 import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
+import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
@@ -214,7 +214,7 @@ const rememberWagerOp = (state, requestKey, record) => {
 };
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
-  "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene", "callEveryone", "endCall",
+  "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
@@ -325,9 +325,9 @@ const contestCommand = (ctx, type, payload) => ({
    champion, the final's loser, and the teams that lost the round before the
    final sharing 3rd. A stage final: its finish order, where two finalists
    need only the winner. Null until every paid place is known. */
-const placesPaid = ev => (AWARDS[ev?.value] || [0, 0, 0]).filter(pts => pts > 0).length;
+const placesPaid = ev => awardTable(ev).filter(pts => pts > 0).length;
 function contestPlacement(state, ev, contest, order) {
-  const table = AWARDS[ev.value] || [0, 0, 0];
+  const table = awardTable(ev);
   const draw = state.draws[ev.id];
   const known = key => key !== null && key !== undefined;
   if (contest.kind === "match") {
@@ -437,13 +437,16 @@ const draftDataError = (draft, ev) => {
     if (pick.team !== snakeTeam(index, captains.length)) return err("Draft order is invalid");
     expected[pick.team].push(pick.player);
   }
-  if (draft.teams.some((team, index) => !Array.isArray(team.players)
-      || team.players.length > fit.size || !slotsEqual(team.players, expected[index])))
-    return err("Draft teams do not match the picks");
   const players = [...draft.teams.flatMap(team => team.players), ...draft.pool];
+  /* an everyone-plays event (7 v 6) lets the snake give one side the extra player */
+  const everyone = participationForEvent(ev).type === "all";
+  const most = everyone ? Math.ceil(players.length / fit.teams) : fit.size;
+  if (draft.teams.some((team, index) => !Array.isArray(team.players)
+      || team.players.length > most || !slotsEqual(team.players, expected[index])))
+    return err("Draft teams do not match the picks");
   if (new Set(players).size !== players.length || players.some(player => !ROSTER.includes(player)))
     return err("Only confirmed players can participate");
-  if (players.length !== fit.teams * fit.size)
+  if (!everyone && players.length !== fit.teams * fit.size)
     return err(`Select exactly ${fit.teams * fit.size} players`);
   return null;
 };
@@ -455,9 +458,50 @@ const playingElsewhere = (state, evId, force) => {
   return playing ? err(`Finish ${playing.name} first`) : null;
 };
 
+/* Team MVP (shared/mvp.js): a team of three or more that just won votes its
+   MVP. A repost for the same team keeps its vote; a different winner starts
+   over. */
+function openMvpFor(state, evId, now) {
+  const team = state.results?.[evId]?.slots?.[0] || [];
+  if (!mvpNeedsVote(team)) return;
+  if (!state.mvp || typeof state.mvp !== "object" || Array.isArray(state.mvp)) state.mvp = {};
+  if (state.mvp[evId] && samePlayers(state.mvp[evId].team, team)) return;
+  state.mvp[evId] = newMvpRecord(team, now);
+}
+/* the answers go when the counts are kept */
+function closeMvp(state, evId, now) {
+  const record = state.mvp[evId];
+  const { winner, tally, how } = decideMvp(record);
+  delete record.votes;
+  Object.assign(record, { closedAt:now, winner, tally, how });
+}
+
 export const ACTIONS = {
   /* D6: awards ballots (worker/prompts.js), honors only */
   ...PROMPT_ACTIONS,
+  /* ── team MVP ── */
+  mvpVote(state, { evId, pick }, ctx) {
+    const record = state.mvp?.[evId];
+    if (!record) return err("No MVP vote for this event");
+    if (state.frozen) return err("The board is frozen");
+    if (!mvpOpen(state, evId)) return err(record.closedAt ? "The MVP vote is closed" : "This result changed");
+    if (!isActivePlayer(ctx.player)) return err("Check in first");
+    if (!mvpVoters(state, record).includes(ctx.player)) return err("Only the winning team votes");
+    if (pick === ctx.player || !record.team.includes(pick)) return err("Pick a teammate");
+    if (record.votes?.[ctx.player] === pick) return ok({ unchanged:true });
+    record.votes = { ...(record.votes || {}), [ctx.player]:pick };
+    if (everyoneVoted(state, record)) closeMvp(state, evId, Date.now());
+    return ok({ closed:!!record.closedAt });
+  },
+  mvpClose(state, { evId }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    const record = state.mvp?.[evId];
+    if (!record) return err("No MVP vote for this event");
+    if (record.closedAt || !mvpOpen(state, evId)) return ok({ unchanged:true });
+    if (state.frozen) return err("The board is frozen");
+    closeMvp(state, evId, Date.now());
+    return ok({ winner:record.winner });
+  },
   /* ── identity / profile ── */
   saveProfile(state, {
     player, display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack,
@@ -701,28 +745,6 @@ export const ACTIONS = {
     return ok({ sceneId:control.active.id, retryOf:prior.id });
   },
 
-  /* D9 "To the TV": presentation only. A call names a ceremony, every
-     phone shows it for CALL_MS, and pocket alerts go to phones that are not
-     looking (worker/pushAlerts.js). Its own write, never part of an
-     official one; a second tap on the call already up is the same call. */
-  callEveryone(state, request, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const checked = validateCall(state, allEventsOf(state), request);
-    if (!checked.ok) return err(checked.error);
-    const now = Date.now();
-    const current = liveCall(state, now);
-    if (current && sameCallTarget(current, checked.call)) return ok({ unchanged:true, callId:current.id });
-    const control = showControlOf(state);
-    control.call = { id:`call-${now}-${crypto.randomUUID().slice(0, 8)}`, at:now, ...checked.call };
-    return ok({ callId:control.call.id });
-  },
-  endCall(state, { id } = {}, ctx) {
-    const g = gmOnly(ctx); if (g) return g;
-    const call = state.showControl?.call;
-    if (!call || (id && call.id !== id) || !liveCall(state)) return ok({ unchanged:true });
-    showControlOf(state).call = null;
-    return ok();
-  },
 
   /* ── wagers (players) ── */
   placeWager(state, { wager }, ctx) {
@@ -1157,6 +1179,9 @@ export const ACTIONS = {
         revision,
       };
       op.revision = revision;
+      /* a different winning team loses the old MVP (derived) before the
+         exposure check, and votes its own */
+      openMvpFor(state, evId, now);
       const voided = enforceExposure(state, now);
       appendCorrection(state, evId, voided.length ? { ...entry, voided } : entry);
     } else {
@@ -1171,6 +1196,7 @@ export const ACTIONS = {
         revision,
       };
       op.revision = revision;
+      openMvpFor(state, evId, now);
     }
     op.completedAt = now;
     if (state.onDeck === evId) state.onDeck = null;
@@ -1983,7 +2009,9 @@ export const ACTIONS = {
     const config = draftConfigurationError(ev, fit); if (config) return config;
     if (state.draws[evId]) return err("Teams already set, clear them first");
     if (!compatible.ok) return err(compatible.error);
-    if (compatible.players.length !== fit.teams * fit.size)
+    /* fixed-size teams need exactly that many; an everyone-plays event (the
+       7 v 6 full court) takes whoever is present, and the snake evens it */
+    if (participationForEvent(ev).type === "strict-teams" && compatible.players.length !== fit.teams * fit.size)
       return err(`Select exactly ${fit.teams * fit.size} players`);
     if (!Array.isArray(captains) || captains.length !== fit.teams) return err("Pick one captain per team");
     if (new Set(captains).size !== captains.length) return err("A captain is listed twice");
@@ -2083,7 +2111,8 @@ export const ACTIONS = {
     const dataError = draftDataError(d, ev); if (dataError) return dataError;
     if (d.pool.length) return err("Pool not empty yet");
     const fit = draftFit(d, ev);
-    if (d.teams.some(team => team.players.length !== fit.size))
+    /* an everyone-plays event may end one apart (7 v 6) once the pool is empty */
+    if (participationForEvent(ev).type !== "all" && d.teams.some(team => team.players.length !== fit.size))
       return err(`Teams must have exactly ${fit.size} players`);
     const mascots = (fit.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
     const now = Date.now(), turn = draftTurn(d), drawId = `d${now}-${crypto.randomUUID()}`;
@@ -2139,7 +2168,10 @@ export const ACTIONS = {
        able to move points after stacks are dealt. pokerSetupPreview is the
        same deal the commissioner reviews first, so the write cannot differ.
        Away players are not dealt in; their board total carries as-is. A
-       negative balance deals as 0 through the minimum-stack grant. */
+       negative balance deals as 0 through the minimum-stack grant. An open
+       team MVP vote closes first with the votes it has, so its MVP's chips
+       are in the stack they are dealt. */
+    (pokerSetupPreview(state).closeMvps || []).forEach(item => closeMvp(state, item.eventId, Date.now()));
     const preview = pokerSetupPreview(state);
     if (!preview.ok) return err(preview.blockers[0]);
     const rows = computeStandings(state);

@@ -9,7 +9,9 @@
 
    HONORS ARE STANDALONE. Nothing in this module (or its reducers in
    worker/prompts.js) reads or writes chips, wagers, markets, results,
-   rulings or standings, and nothing in the economy reads it.
+   rulings or standings, and nothing in the economy reads it. The one read
+   of the weekend is a counted award (`source:"mvps"`, "Most MVPs"): its
+   totals are each player's standing team MVPs at close, not votes.
 
    Stored at state.prompts = { ballots:[...], responses:{ [ballotId]:{
    [player]:{ answers:{ [questionId]:player }, at } } } }. The per-viewer
@@ -18,9 +20,11 @@
    the turnout count, and a question's totals appear only once the TV has
    revealed it. */
 
-import { ROSTER, isActivePlayer, allEventsOf, eventInPlay, pokerLive } from "./core.js";
+import { ROSTER, isActivePlayer, allEventsOf, eventInPlay, mvpAwards, pokerLive } from "./core.js";
 
 const PROMPT_KINDS = Object.freeze(["awards"]);
+/* awards the weekend counts instead of the room voting */
+const PROMPT_SOURCES = Object.freeze(["mvps"]);
 const PROMPT_TITLE_MAX = 40;
 const PROMPT_QUESTIONS_MIN = 1;
 const PROMPT_QUESTIONS_MAX = 6;
@@ -66,8 +70,9 @@ function cleanBallotDraft(input, existing = null) {
     if (!plainObject(question)) return { ok:false, error:"Add an award" };
     const title = cleanTitle(question.title);
     if (!title) return { ok:false, error:`Name award ${index + 1}` };
+    const source = PROMPT_SOURCES.includes(question.source) ? question.source : null;
     let nominees = null;
-    if (question.nominees !== null && question.nominees !== undefined) {
+    if (!source && question.nominees !== null && question.nominees !== undefined) {
       if (!Array.isArray(question.nominees)) return { ok:false, error:"Pick the nominees" };
       const picked = [...new Set(question.nominees)];
       if (picked.some(player => !isActivePlayer(player))) return { ok:false, error:"Pick the nominees" };
@@ -79,7 +84,8 @@ function cleanBallotDraft(input, existing = null) {
       ? question.id : null;
     const id = given || newId("q");
     seen.add(id);
-    out.push({ id, title, nominees, allowSelf:question.allowSelf === true });
+    out.push(source ? { id, title, nominees:null, allowSelf:false, source }
+      : { id, title, nominees, allowSelf:question.allowSelf === true });
   }
   return { ok:true, kind, questions:out };
 }
@@ -91,6 +97,7 @@ const nomineesOf = question => Array.isArray(question?.nominees) && question.nom
 /* Whether `voter` may pick `choice` on this question. */
 function voteError(question, voter, choice) {
   if (!question) return "No such award";
+  if (question.source) return "This award is counted, not voted";
   if (!nomineesOf(question).includes(choice)) return "Pick a nominee";
   if (choice === voter && !question.allowSelf) return "Vote for someone else";
   return null;
@@ -115,13 +122,18 @@ function turnoutOf(ballot, responses) {
 
 /* Close counts every answer into the ballot (stored as ballot.tally):
    totals per nominee, and how many people voted. Answers that are no longer
-   valid are left out. */
-function tallyBallot(ballot, responses) {
+   valid are left out. A counted award takes its totals from `state`. */
+function tallyBallot(ballot, responses, state = null) {
   const answers = answersOf(responses, ballot?.id);
   const questions = {};
   for (const question of ballot?.questions || []) {
     const counts = {};
     let votes = 0;
+    if (question.source === "mvps") {
+      for (const { player } of mvpAwards(state)) if (isActivePlayer(player)) { counts[player] = (counts[player] || 0) + 1; votes += 1; }
+      questions[question.id] = { counts, votes };
+      continue;
+    }
     for (const [voter, record] of Object.entries(answers)) {
       const choice = record?.answers?.[question.id];
       if (!isActivePlayer(voter) || !choice || voteError(question, voter, choice)) continue;
@@ -165,7 +177,8 @@ function projectBallot(ballot, responses, { isGm = false, player = null } = {}) 
     publishedAt:Number(ballot.publishedAt) || null,
     closedAt:Number(ballot.closedAt) || null,
     questions:ballot.questions.map(question => ({ id:question.id, title:question.title,
-      nominees:question.nominees ? [...question.nominees] : null, allowSelf:!!question.allowSelf })),
+      nominees:question.nominees ? [...question.nominees] : null, allowSelf:!!question.allowSelf,
+      ...(question.source ? { source:question.source } : {}) })),
     voted:open ? turnoutOf(ballot, responses) : Number(ballot.tally?.turnout) || 0,
     of:ROSTER.length,
     ...(player && plainObject(mine) ? { mine:{ ...mine } } : {}),
@@ -258,6 +271,7 @@ function ballotStatusLine(ballot) {
 
 export {
   PROMPT_KINDS,
+  PROMPT_SOURCES,
   PROMPT_TITLE_MAX,
   PROMPT_QUESTIONS_MIN,
   PROMPT_QUESTIONS_MAX,

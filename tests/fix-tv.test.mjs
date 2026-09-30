@@ -70,7 +70,7 @@ test("scene retirement is presentation only and skipped without Show Control", (
   const offState = structuredClone(state);
   act(offState, "runDraw", { evId:"pong", players:ROSTER.slice(0, 12) }, gm(false));
   assert.equal(offState.showControl.active?.kind, "winner");
-  act(state, "startDraft", { evId:"bball", captains:ROSTER.slice(0, 4), players:ROSTER.slice(0, 12) });
+  act(state, "startDraft", { evId:"volley", captains:ROSTER.slice(0, 4), players:ROSTER.slice(0, 12) });
   assert.equal(state.showControl.active, null);
   assert.equal(retireFinishedShowScene({ active:null, history:[] }), null);
 });
@@ -120,7 +120,8 @@ test("a result presentation splits every change into event award and bets, and n
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "putt"));
-  const wager = { kind:"outright", eventId:"putt", stake:200, pick:"Evan",
+  /* Adi's 100 at 2:1 plus 2nd place (200) ties Evan's 400 for 1st */
+  const wager = { kind:"outright", eventId:"putt", stake:100, pick:"Evan",
     contestId:contest.id, contestRevision:contest.revision };
   const bet = applyAction(state, "placeWager", { wager }, { player:"Adi", deviceId:"adi", actionId:"w1" });
   assert.equal(bet.ok, true, bet.error);
@@ -134,7 +135,8 @@ test("a result presentation splits every change into event award and bets, and n
   const evan = model.rows.find(row => row.player === "Evan");
   const adi = model.rows.find(row => row.player === "Adi");
   assert.equal(evan.award, 400);
-  assert.equal(adi.bets, 400);
+  assert.equal(adi.award, 200);
+  assert.equal(adi.bets, 200);
   assert.equal(evan.rankAfter, 1);
   assert.deepEqual(model.revealOrder.map(item => item.place), [3, 2, 1]);
   assert.equal(model.leadChanged, true);
@@ -542,13 +544,13 @@ test("T3: next up is the operation event while it has not started", () => {
   const state = puttPosted(false);
   const events = allEventsOf(state);
   const operation = resolveWeekendOperation(state, events);
-  assert.equal(operation.event.id, "8ball");
-  assert.equal(nextUpEvent(state, events, { liveEv:null, operationEv:operation.event }).id, "8ball");
-  act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) }, gm(false));
+  assert.equal(operation.event.id, "die");
+  assert.equal(nextUpEvent(state, events, { liveEv:null, operationEv:operation.event }).id, "die");
+  act(state, "announceAndDraw", { evId:"die", players:ROSTER.slice(0, 12) }, gm(false));
   const after = allEventsOf(state);
   const live = tvLiveEvent(state, after, resolveWeekendOperation(state, after).event);
-  assert.equal(live.id, "8ball");
-  assert.equal(nextUpEvent(state, after, { liveEv:live }).id, "pong", "a live event is skipped");
+  assert.equal(live.id, "die");
+  assert.equal(nextUpEvent(state, after, { liveEv:live }).id, "where", "a live event is skipped");
 });
 
 test("T4: the fallback result moment never retakes the TV after a directed scene or a newer write", () => {
@@ -564,7 +566,7 @@ test("T4: the fallback result moment never retakes the TV after a directed scene
     const bare = puttPosted(false);
     const bareAnchor = bare.results.putt.confirmedAt;
     assert.ok(resultMomentFor(bare, allEventsOf(bare), bareAnchor + 5000, null, null));
-    act(bare, "announceEvent", { evId:"nine" }, gm(false));
+    act(bare, "announceEvent", { evId:"where" }, gm(false));
     assert.equal(resultMomentFor(bare, allEventsOf(bare), bareAnchor + 5000, null, null), null,
       "the next event's announcement owns the TV");
   } finally { restore(); }
@@ -769,7 +771,7 @@ test("T22: latest by original post, rulings the room hears, crash board and Exit
   const events = allEventsOf(EMPTY_STATE);
   const state = { ...structuredClone(EMPTY_STATE), results:{
     putt:{ slots:[["Evan"]], ts:100, confirmedAt:100 },
-    nine:{ slots:[["Adi"]], ts:300, confirmedAt:50, correctedAt:300, revision:2 } } };
+    where:{ slots:[["Adi"]], ts:300, confirmedAt:50, correctedAt:300, revision:2 } } };
   assert.equal(latestResultOf(state, events).ev.id, "putt", "a correction does not make an old event latest");
   state.adjustments = [{ id:"g", player:"Adi", delta:100, reason:"Minimum stack" },
     { id:"r", player:"Evan", delta:100, reason:"Spirit", removedAt:5 }, { id:"ok", player:"Khoa", delta:-100, reason:"Late" }];

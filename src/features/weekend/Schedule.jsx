@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
 import { EDITION, SESSIONS, disp, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
-import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
+import { readFolds, sessionFold, writeFolds } from "./scheduleModel.js";
 import "./weekend.css";
 
 /* The program keeps the same event ordering contract as the tournament:
@@ -11,12 +12,18 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
+  const [opened, setOpened] = useState(readFolds);
   const shelved = events.filter(event => state.shelved?.[event.id]);
   const inSession = session => events.filter(event => event.session === session.id && !state.shelved?.[event.id]);
   const extras = events.filter(event => !SESSIONS.some(session => session.id === event.session) && !state.shelved?.[event.id]);
   const active = events.filter(event => !state.shelved?.[event.id]);
   const complete = active.filter(event => state.results?.[event.id]).length;
   const nextId = resolveWeekendOperation(state, events).event?.id;
+  const toggleSession = (id, open) => {
+    const next = { ...opened, [id]:open };
+    setOpened(next);
+    writeFolds(next);
+  };
 
   const move = async (event, direction) => {
     if (pending.current) return;
@@ -99,6 +106,28 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
     {SESSIONS.map(session => {
       const list = inSession(session);
       if (!list.length) return null;
+      /* reordering shows every row, so a folded session never hides one */
+      const fold = reorderMode && gm ? null : sessionFold(state, list, nextId);
+      if (fold) {
+        const folded = opened[session.id] !== true;
+        const listId = `fd-session-list-${session.id}`;
+        return <section key={session.id} className={`fd-weekend-session fd-weekend-session-${session.id} is-done${folded ? " is-folded" : ""}`}
+          aria-labelledby={`fd-session-${session.id}`}>
+          <h2 id={`fd-session-${session.id}`} className="fd-weekend-session-fold">
+            <button type="button" className="fd-weekend-session-toggle" aria-expanded={!folded}
+              aria-controls={folded ? undefined : listId} aria-label={`${session.label}, ${fold.played} played`}
+              onClick={() => toggleSession(session.id, folded)}>
+              <span className="fd-weekend-session-name">{session.label}</span>
+              {folded && !!fold.winners.length && <span className="fd-weekend-session-winners" aria-hidden="true">
+                <AvatarStack state={state} players={fold.winners} size={22} max={5} />
+              </span>}
+              <span className="fd-weekend-session-count">{fold.played} played</span>
+              <span className="fd-weekend-rule-toggle" aria-hidden="true" />
+            </button>
+          </h2>
+          {!folded && <ol id={listId} className="fd-weekend-event-list">{eventRows(list)}</ol>}
+        </section>;
+      }
       return <section key={session.id} className={`fd-weekend-session fd-weekend-session-${session.id}`} aria-labelledby={`fd-session-${session.id}`}>
         <header className="fd-weekend-session-heading">
           <div><h2 id={`fd-session-${session.id}`}>{session.label}</h2></div>

@@ -85,7 +85,7 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
     if (!result.ok) return failed(result, "Playback failed");
     setCueState({ reconnect:false, bridge:{ walkout:result.walkout || null, serverAt:serverNow(),
       clientAt:Date.now() } });
-    notify?.(`${disp(state, item.player)} cue playing`, null, "gold", item.player);
+    notify?.(`${disp(state, item.player)}'s song playing`, null, "gold", item.player);
   };
   const stop = async () => {
     if (cueState.busy) return;
@@ -117,8 +117,8 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
   return items.map(item => {
     const name = item.player ? disp(state, item.player) : null;
     const full = item.sounding
-      ? name ? `Stop ${name}'s walkout` : "Stop the song"
-      : `Play ${name}'s walkout`;
+      ? name ? `Stop ${name}'s song` : "Stop the song"
+      : `Play ${name}'s song`;
     return chip(item.player || "music", {
       onClick:() => item.sounding ? stop() : play(item),
       active:item.sounding,

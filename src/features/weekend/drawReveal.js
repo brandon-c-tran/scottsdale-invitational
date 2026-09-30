@@ -73,7 +73,9 @@ export function buildEventReveal(state, ev, kind) {
         vs:true, lines:[line(a), line(b)] });
     });
     const byes = draw.teams.map((_, index) => index).filter(index => !seated.has(index));
-    if (byes.length) groups.push({ title:names[1] ? `Straight to the ${names[1].toLowerCase()}` : "Bye", lines:byes.map(line) });
+    /* `bye`: each team that skips round one is drawn as its own tile */
+    if (byes.length) groups.push({ title:names[1] ? `Straight to the ${names[1].toLowerCase()}` : "Bye",
+      bye:true, lines:byes.map(line) });
   } else if (draw.teams.length !== 2) {
     groups = draw.teams.map(team => ({ title:teamLabel(state, team),
       lines:team.players.map(player => ({ avatars:[player], text:disp(state, player) })) }));

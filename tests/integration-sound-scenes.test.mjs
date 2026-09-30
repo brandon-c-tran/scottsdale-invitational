@@ -232,11 +232,11 @@ test("the cue rack beside the pill: a pair or a team wraps as names, one or two 
   const labels = candidates => [...renderToStaticMarkup(React.createElement(CueRack, { state, candidates }))
     .matchAll(/aria-label="([^"]*)"[^>]*>.*?<span[^>]*>([^<]*)<\/span><\/button>/g)].map(m => [m[1], m[2]]);
   assert.deepEqual(labels(["Evan", "Sahil"]),
-    [["Play Evan&#x27;s walkout", "Play Evan&#x27;s walkout"], ["Play Sahil&#x27;s walkout", "Play Sahil&#x27;s walkout"]]);
+    [["Play Evan&#x27;s song", "Play Evan&#x27;s song"], ["Play Sahil&#x27;s song", "Play Sahil&#x27;s song"]]);
   const four = labels(players);
   assert.equal(four.length, 4);
   assert.deepEqual(four.map(([, text]) => text), players, "names only, so they wrap in rows");
-  assert.ok(four.every(([aria], i) => aria === `Play ${players[i]}&#x27;s walkout`), "the full action stays the label");
+  assert.ok(four.every(([aria], i) => aria === `Play ${players[i]}&#x27;s song`), "the full action stays the label");
 });
 
 test("docked cues take their own header row, so a sheet title never collapses into a column", () => {

@@ -174,16 +174,16 @@ test("the phase walks the weekend: Friday until live, the event in play, the las
   const events = allEventsOf(EMPTY_STATE);
   const ev = id => events.find(item => item.id === id);
   const locker = structuredClone(EMPTY_STATE);
-  locker.results = { bball:{ slots:[["Adi"]], ts:5 } };
+  locker.results = { pickleball:{ slots:[["Adi"]], ts:5 } };
   assert.equal(weekendPhase(locker, events), "fri", "before the weekend goes live, Friday whatever is stored");
   const live = { ...structuredClone(EMPTY_STATE), live:true };
   assert.equal(weekendPhase({ ...live, onDeck:"volley" }, events), "sap", "the open market's session");
-  const played = { ...live, results:{ putt:{ slots:[["Evan"]], ts:1 }, bball:{ slots:[["Adi"]], ts:5 } } };
+  const played = { ...live, results:{ putt:{ slots:[["Evan"]], ts:1 }, pickleball:{ slots:[["Adi"]], ts:5 } } };
   assert.equal(weekendPhase(played, events), "sam");
   assert.equal(weekendPhase({ ...played, poker:{ id:"poker" } }, events), "fin");
   assert.equal(weekendPhase({ ...played, frozen:true }, events), "fin");
   /* whatever the state, the TV's explicit inputs and the phone's defaults agree */
-  const states = [locker, live, { ...live, onDeck:"volley" }, played, { ...played, onDeck:"flip" }, { ...played, frozen:true }];
+  const states = [locker, live, { ...live, onDeck:"volley" }, played, { ...played, onDeck:"trivia" }, { ...played, frozen:true }];
   for (const state of states) {
     const operationEvent = resolveWeekendOperation(state, events).event;
     const tv = weekendPhase(state, events, { liveEvent:tvLiveEvent(state, events, operationEvent), operationEvent });

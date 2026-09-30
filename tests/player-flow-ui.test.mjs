@@ -31,6 +31,10 @@ componentModule._compile(compiled.outputFiles[0].text, componentModule.filename)
 const { GuestHome, Board, PlayerSheet, ProfileEditor, Schedule, Guide, HowToSheet, VenueCard,
   PlayerIdentityProvider, AppNavigation } = componentModule.exports;
 const [me, other] = ROSTER;
+/* Schedule keeps this visit's folded sessions in sessionStorage */
+const sessionArea = new Map();
+globalThis.sessionStorage = { getItem:key => sessionArea.has(key) ? sessionArea.get(key) : null,
+  setItem:(key, value) => sessionArea.set(key, String(value)), removeItem:key => sessionArea.delete(key) };
 const fresh = () => ({ ...structuredClone(EMPTY_STATE), live:true });
 const noop = () => {};
 const StubMark = () => null;
@@ -525,17 +529,57 @@ test("compact Trip keeps saved flights and edit navigation; check-in retains its
 });
 
 test("compact event rows keep result and player destinations separate and prepared heats are not labelled live", () => {
-  const state = fresh(), putt = BUILTIN_EVENTS.find(event => event.id === "putt"), heat = BUILTIN_EVENTS.find(event => event.id === "pingpong");
+  const state = fresh(), putt = BUILTIN_EVENTS.find(event => event.id === "putt"), heat = BUILTIN_EVENTS.find(event => event.id === "beerio");
   state.results[putt.id] = { ts:1, slots:[[other], [], []] };
   state.stages[heat.id] = { id:"prepared", kind:"heats", entrantType:"solo", advance:1,
     groups:[{ name:"Heat 1", entrants:ROSTER.slice(0, 6), through:[] }, { name:"Heat 2", entrants:ROSTER.slice(6), through:[] }], finalWinner:null };
+  sessionArea.set("si-events-open", JSON.stringify({ fri:true }));
   const opened = [], view = controls(Schedule, state, { events:[putt, heat], open:event => opened.push(event.id) });
+  sessionArea.clear();
   view.click(`${putt.name}. Complete. Open event`);
   view.click(`View ${other}'s player card`);
   assert.deepEqual(opened, [putt.id]);
   assert.deepEqual(view.viewed, [other]);
+  assert.ok(view.html.includes(heat.name), "the prepared heats row renders");
   assert.doesNotMatch(view.html, /Heats live|Pools live/);
   assert.match(view.html, /1 of 2 complete/);
+});
+
+test("Events folds a finished session to one row and keeps the session in play and later ones open", () => {
+  sessionArea.clear();
+  const state = fresh(), events = BUILTIN_EVENTS.filter(event => !event.finale);
+  const friday = events.filter(event => event.session === "fri");
+  friday.forEach((event, index) => { state.results[event.id] = { ts:index + 1, slots:[[ROSTER[index]], [], []] }; });
+  const [firstSam] = events.filter(event => event.session === "sam");
+  state.results[firstSam.id] = { ts:9, slots:[[ROSTER[12]], [], []] };
+  const row = event => `${event.name}.`;
+  const folded = controls(Schedule, state, { events });
+  const toggle = folded.named(`Friday Night, ${friday.length} played`);
+  assert.match(folded.html, /aria-expanded="false"/);
+  for (const event of friday) assert.ok(!folded.buttons.some(button => button.name.startsWith(row(event))), `${event.name} is folded`);
+  for (const player of ROSTER.slice(0, friday.length))
+    assert.ok(!folded.buttons.some(button => button.name === `View ${player}'s player card`), "folded winners are a picture, not targets");
+  for (const event of events.filter(event => event.session !== "fri"))
+    assert.ok(folded.buttons.some(button => button.name.startsWith(row(event))), `${event.name} stays visible`);
+  assert.ok(!folded.buttons.some(button => /Saturday Morning,/.test(button.name)), "a session in play never folds");
+  assert.match(folded.html, /Saturday Morning/);
+
+  toggle.click();
+  assert.deepEqual(JSON.parse(sessionArea.get("si-events-open")), { fri:true });
+  const expanded = controls(Schedule, state, { events });
+  assert.match(expanded.html, /aria-expanded="true"/);
+  for (const event of friday) expanded.named(`${event.name}. Complete. Open event`);
+  expanded.click(`View ${ROSTER[0]}'s player card`);
+  assert.deepEqual(expanded.viewed, [ROSTER[0]]);
+  expanded.named(`Friday Night, ${friday.length} played`).click();
+  assert.deepEqual(JSON.parse(sessionArea.get("si-events-open")), { fri:false });
+  sessionArea.clear();
+
+  /* with nothing left to play every session stays open */
+  for (const event of events) state.results[event.id] ||= { ts:20, slots:[[other], [], []] };
+  const finished = controls(Schedule, state, { events });
+  assert.doesNotMatch(finished.html, /aria-expanded/);
+  for (const event of events) finished.named(`${event.name}. Complete. Open event`);
 });
 
 test("the single-title game sheet retains every authored objective, step, win condition, and house rule", () => {

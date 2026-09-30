@@ -101,7 +101,7 @@ test("drawing teams and heats leaves the weekend unstarted until betting opens",
   act(teams, "setOnDeck", { id:bracket.id });
   assert.equal(teams.live, true);
 
-  const heats = fresh(), ev = event("pingpong");
+  const heats = fresh(), ev = event("beerio");
   act(heats, "runStages", { evId:ev.id, cfg:{ ...ev.stageCfg, players:defaultQaParticipants(ev) } });
   assert.equal(heats.live, false);
   assert.ok(heats.stages[ev.id]);

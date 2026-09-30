@@ -3,7 +3,7 @@
    on the same screen. Nothing here writes state. */
 
 import {
-  AWARDS, ROSTER, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
+  awardTable, ROSTER, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult,
   disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
@@ -45,7 +45,7 @@ export const mmss = ms => {
 export const editionLabel = () => EDITION.label || `${EDITION.name} · ${EDITION.year}`;
 /* what an event pays, as numbers: "1,200 · 800 · 400 chips" */
 export const payoutLine = ev => {
-  const table = (AWARDS[ev?.value] || []).filter(Boolean);
+  const table = awardTable(ev).filter(Boolean);
   return table.length ? `${table.map(fmt).join(" · ")} chips` : "The finale";
 };
 /* the betting payout, Brandon's wording: two sides pay 1:1, a wide field 2:1 */

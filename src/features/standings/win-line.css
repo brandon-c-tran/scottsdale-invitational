@@ -2,4 +2,5 @@
 .fd-win-line { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   color:var(--muted2); font:500 11px/1.35 var(--fd-body); }
 .fd-win-line.is-rank { color:var(--sun); }
-.fd-wagers-pick .fd-wagers-win { padding:1px 8px 3px; white-space:normal; }
+/* a bet card keeps its win line to one row, the same row on every card */
+.fd-wagers-pick .fd-wagers-win { padding:2px 8px 0; }

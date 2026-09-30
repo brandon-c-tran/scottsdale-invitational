@@ -9,7 +9,7 @@ import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { wagerPickLabel, mergeWagerLines } from "../wagers/Wagers.jsx";
 import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
-import { STACK_CAP, contestStacks, stackName, stackGeometry, pickStacks } from "../wagers/betStacks.js";
+import { STACK_CAP, contestStacks, stackName, stackMaxHeight, pickStacks } from "../wagers/betStacks.js";
 import {
   fmt, signed, editionLabel, payoutLine, oddsLine, phaseBand, placeName, sessionLabel,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS,
@@ -26,6 +26,7 @@ import {
   TrophyCard,
 } from "./TVCards.jsx";
 import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
+import { winLineFor } from "../standings/winImpact.js";
 import { TVBracket } from "./TVBracket.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
 import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
@@ -43,6 +44,7 @@ import { useServerNow } from "./serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
 import { useRoomSound } from "./roomSound.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
+import { NowPlaying } from "./NowPlaying.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
@@ -259,22 +261,20 @@ function Rail({ state, standings, allTied, rankDeltas = {} }) {
 const TV_STACKS = {
   h2h:{ face:88, faceMany:64, chip:64, cap:STACK_CAP },
   grid:{ face:64, faceMany:52, chip:52, cap:STACK_CAP },
-  compact:{ face:44, faceMany:36, chip:48, cap:8 },
+  compact:{ face:44, faceMany:36, chip:48, cap:STACK_CAP },
 };
-/* A wide field keeps every side on screen: rows with chips take the room
-   they need, and the chips shrink only when many rows carry them. */
-const COMPACT_SIZES = [[50, 8], [46, 8], [42, 7], [38, 6], [34, 6], [30, 5]];
-const COMPACT_ROW = 64, COMPACT_GAP = 14, COMPACT_NAME = 30, COMPACT_PAD = 20, COMPACT_PER_LINE = 3, COMPACT_SLOTS = 6;
-/* lines: for each grid row, how many lines of stacks its fullest card needs */
-export function compactStackSize(lines, budget) {
-  for (const [chip, cap] of COMPACT_SIZES) {
-    const line = stackGeometry(chip, cap).height + COMPACT_NAME + 6;
-    const used = lines.reduce((sum, count) => sum + Math.max(COMPACT_ROW, count ? COMPACT_PAD + count * line : 0), 0)
-      + (lines.length - 1) * COMPACT_GAP;
-    if (used <= budget) return { chip, cap };
-  }
-  const [chip, cap] = COMPACT_SIZES[COMPACT_SIZES.length - 1];
-  return { chip, cap };
+/* A wide field keeps every side on screen in rows of one fixed height, so a
+   side's first chip never moves another card: the rows share the room, and
+   the chip is the largest whose tallest stack (cap, tower and first name)
+   stands inside a row. */
+const COMPACT_CHIPS = [50, 46, 42, 38, 34, 30];
+const COMPACT_GAP = 14, COMPACT_NAME = 30, COMPACT_PAD = 20;
+export function compactStackSize(rows, budget) {
+  const count = Math.max(1, rows);
+  const rowH = Math.floor((budget - (count - 1) * COMPACT_GAP) / count);
+  const room = rowH - COMPACT_PAD - COMPACT_NAME - 4;
+  const chip = COMPACT_CHIPS.find(size => stackMaxHeight(size) <= room) ?? COMPACT_CHIPS[COMPACT_CHIPS.length - 1];
+  return { chip, cap:STACK_CAP, rowH };
 }
 function ContestBoard({ state, events, ev, contest }) {
   const stacks = contestStacks(state, events, contest);
@@ -288,26 +288,30 @@ function ContestBoard({ state, events, ev, contest }) {
   const upNow = contest.kind === "match";
   const head = upNow ? `Up now · ${contest.label}` : contest.label !== ev.name ? contest.label : null;
   let size = h2h ? TV_STACKS.h2h : compact ? TV_STACKS.compact : TV_STACKS.grid;
-  if (compact) {
-    const lines = Array.from({ length:Math.ceil(n / colCount) }, () => 0);
-    contest.sides.forEach((side, index) => {
-      const row = Math.floor(index / colCount);
-      lines[row] = Math.max(lines[row], Math.ceil(Math.min(COMPACT_SLOTS, stacks.get(side.key)?.stacks.length || 0) / COMPACT_PER_LINE));
-    });
-    size = { ...size, ...compactStackSize(lines, head ? 660 : 716) };
-  }
+  if (compact) size = { ...size, ...compactStackSize(Math.ceil(n / colCount), head ? 660 : 716) };
+  /* a compact row has room for two named stacks at three to a row, four at two */
+  const compactSlots = colCount === 3 ? 2 : 4;
+  /* every felt on the board draws one chip size: each reports the level it
+     needs, and all stand at the deepest */
+  const [fitNeed, setFitNeed] = useState({});
+  const sideKeys = contest.sides.map(side => String(side.key));
+  const floor = Math.max(0, ...sideKeys.map(key => fitNeed[`${contest.id}:${key}`] || 0));
+  const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
+  const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
+  const anyWinLine = !compact && contest.sides.some(side => !!winLineFor(winLines, side.key));
   const cols = h2h ? "1fr auto 1fr" : `repeat(${colCount},1fr)`;
   const cards = contest.sides.map(side => {
     const view = contestSideView(state, ev, contest, side);
     const ride = stacks.get(side.key) || { stacks:[], total:0 };
     const face = view.players.length > 2 ? size.faceMany : size.face;
     const total = ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>;
-    /* a wide field's row keeps two lines of stacks; past that the smallest group */
+    /* a wide field's row holds its biggest stacks; past that the smallest group */
     const pile = ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={size.chip} cap={size.cap}
-      className="tv-stacks" names={p => stackName(state, p)} tagSize={24} slots={COMPACT_SLOTS} />;
+      className="tv-stacks" names={p => stackName(state, p)} slots={compactSlots} valueAt="side" />;
     /* a felt fits any number of bettors without covering its total (P1) */
     const felt = ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={ride.total} totalClass="tv-side-total"
-      chip={size.chip} cap={size.cap} min={34} className="tv-stacks-fit" names={p => stackName(state, p)} tagSize={24} />;
+      chip={size.chip} cap={size.cap} min={34} className="tv-stacks-fit" names={p => stackName(state, p)}
+      valueAt="side" ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />;
     /* a wide field: one row per side, its stacks beside the name */
     if (compact) return (
       <div key={String(side.key)} className={`tv-side is-row${ride.stacks.length ? " has-chips" : ""}`}>
@@ -329,7 +333,7 @@ function ContestBoard({ state, events, ev, contest }) {
           </div>
           <div className="tv-side-name">{view.name}</div>
         </div>
-        <TVWinLine lines={winLines} sideKey={side.key} />
+        {anyWinLine && <div className="tv-side-win"><TVWinLine lines={winLines} sideKey={side.key} /></div>}
         <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
           {felt || <span className="tv-felt-empty">{betting ? "No chips yet" : "No bets"}</span>}
         </div>
@@ -339,7 +343,8 @@ function ContestBoard({ state, events, ev, contest }) {
   return (
     <div className={`tv-contest${upNow ? " is-up-now" : ""}`}>
       {head && <div className="tv-display tv-contest-head">{upNow && <i className="fd-beat-dot tv-beat" aria-hidden="true" />}{head}</div>}
-      <div className={`tv-sides${compact ? " is-compact" : ""}${h2h ? " is-h2h" : ""}`} style={{ gridTemplateColumns:cols }}>
+      <div className={`tv-sides${compact ? " is-compact" : ""}${h2h ? " is-h2h" : ""}`}
+        style={{ gridTemplateColumns:cols, ...(compact ? { gridAutoRows:`${size.rowH}px` } : {}) }}>
         {h2h ? [cards[0], <div key="vs" className="tv-vs">VS</div>, cards[1]] : cards}
       </div>
       <div className="tv-contest-foot">{betting ? "Betting open" : "Bets locked"} · {oddsLine(contest)}</div>
@@ -375,11 +380,11 @@ function SettleBoard({ state, settle, size = 56 }) {
     <div className="tv-settle">
       {settle.winners.length > 0 && <div className="tv-settle-zone is-won">
         <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_PAY_AT}ms` }}>{signed(settle.paid)}</div>
-        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} tagSize={24} className="tv-stacks" />
+        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} className="tv-stacks" valueAt="side" />
       </div>}
       {settle.losers.length > 0 && <div className="tv-settle-zone is-lost">
         <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_LOSE_AT}ms` }}>{signed(-settle.lost)}</div>
-        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} tagSize={24} className="tv-stacks" />
+        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} className="tv-stacks" valueAt="side" />
       </div>}
     </div>
   );
@@ -477,8 +482,8 @@ function PodiumPlace({ state, item, backers = null }) {
       </div> : null}
       {riding && <div className="tv-place-backers">
         <div className="tv-settle-head" style={{ animationDelay:"900ms" }}>{signed(backers.paid)}</div>
-        <BetStacks stacks={backers.winners} size={46} names={p => stackName(state, p)} delay={900} tagSize={24}
-          className="tv-stacks" />
+        <BetStacks stacks={backers.winners} size={46} names={p => stackName(state, p)} delay={900}
+          className="tv-stacks" valueAt="side" />
       </div>}
     </div>
   );
@@ -876,7 +881,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
               <div className="tv-denoms">{pick.ctx}</div>
               <div className="tv-side-total">{fmt(pick.total)}</div>
             </div>
-            <BetStacks stacks={pick.stacks} size={48} names={p => stackName(state, p)} tagSize={24} className="tv-stacks" />
+            <BetStacks stacks={pick.stacks} size={48} names={p => stackName(state, p)} className="tv-stacks" valueAt="side" />
           </div>
         ))}
       </div>
@@ -917,6 +922,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
           {content}
         </main>
         {showTicker && <Ticker state={state} items={items} reducedMotion={reducedMotion} now={now} />}
+        {!award && <NowPlaying state={state} events={events} />}
         {sceneIntroEv && <IntroOverlay state={state} ev={sceneIntroEv} EventSpotlight={EventSpotlight} reducedMotion={reducedMotion} />}
         {ceremonyIntroEv && <IntroOverlay key={ceremonyIntroEv.id} state={state} ev={ceremonyIntroEv} EventSpotlight={EventSpotlight}
           handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} />}

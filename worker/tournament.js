@@ -47,6 +47,10 @@ import {
 } from "./spotify.js";
 import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
 import { alertsFor } from "./pushAlerts.js";
+import { WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.js";
+import { mvpDue, nextMvpDeadline } from "../shared/mvp.js";
+import { findPreview, previewCache } from "./previews.js";
+import { findAlbumUpload } from "./youtube.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk } from "./moments.js";
 
@@ -67,6 +71,15 @@ const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
 /* the weekend speaker: chosen once in Audio Director, sent with every cue */
 const SPOTIFY_DEVICE_KEY = "private:spotify:device";
+/* win songs play by themselves unless the commissioner turned them off */
+const SPOTIFY_AUTO_KEY = "private:spotify:auto";
+/* the room's volume while a win song fades, so its end puts it back */
+const SPOTIFY_FADE_KEY = "private:spotify:fade";
+/* a win song fades in, and out before its clip ends (a Stop or a take-back fades faster) */
+const WIN_FADE_IN_MS = 1500;
+const WIN_FADE_OUT_MS = 3000;
+const WIN_FADE_STOP_MS = 1000;
+const WIN_FADE_STEPS = 6;
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
 /* QA checkpoints: named game-progress saves, private (never in a snapshot,
    a backup, or any frame). An index plus one key per checkpoint, so no
@@ -78,11 +91,20 @@ const QA_CHECKPOINT_ID = /^cp[a-z0-9]{6,40}$/;
 const RESET_BACKUP_ACTIONS = new Set(["resetTournament", "qaAdvance", "qaRestore"]);
 /* writes that never send pocket alerts */
 const QUIET_ACTIONS = RESET_BACKUP_ACTIONS;
+/* search runs as the guest types (debounced on the phone) */
 const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 /* a phone counts as looking at the app when its socket said so recently;
    a foreground phone pings every 25 seconds */
 const PRESENCE_FRESH_MS = 40 * 1000;
-const SPOTIFY_SEARCH_LIMIT = 12;
+const SPOTIFY_SEARCH_LIMIT = 40;
+/* preview clip lookups per device per minute (answers are cached) */
+const PREVIEW_LIMIT = 60;
+/* YouTube album uploads by Spotify track id: private, kept for good (a miss
+   is asked again after a day); a search spends a fifth of a percent of the
+   key's daily quota, so a device may start at most 10 a minute */
+const SNIPPET_KEY_PREFIX = "private:youtube:";
+const SNIPPET_MISS_MS = 24 * 60 * 60 * 1000;
+const SNIPPET_LIMIT = 10;
 const spotifyJson = (body, status = 200) => Response.json(body, {
   status,
   headers:{ "Cache-Control":"no-store" },
@@ -157,6 +179,8 @@ export class Tournament {
         && spotifyConfigured(this.env),
       /* pocket alerts: on only with a complete VAPID key pair and subject */
       push:configured && !!this.vapid,
+      /* the Win song picker's exact-snippet preview (worker/youtube.js) */
+      songSnippets:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && !!this.env.YOUTUBE_API_KEY,
     };
   }
 
@@ -380,12 +404,12 @@ export class Tournament {
     return !!await this.gmTokenId(token);
   }
 
-  spotifyRateLimit(deviceId) {
+  spotifyRateLimit(deviceId, limit = SPOTIFY_SEARCH_LIMIT) {
     const now = Date.now();
     this.spotifySearches = this.spotifySearches || new Map();
     const recent = (this.spotifySearches.get(deviceId) || [])
       .filter(timestamp => now - timestamp < SPOTIFY_SEARCH_WINDOW_MS);
-    if (recent.length >= SPOTIFY_SEARCH_LIMIT) return false;
+    if (recent.length >= limit) return false;
     recent.push(now);
     this.spotifySearches.set(deviceId, recent);
     return true;
@@ -517,10 +541,41 @@ export class Tournament {
         error:String(error?.message || error).slice(0, 300) }));
       return current;
     }
-    if (walkout) {
-      try { await this.ctx.storage.setAlarm?.(walkout.until + 250); } catch {}
-    }
+    if (walkout) await this.scheduleAlarm();
     return walkout;
+  }
+
+  /* The object's one alarm serves two clocks: a walkout's `until` and an
+     open team MVP vote's `closesAt`. It is set for whichever comes first. */
+  async scheduleAlarm() {
+    const times = [];
+    const walkout = walkoutOf(this.state);
+    /* a win song starts fading out before its end */
+    if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
+      : walkout.until + 250);
+    const deadline = nextMvpDeadline(this.state);
+    if (deadline !== null) times.push(deadline);
+    if (!times.length) return;
+    try { await this.ctx.storage.setAlarm?.(Math.min(...times)); } catch {}
+  }
+
+  /* An MVP vote whose minute is up closes in its own write, like a
+     commissioner's close, and its winner's song follows. */
+  async closeDueMvps(now) {
+    const due = mvpDue(this.state, now);
+    if (!due.length) return;
+    const before = this.state;
+    const nextState = structuredClone(this.state);
+    for (const evId of due)
+      applyAction(nextState, "mvpClose", { evId }, { isGm:true, player:null, deviceId:null, actionId:null,
+        environment:this.environment });
+    try {
+      await this.persistAndBroadcast("mvpClose", nextState);
+    } catch (error) {
+      console.error(JSON.stringify({ event:"mvp-close-failed", error:String(error?.message || error).slice(0, 300) }));
+      return;
+    }
+    this.queueWinSong(before, this.state, "mvpClose");
   }
 
   /* an action that rebuilt showControl (a progress reset or a QA jump) does
@@ -533,15 +588,135 @@ export class Tournament {
     nextState.showControl = { ...control, audio:{ ...(control.audio || {}), walkout:live } };
   }
 
-  /* the one alarm this object sets: clear a walkout once its song is over */
+  /* the alarm: close MVP votes whose time is up, clear a walkout once its
+     song is over (ending a win song's clip on the speaker), then re-arm for
+     whatever is still waiting */
   async alarm() {
+    await this.closeDueMvps(Date.now());
     const walkout = walkoutOf(this.state);
-    if (!walkout) return;
-    if (Date.now() < walkout.until) {
-      try { await this.ctx.storage.setAlarm?.(walkout.until + 250); } catch {}
-      return;
+    if (walkout && Date.now() >= (walkout.auto ? walkout.until - WIN_FADE_OUT_MS : walkout.until)) {
+      if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
+      /* a newer song may have replaced this one while it faded */
+      if (walkoutOf(this.state)?.startedAt === walkout.startedAt) await this.setWalkout(null, "walkoutEnded");
     }
-    await this.setWalkout(null, "walkoutEnded");
+    await this.scheduleAlarm();
+  }
+
+  /* One lane for everything a win song does on the speaker (start and fade
+     in, fade out and stop), so a fade never runs over the next song. */
+  songQueue(task) {
+    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(() => null);
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  wait(ms) { return this.sleep ? this.sleep(ms) : new Promise(resolve => setTimeout(resolve, ms)); }
+
+  async spotifyVolume(percent, deviceId) {
+    const level = Math.max(0, Math.min(100, Math.round(percent)));
+    await this.spotifyUserApi(`/me/player/volume?volume_percent=${level}${deviceId ? `&device_id=${encodeURIComponent(deviceId)}` : ""}`,
+      { method:"PUT" });
+  }
+
+  /* a fade is WIN_FADE_STEPS volume calls spread over `ms` */
+  async rampVolume(from, to, ms, deviceId) {
+    for (let step = 1; step <= WIN_FADE_STEPS; step++) {
+      await this.spotifyVolume(from + (to - from) * step / WIN_FADE_STEPS, deviceId);
+      if (step < WIN_FADE_STEPS) await this.wait(ms / WIN_FADE_STEPS);
+    }
+  }
+
+  /* Fade the speaker out over `fadeMs` and pause it, only while it still
+     plays this song (a track someone started since is left alone), then put
+     the volume back where the room had it. A speaker that refuses volume
+     just stops. Never throws. */
+  async stopWinSong(walkout, fadeMs = 0) {
+    try {
+      const playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player"));
+      if (!playback?.playing || (walkout.trackId && playback.track?.trackId !== walkout.trackId)) return false;
+      const device = playback.device;
+      const speaker = device?.id || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
+      const fades = !!device?.supportsVolume && Number(device.volume) > 0 && fadeMs > 0;
+      if (fades) {
+        try { await this.rampVolume(device.volume, 0, fadeMs, speaker); } catch {}
+      }
+      await this.spotifyUserApi(`/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
+        { method:"PUT" });
+      const saved = await this.ctx.storage.get(SPOTIFY_FADE_KEY);
+      const restore = saved?.trackId === walkout.trackId && Number(saved.volume) > 0 ? saved.volume : device?.volume;
+      if (device?.supportsVolume && Number(restore) > 0) {
+        try { await this.spotifyVolume(restore, speaker); } catch {}
+      }
+      await this.ctx.storage.delete(SPOTIFY_FADE_KEY);
+      return true;
+    } catch (error) {
+      console.error(JSON.stringify({ event:"win-song-stop-failed",
+        error:String(error?.message || error).slice(0, 300) }));
+      return false;
+    }
+  }
+
+  /* Start a win song at silence and bring it up to the room's level. The
+     level is the speaker's own before the song (or the one a fade that was
+     cut short meant to restore). A speaker that refuses volume, or one that
+     is not awake yet, plays at its level with no fade. */
+  async startWinSong(song) {
+    const speaker = await this.spotifySpeaker("");
+    let before = null;
+    try { before = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
+    const device = before?.device;
+    const saved = await this.ctx.storage.get(SPOTIFY_FADE_KEY);
+    const level = Number(saved?.volume) > 0 ? saved.volume : Number(device?.volume) || 0;
+    let fade = device?.id && device.supportsVolume && level > 0 && (!speaker || device.id === speaker)
+      ? { device:device.id, volume:level } : null;
+    if (fade) { try { await this.spotifyVolume(0, fade.device); } catch { fade = null; } }
+    try {
+      await this.spotifyPlayOnSpeaker(speaker, { uris:[song.track.uri], position_ms:song.track.startMs || 0 });
+    } catch (error) {
+      if (fade) { try { await this.spotifyVolume(fade.volume, fade.device); } catch {} }
+      throw error;
+    }
+    await this.stampWalkout({ uri:song.track.uri, player:song.player, positionMs:song.track.startMs || 0,
+      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true, mvp:song.mvp === true });
+    if (!fade) return;
+    await this.ctx.storage.put(SPOTIFY_FADE_KEY, { trackId:song.track.trackId, volume:fade.volume, device:fade.device });
+    try { await this.rampVolume(0, fade.volume, WIN_FADE_IN_MS, fade.device); }
+    catch { try { await this.spotifyVolume(fade.volume, fade.device); } catch {} }
+  }
+
+  /* ── win songs (worker/winSong.js) ──
+     After a write persisted and broadcast, the win it recorded plays the
+     winner's saved song on the chosen speaker; a write that takes the win
+     back stops it. Serialized, best effort, never holds up or fails a write,
+     and silent when Spotify is not connected. */
+  queueWinSong(before, after, type) {
+    if (!this.capabilities.audioPlayback) return null;
+    let song = null;
+    try { song = winSongFor(before, after); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"win-song-select-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    const takeBack = !song && WIN_SONG_STOP_ACTIONS.has(type);
+    if (!song && !takeBack) return null;
+    return this.songQueue(async () => {
+      if (await this.ctx.storage.get(SPOTIFY_AUTO_KEY) === false) return;
+      const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+      if (!(session?.refreshToken || session?.accessToken) || session.reauthorize) return;
+      if (takeBack) {
+        const live = walkoutLive(this.state, Date.now());
+        if (live?.auto && await this.stopWinSong(live, WIN_FADE_STOP_MS)) await this.setWalkout(null, "walkoutStop");
+        return;
+      }
+      if (this.lastWinSong === song.key) return;
+      this.lastWinSong = song.key;
+      try {
+        await this.startWinSong(song);
+      } catch (error) {
+        console.error(JSON.stringify({ event:"win-song-play-failed",
+          error:String(error?.message || error).slice(0, 300) }));
+      }
+    });
   }
 
   /* a player's saved cue for this track, when exactly one player saved it */
@@ -557,15 +732,15 @@ export class Tournament {
      the player's saved track; a search result sends its own; a resume reads
      the speaker once and otherwise assumes the longest walkout. Never throws:
      the song is already playing. */
-  async stampWalkout({ uri, player, positionMs, durationMs }) {
+  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false, mvp = false }) {
     const startedAt = Date.now();
     try {
       if (uri) {
         const trackId = uri.match(SPOTIFY_TRACK_URI)?.[1] || null;
         const saved = player ? this.state.profiles?.[player]?.walkoutTrack : null;
         const length = saved?.trackId === trackId ? saved.durationMs : durationMs;
-        return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs }),
-          "walkoutStart");
+        return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs,
+          clipMs, auto, mvp }), "walkoutStart");
       }
       let playback = null;
       try { playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
@@ -631,6 +806,58 @@ export class Tournament {
       }
     }
 
+    /* the Win song picker's on-phone clip (worker/previews.js) */
+    if (url.pathname === "/api/spotify/preview" && req.method === "GET") {
+      if (!catalogFlag) return new Response("Not found", { status:404 });
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      const isrc = (url.searchParams.get("isrc") || "").toUpperCase();
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      if (!/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(isrc) && !name.trim())
+        return spotifyJson({ ok:false, error:"No song to preview" }, 400);
+      const key = isrc || `${name}|${artist}`.toLowerCase();
+      this.previews = this.previews || previewCache();
+      let found = this.previews.get(key);
+      if (found === undefined) {
+        if (!this.spotifyRateLimit(`preview:${authorized.key}`, PREVIEW_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
+        found = await findPreview({ isrc:isrc || null, name, artist }, this.previewFetch || fetch);
+        this.previews.set(key, found);
+      }
+      return found ? spotifyJson({ ok:true, url:found.url }) : spotifyJson({ ok:false, error:"No preview for this song" }, 404);
+    }
+
+    /* the song's album upload on YouTube, looked up once and kept */
+    if (url.pathname === "/api/spotify/snippet" && req.method === "GET") {
+      if (!this.capabilities.songSnippets) return spotifyJson({ ok:false, error:"Snippet preview is not set up" }, 503);
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      const trackId = url.searchParams.get("trackId") || "";
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      const durationMs = Math.floor(Number(url.searchParams.get("durationMs")) || 0);
+      if (!/^[A-Za-z0-9]{22}$/.test(trackId) || !name.trim() || durationMs < 1000)
+        return spotifyJson({ ok:false, error:"No song to preview" }, 400);
+      const storeKey = `${SNIPPET_KEY_PREFIX}${trackId}`;
+      let saved = await this.ctx.storage.get(storeKey);
+      if (!saved || (!saved.videoId && Date.now() - Number(saved.at) > SNIPPET_MISS_MS)) {
+        if (!this.spotifyRateLimit(`snippet:${authorized.key}`, SNIPPET_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
+        try {
+          const found = await findAlbumUpload({ name, artist, durationMs }, this.env.YOUTUBE_API_KEY,
+            this.youtubeFetch || fetch);
+          saved = { videoId:found?.videoId || null, at:Date.now() };
+          await this.ctx.storage.put(storeKey, saved);
+        } catch (error) {
+          console.error(JSON.stringify({ event:"snippet-lookup-failed", error:String(error?.message || error).slice(0, 200) }));
+          return spotifyJson({ ok:false, error:"YouTube did not answer. Try again" }, 502);
+        }
+      }
+      return saved.videoId ? spotifyJson({ ok:true, videoId:saved.videoId })
+        : spotifyJson({ ok:false, error:"No matching album version on YouTube" }, 404);
+    }
+
     if (url.pathname === "/api/spotify/search" && req.method === "GET") {
       if (!catalogFlag) return new Response("Not found", { status:404 });
       const authorized = await this.spotifySearchAuthorized(req);
@@ -669,6 +896,7 @@ export class Tournament {
         catalogEnabled:catalogFlag,
         playbackEnabled:playbackFlag,
         ...(hasTokens ? {
+          autoWinSongs:await this.ctx.storage.get(SPOTIFY_AUTO_KEY) !== false,
           reconnect:!!session.reauthorize,
           ...(session.reauthorize ? { error:REAUTHORIZE_MESSAGE } : {}),
           premium:session.account?.product ? session.account.product === "premium" : null,
@@ -704,6 +932,14 @@ export class Tournament {
       const pending = await this.ctx.storage.list({ prefix:SPOTIFY_STATE_PREFIX });
       await this.ctx.storage.delete([SPOTIFY_SESSION_KEY, ...pending.keys()]);
       return spotifyJson({ ok:true });
+    }
+
+    if (url.pathname === "/api/spotify/auto" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      if (typeof body?.on !== "boolean") return spotifyJson({ ok:false, error:"Choose on or off" }, 400);
+      await this.ctx.storage.put(SPOTIFY_AUTO_KEY, body.on);
+      return spotifyJson({ ok:true, autoWinSongs:body.on });
     }
 
     if (url.pathname === "/api/spotify/device" && req.method === "POST") {
@@ -776,11 +1012,17 @@ export class Tournament {
       const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
         ? body.deviceId : "";
       try {
-        const speaker = deviceId || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
-        await this.spotifyUserApi(
-          `/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
-          { method:"PUT" },
-        );
+        /* Stop on a win song fades it out in a second; anything else pauses */
+        const live = walkoutLive(this.state, Date.now());
+        const faded = live?.auto && !deviceId
+          ? await this.songQueue(() => this.stopWinSong(live, WIN_FADE_STOP_MS)) : false;
+        if (!faded) {
+          const speaker = deviceId || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
+          await this.spotifyUserApi(
+            `/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
+            { method:"PUT" },
+          );
+        }
         await this.setWalkout(null, "walkoutStop");
         return spotifyJson({ ok:true, walkout:null });
       } catch (error) {
@@ -1234,9 +1476,14 @@ export class Tournament {
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
-    /* rehearsal jumps and resets move the board, not the room: no alerts */
-    if (!QUIET_ACTIONS.has(type))
+    /* a team MVP vote that just opened closes by itself on the alarm */
+    if (nextMvpDeadline(this.state) !== null) this.scheduleAlarm();
+    /* rehearsal jumps and resets move the board, not the room: no alerts
+       and no win songs */
+    if (!QUIET_ACTIONS.has(type)) {
       this.queueAlerts(before, this.state, isActivePlayer(claimed) ? claimed : null);
+      this.queueWinSong(before, this.state, type);
+    }
   }
 
   /* ── pocket alerts (worker/push.js) ──

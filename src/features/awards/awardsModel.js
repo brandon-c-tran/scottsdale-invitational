@@ -114,7 +114,10 @@ export function ballotModel(state, me) {
   const ballot = openBallot(state);
   if (!ballot) return null;
   const mine = ballot.mine || {};
-  const questions = ballot.questions.map(question => {
+  /* a counted award (Most MVPs) is not on the phone's ballot */
+  const votable = ballot.questions.filter(question => !question.source);
+  if (!votable.length) return null;
+  const questions = votable.map(question => {
     const nominees = nomineesOf(question);
     return { ...question, nominees, choice:mine[question.id] || null,
       selfBlocked:!!me && nominees.includes(me) && !question.allowSelf };

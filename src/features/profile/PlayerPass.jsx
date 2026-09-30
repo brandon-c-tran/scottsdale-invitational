@@ -103,7 +103,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
               <span className="fd-pass-facts">
                 <span><span>Scottsdale, Arizona</span><span>{EDITION.short}</span></span>
                 {standing && <span><span>Current chips</span><strong>{standing.pts.toLocaleString("en-US")}</strong></span>}
-                {profile.walkoutTrack?.name && <span><span>Walkout song</span><strong>{profile.walkoutTrack.name}</strong></span>}
+                {profile.walkoutTrack?.name && <span><span>Win song</span><strong>{profile.walkoutTrack.name}</strong></span>}
               </span>
               <span className="fd-pass-foot"><span>{name.toUpperCase()}</span><span>{EDITION.year}</span></span>
             </>}
@@ -135,6 +135,7 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
     season.pts !== null && { key:"chips", value:fmt(season.pts), label:"Chips" },
     settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}` },
     settledDuels > 0 && { key:"duels", value:recordText(duels), label:"Quick Draw" },
+    season.mvps > 0 && { key:"mvps", value:String(season.mvps), label:season.mvps === 1 ? "Team MVP" : "Team MVPs" },
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
   return <span className="fd-pass-season" ref={bodyRef}>
@@ -170,6 +171,6 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
       </span>)}
     </span>}
     {walkout && <span className="fd-pass-line fd-pass-walkout fd-pass-row" style={order()}>
-      <span>Walkout song</span><strong>{walkout}</strong></span>}
+      <span>Win song</span><strong>{walkout}</strong></span>}
   </span>;
 }

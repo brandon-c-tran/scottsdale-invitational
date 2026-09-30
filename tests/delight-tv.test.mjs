@@ -166,11 +166,11 @@ test("the sky follows the session: live event, else the last result, finale once
   assert.equal(desertPhase(state, events, { liveEvent:ev("volley") }), "sap");
   assert.equal(desertPhase({ ...state, live:false }, events, { liveEvent:ev("volley") }), "fri",
     "before the weekend goes live it is Friday");
-  const played = { ...state, results:{ putt:{ slots:[["Evan"]], ts:1 }, bball:{ slots:[["Adi"]], ts:5 } } };
+  const played = { ...state, results:{ putt:{ slots:[["Evan"]], ts:1 }, pickleball:{ slots:[["Adi"]], ts:5 } } };
   assert.equal(desertPhase(played, events), "sam", "between events, the last posted session");
   assert.equal(desertPhase({ ...played, poker:{ id:"poker" } }, events), "fin");
   assert.equal(desertPhase({ ...played, frozen:true }, events), "fin");
-  assert.equal(desertPhase({ ...state, live:true }, events, { operationEvent:ev("flip") }), "san",
+  assert.equal(desertPhase({ ...state, live:true }, events, { operationEvent:ev("trivia") }), "san",
     "a live weekend with nothing posted takes the event being prepared");
   assert.deepEqual(DESERT_PHASES.filter(isDaySky), ["sam", "sap"], "the two light skies carry --ink0 text");
   assert.deepEqual(DESERT_PHASES.filter(isNightSky), ["san", "fin"], "stars from Saturday night");
@@ -179,7 +179,7 @@ test("the sky follows the session: live event, else the last result, finale once
 test("every event winner leaves a star; the champion's are joined in slate order", () => {
   const events = allEventsOf(EMPTY_STATE);
   const state = { ...structuredClone(EMPTY_STATE), results:{
-    putt:{ slots:[["Chiang"]], ts:1 }, pong:{ slots:[["Adi", "Evan"]], ts:2 }, nine:{ slots:[["Chiang"]], ts:3 } } };
+    putt:{ slots:[["Chiang"]], ts:1 }, pong:{ slots:[["Adi", "Evan"]], ts:2 }, ragecage:{ slots:[["Chiang"]], ts:3 } } };
   const stars = constellationStars(state, events);
   assert.equal(stars.length, 4, "one star per winner");
   assert.deepEqual(constellationStars(state, events), stars, "deterministic on every TV");
@@ -188,11 +188,11 @@ test("every event winner leaves a star; the champion's are joined in slate order
   assert.equal(new Set(pong.map(star => `${star.x},${star.y}`)).size, 1, "teammates share one anchor");
   assert.notEqual(pong[0].dx, pong[1].dx, "and sit apart in a belt");
   const lines = constellationLines(stars, ["Chiang"]);
-  assert.deepEqual(lines.map(line => line.points.map(point => point.eventId)), [["putt", "nine"]]);
+  assert.deepEqual(lines.map(line => line.points.map(point => point.eventId)), [["putt", "ragecage"]]);
   assert.deepEqual(constellationLines(stars, ["Adi"]), [], "one star draws no line");
   /* a correction moves the star, because it reads the official result */
-  const corrected = { ...state, results:{ ...state.results, nine:{ slots:[["Khoa"]], ts:3, revision:2 } } };
-  assert.equal(constellationStars(corrected, events).find(star => star.eventId === "nine").player, "Khoa");
+  const corrected = { ...state, results:{ ...state.results, ragecage:{ slots:[["Khoa"]], ts:3, revision:2 } } };
+  assert.equal(constellationStars(corrected, events).find(star => star.eventId === "ragecage").player, "Khoa");
   const view = championView(state, events, computeStandings(state));
   assert.equal(view.stars.length, 4);
   assert.deepEqual(view.lines.map(line => line.player), ["Chiang"]);

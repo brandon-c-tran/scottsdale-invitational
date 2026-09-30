@@ -101,7 +101,8 @@ export function Guide({ events, state, me, onProfile, section: controlledSection
         <div className="fd-weekend-rules">
           <Rule number="01" title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
             <p>Every player on a placing team gets the full amount.
-              {" "}In a bracket, the two semifinal losers split 3rd. Event crew get the 3rd-place award.</p>
+              {" "}In a bracket, both semifinal losers get 3rd. Event crew get the 3rd-place award.
+              {" "}5v5 pays the winners only. Rage Cage pays 1st and 2nd the same.</p>
             <table className="fd-weekend-payouts"><caption>Chips awarded per player</caption>
               <thead><tr><th scope="col">Session</th><th scope="col">1st</th><th scope="col">2nd</th><th scope="col">3rd</th></tr></thead>
               <tbody>{[[400, "Friday"], [800, "Sat AM"], [1200, "Sat PM"], [1600, "Sat night"]].map(([value, name]) =>

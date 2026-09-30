@@ -52,7 +52,7 @@ const app = await load("fix-guest-app.cjs", `export { ProfileSheet, PokerCard, a
     const refuse=()=>{ throw new Error("transport must not run"); };
     export const dispatch=refuse, uploadPhoto=refuse, downloadSnapshot=refuse, spotifyStatus=refuse,
       spotifyPlayer=refuse, spotifySearch=refuse, spotifyAuthorize=refuse, spotifyDisconnect=refuse,
-      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse;` }));
+      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse;` }));
 } }]);
 
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");
@@ -150,7 +150,7 @@ test("an added event without a game has no dead rules target and opens its own d
   const custom = { id:"cornhole", name:"Cornhole", session:"fri", value:400, kind:"solo", custom:true, desc:"Three bags each." };
   assert.equal(ui.hasGameRules(custom), false);
   assert.equal(ui.hasGameRules(putt), true);
-  assert.equal(ui.hasGameRules(BUILTIN_EVENTS.find(event => event.id === "bball")), true, "variant-only games have rules");
+  assert.equal(ui.hasGameRules(BUILTIN_EVENTS.find(event => event.id === "bball5")), true, "variant-only games have rules");
   const opened = [], rules = [];
   const state = { ...fresh(), live:false };
   const view = render(ui.GuestHome, { state, me:ROSTER[0], events:[custom], standings:computeStandings(state),
@@ -396,7 +396,7 @@ test("the profile sheet saves only what changed and hides an unconfigured walkou
   const saved = [];
   const props = { state, me, onClose:noop, spotifyCatalogEnabled:false, save:fields => { saved.push(fields); return Promise.resolve({ ok:true }); } };
   const sheet = render(app.ProfileSheet, props, state, app.PlayerIdentityProvider);
-  assert.ok(!sheet.buttons.some(button => button.name === "Walkout"));
+  assert.ok(!sheet.buttons.some(button => button.name === "Win song"));
   assert.doesNotMatch(sheet.html, /not configured/);
   state.profiles[me].size = "XL";
   await sheet.click("Save");
@@ -404,7 +404,7 @@ test("the profile sheet saves only what changed and hides an unconfigured walkou
 
   state.profiles[me].walkoutTrack = { name:"Saved Song", artists:["Artist"], durationMs:200000, url:"https://open.spotify.com/track/x" };
   const withTrack = render(app.ProfileSheet, { ...props, state }, state, app.PlayerIdentityProvider);
-  assert.ok(withTrack.buttons.some(button => button.name === "Walkout"));
+  assert.ok(withTrack.buttons.some(button => button.name === "Win song"));
   assert.match(withTrack.html, /Saved Song/);
   assert.doesNotMatch(withTrack.html, /Search Spotify|Remove song|not configured/);
 });

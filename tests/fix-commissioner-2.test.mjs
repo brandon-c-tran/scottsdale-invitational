@@ -13,6 +13,7 @@ import {
 import { resolveDirector, championIdentity } from "../shared/show.js";
 import { applyAction as rawApply } from "../worker/actions.js";
 import { applyAction } from "./support/confirmed-start.mjs";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 import { Tournament } from "../worker/tournament.js";
 
 let serial = 0;
@@ -78,7 +79,7 @@ test("C3: opening the first game before the weekend is live needs startWeekend, 
 });
 
 test("C3: the weekend goes back to the locker room only while nothing has been played or bet", () => {
-  const s = fresh(["putt", "nine"]);
+  const s = fresh(["putt", "where"]);
   act(s, "announceEvent", { evId:"putt" });
   assert.equal(lockerRoomAvailability(s).enabled, true);
   const back = act(s, "returnToLockerRoom");
@@ -170,30 +171,30 @@ test("C2: an earlier bracket winner is corrected by rewinding every contest reco
 });
 
 test("C2: heats rewind their qualifiers, and a legacy lastContest-only record stays correctable", () => {
-  const s = fresh(["pingpong"]); s.live = true;
-  act(s, "announceAndDraw", { evId:"pingpong" });
-  const heat1 = current(s, "pingpong");
-  startPlay(s, "pingpong");
-  record(s, "pingpong", heat1.sides[0].key);
-  startPlay(s, "pingpong");
-  const heat2 = current(s, "pingpong");
-  record(s, "pingpong", heat2.sides[0].key);
-  const ev = eventOf(s, "pingpong");
+  const s = fresh(["beerio"]); s.live = true;
+  act(s, "announceAndDraw", { evId:"beerio" });
+  const heat1 = current(s, "beerio");
+  startPlay(s, "beerio");
+  record(s, "beerio", heat1.sides[0].key);
+  startPlay(s, "beerio");
+  const heat2 = current(s, "beerio");
+  record(s, "beerio", heat2.sides[0].key);
+  const ev = eventOf(s, "beerio");
   const available = contestCorrectionAvailability(s, ev, heat1.id);
   assert.equal(available.label, "Correct Heat 1");
-  act(s, "correctContest", { evId:"pingpong", contestId:heat1.id, contestRevision:available.contestRevision });
-  assert.deepEqual(s.stages.pingpong.groups.slice(0, 2).map(g => [g.winner, g.through]), [[null, []], [null, []]]);
-  assert.equal(current(s, "pingpong").id, heat1.id);
+  act(s, "correctContest", { evId:"beerio", contestId:heat1.id, contestRevision:available.contestRevision });
+  assert.deepEqual(s.stages.beerio.groups.slice(0, 2).map(g => [g.winner, g.through]), [[null, []], [null, []]]);
+  assert.equal(current(s, "beerio").id, heat1.id);
 
-  const legacy = fresh(["pingpong"]); legacy.live = true;
-  act(legacy, "announceAndDraw", { evId:"pingpong" });
-  startPlay(legacy, "pingpong");
-  record(legacy, "pingpong", current(legacy, "pingpong").sides[0].key);
-  delete legacy.eventOps.pingpong.contestStack;
-  const undo = contestUndoAvailability(legacy, eventOf(legacy, "pingpong"));
+  const legacy = fresh(["beerio"]); legacy.live = true;
+  act(legacy, "announceAndDraw", { evId:"beerio" });
+  startPlay(legacy, "beerio");
+  record(legacy, "beerio", current(legacy, "beerio").sides[0].key);
+  delete legacy.eventOps.beerio.contestStack;
+  const undo = contestUndoAvailability(legacy, eventOf(legacy, "beerio"));
   assert.equal(undo.enabled, true);
-  act(legacy, "undoLastContest", { evId:"pingpong", contestId:undo.contestId, contestRevision:undo.contestRevision });
-  assert.equal(legacy.stages.pingpong.groups[0].winner, null);
+  act(legacy, "undoLastContest", { evId:"beerio", contestId:undo.contestId, contestRevision:undo.contestRevision });
+  assert.equal(legacy.stages.beerio.groups[0].winner, null);
 });
 
 test("C9: the correction confirm and its ack name the duels exposure enforcement voids", () => {
@@ -322,47 +323,53 @@ test("C6: a post-count ruling applies only to the count revision it was made on"
 });
 
 /* ── C7: crew pay what a 3rd-place player gets ── */
-test("C7: crew earn the split 3rd share when a bracket splits 3rd, else the 3rd-place award", () => {
+/* Deliberate change (Sept 29 ladder): both semifinal losers take the full
+   3rd-place award (no split), and crew earn that same full award. */
+test("C7: crew earn the full 3rd-place award, also when both semifinal losers share 3rd", () => {
   const s = fresh(["pickleball"]); s.live = true;
   act(s, "announceAndDraw", { evId:"pickleball" });
   const ev = eventOf(s, "pickleball"), teams = s.draws.pickleball.teams, crew = s.draws.pickleball.roles[0].player;
   assert.deepEqual(awardPlan(ev, s.draws.pickleball).find(row => row.place === "crew").pts, 200);
   const split = resultAwards(s, ev, { slots:[teams[0].players, teams[1].players, [...teams[2].players, ...teams[3].players]] });
   assert.equal(split.find(a => a.player === crew).pts, 200);
+  for (const player of [...teams[2].players, ...teams[3].players])
+    assert.equal(split.find(a => a.player === player).pts, 200, "each semifinal loser takes the full 3rd");
   const single = resultAwards(s, ev, { slots:[teams[0].players, teams[1].players, teams[2].players] });
-  assert.equal(single.find(a => a.player === crew).pts, 400);
-  const volley = fresh(["volley"]); volley.live = true;
-  act(volley, "announceAndDraw", { evId:"volley" });
-  const vteams = volley.draws.volley.teams, vcrew = volley.draws.volley.roles[0].player;
-  assert.equal(resultAwards(volley, eventOf(volley, "volley"), { slots:[vteams[0].players, vteams[1].players] })
-    .find(a => a.player === vcrew).pts, 400);
+  assert.equal(single.find(a => a.player === crew).pts, 200);
+  /* a two-team game posts no 3rd place, and crew still earn the 3rd-place
+     award (the even two-team game with a crew seat is legacy Flip Cup, 1600) */
+  const flip = withLegacyEvents(fresh(["flip"]), ["flip"]); flip.live = true;
+  act(flip, "announceAndDraw", { evId:"flip" });
+  const fteams = flip.draws.flip.teams, fcrew = flip.draws.flip.roles[0].player;
+  assert.equal(resultAwards(flip, eventOf(flip, "flip"), { slots:[fteams[0].players, fteams[1].players] })
+    .find(a => a.player === fcrew).pts, 400);
 });
 
 /* ── C8: take back an announcement; skip and restore ── */
 test("C8: a mis-announced event is taken back to unannounced with its chips returned", () => {
-  const s = fresh(["putt", "nine"]); s.live = true;
-  act(s, "announceEvent", { evId:"nine" });
-  bet(s, "nine", "Evan", "Khoa", 200);
-  act(s, "setOnDeck", { id:null, ...refs(current(s, "nine")) });
-  assert.deepEqual(announcementTakeBack(s, eventOf(s, "nine")).refunds, [{ player:"Evan", stake:200 }]);
-  const back = act(s, "takeBackAnnouncement", { evId:"nine" });
+  const s = fresh(["putt", "where"]); s.live = true;
+  act(s, "announceEvent", { evId:"where" });
+  bet(s, "where", "Evan", "Khoa", 200);
+  act(s, "setOnDeck", { id:null, ...refs(current(s, "where")) });
+  assert.deepEqual(announcementTakeBack(s, eventOf(s, "where")).refunds, [{ player:"Evan", stake:200 }]);
+  const back = act(s, "takeBackAnnouncement", { evId:"where" });
   assert.equal(refundText(s, back.extra.refunds), "Returns Evan 200");
   assert.equal(s.onDeck, null);
   assert.equal(s.wagers[0].status, "void");
-  for (const key of ["contest", "bettingOpenedAt", "bettingLockedAt"]) assert.equal(s.eventOps.nine[key], undefined, key);
-  assert.equal(resolveEventLifecycle(s, eventOf(s, "nine")).phase, "setup");
-  assert.equal(act(s, "takeBackAnnouncement", { evId:"nine" }).extra.unchanged, true);
+  for (const key of ["contest", "bettingOpenedAt", "bettingLockedAt"]) assert.equal(s.eventOps.where[key], undefined, key);
+  assert.equal(resolveEventLifecycle(s, eventOf(s, "where")).phase, "setup");
+  assert.equal(act(s, "takeBackAnnouncement", { evId:"where" }).extra.unchanged, true);
   act(s, "announceEvent", { evId:"putt" });
   startPlay(s, "putt");
   refuse(s, "takeBackAnnouncement", { evId:"putt" }, /already started/);
 });
 
 test("C8: restoring a skipped event that never started brings it back unannounced, chips returned", () => {
-  const s = fresh(["putt", "nine", "8ball"]); s.live = true;
+  const s = fresh(["putt", "where", "8ball"]); s.live = true;
   act(s, "announceEvent", { evId:"putt" });
   bet(s, "putt", "Evan", "Khoa", 200);
   act(s, "shelve", { id:"putt", on:true, confirmReturn:true });
-  runFfa(s, "nine", [["Evan"], ["Adi"], ["Ben"]]);
+  runFfa(s, "where", [["Evan"], ["Adi"], ["Ben"]]);
   const restored = act(s, "shelve", { id:"putt", on:false });
   assert.deepEqual(restored.extra.refunds, [{ player:"Evan", stake:200 }]);
   assert.equal(s.wagers.find(w => w.eventId === "putt").status, "void");
@@ -383,7 +390,7 @@ test("C13: the event intro is one step, so announce goes straight to lock and st
 });
 
 test("C14: a result correction is one Replay beat with a Skip beside it", () => {
-  const s = fresh(["putt", "nine"]); s.live = true;
+  const s = fresh(["putt", "where"]); s.live = true;
   runFfa(s, "putt", [["Evan"]], gm(true));
   act(s, "advanceShowScene", { id:s.showControl.active.id }, gm(true));
   act(s, "saveResult", { evId:"putt", slots:[["Khoa"]], confirmOverwrite:true, correctionReason:"Wrong" }, gm(true));

@@ -388,19 +388,19 @@ test("tapping a playing walkout's chip stops it and never restarts the song (G2)
   const now = Date.now();
   const state = liveState({ player:EVAN, trackId:TRACK_ID, startedAt:now - 100000, until:now + 60000 });
   const { buttons } = renderButtons(React.createElement(CueRack, { state, candidates:[] }));
-  assert.deepEqual(buttons.map(button => button.name), ["Stop Evan's walkout"],
+  assert.deepEqual(buttons.map(button => button.name), ["Stop Evan's song"],
     "Stop outlasts the 90 second guess and the cue window");
   await buttons[0].click();
   assert.deepEqual(globalThis.__cueCalls.map(([kind]) => kind), ["pause"]);
   assert.equal(cueStateForTest().bridge.walkout, null);
   const after = renderButtons(React.createElement(CueRack, { state, candidates:[EVAN] }));
-  assert.deepEqual(after.buttons.map(button => button.name), ["Play Evan's walkout"],
+  assert.deepEqual(after.buttons.map(button => button.name), ["Play Evan's song"],
     "the stop shows at once, before the broadcast");
 
   resetCueState();
   const ended = liveState({ player:EVAN, trackId:TRACK_ID, startedAt:now - 200000, until:now - 1 });
   assert.deepEqual(renderButtons(React.createElement(CueRack, { state:ended, candidates:[EVAN] }))
-    .buttons.map(button => button.name), ["Play Evan's walkout"], "the song is over");
+    .buttons.map(button => button.name), ["Play Evan's song"], "the song is over");
 });
 
 test("a cue tap sends the player and track length and shows Stop from its own answer", async () => {
@@ -413,12 +413,12 @@ test("a cue tap sends the player and track length and shows Stop from its own an
   const state = liveState(null);
   const { buttons } = renderButtons(React.createElement(CueRack, { state, candidates:[SAHIL],
     notify:text => toasts.push(text) }));
-  await buttons.find(button => button.name === "Play Sahil's walkout").click();
+  await buttons.find(button => button.name === "Play Sahil's song").click();
   assert.deepEqual(globalThis.__cueCalls, [["play", { uri:savedTrack.uri, positionMs:savedTrack.startMs,
     player:SAHIL, durationMs:savedTrack.durationMs }]]);
-  assert.deepEqual(toasts, ["Sahil cue playing"]);
+  assert.deepEqual(toasts, ["Sahil's song playing"]);
   const bridged = renderButtons(React.createElement(CueRack, { state, candidates:[SAHIL] }));
-  assert.deepEqual(bridged.buttons.map(button => button.name), ["Stop Sahil's walkout"]);
+  assert.deepEqual(bridged.buttons.map(button => button.name), ["Stop Sahil's song"]);
   resetCueState();
 });
 
@@ -431,7 +431,7 @@ test("an open sheet docks the Stop chip in its header (G3)", () => {
     React.createElement(Sheet, { title:"Putting", onClose:() => {} }, React.createElement("p", null, "Body"))));
   assert.match(html, /class="fd-sheet-header"[^]*class="fd-sheet-dock"[^]*aria-label="Close"/,
     "between the title and Close, inside the header");
-  const stop = buttons.find(button => button.name === "Stop Evan's walkout");
+  const stop = buttons.find(button => button.name === "Stop Evan's song");
   assert.ok(stop);
   assert.equal(stop.text.trim().replace(/\s+/g, " "), "■Stop Evan");
 

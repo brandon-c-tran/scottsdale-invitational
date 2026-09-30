@@ -41,12 +41,12 @@ function weekend() {
   const state = base();
   const place = (id, slots, at) => { state.results[id] = { slots, ts:at, revision:1 }; };
   place("putt", [[khoa], [evan], [adi]], FRI + H);
-  place("pingpong", [[evan], [sahil], [chiang]], FRI + 14 * H);
-  place("nine", [[sahil], [khoa], [evan]], FRI + 19 * H);
+  place("bball1", [[evan], [sahil], [chiang]], FRI + 14 * H);
+  place("where", [[sahil], [khoa], [evan]], FRI + 19 * H);
   place("ragecage", [[evan], [chiang], [khoa]], FRI + 26 * H);
   place("beerio", [[khoa], [adi], [sahil]], FRI + 27 * H);
   state.wagers = [
-    { id:"b1", player:evan, kind:"outright", eventId:"nine", pick:sahil, pickPlayers:[sahil], stake:300, mult:2 },
+    { id:"b1", player:evan, kind:"outright", eventId:"where", pick:sahil, pickPlayers:[sahil], stake:300, mult:2 },
     { id:"b2", player:evan, kind:"outright", eventId:"beerio", pick:adi, pickPlayers:[adi], stake:400, mult:2 },
     { id:"b3", player:evan, kind:"outright", eventId:"putt", pick:khoa, pickPlayers:[khoa], stake:200, mult:2 },
   ];
@@ -65,8 +65,8 @@ function receiptStates() {
   const before = base();
   before.results.putt = { slots:[[khoa], [adi], [chiang]], ts:FRI, revision:1 };
   before.wagers = [
-    { id:"w1", player:me, kind:"outright", eventId:"nine", pick:khoa, pickPlayers:[khoa], stake:200, mult:2 },
-    { id:"w2", player:me, kind:"outright", eventId:"nine", pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
+    { id:"w1", player:me, kind:"outright", eventId:"where", pick:khoa, pickPlayers:[khoa], stake:200, mult:2 },
+    { id:"w2", player:me, kind:"outright", eventId:"where", pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
   ];
   const after = structuredClone(before);
   after.results.nine = { slots:[[khoa], [me], [adi]], ts:FRI + H, revision:1 };

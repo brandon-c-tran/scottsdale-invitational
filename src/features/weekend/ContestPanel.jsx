@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { disp, resolveCurrentContest, resolveEventLifecycle, contestCorrectionAvailability, contestCorrections,
-  correctionText, contestStackOf, AWARDS, allEventsOf, resolveWager, wagerMatchesContest, bracketOrder, bracketMatchOpen,
+  correctionText, contestStackOf, awardTable, allEventsOf, resolveWager, wagerMatchesContest, bracketOrder, bracketMatchOpen,
   resolveSlot, stageFinalists, stageEntrantView } from "../../../shared/core.js";
 import { contestName } from "../../../shared/show.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
@@ -13,7 +13,7 @@ const nameOf = (state, side) => side.name || side.players.map(player => disp(sta
 /* A recorded winner can be taken back with one tap for this long. */
 const UNDO_WINDOW_MS = 5000;
 const ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
-const placesPaid = ev => (AWARDS[ev?.value] || [0, 0, 0]).filter(pts => pts > 0).length;
+const placesPaid = ev => awardTable(ev).filter(pts => pts > 0).length;
 
 function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, onWinner, onResult, onPlayNext, onRecorded, operationBusy, onBusy, blocked }) {
   const [winner, setWinner] = useState(null), [qualifiers, setQualifiers] = useState([]);

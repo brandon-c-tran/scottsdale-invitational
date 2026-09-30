@@ -38,8 +38,11 @@ export const deskNote = state => {
 /* what a draft sends: whole awards only */
 export function draftPayload(draft) {
   return { id:draft.id, kind:"awards", questions:draft.questions.map(question => ({ id:question.id,
-    title:question.title.trim(), nominees:question.nominees, allowSelf:!!question.allowSelf })) };
+    title:question.title.trim(), nominees:question.nominees, allowSelf:!!question.allowSelf,
+    ...(question.source ? { source:question.source } : {}) })) };
 }
+/* Most MVPs: counted from the team MVP votes when voting closes, not voted on */
+const mvpQuestion = () => ({ id:`q${token()}`, title:"Most MVPs", nominees:null, allowSelf:false, source:"mvps" });
 
 /* what stops a draft from being saved, in the words the server uses */
 export function draftProblem(draft) {
@@ -66,6 +69,7 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
         {count > 1 && <ActionButton variant="tertiary" compact onClick={onRemove}
           aria-label={`Remove award ${index + 1}`}>Remove</ActionButton>}
       </div>
+      {question.source === "mvps" ? <p className="fd-awards-note">Counted from team MVPs when voting closes.</p> : <>
       <div className="fd-awards-toggle" role="group" aria-label="Nominees">
         <button type="button" aria-pressed={everyone} onClick={() => onChange({ nominees:null })}>Everyone</button>
         <button type="button" aria-pressed={!everyone} onClick={() => { if (everyone) onChange({ nominees:[] }); }}>
@@ -83,6 +87,7 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
         <input type="checkbox" checked={!!question.allowSelf} onChange={event => onChange({ allowSelf:event.target.checked })} />
         Allow self-votes
       </label>
+      </>}
     </div>
   );
 }
@@ -132,11 +137,17 @@ export function AwardsDesk({ state, events = allEventsOf(state), onClose, onBack
       {working.questions.map((question, index) => <AwardEditor key={question.id} state={state} question={question}
         index={index} count={working.questions.length} onChange={patch => update(index, patch)}
         onRemove={() => setWorking(current => ({ ...current, questions:current.questions.filter((_, i) => i !== index) }))} />)}
-      {working.questions.length < PROMPT_QUESTIONS_MAX && <ActionButton variant="secondary"
-        onClick={() => setWorking(current => ({ ...current, questions:[...current.questions, newQuestion()] }))}>
-        Add award</ActionButton>}
+      {working.questions.length < PROMPT_QUESTIONS_MAX && <div className="fd-awards-actions">
+        <ActionButton variant="secondary"
+          onClick={() => setWorking(current => ({ ...current, questions:[...current.questions, newQuestion()] }))}>
+          Add award</ActionButton>
+        {!working.questions.some(question => question.source === "mvps") && <ActionButton variant="secondary"
+          onClick={() => setWorking(current => ({ ...current, questions:[...current.questions, mvpQuestion()] }))}>
+          Add Most MVPs</ActionButton>}
+      </div>}
       {confirm === "publish" ? <>
-        <p className="fd-awards-note">Every phone gets {plural(working.questions.length, "award")} to vote on.</p>
+        <p className="fd-awards-note">Every phone gets {plural(working.questions.filter(question => !question.source).length,
+          "award")} to vote on.</p>
         <div className="fd-awards-actions">
           <ActionButton variant="tertiary" onClick={() => setConfirm(null)}>Cancel</ActionButton>
           <ActionButton pending={pending === "publish"} onClick={() => run("publish", "promptPublish",

@@ -10,7 +10,7 @@ import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentConte
 import { applyAction } from "./support/confirmed-start.mjs";
 import {
   STACK_CAP, stackChipCount, stackView, orderStacks, stacksTotal, contestStacks, settleStack, settledStacks,
-  eventWinnerStacks, stackGeometry, pickStacks,
+  eventWinnerStacks, stackGeometry, pickStacks, stackMaxHeight,
 } from "../src/features/wagers/betStacks.js";
 import { seatStacks, trayStacks, pokerChip, POKER_CHIPS, TRAY_TUBE } from "../src/features/poker/pokerChips.js";
 import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
@@ -20,7 +20,7 @@ import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`
-    export { TVMode } from "./src/features/tv/TVMode.jsx";
+    export { TVMode, compactStackSize } from "./src/features/tv/TVMode.jsx";
     export { Wagers } from "./src/features/wagers/Wagers.jsx";
     export { PokerSetupSheet } from "./src/features/director/FinaleSheets.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
@@ -32,7 +32,7 @@ const bundle = new Module(fileURLToPath(new URL("bet-stacks.cjs", import.meta.ur
 bundle.filename = bundle.id;
 bundle.paths = Module._nodeModulePaths(root);
 bundle._compile(compiled.outputFiles[0].text, bundle.filename);
-const { TVMode, Wagers, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
+const { TVMode, compactStackSize, Wagers, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
 
 let seq = 0;
 const gm = () => ({ isGm:true, player:"Brandon", deviceId:"gm-device", actionId:`bs-${++seq}` });
@@ -303,4 +303,48 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
     assert.doesNotMatch(body, /\} x \$\{|× /);
     assert.match(body, /<DenomStacks /);
   }
+});
+
+test("TV wide field: every row is one fixed height, sized before any chip lands", () => {
+  const { chip, cap, rowH } = compactStackSize(5, 716);
+  assert.equal(rowH, Math.floor((716 - 4 * 14) / 5));
+  assert.equal(cap, STACK_CAP, "one cap everywhere");
+  assert.ok(stackMaxHeight(chip) + 30 + 20 <= rowH, "the tallest stack and its name stand inside a row");
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceEvent", { evId:"putt" });
+  const empty = renderTv(state);
+  bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 500);
+  const riding = renderTv(state);
+  const rows = html => html.match(/grid-auto-rows:(\d+)px/)?.[1];
+  assert.equal(rows(empty), String(rowH));
+  assert.equal(rows(riding), rows(empty), "a first chip moves no card");
+});
+
+test("a wide board's felt is one line: the well, two stacks, and the rest as one +N stack", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceEvent", { evId:"putt" });
+  const khoa = ROSTER.indexOf("Khoa");
+  [["Adi", 400], ["Ben", 300], ["Evan", 200], ["Chinh", 100]].forEach(([player, stake]) => bet(state, "putt", player, khoa, stake));
+  const phone = me => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+    React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
+      wagerEv:evOf(state, "putt"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
+  const onKhoa = html => { const at = html.indexOf('aria-label="Bets on Khoa"'); return html.slice(at, html.indexOf('aria-label="Bets on ', at + 1)); };
+  const order = html => [...html.matchAll(/data-stack-player="([^"]+)"/g)].map(match => match[1]);
+  const spectator = onKhoa(phone("Henry"));
+  assert.match(phone("Henry"), /fd-wagers-pick is-one-line/, "every card on a wide board is one line");
+  assert.match(phone("Henry"), /--fd-felt-lines:1/);
+  assert.deepEqual(order(spectator), ["Adi"]);
+  assert.match(spectator, /aria-label="3 more: 600 chips"/);
+  /* your own small stack takes a stack cell rather than folding */
+  const mine = onKhoa(phone("Chinh"));
+  assert.deepEqual(order(mine), ["Chinh"]);
+  assert.match(mine, /Retract your last chip on Khoa/);
+  assert.match(mine, /aria-label="3 more: 900 chips"/);
+  /* a matchup keeps two lines */
+  const { state:match, bystanders } = bracketWithBets();
+  const two = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:match.profiles },
+    React.createElement(Wagers, { state:match, me:bystanders[8], events:allEventsOf(match), standings:computeStandings(match),
+      gm:false, wagerEv:evOf(match, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
+  assert.match(two, /--fd-felt-lines:2/);
+  assert.doesNotMatch(two, /is-one-line/);
 });

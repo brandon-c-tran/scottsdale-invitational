@@ -23,53 +23,73 @@
 .fd-wagers-contest-heading h2 { margin:0; font-size:13px; font-weight:650; line-height:1.35; }
 .fd-wagers-contest-heading p { margin:3px 0 0; font-size:11px; color:var(--muted2); }
 .fd-wagers-market { margin-bottom:12px; }
-.fd-wagers-picks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+/* One card shape per board. Every part of a card keeps its height whatever
+   is bet on it: the identity row, the win line's row, the felt's head (your
+   role, the side's total) and two fixed lines of stacks. Cards never stretch
+   to a neighbour. */
+.fd-wagers-picks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:7px; }
 .fd-wagers-picks > .fd-wagers-pick:last-child:nth-child(odd) { grid-column:1 / -1; width:calc((100% - 7px) / 2); justify-self:center; }
 .fd-wagers-pick { display:flex; flex-direction:column; min-width:0; overflow:hidden; border:1px solid var(--line); background:var(--paper2); border-radius:12px; transition:border-color .16s ease,background .16s ease; }
 .fd-wagers-pick.is-mine { border-color:var(--sun); background:var(--sun-tint); }
 .fd-wagers-pick.is-your-side { border-color:var(--sun); }
-.fd-wagers-pick-role { flex:1 1 100%; font-size:11px; font-weight:650; color:var(--sun); line-height:1.4; }
+.fd-wagers-pick-role { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:650; color:var(--sun); line-height:1.2; }
 .fd-wagers-pick.is-unavailable .fd-wagers-pick-main:disabled { opacity:1; }
-.fd-wagers-pick.is-unavailable .fd-wagers-pick-closed { font-size:10px; color:var(--muted2); }
 .fd-wagers-participant-note { margin:0 0 10px; font-size:12px; line-height:1.5; color:var(--muted2); }
 .fd-wagers-context { display:flex; align-items:center; gap:6px; flex-shrink:0; min-height:44px; padding:8px 0 8px 8px; border:0; background:none; text-align:right; color:var(--ink); font-size:12px; cursor:pointer; }
 .fd-wagers-context > span { color:var(--muted2); }
 .fd-wagers-contest-waiting { margin:18px 0; color:var(--muted2); font-size:12px; line-height:1.5; }
 .fd-wagers-pick.is-winner { border-color:var(--green); }
 .fd-wagers-pick.is-loser { opacity:.55; }
-.fd-wagers-pick-identity { display:flex; flex:0 0 auto; flex-wrap:wrap; align-items:center; align-content:flex-start; gap:3px; min-height:44px; padding:5px 8px 0; }
-.fd-wagers-player { display:flex; align-items:center; gap:6px; width:100%; min-height:44px; padding:0; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
-.fd-wagers-player > span { min-width:0; font-size:12px; font-weight:600; line-height:1.2; overflow-wrap:anywhere; }
+/* names stay on one line; a team of three or more scrolls its faces sideways */
+.fd-wagers-pick-identity { display:flex; flex-direction:column; justify-content:center; gap:2px; height:48px; padding:2px 8px 0; min-width:0; }
+.fd-wagers-pick-identity.is-team { height:68px; }
+.fd-wagers-player { display:flex; align-items:center; gap:6px; width:100%; min-height:44px; padding:0; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; min-width:0; }
+.fd-wagers-player > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600; line-height:1.2; }
 .fd-wagers-player:not(:disabled):hover > span { text-decoration:underline; text-underline-offset:3px; }
+/* a one-line board: the name and its win line share the player's row */
+.fd-wagers-player-text { display:flex; flex-direction:column; gap:1px; }
+.fd-wagers-player-text > span { overflow:hidden; text-overflow:ellipsis; }
+.fd-wagers-player:not(:disabled):hover > .fd-wagers-player-text { text-decoration:none; }
+.fd-wagers-player:not(:disabled):hover > .fd-wagers-player-text > span { text-decoration:underline; text-underline-offset:3px; }
+.fd-wagers-win-inline { font-weight:500; }
 .fd-wagers-player:disabled,.fd-wagers-team-players > button:disabled { cursor:default; }
-.fd-wagers-team-name { flex:1 1 100%; min-width:0; font-size:13px; font-weight:650; line-height:1.35; overflow-wrap:anywhere; }
-.fd-wagers-team-players { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr)); gap:3px; width:100%; }
+.fd-wagers-team-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:650; line-height:1.35; }
+.fd-wagers-team-players { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(44px,1fr); gap:3px; width:100%; overflow-x:auto; scrollbar-width:none; }
+.fd-wagers-team-players::-webkit-scrollbar { display:none; }
 .fd-wagers-team-players > button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; padding:0; border:0; background:none; border-radius:8px; color:var(--ink); cursor:pointer; }
 .fd-wagers-team-players > button > span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; line-height:1.2; text-align:center; }
 .fd-wagers-team-players > button:not(:disabled):hover { background:var(--ink-tint); }
+.fd-wagers-win-slot { height:18px; min-width:0; }
 .fd-wagers-pick-result { font-size:8px; text-transform:uppercase; letter-spacing:.08em; color:var(--green); }
-.fd-wagers-pick-surface { display:flex; align-items:stretch; justify-content:space-between; gap:4px; min-height:61px; padding:3px 5px; }
-.fd-wagers-pick-main { display:flex; flex:1; flex-wrap:wrap; gap:3px; align-items:center; justify-content:center; align-content:center; min-width:0; min-height:54px; padding:4px 0; border:0; border-radius:8px; background:transparent; color:var(--muted2); cursor:pointer; }
+/* the well: one box in the felt's first cell whatever it says, its circle
+   at the top of the line and its caption under it */
+.fd-wagers-pick-main { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:3px; grid-row:1; grid-column:1;
+  width:100%; height:100%; min-width:44px; min-height:44px; padding:6px 0 0; border:0; border-radius:8px; background:transparent; color:var(--muted2); cursor:pointer; }
 .fd-wagers-pick-main:not(:disabled):hover { background:var(--ink-tint); color:var(--sun); }
 .fd-wagers-pick-main:not(:disabled):active { transform:scale(.96); }
 .fd-wagers-pick-main:disabled { cursor:default; opacity:.3; }
-.fd-wagers-chip-well { display:grid; place-items:center; width:32px; height:32px; border:1px dashed currentColor; border-radius:50%; font-size:24px; font-weight:300; line-height:1; }
-.fd-wagers-pick-add { font-size:10px; font-weight:600; font-variant-numeric:tabular-nums; }
-.fd-wagers-pick-closed { font-size:10px; color:var(--muted2); }
+.fd-wagers-pick-main.is-closed:disabled { opacity:1; }
+.fd-wagers-chip-well { display:grid; place-items:center; flex-shrink:0; width:30px; height:30px; border:1px dashed currentColor; border-radius:50%; font-size:22px; font-weight:300; line-height:1; }
+.fd-wagers-pick-main.is-closed .fd-wagers-chip-well { opacity:.35; }
+.fd-wagers-pick-add, .fd-wagers-pick-closed { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font:700 12px/1 var(--fd-display); letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+.fd-wagers-pick-closed { color:var(--muted2); }
 /* the felt: every bettor's own stack on the side it backs. Your stack is a
    retract target with a sun ring; anyone else's opens their player card. */
-.fd-wagers-felt { position:relative; flex:1; display:flex; flex-direction:column; justify-content:flex-end; margin:5px; padding:3px; border-radius:9px; background:var(--bg); border:1px solid var(--night-line); }
-.fd-wagers-felt-total { position:absolute; top:5px; right:8px; font:700 17px/1 var(--fd-wagers-numerals); color:var(--sun); font-variant-numeric:tabular-nums; pointer-events:none; }
-.fd-wagers-felt-stacks { display:flex; flex-wrap:wrap; align-items:flex-end; gap:0 2px; min-height:52px; }
-.fd-wagers-felt-total + .fd-wagers-felt-stacks { padding-top:18px; }
-.fd-wagers-felt .fd-wagers-pick-main { flex:0 0 auto; flex-direction:column; flex-wrap:nowrap; gap:2px; min-width:48px; min-height:50px; padding:3px 4px; }
-.fd-wagers-felt .fd-wagers-chip-well { width:30px; height:30px; font-size:22px; }
-.fd-wagers-retract,.fd-wagers-owned-stack,.fd-wagers-other { display:flex; align-items:flex-end; justify-content:center; flex:0 0 44px; min-width:44px; min-height:44px; padding:0 0 3px; border:0; border-radius:8px; background:transparent; color:var(--ink); }
+.fd-wagers-felt { position:relative; display:flex; flex-direction:column; margin:4px; padding:0 3px 3px; border-radius:9px; background:var(--bg); border:1px solid var(--night-line); }
+.fd-wagers-felt-head { display:flex; align-items:center; justify-content:space-between; gap:6px; height:20px; padding:0 4px 0 5px; min-width:0; }
+.fd-wagers-felt-total { flex-shrink:0; font:700 17px/1 var(--fd-wagers-numerals); color:var(--sun); font-variant-numeric:tabular-nums; white-space:nowrap; pointer-events:none; }
+/* lines of three cells (two on a matchup, one on a wider board): the well,
+   then the stacks; each line is as tall as the tallest stack plus its value line */
+.fd-wagers-felt-stacks { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(var(--fd-felt-lines, 2),calc(var(--fd-stack-h, 64px) + 16px));
+  gap:2px; align-items:stretch; justify-items:stretch; }
+.fd-wagers-retract,.fd-wagers-owned-stack,.fd-wagers-other,.fd-wagers-held-stack { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:3px; min-width:44px; min-height:44px; padding:0 0 2px; border:0; border-radius:8px; background:transparent; color:var(--ink); }
 .fd-wagers-retract { cursor:pointer; }
 .fd-wagers-other { cursor:pointer; }
 .fd-wagers-retract:not(:disabled):hover,.fd-wagers-other:not(:disabled):hover { background:var(--ink-tint); }
 .fd-wagers-retract:disabled { cursor:wait; }
 .fd-wagers-other:disabled { cursor:default; }
+.fd-wagers-felt-stacks > .fd-stacks-group { justify-content:flex-end; min-width:44px; min-height:44px; padding-bottom:2px; }
 .fd-wagers-pick-error { margin:0; padding:7px 8px; border-top:1px solid var(--danger-line); color:var(--clay-text); font-size:11px; line-height:1.4; overflow-wrap:anywhere; }
 .fd-wagers-pick.is-pending-place .fd-wagers-chip-well { color:var(--sun); border-style:solid; animation:fd-chip-pending .7s ease-in-out infinite alternate; }
 .fd-wagers-pick.is-pending-remove .fd-wagers-retract .fd-stack-tap:last-of-type { animation:fd-chip-pending .7s ease-in-out infinite alternate; }
@@ -84,11 +104,6 @@
 .fd-wagers-settle-zone.is-lost > strong { color:var(--clay-text); }
 .fd-wagers-settle .fd-stacks { gap:2px 4px; }
 @keyframes fd-settle-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-/* P1: the "+N" pile of a crowded side, and room for capped stacks' values */
-.fd-wagers-felt-stacks.has-tag { padding-top:30px; }
-.fd-wagers-felt-total + .fd-wagers-felt-stacks.has-tag { padding-top:34px; }
-.fd-wagers-felt-stacks > .fd-stacks-group { flex:0 0 auto; min-width:44px; min-height:44px; justify-content:flex-end; padding-bottom:3px; }
-.fd-wagers-felt-stacks > .fd-stacks-group .fd-stack-tag { font-size:10px; }
 /* M5: a decided contest held in place. Resting styles are the end state. */
 .fd-wagers-held { cursor:pointer; }
 .fd-wagers-held-side.is-won { border-color:var(--green); }
@@ -96,12 +111,10 @@
 @keyframes fd-held-fade { from { opacity:1; } to { opacity:.55; } }
 .fd-wagers-held-face { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; }
 .fd-wagers-held-face > span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; line-height:1.2; text-align:center; }
-.fd-wagers-held-head { position:absolute; top:5px; left:8px; font:700 17px/1 var(--fd-wagers-numerals); font-variant-numeric:tabular-nums; animation:fd-settle-in var(--motion-base) var(--ease-out) both; }
+.fd-wagers-held-head { font:700 17px/1 var(--fd-wagers-numerals); font-variant-numeric:tabular-nums; animation:fd-settle-in var(--motion-base) var(--ease-out) both; }
 .fd-wagers-held-head.is-up { color:var(--green); }
 .fd-wagers-held-head.is-down { color:var(--clay-text); }
-.fd-wagers-felt-stacks.has-head { padding-top:22px; }
-.fd-wagers-felt-stacks.has-head.has-tag { padding-top:34px; }
-.fd-wagers-held-stack { display:flex; align-items:flex-end; justify-content:center; flex:0 0 44px; min-width:44px; min-height:44px; padding:0 0 3px; }
+.fd-wagers-held-well { grid-row:1; grid-column:1; }
 .fd-wagers-held-stack.is-lost { --bank-x:46px; --bank-y:24px; }
 .fd-wagers-won { position:absolute; top:3px; right:6px; z-index:2; padding:4px 8px 3px; border-radius:6px; background:var(--green); color:var(--ink0);
   font:800 15px/1 var(--fd-wagers-numerals); letter-spacing:.06em; transform:rotate(-4deg); transform-origin:right center;
@@ -197,7 +210,6 @@
   .fd-wagers { padding-left:22px; padding-right:22px; }
   .fd-wagers-pick-identity { padding-left:10px; padding-right:10px; }
   .fd-wagers-player > span { font-size:13px; }
-  .fd-wagers-pick-surface { padding-left:10px; padding-right:10px; }
 }
 @media (max-width:359px) {
   .fd-wagers { padding-left:10px; padding-right:10px; }

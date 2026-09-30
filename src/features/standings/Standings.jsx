@@ -1,5 +1,5 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AWARDS, SESSIONS, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
+import { awardTable, SESSIONS, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { EASE, MOTION, signedChips, useCountUp, useFreshChange } from "../../lib/motion.js";
@@ -81,7 +81,7 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
   if (latest) {
     const stacks = latest.res.stacks;
     const winners = latest.res.slots[0];
-    const award = stacks ? stacks[winners[0]] ?? 0 : AWARDS[latest.ev.value]?.[0] ?? 0;
+    const award = stacks ? stacks[winners[0]] ?? 0 : awardTable(latest.ev)[0];
     const resultNote = stacks ? "" : impact;
     return <section className="fd-now-card fd-now-result" aria-label="Latest result">
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(latest.ev)}>

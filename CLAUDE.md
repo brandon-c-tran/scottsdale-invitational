@@ -77,15 +77,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   dismissible Home card for an installed app that never answered), never
   part of check-in. Off unless `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`
   secrets and the `VAPID_SUBJECT` var are set (`capabilities.push`).
-- **To the TV (D9) and your path (D10):** `callEveryone` / `endCall` (GM
-  only, their own writes, allowed on a frozen board and at the poker table)
-  set `showControl.call = { id, at, kind, eventId, label }`, presentation
-  only; `shared/call.js` builds the label from the event and derives expiry
-  (`CALL_MS` 90 s). A second tap on the live call is a no-op. The chip beside
-  the pill (`features/call/CallChip.jsx`) offers the next ceremony beat's call
-  in one tap, else a TV button (two taps). Guest phones show one bar
-  (`CallBar`, dismissal per device per call, S16 on a fresh call) and
-  `pushAlerts.js` sends "To the TV" to every present player not looking.
+- **Your path (D10):** "To the TV" (D9, the commissioner's call to every
+  phone) was removed Sept 29 as noise; a stored `showControl.call` is inert.
   A synced draw reveal that turned your card ends on your path
   (`weekend/drawPath.js`, `DrawPath.jsx`) in a sticky footer above Place chips:
   bracket stops to the final with opponents' photo chips, or your heat/pool
@@ -223,6 +216,25 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   winner (a tie stamps each), on the server clock from `reveal.at` with S10
   and S14 through `roomSound.js`; phones hold that winner until the stamp.
 
+- **Team MVP** (Sept 29, `shared/mvp.js`, `state.mvp[evId]`): posting an
+  event result whose first place is a team of 3+ opens a vote in the same
+  write (`saveResult`); every winning teammate not away votes one teammate,
+  never themself, and may change it. It closes when all have voted, on the
+  commissioner's "Close MVP vote" (a director extra), after 60 s on the DO
+  alarm (shared with the walkout clip, `scheduleAlarm`), or in the finale's
+  deal (`pokerSetup` closes it first so its MVP is in the stack). Most votes
+  wins, a tie is drawn among the tied, no votes draws the team. The MVP
+  earns `MVP_PTS` (100), derived in `computeStandings` (`mvpAwards`, row
+  `mvpPts`) only while that same team is still the posted first place, so a
+  correction or cleared result takes it back and the existing exposure trim
+  covers it; a different winner votes afresh. Frames carry `projectMvp`:
+  your own pick as `mine`, the turnout, and counts only after close, when
+  the answers are deleted. Home (`features/mvp/MvpHome.jsx`) shows the team
+  its vote, then its MVP for 10 minutes; a "Vote team MVP" pocket alert
+  reaches the voters. Kept in the receipt, chip history, last card, season
+  card, keepsake plates, and the awards desk's counted "Most MVPs" award
+  (`source:"mvps"`, tallied from MVPs at close, never on the phone ballot).
+  QA jumps vote and close it.
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone
   resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no
@@ -342,7 +354,14 @@ match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
 `makeBracket` runs 2 to 16 entrants: 2 to 6 keep their stored hand-drawn
 shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
-shrinks it for Away). Past eight the TV draws the bracket from both ends toward
+shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
+Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball and
+Trivia as 4 teams of 3, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
+Kart; poker. Where and When and Trivia are played off-app and entered like
+any result. 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
+or the captains' snake splits whoever is present 7 v 6, with no crew. Tests
+that need a dropped shape (pairs pools, solo heats of three, an even
+two-team game) add it through `tests/support/legacy-events.mjs`. Past eight the TV draws the bracket from both ends toward
 a middle final (`mirroredLayout`) so it fits under the contest. While
 a bracket game is live, Home shows your path as one line ("Semifinal ✓ → Final
 vs winner of Semifinal 2 · Full bracket ↗", `bracketPath`), Bets shows the
@@ -424,7 +443,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    carried all weekend is the stack you are dealt. Every value in the economy
    (awards, stakes, duel antes, rulings) is a multiple of PT and one rendered
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
-   wager net + rulings, computed fresh from state every time. No stored
+   team MVPs + wager net + rulings, computed fresh from state every time. No stored
    balances.
 4. **Current-contest betting:** a free-for-all with more than two sides pays
    2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
@@ -439,11 +458,14 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    of its sides. Free-for-all choices remain unrestricted. There is no
    automatic wager or required self-bet. Legacy outright and advancement
    tickets keep their original settlement and payout contracts; they are not
-   converted to new winner bets. Awards pay 400/800/1200/1600 by
-   session (`AWARDS` keys ARE the legal event values). Crew (a draw's roles)
-   earn the event's 3rd-place award, and a bracket's two semifinal losers split
-   3rd, each share floored to 100s; `resultAwards` is the one derivation every
-   surface reads. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
+   converted to new winner bets. Awards are a ladder by session (Sept 29,
+   v2 slate): 1st takes 400/800/1200/1600, 2nd half, 3rd a quarter
+   (`AWARDS` keys ARE the legal event values), paid to every player in the
+   place. An event may carry its own `pays` (5v5 winners only [800,0,0];
+   Rage Cage [1600,1600,400]); `awardTable(ev)` is the one lookup, never
+   `AWARDS[ev.value]`. Both of a bracket's semifinal losers take the full
+   3rd-place award, and crew (a draw's roles) take it too; `resultAwards` is
+   the one derivation every surface reads. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
    capped under 500 (`MAX_RISK`), and it bounds duel antes too (accepted duels
    plus your own waiting offer, `duelReserve`) or a duel would be a way around it. Stake <= balance minus at-risk, stakes move in 100s. Betting UX
    is video roulette: a fixed rack (100/200/500/1000, features/wagers/Wagers.jsx `RACK_DENOMS`)
@@ -457,6 +479,15 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    ("2,000 to bet") and what is down ("300 in bets"); nothing floats over the bar.
    Tapping + on an eligible side of the current contest adds that chip, with
    its value stamped on its face. Tapping your stack retrieves its last chip.
+   Side cards never change size with the bets (Sept 29): every card on a
+   board is one fixed height, names one line with ellipsis, the role and
+   total in a header row that is always there, the + well pinned top-left,
+   every stack's amount on a value line under it, one 10-chip cap everywhere
+   with a tower top past it (1,000 / 1,200 / 2,500 read apart). A matchup's
+   felt holds two lines of stacks; a board of 3+ sides holds one line (the
+   well and two stacks). Past the slots, the smallest fold into one "+N"
+   stack; your own stack never folds. On the TV all sides of a board share
+   one chip size and the wide board's rows are a fixed height.
    Player identity targets open player cards independently of chip actions.
    TV mode is the constant status: the live scene carries an UP NOW banner and
    gold outline for `nextOpenMatch(br)` (the next seated, undecided matchup,
@@ -482,10 +513,40 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    exist only when Show Control is on; the chain is identical without them.
    Winner scenes stamp the result revision they played for, so corrections
    mark the scene stale and the director owes a replay at the new revision.
-   Walkout audio is a cue chip beside the pill, played only by an explicit
-   GM tap, never fired from a scene or action (Spotify policy). Cues are also
-   offered for the current contest's players after lock-and-start and for the
-   seated players at the poker start; the chosen speaker persists in
+   Win songs (Sept 29, `worker/winSong.js`; stored as
+   `profiles[p].walkoutTrack`, shown to guests as "Win song"): after a write
+   persists, a recorded contest winner or a posted free-for-all result plays
+   the winner's song on the chosen speaker for 30 s (a duo, or a team
+   between bracket rounds, plays one member's, drawn by the win's key), a
+   team MVP vote closing plays the MVP's (marked `mvp`; a team that votes
+   gets no song at its win), the crown plays the champion's whole song, and
+   a tie plays nothing. The TV's `NowPlaying` card (features/tv/) shows the
+   photo chip, name and song, "MVP · {event}" for an MVP. The profile's Win
+   song picker (`features/music/`) searches Spotify as you type; a song's
+   cover plays its 30-second clip ON THE PHONE (Spotify gives no preview
+   audio, so `/api/spotify/preview` finds Deezer's clip by the saved ISRC,
+   else title and artist, `worker/previews.js`); the one media element and
+   its iOS "playback" session live in `src/lib/sound.js`. The start point is
+   a 30-second window dragged on the song's timeline. "Preview 1:05 to 1:35"
+   plays exactly that window on the phone in YouTube's own visible player
+   (`SnippetPreview.jsx`): `/api/spotify/snippet` finds the song's album
+   upload once (`worker/youtube.js`, length within 3 s of Spotify's,
+   "- Topic" uploads first, kept in `private:youtube:<trackId>`) and is on
+   only with the `YOUTUBE_API_KEY` secret (`capabilities.songSnippets`). The Worker starts it after the
+   broadcast, never holding up or failing the write; the walkout record is
+   marked `auto` and its alarm pauses the speaker at the clip's end if that
+   song still plays; Undo, a correction, a cleared result or unfreezing stops
+   it. QA jumps and resets are silent. Brandon accepted the Spotify Developer
+   Policy risk of automatic playback (Sept 29). Audio Director's "Play win
+   songs automatically" switch (`private:spotify:auto`) turns it off. A win
+   song starts at silence and fades up to the speaker's own level over 1.5 s
+   (six volume calls), fades out over the 3 s before its clip ends (the alarm
+   fires then), pauses, and puts the level back (`private:spotify:fade`); a
+   Stop or a take-back fades in 1 s; a speaker that refuses volume just
+   plays and stops. Every speaker step runs in one queue (`songQueue`), so a
+   fade never runs over the next song. The GM has no play chips: the rack
+   beside the pill is only Stop while a song plays (manual play stays in
+   Audio Director), and the chosen speaker persists in
    `private:spotify:device`.
 5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once per
    device and mints that device's token (`private:gm:tokens`); GM actions
@@ -629,8 +690,8 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    in the same write; a corrected result owes one "Replay winner" beat with
    Skip. The director pill carries a short verb with its subject on the note
    line, records a live match's winner from its two side buttons, and puts the
-   default crew in the note (`features/director/`). Crew earn what a
-   3rd-place player actually gets, including a split share.
+   default crew in the note (`features/director/`). Crew earn the 3rd-place
+   award.
 10. **The wager ledger is duplicate-safe.** State schema `v:7` adds
    `wagerOps`, keyed by device plus action id. The client may retry place and
    retract once using the same action id; the server acknowledges that retry
@@ -723,16 +784,17 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
   an existing mid-event scenario; switch guest/commissioner/player and simulate
   failed acknowledgements. No WebSocket, persistent storage, or remote data.
 
-The September 28 Living Field Day pass (TH1 phase theme, the motion
-foundation, the Table Home, chip flight and settle, result receipt and own-chip
-showers, the last card, synced draw reveals, TV bracket advance and crown,
-draft and finale motion, season card back, iOS tap tick, queued + taps) builds
-on the September 27 second pass: 714 tests and the 139-check local e2e pass,
-deployed to staging as version `7fc924d6-5f62-4f5c-a541-d935079368cf` (build
-`dfc4776`, adding awards night, the kept weekend, Table view, To the TV, your
-path after the draw and the photo desk). The previous staging build is tag
-`staging-dd7d02c5`; the one
-before is `staging-7c2c9f15`. The first
+The September 29-30 pass (win songs with fades and the Win song picker with
+on-phone clips and exact-snippet preview, team MVP, the v2 slate and payout
+ladder, the fixed-shape bets board, one-tap two-team results, the constellation
+redraw, folded Events sessions, the removal of To the TV) is deployed to
+staging as version `6dba00cb-262e-484c-96ab-b81c93f5c208` (tag
+`staging-6dba00cb`): 745 tests pass; the local e2e was not re-run. The
+previous staging build is tag `staging-7fc924d6` (the September 28 Living Field
+Day pass on the September 27 second pass: 714 tests and the 139-check local
+e2e, build `dfc4776`, adding awards night, the kept weekend, Table view, your
+path after the draw and the photo desk); before it, `staging-dd7d02c5` and
+`staging-7c2c9f15`. The first
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet

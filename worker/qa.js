@@ -16,7 +16,7 @@
    synchronous run), so every "latest" and every ordering by time reads the
    way a played weekend does; the run ends well under a second ahead. */
 import {
-  AWARDS, CHIP_COLORS, CHIP_MIN, CHIP_SKINS, DUEL_DAILY_LIMIT, EMPTY_STATE, PT, RATINGS, ROSTER,
+  awardTable, CHIP_COLORS, CHIP_MIN, CHIP_SKINS, DUEL_DAILY_LIMIT, EMPTY_STATE, PT, RATINGS, ROSTER,
   RESET_PROGRESS_PRESERVED_KEYS, SIZES, SPORTS,
   allEventsOf, atRisk, bracketChampion, computeStandings, contestBetEligibility, contestSideOf,
   contestStackOf, draftTurn, duelBetween, duelReserve, duelRoom, duelsSentToday, maxRisk,
@@ -25,6 +25,7 @@ import {
 } from "../shared/core.js";
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
+import { mvpVoters } from "../shared/mvp.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -253,7 +254,7 @@ function announce(run, ev) {
    stages, exactly as the commissioner's result entry would read them. */
 function podium(run, ev) {
   const { state } = run;
-  const table = AWARDS[ev.value] || [0, 0, 0];
+  const table = awardTable(ev);
   const place = (sides, i) => i === 0 || table[i] > 0 ? [...(sides[i]?.players || [])] : [];
   const contest = resolveCurrentContest(state, ev);
   if (contest?.kind === "ffa") {
@@ -292,6 +293,19 @@ function postResult(run, ev) {
   run.gm("saveResult", { evId:ev.id, slots:podium(run, ev), noScene:true });
 }
 
+/* A team that won votes its MVP the way its phones would, then the vote
+   closes, so a jump never leaves one open (an open vote holds the finale). */
+function settleMvp(run, ev) {
+  const { state } = run;
+  const record = state.mvp?.[ev.id];
+  if (!record || record.closedAt) return;
+  for (const voter of mvpVoters(state, record)) {
+    const picks = record.team.filter(player => player !== voter);
+    if (picks.length) run.as(voter, "mvpVote", { evId:ev.id, pick:picks[Math.floor(run.rng() * picks.length)] });
+  }
+  if (!state.mvp[ev.id].closedAt) run.gm("mvpClose", { evId:ev.id });
+}
+
 /* Play one event forward. stop: "open" (first contest betting, bets down),
    "mid" (a contest decided and the next one open with bets, or the only
    contest under way), "contest" (the current contest decided, once) or
@@ -328,6 +342,7 @@ function playEvent(run, ev, stop) {
     if (stop === "contest") {
       /* the next contest opens by itself; if that was the last, the result posted with it */
       if (!state.results?.[ev.id] && !resolveCurrentContest(state, ev)) postResult(run, ev);
+      settleMvp(run, ev);
       return;
     }
   }
@@ -336,6 +351,7 @@ function playEvent(run, ev, stop) {
     postResult(run, ev);
     if (!decided) run.stats.contests += 1;
   }
+  settleMvp(run, ev);
   run.stats.events += 1;
   /* a duel now and then, between events, the way the room plays them */
   if (run.rng() < 0.5) playFillerDuel(run);

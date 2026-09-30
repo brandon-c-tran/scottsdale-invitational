@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SESSIONS, AWARDS, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
+import { SESSIONS, awardTable, GAMES, disp, overflowRoleMeta } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
@@ -144,7 +144,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
         <span className="fd-home-event-text"><span className="fd-home-eyebrow">{(running || current.lifecycle.phase === "betting-open")
           && <i className="fd-beat-dot" aria-hidden="true" />}{current.status}{before && sessionOf(event) ? ` · ${sessionOf(event)}` : ""}</span>
           <h2>{event.name}</h2>
-          {event.value && <small>{fmt(AWARDS[event.value]?.[0] ?? event.value)} chips to win</small>}</span>
+          {event.value && <small>{fmt(awardTable(event)[0] || event.value)} chips to win</small>}</span>
       </button>
       {!before && rules && <button type="button" className="fd-home-text-link"
         aria-label={`${event.name} rules`} onClick={() => onRules(event)}>Rules <Arrow /></button>}</div>
@@ -218,7 +218,7 @@ function FlightsQuestion({ onYes, onNotYet }) {
 
 export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
-  awardsContent = null,
+  awardsContent = null, mvpContent = null,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const exposed = !!model.standing?.exposure && model.mode === "live";
@@ -258,6 +258,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
 
     {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
     <AlertsCard me={me} />
+    {mvpContent}
     {awardsContent}
 
     {model.mode === "live" && duelContent}
@@ -270,7 +271,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
       <button type="button" className="fd-home-result-event" onClick={() => onOpen(latest)} aria-label={`Latest result: ${latest.name}`}>
         <small>Latest result</small><strong>{latest.name}</strong></button>
       <People state={state} players={state.results[latest.id].slots[0]} onPlayer={onPlayer} />
-      <span className="fd-home-result-award">+{fmt(AWARDS[latest.value]?.[0])}</span>
+      <span className="fd-home-result-award">+{fmt(awardTable(latest)[0])}</span>
     </section>}
 
     <section className="fd-home-leaderboard" aria-label="Leaderboard">

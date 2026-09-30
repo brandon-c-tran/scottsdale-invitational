@@ -1,7 +1,14 @@
 /* Shared motion and browser foundations. Semantic colors live in experience.css. */
 
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+/* No double-tap zoom anywhere: two quick taps on a nudge, a chip or a
+   stepper are two taps. Pinch zoom stays available. */
+html { touch-action:manipulation; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+/* iPhone zooms the page into any field set under 16px when it takes focus */
+@supports (-webkit-touch-callout:none) {
+  input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea { font-size:max(16px, 1em) !important; }
+}
 button:active:not(:disabled) { transform: scale(0.97); }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline:3px solid var(--sun); outline-offset:3px;

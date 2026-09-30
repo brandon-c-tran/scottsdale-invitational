@@ -170,13 +170,13 @@ test("server rejects oversized draws and persists exact teams plus overflow role
 
   const draftState = structuredClone(EMPTY_STATE);
   const drafted = applyAction(draftState, "startDraft", {
-    evId:"bball",
+    evId:"volley",
     players,
     captains:players.slice(0, 4),
     roles:[{ player:ROSTER[12], role:"photographer" }],
   }, gm);
-  assert.equal(drafted.ok, true);
-  assert.deepEqual(draftState.drafts.bball.roles,
+  assert.equal(drafted.ok, true, drafted.error);
+  assert.deepEqual(draftState.drafts.volley.roles,
     [{ player:ROSTER[12], role:"photographer" }]);
 });
 
@@ -188,7 +188,9 @@ test("shared draw helper produces exact-sized groups", () => {
 });
 
 test("every shipped strict team format yields exact QA participants and group sizes", () => {
-  for (const event of BUILTIN_EVENTS.filter(candidate => candidate.teamCfg)) {
+  const strict = BUILTIN_EVENTS.filter(candidate => candidate.teamCfg && candidate.participation.type === "strict-teams");
+  assert.deepEqual(strict.map(event => event.id), ["die", "pickleball", "bball1", "volley", "8ball", "pong", "trivia"]);
+  for (const event of strict) {
     const expected = event.teamCfg.teams * event.teamCfg.size;
     const players = defaultQaParticipants(event, ROSTER);
     assert.equal(players.length, expected, `${event.id} QA participant count`);
@@ -199,6 +201,15 @@ test("every shipped strict team format yields exact QA participants and group si
     assert.ok(draw.teams.every(team => team.players.length === event.teamCfg.size),
       `${event.id} exact group size`);
   }
+  /* 5v5 is everyone present: two sides of seven and six, nobody on crew */
+  const fullCourt = BUILTIN_EVENTS.find(event => event.id === "bball5");
+  assert.equal(fullCourt.participation.type, "all");
+  const everyone = defaultQaParticipants(fullCourt, ROSTER);
+  assert.deepEqual([...everyone].sort(), [...ROSTER].sort());
+  assert.equal(validateEventParticipants(fullCourt, everyone, ROSTER).ok, true, "bball5 validation");
+  const sides = drawTeams(fullCourt, structuredClone(EMPTY_STATE), everyone);
+  assert.deepEqual(sides.teams.map(team => team.players.length).sort(), [6, 7]);
+  assert.deepEqual(sides.roles || [], []);
   assert.ok(makeBracket(4));
   assert.ok(makeBracket(6));
   /* short rooms: a play-in seeds five teams into a four-team bracket */
@@ -638,6 +649,7 @@ test("environment capabilities fail closed and production restore routes hard de
     audioCatalog:false,
     audioPlayback:false,
     push:false,
+    songSnippets:false,
   });
 
   const local = tournamentFor({
@@ -660,6 +672,7 @@ test("environment capabilities fail closed and production restore routes hard de
     audioCatalog:true,
     audioPlayback:true,
     push:false,
+    songSnippets:false,
   });
 
   const production = tournamentFor({
@@ -678,6 +691,7 @@ test("environment capabilities fail closed and production restore routes hard de
     audioCatalog:false,
     audioPlayback:false,
     push:false,
+    songSnippets:false,
   });
   production.gmToken = "test-token";
   const weakRequest = new Request("https://fielddayseries.com/api/admin/snapshot", {

@@ -262,9 +262,9 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   const first = director(state).nextAction;
   assert.equal(first.type, "announce-draw");
   assert.equal(first.label, "Announce and draw");
-  assert.equal(first.subject, "Pickleball");
+  assert.equal(first.subject, "Pickleball Doubles");
   const model = directorPill(state, allEventsOf(state), director(state));
-  assert.deepEqual(model.lines, ["Pickleball", "Crew: Jeremy · Event official"]);
+  assert.deepEqual(model.lines, ["Pickleball Doubles", "Crew: Jeremy · Event official"]);
   assert.deepEqual(model.extras.map(extra => extra.label), ["Change crew", "Skip"]);
   assert.equal(model.run.write, "announceAndDraw");
   assert.equal(model.run.startsWeekend, true, "The App's act() confirms the weekend start");
@@ -280,7 +280,7 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   const volley = fresh(["volley"]);
   const volleyPill = directorPill(volley, allEventsOf(volley), director(volley));
   assert.ok(volleyPill.extras.some(extra => extra.label === "Captains draft" && extra.run.open === "draft"));
-  act(volley, "startDraft", { evId:"volley", captains:["Evan", "Khoa"], players:ROSTER.slice(0, 12),
+  act(volley, "startDraft", { evId:"volley", captains:["Evan", "Khoa", "Adi", "Allan"], players:ROSTER.slice(0, 12),
     roles:[{ player:ROSTER[12], role:"referee" }] });
   const draft = directorPill(volley, allEventsOf(volley), director(volley));
   assert.equal(draft.label, "Continue the draft");

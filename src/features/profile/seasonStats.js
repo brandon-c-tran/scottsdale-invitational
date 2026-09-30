@@ -9,7 +9,7 @@
    the board. */
 import {
   START, ROSTER, ROUND_NAMES, allEventsOf, computeStandings, contestEntryLabel, eventInPlay,
-  isAway, resolveDuel, resolveSlot, resolveWager, resultAwards, stageEntrantView, stageFinalists,
+  isAway, mvpAwards, resolveDuel, resolveSlot, resolveWager, resultAwards, stageEntrantView, stageFinalists,
 } from "../../../shared/core.js";
 
 const decided = value => value !== null && value !== undefined;
@@ -245,10 +245,12 @@ export function seasonStats(state, player, { events = allEventsOf(state), standi
   const moved = !!table?.some(item => item.pts !== START);
   const own = !!viewer && viewer === player;
   const versus = viewer && !own ? headToHead(state, viewer, player, events) : null;
+  const mvps = mvpAwards(state).filter(item => item.player === player).length;
   return {
     player,
     events:rows,
     wins:rows.filter(item => item.status === "placed" && item.rank === 0).length,
+    mvps,
     bets,
     duels,
     rank:moved ? row?.rank ?? null : null,
@@ -256,7 +258,7 @@ export function seasonStats(state, player, { events = allEventsOf(state), standi
     versus:versus && versus.count > 0 ? { ...versus, bets:betsOn(state, viewer, player, events) } : null,
     rivals:own ? rivalries(state, player, { events }) : [],
     active:rows.length > 0 || bets.won + bets.lost + bets.pending > 0
-      || duels.won + duels.lost + duels.push > 0 || moved,
+      || duels.won + duels.lost + duels.push > 0 || mvps > 0 || moved,
   };
 }
 

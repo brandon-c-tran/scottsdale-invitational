@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { BUILTIN_EVENTS, EMPTY_STATE, ROSTER, computeStandings, makeBracket, resolveCurrentContest, resolveWager, teamLabel } from "../shared/core.js";
+import { BUILTIN_EVENTS, EMPTY_STATE, ROSTER, allEventsOf, computeStandings, makeBracket, resolveCurrentContest, resolveWager, teamLabel } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
+import { legacyEvent, withLegacyEvents } from "./support/legacy-events.mjs";
 
 /* Compile the real components once. React stays external so server rendering
    and the component hooks share the same instance. No browser/network/state
@@ -53,7 +54,7 @@ function controls(state, event, overrides = {}, select = []) {
   try {
     html = renderToStaticMarkup(createElement(PlayerIdentityProvider, { profiles:state.profiles },
       createElement(Wagers, {
-        state, events:BUILTIN_EVENTS, me:player, standings:computeStandings(state), gm:false,
+        state, events:allEventsOf(state), me:player, standings:computeStandings(state), gm:false,
         wagerEv:event, onDeckEv:!state.frozen && state.onDeck === event.id ? event : null,
         onEvents:() => {}, onEvent:() => {}, onPick:pick => picks.push(pick),
         onRetract:(id, ref) => { retractions.push(id); retractionRefs.push(ref); }, onVoid:ids => voids.push(ids), ...overrides,
@@ -106,8 +107,9 @@ test("the FFA board retains every manual winner choice, including yourself", () 
     pickPlayers:[ROSTER[1]], pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) }]);
   assert.equal(controls(state, solo).pickAll().length, ROSTER.length);
 
-  const event = BUILTIN_EVENTS.find(item => item.id === "volley");
-  const teamState = fresh(event), draw = withTeams(teamState, event);
+  /* an even two-team game (the old Flip Cup shape) */
+  const event = legacyEvent("flip");
+  const teamState = withLegacyEvents(fresh(event), ["flip"]), draw = withTeams(teamState, event);
   draw.teams = draw.teams.slice(0, 2);
   /* two teams are a matchup: an observer may back either side at even money */
   const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
@@ -150,8 +152,8 @@ test("observers bet only the current bracket matchup, then its successor and fin
 });
 
 test("large teams retain their drawn names and every player target alongside manual chip controls", () => {
-  const event = BUILTIN_EVENTS.find(item => item.id === "volley");
-  const state = fresh(event), viewed = [], opened = [];
+  const event = legacyEvent("flip");
+  const state = withLegacyEvents(fresh(event), ["flip"]), viewed = [], opened = [];
   const draw = state.draws[event.id] = { id:"large-team-draw", teams:[
     { name:"The Sidewinders", players:ROSTER.slice(0, 6) },
     { name:"The Coyotes", players:ROSTER.slice(6, 12) },
@@ -240,8 +242,8 @@ test("heat winner betting offers one heat at a time and a separate final", () =>
 });
 
 test("team heat picks retain team identity and the current draw and stage references", () => {
-  const event = BUILTIN_EVENTS.find(item => item.id === "spike");
-  const state = fresh(event), draw = withTeams(state, event);
+  const event = legacyEvent("spike");
+  const state = withLegacyEvents(fresh(event), ["spike"]), draw = withTeams(state, event);
   state.stages[event.id] = { id:"pools-current", eventId:event.id, drawId:draw.id, kind:"pools",
     entrantType:"team", advance:1, groups:[{ name:"Pool A", entrants:[0, 1], through:[], winner:null }], finalWinner:null };
   const view = controls(state, event), picks = view.pickAll();

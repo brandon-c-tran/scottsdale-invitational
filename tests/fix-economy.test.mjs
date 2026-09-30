@@ -8,14 +8,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   EMPTY_STATE, ROSTER, AWARDS, PT, OUTRIGHT_MULT, allEventsOf, resolveCurrentContest, resolveWager, computeStandings,
   atRisk, maxRisk, makeBracket, resolveSlot, defaultQaParticipants, contestMult, resultAwards, awardPlan,
-  pokerDenoms, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle,
+  pokerDenoms, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle, teamLabel,
 } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 /* Economy regressions: every scenario runs the real actions against in-memory
    state. No transport, no storage. */
 let serial = 0;
 const fresh = () => structuredClone(EMPTY_STATE);
+/* Flip Cup left the slate; it is still the even two-team game (6 v 6 plus crew) */
+const withFlip = () => withLegacyEvents(fresh(), ["flip"]);
 const event = (s, id) => allEventsOf(s).find(e => e.id === id);
 const current = (s, id) => resolveCurrentContest(s, event(s, id));
 const refs = c => ({ contestId:c.id, contestRevision:c.revision });
@@ -63,7 +66,7 @@ const runFfa = (s, id, slots) => {
 };
 const crewOf = (s, id) => s.draws[id].roles.map(role => role.player);
 /* two heats of solo players, then a two-player final */
-const heats = (id = "pingpong") => {
+const heats = (id = "beerio") => {
   const s = fresh();
   act(s, "runStages", { evId:id, cfg:{ kind:"heats", nGroups:2, advance:1, players:ROSTER } });
   act(s, "announceEvent", { evId:id });
@@ -72,13 +75,14 @@ const heats = (id = "pingpong") => {
 };
 
 /* ── 1. two-sided contests are matchups ── */
-test("every two-team event pays even, keeps competitors on their side, and holds one side per bettor", () => {
-  for (const id of ["volley", "flip", "bball5"]) {
-    const s = fresh();
+test("every two-team event pays 1:1, keeps competitors on their side, and holds one side per bettor", () => {
+  /* an even two-team game with crew, and a bracket match of teams */
+  for (const id of ["flip", "volley"]) {
+    const s = withFlip();
     drawn(s, id);
     const c = current(s, id);
     assert.equal(c.sides.length, 2);
-    assert.equal(contestMult(c), 1, `${id} pays even`);
+    assert.equal(contestMult(c), 1, `${id} pays 1:1`);
     const competitor = c.sides[0].players[0], spectator = crewOf(s, id)[0];
     assert.match(bet(s, id, competitor, c.sides[1].key).error, /only back yourself or your team/);
     assert.equal(bet(s, id, competitor, c.sides[0].key, 300).ok, true);
@@ -86,18 +90,46 @@ test("every two-team event pays even, keeps competitors on their side, and holds
     assert.match(bet(s, id, spectator, c.sides[0].key).error, /One side per contest/);
     assert.equal(bet(s, id, spectator, c.sides[1].key, 100).ok, true, "adding to the same side still works");
     const before = pts(s);
+    if (c.kind === "match") {
+      lock(s, id); win(s, id, c.sides[1].key);
+      const after = pts(s);
+      assert.equal(after[spectator] - before[spectator], 300, "even money on the match");
+      assert.equal(after[competitor] - before[competitor], -300);
+      continue;
+    }
     post(s, id, [c.sides[1].players, c.sides[0].players]);
     const after = pts(s), crewAward = AWARDS[event(s, id).value][2];
+    assert.equal(crewAward, 400);
     assert.equal(after[spectator] - before[spectator], 300 + crewAward, "even money plus the crew award");
     assert.equal(after[competitor] - before[competitor], -300 + AWARDS[event(s, id).value][1]);
   }
+
+  /* 5v5 is everyone, seven against six: no crew, no spectator, winners only */
+  const s = fresh();
+  drawn(s, "bball5");
+  const c = current(s, "bball5");
+  assert.deepEqual(s.draws.bball5.teams.map(team => team.players.length).sort(), [6, 7]);
+  assert.deepEqual(crewOf(s, "bball5"), []);
+  assert.equal(c.sides.length, 2);
+  assert.equal(contestMult(c), 1, "bball5 pays 1:1");
+  const [winner, loser] = [c.sides[0].players[0], c.sides[1].players[0]];
+  assert.match(bet(s, "bball5", loser, c.sides[0].key).error, /only back yourself or your team/);
+  assert.equal(bet(s, "bball5", loser, c.sides[1].key, 300).ok, true);
+  assert.equal(bet(s, "bball5", winner, c.sides[0].key, 200).ok, true);
+  assert.equal(bet(s, "bball5", winner, c.sides[1].key).ok, false, "a competitor holds only their own side");
+  const before = pts(s);
+  post(s, "bball5", [c.sides[0].players, c.sides[1].players]);
+  const after = pts(s);
+  assert.equal(after[winner] - before[winner], 200 + 800, "even money plus the winners' 800");
+  assert.equal(after[loser] - before[loser], -300, "the other side takes no award");
 });
 
 test("no two-sided contest can be hedged at a profit", () => {
   const cases = [];
+  { const s = withFlip(); drawn(s, "flip"); cases.push([s, "flip"]); }
   { const s = fresh(); drawn(s, "volley"); cases.push([s, "volley"]); }
   { const s = fresh(); drawn(s, "8ball"); cases.push([s, "8ball"]); }
-  cases.push([heats(), "pingpong"]);
+  cases.push([heats(), "beerio"]);
   for (const [s, id] of cases) {
     const c = current(s, id);
     assert.equal(c.sides.length, 2, `${id} ${c.kind} has two sides`);
@@ -131,34 +163,37 @@ test("a wide free-for-all still pays 2:1 across any sides, and older 2:1 team ti
   runFfa(s, "putt", [[ROSTER[1]]]);
   assert.equal(pts(s)[ROSTER[0]] - before, 2 * PT - PT);
 
-  const legacy = fresh();
-  drawn(legacy, "volley");
-  const team = legacy.draws.volley.teams[0];
-  legacy.wagers.unshift({ id:"legacy-volley", player:crewOf(legacy, "volley")[0], kind:"outright", eventId:"volley",
-    pickTeam:true, pickPlayers:[...team.players], drawId:legacy.draws.volley.id, stake:300, status:"open", ts:1 });
-  post(legacy, "volley", [team.players, legacy.draws.volley.teams[1].players]);
-  assert.deepEqual(resolveWager(legacy, legacy.wagers.find(w => w.id === "legacy-volley"), allEventsOf(legacy)),
+  const legacy = withFlip();
+  drawn(legacy, "flip");
+  const team = legacy.draws.flip.teams[0];
+  legacy.wagers.unshift({ id:"legacy-flip", player:crewOf(legacy, "flip")[0], kind:"outright", eventId:"flip",
+    pickTeam:true, pickPlayers:[...team.players], drawId:legacy.draws.flip.id, stake:300, status:"open", ts:1 });
+  post(legacy, "flip", [team.players, legacy.draws.flip.teams[1].players]);
+  assert.deepEqual(resolveWager(legacy, legacy.wagers.find(w => w.id === "legacy-flip"), allEventsOf(legacy)),
     { status:"won", delta:600 }, "a ticket placed before even money pays what it promised");
 });
 
-/* ── 2 and 3. crew and a split bracket third ── */
-test("event crew earn the 3rd-place award and bracket semifinal losers split 3rd in 100s", () => {
-  const s = fresh();
-  drawn(s, "volley");
-  const crew = crewOf(s, "volley");
+/* ── 2 and 3. crew and a bracket's two 3rds ── */
+test("event crew earn the 3rd-place award and both bracket semifinal losers take the full 3rd", () => {
+  const s = withFlip();
+  drawn(s, "flip");
+  const crew = crewOf(s, "flip");
   assert.equal(crew.length, 1);
   const before = pts(s)[crew[0]];
-  post(s, "volley", [s.draws.volley.teams[0].players, s.draws.volley.teams[1].players]);
-  assert.equal(pts(s)[crew[0]] - before, 400);
+  post(s, "flip", [s.draws.flip.teams[0].players, s.draws.flip.teams[1].players]);
+  assert.equal(pts(s)[crew[0]] - before, 400, "Flip Cup's 3rd at 1,600");
   assert.equal(computeStandings(s).find(row => row.player === crew[0]).wins, 0);
 
-  const cheap = fresh();
-  drawn(cheap, "8ball");
-  const crew8 = crewOf(cheap, "8ball")[0];
-  assert.ok(!awardPlan(event(cheap, "8ball"), cheap.draws["8ball"]).some(row => row.place === "crew"));
-  assert.ok(!resultAwards(cheap, event(cheap, "8ball"), { slots:[[ROSTER[0]]] }).some(a => a.player === crew8));
+  /* Friday pays three places now, so its crew earn Friday's 3rd */
+  const friday = fresh();
+  drawn(friday, "die");
+  const crewDie = crewOf(friday, "die")[0];
+  assert.deepEqual(awardPlan(event(friday, "die"), friday.draws.die).map(row => [row.place, row.pts]),
+    [[0, 400], [1, 200], [2, 100], ["crew", 100]]);
+  assert.deepEqual(resultAwards(friday, event(friday, "die"), { slots:[[ROSTER[0]]] })
+    .filter(a => a.player === crewDie).map(a => [a.place, a.pts]), [["crew", 100]]);
 
-  /* pickleball is the 1,200 bracket: 400 for 3rd splits to 200 a side */
+  /* pickleball is the 800 bracket: each semifinal loser takes the full 200 */
   const pb = fresh();
   drawn(pb, "pickleball");
   const br = pb.brackets.pickleball, teams = pb.draws.pickleball.teams;
@@ -169,16 +204,19 @@ test("event crew earn the 3rd-place award and bracket semifinal losers split 3rd
   const [champ, runner] = [final.winner, [resolveSlot(br, final.a), resolveSlot(br, final.b)].find(x => x !== final.winner)];
   const third = semis.flatMap(side => teams[side].players);
   const awards = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, teams[runner].players, third] });
-  assert.deepEqual([...new Set(awards.filter(a => a.place === 2).map(a => a.pts))], [200]);
-  /* deliberate change (C7): crew earn what a 3rd-place player actually gets */
-  assert.equal(awards.filter(a => a.place === "crew")[0].pts, 200);
+  assert.deepEqual(awards.filter(a => a.place === 2).map(a => a.pts), [200, 200, 200, 200], "no split: all four take 200");
+  assert.deepEqual(awards.filter(a => a.place === 0).map(a => a.pts), [800, 800]);
+  assert.deepEqual(awards.filter(a => a.place === 1).map(a => a.pts), [400, 400]);
+  /* crew earn what a 3rd-place player gets */
+  assert.deepEqual(awards.filter(a => a.place === "crew").map(a => a.pts), [200]);
   const oneSide = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, [], teams[semis[0]].players] });
-  assert.deepEqual([...new Set(oneSide.filter(a => a.place === 2).map(a => a.pts))], [400]);
+  assert.deepEqual([...new Set(oneSide.filter(a => a.place === 2).map(a => a.pts))], [200]);
   const threeSides = resultAwards(pb, event(pb, "pickleball"),
     { slots:[teams[champ].players, [], [...third, ...teams[runner].players]] });
-  assert.deepEqual([...new Set(threeSides.filter(a => a.place === 2).map(a => a.pts))], [100], "400 over 3 floors to 100");
+  assert.deepEqual(threeSides.filter(a => a.place === 2).map(a => a.pts), [200, 200, 200, 200, 200, 200],
+    "three sides in 3rd still take the full 200 each");
   const plan = awardPlan(event(pb, "pickleball"), pb.draws.pickleball);
-  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 1200], [1, 800], [2, 200], ["crew", 200]]);
+  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 800], [1, 400], [2, 200], ["crew", 200]]);
 });
 
 /* ── 5. corrections never strand a negative board ── */
@@ -188,9 +226,9 @@ test("a correction voids the newest chips that no longer fit and records them; t
   act(s, "announceEvent", { evId:"ragecage" });
   assert.equal(bet(s, "ragecage", P, P, 500).ok, true);
   runFfa(s, "ragecage", [[P]]);
-  act(s, "announceEvent", { evId:"gauntlet" });
+  act(s, "announceEvent", { evId:"where" });
   const cap = maxRisk(pts(s)[P]);
-  for (let staked = 0; staked < cap; staked += PT) assert.equal(bet(s, "gauntlet", P, ROSTER[0]).ok, true);
+  for (let staked = 0; staked < cap; staked += PT) assert.equal(bet(s, "where", P, ROSTER[0]).ok, true);
   act(s, "saveResult", { evId:"ragecage", slots:[[ROSTER[1]]], confirmOverwrite:true, correctionReason:"Wrong winner" });
   const balance = pts(s)[P], exposure = atRisk(s, P, allEventsOf(s));
   assert.ok(exposure <= Math.min(maxRisk(balance), balance), `${exposure} fits ${balance}`);
@@ -198,7 +236,7 @@ test("a correction voids the newest chips that no longer fit and records them; t
   assert.equal(entry.type, "overwrite");
   assert.ok(entry.voided.length > 0 && entry.voided.every(item => item.player === P));
   assert.equal(entry.voided.reduce((sum, item) => sum + item.stake, 0), cap - exposure);
-  runFfa(s, "gauntlet", [[ROSTER[2]]]);
+  runFfa(s, "where", [[ROSTER[2]]]);
   assert.ok(pts(s)[P] >= 0, "the bettor never goes below zero");
 
   /* a ruling can still push someone under zero; the finale covers it */
@@ -249,8 +287,8 @@ test("shelving voids an event's open tickets with an explicit confirm, and resto
   act(s, "shelve", { id:"putt", on:false });
   assert.ok(s.wagers.every(w => resolveWager(s, w, allEventsOf(s)).status === "pending"));
   act(s, "shelve", { id:"putt", on:true, confirmReturn:true });
-  act(s, "setOnDeck", { id:"nine" });
-  assert.equal(bet(s, "nine", ROSTER[6], ROSTER[7], 500).ok, true, "shelved chips no longer hold the cap");
+  act(s, "setOnDeck", { id:"where" });
+  assert.equal(bet(s, "where", ROSTER[6], ROSTER[7], 500).ok, true, "shelved chips no longer hold the cap");
   const posted = fresh();
   runFfa(posted, "putt", [[ROSTER[0]]]);
   fail(posted, "shelve", { id:"putt", on:true, confirmReturn:true }, gm(), /Clear the result/);
@@ -273,7 +311,7 @@ test("posted chips move only with a reason, never on a frozen board, and never t
     ["adjust", { player:ROSTER[4], delta:500, reason:"x" }],
     ["saveResult", { evId:"putt", slots:[[ROSTER[4]]], confirmOverwrite:true, correctionReason:"x" }],
     ["clearResult", { evId:"putt", confirmClear:true, correctionReason:"x" }],
-    ["shelve", { id:"nine", on:true }],
+    ["shelve", { id:"where", on:true }],
   ]) fail(s, type, payload, gm(), /frozen/);
   act(s, "setFrozen", { f:false });
 
@@ -407,7 +445,7 @@ const compiled = await build({
   plugins:[{ name:"isolated-result", setup(builder) {
     builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({ loader:"js", contents:blocked([
       "useTournament", "dispatch", "uploadPhoto", "downloadSnapshot", "localGet", "localSet", "getDeviceId", "setGmToken", "hasGmToken",
-      "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice",
+      "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet",
     ]) }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));
@@ -437,13 +475,67 @@ const sheet = (state, ev, clicks = []) => {
   return { html, saved, clicked:next };
 };
 
-test("the result sheet prefills split 3rd and a stage runner-up, and asks before leaving a paid place empty", () => {
+test("two teams, one game: the result is picking the winner, and the other team is 2nd when 2nd pays", () => {
+  /* The team choices are plain buttons. A click lands during the sheet's
+     render; the next click waits for the render pass that reacts to it (the
+     clicked control is drawn again). */
+  const clickAll = (s, id, clicks) => {
+    const saved = [], createElement = React.createElement;
+    const text = node => Array.isArray(node) ? node.map(text).join("")
+      : React.isValidElement(node) ? text(node.props.children) : typeof node === "string" || typeof node === "number" ? String(node) : "";
+    let next = 0, html, lastSeen = 0;
+    React.createElement = (type, props, ...children) => {
+      const label = text(children);
+      if (next > 0 && label.includes(clicks[next - 1]) && props?.onClick) lastSeen++;
+      const ready = next === 0 || lastSeen >= 2;
+      if (ready && next < clicks.length && props?.onClick && label.includes(clicks[next])) {
+        next++; lastSeen = 1; props.onClick();
+      }
+      return createElement(type, props, ...children);
+    };
+    try {
+      html = renderToStaticMarkup(createElement(PlayerIdentityProvider, { profiles:s.profiles },
+        createElement(ResultSheet, { state:s, ev:event(s, id), onClose:() => {},
+          save:slots => { saved.push(structuredClone(slots)); return { ok:true }; } })));
+    } finally { React.createElement = createElement; }
+    return { html, saved };
+  };
+
+  /* Flip Cup (legacy, 6 v 6 at 1,600) pays the other team 2nd */
+  const s = withFlip();
+  drawn(s, "flip");
+  const teams = s.draws.flip.teams;
+  assert.equal(teams.length, 2);
+  const open = clickAll(s, "flip", []);
+  assert.match(open.html, />Winner</);
+  assert.doesNotMatch(open.html, /Runner-up|2nd place|Pick by player/, "no places to fill");
+  const posted = clickAll(s, "flip", [teamLabel(s, teams[1]), "Post official result"]);
+  assert.deepEqual(posted.saved, [[[...teams[1].players], [...teams[0].players], []]]);
+  assert.match(posted.html, /\+1,600 each to the winners, \+800 each to the other team, \+400 each to the crew\./);
+
+  /* 5v5 pays winners only: the other team takes no place */
+  const full = fresh();
+  drawn(full, "bball5");
+  const sides = full.draws.bball5.teams;
+  assert.equal(sides.length, 2);
+  const fullOpen = clickAll(full, "bball5", []);
+  assert.match(fullOpen.html, />Winner</);
+  assert.doesNotMatch(fullOpen.html, /Runner-up|2nd place|Pick by player/, "no places to fill");
+  const fullPosted = clickAll(full, "bball5", [teamLabel(full, sides[1]), "Post official result"]);
+  assert.deepEqual(fullPosted.saved, [[[...sides[1].players], [], []]]);
+  assert.match(fullPosted.html, /\+800 each to the winners\./);
+  assert.doesNotMatch(fullPosted.html, /to the other team|to the crew/);
+});
+
+test("the result sheet prefills both semifinal losers in 3rd and a stage runner-up, and asks before leaving a paid place empty", () => {
+  /* Pickleball pays 800 / 400 / 200: both semifinal losers take 200, and so does crew */
   const pb = fresh();
   drawn(pb, "pickleball");
   while (current(pb, "pickleball")) { lock(pb, "pickleball"); win(pb, "pickleball", current(pb, "pickleball").sides[0].key); }
   const pbView = sheet(pb, event(pb, "pickleball"), ["Post official result"]);
+  assert.match(pbView.html, /Runners-up.*\+400 each, 2 in/s);
   assert.match(pbView.html, /3rd place.*\+200 each, 4 in/s);
-  assert.match(pbView.html, /Event crew \+400 each/);
+  assert.match(pbView.html, /Event crew \+200 each/);
   assert.equal(pbView.saved.length, 1, "every paid place is filled, so it posts");
   assert.equal(pbView.saved[0][2].length, 4);
 

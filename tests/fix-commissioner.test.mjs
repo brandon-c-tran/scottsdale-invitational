@@ -12,6 +12,7 @@ import {
 } from "../shared/core.js";
 import { resolveDirector } from "../shared/show.js";
 import { applyAction } from "./support/confirmed-start.mjs";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 import { Tournament } from "../worker/tournament.js";
 import { pendingReveal, revealReady } from "../src/features/weekend/drawReveal.js";
 
@@ -66,7 +67,7 @@ const compiled = await build({
       export const hasGmToken=()=>true;
       ${blocked(["dispatch", "uploadPhoto", "downloadSnapshot", "localSet", "getDeviceId", "setGmToken",
         "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect",
-        "spotifyPlay", "spotifyPause", "spotifyDevice"])}
+        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet"])}
     ` }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));
@@ -161,17 +162,17 @@ test("a draw prepared for a later event is held on every screen until it is anno
 });
 
 test("solo heats announce and draw in one write with the present players", () => {
-  const state = fresh(["pingpong"]);
+  const state = fresh(["beerio"]);
   act(state, "setAway", { player:"Khoa", away:true });
   const beat = director(state).nextAction;
   assert.equal(beat.type, "announce-draw");
   assert.equal(beat.players.includes("Khoa"), false);
-  act(state, "announceAndDraw", { evId:"pingpong" });
-  assert.equal(state.onDeck, "pingpong");
-  const entrants = state.stages.pingpong.groups.flatMap(group => group.entrants);
+  act(state, "announceAndDraw", { evId:"beerio" });
+  assert.equal(state.onDeck, "beerio");
+  const entrants = state.stages.beerio.groups.flatMap(group => group.entrants);
   assert.equal(entrants.length, 12);
   assert.equal(entrants.includes("Khoa"), false);
-  assert.deepEqual(ceremony(state), [["intro", "pingpong"], ["reveal", "pingpong", state.stages.pingpong.id]]);
+  assert.deepEqual(ceremony(state), [["intro", "beerio"], ["reveal", "beerio", state.stages.beerio.id]]);
 });
 
 test("a mis-tapped winner can be undone after the next contest starts; its chips go back named", () => {
@@ -225,16 +226,18 @@ test("away players leave draws, FFA sides and poker seats; chips are untouched a
   assert.equal(short.brackets["8ball"].size, 5);
   assert.ok(short.draws["8ball"].teams.every(team => !team.players.includes("Evan") && !team.players.includes("Khoa")));
   assert.match(current(short, "8ball").label, /Play-in/);
-  /* two-sided team games shrink evenly: 11 here plays 5 v 5 with one crew */
-  assert.deepEqual(teamFit(eventOf(short, "volley"), 11), { teams:2, size:5, bracket:null, reduced:true });
-  assert.equal(validateEventParticipants(eventOf(short, "volley"), presentPlayers(short).slice(0, 10), presentPlayers(short)).ok, true);
+  /* two-sided team games shrink evenly: 11 here plays 5 v 5 with one crew
+     (the slate's 5v5 is everyone in, so the even strict shape is legacy Flip Cup) */
+  withLegacyEvents(short, ["flip"]);
+  assert.deepEqual(teamFit(eventOf(short, "flip"), 11), { teams:2, size:5, bracket:null, reduced:true });
+  assert.equal(validateEventParticipants(eventOf(short, "flip"), presentPlayers(short).slice(0, 10), presentPlayers(short)).ok, true);
 
   /* heats accept any selection with at least two a heat */
   const heats = fresh();
-  refuse(heats, "runStages", { evId:"pingpong", cfg:{ kind:"heats", nGroups:3, advance:1, players:ROSTER.slice(0, 5) } }, /at least 2/);
-  act(heats, "runStages", { evId:"pingpong", cfg:{ kind:"heats", nGroups:3, advance:1, players:ROSTER.slice(0, 6),
+  refuse(heats, "runStages", { evId:"beerio", cfg:{ kind:"heats", nGroups:3, advance:1, players:ROSTER.slice(0, 5) } }, /at least 2/);
+  act(heats, "runStages", { evId:"beerio", cfg:{ kind:"heats", nGroups:3, advance:1, players:ROSTER.slice(0, 6),
     roles:[{ player:ROSTER[6], role:"scorekeeper" }] } });
-  assert.equal(heats.stages.pingpong.roles.find(item => item.player === ROSTER[6]).role, "scorekeeper");
+  assert.equal(heats.stages.beerio.roles.find(item => item.player === ROSTER[6]).role, "scorekeeper");
 
   /* poker: away players are not dealt in and carry their board total */
   const table = fresh(); table.live = true;
@@ -300,7 +303,7 @@ test("preparing or announcing another event never hijacks one being played", () 
   refuse(state, "announceEvent", { evId:"putt" }, /Finish 8-Ball Doubles first/);
   refuse(state, "announceAndDraw", { evId:"pong" }, /Finish 8-Ball Doubles first/);
   act(state, "runDraw", { evId:"pong", ...suggestParticipants(state, eventOf(state, "pong")) });
-  act(state, "startDraft", { evId:"volley", captains:["Evan", "Khoa"],
+  act(state, "startDraft", { evId:"volley", captains:["Evan", "Khoa", "Adi", "Allan"],
     players:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"referee" }] });
   const beat = director(state);
   assert.equal(beat.event.id, "8ball");
@@ -359,26 +362,27 @@ test("Swap in keeps the draw and team indices; only outright tickets on the play
   refuse(state, "swapPlayer", { evId:"8ball", out:state.draws["8ball"].teams[other].players[0], into:leaving },
     /already started/);
 
-  /* a two-team game: team tickets naming the player leaving are voided (one side per bettor) */
-  const volley = fresh(["volley"]);
-  act(volley, "announceAndDraw", { evId:"volley" });
-  const crew = volley.draws.volley.roles[0].player;
-  const team0 = volley.draws.volley.teams[0].players, team1 = volley.draws.volley.teams[1].players;
-  act(volley, "placeWager", { wager:chip(volley, "volley", 0) }, guest(crew));
-  act(volley, "placeWager", { wager:chip(volley, "volley", 1) }, guest(team1[0]));
-  const result = act(volley, "swapPlayer", { evId:"volley", out:team0[0], into:crew });
+  /* a two-team game: team tickets naming the player leaving are voided (one side per bettor).
+     The even game with a crew seat to swap from is legacy Flip Cup. */
+  const flip = withLegacyEvents(fresh(["flip"]), ["flip"]);
+  act(flip, "announceAndDraw", { evId:"flip" });
+  const crew = flip.draws.flip.roles[0].player;
+  const team0 = flip.draws.flip.teams[0].players, team1 = flip.draws.flip.teams[1].players;
+  act(flip, "placeWager", { wager:chip(flip, "flip", 0) }, guest(crew));
+  act(flip, "placeWager", { wager:chip(flip, "flip", 1) }, guest(team1[0]));
+  const result = act(flip, "swapPlayer", { evId:"flip", out:team0[0], into:crew });
   assert.equal(result.extra.voided, 1);
-  const statuses = volley.wagers.map(wager => [wager.pickPlayers.includes(team1[0]), resolveWager(volley, wager, allEventsOf(volley)).status]);
+  const statuses = flip.wagers.map(wager => [wager.pickPlayers.includes(team1[0]), resolveWager(flip, wager, allEventsOf(flip)).status]);
   assert.deepEqual(statuses.sort(), [[false, "void"], [true, "pending"]]);
 
   /* solo heats: heat tickets on the player leaving are voided */
-  const heats = fresh(["pingpong"]);
-  act(heats, "announceAndDraw", { evId:"pingpong", players:ROSTER.slice(0, 12) });
-  const heat = current(heats, "pingpong"), out = heat.sides[0].key;
-  act(heats, "placeWager", { wager:chip(heats, "pingpong", out) }, guest(ROSTER[12]));
-  act(heats, "swapPlayer", { evId:"pingpong", out, into:ROSTER[12] });
+  const heats = fresh(["beerio"]);
+  act(heats, "announceAndDraw", { evId:"beerio", players:ROSTER.slice(0, 12) });
+  const heat = current(heats, "beerio"), out = heat.sides[0].key;
+  act(heats, "placeWager", { wager:chip(heats, "beerio", out) }, guest(ROSTER[12]));
+  act(heats, "swapPlayer", { evId:"beerio", out, into:ROSTER[12] });
   assert.equal(resolveWager(heats, heats.wagers[0], allEventsOf(heats)).status, "void");
-  assert.ok(heats.stages.pingpong.groups[heat.group].entrants.includes(ROSTER[12]));
+  assert.ok(heats.stages.beerio.groups[heat.group].entrants.includes(ROSTER[12]));
 });
 
 test("check-in cannot rerun and the weekend cannot go back to the locker room once play starts", () => {

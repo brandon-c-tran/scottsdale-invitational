@@ -6,8 +6,9 @@ import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  AWARDS, BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket, resolveCurrentContest,
+  awardTable, BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket, resolveCurrentContest,
 } from "../shared/core.js";
+import { legacyEvent, withLegacyEvents } from "./support/legacy-events.mjs";
 import { contestWinLines, winSlots, joinNames, ordinal, winLineFor } from "../src/features/standings/winImpact.js";
 import { resolvePlayerIdentity } from "../src/features/identity/playerIdentity.js";
 import { BAR_FLOOR, barScale, chipBar, rowMoves, soleLeader, BOARD_BEATS }
@@ -33,7 +34,8 @@ componentModule._compile(compiled.outputFiles[0].text, componentModule.filename)
 const ui = componentModule.exports;
 
 const eightBall = BUILTIN_EVENTS.find(event => event.id === "8ball");
-const volley = BUILTIN_EVENTS.find(event => event.id === "volley");
+/* an even two-team game of six (the old Flip Cup shape) */
+const twoTeams = legacyEvent("flip");
 const putt = BUILTIN_EVENTS.find(event => event.id === "putt");
 const fresh = () => ({ ...structuredClone(EMPTY_STATE), live:true });
 const noop = () => {};
@@ -65,7 +67,7 @@ test("X8: a bracket final's win line names the rank it reaches, from the real aw
   assert.equal(zero.kind, "rank");
   assert.equal(zero.text, `Win: ${ROSTER[0]} and ${ROSTER[1]} to 1st`);
   assert.equal(one.kind, "chips", "already leading: the line is the chips");
-  assert.equal(one.text, `Win: ${ROSTER[2]} and ${ROSTER[3]} +${AWARDS[eightBall.value][0]}`);
+  assert.equal(one.text, `Win: ${ROSTER[2]} and ${ROSTER[3]} +${awardTable(eightBall)[0].toLocaleString("en-US")}`);
 });
 
 test("X8: a win that posts nothing says nothing, and wagers are never the side's standings", () => {
@@ -86,31 +88,31 @@ test("X8: a win that posts nothing says nothing, and wagers are never the side's
 });
 
 test("X8: a two-team game fixes 2nd too; a big team reads as its team label; ties say tie", () => {
-  const state = fresh();
-  state.draws[volley.id] = { id:"dv", teams:[{ players:ROSTER.slice(0, 6) }, { players:ROSTER.slice(6, 12) }] };
-  state.onDeck = volley.id;
-  const contest = resolveCurrentContest(state, volley);
+  const state = withLegacyEvents(fresh(), ["flip"]);
+  state.draws[twoTeams.id] = { id:"dv", teams:[{ players:ROSTER.slice(0, 6) }, { players:ROSTER.slice(6, 12) }] };
+  state.onDeck = twoTeams.id;
+  const contest = resolveCurrentContest(state, twoTeams);
   assert.equal(contest.sides.length, 2);
-  const slots = winSlots(state, volley, contest, 0);
+  const slots = winSlots(state, twoTeams, contest, 0);
   assert.deepEqual(slots[0], ROSTER.slice(0, 6));
-  assert.deepEqual(slots[1], AWARDS[volley.value][1] > 0 ? ROSTER.slice(6, 12) : []);
+  assert.deepEqual(slots[1], awardTable(twoTeams)[1] > 0 ? ROSTER.slice(6, 12) : []);
   /* everyone level: already tied for 1st, so the line is the chips each */
-  const lines = contestWinLines(state, volley, contest);
+  const lines = contestWinLines(state, twoTeams, contest);
   assert.equal(lines[0].kind, "chips");
-  assert.equal(lines[0].text, `Win: Team ${ROSTER[0]} +${AWARDS[volley.value][0].toLocaleString("en-US")}`);
+  assert.equal(lines[0].text, `Win: Team ${ROSTER[0]} +${awardTable(twoTeams)[0].toLocaleString("en-US")}`);
 
   /* someone ahead: the six winners climb past the rest of the field */
-  const ahead = fresh();
-  ahead.draws[volley.id] = structuredClone(state.draws[volley.id]);
-  ahead.onDeck = volley.id;
-  ahead.adjustments = [{ id:"t", player:ROSTER[12], delta:AWARDS[volley.value][0] + 500, ts:1 },
+  const ahead = withLegacyEvents(fresh(), ["flip"]);
+  ahead.draws[twoTeams.id] = structuredClone(state.draws[twoTeams.id]);
+  ahead.onDeck = twoTeams.id;
+  ahead.adjustments = [{ id:"t", player:ROSTER[12], delta:awardTable(twoTeams)[0] + 500, ts:1 },
     { id:"u", player:ROSTER[6], delta:300, ts:1 }];
-  const climb = contestWinLines(ahead, volley, resolveCurrentContest(ahead, volley));
+  const climb = contestWinLines(ahead, twoTeams, resolveCurrentContest(ahead, twoTeams));
   assert.equal(climb[0].text, `Win: Team ${ROSTER[0]} to 2nd`);
 
   /* landing level with the leader says tie */
   const tie = finalState();
-  tie.adjustments = [{ id:"x", player:ROSTER[12], delta:AWARDS[eightBall.value][0], ts:1 }];
+  tie.adjustments = [{ id:"x", player:ROSTER[12], delta:awardTable(eightBall)[0], ts:1 }];
   const tied = contestWinLines(tie, eightBall, resolveCurrentContest(tie, eightBall));
   assert.equal(tied[0].text, `Win: ${ROSTER[0]} and ${ROSTER[1]} tie for 1st`);
   assert.equal(tied[0].tied, true);
@@ -180,7 +182,7 @@ test("X1 + X8: Home's contest card shows each side's bets and win line, players 
   assert.match(html, /You’re playing/);
   assert.match(html, /Final · Match 1/);
   assert.match(html, /aria-label="300 chips bet on this side"/);
-  assert.match(html, new RegExp(`Win: ${ROSTER[0]} and ${ROSTER[1]} to 1st|Win: ${ROSTER[0]} and ${ROSTER[1]} \\+400`));
+  assert.match(html, new RegExp(`Win: ${ROSTER[0]} and ${ROSTER[1]} to 1st|Win: ${ROSTER[0]} and ${ROSTER[1]} \\+${awardTable(eightBall)[0].toLocaleString("en-US")}`));
   assert.doesNotMatch(html, /is-stamping|fd-home-sweep/, "a first load never sweeps");
   for (const player of ROSTER.slice(0, 4))
     assert.match(html, new RegExp(`aria-label="View ${player}&#x27;s player card"`));

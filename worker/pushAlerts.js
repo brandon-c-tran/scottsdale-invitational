@@ -7,17 +7,16 @@
      "You're playing" stamp: a contest you are in, not a wide free-for-all).
    - pick: it became your turn in a captains draft.
    - duel: someone sent a challenge to you by name.
-   - call: the commissioner called everyone to the TV (D9), to every
-     present player.
+   - mvp: your team won and votes its MVP (shared/mvp.js).
    Each carries a dedupe key (player + reason + contest) so a correction
    that reopens the same contest, a retry, or a replay never alerts twice. */
 
 import {
-  ROSTER, allEventsOf, disp, draftTurn, isActivePlayer, isAway, resolveCurrentContest,
+  allEventsOf, disp, draftTurn, isActivePlayer, isAway, resolveCurrentContest,
   resolveWeekendOperation, teamLabel, DUEL_GAMES,
 } from "../shared/core.js";
 
-export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "call"]);
+export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "mvp"]);
 const LIVE_PHASES = new Set(["betting-open", "betting-locked", "in-progress"]);
 
 /* the current contest, while it is open or being played */
@@ -94,16 +93,18 @@ function duelAlerts(prev, next) {
     }));
 }
 
-/* D9: a new call (a new id) reaches every present player once. Phones
-   looking at the app already show the bar; tournament.js skips them. */
-function callAlerts(prev, next) {
-  const call = next?.showControl?.call;
-  if (!call || typeof call.id !== "string" || call.id === prev?.showControl?.call?.id) return [];
-  return ROSTER.filter(player => isActivePlayer(player) && !isAway(next, player)).map(player => ({
-    player, reason:"call", key:`call:${player}:${call.id}`,
-    message:{ title:"To the TV", body:typeof call.label === "string" ? call.label : "", tag:`call:${call.id}`,
-      topic:"call", url:"/?alert=call" },
-  }));
+/* a team MVP vote that just opened reaches the teammates who vote */
+function mvpAlerts(prev, next) {
+  const events = allEventsOf(next);
+  return Object.entries(next?.mvp || {}).flatMap(([evId, record]) => {
+    if (!record?.id || record.closedAt || prev?.mvp?.[evId]?.id === record.id) return [];
+    const name = events.find(ev => ev.id === evId)?.name || "Team MVP";
+    return (record.team || []).filter(player => isActivePlayer(player) && !isAway(next, player)).map(player => ({
+      player, reason:"mvp", key:`mvp:${player}:${record.id}`,
+      message:{ title:"Vote team MVP", body:name, tag:`mvp:${record.id}`, topic:"mvp",
+        url:`/?alert=mvp&ev=${encodeURIComponent(evId)}` },
+    }));
+  });
 }
 
 /* `actor` is the player claimed by the device that made the write (null for
@@ -111,7 +112,7 @@ function callAlerts(prev, next) {
 export function alertsFor(prev, next, { actor = null } = {}) {
   if (!next || prev === next) return [];
   const alerts = [...playingAlerts(prev || {}, next), ...pickAlerts(prev || {}, next), ...duelAlerts(prev || {}, next),
-    ...callAlerts(prev || {}, next)];
+    ...mvpAlerts(prev || {}, next)];
   const seen = new Set();
   return alerts.filter(alert => {
     if (!alert.player || alert.player === actor || seen.has(alert.key)) return false;

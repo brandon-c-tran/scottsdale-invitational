@@ -5,6 +5,7 @@ import { EMPTY_STATE, ROSTER, allEventsOf, resolveCurrentContest, resolveEventLi
   computeStandings, atRisk, makeBracket } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { hydrateStoredState } from "../worker/state.js";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 let serial = 0;
 const fresh = () => structuredClone(EMPTY_STATE);
@@ -122,7 +123,7 @@ test("the whole bracket runs one contest at a time and final podium must agree",
 });
 
 test("heat winner is independent of multiple qualifiers and legacy advancement tickets keep their meaning", () => {
-  const s=fresh(), id="pingpong";
+  const s=fresh(), id="beerio";
   fail(s,"announceEvent",{evId:id},gm(),/Set up heats/);
   act(s,"runStages",{evId:id,cfg:{kind:"heats",nGroups:3,advance:2,players:ROSTER}});
   act(s,"announceEvent",{evId:id});
@@ -161,19 +162,21 @@ test("legacy hydration preserves locked current match, skips completed advanceme
   win(s,"8ball",c.sides[0].key);
   assert.equal(current(s,"8ball").phase,"betting-open");
   const heats=fresh(); heats.v=8;
-  heats.stages.pingpong={id:"old-stages",eventId:"pingpong",kind:"heats",entrantType:"solo",advance:1,
+  heats.stages.beerio={id:"old-stages",eventId:"beerio",kind:"heats",entrantType:"solo",advance:1,
     groups:[{name:"Heat 1",entrants:ROSTER.slice(0,4),through:[ROSTER[2]]},{name:"Heat 2",entrants:ROSTER.slice(4,8),through:[]}],finalWinner:null};
-  heats.eventOps.pingpong={startedAt:10};
+  heats.eventOps.beerio={startedAt:10};
   const hydrated=hydrateStoredState(heats);
-  assert.equal(current(hydrated,"pingpong").group,1);
-  assert.equal(current(hydrated,"pingpong").phase,"in-progress");
-  assert.equal(hydrated.stages.pingpong.groups[0].winner,undefined);
-  const legacyFfa=fresh(); legacyFfa.eventOps.pingpong={startedAt:10};
-  assert.equal(current(legacyFfa,"pingpong").kind,"ffa");
+  assert.equal(current(hydrated,"beerio").group,1);
+  assert.equal(current(hydrated,"beerio").phase,"in-progress");
+  assert.equal(hydrated.stages.beerio.groups[0].winner,undefined);
+  const legacyFfa=fresh(); legacyFfa.eventOps.beerio={startedAt:10};
+  assert.equal(current(legacyFfa,"beerio").kind,"ffa");
 });
 
 test("team pool announce is atomic, and prepared draws never count as live", () => {
-  const s=fresh();
+  /* the slate has no pools event any more: Spikeball's pairs pools stay a
+     supported shape */
+  const s=withLegacyEvents(fresh(),["spike"]);
   act(s,"announceAndDraw",{evId:"spike",players:ROSTER.slice(0,12)});
   assert.equal(s.stages.spike.kind,"pools");
   assert.equal(current(s,"spike").kind,"heat");
@@ -269,7 +272,7 @@ test("undo returns next-contest chips, works after the next contest starts, and 
   assert.equal(s.wagers[0].status,"void");
   assert.equal(current(s,id).id,opening.id);
   assert.equal(current(s,id).phase,"in-progress");
-  const h=fresh(), hid="pingpong";
+  const h=fresh(), hid="beerio";
   act(h,"runStages",{evId:hid,cfg:{kind:"heats",nGroups:2,advance:2,players:ROSTER}});
   act(h,"announceEvent",{evId:hid});
   const first=current(h,hid); lock(h,hid); win(h,hid,first.sides[0].key,first.sides.slice(0,2).map(x=>x.key));

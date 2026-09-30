@@ -112,6 +112,10 @@ function Plate({ state, plate, ev, me, onPlayer, onBracket }) {
         {place.players.length > 1 && <span className="fd-kept-team">{place.team
           || place.players.map(p => disp(state, p)).join(" & ")}</span>}
       </li>)}
+      {plate.mvp && <li className="is-mvp">
+        <span className="fd-kept-place">MVP</span>
+        <span className="fd-kept-people"><PlayerChip state={state} p={plate.mvp} size={26} onPlayer={onPlayer} named /></span>
+      </li>}
     </ol> : <p className="fd-kept-blank">Not played</p>}
     {plate.bracket && ev && onBracket && <BracketPeek state={state} ev={ev} me={me} onOpen={onBracket} />}
   </li>;

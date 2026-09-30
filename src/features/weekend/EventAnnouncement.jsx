@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AWARDS, disp, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
+import { awardTable, disp, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
@@ -15,7 +15,7 @@ import "./announcement.css";
 export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3000, visual, now:clockNow = serverNow }) {
   const contest = resolveCurrentContest(state,ev);
   const detail = [!handoff && (contest?.kind !== "ffa" ? contest?.label : "One winner"),
-    AWARDS[ev.value]?.[0] ? `${AWARDS[ev.value][0].toLocaleString("en-US")} chips to win` : null].filter(Boolean).join(" · ");
+    awardTable(ev)[0] ? `${awardTable(ev)[0].toLocaleString("en-US")} chips to win` : null].filter(Boolean).join(" · ");
   /* the handoff bar runs on the room's clock, so a phone that heard late
      starts it part-filled and every bar ends at the shared handoff */
   const [elapsed] = useState(() => {
@@ -119,21 +119,27 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
       /* your own team, heat or matchup rings in your color as it turns */
       const mine = !!me && group.lines.some(line => (line.avatars || []).includes(me));
       const ring = mine && visible && animate && !settled;
+      const lines = group.lines.map((line,j)=>{
+        const people = line.avatars || [];
+        const namedTeam = line.text && people.length > 1 && line.text !== people.map(player => disp(state,player)).join(" & ") && line.text !== group.title;
+        const body = <>
+          {namedTeam && <strong className="fd-draw-team-name">{line.text}</strong>}
+          <div className="fd-draw-people">{people.length ? people.map((player, playerIndex)=>playerButton(player,visible,playerIndex)) : <span>{line.text}</span>}</div>
+        </>;
+        if (group.bye) return <div key={j} style={{ "--deal-index":j }}
+          className={`fd-draw-bye${me && people.includes(me) ? " is-mine" : ""}`}>{body}</div>;
+        return <React.Fragment key={j}>
+          {group.vs && j > 0 && <small className="fd-draw-versus">vs</small>}
+          {body}
+        </React.Fragment>;
+      });
       return <section key={index} style={mine ? youStyle : undefined}
-        className={`fd-draw-card ${visible ? "is-revealed" : "is-covered"}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`}>
+        className={`fd-draw-card ${visible ? "is-revealed" : "is-covered"}${group.bye ? " is-byes" : ""}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`}>
         <div className="fd-draw-card-back" aria-hidden="true"><span>{String(index + 1).padStart(2,"0")}</span></div>
         {ring && <i className="fd-draw-ring" aria-hidden="true"/>}
         <div className="fd-draw-card-front" aria-hidden={!visible}>
           <h3>{group.title}{mine && visible && <span className="fd-draw-you">You</span>}</h3>
-          {group.lines.map((line,j)=>{
-            const people = line.avatars || [];
-            const namedTeam = line.text && people.length > 1 && line.text !== people.map(player => disp(state,player)).join(" & ") && line.text !== group.title;
-            return <React.Fragment key={j}>
-              {group.vs && j > 0 && <small className="fd-draw-versus">vs</small>}
-              {namedTeam && <strong className="fd-draw-team-name">{line.text}</strong>}
-              <div className="fd-draw-people">{people.length ? people.map((player, playerIndex)=>playerButton(player,visible,playerIndex)) : <span>{line.text}</span>}</div>
-            </React.Fragment>;
-          })}
+          {group.bye ? <div className="fd-draw-byes">{lines}</div> : lines}
         </div>
       </section>;
     })}</div>

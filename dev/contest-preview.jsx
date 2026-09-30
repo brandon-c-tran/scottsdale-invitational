@@ -20,8 +20,8 @@ import { ActionButton, Sheet } from "../src/ui/controls.jsx";
 const scenarios = [
   { id:"ffa", label:"Long Putt · everyone plays", evId:"putt" },
   { id:"bracket", label:"8-Ball · six teams", evId:"8ball" },
-  { id:"heat", label:"Ping Pong · heat winner", evId:"pingpong" },
-  { id:"heats", label:"Ping Pong · two advance", evId:"pingpong" },
+  { id:"heat", label:"Beerio Kart · heat winner", evId:"beerio" },
+  { id:"heats", label:"Beerio Kart · two advance", evId:"beerio" },
   { id:"legacy", label:"8-Ball · existing mid-event", evId:"8ball" },
 ];
 const events = BUILTIN_EVENTS;

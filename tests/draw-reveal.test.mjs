@@ -81,7 +81,7 @@ test("replay reads the actual first-round matchups and byes without changing sav
 });
 
 test("the latest saved stage reveal keeps complete entrants and named teams", () => {
-  const state = structuredClone(EMPTY_STATE), ev = BUILTIN_EVENTS.find(event => event.id === "pingpong");
+  const state = structuredClone(EMPTY_STATE), ev = BUILTIN_EVENTS.find(event => event.id === "beerio");
   const result = applyAction(state, "runStages", { evId:ev.id, cfg:{ kind:"heats", nGroups:3, advance:2, players:ROSTER } }, { isGm:true, player:ROSTER[0] });
   assert.equal(result.ok, true, result.error);
   state.profiles[ROSTER[0]] = { display:"Saved display name", ratings:{ private:5 } };

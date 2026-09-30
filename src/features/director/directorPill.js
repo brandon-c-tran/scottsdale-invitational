@@ -115,6 +115,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     case "run-poker": run = { open:"pokerClock" }; break;
     case "post-poker-result": run = { open:"pokerResult" }; break;
     case "crown-champion": run = { open:"crown" }; break;
+    case "close-mvp": run = { write:"mvpClose", payload:{ evId:beat.eventId } }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;
@@ -169,6 +170,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       extras.push({ label:extra.label, run:{ open:"draft", evId:ev.id, pool:beat.players, roles:beat.roles || [] } });
     else if (extra.type === "swap-in")
       extras.push({ label:extra.label, run:{ open:"event", evId:ev.id } });
+    else if (extra.type === "close-mvp")
+      extras.push({ label:extra.label, run:{ write:"mvpClose", payload:{ evId:extra.eventId } } });
     else if (extra.type === "skip-opening" && director.then) {
       const next = directorPill(state, events, { ...director, nextAction:director.then, then:null, extras:[] }, { me, now });
       if (next?.run) extras.push({ label:extra.label, run:next.run });

@@ -6,6 +6,7 @@ import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, makeBracket } from "../shared/core.js";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
@@ -29,45 +30,49 @@ const { seasonStats, eventRow, headToHead, rivalries, betRecord, betsOn, duelTal
 const [A, B, C, D, E, F, G, H, I, J, K, L, M] = ROSTER;
 const ev = (s, id) => allEventsOf(s).find(item => item.id === id);
 
-/* Pickleball (1,200) played as a six-team bracket: T0 beats T3 and T1 in
-   the final, T1 beats T5, T3 and T5 won their play-ins. M crews. */
+/* Beer Pong Doubles (1,200: 1,200 / 600 / 300) played as a six-team
+   bracket: T0 beats T3 and T1 in the final, T1 beats T5, T3 and T5 won
+   their play-ins. M crews. */
 function played() {
   const s = { ...structuredClone(EMPTY_STATE), live:true };
   const teams = [[A, B], [C, D], [E, F], [G, H], [I, J], [K, L]].map(players => ({ players }));
-  s.draws.pickleball = { id:"d-pickle", teams, roles:[{ player:M, role:"referee" }], ts:1 };
+  s.draws.pong = { id:"d-pong", teams, roles:[{ player:M, role:"referee" }], ts:1 };
   const br = makeBracket(6);
   br.rounds[0][0].winner = 3; br.rounds[0][1].winner = 5;
   br.rounds[1][0].winner = 0; br.rounds[1][1].winner = 1;
   br.rounds[2][0].winner = 0;
-  s.brackets.pickleball = br;
-  s.results.pickleball = { slots:[[A, B], [C, D], [G, H, K, L]], ts:10, revision:1 };
+  s.brackets.pong = br;
+  s.results.pong = { slots:[[A, B], [C, D], [G, H, K, L]], ts:10, revision:1 };
   return s;
 }
 
 test("an event row carries the place and award the board paid", () => {
   const s = played();
-  const pickle = ev(s, "pickleball");
-  assert.deepEqual(pick(eventRow(s, pickle, A)), { status:"placed", place:"1st", award:1200 });
-  assert.deepEqual(pick(eventRow(s, pickle, C)), { status:"placed", place:"2nd", award:800 });
-  assert.deepEqual(pick(eventRow(s, pickle, G)), { status:"placed", place:"3rd", award:200 }, "semifinal losers split 3rd");
-  assert.deepEqual(pick(eventRow(s, pickle, E)), { status:"out", place:"Play-in", award:0 });
-  assert.deepEqual(pick(eventRow(s, pickle, M)), { status:"crew", place:"Crew", award:200 });
+  const pong = ev(s, "pong");
+  assert.deepEqual(pick(eventRow(s, pong, A)), { status:"placed", place:"1st", award:1200 });
+  assert.deepEqual(pick(eventRow(s, pong, C)), { status:"placed", place:"2nd", award:600 });
+  assert.deepEqual(pick(eventRow(s, pong, G)), { status:"placed", place:"3rd", award:300 },
+    "each semifinal loser takes the full 3rd");
+  assert.deepEqual(pick(eventRow(s, pong, K)), { status:"placed", place:"3rd", award:300 });
+  assert.deepEqual(pick(eventRow(s, pong, E)), { status:"out", place:"Play-in", award:0 });
+  assert.deepEqual(pick(eventRow(s, pong, M)), { status:"crew", place:"Crew", award:300 });
   const standings = computeStandings(s);
   const byPlayer = Object.fromEntries(standings.map(row => [row.player, row.pts]));
-  assert.equal(byPlayer[G], 1200, "the card reads the same derived award as the board");
+  assert.equal(byPlayer[G], 1300, "the card reads the same derived award as the board");
+  assert.equal(byPlayer[M], 1300, "crew take the 3rd-place award");
 });
 const pick = row => row && ({ status:row.status, place:row.place, award:row.award });
 
 test("a bracket in progress shows who is alive and where the rest went out", () => {
   const s = played();
-  delete s.results.pickleball;
-  s.brackets.pickleball.rounds[2][0].winner = null;
-  s.brackets.pickleball.rounds[1][1].winner = null;
-  const pickle = ev(s, "pickleball");
-  assert.deepEqual(pick(eventRow(s, pickle, A)), { status:"playing", place:"Final", award:null });
-  assert.deepEqual(pick(eventRow(s, pickle, C)), { status:"playing", place:"SF", award:null });
-  assert.deepEqual(pick(eventRow(s, pickle, G)), { status:"out", place:"SF", award:null });
-  assert.deepEqual(pick(eventRow(s, pickle, M)), { status:"crew", place:"Crew", award:null });
+  delete s.results.pong;
+  s.brackets.pong.rounds[2][0].winner = null;
+  s.brackets.pong.rounds[1][1].winner = null;
+  const pong = ev(s, "pong");
+  assert.deepEqual(pick(eventRow(s, pong, A)), { status:"playing", place:"Final", award:null });
+  assert.deepEqual(pick(eventRow(s, pong, C)), { status:"playing", place:"SF", award:null });
+  assert.deepEqual(pick(eventRow(s, pong, G)), { status:"out", place:"SF", award:null });
+  assert.deepEqual(pick(eventRow(s, pong, M)), { status:"crew", place:"Crew", award:null });
   assert.equal(eventRow(s, ev(s, "8ball"), A), null, "an event nobody has started is not on the card");
 });
 
@@ -96,54 +101,56 @@ test("bracket meetings count opposite sides only, and follow a correction", () =
   assert.equal(semi[0].label, "Semifinal 1");
   assert.equal(semi[0].won, false);
   /* the commissioner corrects the final: derived, so the record flips */
-  s.brackets.pickleball.rounds[2][0].winner = 1;
-  s.results.pickleball = { slots:[[C, D], [A, B], [G, H, K, L]], ts:11, revision:2 };
+  s.brackets.pong.rounds[2][0].winner = 1;
+  s.results.pong = { slots:[[C, D], [A, B], [G, H, K, L]], ts:11, revision:2 };
   assert.equal(eventMeetings(s, A, C)[0].won, false);
-  assert.equal(pick(eventRow(s, ev(s, "pickleball"), A)).place, "2nd");
+  assert.equal(pick(eventRow(s, ev(s, "pong"), A)).place, "2nd");
   /* a shelved event leaves every card */
-  s.shelved = { pickleball:true };
+  s.shelved = { pong:true };
   assert.deepEqual(eventMeetings(s, A, C), []);
-  assert.equal(eventRow(s, ev(s, "pickleball"), A), null);
+  assert.equal(eventRow(s, ev(s, "pong"), A), null);
 });
 
 test("heats rank only their winner, and two-sided matchups meet across the teams", () => {
   const s = played();
-  s.stages.pingpong = { id:"s-pp", eventId:"pingpong", kind:"heats", entrantType:"solo", advance:1, contestVersion:1,
+  s.stages.beerio = { id:"s-bk", eventId:"beerio", kind:"heats", entrantType:"solo", advance:1, contestVersion:1,
     groups:[
       { name:"Heat 1", entrants:[A, C, E, G], through:[A], winner:A },
       { name:"Heat 2", entrants:[B, D, F, H], through:[H], winner:H },
       { name:"Heat 3", entrants:[I, J, K, L, M], through:[], winner:null },
     ], finalWinner:null, ts:5 };
-  const heat = (x, y) => eventMeetings(s, x, y).find(m => m.eventId === "pingpong");
+  const heat = (x, y) => eventMeetings(s, x, y).find(m => m.eventId === "beerio");
   assert.equal(heat(C, A).won, false);
   assert.equal(heat(C, A).label, "Heat 1");
-  assert.deepEqual(eventMeetings(s, C, E).filter(m => m.eventId === "pingpong"), [], "two heat losers did not meet");
-  const pingpong = ev(s, "pingpong");
-  assert.deepEqual(pick(eventRow(s, pingpong, C)), { status:"out", place:"Heat", award:null });
-  assert.deepEqual(pick(eventRow(s, pingpong, A)), { status:"playing", place:"Final", award:null });
-  assert.deepEqual(pick(eventRow(s, pingpong, I)), { status:"playing", place:"Heat 3", award:null });
+  assert.deepEqual(eventMeetings(s, C, E).filter(m => m.eventId === "beerio"), [], "two heat losers did not meet");
+  const beerio = ev(s, "beerio");
+  assert.deepEqual(pick(eventRow(s, beerio, C)), { status:"out", place:"Heat", award:null });
+  assert.deepEqual(pick(eventRow(s, beerio, A)), { status:"playing", place:"Final", award:null });
+  assert.deepEqual(pick(eventRow(s, beerio, I)), { status:"playing", place:"Heat 3", award:null });
   /* legacy heats kept only the qualifying list */
-  s.stages.pingpong.groups[1] = { name:"Heat 2", entrants:[B, D, F, H], through:[H] };
+  s.stages.beerio.groups[1] = { name:"Heat 2", entrants:[B, D, F, H], through:[H] };
   assert.equal(heat(B, H).won, false);
 
-  s.draws.volley = { id:"d-volley", teams:[{ players:[A, C, E, G, I, K] }, { players:[B, D, F, H, J, L] }], roles:[{ player:M, role:"referee" }], ts:6 };
-  s.results.volley = { slots:[[B, D, F, H, J, L]], ts:12, revision:1 };
-  const volley = eventMeetings(s, A, B).find(m => m.eventId === "volley");
-  assert.equal(volley.won, false);
-  assert.equal(volley.label, "Sand Volleyball");
-  assert.equal(eventMeetings(s, A, C).some(m => m.eventId === "volley"), false, "teammates did not meet");
-  assert.equal(pick(eventRow(s, ev(s, "volley"), A)).place, "–");
+  /* Flip Cup (legacy): two even teams, one game */
+  withLegacyEvents(s, ["flip"]);
+  s.draws.flip = { id:"d-flip", teams:[{ players:[A, C, E, G, I, K] }, { players:[B, D, F, H, J, L] }], roles:[{ player:M, role:"referee" }], ts:6 };
+  s.results.flip = { slots:[[B, D, F, H, J, L]], ts:12, revision:1 };
+  const flip = eventMeetings(s, A, B).find(m => m.eventId === "flip");
+  assert.equal(flip.won, false);
+  assert.equal(flip.label, "Flip Cup");
+  assert.equal(eventMeetings(s, A, C).some(m => m.eventId === "flip"), false, "teammates did not meet");
+  assert.equal(pick(eventRow(s, ev(s, "flip"), A)).place, "–");
 });
 
 test("bets and Quick Draw settle through the shared resolvers, legacy tickets included", () => {
   const s = played();
   s.wagers = [
     /* a legacy outright ticket without a stored multiplier pays 2:1 */
-    { id:"w1", player:C, kind:"outright", eventId:"pickleball", pick:A, stake:100, ts:1 },
-    { id:"w2", player:C, kind:"match", eventId:"pickleball", drawId:"d-pickle", match:[1, 0], teamIdx:3,
+    { id:"w1", player:C, kind:"outright", eventId:"pong", pick:A, stake:100, ts:1 },
+    { id:"w2", player:C, kind:"match", eventId:"pong", drawId:"d-pong", match:[1, 0], teamIdx:3,
       pickPlayers:[G, H], pickTeam:true, stake:200, ts:2 },
     /* a stale draw id voids the ticket */
-    { id:"w3", player:C, kind:"match", eventId:"pickleball", drawId:"old", match:[1, 0], teamIdx:0, stake:500, ts:3 },
+    { id:"w3", player:C, kind:"match", eventId:"pong", drawId:"old", match:[1, 0], teamIdx:0, stake:500, ts:3 },
     { id:"w4", player:C, kind:"outright", eventId:"putt", pick:E, stake:100, ts:4 },
   ];
   const bets = betRecord(s, C);
@@ -183,7 +190,7 @@ test("rivalries rank the players met most, closest first", () => {
 
 test("the season stats bundle carries rank, chips, the viewer's record and own rivalries", () => {
   const s = played();
-  s.wagers = [{ id:"w1", player:C, kind:"outright", eventId:"pickleball", pick:A, stake:100, mult:2, ts:1 }];
+  s.wagers = [{ id:"w1", player:C, kind:"outright", eventId:"pong", pick:A, stake:100, mult:2, ts:1 }];
   const standings = computeStandings(s);
   const mine = seasonStats(s, A, { standings, viewer:A });
   assert.equal(mine.rank, standings.find(row => row.player === A).rank);
@@ -237,8 +244,8 @@ test("the card back prints the season, your record against them, and your rivals
   const base = { state:s, standings:computeStandings(s), events:allEventsOf(s), onClose:() => {}, onDuel:() => ({ ok:true }) };
   const theirs = render(PlayerSheet, { ...base, me:C, p:A });
   assert.match(theirs.html, /You vs Chiang/);
-  assert.match(theirs.html, /Pickleball · Final/);
-  assert.match(theirs.html, /Pickleball/);
+  assert.match(theirs.html, /Beer Pong Doubles · Final/);
+  assert.match(theirs.html, /Beer Pong Doubles/);
   assert.match(theirs.html, /\+1,200/);
   assert.match(theirs.html, /2,200/);
   assert.doesNotMatch(theirs.html, /Rivalries/);

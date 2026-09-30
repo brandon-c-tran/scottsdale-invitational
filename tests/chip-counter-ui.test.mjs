@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { EMPTY_STATE, BUILTIN_EVENTS, ROSTER, makeBracket, resolveSlot, bracketChampion, teamLabel, defaultQaParticipants, resolveCurrentContest } from "../shared/core.js";
+import { EMPTY_STATE, BUILTIN_EVENTS, ROSTER, makeBracket, resolveSlot, bracketChampion, teamLabel, defaultQaParticipants, resolveCurrentContest, allEventsOf } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 const root=fileURLToPath(new URL("../",import.meta.url));
 const blocked=names=>names.map(name=>`export const ${name}=()=>{throw new Error("Transport must not run in a ChipCounter test");};`).join("\n");
@@ -16,7 +17,7 @@ const compiled=await build({
   plugins:[{name:"isolated-counter",setup(builder){
     builder.onLoad({filter:/[\\/]src[\\/]lib[\\/]client\.js$/},()=>({loader:"js",contents:blocked([
       "useTournament","dispatch","uploadPhoto","downloadSnapshot","localGet","localSet","getDeviceId","setGmToken","hasGmToken",
-      "spotifyStatus","spotifyPlayer","spotifySearch","spotifyAuthorize","spotifyDisconnect","spotifyPlay","spotifyPause","spotifyDevice",
+      "spotifyStatus","spotifyPlayer","spotifySearch","spotifyAuthorize","spotifyDisconnect","spotifyPlay","spotifyPause","spotifyDevice","spotifyAutoWinSongs","songPreview", "songSnippet",
     ])}));
     builder.onLoad({filter:/[\\/]features[\\/]check-in[\\/]install\.js$/},()=>({loader:"js",contents:
       `export const installEvt=null;\n${blocked(["onInstallReady","firstOnboardStep","isStandalone","isIOS"])}`}));
@@ -156,8 +157,8 @@ test("missing success acknowledgements and thrown saves preserve the draft and e
   assert.equal(!!view.button("Save count").props.disabled,false);
 });
 
-function finishedBracket(id) {
-  const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id===id);
+function finishedBracket(id,patch={}) {
+  const state=structuredClone(EMPTY_STATE),ev={...BUILTIN_EVENTS.find(event=>event.id===id),...patch};
   const size=ev.teamCfg.bracket,playersPerTeam=ev.teamCfg.size;
   state.draws[id]={id:"test-finished-draw",teams:Array.from({length:size},(_,index)=>({players:ROSTER.slice(index*playersPerTeam,(index+1)*playersPerTeam)}))};
   state.brackets[id]=makeBracket(size);
@@ -175,7 +176,9 @@ function resultControls(state,ev,select=[]) {
   React.createElement=(type,props,...children)=>{
     // Select in the owning ResultSheet render, before PlayerChip expands.
     const choice=select[selection];
+    // {enabled:label} taps an enabled action button (a component) in the same owning render.
     const matches=typeof type==="function" ? props?.name===choice
+        || (!!choice?.enabled && !props?.disabled && text(children)===choice.enabled)
       : type==="button" && (typeof choice==="string" ? text(children)===choice
         : choice?.buttonPrefix && text(children).startsWith(choice.buttonPrefix));
     if(selection<select.length&&matches&&props?.onClick){selection++;props.onClick();}
@@ -190,7 +193,8 @@ function resultControls(state,ev,select=[]) {
 }
 
 test("a completed first-place-only bracket displays its winner without asking the host to pick again",()=>{
-  const {state,ev}=finishedBracket("8ball"),winner=state.draws[ev.id].teams[bracketChampion(state.brackets[ev.id])].players;
+  /* every slate bracket pays three places now; an event's own `pays` table can still pay 1st only */
+  const {state,ev}=finishedBracket("die",{pays:[400,0,0]}),winner=state.draws[ev.id].teams[bracketChampion(state.brackets[ev.id])].players;
   const view=resultControls(state,ev);
   assert.match(view.html,/fd-result-winner/);
   for(const player of winner)assert.ok(view.html.includes(player));
@@ -200,7 +204,7 @@ test("a completed first-place-only bracket displays its winner without asking th
 });
 
 test("higher-award brackets retain lower-place selection while the winning team stays fixed",()=>{
-  const {state,ev}=finishedBracket("bball"),br=state.brackets[ev.id],draw=state.draws[ev.id];
+  const {state,ev}=finishedBracket("volley"),br=state.brackets[ev.id],draw=state.draws[ev.id];
   const champion=bracketChampion(br),winner=draw.teams[champion];
   const final=br.rounds.at(-1)[0],runner=resolveSlot(br,final.b);
   const view=resultControls(state,ev);
@@ -213,31 +217,37 @@ test("higher-award brackets retain lower-place selection while the winning team 
 test("sequenced free-for-all first place replaces the prior selection with one player",()=>{
   const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id==="putt");
   state.eventOps[ev.id]={contest:{id:"test-ffa",revision:1,phase:"awaiting-result"},resultEntryAt:1};
-  const view=resultControls(state,ev,[ROSTER[0],ROSTER[1]]);
+  /* Long Putt pays 2nd and 3rd too, so posting 1st alone goes through Leave empty */
+  const view=resultControls(state,ev,[ROSTER[0],ROSTER[1],{enabled:"Post official result"},{enabled:"Leave empty"}]);
   assert.doesNotMatch(view.html,/fd-result-winner/);
   assert.equal(view.buttons.get(ROSTER[0])["aria-pressed"],false);
   assert.equal(view.buttons.get(ROSTER[1])["aria-pressed"],true);
-  view.post();assert.deepEqual(view.saved[0][0],[ROSTER[1]]);
+  assert.deepEqual(view.saved,[[[ROSTER[1]],[],[]]]);
 });
 
-test("a direct team contest returns to whole-team winners after lower-place player selection",()=>{
-  const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id==="volley");
+const twoTeamResult=(state,ev,expected)=>{
   const gm={isGm:true,player:ROSTER[0]};
   assert.equal(applyAction(state,"announceAndDraw",{evId:ev.id,players:defaultQaParticipants(ev)},gm).ok,true);
   const contest=resolveCurrentContest(state,ev);
   assert.equal(applyAction(state,"lockAndStart",{evId:ev.id,contestId:contest.id,contestRevision:contest.revision},gm).ok,true);
   assert.equal(applyAction(state,"beginResultEntry",{evId:ev.id},gm).ok,true);
   const teams=state.draws[ev.id].teams;
-  assert.doesNotMatch(resultControls(state,ev).html,/Pick by player/);
-  /* a paid place left empty stops the post, so runners-up are filled first */
-  const view=resultControls(state,ev,[
-    {buttonPrefix:"Runners-up"}, "Pick by player", ...teams[0].players, {buttonPrefix:"Winners"},
-    teamLabel(state,teams[1]),
-  ]);
-  assert.doesNotMatch(view.html,/Pick by player|Back to teams/);
+  assert.equal(teams.length,2);
+  assert.doesNotMatch(resultControls(state,ev).html,/Pick by player|Runners-up|Winners</,"no places to fill");
+  const view=resultControls(state,ev,[teamLabel(state,teams[1])]);
   view.post();
-  assert.deepEqual(view.saved[0][0],teams[1].players);
-  assert.deepEqual(view.saved[0][1],teams[0].players);
+  assert.deepEqual(view.saved[0],expected(teams));
   const saved=applyAction(state,"saveResult",{evId:ev.id,slots:view.saved[0]},gm);
   assert.equal(saved.ok,true,saved.error);
+};
+
+test("a two-team game's result is one tap on the winning team; the other team is 2nd",()=>{
+  /* Flip Cup (legacy): two even teams, 2nd pays */
+  const state=withLegacyEvents(structuredClone(EMPTY_STATE),["flip"]),ev=allEventsOf(state).find(event=>event.id==="flip");
+  twoTeamResult(state,ev,teams=>[teams[1].players,teams[0].players,[]]);
+});
+
+test("5v5 is one tap on the winning side and pays winners only, so the other side takes no place",()=>{
+  const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id==="bball5");
+  twoTeamResult(state,ev,teams=>[teams[1].players,[],[]]);
 });

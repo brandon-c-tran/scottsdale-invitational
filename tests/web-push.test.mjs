@@ -223,7 +223,7 @@ test("You're playing: the current contest's players, once, never the actor, not 
 
 test("Your pick: the captain whose turn it became, never the captain who just picked", () => {
   const s = structuredClone(EMPTY_STATE);
-  const ev = BUILTIN_EVENTS.find(item => item.id === "bball");
+  const ev = BUILTIN_EVENTS.find(item => item.id === "volley");
   const players = defaultQaParticipants(ev);
   const captains = players.slice(0, ev.teamCfg.teams);
   const started = step(s, "startDraft", { evId:ev.id, players, captains,

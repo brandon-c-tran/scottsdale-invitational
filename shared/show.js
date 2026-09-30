@@ -5,6 +5,7 @@
 import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants,
   contestUndoAvailability, isAway, bracketMatchName } from "./core.js";
 import { awardsRevealBlocker, revealBallot, revealedCount } from "./prompts.js";
+import { mvpOpen, mvpVoters } from "./mvp.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -415,7 +416,21 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
      nothing is being played or bet on; the reveal waits for a free room */
   const awards = awardsBeat(state, events);
   if (awards) return { ...operation, scene:null, extras:[], nextAction:awards.nextAction, secondary:awards.secondary };
+  /* An open team MVP vote closes by itself in a minute; its close rides
+     beside any beat (the finale's deal closes it too) */
+  const mvp = openMvpBeat(state, events);
+  if (mvp) return { ...base, extras:[...(base.extras || []), { type:"close-mvp", label:mvp.label, eventId:mvp.eventId }] };
   return base;
+}
+
+function openMvpBeat(state, events) {
+  const evId = Object.keys(state.mvp || {}).find(id => mvpOpen(state, id));
+  if (!evId) return null;
+  const record = state.mvp[evId];
+  const voters = mvpVoters(state, record).length;
+  const voted = record.votes ? Object.keys(record.votes).length : Number(record.voted || 0);
+  const name = events.find(item => item.id === evId)?.name || "Team MVP";
+  return directorBeat("close-mvp", "Close MVP vote", { eventId:evId, subject:`${name} · ${voted} of ${voters} voted` });
 }
 
 function awardsBeat(state, events) {

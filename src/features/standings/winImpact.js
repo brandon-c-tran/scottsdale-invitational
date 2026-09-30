@@ -10,7 +10,7 @@
    left out of both sides of the comparison. */
 
 import {
-  AWARDS, allEventsOf, computeStandings, disp, resolveSlot, resolveWager, teamLabel,
+  awardTable, allEventsOf, computeStandings, disp, resolveSlot, resolveWager, teamLabel,
 } from "../../../shared/core.js";
 
 const known = key => key !== null && key !== undefined;
@@ -33,10 +33,10 @@ export function joinNames(names) {
    final and a wide field only guarantee the winner's 1st; a two-sided field
    also fixes 2nd. */
 export function winSlots(state, ev, contest, sideKey) {
-  if (!ev || !contest || ev.finale || !(AWARDS[ev.value]?.[0] > 0)) return null;
+  if (!ev || !contest || ev.finale || !(awardTable(ev)[0] > 0)) return null;
   const side = contest.sides?.find(item => item.key === sideKey);
   if (!side?.players?.length) return null;
-  const table = AWARDS[ev.value];
+  const table = awardTable(ev);
   if (contest.kind === "match") {
     const br = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
     if (!br || !draw?.teams || !Array.isArray(contest.match)) return null;

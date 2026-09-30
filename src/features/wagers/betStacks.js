@@ -20,6 +20,15 @@ export function stackGeometry(size, shown, ring = false) {
     height:yFace + Math.max(1, shown) * t + ry + pad + (ring ? 3 : 0) };
 }
 
+/* Past the cap a stack does not grow chip by chip: it breaks, and a short
+   tower stands on the break, one chip up to twice the cap and two beyond,
+   so 1,000, 1,200 and 2,500 are three different heights. Every board sizes
+   its felt for the tallest stack: the cap plus the tower plus the break. */
+export const STACK_TOWER = 2;
+export const towerTiers = (chips, cap = STACK_CAP) => chips <= cap ? 0 : chips <= 2 * cap ? 1 : STACK_TOWER;
+export const towerGap = size => Math.max(4, Math.round(Math.max(8, Number(size) || 0) * 0.14));
+export const stackMaxHeight = (size, cap = STACK_CAP) => stackGeometry(size, cap + STACK_TOWER).height + towerGap(size);
+
 /* chips in a stake: one per PT, and any chip at all shows as one */
 export const stackChipCount = stake => {
   const value = Math.max(0, Number(stake) || 0);
@@ -132,26 +141,31 @@ export function settledStacks(state, events, contest, matches = wager => wagerMa
    collapse into one "+N" group that keeps each bettor's colour and carries
    their combined total. The list arrives biggest first, so the group is
    always the tail. */
-export function groupStacks(stacks = [], slots = Infinity) {
+export function groupStacks(stacks = [], slots = Infinity, keep = null) {
   const list = stacks || [];
   const room = Math.max(1, Math.floor(Number(slots) || 0) || 1);
   if (!Number.isFinite(Number(slots)) || list.length <= room) return { shown:list, rest:null };
-  const keep = Math.max(1, room - 1);
-  const tail = list.slice(keep);
-  return { shown:list.slice(0, keep), rest:{ players:tail.map(item => item.player), count:tail.length,
+  const size = Math.max(1, room - 1);
+  let shown = list.slice(0, size);
+  /* a stack that must stay a target (your own) takes the last shown slot
+     rather than folding into the group; the order is still biggest first */
+  const kept = keep ? list.find(item => item.player === keep) : null;
+  if (kept && !shown.includes(kept)) shown = [...list.slice(0, size - 1), kept];
+  const tail = list.filter(item => !shown.includes(item));
+  return { shown, rest:{ players:tail.map(item => item.player), count:tail.length,
     total:stacksTotal(tail), stacks:tail } };
 }
 
 /* The ladder a fitted board steps down until every stack fits its felt:
-   smaller chips and shorter caps first, then grouping the smallest stacks,
+   smaller chips first, then grouping the smallest stacks,
    one more at a time. Chips never go below `min` px (TV text stays legible
    under them). */
 export function fitLevels(count, { chip = 64, cap = STACK_CAP, min = 30 } = {}) {
   const sizes = [];
   for (const k of [1, 0.875, 0.75, 0.66, 0.58, 0.5]) {
     const size = Math.max(min, Math.round(chip * k));
-    if (!sizes.length || sizes[sizes.length - 1].size !== size)
-      sizes.push({ size, cap:Math.max(5, Math.min(cap, Math.round(cap * (0.6 + 0.4 * k)))), slots:Infinity });
+    /* one cap everywhere: a smaller chip, never a shorter stack rule */
+    if (!sizes.length || sizes[sizes.length - 1].size !== size) sizes.push({ size, cap, slots:Infinity });
   }
   /* once some must group, more bettors on show wins over bigger chips, but
      each count tries a few sizes so a short felt does not shrink them all */

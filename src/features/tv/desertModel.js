@@ -21,32 +21,47 @@ function hash(text) {
   for (const ch of String(text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
   return h >>> 0;
 }
-const frac = n => n - Math.floor(n);
 
 /* One star per event winner, in their chip color (the view resolves it).
-   An event's stars sit together: its anchor comes from the slate position
-   (an even R2 spread) nudged by its id, teammates in a small ring around it.
-   x and y are fractions of the sky; dx and dy scale by the view's radius. */
+   The weekend crosses the sky in slate order: each event owns an even
+   slice of the width, left to right, and sits on a low arch with a little
+   stable lift from its id, so no two events share a column and a star never
+   moves when another event posts. Teammates sit in a small ring around
+   their event's anchor (a pair side by side), sized so a ring never reaches
+   the next event. x and y are fractions of the sky; dx and dy are in the
+   view's star spacing. */
 export function constellationStars(state, events = []) {
   const stars = [];
+  const count = Math.max(1, events.length);
   events.forEach((ev, order) => {
     const winners = state?.results?.[ev.id]?.slots?.[0] || [];
     if (!winners.length) return;
     const h = hash(ev.id);
-    const jitter = ((h & 0xff) / 0xff - 0.5) * 0.05;
-    const x = 0.06 + frac(0.5 + (order + 1) * 0.7548776662) * 0.88 + jitter;
-    const y = 0.12 + frac(0.5 + (order + 1) * 0.5698402910) * 0.7;
-    /* teammates sit in a short tilted belt, a real asterism, not a ring */
-    const tilt = (((h >>> 8) % 60) - 30) / 60;
+    const t = (order + 0.5) / count;
+    const x = 0.05 + t * 0.9;
+    const lift = ((h & 0xff) / 0xff - 0.5) * 0.18;
+    const y = Math.min(0.85, Math.max(0.15, 0.62 - 0.34 * Math.sin(Math.PI * t) + lift));
+    const n = winners.length;
+    /* a pair leans at most 25 degrees; a ring turns freely */
+    const turn = (n === 2 ? ((h >>> 8) % 50) - 25 : (h >>> 8) % 360) * Math.PI / 180;
+    /* neighbours on a ring sit a star's width apart at any team size */
+    const ring = n <= 1 ? 0 : n === 2 ? 0.7 : 0.66 / Math.sin(Math.PI / n);
     winners.forEach((player, i) => {
-      const n = winners.length;
-      const k = i - (n - 1) / 2;
-      stars.push({ id:`${ev.id}:${player}`, eventId:ev.id, player, order,
-        x:Math.min(0.97, Math.max(0.03, x)), y, dx:k * 1.1, dy:k * tilt + (i % 2 ? 0.35 : -0.35) * (n > 2 ? 1 : 0) });
+      const angle = turn + (i * 2 * Math.PI) / n;
+      stars.push({ id:`${ev.id}:${player}`, eventId:ev.id, player, order, x, y,
+        dx:Math.round(Math.cos(angle) * ring * 100) / 100, dy:Math.round(Math.sin(angle) * ring * 100) / 100 });
     });
   });
   return stars;
 }
+
+/* a flat four-point star of radius r, centered on 0 0: the winner's mark
+   (the fixed background stars stay dots) */
+export function starPoints(r) {
+  const k = r * 0.3;
+  return [[0, -r], [k, -k], [r, 0], [k, k], [0, r], [-k, k], [-r, 0], [-k, -k]];
+}
+export const starPath = r => `M${starPoints(r).map(([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`).join("L")}Z`;
 
 /* the champion's stars joined in event order; a shared title draws each */
 export function constellationLines(stars = [], players = []) {
@@ -75,15 +90,26 @@ export const DISC = {
 };
 export const FIXED_STARS = [[.11, .13], [.26, .08], [.475, .17], [.63, .07], [.81, .14], [.925, .23], [.375, .27], [.725, .28]];
 
+/* The star box with the sun or moon taken out: when the disc sits inside
+   the box, the box keeps the wider side of it, so no star is drawn over the
+   disc. The TV band and the saved poster both use it. */
+export function skyBoxClearOfDisc(box, disc, r, gap = 14) {
+  if (!disc || !(r > 0)) return box;
+  if (disc.y + r < box.top || disc.y - r > box.bottom || disc.x + r < box.left || disc.x - r > box.right) return box;
+  const leftRoom = disc.x - r - gap - box.left, rightRoom = box.right - (disc.x + r + gap);
+  return rightRoom >= leftRoom ? { ...box, left:Math.round(disc.x + r + gap) } : { ...box, right:Math.round(disc.x - r - gap) };
+}
+
 /* where stars sit in a band: the sky box (the whole sky, or the TV
    backdrop's fixed patch); a small box packs stars and belts tighter.
    Shared with the saved poster so both draw the same sky. */
 export function skyStarLayout(box) {
   const small = box.bottom - box.top < 80;
-  const spread = small ? 7 : 12;
+  const spread = small ? 7 : 11;
   return {
     small,
-    starR:small ? 3.5 : 5.5,
+    /* a four-point star's reach, not a dot's radius */
+    starR:small ? 5 : 8,
     fixedR:small ? 1.6 : 2,
     at:star => [Math.round(box.left + star.x * (box.right - box.left) + star.dx * spread),
       Math.round(box.top + star.y * (box.bottom - box.top) + star.dy * spread)],

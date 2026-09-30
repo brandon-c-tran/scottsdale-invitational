@@ -5,7 +5,7 @@
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
 import { ROSTER, resolveWager, resolveCurrentContest, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
-  RESET_PROGRESS_CONFIRMATION }
+  RESET_PROGRESS_CONFIRMATION, resultAwards }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -261,7 +261,11 @@ for (const [label, win] of [["A", a], ["B", b]])
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-assert(evanRow.pts === 1400 && evanRow.betNet === 400, `Evan at 1400 chips (1000 start +400 matchup), got ${evanRow.pts}`);
+/* +400 on the matchup, plus whatever the result pays Evan (crew take 3rd) */
+const evanAward = resultAwards(b.state, allEventsOf(b.state).find(ev => ev.id === "8ball"), b.state.results["8ball"])
+  .filter(award => award.player === "Evan").reduce((sum, award) => sum + award.pts, 0);
+assert(evanRow.pts === 1000 + 400 + evanAward && evanRow.betNet === 400 && evanRow.awardPts === evanAward,
+  `Evan at ${1000 + 400 + evanAward} chips (1000 start +400 matchup +${evanAward} award), got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);

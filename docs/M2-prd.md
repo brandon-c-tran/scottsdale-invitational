@@ -22,7 +22,7 @@ presentation and participation layer to the existing single-authority Durable
 Object. Competition facts still come from results, draws, brackets, stages,
 wagers, and the M1 lifecycle. Presentation references those facts and may
 temporarily direct attention to one structured scene.
-
+ca
 P0 has five workstreams:
 
 1. a coherent interaction hierarchy

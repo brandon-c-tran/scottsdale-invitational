@@ -14,3 +14,7 @@ snapshots/
 *.fieldday-snapshot.json.*
 field-day-snapshot-*.json
 .DS_Store
+
+# Claude Code: personal settings and agent worktrees
+.claude/settings.local.json
+.claude/worktrees/

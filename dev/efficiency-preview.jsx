@@ -29,7 +29,29 @@ export const scenarios = [
   { id:"results", label:"8-Ball · result entry", evId:"8ball", surface:"result" },
   { id:"poker", label:"Poker · counts", evId:"poker", surface:"poker" },
   { id:"counter", label:"Poker · chip counter", evId:"poker", surface:"counter" },
+  /* every guest bets: how the board holds a crowd */
+  { id:"crowd-match", label:"Bets · doubles matchup, everyone in", evId:"8ball", surface:null, crowd:true },
+  { id:"crowd-ffa", label:"Bets · free-for-all, everyone in", evId:"putt", surface:null, crowd:true },
+  { id:"crowd-team", label:"Bets · 7 v 6, everyone in", evId:"bball5", surface:null, crowd:true },
+  { id:"crowd-heat", label:"Bets · heat, everyone in", evId:"beerio", surface:null, crowd:true },
 ];
+/* the pick a side's + makes (Wagers contestPick) */
+function crowdPick(contest, side, ev) {
+  const common = { eventId:ev.id, evName:ev.name, contestId:contest.id, contestRevision:contest.revision,
+    pickPlayers:[...side.players] };
+  if (contest.kind === "ffa") return { ...common, kind:"outright", pickTeam:typeof side.key === "number",
+    ...(typeof side.key === "number" ? { drawId:contest.drawId } : { pick:side.key }) };
+  if (contest.kind === "match") return { ...common, kind:"match", pickTeam:true, drawId:contest.drawId,
+    match:[...contest.match], teamIdx:side.key, matchName:contest.label };
+  const pickTeam = typeof side.key === "number";
+  const stage = { ...common, stagesId:contest.stagesId, pickKey:side.key, pickTeam,
+    ...(pickTeam && contest.drawId ? { drawId:contest.drawId } : {}) };
+  return contest.kind === "heat" ? { ...stage, kind:"heat", group:contest.group, groupName:contest.label }
+    : { ...stage, kind:"stage", final:true };
+}
+/* each guest taps a mix of chips onto one side: their own when they play */
+const CROWD_TAPS = [[100, 200], [500], [100, 100, 100], [200, 200], [100], [500], [200, 100, 100], [100, 200, 200],
+  [500], [100], [200], [100, 100], [500]];
 const reference = (state, ev) => {
   const contest = resolveCurrentContest(state, ev);
   return contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
@@ -43,7 +65,10 @@ export function createEfficiencyFixture(id) {
     skin:["ticks", "crown", "wave"][index % 3],
   }]));
   const seed = (type, payload = {}, actor = sampleActor) => {
-    const result = applyAction(state, type, payload, { ...actor, actionId:crypto.randomUUID() });
+    /* the first game-opening write carries the weekend-start confirm */
+    const confirmed = ["announceEvent", "announceAndDraw", "startEvent", "lockAndStart", "pokerStart", "setOnDeck"]
+      .includes(type) && !state.live ? { ...payload, startWeekend:true } : payload;
+    const result = applyAction(state, type, confirmed, { ...actor, actionId:crypto.randomUUID() });
     if (!result.ok) throw new Error(`${scenario.id}: ${type}: ${result.error}`);
     return result;
   };
@@ -68,7 +93,15 @@ export function createEfficiencyFixture(id) {
       seed("setOnDeck", { id:ev.id });
     }
     const contest = resolveCurrentContest(state, ev), side = contest.sides[0];
-    if (contest.kind === "match") seed("placeWager", { wager:{ kind:"match", eventId:ev.id,
+    if (scenario.crowd) {
+      ROSTER.forEach((player, index) => {
+        const own = contest.sides.find(item => item.players.includes(player));
+        const pick = own || contest.sides[index % contest.sides.length];
+        for (const stake of CROWD_TAPS[index % CROWD_TAPS.length])
+          seed("placeWager", { wager:{ ...crowdPick(resolveCurrentContest(state, ev), pick, ev), stake } },
+            { isGm:false, player, deviceId:`crowd-${index}` });
+      });
+    } else if (contest.kind === "match") seed("placeWager", { wager:{ kind:"match", eventId:ev.id,
       drawId:contest.drawId, match:contest.match, teamIdx:side.key, stake:200, ...reference(state, ev) } });
     if (["bracket-play", "bracket-view", "results"].includes(scenario.id)) seed("lockAndStart", { evId:ev.id, ...reference(state, ev) });
     if (scenario.id === "results") {

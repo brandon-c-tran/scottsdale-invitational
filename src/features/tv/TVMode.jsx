@@ -309,10 +309,13 @@ function ContestBoard({ state, events, ev, contest }) {
     /* a wide field's row holds its biggest stacks; past that the smallest group */
     const pile = ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={size.chip} cap={size.cap}
       className="tv-stacks" names={p => stackName(state, p)} slots={compactSlots} valueAt="side" />;
-    /* a felt fits any number of bettors without covering its total (P1) */
+    /* a felt fits any number of bettors without covering its total (P1); the
+       stacks stand as one pile centered in it */
     const felt = ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={ride.total} totalClass="tv-side-total"
       chip={size.chip} cap={size.cap} min={34} className="tv-stacks-fit" names={p => stackName(state, p)}
       valueAt="side" ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />;
+    /* a team past three: the name on its own line, the faces overlapped under it */
+    const many = view.players.length > 3;
     /* a wide field: one row per side, its stacks beside the name */
     if (compact) return (
       <div key={String(side.key)} className={`tv-side is-row${ride.stacks.length ? " has-chips" : ""}`}>
@@ -328,11 +331,12 @@ function ContestBoard({ state, events, ev, contest }) {
     );
     return (
       <div key={String(side.key)} className={`tv-side${ride.stacks.length ? " has-chips" : ""}`}>
-        <div className="tv-side-top">
+        <div className={`tv-side-top${many ? " is-many" : ""}`}>
+          {many && <div className="tv-side-name">{view.name}</div>}
           <div className="tv-side-faces">
-            {view.players.map(p => <Avatar key={p} state={state} p={p} size={face} />)}
+            {view.players.map(p => <Avatar key={p} state={state} p={p} size={many ? 52 : face} />)}
           </div>
-          <div className="tv-side-name">{view.name}</div>
+          {!many && <div className="tv-side-name">{view.name}</div>}
         </div>
         {anyWinLine && <div className="tv-side-win"><TVWinLine lines={winLines} sideKey={side.key} /></div>}
         <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>

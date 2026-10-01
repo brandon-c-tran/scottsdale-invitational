@@ -8829,19 +8829,26 @@ function MarketPick({
     },
     /* @__PURE__ */ React39.createElement(Avatar, { state, p: players[0], size: 26 }),
     winInline ? /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-player-text" }, /* @__PURE__ */ React39.createElement("span", null, name), /* @__PURE__ */ React39.createElement(WinLine, { line: winLine, className: "fd-wagers-win-inline" })) : /* @__PURE__ */ React39.createElement("span", null, name)
-  ) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-players" }, players.map((player) => /* @__PURE__ */ React39.createElement(
-    "button",
+  ) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React39.createElement(
+    "span",
     {
-      type: "button",
-      key: player,
-      disabled: !onPlayer,
-      onClick: () => onPlayer?.(player),
-      title: disp(state, player),
-      "aria-label": `View ${disp(state, player)}'s player card`
+      className: `fd-wagers-team-players${players.length > 3 ? " is-many" : ""}`,
+      style: players.length > 3 ? { "--fd-team-n": players.length } : void 0
     },
-    /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }),
-    /* @__PURE__ */ React39.createElement("span", null, disp(state, player))
-  ))))), winSlot && !winInline && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React39.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), /* @__PURE__ */ React39.createElement(
+    players.map((player) => /* @__PURE__ */ React39.createElement(
+      "button",
+      {
+        type: "button",
+        key: player,
+        disabled: !onPlayer,
+        onClick: () => onPlayer?.(player),
+        title: disp(state, player),
+        "aria-label": `View ${disp(state, player)}'s player card`
+      },
+      /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }),
+      players.length <= 3 && /* @__PURE__ */ React39.createElement("span", null, disp(state, player))
+    ))
+  ))), winSlot && !winInline && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React39.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), /* @__PURE__ */ React39.createElement(
     "div",
     {
       className: "fd-wagers-felt",
@@ -8969,7 +8976,14 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   return /* @__PURE__ */ React39.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React39.createElement("div", null, /* @__PURE__ */ React39.createElement("h2", null, contest.kind === "ffa" ? "Winner" : label2), /* @__PURE__ */ React39.createElement("p", null, contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"))), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-picks" }, sides.map((side) => {
     const { shown, rest } = groupStacks(side.stacks, feltSlots(lines) - 1, side.stacks.some((item) => item.player === me) ? me : null);
     const head = side.won ? side.paid > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt5(side.paid)) : side.total > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt5(side.total));
-    return /* @__PURE__ */ React39.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-pick-identity${side.players.length > 2 ? " is-team" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: side.players[0], size: 26 }), /* @__PURE__ */ React39.createElement("span", null, nameOf2(side))) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, side.players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, nameOf2(side)), /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-players" }, side.players.map((player) => /* @__PURE__ */ React39.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }), /* @__PURE__ */ React39.createElement("span", null, disp(state, player))))))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt", style: { "--fd-stack-h": `${PHONE_STACK_H}px`, "--fd-felt-lines": lines } }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-head" }, head || /* @__PURE__ */ React39.createElement("span", null), side.won && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-well", "aria-hidden": "true" }), shown.map((item, index) => side.won ? /* @__PURE__ */ React39.createElement("span", { key: item.player, className: "fd-wagers-held-stack", ref: item.player === me ? mineRef : void 0 }, /* @__PURE__ */ React39.createElement(
+    return /* @__PURE__ */ React39.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-pick-identity${side.players.length > 2 ? " is-team" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: side.players[0], size: 26 }), /* @__PURE__ */ React39.createElement("span", null, nameOf2(side))) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, side.players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, nameOf2(side)), /* @__PURE__ */ React39.createElement(
+      "span",
+      {
+        className: `fd-wagers-team-players${side.players.length > 3 ? " is-many" : ""}`,
+        style: side.players.length > 3 ? { "--fd-team-n": side.players.length } : void 0
+      },
+      side.players.map((player) => /* @__PURE__ */ React39.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }), side.players.length <= 3 && /* @__PURE__ */ React39.createElement("span", null, disp(state, player))))
+    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt", style: { "--fd-stack-h": `${PHONE_STACK_H}px`, "--fd-felt-lines": lines } }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-head" }, head || /* @__PURE__ */ React39.createElement("span", null), side.won && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-well", "aria-hidden": "true" }), shown.map((item, index) => side.won ? /* @__PURE__ */ React39.createElement("span", { key: item.player, className: "fd-wagers-held-stack", ref: item.player === me ? mineRef : void 0 }, /* @__PURE__ */ React39.createElement(
       ChipStack,
       {
         p: item.player,

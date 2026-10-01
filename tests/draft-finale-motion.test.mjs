@@ -102,13 +102,13 @@ test("only one fresh pick on the same draft lands; undo, catch-up jumps and stal
   assert.equal(isCorrectionFrame(before, state, "undoDraftPick"), true);
 });
 
-test("the TV draft fills the canvas: numbered silhouettes, the chip wall, the captain on the clock", () => {
+test("the TV draft fills the canvas: open chip slots by pick, the chip wall, the captain on the clock", () => {
   const state = drafting(3), draft = state.drafts[flip.id], turn = draftTurn(draft);
   const html = render(state, React.createElement(TVDraft, { state, ev:flip, d:draft }));
   const open = draftSeats(draft).flatMap(team => team.slots).filter(slot => !slot.player);
-  assert.equal((html.match(/class="tv-draft-silhouette/g) || []).length, open.length);
-  for (const slot of open) assert.match(html, new RegExp(`<text[^>]*>${slot.pick}</text>`));
-  assert.equal((html.match(/class="tv-draft-silhouette is-next"/g) || []).length, 1, "the next seat is marked");
+  assert.equal((html.match(/class="tv-draft-slot/g) || []).length, open.length);
+  for (const slot of open) assert.match(html, new RegExp(`tv-draft-seat-open[^"]*">Pick ${slot.pick}</span>`));
+  assert.equal((html.match(/class="tv-draft-slot is-next"/g) || []).length, 1, "the next seat is marked");
   assert.equal((html.match(/data-flip="[A-Za-z]+"/g) || []).length, draft.pool.length, "every available player is on the wall");
   assert.match(html, new RegExp(`${flip.name} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`));
   assert.match(html, /tv-draft-who/);
@@ -117,7 +117,7 @@ test("the TV draft fills the canvas: numbered silhouettes, the chip wall, the ca
   const done = drafting(10);
   const complete = render(done, React.createElement(TVDraft, { state:done, ev:flip, d:done.drafts[flip.id] }));
   assert.match(complete, /Teams picked/);
-  assert.doesNotMatch(complete, /tv-draft-wall|tv-draft-silhouette/);
+  assert.doesNotMatch(complete, /tv-draft-wall|tv-draft-slot/);
 });
 
 test("TV draft text is never under 24px", () => {

@@ -152,6 +152,17 @@
 .tv-felt { flex:1; min-height:0; position:relative; display:flex; flex-direction:column; justify-content:flex-end; gap:6px;
   padding:12px 18px 12px; border-radius:12px; background:var(--night-deep); border:1px solid var(--night-line); }
 .tv-felt > .tv-side-total { position:absolute; top:12px; right:18px; }
+/* the stacks centered top to bottom in the felt, so a tall felt (a team's)
+   never sinks them under empty space; rows start at the left, clear of the
+   total in the corner */
+.tv-stacks-fit .fd-fit-stacks { top:50%; bottom:auto; transform:translateY(-50%); }
+/* a team past three: name first, faces overlapped beneath */
+.tv-side-top.is-many { flex-direction:column; align-items:flex-start; justify-content:center; gap:10px; }
+.tv-side-top.is-many .tv-side-name { flex:none; width:100%; display:block; font-size:44px; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.tv-side-top.is-many .tv-side-faces { gap:0; }
+.tv-side-top.is-many .tv-side-faces > * + * { margin-left:-10px; }
+.tv-sides:not(.is-compact) .tv-side-top.is-many { height:auto; min-height:104px; }
 .tv-felt.is-empty { justify-content:center; }
 .tv-felt-empty { font:600 26px/1.2 var(--fd-body); color:var(--night-text); }
 /* every stack: its amount on one value line, a first name under it */

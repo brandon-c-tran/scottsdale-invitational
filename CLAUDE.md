@@ -830,7 +830,11 @@ path after the draw and the photo desk); before it, `staging-dd7d02c5` and
 production deploy after it migrates `wagerOps` to its own storage key on the
 next write: take a snapshot first. See `docs/UX-REPAIR.md` for
 the browser checks and separate historical records. The isolated actual-sheet
-preview is `/dev/efficiency-preview.html`; rebuild its transport-stubbed
+preview is `/dev/efficiency-preview.html` (`?scenario=` any id, including
+`crowd-match|ffa|team|heat` where every guest bets); `/dev/tv-preview.html`
+renders the real TV mode over the same fixtures at 1920x1080, and
+`/dev/phone-frame.html?src=...` holds a page in a true 390px viewport for
+headless screenshots (Chrome's window will not go below ~500px); rebuild its transport-stubbed
 component bundle with `node scripts/build-efficiency-preview.mjs` after UI
 edits. This preview never connects to the tournament and is not deployed.
 

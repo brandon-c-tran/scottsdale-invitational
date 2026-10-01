@@ -8,7 +8,7 @@ import "./tv-draft.css";
 
 /* The draft on the TV, filling the canvas: the captain on the clock, large,
    with the snake order after them; every team's seats, empty ones as
-   numbered silhouettes; the players still available as a wall of identity
+   open chip slots marked by pick; the players still available as a wall of identity
    chips. A fresh pick flies its chip from the wall into its seat, the name
    slams in, and the wall closes up (M9). Undo, reloads and a TV joining late
    show the state. */
@@ -21,12 +21,11 @@ const relativeRect = (el, root) => {
   return { left:(r.left - box.left) / scale, top:(r.top - box.top) / scale, width:r.width / scale, height:r.height / scale };
 };
 
-function Silhouette({ pick, next }) {
+/* an open seat: the empty slot the picked chip drops into */
+function OpenSlot({ next }) {
   return (
-    <svg className={`tv-draft-silhouette${next ? " is-next" : ""}`} viewBox="0 0 56 56" width="56" height="56" aria-hidden="true">
-      <circle cx="28" cy="17" r="10" />
-      <path d="M8 54c0-14 8.5-22 20-22s20 8 20 22Z" />
-      {pick != null && <text x="28" y="46" textAnchor="middle">{pick}</text>}
+    <svg className={`tv-draft-slot${next ? " is-next" : ""}`} viewBox="0 0 56 56" width="52" height="52" aria-hidden="true">
+      <circle cx="28" cy="28" r="25" />
     </svg>
   );
 }
@@ -139,8 +138,9 @@ export function TVDraft({ state, ev, d }) {
                         <span className="tv-draft-seat-name">{disp(state, slot.player)}</span>
                         {latest && <span className="tv-draft-seat-pick">Pick {slot.pick ?? last.pick}</span>}
                       </> : <>
-                        <span className="tv-draft-seat-chip"><Silhouette pick={slot.pick} next={current && slot.pick === current.pick} /></span>
-
+                        <span className="tv-draft-seat-chip"><OpenSlot next={current && slot.pick === current.pick} /></span>
+                        {slot.pick != null && <span className={`tv-draft-seat-open${current && slot.pick === current.pick ? " is-next" : ""}`}>
+                          Pick {slot.pick}</span>}
                       </>}
                     </li>
                   );

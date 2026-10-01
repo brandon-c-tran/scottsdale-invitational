@@ -33,12 +33,13 @@
 .tv-draft-seat.is-latest { background:var(--sun-tint); }
 .tv-draft-seat-pick { font:700 24px/1 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--sun); }
 .tv-draft-seat.is-arriving>* { opacity:0; }
-/* an open seat: a numbered silhouette; the next one to fill is in sun */
-.tv-draft-silhouette { display:block; overflow:visible; }
-.tv-draft-silhouette circle, .tv-draft-silhouette path { fill:var(--line); stroke:var(--ghost-line); stroke-width:1.5; stroke-dasharray:4 3; }
-.tv-draft-silhouette text { font:700 26px/1 var(--fd-display); fill:var(--muted); }
-.tv-draft-silhouette.is-next circle, .tv-draft-silhouette.is-next path { fill:var(--sun-tint); stroke:var(--sun); stroke-dasharray:none; }
-.tv-draft-silhouette.is-next text { fill:var(--sun); }
+/* an open seat: a dashed slot for the chip to land in, its pick beside it;
+   the next one to fill is in sun */
+.tv-draft-slot { display:block; }
+.tv-draft-slot circle { fill:none; stroke:var(--ghost-line); stroke-width:2; stroke-dasharray:5 4; }
+.tv-draft-slot.is-next circle { fill:var(--sun-tint); stroke:var(--sun); stroke-dasharray:none; }
+.tv-draft-seat-open { font:600 26px/1 var(--fd-body); color:var(--night-text); }
+.tv-draft-seat-open.is-next { color:var(--sun); font-weight:700; }
 
 .tv-draft-pool { flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
 .tv-draft-wall { display:flex; flex-wrap:wrap; gap:10px 14px; }

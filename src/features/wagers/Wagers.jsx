@@ -267,10 +267,13 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
           <span>{name}</span><WinLine line={winLine} className="fd-wagers-win-inline" /></span> : <span>{name}</span>}
       </button> : <>
         {players.length > 2 && <span className="fd-wagers-team-name">{name}</span>}
-        <span className="fd-wagers-team-players">{players.map(player => <button type="button" key={player}
+        {/* a team past three shows its faces across the card, no names, so
+            all of them fit without a scroll */}
+        <span className={`fd-wagers-team-players${players.length > 3 ? " is-many" : ""}`}
+          style={players.length > 3 ? { "--fd-team-n":players.length } : undefined}>{players.map(player => <button type="button" key={player}
           disabled={!onPlayer} onClick={() => onPlayer?.(player)} title={disp(state, player)}
           aria-label={`View ${disp(state, player)}'s player card`}>
-          <Avatar state={state} p={player} size={24} /><span>{disp(state, player)}</span>
+          <Avatar state={state} p={player} size={24} />{players.length <= 3 && <span>{disp(state, player)}</span>}
         </button>)}</span>
       </>}
     </div>
@@ -395,8 +398,10 @@ function HeldBoard({ state, me, held, view, onSkip }) {
             <Avatar state={state} p={side.players[0]} size={26} /><span>{nameOf(side)}</span>
           </span> : <>
             {side.players.length > 2 && <span className="fd-wagers-team-name">{nameOf(side)}</span>}
-            <span className="fd-wagers-team-players">{side.players.map(player => <span key={player} className="fd-wagers-held-face">
-              <Avatar state={state} p={player} size={24} /><span>{disp(state, player)}</span>
+            <span className={`fd-wagers-team-players${side.players.length > 3 ? " is-many" : ""}`}
+              style={side.players.length > 3 ? { "--fd-team-n":side.players.length } : undefined}>
+              {side.players.map(player => <span key={player} className="fd-wagers-held-face">
+              <Avatar state={state} p={player} size={24} />{side.players.length <= 3 && <span>{disp(state, player)}</span>}
             </span>)}</span>
           </>}
         </div>

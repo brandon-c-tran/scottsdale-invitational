@@ -7636,6 +7636,12 @@ button.fd-home-exposure {
 .fd-wagers-team-players::-webkit-scrollbar {
   display: none;
 }
+.fd-wagers-team-players.is-many {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--fd-team-n), minmax(0, 1fr));
+  gap: 0;
+  overflow: visible;
+}
 .fd-wagers-team-players > button {
   display: flex;
   flex-direction: column;
@@ -8928,29 +8934,27 @@ button.fd-home-exposure {
 .tv-draft-seat.is-arriving > * {
   opacity: 0;
 }
-.tv-draft-silhouette {
+.tv-draft-slot {
   display: block;
-  overflow: visible;
 }
-.tv-draft-silhouette circle,
-.tv-draft-silhouette path {
-  fill: var(--line);
+.tv-draft-slot circle {
+  fill: none;
   stroke: var(--ghost-line);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
 }
-.tv-draft-silhouette text {
-  font: 700 26px/1 var(--fd-display);
-  fill: var(--muted);
-}
-.tv-draft-silhouette.is-next circle,
-.tv-draft-silhouette.is-next path {
+.tv-draft-slot.is-next circle {
   fill: var(--sun-tint);
   stroke: var(--sun);
   stroke-dasharray: none;
 }
-.tv-draft-silhouette.is-next text {
-  fill: var(--sun);
+.tv-draft-seat-open {
+  font: 600 26px/1 var(--fd-body);
+  color: var(--night-text);
+}
+.tv-draft-seat-open.is-next {
+  color: var(--sun);
+  font-weight: 700;
 }
 .tv-draft-pool {
   flex-shrink: 0;
@@ -9893,16 +9897,15 @@ button.fd-home-exposure {
 }
 .tv-now {
   position: absolute;
-  left: 56px;
-  bottom: 98px;
+  right: 56px;
+  top: 128px;
   z-index: 12;
   display: flex;
   align-items: center;
-  gap: 30px;
-  min-width: 640px;
-  max-width: min(900px, calc(100% - 112px));
-  padding: 20px 48px 26px 20px;
-  border-radius: 16px;
+  gap: 20px;
+  max-width: 620px;
+  padding: 12px 28px 16px 12px;
+  border-radius: 14px;
   background: var(--night2);
   border: 1.5px solid var(--ghost-line);
   box-shadow: var(--shadow-3);
@@ -9919,23 +9922,23 @@ button.fd-home-exposure {
   place-items: center;
 }
 .tv-now.has-art .tv-now-art {
-  width: 200px;
-  height: 196px;
+  width: 110px;
+  height: 106px;
   place-items: start;
 }
 .tv-now-art img {
-  width: 176px;
-  height: 176px;
+  width: 96px;
+  height: 96px;
   display: block;
-  border-radius: 10px;
+  border-radius: 8px;
   object-fit: cover;
   border: 1.5px solid var(--ghost-line);
   animation: tv-now-art .7s cubic-bezier(.2, .75, .2, 1) both;
 }
 .tv-now.has-art .tv-now-chip {
   position: absolute;
-  right: -6px;
-  bottom: -6px;
+  right: -4px;
+  bottom: -4px;
   animation: tv-now-chip .5s cubic-bezier(.2, .8, .2, 1.25) .35s both;
 }
 .tv-now-text {
@@ -9946,29 +9949,25 @@ button.fd-home-exposure {
   color: var(--sun);
 }
 .tv-now-name {
-  font-size: 72px;
-  line-height: .95;
+  font-size: 44px;
+  line-height: 1;
   color: var(--bone);
-  margin-top: 6px;
+  margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .tv-now-track {
-  font: 700 32px/1.25 var(--fd-body);
-  color: var(--bone);
-  margin-top: 10px;
+  font: 600 24px/1.3 var(--fd-body);
+  color: var(--night-text);
+  margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tv-now-artist {
-  font: 600 26px/1.3 var(--fd-body);
-  color: var(--night-text);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tv-now-track b {
+  color: var(--bone);
+  font-weight: 700;
 }
 .tv-now-bar {
   position: absolute;
@@ -10303,6 +10302,36 @@ button.fd-home-exposure {
   position: absolute;
   top: 12px;
   right: 18px;
+}
+.tv-stacks-fit .fd-fit-stacks {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+.tv-side-top.is-many {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+}
+.tv-side-top.is-many .tv-side-name {
+  flex: none;
+  width: 100%;
+  display: block;
+  font-size: 44px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-side-top.is-many .tv-side-faces {
+  gap: 0;
+}
+.tv-side-top.is-many .tv-side-faces > * + * {
+  margin-left: -10px;
+}
+.tv-sides:not(.is-compact) .tv-side-top.is-many {
+  height: auto;
+  min-height: 104px;
 }
 .tv-felt.is-empty {
   justify-content: center;

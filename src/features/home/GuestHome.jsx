@@ -216,10 +216,21 @@ function FlightsQuestion({ onYes, onNotYet }) {
   </section>;
 }
 
+/* Before the weekend: what this guest still owes, each row opening the
+   profile section that finishes it. Gone once the list is empty. */
+function SetupList({ items, onOpen }) {
+  return <section className="fd-home-setup" aria-label="Before the weekend">
+    <h2>Before the weekend <span>{items.length} left</span></h2>
+    {items.map(item => <button type="button" key={item.id} onClick={() => onOpen(item)}>
+      <span>{item.label}</span><Arrow /></button>)}
+  </section>;
+}
+
 export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
   awardsContent = null, mvpContent = null,
-  since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard }) {
+  since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard,
+  setup = [], onSetup }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const exposed = !!model.standing?.exposure && model.mode === "live";
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
@@ -238,6 +249,9 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   return <div className={`fd-home is-${model.mode}`}>
     {(finale || complete) ? <div className="fd-home-heading"><h1>{complete ? "Final standings" : "The finale"}</h1></div>
       : <h1 className="fd-home-sr">Home</h1>}
+
+    {/* before the weekend the event below asks nothing of a guest yet; this does */}
+    {before && onSetup && setup.length > 0 && <SetupList items={setup} onOpen={onSetup} />}
 
     {!finale && !complete && events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
       && !state.shelved?.[event.id] && !state.results?.[event.id]).map(event =>

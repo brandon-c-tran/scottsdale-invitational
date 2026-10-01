@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ROSTER, SIZES, AIRLINES, cleanLeg, legText, legTime } from "../../../shared/core.js";
+import { jerseyConfirmed, jerseyName } from "../../../shared/guestSetup.js";
 import { DISPLAY, SANS, GOLD_GRAD, label } from "../../ui/theme.js";
 import { Btn } from "../../ui/controls.jsx";
 import "./travel.css";
@@ -353,7 +354,8 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
    straight into a spreadsheet or a supplier form. Blanks stay blank, because
    a guessed size is worse than a missing one. */
 function sheetText(state) {
-  const head = ["Player", "Name", "No", "T-shirt / Jersey", "Flights booked", "Chip", "Skin", "Lands Fri", "Leaves Sun"];
+  const head = ["Player", "Name", "No", "T-shirt / Jersey", "Jersey name", "Jersey confirmed", "Flights booked",
+    "Chip", "Skin", "Lands Fri", "Leaves Sun", "Venmo", "Drinking", "Food or drink needs"];
   const rows = ROSTER.map(p => {
     const pr = state.profiles?.[p] || {};
     /* the column already says which leg it is, so the cell is just the flight */
@@ -363,9 +365,15 @@ function sheetText(state) {
       if (l.note) return l.note;
       return [[l.air, l.num].filter(Boolean).join(" "), legTime(l.time)].filter(Boolean).join(" ");
     };
+    const yesNo = value => value === true ? "Yes" : value === false ? "No" : "";
+    const jersey = state.profiles?.[p] ? jerseyConfirmed(pr, p) : null;
     return [p, pr.display && pr.display !== p ? pr.display : "", pr.num ?? "", pr.size || "",
-      pr.flightsBooked === true ? "Yes" : pr.flightsBooked === false ? "No" : "",
-      pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut)];
+      state.profiles?.[p] ? jerseyName(pr, p) : "", yesNo(jersey),
+      yesNo(pr.flightsBooked),
+      pr.color || "", pr.skin || "", t(pr.flightIn), t(pr.flightOut),
+      pr.venmo ? `@${pr.venmo}` : "", yesNo(pr.drinking), pr.needs || ""]
+      /* a tab or newline typed into a field would break the row */
+      .map(cell => String(cell).replace(/[\t\r\n]+/g, " "));
   });
   return [head, ...rows].map(r => r.join("\t")).join("\n");
 }
@@ -432,7 +440,7 @@ function LogisticsEditor({ state, onSave }) {
   );
 }
 
-function TravelApparelSheet({ state, onSize, onNotify }) {
+function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
   const copySheet = st => {
     const txt = sheetText(st);
     const fallback = () => {
@@ -450,12 +458,14 @@ function TravelApparelSheet({ state, onSize, onNotify }) {
   const shirts = ROSTER.filter(p => profs[p]?.size).length;
   const flights = ROSTER.filter(p => profs[p]?.flightsBooked === true
     || profs[p]?.flightIn || profs[p]?.flightOut).length;
+  const jerseys = ROSTER.filter(p => profs[p] && jerseyConfirmed(profs[p], p)).length;
+  const locked = !!state.jerseysLocked;
   const stat = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-    padding:"9px 8px", textAlign:"center" };
+    padding:"9px 4px", textAlign:"center" };
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7, marginBottom:12 }}>
-        {[["Checked in", checkedIn], ["Shirts", shirts], ["Flights", flights]].map(([lb, value]) => (
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:12 }}>
+        {[["Checked in", checkedIn], ["Shirts", shirts], ["Jerseys", jerseys], ["Flights", flights]].map(([lb, value]) => (
           <div key={lb} style={stat}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, color:"var(--ink)",
               lineHeight:1 }}>{value}/{ROSTER.length}</div>
@@ -463,6 +473,12 @@ function TravelApparelSheet({ state, onSize, onNotify }) {
           </div>
         ))}
       </div>
+      {onLock && <div className="fd-profile-vibration" style={{ borderTop:0, marginBottom:6 }}>
+        <span>Jerseys ordered<small style={{ display:"block", color:"var(--muted2)", fontSize:12 }}>
+          Locks every jersey name, number and size</small></span>
+        <button type="button" role="switch" className="fd-switch" aria-checked={locked}
+          aria-label="Jerseys ordered" onClick={() => onLock(!locked)}><span /></button>
+      </div>}
       <Btn kind="ghost" onClick={() => copySheet(state)} style={{ width:"100%", marginBottom:14 }}>
         Copy sheet</Btn>
       <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px", gap:8,
@@ -476,6 +492,10 @@ function TravelApparelSheet({ state, onSize, onNotify }) {
           pr?.flightOut && `Out: ${legText(pr.flightOut, "out")}`].filter(Boolean);
         const travelStatus = legs.length ? legs.join(" · ")
           : pr?.flightsBooked === false ? "Flights not booked" : "No flight response";
+        const jerseyStatus = pr ? `${jerseyName(pr, p)} · ${jerseyConfirmed(pr, p) ? "confirmed" : "not confirmed"}` : "";
+        const details = pr ? [pr.venmo && `@${pr.venmo}`,
+          pr.drinking === false ? "Not drinking" : pr.drinking === true ? "Drinking" : null,
+          pr.needs].filter(Boolean).join(" · ") : "";
         return (
           <div key={p} style={{ padding:"10px 8px", borderBottom:"1px solid var(--line)" }}>
             <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px",
@@ -496,6 +516,10 @@ function TravelApparelSheet({ state, onSize, onNotify }) {
             </div>
             <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:5,
               color:legs.length ? "var(--muted2)" : "var(--muted)" }}>{travelStatus}</div>
+            {jerseyStatus && <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:2,
+              color:"var(--muted2)" }}>Jersey: {jerseyStatus}</div>}
+            {details && <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:2,
+              color:"var(--muted2)" }}>{details}</div>}
           </div>
         );
       })}

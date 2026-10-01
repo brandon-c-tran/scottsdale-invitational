@@ -70,6 +70,9 @@ import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome } from "./features/mvp/MvpHome.jsx";
+import { JerseySection } from "./features/jersey/Jersey.jsx";
+import { TripDetails } from "./features/profile/TripDetails.jsx";
+import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
 import { AwardsDesk, deskNote } from "./features/awards/AwardsDesk.jsx";
 import { directorPill } from "./features/director/directorPill.js";
@@ -1453,6 +1456,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
             if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
             return result;
           }}
+          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed }) : []}
+          onSetup={item => setModal({type:"profile", section:item.section})}
           onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
@@ -1554,7 +1559,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         songSnippets={capabilities.songSnippets === true}
         save={async prof => {
           const saved = await saveProfile(me, prof);
-          if (saved.ok) { setModal(null); notify("Profile saved"); }
+          if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }
           return saved;
         }} />}
       {modal?.type === "gmMenu" && (
@@ -1649,6 +1654,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
               display:state.profiles?.[p]?.display || p,
               size:sz,
             })}
+            onLock={locked => act("lockJerseys", { locked }, locked ? "Jerseys locked" : "Jerseys unlocked")}
             onNotify={notify} />
         </Sheet>
       )}
@@ -4022,6 +4028,11 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   const [size, setSize] = useState(state.profiles?.[me]?.size ?? null);
   const [walkoutTrack, setWalkoutTrack] = useState(
     state.profiles?.[me]?.walkoutTrack || null);
+  const [backName, setBackName] = useState(state.profiles?.[me]?.backName || "");
+  const [venmo, setVenmo] = useState(state.profiles?.[me]?.venmo || "");
+  const [drinking, setDrinking] = useState(typeof state.profiles?.[me]?.drinking === "boolean"
+    ? state.profiles[me].drinking : null);
+  const [needs, setNeeds] = useState(state.profiles?.[me]?.needs || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(null);
@@ -4043,7 +4054,8 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
      while it was open (a size, a flight) is never overwritten by the stale
      copy the sheet opened with. The server requires a name on every save. */
   const opened = useRef(null);
-  if (!opened.current) opened.current = { display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack };
+  if (!opened.current) opened.current = { display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack,
+    backName, venmo, drinking, needs };
   const changedFields = () => {
     const base = opened.current, same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
     const fields = { display:display.trim() === (base.display || "").trim()
@@ -4054,8 +4066,19 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
     if (!same(flightIn, base.flightIn)) fields.flightIn = flightIn;
     if (!same(flightOut, base.flightOut)) fields.flightOut = flightOut;
     if (!same(walkoutTrack, base.walkoutTrack)) fields.walkoutTrack = walkoutTrack;
+    for (const [key, value] of [["backName", backName], ["venmo", venmo], ["needs", needs]])
+      if (value.trim() !== base[key].trim()) fields[key] = value.trim() || null;
+    if (drinking !== base.drinking) fields.drinking = drinking;
     return { ...fields, ...(photo ? { photo } : {}) };
   };
+  const saved = state.profiles?.[me] || {};
+  const jerseysLocked = !!state.jerseysLocked;
+  const draftNum = num === "" ? undefined : Number(num);
+  const draftBack = cleanBackName(backName);
+  const jerseyOk = jerseyConfirmed({ ...saved, display, num:draftNum, size:size ?? undefined,
+    backName:draftBack || undefined }, me);
+  const badDraft = draftBack === undefined || (venmo.trim() !== "" && cleanVenmo(venmo) === undefined);
+  const confirming = section === "jersey" && !jerseysLocked && !jerseyOk;
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const close = () => {
     if (pending.current) return;
@@ -4064,7 +4087,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   };
   const walkoutSaved = state.profiles?.[me]?.walkoutTrack;
   const walkoutTab = spotifyCatalogEnabled || !!walkoutSaved;
-  const sections = [["card","Card"],["travel","Travel"],...(walkoutTab ? [["walkout","Win song"]] : [])];
+  const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
@@ -4077,15 +4100,21 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
       <div hidden={section !== "card"}>
       <ProfileEditor state={state} me={me} display={display} setDisplay={setDisplay} photo={photo} setPhoto={setPhoto}
         num={num} setNum={setNum} size={size} setSize={setSize}
-        onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false} />
+        onChip={onChip ? (color, skin) => submit(() => onChip(color, skin)) : undefined} showSize={false}
+        numLocked={jerseysLocked} />
       <VibrationToggle />
       <SoundToggle />
       <AlertsToggle />
       </div>
+      <div hidden={section !== "jersey"}>
+        <JerseySection state={state} me={me} display={display} backName={backName} setBackName={setBackName}
+          num={num} setNum={setNum} size={size} setSize={setSize} locked={jerseysLocked} confirmed={jerseyOk} />
+      </div>
       <div hidden={section !== "travel"}>
         <TravelFields booked={flightsBooked} setBooked={setFlightsBooked}
           flightIn={flightIn} setFlightIn={setFlightIn} flightOut={flightOut} setFlightOut={setFlightOut} />
-        <SizeRow lb="T-shirt size" value={size} onPick={setSize} allowClear />
+        <TripDetails venmo={venmo} setVenmo={setVenmo} drinking={drinking} setDrinking={setDrinking}
+          needs={needs} setNeeds={setNeeds} />
       </div>
       {walkoutTab && <div hidden={section !== "walkout"}>
         {spotifyCatalogEnabled ? <WinSongPicker value={walkoutTrack} onChange={setWalkoutTrack} snippets={songSnippets} />
@@ -4099,8 +4128,9 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
-      <ActionButton disabled={busy || !display.trim()} pending={busy} onClick={() => submit(() => save(changedFields()))}
-        style={{ width:"100%", fontSize:16, padding:"14px" }}>Save</ActionButton>
+      <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
+        onClick={() => submit(() => save(confirming ? { ...changedFields(), confirmJersey:true } : changedFields()))}
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>
       </div>
     </Sheet>
   );

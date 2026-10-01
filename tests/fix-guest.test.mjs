@@ -638,6 +638,49 @@ test("G25: before the weekend a guest without a flight answer gets one compact q
   assert.doesNotMatch(render(ui.GuestHome, props({ state:{ ...state, live:true } })).html, /Booked your flights/);
 });
 
+test("before the weekend Home lists what is still owed and each row opens its profile section", () => {
+  const me = ROSTER[0], state = { ...fresh(), live:false };
+  state.profiles[me] = { display:"Evan", flightsBooked:true, flightIn:{ air:"UA", num:"1", time:"10:00" } };
+  const opened = [];
+  const setup = [{ id:"jersey", section:"jersey", label:"Confirm your jersey" },
+    { id:"details", section:"travel", label:"Venmo and drinks" }];
+  const view = render(ui.GuestHome, homeProps(state, me, { events:[putt], setup, onSetup:item => opened.push(item.section) }));
+  assert.match(view.html, /Before the weekend/);
+  assert.match(view.html, /2 left/);
+  view.click("Confirm your jersey");
+  view.click("Venmo and drinks");
+  assert.deepEqual(opened, ["jersey", "travel"]);
+  assert.doesNotMatch(render(ui.GuestHome, homeProps(state, me, { events:[putt], setup:[], onSetup:noop })).html,
+    /Before the weekend/);
+  assert.doesNotMatch(render(ui.GuestHome, homeProps({ ...state, live:true }, me, { events:[putt], setup,
+    onSetup:noop })).html, /Before the weekend/, "the weekend itself is not the time");
+});
+
+test("the Jersey section draws the back and its one button confirms; ordered jerseys only save", async () => {
+  const me = ROSTER[0], state = { ...fresh(), live:false };
+  state.profiles[me] = { display:"Evan", num:7, size:"L" };
+  const saved = [];
+  const props = { state, me, onClose:noop, initialSection:"jersey", spotifyCatalogEnabled:false,
+    save:fields => { saved.push(fields); return Promise.resolve({ ok:true }); } };
+  const sheet = render(app.ProfileSheet, props, state, app.PlayerIdentityProvider);
+  assert.match(sheet.html, /Jersey back: EVAN, number 7, size L/);
+  assert.ok(sheet.buttons.some(button => button.name === "Trip"));
+  await sheet.click("Confirm jersey");
+  assert.deepEqual(saved, [{ display:"Evan", confirmJersey:true }]);
+
+  state.profiles[me] = { ...state.profiles[me], backName:"EVAN", jerseyOk:{ name:"EVAN", num:7, size:"L", at:1 } };
+  const done = render(app.ProfileSheet, { ...props, state }, state, app.PlayerIdentityProvider);
+  assert.match(done.html, /Confirmed/);
+  assert.ok(done.buttons.some(button => button.name === "Save"));
+  assert.ok(!done.buttons.some(button => button.name === "Confirm jersey"));
+
+  const locked = { ...state, jerseysLocked:true, profiles:{ ...state.profiles, [me]:{ display:"Evan", num:7, size:"L" } } };
+  const ordered = render(app.ProfileSheet, { ...props, state:locked }, locked, app.PlayerIdentityProvider);
+  assert.match(ordered.html, /Jerseys are ordered/);
+  assert.ok(!ordered.buttons.some(button => button.name === "Confirm jersey"));
+  assert.match(ordered.html, /aria-label="Name on back" disabled=""|disabled="" [^>]*aria-label="Name on back"/);
+});
+
 test("G5: Bets during the finale is closed, and before the weekend says it once", () => {
   const finale = BUILTIN_EVENTS.find(event => event.finale && event.game === "poker");
   const table = { ...fresh(), poker:{ id:finale.id, outs:[], startedAt:1 } };

@@ -4309,6 +4309,56 @@
   color: var(--clay-text);
   font: 600 12px/1.4 "Inter", sans-serif;
 }
+.fd-trip-details {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.fd-profile-field > .fd-trip-venmo {
+  position: relative;
+  display: block;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.fd-trip-venmo i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font: 600 16px/1 "Inter", sans-serif;
+  font-style: normal;
+  pointer-events: none;
+}
+.fd-profile-field .fd-trip-venmo input {
+  padding-left: 28px;
+}
+.fd-trip-question {
+  margin-bottom: -6px;
+  color: var(--ink);
+  font: 600 15px/1.3 "Inter", sans-serif;
+}
+.fd-trip-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.fd-trip-choice button {
+  height: 48px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--paper2);
+  color: var(--ink);
+  font: 700 14px/1 "Inter", sans-serif;
+  cursor: pointer;
+}
+.fd-trip-choice button[aria-pressed=true] {
+  background: var(--sun);
+  color: var(--ink0);
+  border-color: var(--ink0);
+}
 .fd-chip-picker {
   container-type: inline-size;
 }
@@ -5752,6 +5802,52 @@ button.fd-home-exposure {
   flex-basis: 100%;
   margin: 0 0 8px;
   color: var(--live2);
+}
+.fd-home-setup {
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--sun);
+  border-radius: 10px;
+  background: var(--paper2);
+  overflow: hidden;
+}
+.fd-home-setup h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 12px 8px;
+  color: var(--ink);
+  font: 700 18px/1.1 var(--fd-display, "Barlow Condensed",sans-serif);
+  text-transform: uppercase;
+}
+.fd-home-setup h2 span {
+  color: var(--muted2);
+  font: 600 12px/1 var(--fd-body);
+  text-transform: none;
+}
+.fd-home-setup button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font: 600 14px/1.3 var(--fd-body);
+  text-align: left;
+  cursor: pointer;
+}
+.fd-home-setup button > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.fd-home-setup .fd-home-arrow {
+  color: var(--sun);
 }
 .fd-home-flights {
   display: flex;
@@ -13327,6 +13423,77 @@ button.fd-home-exposure {
   background: var(--sun);
   border-color: var(--ink0);
   color: var(--ink0);
+}
+
+/* src/features/jersey/jersey.css */
+.fd-jersey-stage {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 4px 0 16px;
+}
+.fd-jersey-art {
+  width: min(220px, 70vw);
+  height: auto;
+  display: block;
+}
+.fd-jersey-cloth {
+  fill: var(--paper2);
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.fd-jersey-collar {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.fd-jersey-tag {
+  fill: var(--bone);
+}
+.fd-jersey-tag-text {
+  fill: var(--ink0);
+  font: 700 9px/1 "Inter", sans-serif;
+}
+.fd-jersey-name {
+  fill: var(--ink);
+  font: 700 24px/1 "Barlow Condensed", sans-serif;
+  letter-spacing: .08em;
+}
+.fd-jersey-num {
+  fill: var(--ink);
+  font: 700 104px/1 "Barlow Condensed", sans-serif;
+}
+.fd-jersey-name.is-empty,
+.fd-jersey-num.is-empty {
+  fill: var(--muted);
+  opacity: .5;
+}
+.fd-jersey-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted2);
+  font: 600 13px/1.4 "Inter", sans-serif;
+}
+.fd-jersey-status.is-ok {
+  color: var(--sun);
+}
+.fd-jersey-size {
+  margin-top: 16px;
+}
+.fd-jersey-locked-size {
+  margin: 0;
+  color: var(--muted2);
+  font: 500 13px/1.4 "Inter", sans-serif;
+}
+.fd-jersey-locked-size strong {
+  color: var(--ink);
+}
+.fd-profile-field input:disabled {
+  opacity: .6;
 }
 
 /* src/features/music/winSong.css */

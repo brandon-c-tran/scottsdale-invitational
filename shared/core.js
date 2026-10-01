@@ -396,7 +396,7 @@ function cleanLogistics(stored) {
 const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
-  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, updatedAt:0 };
+  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, jerseysLocked:false, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -408,6 +408,8 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "eventOrder",
   /* D6: ballots are guest answers, not game progress */
   "prompts",
+  /* the jersey order is placed once, whatever the games do */
+  "jerseysLocked",
 ]);
 
 /* ─────────── helpers ─────────── */

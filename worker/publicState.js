@@ -8,7 +8,8 @@
    - Wager chips go out as { stake, ts }; their requestKey embeds a device id.
    - Private ratings (seeds) are the commissioner's. A player gets their own
      back so the rating form can show saved answers.
-   - Shirt size and flights are for the commissioner and the owner. Name,
+   - Shirt size, flights, the jersey confirmation, Venmo, drinking and food
+     needs are for the commissioner and the owner. Name, jersey back name,
      number, chip, photo and walkout stay public: every card renders them.
    - Logistics stay public (the house, and Brandon's own times).
    - Ballots (D6, shared/prompts.js projectPrompts): drafts are the
@@ -37,7 +38,8 @@ const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps", "contestMarkets"]);
 const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
 const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
-const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut"]);
+const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
+  "jerseyOk", "venmo", "drinking", "needs"]);
 const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp"]);
 
 function normalizeViewer(viewer) {

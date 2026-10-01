@@ -1,0 +1,16 @@
+.fd-jersey-stage { display:grid; justify-items:center; gap:8px; padding:4px 0 16px; }
+.fd-jersey-art { width:min(220px, 70vw); height:auto; display:block; }
+.fd-jersey-cloth { fill:var(--paper2); stroke:var(--line); stroke-width:1.5; stroke-linejoin:round; }
+.fd-jersey-collar { fill:none; stroke:var(--muted); stroke-width:3; stroke-linecap:round; }
+.fd-jersey-tag { fill:var(--bone); }
+.fd-jersey-tag-text { fill:var(--ink0); font:700 9px/1 'Inter',sans-serif; }
+.fd-jersey-name { fill:var(--ink); font:700 24px/1 'Barlow Condensed',sans-serif; letter-spacing:.08em; }
+.fd-jersey-num { fill:var(--ink); font:700 104px/1 'Barlow Condensed',sans-serif; }
+.fd-jersey-name.is-empty, .fd-jersey-num.is-empty { fill:var(--muted); opacity:.5; }
+.fd-jersey-status { display:flex; align-items:center; gap:6px; margin:0; color:var(--muted2);
+  font:600 13px/1.4 'Inter',sans-serif; }
+.fd-jersey-status.is-ok { color:var(--sun); }
+.fd-jersey-size { margin-top:16px; }
+.fd-jersey-locked-size { margin:0; color:var(--muted2); font:500 13px/1.4 'Inter',sans-serif; }
+.fd-jersey-locked-size strong { color:var(--ink); }
+.fd-profile-field input:disabled { opacity:.6; }

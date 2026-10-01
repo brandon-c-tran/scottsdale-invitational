@@ -890,6 +890,24 @@ flight-booking status, and both flight legs. `sheetText` turns all of it into ta
 on the GM travel board, because ordering happens in a spreadsheet or a
 supplier form, not on a phone. Blanks stay blank there on purpose.
 
+Since Sept 30 (`shared/guestSetup.js`) the profile also has a Jersey section
+and three trip answers, asked of returning guests rather than added to
+check-in. The jersey (`features/jersey/`) draws the back as it will print:
+`backName` (12 letters, uppercase, public; until set it is the display name
+made legal, `jerseyName`), the number and the size on the collar tag.
+"Confirm jersey" (`saveProfile` with `confirmJersey`) pins the back name and
+stores the confirmed triple as `jerseyOk`, so changing any of the three reads
+as unconfirmed with nothing to clear. The commissioner's "Jerseys ordered"
+switch on the travel board (`lockJerseys`, `state.jerseysLocked`, kept by a
+progress reset) refuses guests' changes to name, number and size. Trip adds
+Venmo (`venmo`, no @), "Drinking this weekend?" (`drinking`; four games are
+drinking games, and a drink menu would just be a Costco list) and optional
+food or drink needs (`needs`); all three and `jerseyOk` are private like size
+and flights. Before the weekend Home lists what a guest still owes
+(`setupTodo`: chip color, photo, jersey, booked-but-missing flights, Venmo
+and drinks, a win song when the picker is on), each row opening its profile
+section; the sheet and the travel board carry every new field.
+
 ## The domain
 
 `fielddayseries.com` is served by the Worker as a Cloudflare custom domain

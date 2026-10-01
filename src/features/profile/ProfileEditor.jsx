@@ -14,7 +14,8 @@ const CHIP_SKIN_META = {
   star: "Starburst", bolt: "Chevron", wave: "Ripple", crown: "Crown",
 };
 
-function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true }) {
+function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, setNum, size, setSize, onChip, showSize = true,
+  numLocked = false }) {
   const identity = usePlayerIdentity(me);
   const fileRef = useRef(null);
   const numberErrorId = useId();
@@ -64,7 +65,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
             </label>
             <label className="fd-profile-field fd-profile-number-field">
               <span>No.</span>
-              <input value={num} inputMode="numeric" placeholder="00" aria-label="Player number"
+              <input value={num} inputMode="numeric" placeholder="00" aria-label="Player number" disabled={numLocked}
                 aria-invalid={!!takenBy} aria-describedby={takenBy ? numberErrorId : undefined}
                 onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
               />

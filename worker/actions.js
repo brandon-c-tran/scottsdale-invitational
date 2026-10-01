@@ -33,6 +33,9 @@ import { QA_PROGRESS_KEYS } from "../shared/qa.js";
 import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
+import {
+  JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
+} from "../shared/guestSetup.js";
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
@@ -213,7 +216,7 @@ const rememberWagerOp = (state, requestKey, record) => {
   keys.slice(0, keys.length - WAGER_OP_LIMIT).forEach(key => delete state.wagerOps[key]);
 };
 const POKER_TABLE_ALLOWED_ACTIONS = new Set([
-  "saveProfile", "pickChip", "saveSeeds", "saveLogistics",
+  "saveProfile", "pickChip", "saveSeeds", "saveLogistics", "lockJerseys",
   "startShowScene", "advanceShowScene", "endShowScene", "retryShowScene",
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
@@ -505,12 +508,41 @@ export const ACTIONS = {
   /* ── identity / profile ── */
   saveProfile(state, {
     player, display, num, size, flightsBooked, flightIn, flightOut, walkoutTrack,
+    backName, venmo, drinking, needs, confirmJersey,
   }, ctx) {
     if (!ALL_PLAYERS.includes(player)) return err("Unknown player");
     if (!isActivePlayer(player) && !ctx.isGm) return err("Player is not confirmed");
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Name required");
-    const prof = { ...(state.profiles[player] || {}), display: display.trim().slice(0, 16) };
+    const saved = state.profiles[player] || {};
+    const prof = { ...saved, display: display.trim().slice(0, 16) };
+    /* once jerseys are ordered, what is printed on them stays put */
+    if (state.jerseysLocked && !ctx.isGm) {
+      const name = backName === undefined ? undefined : cleanBackName(backName);
+      if ((num !== undefined && (num === null ? null : Math.floor(Number(num))) !== (saved.num ?? null))
+        || (size !== undefined && (size ?? null) !== (saved.size ?? null))
+        || (backName !== undefined && (name ?? null) !== (saved.backName ?? null)))
+        return err("Jerseys are already ordered");
+    }
+    if (backName !== undefined) {
+      const name = cleanBackName(backName);
+      if (name === undefined) return err(`Jersey names are letters, up to ${JERSEY_NAME_MAX}`);
+      if (name === null) delete prof.backName; else prof.backName = name;
+    }
+    for (const [key, value, clean, error] of [
+      ["venmo", venmo, cleanVenmo, "That is not a Venmo username"],
+      ["needs", needs, cleanNeeds, `Keep it under ${NEEDS_MAX} characters`],
+    ]) {
+      if (value === undefined) continue;
+      const text = clean(value);
+      if (text === undefined) return err(error);
+      if (text === null) delete prof[key]; else prof[key] = text;
+    }
+    if (drinking !== undefined) {
+      if (drinking === null) delete prof.drinking;
+      else if (typeof drinking !== "boolean") return err("Bad answer");
+      else prof.drinking = drinking;
+    }
     /* travel legs are structured and validated by the same helper the client
        renders from, so a leg can never be half-parsed on one side only */
     for (const [k, v] of [["flightIn", flightIn], ["flightOut", flightOut]]) {
@@ -548,7 +580,23 @@ export const ACTIONS = {
       if (checked.track === null) delete prof.walkoutTrack;
       else prof.walkoutTrack = checked.track;
     }
+    /* Confirming pins the back name it showed, so renaming yourself later
+       does not quietly change the jersey. */
+    if (confirmJersey === true) {
+      if (prof.num == null) return err("Pick a number first");
+      if (!prof.size) return err("Pick a size first");
+      const name = jerseyName(prof, player);
+      if (!name) return err("Add a name for the back");
+      prof.backName = name;
+      if (!jerseyConfirmed(prof, player)) prof.jerseyOk = { name, num:prof.num, size:prof.size, at:Date.now() };
+    }
     state.profiles[player] = prof;
+    return ok();
+  },
+  lockJerseys(state, { locked }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (typeof locked !== "boolean") return err("Bad lock");
+    state.jerseysLocked = locked;
     return ok();
   },
   /* chip identity: color is a first-come-first-serve claim, skin repeats

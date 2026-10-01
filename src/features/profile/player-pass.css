@@ -167,6 +167,12 @@
 }
 @media(prefers-reduced-motion:no-preference) {
   .fd-pass-inner { transition:transform .65s cubic-bezier(.2,.75,.2,1); }
+  /* The chip coin is its own 3D layer (its own perspective), which WebKit
+     draws past the face's hidden backface. Each face hides outright as the
+     card passes edge-on: this curve reaches 90deg at about 90ms. */
+  .fd-pass-front,.fd-pass-back { transition:visibility 0s linear 90ms; }
+  .fd-pass-back,.fd-pass-inner.is-flipped .fd-pass-front { visibility:hidden; }
+  .fd-pass-inner.is-flipped .fd-pass-back { visibility:visible; }
 }
 /* Reduced motion: a still card, and the flip is a short fade between faces. */
 @media(prefers-reduced-motion:reduce) {

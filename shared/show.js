@@ -287,6 +287,11 @@ const LIFECYCLE_LABELS = {
   "post-poker-result":"Post counts",
 };
 
+/* team games of three or more a side (3v3s, the everyone-plays 5v5) open
+   with a captains' draft; pairs keep the random draw */
+export const draftsByDefault = ev => ev?.kind === "team" && !ev.finale
+  && ((Number(ev.teamCfg?.size) || 0) >= 3 || ev.participation?.type === "all");
+
 function lifecycleBeat(state, operation) {
   const action = operation.nextAction;
   const ev = operation.event;
@@ -321,9 +326,16 @@ function lifecycleBeat(state, operation) {
     const suggestion = state.draws?.[ev.id] ? { players:null, roles:null } : suggestParticipants(state, ev);
     if (suggestion) {
       if (suggestion.roles?.length) extras.push({ type:"change-crew", label:"Change crew", eventId:ev.id });
+      swapIn();
+      /* teams of three or more pick their sides: the draft leads, a random
+         draw is the alternative */
+      if (draftsByDefault(ev) && !state.draws?.[ev.id]) {
+        extras.push({ type:"random-draw", label:"Random draw", eventId:ev.id });
+        return beat({ ...action, type:"captains-draft", label:"Captains draft", subject,
+          players:suggestion.players, roles:suggestion.roles, away });
+      }
       if (ev.kind === "team" && !state.draws?.[ev.id])
         extras.push({ type:"captains-draft", label:"Captains draft", eventId:ev.id });
-      swapIn();
       return beat({ ...action, type:"announce-draw", label:"Announce and draw", subject,
         players:suggestion.players, roles:suggestion.roles, away });
     }

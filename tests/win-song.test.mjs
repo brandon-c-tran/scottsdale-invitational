@@ -275,6 +275,66 @@ test("a speaker that refuses volume plays and stops with no fade", async () => {
   assert.equal(calls.filter(call => call.path.startsWith("PUT /me/player/play")).length, 1);
 });
 
+test("a speaker left at silence by a refused restore still plays the next song at the room's level", async () => {
+  const levels = async stored => {
+    const world = await room();
+    if (stored !== undefined) world.memory.entries.set("private:spotify:level", stored);
+    const calls = await withSpotify(path => path === "GET /me/player"
+      ? json(200, { is_playing:false, device:{ id:"speaker-1", volume_percent:0, supports_volume:true } })
+      : json(204, null), async () => { await recordFirstWinner(world); await world.settle(); });
+    return calls.map(call => /volume_percent=(\d+)/.exec(call.path)?.[1]).filter(Boolean).map(Number);
+  };
+  assert.equal((await levels(55)).at(-1), 55, "the remembered room level");
+  assert.equal((await levels()).at(-1), 70, "never silence, even with nothing remembered");
+});
+
+test("a win song that does not play is shown to the commissioner with its reason, and Retry plays it", async () => {
+  const unplugged = await room({ connected:false });
+  await withSpotify(() => json(204, null), async () => { await recordFirstWinner(unplugged); await unplugged.settle(); });
+  assert.equal(unplugged.tournament.state.showControl.audio.miss.reason, "Spotify isn't connected");
+
+  const asleep = await room();
+  await withSpotify(path => path.startsWith("PUT /me/player/play") || path === "PUT /me/player"
+    ? json(404, { error:{ message:"Device not found" } }) : json(204, null), async () => {
+    await recordFirstWinner(asleep); await asleep.settle();
+  });
+  const miss = asleep.tournament.state.showControl.audio.miss;
+  assert.equal(miss.reason, "The speaker is offline. Open Spotify on it");
+  assert.ok(miss.player);
+  assert.equal(walkoutOf(asleep.tournament.state), null);
+
+  const retry = () => asleep.tournament.handleSpotify(new Request("https://fielddayseries.com/api/spotify/retry", {
+    method:"POST", headers:{ Authorization:"Bearer gm", "Content-Type":"application/json" }, body:"{}" }),
+  new URL("https://fielddayseries.com/api/spotify/retry"));
+  let answer;
+  const calls = await withSpotify(() => json(204, null), async () => { answer = await (await retry()).json(); });
+  assert.equal(answer.ok, true);
+  const play = calls.find(call => call.path.startsWith("PUT /me/player/play"));
+  assert.deepEqual(play.body, { uris:[SONGS[miss.player].uri], position_ms:40000 });
+  const walkout = walkoutOf(asleep.tournament.state);
+  assert.equal(walkout.player, miss.player);
+  assert.equal(walkout.until - walkout.startedAt, WIN_SONG_CLIP_MS);
+  assert.equal(asleep.tournament.state.showControl.audio.miss, undefined, "a song that plays settles the miss");
+});
+
+test("QA's Sim contest plays the win's song; a Jump to stays silent", async () => {
+  const sim = await room();
+  const calls = await withSpotify(() => json(204, null), async () => {
+    for (let step = 0; step < 8 && !walkoutOf(sim.tournament.state); step++) {
+      await sim.say("qaAdvance", { target:"step" });
+      await sim.settle();
+    }
+  });
+  assert.ok(calls.some(call => call.path.startsWith("PUT /me/player/play")), "a simmed win sounds");
+
+  const jump = await room();
+  const jumped = await withSpotify(() => json(204, null), async () => {
+    await jump.say("qaAdvance", { target:"event:8ball:done" });
+    await jump.settle();
+  });
+  assert.ok(!jumped.some(call => call.path.startsWith("PUT /me/player/play")));
+});
+
 test("Undo on the winner stops the song it started", async () => {
   const world = await room();
   let first;

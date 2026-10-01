@@ -2568,6 +2568,820 @@ var init_PlayerIdentity = __esm({
   }
 });
 
+// src/lib/soundKit.js
+function makeIR(ctx, len, decay) {
+  const n = Math.max(1, Math.floor(ctx.sampleRate * len));
+  const pre = Math.floor(ctx.sampleRate * 0.012);
+  const b = ctx.createBuffer(2, n, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch);
+    for (let i = pre; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+  }
+  return b;
+}
+function makeEngine(ctx, { room = "fri", listen = "tv", volume = 0.8, out = null } = {}) {
+  const E = { ctx, listen, pan: 0 };
+  E.master = ctx.createGain();
+  E.master.gain.value = volume;
+  E.hp = ctx.createBiquadFilter();
+  E.hp.type = "highpass";
+  E.hp.frequency.value = 25;
+  E.comp = ctx.createDynamicsCompressor();
+  E.comp.threshold.value = -12;
+  E.comp.knee.value = 10;
+  E.comp.ratio.value = 4;
+  E.comp.attack.value = 2e-3;
+  E.comp.release.value = 0.18;
+  E.master.connect(E.hp);
+  E.hp.connect(E.comp);
+  E.comp.connect(out || ctx.destination);
+  E.hush = ctx.createGain();
+  E.hush.gain.value = 1;
+  E.hush.connect(E.master);
+  E.dry = ctx.createGain();
+  E.dry.connect(E.hush);
+  E.wet = ctx.createGain();
+  E.conv = ctx.createConvolver();
+  E.wetTone = ctx.createBiquadFilter();
+  E.wetTone.type = "lowpass";
+  E.wetOut = ctx.createGain();
+  E.wet.connect(E.conv);
+  E.conv.connect(E.wetTone);
+  E.wetTone.connect(E.wetOut);
+  E.wetOut.connect(E.hush);
+  const n = ctx.sampleRate * 2;
+  E.noise = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = E.noise.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  setRoom(E, room);
+  setListen(E, listen);
+  return E;
+}
+function setRoom(E, key) {
+  const k = roomKeyFor(key);
+  if (E.roomKey === k && E.conv.buffer) return;
+  const r = ROOMS[k];
+  E.roomKey = k;
+  E.conv.buffer = makeIR(E.ctx, r.len, r.decay);
+  E.wetTone.frequency.value = r.tone;
+  E.wetOut.gain.value = wetLevel(k, E.listen);
+}
+function setListen(E, listen) {
+  E.listen = listen;
+  E.hp.frequency.value = highpassFor(listen);
+  E.wetOut.gain.value = wetLevel(E.roomKey, listen);
+}
+function voice(E, { pan = 0, send = 0.2, bright = 1, gain = 1 } = {}) {
+  const c = E.ctx;
+  const g = c.createGain();
+  g.gain.value = gain;
+  const lp = c.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.Q.value = 0.5;
+  lp.frequency.value = Math.min(18e3, 13e3 * bright);
+  const p = c.createStereoPanner();
+  p.pan.value = E.listen === "phone" ? 0 : clampPan(pan + (E.pan || 0));
+  const s = c.createGain();
+  s.gain.value = send;
+  g.connect(lp);
+  lp.connect(p);
+  p.connect(E.dry);
+  p.connect(s);
+  s.connect(E.wet);
+  return g;
+}
+function mode(E, dest, t, f, d, peak, { a = 1e-3, drop = 0, type = "sine" } = {}) {
+  const c = E.ctx;
+  const o = c.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f * (1 + drop), t);
+  if (drop) o.frequency.exponentialRampToValueAtTime(f, t + Math.min(0.08, d * 0.6));
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + a + d);
+  o.connect(g);
+  g.connect(dest);
+  o.start(t);
+  o.stop(t + a + d + 0.03);
+}
+function burst(E, dest, t, { type = "bandpass", f = 2e3, q = 1, d = 0.02, peak = 0.5, a = 8e-4 } = {}) {
+  const c = E.ctx;
+  const s = c.createBufferSource();
+  s.buffer = E.noise;
+  const fl = c.createBiquadFilter();
+  fl.type = type;
+  fl.frequency.value = f;
+  fl.Q.value = q;
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + a + d);
+  s.connect(fl);
+  fl.connect(g);
+  g.connect(dest);
+  s.start(t, Math.random() * 1.5, a + d + 0.05);
+}
+function swell(E, dest, t, { d = 0.6, f0 = 500, f1 = 900, q = 0.7, peak = 0.2 } = {}) {
+  const c = E.ctx;
+  const s = c.createBufferSource();
+  s.buffer = E.noise;
+  const fl = c.createBiquadFilter();
+  fl.type = "bandpass";
+  fl.Q.value = q;
+  fl.frequency.setValueAtTime(f0, t);
+  fl.frequency.linearRampToValueAtTime(f1, t + d);
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + d * 0.6);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+  s.connect(fl);
+  fl.connect(g);
+  g.connect(dest);
+  s.start(t, Math.random() * 0.5, d + 0.05);
+}
+function riffle(E, t, n, o = {}) {
+  const gap = o.gap || 0.045;
+  let x = 0;
+  for (let i = 0; i < n; i++) {
+    M.clack(E, t + x, {
+      pitch: (o.pitch || 1) * (1 - i * 8e-3),
+      gain: (o.gain ?? 0.8) * (0.9 - i * 0.03),
+      bright: o.bright ?? 1,
+      pan: o.pan || 0,
+      double: i === n - 1
+    });
+    x += gap * rnd(0.85, 1.2);
+  }
+  return x;
+}
+function spinDown(E, t, o = {}) {
+  const dur = o.dur || 1.1, g = o.gain ?? 0.8;
+  let dt = 0.11, x = 0, i = 0;
+  while (x < dur && i < 90) {
+    const k = x / dur;
+    M.clack(E, t + x, { pitch: 1.05 - 0.1 * k, gain: g * (0.3 + 0.4 * k), bright: 0.55, double: false, pan: o.pan || 0 });
+    x += dt;
+    dt = Math.max(9e-3, dt * 0.9);
+    i++;
+  }
+  M.felt(E, t + x + 0.01, { gain: 0.45 * g });
+}
+function roll(E, t, o = {}) {
+  const dur = o.dur || 0.6, from = o.from ?? 0.08, to = o.to ?? 0.55;
+  const hits = Math.floor(dur * 24);
+  for (let i = 0; i < hits; i++) {
+    const k = i / Math.max(1, hits - 1);
+    M.drum(E, t + i / 24 + rnd(-6e-3, 6e-3), { f: (o.f || 66) * rnd(0.99, 1.01), dec: 0.16, gain: from + (to - from) * k * k, send: 0.3 });
+  }
+}
+function playRecipe(E, id, t, { pan = 0, ...opts } = {}) {
+  const s = SOUNDS[id];
+  if (!s || !E) return false;
+  const was = E.pan;
+  E.pan = clampPan(pan);
+  try {
+    s.play(E, t, opts);
+  } finally {
+    E.pan = was;
+  }
+  return true;
+}
+var NOTE, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, M, KIT, PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
+var init_soundKit = __esm({
+  "src/lib/soundKit.js"() {
+    NOTE = Object.freeze({
+      D2: 73.42,
+      A2: 110,
+      D3: 146.83,
+      A3: 220,
+      D4: 293.66,
+      E4: 329.63,
+      Fs4: 369.99,
+      A4: 440,
+      B4: 493.88,
+      D5: 587.33,
+      E5: 659.25,
+      Fs5: 739.99,
+      A5: 880
+    });
+    ROOMS = Object.freeze({
+      fri: Object.freeze({ len: 1, decay: 3.2, tone: 5200, wet: 0.16 }),
+      sam: Object.freeze({ len: 0.8, decay: 3.6, tone: 6e3, wet: 0.12 }),
+      sap: Object.freeze({ len: 1.2, decay: 3, tone: 4200, wet: 0.18 }),
+      san: Object.freeze({ len: 1.8, decay: 2.6, tone: 2900, wet: 0.25 }),
+      fin: Object.freeze({ len: 2.2, decay: 2.4, tone: 2500, wet: 0.28 })
+    });
+    roomKeyFor = (phase) => Object.prototype.hasOwnProperty.call(ROOMS, phase) ? phase : "fri";
+    roomForPhase = (phase) => ROOMS[roomKeyFor(phase)];
+    PHONE_WET = 0.45;
+    wetLevel = (room, listen) => roomForPhase(room).wet * (listen === "phone" ? PHONE_WET : 1);
+    highpassFor = (listen) => listen === "phone" ? 380 : 25;
+    rnd = (a, b) => a + Math.random() * (b - a);
+    clampPan = (pan) => Math.max(-1, Math.min(1, Number(pan) || 0));
+    M = {
+      /* clay chip on chip: a bright contact, two short body modes, and usually a second softer contact */
+      clack(E, t, o = {}) {
+        const p = (o.pitch || 1) * rnd(0.96, 1.04);
+        const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.12, bright: o.bright ?? 1, gain: o.gain ?? 1 });
+        burst(E, v, t, { f: 3300 * p, q: 2.2, d: 0.016, peak: 0.5 });
+        mode(E, v, t, 2380 * p, 0.04, 0.24);
+        mode(E, v, t, 3960 * p, 0.026, 0.13);
+        mode(E, v, t, 5650 * p, 0.014, 0.05);
+        mode(E, v, t, 250 * p, 0.022, 0.2);
+        if (o.double !== false) {
+          const t2 = t + rnd(9e-3, 0.016);
+          burst(E, v, t2, { f: 3e3 * p, q: 2, d: 0.012, peak: 0.2 });
+          mode(E, v, t2, 2450 * p, 0.025, 0.09);
+        }
+      },
+      /* a chip or hand landing on felt */
+      felt(E, t, o = {}) {
+        const v = voice(E, { pan: o.pan || 0, send: 0.1, bright: 0.6, gain: o.gain ?? 1 });
+        burst(E, v, t, { type: "lowpass", f: 520, q: 0.7, d: 0.09, peak: 0.7 });
+        mode(E, v, t, 92, 0.13, 0.55, { drop: 0.5 });
+      },
+      /* knuckle on a wooden table */
+      knock(E, t, o = {}) {
+        const p = (o.pitch || 1) * rnd(0.98, 1.02);
+        const v = voice(E, { pan: o.pan || 0, send: 0.18, bright: 0.8, gain: o.gain ?? 1 });
+        mode(E, v, t, 185 * p, 0.11, 0.55, { drop: 0.25 });
+        mode(E, v, t, 530 * p, 0.05, 0.2);
+        burst(E, v, t, { f: 1500 * p, q: 1.3, d: 0.014, peak: 0.3 });
+      },
+      /* a card turning over */
+      tick(E, t, o = {}) {
+        const v = voice(E, { pan: o.pan || 0, send: 0.15, bright: 1, gain: o.gain ?? 1 });
+        burst(E, v, t, { type: "highpass", f: 2600, q: 0.7, d: 0.011, peak: 0.32 });
+        burst(E, v, t + 4e-3, { f: 850, q: 0.9, d: 0.026, peak: 0.14 });
+        mode(E, v, t, 1650 * (o.pitch || 1), 0.012, 0.06);
+      },
+      /* a card set down hard in its seat */
+      slap(E, t, o = {}) {
+        const v = voice(E, { pan: o.pan || 0, send: 0.16, bright: 0.8, gain: o.gain ?? 1 });
+        burst(E, v, t, { f: 1150, q: 0.6, d: 0.055, peak: 0.75 });
+        burst(E, v, t, { type: "lowpass", f: 400, q: 0.7, d: 0.08, peak: 0.5 });
+        mode(E, v, t, 110, 0.09, 0.35, { drop: 0.4 });
+      },
+      /* the sun-bell: celesta-like, harmonic, warm, short strike */
+      bell(E, t, f, o = {}) {
+        const dec = o.dec || 2.4;
+        const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.38, bright: 1, gain: o.gain ?? 1 });
+        [[1, 0.24, dec], [2, 0.07, dec * 0.45], [3, 0.022, dec * 0.3], [4.07, 0.035, dec * 0.14], [6.1, 0.012, dec * 0.07]].forEach(([r, amp, d]) => mode(E, v, t, f * r * (1 + rnd(-8e-4, 8e-4)), d, amp, { a: 3e-3 }));
+        mode(E, v, t, f * 1.0025, dec * 0.8, 0.08, { a: 3e-3 });
+        burst(E, v, t, { type: "highpass", f: 4e3, d: 5e-3, peak: 0.04 });
+      },
+      /* a low singing bowl: inharmonic, slow beating */
+      bowl(E, t, f, o = {}) {
+        const dec = o.dec || 4.5;
+        const v = voice(E, { pan: o.pan || 0, send: 0.45, bright: 0.9, gain: o.gain ?? 1 });
+        [[1, 0.22, dec], [1.004, 0.12, dec], [2.71, 0.08, dec * 0.55], [5.15, 0.03, dec * 0.3]].forEach(([r, amp, d]) => mode(E, v, t, f * r, d, amp, { a: 6e-3 }));
+        burst(E, v, t, { type: "lowpass", f: 600, d: 0.03, peak: 0.12 });
+      },
+      /* a low frame drum, felt beater */
+      drum(E, t, o = {}) {
+        const f = o.f || 68;
+        const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.2, bright: 0.5, gain: o.gain ?? 1 });
+        mode(E, v, t, f, o.dec || 0.55, 0.85, { drop: 1.4, a: 2e-3 });
+        mode(E, v, t, f * 1.59, 0.16, 0.18, { drop: 0.3 });
+        burst(E, v, t, { type: "lowpass", f: 900, d: 0.03, peak: 0.25 });
+      }
+    };
+    KIT = Object.freeze([
+      {
+        id: "S1",
+        name: "Field Day call",
+        where: ["tv"],
+        ms: 900,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.9, gain: 0.7 });
+          M.bell(E, t, NOTE.A4, { gain: 0.8 });
+          M.bell(E, t + 0.17, NOTE.D5, { gain: 0.75 });
+          M.bell(E, t + 0.34, NOTE.Fs5, { gain: 0.7, dec: 3.2 });
+        }
+      },
+      {
+        id: "S2",
+        name: "Event intro",
+        where: ["tv"],
+        ms: 1200,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.8 });
+          M.bell(E, t + 0.02, NOTE.D4, { gain: 0.8, dec: 3 });
+          M.bell(E, t + 0.02, NOTE.A4, { gain: 0.6, dec: 3 });
+          M.bell(E, t + 0.42, NOTE.D5, { gain: 0.4 });
+        }
+      },
+      {
+        id: "S3",
+        name: "Card turns",
+        where: ["tv"],
+        ms: 30,
+        play: (E, t) => M.tick(E, t)
+      },
+      {
+        id: "S4",
+        name: "Your card",
+        where: ["phone"],
+        ms: 500,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.D5, { gain: 0.9, dec: 1.8, send: 0.25 });
+          M.bell(E, t + 0.09, NOTE.Fs5, { gain: 0.5, dec: 1.4, send: 0.25 });
+        }
+      },
+      {
+        id: "S5",
+        name: "Chip placed",
+        where: ["phone", "tv"],
+        ms: 30,
+        play: (E, t) => M.clack(E, t)
+      },
+      {
+        id: "S6",
+        name: "Chip taken back",
+        where: ["phone"],
+        ms: 30,
+        play: (E, t) => M.clack(E, t, { pitch: 0.84, gain: 0.7, bright: 0.5, double: false })
+      },
+      {
+        id: "S7",
+        name: "At your limit",
+        where: ["phone"],
+        ms: 120,
+        play: (E, t) => {
+          M.clack(E, t);
+          M.felt(E, t + 0.03, { gain: 0.5 });
+          M.clack(E, t + 0.07, { pitch: 0.9, gain: 0.45, double: false });
+        }
+      },
+      {
+        id: "S8",
+        name: "Betting locks",
+        where: ["tv"],
+        ms: 150,
+        play: (E, t) => {
+          M.felt(E, t, { gain: 0.9 });
+          M.knock(E, t + 0.018, { pitch: 0.9, gain: 0.8 });
+        }
+      },
+      {
+        id: "S9",
+        name: "You're playing",
+        where: ["phone"],
+        ms: 500,
+        play: (E, t) => {
+          M.drum(E, t, { f: 82, dec: 0.3, gain: 0.7 });
+          M.drum(E, t + 0.16, { f: 110, dec: 0.3, gain: 0.6 });
+          M.bell(E, t + 0.3, NOTE.A4, { gain: 0.5, dec: 1.6 });
+        }
+      },
+      {
+        id: "S10",
+        name: "Won",
+        where: ["tv"],
+        ms: 120,
+        play: (E, t) => {
+          M.drum(E, t, { f: 120, dec: 0.18, gain: 0.8 });
+          M.clack(E, t + 5e-3, { gain: 0.9 });
+        }
+      },
+      {
+        id: "S11",
+        name: "To the bank",
+        where: ["tv"],
+        ms: 600,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.1, bright: 0.4, gain: 1 }), t, { d: 0.5, f0: 900, f1: 420, peak: 0.18 });
+          riffle(E, t + 0.25, 4, { pitch: 0.8, bright: 0.45, gain: 0.45, gap: 0.05 });
+        }
+      },
+      {
+        id: "S12",
+        name: "Payout",
+        where: ["phone", "tv"],
+        ms: 300,
+        play: (E, t) => riffle(E, t, 6, { pitch: 1.02, gap: 0.042, gain: 0.85 })
+      },
+      {
+        id: "S13",
+        name: "Advance",
+        where: ["tv"],
+        ms: 900,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.15, bright: 0.6 }), t, { d: 0.75, f0: 600, f1: 1100, peak: 0.12 });
+          M.knock(E, t + 0.8, { gain: 0.6 });
+          M.clack(E, t + 0.81, { gain: 0.7 });
+        }
+      },
+      {
+        id: "S14",
+        name: "Result posted",
+        where: ["tv"],
+        ms: 1500,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A4, { gain: 0.7, dec: 2.8 });
+          M.bell(E, t + 0.07, NOTE.D5, { gain: 0.55, dec: 2.8 });
+        }
+      },
+      {
+        id: "S15",
+        name: "New leader",
+        where: ["tv", "phone"],
+        ms: 1500,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A4, { gain: 0.6 });
+          M.bell(E, t + 0.14, NOTE.D5, { gain: 0.75, dec: 2.6 });
+        }
+      },
+      {
+        id: "S16",
+        name: "Challenged",
+        where: ["phone"],
+        ms: 250,
+        play: (E, t) => {
+          M.knock(E, t);
+          M.knock(E, t + 0.13, { pitch: 1.04, gain: 0.85 });
+        }
+      },
+      {
+        id: "S17",
+        name: "Duel won",
+        where: ["phone"],
+        ms: 300,
+        play: (E, t) => riffle(E, t, 5, { pitch: 1.04, gap: 0.04, gain: 0.8 })
+      },
+      {
+        id: "S18",
+        name: "Pick",
+        where: ["tv", "phone"],
+        ms: 100,
+        play: (E, t) => M.slap(E, t)
+      },
+      {
+        id: "S19",
+        name: "Your pick",
+        where: ["phone"],
+        ms: 900,
+        play: (E, t) => {
+          M.knock(E, t, { gain: 0.5 });
+          M.bell(E, t + 0.02, NOTE.Fs5, { gain: 0.6, dec: 1.6, send: 0.25 });
+        }
+      },
+      {
+        id: "S20",
+        name: "Deal",
+        where: ["tv"],
+        ms: 900,
+        play: (E, t) => riffle(E, t, 12, { pitch: 0.95, gap: 0.07, gain: 0.55 })
+      },
+      {
+        id: "S21",
+        name: "Blinds up",
+        where: ["tv"],
+        ms: 3e3,
+        play: (E, t) => {
+          M.bowl(E, t, NOTE.A2, { gain: 0.9 });
+          M.bowl(E, t, NOTE.D3, { gain: 0.35, dec: 3.5 });
+        }
+      },
+      {
+        id: "S22",
+        name: "Bust",
+        where: ["tv"],
+        ms: 1200,
+        play: (E, t) => spinDown(E, t, { dur: 1, gain: 0.8 })
+      },
+      {
+        id: "S23",
+        name: "Roll to the flood",
+        where: ["tv"],
+        ms: 1400,
+        play: (E, t) => {
+          roll(E, t, { dur: 0.6 });
+          M.drum(E, t + 0.6, { f: NOTE.D2, dec: 1 });
+          M.bell(E, t + 0.6, NOTE.D4, { gain: 0.6, dec: 3 });
+          M.bell(E, t + 0.6, NOTE.A4, { gain: 0.5, dec: 3 });
+        }
+      },
+      {
+        id: "S24",
+        name: "Champion's chip",
+        where: ["tv", "phone"],
+        ms: 1300,
+        play: (E, t) => {
+          M.clack(E, t, { gain: 1 });
+          spinDown(E, t + 0.05, { dur: 1.15, gain: 0.7 });
+        }
+      },
+      {
+        id: "S25",
+        name: "Saved",
+        where: ["gm"],
+        ms: 400,
+        play: (E, t) => {
+          M.clack(E, t, { gain: 0.35, double: false });
+          M.bell(E, t + 0.01, NOTE.A5, { gain: 0.18, dec: 0.6, send: 0.1 });
+        }
+      },
+      {
+        id: "S26",
+        name: "Didn't save",
+        where: ["gm", "phone"],
+        ms: 300,
+        play: (E, t) => {
+          M.felt(E, t, { gain: 0.7 });
+          M.felt(E, t + 0.15, { gain: 0.55 });
+        }
+      }
+    ].map(Object.freeze));
+    PARTS = Object.freeze([
+      {
+        id: "ride",
+        name: "Winners ride the connector",
+        ms: 800,
+        play: (E, t, o = {}) => swell(E, voice(E, { send: 0.15, bright: 0.6 }), t, { d: (o.ms || 800) / 1e3, f0: 600, f1: 1100, peak: 0.12 })
+      },
+      {
+        id: "land",
+        name: "They land in the next slot",
+        ms: 120,
+        play: (E, t) => {
+          M.knock(E, t, { gain: 0.6 });
+          M.clack(E, t + 0.01, { gain: 0.7 });
+        }
+      },
+      {
+        id: "upNow",
+        name: "UP NOW moves on",
+        ms: 1800,
+        play: (E, t) => M.bell(E, t, NOTE.A4, { gain: 0.35, dec: 1.8 })
+      },
+      {
+        id: "stepDown",
+        name: "The other rows step down",
+        ms: 300,
+        play: (E, t) => riffle(E, t, 4, { pitch: 0.8, gain: 0.35, bright: 0.5, gap: 0.06 })
+      },
+      {
+        id: "crownCount",
+        name: "The final stack counts",
+        ms: 1200,
+        play: (E, t, o = {}) => riffle(E, t, 12, { gap: (o.ms || 1200) / 1e3 / 12, gain: 0.5, pitch: 0.98 })
+      },
+      {
+        id: "crownCall",
+        name: "The Field Day call, complete",
+        ms: 4e3,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A4, { gain: 0.7 });
+          M.bell(E, t + 0.17, NOTE.D5, { gain: 0.7 });
+          M.bell(E, t + 0.34, NOTE.Fs5, { gain: 0.65 });
+          M.bell(E, t + 0.62, NOTE.A5, { gain: 0.55, dec: 4 });
+          M.drum(E, t + 0.62, { f: NOTE.D2, dec: 1.2, gain: 0.6 });
+        }
+      },
+      {
+        id: "faceOff",
+        name: "The sides meet",
+        ms: 600,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.5, gain: 0.55 });
+          M.knock(E, t + 0.02, { pitch: 0.85, gain: 0.45 });
+        }
+      },
+      {
+        id: "crowd",
+        name: "Several chips at once",
+        ms: 300,
+        play: (E, t, o = {}) => riffle(E, t, Math.max(3, Math.min(6, o.n || 4)), { gain: 0.7, gap: 0.04 })
+      }
+    ].map(Object.freeze));
+    SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map((s) => [s.id, s])));
+    SOUND_IDS = Object.freeze(KIT.map((s) => s.id));
+    isSound = (id) => Object.prototype.hasOwnProperty.call(SOUNDS, id);
+    CHIP_DENSITY = Object.freeze({ minGap: 120, crowd: 3, window: 400 });
+  }
+});
+
+// src/lib/sound.js
+import { useEffect as useEffect6, useState as useState7 } from "react";
+function walkoutActive(walkout, now = serverNow()) {
+  if (!walkout || typeof walkout !== "object") return false;
+  const until = Number(walkout.until);
+  return Number.isFinite(until) && now < until;
+}
+function hushReason({ walkout = null, quickDraw = false, now = serverNow() } = {}) {
+  if (walkoutActive(walkout, now)) return "walkout";
+  if (quickDraw) return "quickDraw";
+  return null;
+}
+function scheduleTime({ at, now, currentTime = 0, outputLatency = 0, lateMs = LATE_MS }) {
+  const target = Number(at);
+  if (!Number.isFinite(target)) return null;
+  const ahead = target - Number(now);
+  if (ahead < -lateMs) return null;
+  const latency = Math.max(0, Number(outputLatency) || 0);
+  return Math.max(currentTime + 5e-3, currentTime + ahead / 1e3 - latency);
+}
+function notify() {
+  for (const fn of [...listeners2]) {
+    try {
+      fn();
+    } catch {
+    }
+  }
+}
+function context(create) {
+  if (engine.ctx || !create) return engine.ctx;
+  const AC = contextClass();
+  if (!AC) return null;
+  try {
+    if (engine.surface !== "tv" && globalThis.navigator?.audioSession) globalThis.navigator.audioSession.type = "ambient";
+  } catch {
+  }
+  try {
+    const ctx = new AC({ latencyHint: "interactive" });
+    engine.ctx = ctx;
+    engine.E = makeEngine(ctx, {
+      room: engine.room,
+      listen: engine.surface === "tv" ? "tv" : "phone",
+      volume: MASTER_VOLUME[engine.surface === "tv" ? "tv" : "phone"]
+    });
+    ctx.onstatechange = () => {
+      if (ctx.state === "running") engine.resuming = false;
+      notify();
+    };
+    applyHush(true);
+    notify();
+  } catch {
+    engine.ctx = null;
+    engine.E = null;
+  }
+  return engine.ctx;
+}
+function resume(ctx) {
+  if (!ctx || ctx.state === "running" || ctx.state === "closed") return;
+  engine.resuming = true;
+  try {
+    const p = ctx.resume();
+    if (p?.then) p.then(() => {
+      engine.resuming = false;
+      notify();
+    }, () => {
+      engine.resuming = false;
+      notify();
+    });
+  } catch {
+    engine.resuming = false;
+  }
+}
+function unlockSound() {
+  if (soundOptedOut()) return false;
+  const ctx = context(true);
+  if (!ctx) return false;
+  resume(ctx);
+  if (!engine.unlockedOnce) {
+    engine.unlockedOnce = true;
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch {
+    }
+  }
+  return true;
+}
+function isHushed(now = serverNow()) {
+  return !!hushReason({ walkout: engine.walkout, quickDraw: engine.quickDraw, now });
+}
+function applyHush(immediate = false) {
+  const hushed = isHushed();
+  engine.hushed = hushed;
+  const E = engine.E;
+  if (!E) return;
+  try {
+    const g = E.hush.gain, t = E.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    if (immediate) g.setValueAtTime(hushed ? 0 : 1, t);
+    else {
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(hushed ? 0 : 1, t + HUSH_RAMP_S);
+    }
+  } catch {
+  }
+}
+function seenKey(key) {
+  if (key === null || key === void 0) return false;
+  const k = String(key);
+  if (engine.keys.includes(k)) return true;
+  engine.keys.push(k);
+  if (engine.keys.length > KEY_MEMORY) engine.keys.shift();
+  return false;
+}
+function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {} } = {}) {
+  try {
+    if (!isSound(id) || soundOptedOut() || !busAllowed(bus, engine.surface)) return null;
+    const ctx = context(false);
+    if (!running(ctx) || !engine.E) return null;
+    const now = serverNow();
+    const target = at === null || at === void 0 ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
+    if (!Number.isFinite(target) || target - now < -lateMs) return null;
+    if (isHushed(Math.max(now, target))) return null;
+    if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
+    if (seenKey(key)) return null;
+    if (bus === "you") engine.lastYouAt = target;
+    const fire = () => {
+      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
+      const c = engine.ctx;
+      const when = scheduleTime({
+        at: target,
+        now: serverNow(),
+        currentTime: c.currentTime,
+        outputLatency: c.outputLatency || c.baseLatency || 0,
+        lateMs
+      });
+      if (when === null) return;
+      playRecipe(engine.E, id, when, { pan, ...opts });
+      try {
+        globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at: target, when, currentTime: c.currentTime, pan });
+      } catch {
+      }
+    };
+    const wait = target - now - LOOKAHEAD_MS;
+    if (wait <= 0) {
+      fire();
+      return { cancel() {
+      } };
+    }
+    let timer = null;
+    timer = setTimeout(() => {
+      engine.timers.delete(timer);
+      fire();
+    }, wait);
+    engine.timers.add(timer);
+    return { cancel() {
+      clearTimeout(timer);
+      engine.timers.delete(timer);
+    } };
+  } catch {
+    return null;
+  }
+}
+var SOUND_KEY, MASTER_VOLUME, BUSES, LATE_MS, LOOKAHEAD_MS, HUSH_RAMP_S, storage2, soundOptedOut, busAllowed, GM_YIELD_MS, ackYields, engine, listeners2, contextClass, running, KEY_MEMORY;
+var init_sound = __esm({
+  "src/lib/sound.js"() {
+    init_soundKit();
+    init_serverClock();
+    init_frameGate();
+    SOUND_KEY = "si-sound";
+    MASTER_VOLUME = Object.freeze({ tv: 0.7, phone: 0.6 });
+    BUSES = Object.freeze({ room: "tv", you: "phone", gm: "phone" });
+    LATE_MS = 300;
+    LOOKAHEAD_MS = 250;
+    HUSH_RAMP_S = 0.15;
+    storage2 = () => {
+      try {
+        return globalThis.localStorage || null;
+      } catch {
+        return null;
+      }
+    };
+    soundOptedOut = () => {
+      try {
+        return storage2()?.getItem(SOUND_KEY) === "off";
+      } catch {
+        return false;
+      }
+    };
+    busAllowed = (bus, surface) => !!BUSES[bus] && BUSES[bus] === (surface === "tv" ? "tv" : "phone");
+    GM_YIELD_MS = 400;
+    ackYields = (id, lastYouAt, target) => id === "S25" && Number.isFinite(Number(lastYouAt)) && Number(lastYouAt) > 0 && Math.abs(Number(target) - Number(lastYouAt)) <= GM_YIELD_MS;
+    engine = {
+      ctx: null,
+      E: null,
+      surface: "phone",
+      room: "fri",
+      walkout: null,
+      quickDraw: false,
+      hushed: false,
+      resuming: false,
+      unlockedOnce: false,
+      keys: [],
+      chips: null,
+      timers: /* @__PURE__ */ new Set(),
+      walkoutTimer: null,
+      lastYouAt: 0,
+      factory: null,
+      installed: false
+    };
+    listeners2 = /* @__PURE__ */ new Set();
+    contextClass = () => engine.factory || typeof globalThis !== "undefined" && (globalThis.AudioContext || globalThis.webkitAudioContext) || null;
+    running = (ctx) => !!ctx && (ctx.state === "running" || engine.resuming);
+    KEY_MEMORY = 200;
+  }
+});
+
 // src/features/identity/chipCoin.js
 function edgeInserts(skin, n = COIN_FACETS) {
   const every = (step, width = 1, offset2 = 0) => Array.from(
@@ -5784,810 +6598,8 @@ function startDrawPlayback({
   return { stop, skip, joined };
 }
 
-// src/lib/sound.js
-import { useEffect as useEffect6, useState as useState7 } from "react";
-
-// src/lib/soundKit.js
-var NOTE = Object.freeze({
-  D2: 73.42,
-  A2: 110,
-  D3: 146.83,
-  A3: 220,
-  D4: 293.66,
-  E4: 329.63,
-  Fs4: 369.99,
-  A4: 440,
-  B4: 493.88,
-  D5: 587.33,
-  E5: 659.25,
-  Fs5: 739.99,
-  A5: 880
-});
-var ROOMS = Object.freeze({
-  fri: Object.freeze({ len: 1, decay: 3.2, tone: 5200, wet: 0.16 }),
-  sam: Object.freeze({ len: 0.8, decay: 3.6, tone: 6e3, wet: 0.12 }),
-  sap: Object.freeze({ len: 1.2, decay: 3, tone: 4200, wet: 0.18 }),
-  san: Object.freeze({ len: 1.8, decay: 2.6, tone: 2900, wet: 0.25 }),
-  fin: Object.freeze({ len: 2.2, decay: 2.4, tone: 2500, wet: 0.28 })
-});
-var roomKeyFor = (phase) => Object.prototype.hasOwnProperty.call(ROOMS, phase) ? phase : "fri";
-var roomForPhase = (phase) => ROOMS[roomKeyFor(phase)];
-var PHONE_WET = 0.45;
-var wetLevel = (room, listen) => roomForPhase(room).wet * (listen === "phone" ? PHONE_WET : 1);
-var highpassFor = (listen) => listen === "phone" ? 380 : 25;
-var rnd = (a, b) => a + Math.random() * (b - a);
-var clampPan = (pan) => Math.max(-1, Math.min(1, Number(pan) || 0));
-function makeIR(ctx, len, decay) {
-  const n = Math.max(1, Math.floor(ctx.sampleRate * len));
-  const pre = Math.floor(ctx.sampleRate * 0.012);
-  const b = ctx.createBuffer(2, n, ctx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = b.getChannelData(ch);
-    for (let i = pre; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
-  }
-  return b;
-}
-function makeEngine(ctx, { room = "fri", listen = "tv", volume = 0.8, out = null } = {}) {
-  const E = { ctx, listen, pan: 0 };
-  E.master = ctx.createGain();
-  E.master.gain.value = volume;
-  E.hp = ctx.createBiquadFilter();
-  E.hp.type = "highpass";
-  E.hp.frequency.value = 25;
-  E.comp = ctx.createDynamicsCompressor();
-  E.comp.threshold.value = -12;
-  E.comp.knee.value = 10;
-  E.comp.ratio.value = 4;
-  E.comp.attack.value = 2e-3;
-  E.comp.release.value = 0.18;
-  E.master.connect(E.hp);
-  E.hp.connect(E.comp);
-  E.comp.connect(out || ctx.destination);
-  E.hush = ctx.createGain();
-  E.hush.gain.value = 1;
-  E.hush.connect(E.master);
-  E.dry = ctx.createGain();
-  E.dry.connect(E.hush);
-  E.wet = ctx.createGain();
-  E.conv = ctx.createConvolver();
-  E.wetTone = ctx.createBiquadFilter();
-  E.wetTone.type = "lowpass";
-  E.wetOut = ctx.createGain();
-  E.wet.connect(E.conv);
-  E.conv.connect(E.wetTone);
-  E.wetTone.connect(E.wetOut);
-  E.wetOut.connect(E.hush);
-  const n = ctx.sampleRate * 2;
-  E.noise = ctx.createBuffer(1, n, ctx.sampleRate);
-  const d = E.noise.getChannelData(0);
-  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-  setRoom(E, room);
-  setListen(E, listen);
-  return E;
-}
-function setRoom(E, key) {
-  const k = roomKeyFor(key);
-  if (E.roomKey === k && E.conv.buffer) return;
-  const r = ROOMS[k];
-  E.roomKey = k;
-  E.conv.buffer = makeIR(E.ctx, r.len, r.decay);
-  E.wetTone.frequency.value = r.tone;
-  E.wetOut.gain.value = wetLevel(k, E.listen);
-}
-function setListen(E, listen) {
-  E.listen = listen;
-  E.hp.frequency.value = highpassFor(listen);
-  E.wetOut.gain.value = wetLevel(E.roomKey, listen);
-}
-function voice(E, { pan = 0, send = 0.2, bright = 1, gain = 1 } = {}) {
-  const c = E.ctx;
-  const g = c.createGain();
-  g.gain.value = gain;
-  const lp = c.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.Q.value = 0.5;
-  lp.frequency.value = Math.min(18e3, 13e3 * bright);
-  const p = c.createStereoPanner();
-  p.pan.value = E.listen === "phone" ? 0 : clampPan(pan + (E.pan || 0));
-  const s = c.createGain();
-  s.gain.value = send;
-  g.connect(lp);
-  lp.connect(p);
-  p.connect(E.dry);
-  p.connect(s);
-  s.connect(E.wet);
-  return g;
-}
-function mode(E, dest, t, f, d, peak, { a = 1e-3, drop = 0, type = "sine" } = {}) {
-  const c = E.ctx;
-  const o = c.createOscillator();
-  o.type = type;
-  o.frequency.setValueAtTime(f * (1 + drop), t);
-  if (drop) o.frequency.exponentialRampToValueAtTime(f, t + Math.min(0.08, d * 0.6));
-  const g = c.createGain();
-  g.gain.setValueAtTime(1e-4, t);
-  g.gain.linearRampToValueAtTime(peak, t + a);
-  g.gain.exponentialRampToValueAtTime(1e-4, t + a + d);
-  o.connect(g);
-  g.connect(dest);
-  o.start(t);
-  o.stop(t + a + d + 0.03);
-}
-function burst(E, dest, t, { type = "bandpass", f = 2e3, q = 1, d = 0.02, peak = 0.5, a = 8e-4 } = {}) {
-  const c = E.ctx;
-  const s = c.createBufferSource();
-  s.buffer = E.noise;
-  const fl = c.createBiquadFilter();
-  fl.type = type;
-  fl.frequency.value = f;
-  fl.Q.value = q;
-  const g = c.createGain();
-  g.gain.setValueAtTime(1e-4, t);
-  g.gain.linearRampToValueAtTime(peak, t + a);
-  g.gain.exponentialRampToValueAtTime(1e-4, t + a + d);
-  s.connect(fl);
-  fl.connect(g);
-  g.connect(dest);
-  s.start(t, Math.random() * 1.5, a + d + 0.05);
-}
-function swell(E, dest, t, { d = 0.6, f0 = 500, f1 = 900, q = 0.7, peak = 0.2 } = {}) {
-  const c = E.ctx;
-  const s = c.createBufferSource();
-  s.buffer = E.noise;
-  const fl = c.createBiquadFilter();
-  fl.type = "bandpass";
-  fl.Q.value = q;
-  fl.frequency.setValueAtTime(f0, t);
-  fl.frequency.linearRampToValueAtTime(f1, t + d);
-  const g = c.createGain();
-  g.gain.setValueAtTime(1e-4, t);
-  g.gain.linearRampToValueAtTime(peak, t + d * 0.6);
-  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
-  s.connect(fl);
-  fl.connect(g);
-  g.connect(dest);
-  s.start(t, Math.random() * 0.5, d + 0.05);
-}
-var M = {
-  /* clay chip on chip: a bright contact, two short body modes, and usually a second softer contact */
-  clack(E, t, o = {}) {
-    const p = (o.pitch || 1) * rnd(0.96, 1.04);
-    const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.12, bright: o.bright ?? 1, gain: o.gain ?? 1 });
-    burst(E, v, t, { f: 3300 * p, q: 2.2, d: 0.016, peak: 0.5 });
-    mode(E, v, t, 2380 * p, 0.04, 0.24);
-    mode(E, v, t, 3960 * p, 0.026, 0.13);
-    mode(E, v, t, 5650 * p, 0.014, 0.05);
-    mode(E, v, t, 250 * p, 0.022, 0.2);
-    if (o.double !== false) {
-      const t2 = t + rnd(9e-3, 0.016);
-      burst(E, v, t2, { f: 3e3 * p, q: 2, d: 0.012, peak: 0.2 });
-      mode(E, v, t2, 2450 * p, 0.025, 0.09);
-    }
-  },
-  /* a chip or hand landing on felt */
-  felt(E, t, o = {}) {
-    const v = voice(E, { pan: o.pan || 0, send: 0.1, bright: 0.6, gain: o.gain ?? 1 });
-    burst(E, v, t, { type: "lowpass", f: 520, q: 0.7, d: 0.09, peak: 0.7 });
-    mode(E, v, t, 92, 0.13, 0.55, { drop: 0.5 });
-  },
-  /* knuckle on a wooden table */
-  knock(E, t, o = {}) {
-    const p = (o.pitch || 1) * rnd(0.98, 1.02);
-    const v = voice(E, { pan: o.pan || 0, send: 0.18, bright: 0.8, gain: o.gain ?? 1 });
-    mode(E, v, t, 185 * p, 0.11, 0.55, { drop: 0.25 });
-    mode(E, v, t, 530 * p, 0.05, 0.2);
-    burst(E, v, t, { f: 1500 * p, q: 1.3, d: 0.014, peak: 0.3 });
-  },
-  /* a card turning over */
-  tick(E, t, o = {}) {
-    const v = voice(E, { pan: o.pan || 0, send: 0.15, bright: 1, gain: o.gain ?? 1 });
-    burst(E, v, t, { type: "highpass", f: 2600, q: 0.7, d: 0.011, peak: 0.32 });
-    burst(E, v, t + 4e-3, { f: 850, q: 0.9, d: 0.026, peak: 0.14 });
-    mode(E, v, t, 1650 * (o.pitch || 1), 0.012, 0.06);
-  },
-  /* a card set down hard in its seat */
-  slap(E, t, o = {}) {
-    const v = voice(E, { pan: o.pan || 0, send: 0.16, bright: 0.8, gain: o.gain ?? 1 });
-    burst(E, v, t, { f: 1150, q: 0.6, d: 0.055, peak: 0.75 });
-    burst(E, v, t, { type: "lowpass", f: 400, q: 0.7, d: 0.08, peak: 0.5 });
-    mode(E, v, t, 110, 0.09, 0.35, { drop: 0.4 });
-  },
-  /* the sun-bell: celesta-like, harmonic, warm, short strike */
-  bell(E, t, f, o = {}) {
-    const dec = o.dec || 2.4;
-    const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.38, bright: 1, gain: o.gain ?? 1 });
-    [[1, 0.24, dec], [2, 0.07, dec * 0.45], [3, 0.022, dec * 0.3], [4.07, 0.035, dec * 0.14], [6.1, 0.012, dec * 0.07]].forEach(([r, amp, d]) => mode(E, v, t, f * r * (1 + rnd(-8e-4, 8e-4)), d, amp, { a: 3e-3 }));
-    mode(E, v, t, f * 1.0025, dec * 0.8, 0.08, { a: 3e-3 });
-    burst(E, v, t, { type: "highpass", f: 4e3, d: 5e-3, peak: 0.04 });
-  },
-  /* a low singing bowl: inharmonic, slow beating */
-  bowl(E, t, f, o = {}) {
-    const dec = o.dec || 4.5;
-    const v = voice(E, { pan: o.pan || 0, send: 0.45, bright: 0.9, gain: o.gain ?? 1 });
-    [[1, 0.22, dec], [1.004, 0.12, dec], [2.71, 0.08, dec * 0.55], [5.15, 0.03, dec * 0.3]].forEach(([r, amp, d]) => mode(E, v, t, f * r, d, amp, { a: 6e-3 }));
-    burst(E, v, t, { type: "lowpass", f: 600, d: 0.03, peak: 0.12 });
-  },
-  /* a low frame drum, felt beater */
-  drum(E, t, o = {}) {
-    const f = o.f || 68;
-    const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.2, bright: 0.5, gain: o.gain ?? 1 });
-    mode(E, v, t, f, o.dec || 0.55, 0.85, { drop: 1.4, a: 2e-3 });
-    mode(E, v, t, f * 1.59, 0.16, 0.18, { drop: 0.3 });
-    burst(E, v, t, { type: "lowpass", f: 900, d: 0.03, peak: 0.25 });
-  }
-};
-function riffle(E, t, n, o = {}) {
-  const gap = o.gap || 0.045;
-  let x = 0;
-  for (let i = 0; i < n; i++) {
-    M.clack(E, t + x, {
-      pitch: (o.pitch || 1) * (1 - i * 8e-3),
-      gain: (o.gain ?? 0.8) * (0.9 - i * 0.03),
-      bright: o.bright ?? 1,
-      pan: o.pan || 0,
-      double: i === n - 1
-    });
-    x += gap * rnd(0.85, 1.2);
-  }
-  return x;
-}
-function spinDown(E, t, o = {}) {
-  const dur = o.dur || 1.1, g = o.gain ?? 0.8;
-  let dt = 0.11, x = 0, i = 0;
-  while (x < dur && i < 90) {
-    const k = x / dur;
-    M.clack(E, t + x, { pitch: 1.05 - 0.1 * k, gain: g * (0.3 + 0.4 * k), bright: 0.55, double: false, pan: o.pan || 0 });
-    x += dt;
-    dt = Math.max(9e-3, dt * 0.9);
-    i++;
-  }
-  M.felt(E, t + x + 0.01, { gain: 0.45 * g });
-}
-function roll(E, t, o = {}) {
-  const dur = o.dur || 0.6, from = o.from ?? 0.08, to = o.to ?? 0.55;
-  const hits = Math.floor(dur * 24);
-  for (let i = 0; i < hits; i++) {
-    const k = i / Math.max(1, hits - 1);
-    M.drum(E, t + i / 24 + rnd(-6e-3, 6e-3), { f: (o.f || 66) * rnd(0.99, 1.01), dec: 0.16, gain: from + (to - from) * k * k, send: 0.3 });
-  }
-}
-var KIT = Object.freeze([
-  {
-    id: "S1",
-    name: "Field Day call",
-    where: ["tv"],
-    ms: 900,
-    play: (E, t) => {
-      M.drum(E, t, { f: NOTE.D2, dec: 0.9, gain: 0.7 });
-      M.bell(E, t, NOTE.A4, { gain: 0.8 });
-      M.bell(E, t + 0.17, NOTE.D5, { gain: 0.75 });
-      M.bell(E, t + 0.34, NOTE.Fs5, { gain: 0.7, dec: 3.2 });
-    }
-  },
-  {
-    id: "S2",
-    name: "Event intro",
-    where: ["tv"],
-    ms: 1200,
-    play: (E, t) => {
-      M.drum(E, t, { f: NOTE.D2, dec: 0.8 });
-      M.bell(E, t + 0.02, NOTE.D4, { gain: 0.8, dec: 3 });
-      M.bell(E, t + 0.02, NOTE.A4, { gain: 0.6, dec: 3 });
-      M.bell(E, t + 0.42, NOTE.D5, { gain: 0.4 });
-    }
-  },
-  {
-    id: "S3",
-    name: "Card turns",
-    where: ["tv"],
-    ms: 30,
-    play: (E, t) => M.tick(E, t)
-  },
-  {
-    id: "S4",
-    name: "Your card",
-    where: ["phone"],
-    ms: 500,
-    play: (E, t) => {
-      M.bell(E, t, NOTE.D5, { gain: 0.9, dec: 1.8, send: 0.25 });
-      M.bell(E, t + 0.09, NOTE.Fs5, { gain: 0.5, dec: 1.4, send: 0.25 });
-    }
-  },
-  {
-    id: "S5",
-    name: "Chip placed",
-    where: ["phone", "tv"],
-    ms: 30,
-    play: (E, t) => M.clack(E, t)
-  },
-  {
-    id: "S6",
-    name: "Chip taken back",
-    where: ["phone"],
-    ms: 30,
-    play: (E, t) => M.clack(E, t, { pitch: 0.84, gain: 0.7, bright: 0.5, double: false })
-  },
-  {
-    id: "S7",
-    name: "At your limit",
-    where: ["phone"],
-    ms: 120,
-    play: (E, t) => {
-      M.clack(E, t);
-      M.felt(E, t + 0.03, { gain: 0.5 });
-      M.clack(E, t + 0.07, { pitch: 0.9, gain: 0.45, double: false });
-    }
-  },
-  {
-    id: "S8",
-    name: "Betting locks",
-    where: ["tv"],
-    ms: 150,
-    play: (E, t) => {
-      M.felt(E, t, { gain: 0.9 });
-      M.knock(E, t + 0.018, { pitch: 0.9, gain: 0.8 });
-    }
-  },
-  {
-    id: "S9",
-    name: "You're playing",
-    where: ["phone"],
-    ms: 500,
-    play: (E, t) => {
-      M.drum(E, t, { f: 82, dec: 0.3, gain: 0.7 });
-      M.drum(E, t + 0.16, { f: 110, dec: 0.3, gain: 0.6 });
-      M.bell(E, t + 0.3, NOTE.A4, { gain: 0.5, dec: 1.6 });
-    }
-  },
-  {
-    id: "S10",
-    name: "Won",
-    where: ["tv"],
-    ms: 120,
-    play: (E, t) => {
-      M.drum(E, t, { f: 120, dec: 0.18, gain: 0.8 });
-      M.clack(E, t + 5e-3, { gain: 0.9 });
-    }
-  },
-  {
-    id: "S11",
-    name: "To the bank",
-    where: ["tv"],
-    ms: 600,
-    play: (E, t) => {
-      swell(E, voice(E, { send: 0.1, bright: 0.4, gain: 1 }), t, { d: 0.5, f0: 900, f1: 420, peak: 0.18 });
-      riffle(E, t + 0.25, 4, { pitch: 0.8, bright: 0.45, gain: 0.45, gap: 0.05 });
-    }
-  },
-  {
-    id: "S12",
-    name: "Payout",
-    where: ["phone", "tv"],
-    ms: 300,
-    play: (E, t) => riffle(E, t, 6, { pitch: 1.02, gap: 0.042, gain: 0.85 })
-  },
-  {
-    id: "S13",
-    name: "Advance",
-    where: ["tv"],
-    ms: 900,
-    play: (E, t) => {
-      swell(E, voice(E, { send: 0.15, bright: 0.6 }), t, { d: 0.75, f0: 600, f1: 1100, peak: 0.12 });
-      M.knock(E, t + 0.8, { gain: 0.6 });
-      M.clack(E, t + 0.81, { gain: 0.7 });
-    }
-  },
-  {
-    id: "S14",
-    name: "Result posted",
-    where: ["tv"],
-    ms: 1500,
-    play: (E, t) => {
-      M.bell(E, t, NOTE.A4, { gain: 0.7, dec: 2.8 });
-      M.bell(E, t + 0.07, NOTE.D5, { gain: 0.55, dec: 2.8 });
-    }
-  },
-  {
-    id: "S15",
-    name: "New leader",
-    where: ["tv", "phone"],
-    ms: 1500,
-    play: (E, t) => {
-      M.bell(E, t, NOTE.A4, { gain: 0.6 });
-      M.bell(E, t + 0.14, NOTE.D5, { gain: 0.75, dec: 2.6 });
-    }
-  },
-  {
-    id: "S16",
-    name: "Challenged",
-    where: ["phone"],
-    ms: 250,
-    play: (E, t) => {
-      M.knock(E, t);
-      M.knock(E, t + 0.13, { pitch: 1.04, gain: 0.85 });
-    }
-  },
-  {
-    id: "S17",
-    name: "Duel won",
-    where: ["phone"],
-    ms: 300,
-    play: (E, t) => riffle(E, t, 5, { pitch: 1.04, gap: 0.04, gain: 0.8 })
-  },
-  {
-    id: "S18",
-    name: "Pick",
-    where: ["tv", "phone"],
-    ms: 100,
-    play: (E, t) => M.slap(E, t)
-  },
-  {
-    id: "S19",
-    name: "Your pick",
-    where: ["phone"],
-    ms: 900,
-    play: (E, t) => {
-      M.knock(E, t, { gain: 0.5 });
-      M.bell(E, t + 0.02, NOTE.Fs5, { gain: 0.6, dec: 1.6, send: 0.25 });
-    }
-  },
-  {
-    id: "S20",
-    name: "Deal",
-    where: ["tv"],
-    ms: 900,
-    play: (E, t) => riffle(E, t, 12, { pitch: 0.95, gap: 0.07, gain: 0.55 })
-  },
-  {
-    id: "S21",
-    name: "Blinds up",
-    where: ["tv"],
-    ms: 3e3,
-    play: (E, t) => {
-      M.bowl(E, t, NOTE.A2, { gain: 0.9 });
-      M.bowl(E, t, NOTE.D3, { gain: 0.35, dec: 3.5 });
-    }
-  },
-  {
-    id: "S22",
-    name: "Bust",
-    where: ["tv"],
-    ms: 1200,
-    play: (E, t) => spinDown(E, t, { dur: 1, gain: 0.8 })
-  },
-  {
-    id: "S23",
-    name: "Roll to the flood",
-    where: ["tv"],
-    ms: 1400,
-    play: (E, t) => {
-      roll(E, t, { dur: 0.6 });
-      M.drum(E, t + 0.6, { f: NOTE.D2, dec: 1 });
-      M.bell(E, t + 0.6, NOTE.D4, { gain: 0.6, dec: 3 });
-      M.bell(E, t + 0.6, NOTE.A4, { gain: 0.5, dec: 3 });
-    }
-  },
-  {
-    id: "S24",
-    name: "Champion's chip",
-    where: ["tv", "phone"],
-    ms: 1300,
-    play: (E, t) => {
-      M.clack(E, t, { gain: 1 });
-      spinDown(E, t + 0.05, { dur: 1.15, gain: 0.7 });
-    }
-  },
-  {
-    id: "S25",
-    name: "Saved",
-    where: ["gm"],
-    ms: 400,
-    play: (E, t) => {
-      M.clack(E, t, { gain: 0.35, double: false });
-      M.bell(E, t + 0.01, NOTE.A5, { gain: 0.18, dec: 0.6, send: 0.1 });
-    }
-  },
-  {
-    id: "S26",
-    name: "Didn't save",
-    where: ["gm", "phone"],
-    ms: 300,
-    play: (E, t) => {
-      M.felt(E, t, { gain: 0.7 });
-      M.felt(E, t + 0.15, { gain: 0.55 });
-    }
-  }
-].map(Object.freeze));
-var PARTS = Object.freeze([
-  {
-    id: "ride",
-    name: "Winners ride the connector",
-    ms: 800,
-    play: (E, t, o = {}) => swell(E, voice(E, { send: 0.15, bright: 0.6 }), t, { d: (o.ms || 800) / 1e3, f0: 600, f1: 1100, peak: 0.12 })
-  },
-  {
-    id: "land",
-    name: "They land in the next slot",
-    ms: 120,
-    play: (E, t) => {
-      M.knock(E, t, { gain: 0.6 });
-      M.clack(E, t + 0.01, { gain: 0.7 });
-    }
-  },
-  {
-    id: "upNow",
-    name: "UP NOW moves on",
-    ms: 1800,
-    play: (E, t) => M.bell(E, t, NOTE.A4, { gain: 0.35, dec: 1.8 })
-  },
-  {
-    id: "stepDown",
-    name: "The other rows step down",
-    ms: 300,
-    play: (E, t) => riffle(E, t, 4, { pitch: 0.8, gain: 0.35, bright: 0.5, gap: 0.06 })
-  },
-  {
-    id: "crownCount",
-    name: "The final stack counts",
-    ms: 1200,
-    play: (E, t, o = {}) => riffle(E, t, 12, { gap: (o.ms || 1200) / 1e3 / 12, gain: 0.5, pitch: 0.98 })
-  },
-  {
-    id: "crownCall",
-    name: "The Field Day call, complete",
-    ms: 4e3,
-    play: (E, t) => {
-      M.bell(E, t, NOTE.A4, { gain: 0.7 });
-      M.bell(E, t + 0.17, NOTE.D5, { gain: 0.7 });
-      M.bell(E, t + 0.34, NOTE.Fs5, { gain: 0.65 });
-      M.bell(E, t + 0.62, NOTE.A5, { gain: 0.55, dec: 4 });
-      M.drum(E, t + 0.62, { f: NOTE.D2, dec: 1.2, gain: 0.6 });
-    }
-  },
-  {
-    id: "faceOff",
-    name: "The sides meet",
-    ms: 600,
-    play: (E, t) => {
-      M.drum(E, t, { f: NOTE.D2, dec: 0.5, gain: 0.55 });
-      M.knock(E, t + 0.02, { pitch: 0.85, gain: 0.45 });
-    }
-  },
-  {
-    id: "crowd",
-    name: "Several chips at once",
-    ms: 300,
-    play: (E, t, o = {}) => riffle(E, t, Math.max(3, Math.min(6, o.n || 4)), { gain: 0.7, gap: 0.04 })
-  }
-].map(Object.freeze));
-var SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map((s) => [s.id, s])));
-var SOUND_IDS = Object.freeze(KIT.map((s) => s.id));
-var isSound = (id) => Object.prototype.hasOwnProperty.call(SOUNDS, id);
-function playRecipe(E, id, t, { pan = 0, ...opts } = {}) {
-  const s = SOUNDS[id];
-  if (!s || !E) return false;
-  const was = E.pan;
-  E.pan = clampPan(pan);
-  try {
-    s.play(E, t, opts);
-  } finally {
-    E.pan = was;
-  }
-  return true;
-}
-var CHIP_DENSITY = Object.freeze({ minGap: 120, crowd: 3, window: 400 });
-
-// src/lib/sound.js
-init_serverClock();
-init_frameGate();
-var SOUND_KEY = "si-sound";
-var MASTER_VOLUME = Object.freeze({ tv: 0.7, phone: 0.6 });
-var BUSES = Object.freeze({ room: "tv", you: "phone", gm: "phone" });
-var LATE_MS = 300;
-var LOOKAHEAD_MS = 250;
-var HUSH_RAMP_S = 0.15;
-var storage2 = () => {
-  try {
-    return globalThis.localStorage || null;
-  } catch {
-    return null;
-  }
-};
-var soundOptedOut = () => {
-  try {
-    return storage2()?.getItem(SOUND_KEY) === "off";
-  } catch {
-    return false;
-  }
-};
-var busAllowed = (bus, surface) => !!BUSES[bus] && BUSES[bus] === (surface === "tv" ? "tv" : "phone");
-function walkoutActive(walkout, now = serverNow()) {
-  if (!walkout || typeof walkout !== "object") return false;
-  const until = Number(walkout.until);
-  return Number.isFinite(until) && now < until;
-}
-function hushReason({ walkout = null, quickDraw = false, now = serverNow() } = {}) {
-  if (walkoutActive(walkout, now)) return "walkout";
-  if (quickDraw) return "quickDraw";
-  return null;
-}
-function scheduleTime({ at, now, currentTime = 0, outputLatency = 0, lateMs = LATE_MS }) {
-  const target = Number(at);
-  if (!Number.isFinite(target)) return null;
-  const ahead = target - Number(now);
-  if (ahead < -lateMs) return null;
-  const latency = Math.max(0, Number(outputLatency) || 0);
-  return Math.max(currentTime + 5e-3, currentTime + ahead / 1e3 - latency);
-}
-var GM_YIELD_MS = 400;
-var ackYields = (id, lastYouAt, target) => id === "S25" && Number.isFinite(Number(lastYouAt)) && Number(lastYouAt) > 0 && Math.abs(Number(target) - Number(lastYouAt)) <= GM_YIELD_MS;
-var engine = {
-  ctx: null,
-  E: null,
-  surface: "phone",
-  room: "fri",
-  walkout: null,
-  quickDraw: false,
-  hushed: false,
-  resuming: false,
-  unlockedOnce: false,
-  keys: [],
-  chips: null,
-  timers: /* @__PURE__ */ new Set(),
-  walkoutTimer: null,
-  lastYouAt: 0,
-  factory: null,
-  installed: false
-};
-var listeners2 = /* @__PURE__ */ new Set();
-function notify() {
-  for (const fn of [...listeners2]) {
-    try {
-      fn();
-    } catch {
-    }
-  }
-}
-var contextClass = () => engine.factory || typeof globalThis !== "undefined" && (globalThis.AudioContext || globalThis.webkitAudioContext) || null;
-function context(create) {
-  if (engine.ctx || !create) return engine.ctx;
-  const AC = contextClass();
-  if (!AC) return null;
-  try {
-    if (engine.surface !== "tv" && globalThis.navigator?.audioSession) globalThis.navigator.audioSession.type = "ambient";
-  } catch {
-  }
-  try {
-    const ctx = new AC({ latencyHint: "interactive" });
-    engine.ctx = ctx;
-    engine.E = makeEngine(ctx, {
-      room: engine.room,
-      listen: engine.surface === "tv" ? "tv" : "phone",
-      volume: MASTER_VOLUME[engine.surface === "tv" ? "tv" : "phone"]
-    });
-    ctx.onstatechange = () => {
-      if (ctx.state === "running") engine.resuming = false;
-      notify();
-    };
-    applyHush(true);
-    notify();
-  } catch {
-    engine.ctx = null;
-    engine.E = null;
-  }
-  return engine.ctx;
-}
-var running = (ctx) => !!ctx && (ctx.state === "running" || engine.resuming);
-function resume(ctx) {
-  if (!ctx || ctx.state === "running" || ctx.state === "closed") return;
-  engine.resuming = true;
-  try {
-    const p = ctx.resume();
-    if (p?.then) p.then(() => {
-      engine.resuming = false;
-      notify();
-    }, () => {
-      engine.resuming = false;
-      notify();
-    });
-  } catch {
-    engine.resuming = false;
-  }
-}
-function unlockSound() {
-  if (soundOptedOut()) return false;
-  const ctx = context(true);
-  if (!ctx) return false;
-  resume(ctx);
-  if (!engine.unlockedOnce) {
-    engine.unlockedOnce = true;
-    try {
-      const src = ctx.createBufferSource();
-      src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
-      src.connect(ctx.destination);
-      src.start(0);
-    } catch {
-    }
-  }
-  return true;
-}
-function isHushed(now = serverNow()) {
-  return !!hushReason({ walkout: engine.walkout, quickDraw: engine.quickDraw, now });
-}
-function applyHush(immediate = false) {
-  const hushed = isHushed();
-  engine.hushed = hushed;
-  const E = engine.E;
-  if (!E) return;
-  try {
-    const g = E.hush.gain, t = E.ctx.currentTime;
-    g.cancelScheduledValues(t);
-    if (immediate) g.setValueAtTime(hushed ? 0 : 1, t);
-    else {
-      g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(hushed ? 0 : 1, t + HUSH_RAMP_S);
-    }
-  } catch {
-  }
-}
-var KEY_MEMORY = 200;
-function seenKey(key) {
-  if (key === null || key === void 0) return false;
-  const k = String(key);
-  if (engine.keys.includes(k)) return true;
-  engine.keys.push(k);
-  if (engine.keys.length > KEY_MEMORY) engine.keys.shift();
-  return false;
-}
-function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {} } = {}) {
-  try {
-    if (!isSound(id) || soundOptedOut() || !busAllowed(bus, engine.surface)) return null;
-    const ctx = context(false);
-    if (!running(ctx) || !engine.E) return null;
-    const now = serverNow();
-    const target = at === null || at === void 0 ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
-    if (!Number.isFinite(target) || target - now < -lateMs) return null;
-    if (isHushed(Math.max(now, target))) return null;
-    if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
-    if (seenKey(key)) return null;
-    if (bus === "you") engine.lastYouAt = target;
-    const fire = () => {
-      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
-      const c = engine.ctx;
-      const when = scheduleTime({
-        at: target,
-        now: serverNow(),
-        currentTime: c.currentTime,
-        outputLatency: c.outputLatency || c.baseLatency || 0,
-        lateMs
-      });
-      if (when === null) return;
-      playRecipe(engine.E, id, when, { pan, ...opts });
-      try {
-        globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at: target, when, currentTime: c.currentTime, pan });
-      } catch {
-      }
-    };
-    const wait = target - now - LOOKAHEAD_MS;
-    if (wait <= 0) {
-      fire();
-      return { cancel() {
-      } };
-    }
-    let timer = null;
-    timer = setTimeout(() => {
-      engine.timers.delete(timer);
-      fire();
-    }, wait);
-    engine.timers.add(timer);
-    return { cancel() {
-      clearTimeout(timer);
-      engine.timers.delete(timer);
-    } };
-  } catch {
-    return null;
-  }
-}
+// src/features/weekend/EventAnnouncement.jsx
+init_sound();
 
 // src/features/weekend/drawPath.js
 init_core();
@@ -6881,6 +6893,7 @@ init_PlayerIdentity();
 init_playerIdentity();
 import React10, { useEffect as useEffect8, useRef as useRef7, useState as useState10 } from "react";
 init_motion();
+init_sound();
 
 // src/lib/motionKit.js
 init_motion();
@@ -8182,6 +8195,7 @@ var cached = { ...store };
 init_player_pass();
 
 // src/features/home/GuestHome.jsx
+init_sound();
 var hasGameRules = (event) => {
   const game = GAMES[event?.game];
   return !!(game?.howto || game?.variants?.some((variant) => variant.howto));
@@ -8196,11 +8210,16 @@ import React27, { useState as useState22 } from "react";
 init_player_pass();
 
 // src/features/profile/SoundToggle.jsx
+init_sound();
 import React28, { useState as useState23 } from "react";
 init_player_pass();
 
+// src/App.jsx
+init_sound();
+
 // src/features/home/phoneSound.js
 init_core();
+init_sound();
 import { useEffect as useEffect17, useRef as useRef20 } from "react";
 
 // src/features/weekend/Schedule.jsx
@@ -8536,6 +8555,7 @@ init_core();
 init_theme();
 init_controls();
 import React39, { useEffect as useEffect24, useLayoutEffect as useLayoutEffect10, useMemo as useMemo7, useRef as useRef28, useState as useState34 } from "react";
+init_sound();
 init_PlayerIdentity();
 init_motion();
 var PHONE_CHIP = 28;
@@ -11304,8 +11324,9 @@ init_towersModel();
 // src/features/tv/roomSound.js
 init_core();
 init_motion();
-import { useEffect as useEffect32, useRef as useRef39 } from "react";
+init_sound();
 init_serverClock();
+import { useEffect as useEffect32, useRef as useRef39 } from "react";
 
 // src/features/awards/awardsModel.js
 init_core();
@@ -11325,6 +11346,7 @@ var AWARD_TIMING = Object.freeze({
 var SETTLE_SOUND = Object.freeze({ lose: 700, pay: 1300 });
 
 // src/features/tv/SoundUnlockChip.jsx
+init_sound();
 import React53 from "react";
 
 // src/features/tv/NowPlaying.jsx
@@ -11363,6 +11385,7 @@ init_frameGate();
 init_PlayerIdentity();
 import React58, { useEffect as useEffect36, useLayoutEffect as useLayoutEffect13, useRef as useRef43 } from "react";
 init_motion();
+init_sound();
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
@@ -11383,6 +11406,7 @@ init_PlayerIdentity();
 init_controls();
 init_theme();
 import React60, { useCallback as useCallback5, useEffect as useEffect39, useLayoutEffect as useLayoutEffect14, useRef as useRef44, useState as useState49 } from "react";
+init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
 
 // src/features/duels/DuelDesk.jsx
@@ -11403,11 +11427,15 @@ import React62, { useEffect as useEffect40, useRef as useRef46 } from "react";
 init_core();
 var RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
 
+// src/features/director/DirectorPill.jsx
+init_sound();
+
 // src/features/director/CueRack.jsx
 init_core();
 init_theme();
 import React64, { useEffect as useEffect42, useState as useState52, useSyncExternalStore as useSyncExternalStore3 } from "react";
 init_serverClock();
+var MISS_SHOWN_MS = 10 * 60 * 1e3;
 
 // src/features/qa/QABar.jsx
 init_controls();
@@ -11443,6 +11471,7 @@ init_core();
 init_PlayerIdentity();
 import React68, { useEffect as useEffect46, useRef as useRef51, useState as useState56 } from "react";
 init_serverClock();
+init_controls();
 
 // src/features/mvp/mvpHome.js
 var MVP_RESULT_MS = 10 * 60 * 1e3;
@@ -11465,10 +11494,12 @@ import React72, { useEffect as useEffect48, useRef as useRef53, useState as useS
 
 // src/features/music/previewPlayer.js
 import { useSyncExternalStore as useSyncExternalStore4 } from "react";
+init_sound();
 var KNOWN_MS = 8 * 60 * 1e3;
 
 // src/features/music/SnippetPreview.jsx
 import React71, { useEffect as useEffect47, useRef as useRef52, useState as useState57 } from "react";
+init_sound();
 
 // src/features/awards/AwardsDesk.jsx
 init_core();

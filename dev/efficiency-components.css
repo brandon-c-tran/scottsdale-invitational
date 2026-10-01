@@ -4388,6 +4388,17 @@
   .fd-pass-inner {
     transition: transform .65s cubic-bezier(.2, .75, .2, 1);
   }
+  .fd-pass-front,
+  .fd-pass-back {
+    transition: visibility 0s linear 90ms;
+  }
+  .fd-pass-back,
+  .fd-pass-inner.is-flipped .fd-pass-front {
+    visibility: hidden;
+  }
+  .fd-pass-inner.is-flipped .fd-pass-back {
+    visibility: visible;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .fd-pass-tilt,

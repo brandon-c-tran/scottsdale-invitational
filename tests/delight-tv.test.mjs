@@ -12,7 +12,7 @@ import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentConte
 import { applyAction } from "./support/confirmed-start.mjs";
 import {
   TOWER_TIMING, TOWER_MAX_ANIMATED_CHIPS, towerChips, towerLeaders, towerTransition, towerSchedule, towerFit,
-  frameMonitor, towersMode, standingsTowerRows, resultTowerRows, towerSignature, dropEase,
+  frameMonitor, towersMode, standingsTowerRows, resultTowerRows, towerSignature, dropEase, towerSounds,
 } from "../src/features/tv/towersModel.js";
 import {
   DESERT_PHASES, desertPhase, isDaySky, isNightSky, constellationStars, constellationLines, desertScene,
@@ -68,6 +68,18 @@ test("a transition animates one moment and snaps everything else", () => {
   assert.equal(towerTransition(before, rows([["A", 1400], ["B", 1200]])).mode, "snap", "a changed roster snaps");
   const flood = rows([["A", 1400 + (TOWER_MAX_ANIMATED_CHIPS + 1) * 100], ["B", 1200], ["C", 1000]]);
   assert.equal(towerTransition(before, flood).mode, "snap", "a reconnect-sized batch snaps");
+});
+
+test("the towers sound as they move: a clack per landing chip at its tower, the bank, the re-sort", () => {
+  const tr = towerTransition(rows([["A", 1400], ["B", 1200], ["C", 1000]]), rows([["C", 1300], ["A", 1400], ["B", 1000]]));
+  const heard = towerSounds(tr, 3);
+  assert.equal(heard.chips.length, 3, "one per chip that falls");
+  assert.deepEqual(heard.chips.map(chip => chip.offset), [0, 1, 2].map(i =>
+    TOWER_TIMING.hold + i * TOWER_TIMING.stagger + TOWER_TIMING.drop * 0.8), "as each one hits the stack");
+  assert.ok(heard.chips.every(chip => chip.pan === 0.7), "panned to C's tower before it moves (the right end)");
+  assert.deepEqual(heard.cues.map(cue => cue.id), ["S11", "stepDown"]);
+  assert.equal(heard.cues[1].offset, towerSchedule(tr).sortStart);
+  assert.deepEqual(towerSounds(towerTransition(null, rows([["A", 1000]])), 1), { chips:[], cues:[] }, "a snap is silent");
 });
 
 test("the beats follow the spec: hold, drops on a stagger, re-sort, then the ring", () => {

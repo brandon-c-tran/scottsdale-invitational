@@ -212,7 +212,7 @@ const towerNameSize = name => {
   const longest = Math.max(4, ...String(name || "").split(/\s+/).map(word => word.length));
   return Math.max(24, Math.min(32, Math.floor(TOWER_SLOT / (longest * 0.5))));
 };
-function TowersView({ state, rows, head = null, height, towers, fallback, splits = false, rankDeltas = {} }) {
+function TowersView({ state, rows, head = null, height, towers, fallback, splits = false, rankDeltas = {}, sound = "fresh" }) {
   const leaders = towerLeaders(rows);
   const labelFor = row => {
     const name = disp(state, row.player);
@@ -228,7 +228,8 @@ function TowersView({ state, rows, head = null, height, towers, fallback, splits
     <div className="tv-towers-pane">
       <div className="tv-towers-table" style={{ top:TOWER_TABLE }} />
       <TowersBoard fallback={fallback} rows={rows} leaders={leaders} width={1920} height={height} baseY={TOWER_BASE}
-        top={head ? 104 : 48} pixelRatio={towers.pixelRatio} reducedMotion={towers.reducedMotion} labelFor={labelFor} />
+        top={head ? 104 : 48} pixelRatio={towers.pixelRatio} reducedMotion={towers.reducedMotion} labelFor={labelFor}
+        sound={sound} />
       {head && <div className="tv-towers-head tv-on-sky">{head}</div>}
     </div>
   );
@@ -560,7 +561,7 @@ function ResultSequence({ state, model, phase, directedStep = null, towers = nul
   );
   if (towers?.on && model.kind !== "stacks")
     return <TowersView state={state} rows={resultTowerRows(model, phase.sorted)} head={head} height={towers.height}
-      towers={towers} fallback={flat} splits />;
+      towers={towers} fallback={flat} splits sound="scene" />;
   return flat;
 }
 

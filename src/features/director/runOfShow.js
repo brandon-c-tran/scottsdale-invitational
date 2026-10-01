@@ -13,7 +13,7 @@ import {
   ROSTER, allEventsOf, bracketMatchName, bracketOrder, computeStandings, disp, isAway, makeBracket,
   presentPlayers, stageFinalists, teamFit,
 } from "../../../shared/core.js";
-import { SHOW_SCENE_DEFINITIONS, contestName, resolveDirector, resolveShowScene } from "../../../shared/show.js";
+import { SHOW_SCENE_DEFINITIONS, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
 import { namesOf } from "./directorPill.js";
 
 export const RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
@@ -84,7 +84,9 @@ const afterResult = showControl => showControl
 function eventBeats(state, ev, showControl) {
   if (ev.finale) return pokerBeats(state, ev, null, showControl);
   const drawNeeded = (ev.teamCfg && !state.draws?.[ev.id]) || (ev.stageCfg && !state.stages?.[ev.id]);
-  const out = [beat(drawNeeded ? "announce-draw" : "announce", drawNeeded ? "Announce and draw" : "Announce", ev.name)];
+  const out = drawNeeded && draftsByDefault(ev) && !state.draws?.[ev.id]
+    ? [beat("captains-draft", "Captains draft", ev.name), beat("announce", "Announce", ev.name)]
+    : [beat(drawNeeded ? "announce-draw" : "announce", drawNeeded ? "Announce and draw" : "Announce", ev.name)];
   contestPlan(state, ev).forEach(contest => out.push(beat("lock-start", "Lock and start",
     contest.kind === "ffa" ? ev.name : contest.name), decideBeat(ev, contest)));
   return [...out, ...afterResult(showControl)];
@@ -119,8 +121,8 @@ function lifecycleAfter(state, events, director, showControl) {
     const rest = plan.slice(1);
     const contestBeats = list => list.flatMap(contest => [beat("lock-start", "Lock and start",
       contest.kind === "ffa" ? ev.name : contest.name), decideBeat(ev, contest)]);
-    if (["announce", "announce-draw", "open-betting", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type)) {
-      if (["continue-draft", "prepare-draw", "prepare-stages"].includes(now.type))
+    if (["announce", "announce-draw", "captains-draft", "open-betting", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type)) {
+      if (["captains-draft", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type))
         out.push(beat("announce", "Announce", ev.name));
       out.push(...contestBeats(plan), ...afterResult(showControl));
     } else if (now.type === "lock-start" || now.type === "lock-betting" || now.type === "start-event") {

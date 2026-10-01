@@ -9,6 +9,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings, makeBracket,
   pokerLevels, resolveCurrentContest } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
+import { applyAction as confirmedApply } from "./support/confirmed-start.mjs";
+import { withLegacyEvents } from "./support/legacy-events.mjs";
+import { publicState } from "../worker/publicState.js";
 
 /* The returning guest's phone: real components compiled once, React kept
    external. No transport, storage, or tournament is started. */
@@ -42,6 +45,7 @@ const ui = await load("fix-guest.cjs", `
   export { Avatar } from "./src/features/identity/PlayerIdentity.jsx";
   export { PlayerPass } from "./src/features/profile/PlayerPass.jsx";
   export { ChipPicker } from "./src/features/profile/ProfileEditor.jsx";
+  export { MvpVoteSheet } from "./src/features/mvp/MvpHome.jsx";
   export { AppNavigation } from "./src/ui/AppChrome.jsx";
   export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
 `);
@@ -52,7 +56,7 @@ const app = await load("fix-guest-app.cjs", `export { ProfileSheet, PokerCard, a
     const refuse=()=>{ throw new Error("transport must not run"); };
     export const dispatch=refuse, uploadPhoto=refuse, downloadSnapshot=refuse, spotifyStatus=refuse,
       spotifyPlayer=refuse, spotifySearch=refuse, spotifyAuthorize=refuse, spotifyDisconnect=refuse,
-      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse;` }));
+      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse, spotifyRetry=refuse;` }));
 } }]);
 
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");
@@ -683,6 +687,34 @@ test("the Jersey section draws the back and its one button confirms; ordered jer
   assert.match(ordered.html, /Jerseys are ordered/);
   assert.ok(!ordered.buttons.some(button => button.name === "Confirm jersey"));
   assert.match(ordered.html, /aria-label="Name on back" disabled=""|disabled="" [^>]*aria-label="Name on back"/);
+});
+
+test("a teammate who owes a team MVP vote gets it as a sheet, once, until they vote", () => {
+  const red = ROSTER.slice(0, 6), blue = ROSTER.slice(6, 12);
+  const s = withLegacyEvents(structuredClone(EMPTY_STATE), ["flip"]);
+  s.draws.flip = { id:"draw-flip", ts:1, teams:[{ name:"Red", players:[...red] }, { name:"Blue", players:[...blue] }],
+    roles:[{ player:ROSTER[12], role:"ref" }] };
+  const gm = { isGm:true, player:null, deviceId:"gm", actionId:"x" };
+  let seq = 0;
+  const act = (type, payload, ctx = gm) => assert.equal(confirmedApply(s, type, payload, { ...ctx, actionId:`m${++seq}` }).ok, true, type);
+  act("announceEvent", { evId:"flip" });
+  const contest = resolveCurrentContest(s, s.customEvents.find(ev => ev.id === "flip"));
+  act("lockAndStart", { evId:"flip", contestId:contest.id, contestRevision:contest.revision });
+  act("beginResultEntry", { evId:"flip" });
+  act("saveResult", { evId:"flip", slots:[[...red], [...blue], []] });
+  const events = [...BUILTIN_EVENTS, ...s.customEvents];
+  const at = s.mvp.flip.openedAt + 1000;
+  const sheet = (player, extra = {}) => render(ui.MvpVoteSheet, { state:publicState(s, { player }), me:player, events,
+    now:at, onVote:() => Promise.resolve({ ok:true }), ...extra }).html;
+  assert.match(sheet(red[0]), /Vote team MVP/);
+  assert.match(sheet(red[0]), /59 s/);
+  assert.match(sheet(red[0]), new RegExp(`Vote for ${red[1]}`));
+  assert.doesNotMatch(sheet(red[0]), new RegExp(`Vote for ${red[0]}`), "never yourself");
+  assert.equal(sheet(blue[0]), "", "the other team gets nothing");
+  assert.equal(sheet(red[0], { blocked:true }), "", "waits while another sheet is open");
+  act("mvpVote", { evId:"flip", pick:red[1] }, { isGm:false, player:red[0], deviceId:"r0" });
+  assert.equal(sheet(red[0]), "", "gone once the vote lands");
+  assert.match(sheet(red[2]), /Vote team MVP/, "a teammate who has not voted still gets it");
 });
 
 test("G5: Bets during the finale is closed, and before the weekend says it once", () => {

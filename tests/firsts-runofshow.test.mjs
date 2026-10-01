@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   BUILTIN_EVENTS, CHIP_COLORS, CHIP_MIN, EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentContest,
+  draftTurn,
 } from "../shared/core.js";
 import { resolveDirector } from "../shared/show.js";
 import { applyAction } from "./support/confirmed-start.mjs";
@@ -282,6 +283,16 @@ function perform(state, show) {
   if (model.run?.write) { apply(state, model.run.write, model.run.payload, show); return true; }
   const contest = ev ? resolveCurrentContest(state, ev) : null;
   switch (action.type) {
+    case "captains-draft": {
+      /* the captains draft the whole pool, then the commissioner confirms */
+      const pool = model.run.pool?.length ? model.run.pool : ROSTER;
+      const teams = ev.teamCfg?.teams || 2;
+      apply(state, "startDraft", { evId:ev.id, players:pool, roles:model.run.roles || [], captains:pool.slice(0, teams) }, show);
+      while (state.drafts[ev.id].pool.length)
+        apply(state, "pickDraftPlayer", { evId:ev.id, player:state.drafts[ev.id].pool[0], ...draftTurn(state.drafts[ev.id]) }, show);
+      apply(state, "finalizeDraft", { evId:ev.id, ...draftTurn(state.drafts[ev.id]) }, show);
+      return true;
+    }
     case "record-contest-winner": {
       const keys = contest.sides.map(side => side.key);
       apply(state, "recordContestWinner", { evId:ev.id, contestId:contest.id, contestRevision:contest.revision,
@@ -354,7 +365,7 @@ for (const show of [false, true]) {
     assert.ok(steps > 40);
     assert.deepEqual(misses, []);
     /* every phase of the weekend was projected along the way */
-    for (const label of ["Announce", "Announce and draw", "Lock and start", "Record winner", "Enter result",
+    for (const label of ["Announce", "Announce and draw", "Captains draft", "Lock and start", "Record winner", "Enter result",
       "Deal and start", "Blind clock", "Post counts", "Crown", ...(show ? ["Opening", "Continue", "Show standings"] : [])])
       assert.ok(seen.has(label), label);
     /* the crown names who it is for */

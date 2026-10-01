@@ -87,6 +87,28 @@ export function towerSchedule(transition, timing = TOWER_TIMING) {
   return { chipsEnd, sortStart, sortEnd, ringStart:sortEnd, ringEnd, total:ringEnd };
 }
 
+/* What an animated transition sounds like, in ms from its start: a clack as
+   each falling chip hits its tower (where dropEase reaches the table),
+   panned to the tower, through the room's chip density rule; one "to the
+   bank" as lost chips lift; the step as towers re-sort. */
+export function towerSounds(transition, count, timing = TOWER_TIMING) {
+  if (transition?.mode !== "animate") return { chips:[], cues:[] };
+  const order = transition.order || [];
+  const from = Object.fromEntries((transition.moves || []).map(move => [move.player, move.from]));
+  const pan = player => {
+    const slot = from[player] ?? order.indexOf(player);
+    return count > 1 && slot >= 0 ? Math.round((-0.7 + 1.4 * slot / (count - 1)) * 100) / 100 : 0;
+  };
+  const chips = [];
+  for (const [player, n] of Object.entries(transition.adds || {}))
+    for (let i = 0; i < n; i++) chips.push({ offset:timing.hold + i * timing.stagger + timing.drop * 0.8, pan:pan(player) });
+  chips.sort((a, b) => a.offset - b.offset);
+  const cues = [];
+  if (Object.keys(transition.removes || {}).length) cues.push({ id:"S11", offset:timing.hold });
+  if (transition.reorder) cues.push({ id:"stepDown", offset:towerSchedule(transition, timing).sortStart });
+  return { chips, cues };
+}
+
 /* the drop curve: accelerate to the table by 80%, then one small settle */
 export const dropEase = t => t < 0.8 ? (t / 0.8) ** 2 : 1 - Math.sin((t - 0.8) / 0.2 * Math.PI) * 0.04;
 export const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;

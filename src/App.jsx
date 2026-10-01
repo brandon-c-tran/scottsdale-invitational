@@ -69,7 +69,7 @@ import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
 import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
-import { MvpHome } from "./features/mvp/MvpHome.jsx";
+import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
@@ -1553,6 +1553,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       </Sheet>}
       {modal?.type === "house" && <Sheet title="Trip details" onClose={() => setModal(null)}><VenueCard lg={state.logistics || {}} /></Sheet>}
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
+      {me && <MvpVoteSheet state={state} me={me} events={events} blocked={!!modal} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}

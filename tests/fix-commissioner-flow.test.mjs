@@ -276,10 +276,20 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   assert.equal(openingPill.extras[0].label, "Skip opening");
   assert.equal(openingPill.extras[0].run.write, "announceAndDraw");
 
-  /* a team event offers the captains draft beside the one-tap draw */
+  /* teams of three or more lead with the captains draft; the one-tap random
+     draw is the alternative */
   const volley = fresh(["volley"]);
   const volleyPill = directorPill(volley, allEventsOf(volley), director(volley));
-  assert.ok(volleyPill.extras.some(extra => extra.label === "Captains draft" && extra.run.open === "draft"));
+  assert.equal(volleyPill.label, "Captains draft");
+  assert.equal(volleyPill.run.open, "draft");
+  assert.equal(volleyPill.run.pool.length, 12);
+  assert.equal(volleyPill.lines[0], "Sand Volleyball");
+  assert.match(volleyPill.lines[1], /^Crew: /, "the thirteenth player's role, as with the draw");
+  const random = volleyPill.extras.find(extra => extra.label === "Random draw");
+  assert.equal(random.run.write, "announceAndDraw");
+  assert.equal(random.run.startsWeekend, true);
+  const five = fresh(["bball5"]);
+  assert.equal(directorPill(five, allEventsOf(five), director(five)).label, "Captains draft", "the everyone-plays 5v5 too");
   act(volley, "startDraft", { evId:"volley", captains:["Evan", "Khoa", "Adi", "Allan"], players:ROSTER.slice(0, 12),
     roles:[{ player:ROSTER[12], role:"referee" }] });
   const draft = directorPill(volley, allEventsOf(volley), director(volley));

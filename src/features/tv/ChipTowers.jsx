@@ -19,8 +19,10 @@ import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { DISPLAY } from "../../ui/theme.js";
 import {
   TOWER_GEOMETRY as G, TOWER_TIMING as T, towerTransition, towerSchedule, towerFit, towerSlotX, towerLeaders,
-  towerSignature, towerChips, dropEase, easeInOutCubic, easeOutCubic, frameMonitor,
+  towerSignature, towerChips, towerSounds, dropEase, easeInOutCubic, easeOutCubic, frameMonitor,
 } from "./towersModel.js";
+import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
+import { serverNow } from "../../lib/serverClock.js";
 
 const TEX = 512;
 /* 36 sides reads as round at TV size: 288 triangles a chip with its
@@ -277,8 +279,11 @@ function snapTo(s, rows) {
   ringsFor(s, towerLeaders(rows));
 }
 
+/* `sound`: "fresh" sounds a change only when it arrived on a fresh frame
+   (the ambient board); "scene" sounds the step a directed scene takes on
+   its own clock (the result's before/after). */
 export default function ChipTowers({ rows, leaders = null, width = 1920, height = 882, baseY = 720, top = 40,
-  pixelRatio = 1, reducedMotion = false, onFail = () => {}, labelFor = null }) {
+  pixelRatio = 1, reducedMotion = false, onFail = () => {}, labelFor = null, sound = "fresh" }) {
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
   const labels = useRef({});
@@ -410,6 +415,11 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
     finishAll();
     if (tr.mode !== "animate") { snapTo(s, rows); draw(); return; }
     play(s, prev, rows, tr);
+    if (sound === "scene" || freshFrameNow()) {
+      const start = serverNow(), heard = towerSounds(tr, rows.length);
+      roomChipsLanded(heard.chips.map(chip => ({ at:start + chip.offset, pan:chip.pan })));
+      heard.cues.forEach(cue => cueAt(cue.id, start + cue.offset, { key:`towers:${cue.id}:${start}` }));
+    }
     kick();
   }, [signature, reducedMotion]); // eslint-disable-line react-hooks/exhaustive-deps
 

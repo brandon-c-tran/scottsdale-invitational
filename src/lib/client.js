@@ -544,6 +544,8 @@ export const spotifyAutoWinSongs = on =>
   spotifyRequest("auto", { method:"POST", gm:true, body:{ on:!!on } });
 export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
   spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });
+/* replay the win song that did not play (showControl.audio.miss) */
+export const spotifyRetry = () => spotifyRequest("retry", { method:"POST", gm:true, body:{} });
 export const spotifyPause =({ deviceId:targetDevice = "" } = {}) =>
   spotifyRequest("pause", {
     method:"POST",

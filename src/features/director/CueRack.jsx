@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { disp } from "../../../shared/core.js";
 import { SANS } from "../../ui/theme.js";
-import { spotifyPause, spotifyPlay, spotifyPlayer } from "../../lib/client.js";
+import { spotifyPause, spotifyPlay, spotifyPlayer, spotifyRetry } from "../../lib/client.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import {
@@ -15,6 +15,8 @@ import {
    the server's walkout record is live the chip is Stop, for as long as the
    song actually plays. The rack beside the pill and the one docked in a
    sheet header share this device's command state. */
+/* a missed win song stays offered for this long */
+const MISS_SHOWN_MS = 10 * 60 * 1000;
 let cueState = { busy:"", reconnect:false, bridge:null };
 const listeners = new Set();
 const setCueState = patch => {
@@ -114,7 +116,26 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
   if (reconnect && !sounding) return docked ? null : chip("reconnect", {
     onClick:() => { setCueState({ reconnect:false }); onAudio?.(); },
     glyph:"♪", text:"Reconnect Spotify in Audio Director" });
-  return items.map(item => {
+  /* a win song that should have played and did not: why, and one retry */
+  const miss = state.showControl?.audio?.miss;
+  const missed = !sounding && miss?.player && serverNow() - Number(miss.at) < MISS_SHOWN_MS ? miss : null;
+  const retry = async () => {
+    if (cueState.busy) return;
+    tapTick();
+    setCueState({ busy:"retry" });
+    const result = await spotifyRetry();
+    setCueState({ busy:"" });
+    if (!result.ok) return failed(result, "Playback failed");
+    setCueState({ reconnect:false });
+    notify?.(`${disp(state, missed.player)}'s song playing`, null, "gold", missed.player);
+  };
+  const missChip = missed ? chip("miss", {
+    onClick:/reconnect|connected/i.test(missed.reason) ? () => onAudio?.() : retry,
+    pending:busy === "retry", glyph:"!",
+    text:docked ? `Retry ${disp(state, missed.player)}` : `${disp(state, missed.player)}'s song didn't play: ${missed.reason}`,
+    aria:`${disp(state, missed.player)}'s song didn't play. ${missed.reason}. Retry`,
+  }) : null;
+  return [missChip, ...items.map(item => {
     const name = item.player ? disp(state, item.player) : null;
     const full = item.sounding
       ? name ? `Stop ${name}'s song` : "Stop the song"
@@ -127,7 +148,7 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
       text:short ? (item.sounding ? `Stop${name ? ` ${name}` : ""}` : name) : full,
       aria:full,
     });
-  });
+  })].filter(Boolean);
 }
 
 /* test seam: the shared command state, reset between cases */

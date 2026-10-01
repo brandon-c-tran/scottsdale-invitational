@@ -346,6 +346,7 @@ const compiled = await build({
     builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({ loader:"js", contents:`
       export const spotifyPlay = body => globalThis.__cueCalls.push(["play", body]) && globalThis.__cueAnswer("play");
       export const spotifyPause = body => globalThis.__cueCalls.push(["pause", body]) && globalThis.__cueAnswer("pause");
+      export const spotifyRetry = () => globalThis.__cueCalls.push(["retry"]) && globalThis.__cueAnswer("retry");
       export const spotifyPlayer = () => globalThis.__cueCalls.push(["player"]) && globalThis.__cueAnswer("player");
     ` }));
   } }],

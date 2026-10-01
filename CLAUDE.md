@@ -164,6 +164,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   in. `FitStacks` keeps any number of bettors off a side's total on the TV.
   Draft picks fly into their seat (phone FlightLayer, TV in-canvas);
   `features/tv/TVDraft.jsx` fills the TV with seat silhouettes and a chip wall.
+  The towers sound as they move (`towerSounds`): a clack per chip as it
+  lands on its tower, panned, through the room chip density rule, "to the
+  bank" as lost chips lift, the step as towers re-sort; the ambient board
+  only on a fresh frame, the result scene on its own step.
   Poker stacks build chip by chip on a fresh deal, blinds roll, a bust tips
   flat (`features/tv/TVPoker.jsx`, `src/lib/motionKit.js`). TV bracket advance
   and the crown live in `features/tv/tvMotion.js`, `TVBracket.jsx`,
@@ -230,8 +234,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   covers it; a different winner votes afresh. Frames carry `projectMvp`:
   your own pick as `mine`, the turnout, and counts only after close, when
   the answers are deleted. Home (`features/mvp/MvpHome.jsx`) shows the team
-  its vote, then its MVP for 10 minutes; a "Vote team MVP" pocket alert
-  reaches the voters. Kept in the receipt, chip history, last card, season
+  its vote, then its MVP for 10 minutes; a teammate who still owes a vote
+  also gets it as a sheet wherever they are in the app (`MvpVoteSheet`,
+  once per vote, waits while another sheet is open, leaves when the vote
+  lands); a "Vote team MVP" pocket alert reaches the voters. Kept in the receipt, chip history, last card, season
   card, keepsake plates, and the awards desk's counted "Most MVPs" award
   (`source:"mvps"`, tallied from MVPs at close, never on the phone ballot).
   QA jumps vote and close it.
@@ -396,6 +402,10 @@ complete draw immediately. Replaying presentation never redraws teams or
 changes gameplay. Winner celebrations, TV draft cues, chip feedback, and Home
 rank-change arrows remain part of the experience.
 
+Team games of three or more a side (the 3v3s and the everyone-plays 5v5,
+`draftsByDefault` in shared/show.js) open with "Captains draft" as the
+director's beat; "Random draw" (`announceAndDraw`) is the extra beside it.
+Pairs keep the one-tap random draw with Captains draft as the extra.
 Captain setup makes pick order visible and supports manual, Balanced (live
 `playerStrength`, never private self-ratings), and random selection. The live draft shows whose pick it is, upcoming snake
 order, available players, named teams, the last pick, and crew. A captain can
@@ -543,7 +553,15 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    (six volume calls), fades out over the 3 s before its clip ends (the alarm
    fires then), pauses, and puts the level back (`private:spotify:fade`); a
    Stop or a take-back fades in 1 s; a speaker that refuses volume just
-   plays and stops. Every speaker step runs in one queue (`songQueue`), so a
+   plays and stops. The room's level is remembered for good
+   (`private:spotify:level`, `roomLevel`): a speaker read below 10% is never
+   taken as the level, so a restore the speaker refused cannot leave every
+   later song at silence (default 70). A song that should have played and
+   did not (Spotify unplugged, speaker asleep, refused) writes
+   `showControl.audio.miss { player, reason }` and the cue rack shows
+   "{Name}'s song didn't play: {reason}" with one-tap Retry
+   (`/api/spotify/retry`, the same clip); the next song that plays clears it.
+   QA's Sim contest and Finish event play the win's song (jumps stay silent). Every speaker step runs in one queue (`songQueue`), so a
    fade never runs over the next song. The GM has no play chips: the rack
    beside the pill is only Stop while a song plays (manual play stays in
    Audio Director), and the chosen speaker persists in

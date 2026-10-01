@@ -17,7 +17,7 @@ const compiled=await build({
   plugins:[{name:"isolated-counter",setup(builder){
     builder.onLoad({filter:/[\\/]src[\\/]lib[\\/]client\.js$/},()=>({loader:"js",contents:blocked([
       "useTournament","dispatch","uploadPhoto","downloadSnapshot","localGet","localSet","getDeviceId","setGmToken","hasGmToken",
-      "spotifyStatus","spotifyPlayer","spotifySearch","spotifyAuthorize","spotifyDisconnect","spotifyPlay","spotifyPause","spotifyDevice","spotifyAutoWinSongs","songPreview", "songSnippet",
+      "spotifyStatus","spotifyPlayer","spotifySearch","spotifyAuthorize","spotifyDisconnect","spotifyPlay","spotifyPause","spotifyDevice","spotifyAutoWinSongs","songPreview", "songSnippet", "spotifyRetry",
     ])}));
     builder.onLoad({filter:/[\\/]features[\\/]check-in[\\/]install\.js$/},()=>({loader:"js",contents:
       `export const installEvt=null;\n${blocked(["onInstallReady","firstOnboardStep","isStandalone","isIOS"])}`}));

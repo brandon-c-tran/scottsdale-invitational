@@ -111,6 +111,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       run = { open:"event", evId:ev.id };
       break;
     case "continue-draft": run = { open:"draft", evId:ev.id }; break;
+    case "captains-draft": run = { open:"draft", evId:ev.id, pool:beat.players, roles:beat.roles || [] }; break;
     case "setup-poker": case "start-poker": run = { open:"pokerSetup" }; break;
     case "run-poker": run = { open:"pokerClock" }; break;
     case "post-poker-result": run = { open:"pokerResult" }; break;
@@ -134,7 +135,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     lines.push(`${namesOf(state, leaders.map(row => row.player))} · ${fmt(leaders[0]?.pts)} chips`);
   } else if (beat.subject) lines.push(beat.subject);
 
-  if (beat.type === "announce-draw" && beat.roles?.length)
+  if ((beat.type === "announce-draw" || beat.type === "captains-draft") && beat.roles?.length)
     lines.push(`Crew: ${beat.roles.map(item => `${disp(state, item.player)} · ${overflowRoleMeta(item.role).label}`).join(", ")}`);
   if (beat.away?.length)
     lines.push(`${namesOf(state, beat.away)} ${beat.away.length === 1 ? "is" : "are"} marked away`);
@@ -168,6 +169,9 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       extras.push({ label:extra.label, run:{ open:"announceDraw", evId:ev.id, players:beat.players, roles:beat.roles, changing:true } });
     else if (extra.type === "captains-draft")
       extras.push({ label:extra.label, run:{ open:"draft", evId:ev.id, pool:beat.players, roles:beat.roles || [] } });
+    else if (extra.type === "random-draw")
+      extras.push({ label:extra.label, run:{ write:"announceAndDraw", payload:{ evId:ev.id,
+        ...(Array.isArray(beat.players) && beat.players.length ? { players:beat.players, roles:beat.roles || [] } : {}) } } });
     else if (extra.type === "swap-in")
       extras.push({ label:extra.label, run:{ open:"event", evId:ev.id } });
     else if (extra.type === "close-mvp")

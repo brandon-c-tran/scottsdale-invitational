@@ -2,8 +2,9 @@
    while it is open, then its MVP for a while after. Pure. */
 import { mvpOpen, mvpStands, mvpVoters } from "../../../shared/mvp.js";
 
-/* how long the team keeps the MVP line on Home once the vote closes */
-export const MVP_RESULT_MS = 10 * 60 * 1000;
+/* how long the team keeps the MVP line on Home once the vote closes (the
+   MVP's own receipt and the TV card already carry the moment) */
+export const MVP_RESULT_MS = 2 * 60 * 1000;
 
 export function mvpHomeModel(state, me, events = [], now = Date.now()) {
   if (!me) return null;

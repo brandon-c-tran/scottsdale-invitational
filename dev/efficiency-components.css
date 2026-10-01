@@ -9248,7 +9248,7 @@ button.fd-home-exposure {
   font: inherit;
   cursor: pointer;
 }
-.fd-awards-entry > span:nth-of-type(2) {
+.fd-awards-entry > span:not(.fd-awards-mark):not(.fd-awards-entry-go) {
   flex: 1;
   min-width: 0;
   display: flex;

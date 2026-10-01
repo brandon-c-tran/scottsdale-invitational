@@ -11474,7 +11474,7 @@ init_serverClock();
 init_controls();
 
 // src/features/mvp/mvpHome.js
-var MVP_RESULT_MS = 10 * 60 * 1e3;
+var MVP_RESULT_MS = 2 * 60 * 1e3;
 
 // src/features/jersey/Jersey.jsx
 init_core();

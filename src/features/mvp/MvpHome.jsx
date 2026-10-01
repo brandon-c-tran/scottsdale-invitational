@@ -9,7 +9,6 @@ import { mvpHomeModel } from "./mvpHome.js";
 import "../awards/awards.css";
 
 const sendVote = payload => dispatch("mvpVote", payload, { retry:true });
-const MVP_MARK = { color:"var(--sun)", isLight:true, skin:"ticks" };
 
 /* re-render each second while a vote runs, and when the result line expires */
 function useTicker(active) {
@@ -63,15 +62,15 @@ export function MvpHome({ state, me, events, onPlayer, onVote = sendVote, now })
   useTicker(!!model && now === undefined);
   if (!model) return null;
 
+  /* the MVP is the mark: their own chip, which opens their card */
   if (model.kind === "result") {
     const name = model.you ? "You" : disp(state, model.winner);
     return <section className="fd-awards" aria-label="Team MVP">
-      <div className="fd-awards-entry" role="heading" aria-level={2}>
-        <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...MVP_MARK} /></span>
+      <button type="button" className="fd-awards-entry" onClick={() => onPlayer?.(model.winner)}
+        aria-label={`Team MVP, ${model.name}: ${disp(state, model.winner)}. View player card`}>
+        <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={model.winner} size={34} flat /></span>
         <span><small>Team MVP · {model.name}</small><strong>{name}{model.you ? ` · +${MVP_PTS}` : ""}</strong></span>
-        <button type="button" className="fd-awards-entry-go" onClick={() => onPlayer?.(model.winner)}
-          aria-label={`View ${disp(state, model.winner)}'s player card`}><ChipFace p={model.winner} size={36} flat /></button>
-      </div>
+      </button>
     </section>;
   }
 
@@ -79,7 +78,6 @@ export function MvpHome({ state, me, events, onPlayer, onVote = sendVote, now })
   const status = model.mine ? `Your vote: ${disp(state, model.mine)}` : `${model.voted} of ${model.voters} voted`;
   return <section className="fd-awards" aria-label="Team MVP vote">
     <div className="fd-awards-entry" role="heading" aria-level={2}>
-      <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...MVP_MARK} /></span>
       <span><small><i className="fd-beat-dot" aria-hidden="true" />Team MVP · {model.name}</small><strong>{status}</strong></span>
       <span className="fd-awards-entry-go">{left} s</span>
     </div>

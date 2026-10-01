@@ -789,7 +789,15 @@ on-phone clips and exact-snippet preview, team MVP, the v2 slate and payout
 ladder, the fixed-shape bets board, one-tap two-team results, the constellation
 redraw, folded Events sessions, the removal of To the TV) is deployed to
 staging as version `6dba00cb-262e-484c-96ab-b81c93f5c208` (tag
-`staging-6dba00cb`): 745 tests pass; the local e2e was not re-run. The
+`staging-6dba00cb`): 745 tests pass. On Sept 30 the same code (commit
+`8612ad5`, the local e2e passing) went to PRODUCTION as version
+`1c796397-98d5-46da-b2eb-747cb56011db` (tag `production-1c796397`), after a
+validated production snapshot (sha256 `60d0ca2e…`, kept outside the repo)
+was rehearsed against it in memory: 13 profiles, 40 claims, 12 of 13
+checked in, 8 photos, no game progress. Production's audio flags, Spotify,
+YouTube and VAPID secrets were then turned on (version
+`a958acac-3f26-4b34-848c-d0351d318522`). Roll back with `npx wrangler
+rollback eb1e908c-0c6d-4154-9c33-a21ee19ce1ed` (the August code). The
 previous staging build is tag `staging-7fc924d6` (the September 28 Living Field
 Day pass on the September 27 second pass: 714 tests and the 139-check local
 e2e, build `dfc4776`, adding awards night, the kept weekend, Table view, your

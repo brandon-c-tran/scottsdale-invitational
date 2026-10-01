@@ -282,6 +282,14 @@ npx.cmd wrangler secret put SPOTIFY_CLIENT_SECRET --env staging
 Never place either value in `wrangler.jsonc`, a snapshot, chat, or command
 argument.
 
+Production (since Sept 30) has the same Spotify app's `SPOTIFY_CLIENT_ID`
+and `SPOTIFY_CLIENT_SECRET`, plus `YOUTUBE_API_KEY` for the Win song
+picker's snippet preview, with the callback
+`https://fielddayseries.com/api/spotify/callback` registered in the Spotify
+dashboard. Set them with `--env=""` so Wrangler targets production
+explicitly. The YouTube key must have no application restriction (the
+Worker sends no referrer); restricting it to YouTube Data API v3 is fine.
+
 The top-level production Worker has its own secret. Changing it is a production
 mutation and requires explicit approval:
 

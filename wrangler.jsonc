@@ -25,8 +25,11 @@
     "QA_ENABLED": "true",
     "PROGRESS_RESET_ENABLED": "true",
     "M2_SHOW_CONTROL_ENABLED": "true",
-    "M2_AUDIO_CATALOG_ENABLED": "false",
-    "M2_AUDIO_PLAYBACK_ENABLED": "false"
+    /* win songs (Spotify search and speaker) and their YouTube snippet
+       preview: each also needs its secrets (SPOTIFY_CLIENT_ID,
+       SPOTIFY_CLIENT_SECRET, YOUTUBE_API_KEY) or it stays off */
+    "M2_AUDIO_CATALOG_ENABLED": "true",
+    "M2_AUDIO_PLAYBACK_ENABLED": "true"
   },
   /* the app answers on the real domain, not a workers.dev subdomain. Requires
      fielddayseries.com to be an active zone on this Cloudflare account:

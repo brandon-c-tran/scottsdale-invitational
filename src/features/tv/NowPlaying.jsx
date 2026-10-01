@@ -4,7 +4,8 @@ import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { serverNow } from "../../lib/serverClock.js";
 import { nowPlayingModel } from "./nowPlaying.js";
 
-/* Bottom left of the canvas while a win song plays: the song's cover with
+/* Top right of the canvas, under the masthead, while a win song plays (kept
+   small: it rides over the standings' chip towers): the song's cover with
    the winner's photo chip on its corner, their name, the song, "MVP ·
    {event}" for a team MVP, and a bar that runs out with the clip on the
    server clock (a CSS animation started at the clip's elapsed time, so a
@@ -24,14 +25,14 @@ export function NowPlaying({ state, events, now = serverNow }) {
   const art = model.track?.imageUrl;
   return <div className={`tv-now${model.mvp ? " is-mvp" : ""}${art ? " has-art" : ""}`} key={model.key} role="status">
     <div className="tv-now-art">
-      {art && <img src={art} alt="" width={176} height={176} />}
-      <span className="tv-now-chip"><Avatar state={state} p={model.player} size={art ? 92 : 128} /></span>
+      {art && <img src={art} alt="" width={96} height={96} />}
+      <span className="tv-now-chip"><Avatar state={state} p={model.player} size={art ? 52 : 84} /></span>
     </div>
     <div className="tv-now-text">
       <div className="tv-label tv-now-label">{model.mvp ? `MVP · ${model.mvp}` : "Now playing"}</div>
       <div className="tv-display tv-now-name">{disp(state, model.player)}</div>
-      {model.track && <div className="tv-now-track">{model.track.name}</div>}
-      {model.track?.artists && <div className="tv-now-artist">{model.track.artists}</div>}
+      {model.track && <div className="tv-now-track"><b>{model.track.name}</b>
+        {model.track.artists ? ` · ${model.track.artists}` : ""}</div>}
     </div>
     <i className="tv-now-bar" aria-hidden="true"
       style={{ animationDuration:`${length}ms`, animationDelay:`${-elapsed}ms` }} />

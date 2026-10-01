@@ -556,8 +556,10 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    plays and stops. The room's level is remembered for good
    (`private:spotify:level`, `roomLevel`): a speaker read below 10% is never
    taken as the level, so a restore the speaker refused cannot leave every
-   later song at silence (default 70). The TV's NowPlaying card shows the
-   song's cover with the winner's photo chip on its corner, the name, song
+   later song at silence (default 70). The TV's NowPlaying card, a compact
+   strip top right under the masthead (the towers' tallest stand at the
+   left, so it never covers the standings), shows the song's cover with the
+   winner's photo chip on its corner, the name, song
    and artist, and a sun bar that runs out with the clip on the server
    clock. In your own 1v1 or free-for-all, Home says "Win and {song} plays"
    (or "Pick a win song", `yourSongLine`); pairs and teams get no line. A

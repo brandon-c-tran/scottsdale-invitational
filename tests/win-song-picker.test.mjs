@@ -10,7 +10,32 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { WIN_SONG_CLIP_MS } from "../shared/audio.js";
 import { WIN_SONG_CLIP_MS as WORKER_CLIP } from "../worker/winSong.js";
-import { clampStart, clipWindow, maxStart, searchQuery, songClock } from "../src/features/music/winSongModel.js";
+import { clampStart, clipWindow, maxStart, searchQuery, songClock, yourSongLine } from "../src/features/music/winSongModel.js";
+import { nowPlayingModel } from "../src/features/tv/nowPlaying.js";
+
+test("Home names your song in your own 1v1 or free-for-all, and offers the picker when you have none", () => {
+  const song = { trackId:"t", name:"Mr. Brightside", artists:["The Killers"], imageUrl:"https://i.scdn.co/x" };
+  const state = { profiles:{ Evan:{ walkoutTrack:song }, Khoa:{}, Adi:{}, Ben:{} } };
+  const oneOnOne = { players:["Evan", "Khoa"], sides:[{ key:0, players:["Evan"] }, { key:1, players:["Khoa"] }] };
+  assert.deepEqual(yourSongLine(state, oneOnOne, "Evan"), { song:"Mr. Brightside" });
+  assert.equal(yourSongLine(state, oneOnOne, "Khoa"), null, "no song and no picker: nothing");
+  assert.deepEqual(yourSongLine(state, oneOnOne, "Khoa", { songs:true }), { pick:true });
+  assert.equal(yourSongLine(state, oneOnOne, "Adi", { songs:true }), null, "not in it");
+  const pairs = { players:["Evan", "Khoa", "Adi", "Ben"], sides:[{ key:0, players:["Evan", "Khoa"] }, { key:1, players:["Adi", "Ben"] }] };
+  assert.equal(yourSongLine(state, pairs, "Evan", { songs:true }), null, "a pair draws one member's song");
+  assert.equal(yourSongLine(state, null, "Evan"), null);
+});
+
+test("the TV card carries the cover and the clip's own clock", () => {
+  const startedAt = 1_000_000;
+  const state = { profiles:{ Evan:{ walkoutTrack:{ trackId:"brightsidebrightside12", name:"Mr. Brightside", artists:["The Killers"],
+    imageUrl:"https://i.scdn.co/x" } } }, mvp:{},
+  showControl:{ audio:{ walkout:{ player:"Evan", trackId:"brightsidebrightside12", startedAt, until:startedAt + WIN_SONG_CLIP_MS, auto:true } } } };
+  const card = nowPlayingModel(state, [], startedAt + 5000);
+  assert.equal(card.track.imageUrl, "https://i.scdn.co/x");
+  assert.equal(card.startedAt, startedAt);
+  assert.equal(card.until - card.startedAt, WIN_SONG_CLIP_MS);
+});
 
 const track = { provider:"spotify", trackId:"1234567890123456789012", uri:"spotify:track:1234567890123456789012",
   url:"https://open.spotify.com/track/1234567890123456789012", name:"Anthem", artists:["Band", "Guest"],

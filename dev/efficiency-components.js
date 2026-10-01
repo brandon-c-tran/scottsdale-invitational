@@ -8196,6 +8196,13 @@ init_player_pass();
 
 // src/features/home/GuestHome.jsx
 init_sound();
+
+// shared/audio.js
+var MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
+var WALKOUT_MAX_MS = 4 * 60 * 1e3;
+var WIN_SONG_CLIP_MS = 30 * 1e3;
+
+// src/features/home/GuestHome.jsx
 var hasGameRules = (event) => {
   const game = GAMES[event?.game];
   return !!(game?.howto || game?.variants?.some((variant) => variant.howto));
@@ -11354,11 +11361,6 @@ init_core();
 init_PlayerIdentity();
 init_serverClock();
 import React54, { useEffect as useEffect33, useState as useState44 } from "react";
-
-// shared/audio.js
-var MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
-var WALKOUT_MAX_MS = 4 * 60 * 1e3;
-var WIN_SONG_CLIP_MS = 30 * 1e3;
 
 // src/features/tv/nowPlaying.js
 var MVP_CARD_MS = 12 * 1e3;

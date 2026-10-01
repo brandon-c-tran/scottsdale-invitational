@@ -13,6 +13,7 @@ import { WinLine } from "../standings/WinLine.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { AlertsCard } from "../alerts/Alerts.jsx";
 import { playSound } from "../../lib/sound.js";
+import { yourSongLine } from "../music/winSongModel.js";
 import "./home.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -100,13 +101,23 @@ function useYoureUp(contest, me) {
   return yours ? playing : null;
 }
 
+/* in your own 1v1 or free-for-all: what a win plays, or the way to pick one */
+function SongLine({ line, onWinSong }) {
+  if (!line) return null;
+  if (line.song) return <p className="fd-home-song"><span aria-hidden="true">♪</span>
+    <span>Win and <strong>{line.song}</strong> plays</span></p>;
+  return onWinSong ? <button type="button" className="fd-home-song is-pick" onClick={onWinSong}>
+    <span aria-hidden="true">♪</span><span>Pick a win song</span><Arrow /></button> : null;
+}
+
 function EventFocus(props) {
   return props.model.current ? <EventTable {...props} /> : null;
 }
 
 /* X1: the current contest as one compact card: the event, its sides with
    what is bet on each and what a win means, and the actions. */
-function EventTable({ model, state, me, events, standings, onOpen, onRules, onBets, onBracket, onPlayer, GameMark }) {
+function EventTable({ model, state, me, events, standings, onOpen, onRules, onBets, onBracket, onPlayer, GameMark,
+  songs = false, onWinSong }) {
   const current = model.current;
   const event = current.event;
   const before = model.mode === "before";
@@ -135,6 +146,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
     : contestWinLines(state, event, contest, { events, standings, keys:sided ? null : [ownSide] }),
   [state, event.id, contest?.id, events, standings, sided, ownSide]); // eslint-disable-line react-hooks/exhaustive-deps
   const twoUp = sided && contest.sides.length === 2 && contest.sides.every(side => side.players.length <= 2);
+  const song = !away ? yourSongLine(state, contest, me, { songs }) : null;
   return <section className={`fd-home-focus${running ? " is-running" : ""}${youUp ? " is-your-turn" : ""}`}
     aria-label={`${event.name}: ${current.status}`}>
     {youUp && <i className="fd-home-sweep" key={youUp} aria-hidden="true" />}
@@ -167,6 +179,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
               </React.Fragment>;
             })}
           </div>
+          <SongLine line={song} onWinSong={onWinSong} />
           {away ? <p className="fd-home-personal">You are marked away</p>
             : mine && <p className="fd-home-personal">{mine}{role && <small>{role}</small>}</p>}
         </div>
@@ -174,6 +187,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
         : <>
           <Assignment current={current} state={state} onPlayer={onPlayer} />
           {winLineFor(lines, ownSide) && <div className="fd-home-own-win"><WinLine line={winLineFor(lines, ownSide)} /></div>}
+          <SongLine line={song} onWinSong={onWinSong} />
         </>)}
     {path && <button type="button" className="fd-home-path" onClick={() => onBracket(event)}
       aria-label={`${path.text}. Open the full ${event.name} bracket`}>
@@ -235,7 +249,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
   awardsContent = null, mvpContent = null,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard,
-  setup = [], onSetup }) {
+  setup = [], onSetup, songs = false, onWinSong }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const exposed = !!model.standing?.exposure && model.mode === "live";
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
@@ -274,7 +288,8 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         {me ? "Your last card" : "The champion's card"}<Arrow /></button>}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
-    </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
+    </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark}
+      songs={songs} onWinSong={onWinSong} />}
 
     <AlertsCard me={me} />
     {mvpContent}

@@ -556,8 +556,12 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    plays and stops. The room's level is remembered for good
    (`private:spotify:level`, `roomLevel`): a speaker read below 10% is never
    taken as the level, so a restore the speaker refused cannot leave every
-   later song at silence (default 70). A song that should have played and
-   did not (Spotify unplugged, speaker asleep, refused) writes
+   later song at silence (default 70). The TV's NowPlaying card shows the
+   song's cover with the winner's photo chip on its corner, the name, song
+   and artist, and a sun bar that runs out with the clip on the server
+   clock. In your own 1v1 or free-for-all, Home says "Win and {song} plays"
+   (or "Pick a win song", `yourSongLine`); pairs and teams get no line. A
+   song that should have played and did not (Spotify unplugged, speaker asleep, refused) writes
    `showControl.audio.miss { player, reason }` and the cue rack shows
    "{Name}'s song didn't play: {reason}" with one-tap Retry
    (`/api/spotify/retry`, the same clip); the next song that plays clears it.

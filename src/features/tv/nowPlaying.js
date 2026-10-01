@@ -16,12 +16,12 @@ export function nowPlayingModel(state, events = [], now = Date.now()) {
   if (walkout?.player) {
     const saved = state?.profiles?.[walkout.player]?.walkoutTrack;
     const track = saved && (!walkout.trackId || saved.trackId === walkout.trackId)
-      ? { name:saved.name, artists:(saved.artists || []).join(", ") } : null;
+      ? { name:saved.name, artists:(saved.artists || []).join(", "), imageUrl:saved.imageUrl || null } : null;
     const mvp = walkout.mvp && latest?.winner === walkout.player ? latest : null;
     return { key:mvp ? `mvp:${mvp.id}` : `song:${walkout.startedAt}`, player:walkout.player, track,
-      mvp:mvp ? nameOf(mvp.eventId) || "Team MVP" : null, until:walkout.until };
+      mvp:mvp ? nameOf(mvp.eventId) || "Team MVP" : null, startedAt:Number(walkout.startedAt) || now, until:walkout.until };
   }
   if (mvpFresh) return { key:`mvp:${latest.id}`, player:latest.winner, track:null,
-    mvp:nameOf(latest.eventId) || "Team MVP", until:Number(latest.closedAt) + MVP_CARD_MS };
+    mvp:nameOf(latest.eventId) || "Team MVP", startedAt:Number(latest.closedAt), until:Number(latest.closedAt) + MVP_CARD_MS };
   return null;
 }

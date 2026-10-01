@@ -1458,6 +1458,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           }}
           setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed }) : []}
           onSetup={item => setModal({type:"profile", section:item.section})}
+          songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}

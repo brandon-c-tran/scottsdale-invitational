@@ -23,6 +23,20 @@ export function clipWindow(track) {
   return { from, to, text:`Plays ${songClock(from)} to ${songClock(to)}` };
 }
 
+/* Home's line for a player in the contest on screen whose side is just
+   them (a 1v1, a free-for-all), the one case where a win plays exactly
+   their song: { song } when they saved one, { pick:true } when the picker
+   is on and they have not, else null. A pair or team draws one member's
+   song or votes an MVP, so it gets no line. */
+export function yourSongLine(state, contest, me, { songs = false } = {}) {
+  if (!me || !contest?.players?.includes(me)) return null;
+  const side = contest.sides?.find(item => item.players?.includes(me));
+  if (!side || side.players.length !== 1) return null;
+  const track = state?.profiles?.[me]?.walkoutTrack;
+  if (track?.name) return { song:track.name };
+  return songs ? { pick:true } : null;
+}
+
 /* the search the field holds: trimmed, collapsed, or null below the minimum */
 export function searchQuery(text) {
   const query = String(text || "").trim().replace(/\s+/g, " ");

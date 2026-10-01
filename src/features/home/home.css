@@ -107,8 +107,9 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
 .fd-home-setup { margin:0 0 12px; border:1px solid var(--line); border-left:3px solid var(--sun); border-radius:10px; background:var(--paper2); overflow:hidden; }
 .fd-home-setup h2 { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0; padding:12px 12px 8px; color:var(--ink); font:700 18px/1.1 var(--fd-display, 'Barlow Condensed',sans-serif); text-transform:uppercase; }
 .fd-home-setup h2 span { color:var(--muted2); font:600 12px/1 var(--fd-body); text-transform:none; }
-.fd-home-setup button { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:0 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font:600 14px/1.3 var(--fd-body); text-align:left; cursor:pointer; }
-.fd-home-setup button>span:first-child { flex:1; min-width:0; }
+.fd-home-setup>button { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:0 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font:600 14px/1.3 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-home-setup>button>span:first-child { flex:1; min-width:0; }
+.fd-home-setup>.fd-home-flights { margin:0; border:0; border-top:1px solid var(--line); border-radius:0; background:none; font:600 14px/1.3 var(--fd-body); }
 .fd-home-setup .fd-home-arrow { color:var(--sun); }
 .fd-home-flights {display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:12px 0 0; padding:0 0 0 12px; border:1px solid var(--line); border-radius:8px; background:var(--paper2); font-size:13px; color:var(--ink); }
 .fd-home-flights>span { flex:1; min-width:0; }

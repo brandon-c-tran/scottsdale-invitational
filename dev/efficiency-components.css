@@ -5827,7 +5827,7 @@ button.fd-home-exposure {
   font: 600 12px/1 var(--fd-body);
   text-transform: none;
 }
-.fd-home-setup button {
+.fd-home-setup > button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5842,9 +5842,17 @@ button.fd-home-exposure {
   text-align: left;
   cursor: pointer;
 }
-.fd-home-setup button > span:first-child {
+.fd-home-setup > button > span:first-child {
   flex: 1;
   min-width: 0;
+}
+.fd-home-setup > .fd-home-flights {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  font: 600 14px/1.3 var(--fd-body);
 }
 .fd-home-setup .fd-home-arrow {
   color: var(--sun);

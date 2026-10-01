@@ -193,8 +193,9 @@ function OwnFinish({ row, me }) {
     You finished {ord(row.rank)} · {fmt(row.pts)}</p>;
 }
 
-/* Before the weekend: the one travel answer still missing, asked outright.
-   Not yet saves through the same profile write and pending guard. */
+/* Before the weekend: the one travel answer still missing, asked outright as
+   a row of the list. Not yet saves through the same profile write and
+   pending guard. */
 function FlightsQuestion({ onYes, onNotYet }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -208,21 +209,25 @@ function FlightsQuestion({ onYes, onNotYet }) {
     } catch { setError("Not saved. Try again."); }
     finally { busy.current = false; setPending(false); }
   };
-  return <section className="fd-home-flights" aria-label="Flights" aria-busy={pending}>
+  return <div className="fd-home-flights" role="group" aria-label="Flights" aria-busy={pending}>
     <span>Booked your flights?</span>
     <button type="button" disabled={pending} onClick={onYes}>Yes</button>
     <button type="button" disabled={pending} onClick={notYet}>{pending ? "Saving…" : "Not yet"}</button>
     {error && <p role="alert">{error}</p>}
-  </section>;
+  </div>;
 }
 
 /* Before the weekend: what this guest still owes, each row opening the
-   profile section that finishes it. Gone once the list is empty. */
-function SetupList({ items, onOpen }) {
+   profile section that finishes it, the flights question in travel's place.
+   Gone once nothing is left. */
+function SetupList({ items, flights, onOpen }) {
+  const at = flights ? items.findIndex(item => item.id === "details" || item.id === "song") : -1;
+  const rows = items.map(item => <button type="button" key={item.id} onClick={() => onOpen(item)}>
+    <span>{item.label}</span><Arrow /></button>);
+  if (flights) rows.splice(at < 0 ? rows.length : at, 0, <React.Fragment key="flights">{flights}</React.Fragment>);
   return <section className="fd-home-setup" aria-label="Before the weekend">
-    <h2>Before the weekend <span>{items.length} left</span></h2>
-    {items.map(item => <button type="button" key={item.id} onClick={() => onOpen(item)}>
-      <span>{item.label}</span><Arrow /></button>)}
+    <h2>Before the weekend <span>{rows.length} left</span></h2>
+    {rows}
   </section>;
 }
 
@@ -251,7 +256,8 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
       : <h1 className="fd-home-sr">Home</h1>}
 
     {/* before the weekend the event below asks nothing of a guest yet; this does */}
-    {before && onSetup && setup.length > 0 && <SetupList items={setup} onOpen={onSetup} />}
+    {before && (askFlights || (onSetup && setup.length > 0)) && <SetupList items={onSetup ? setup : []} onOpen={onSetup}
+      flights={askFlights ? <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} /> : null} />}
 
     {!finale && !complete && events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
       && !state.shelved?.[event.id] && !state.results?.[event.id]).map(event =>
@@ -270,7 +276,6 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
     </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark} />}
 
-    {askFlights && <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} />}
     <AlertsCard me={me} />
     {mvpContent}
     {awardsContent}

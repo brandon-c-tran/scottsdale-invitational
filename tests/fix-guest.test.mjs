@@ -624,6 +624,10 @@ test("G25: before the weekend a guest without a flight answer gets one compact q
     onFlightsNotYet:() => { asked.push("not yet"); return Promise.resolve({ ok:true }); }, ...extra });
   const view = render(ui.GuestHome, props());
   assert.match(view.html, /Booked your flights\?/);
+  assert.match(view.html, /Before the weekend.*1 left.*Booked your flights\?/s, "the question is a row of the list");
+  assert.match(render(ui.GuestHome, props({ setup:[{ id:"jersey", section:"jersey", label:"Confirm your jersey" },
+    { id:"details", section:"travel", label:"Venmo and drinks" }], onSetup:noop })).html,
+    /3 left.*Confirm your jersey.*Booked your flights\?.*Venmo and drinks/s, "in travel's place");
   view.click("Yes");
   await view.click("Not yet");
   assert.deepEqual(asked, ["yes", "not yet"]);

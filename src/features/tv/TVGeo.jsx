@@ -27,10 +27,10 @@ export function TVGeo({ state, now }) {
     <aside className="tv-geo-side">
       {head}
       <div className={`tv-display tv-geo-clock${view.secondsLeft <= 10 ? " is-low" : ""}`}>{view.secondsLeft}</div>
-      <div className="tv-geo-status">{view.guessed} of {view.players.length} locked in</div>
+      <div className="tv-geo-status">{view.lockedIn.length} of {view.players.length} locked in</div>
       <div className="tv-geo-roster">
         {view.players.map(player => <span key={player}
-          className={`tv-geo-chip${view.lockedIn.includes(player) ? " is-in" : ""}`}>
+          className={`tv-geo-chip${view.lockedIn.includes(player) ? " is-in" : view.drafting.includes(player) ? " is-drafting" : ""}`}>
           <Avatar state={state} p={player} size={56} /></span>)}
       </div>
       <div className="tv-geo-prompt">Where was this, and when?</div>
@@ -54,8 +54,8 @@ export function TVGeo({ state, now }) {
   return <div className="tv-geo is-reveal">
     <div className="tv-geo-stage">
       <GeoMap mode="reveal" animate interactive={false} answer={answer} className="tv-geo-map" label="The answer and every guess"
-        guesses={view.results.map(row => ({ lat:row.guess.lat, lng:row.guess.lng, color:colorOf(state, row.player),
-          label:initials(state, row.player) }))} />
+        guesses={view.results.filter(row => row.miles !== null).map(row => ({ lat:row.guess.lat, lng:row.guess.lng,
+          color:colorOf(state, row.player), label:initials(state, row.player) }))} />
       <div className="tv-geo-answer">
         <span className="tv-display">{answer.place}</span>
         <span>{whenLabel(answer.when)}</span>
@@ -68,7 +68,7 @@ export function TVGeo({ state, now }) {
         {view.results.slice(0, 12).map((row, i) => <li key={row.player} style={{ "--row":i }}>
           <Avatar state={state} p={row.player} size={44} />
           <span className="tv-geo-who"><b>{disp(state, row.player)}</b>
-            <small>{milesLabel(row.miles)} · {offLabel(row.hours)}</small></span>
+            <small>{row.miles === null ? "No pin" : `${milesLabel(row.miles)} off`} · {row.hours === null ? "No date" : offLabel(row.hours)}</small></span>
           <span className="tv-display tv-geo-points">+{fmt(row.total)}</span>
         </li>)}
         {!view.results.length && <li className="tv-geo-none">No guesses this photo</li>}

@@ -67,12 +67,14 @@ export function milesApart(a, b) {
 export const whereScore = miles => Math.round(GEO_POINTS * Math.exp(-Math.max(0, miles) / GEO_MILES_SCALE));
 export const whenScore = hours => Math.round(GEO_POINTS * Math.exp(-Math.max(0, hours) / GEO_HOURS_SCALE));
 
-/* one guess against one answer */
+/* one guess against one answer; a part left unset scores nothing */
 export function scoreGuess(round, guess) {
   if (!round || !guess) return { where:0, when:0, total:0, miles:null, hours:null };
-  const miles = milesApart(round, guess);
-  const hours = hoursApart(round.when, guess.when);
-  const where = whereScore(miles), when = whenScore(hours);
+  const pinned = Number.isFinite(guess.lat) && Number.isFinite(guess.lng);
+  const timed = typeof guess.when === "string" && !!cleanWhen(guess.when);
+  const miles = pinned ? milesApart(round, guess) : null;
+  const hours = timed ? hoursApart(round.when, guess.when) : null;
+  const where = pinned ? whereScore(miles) : 0, when = timed ? whenScore(hours) : 0;
   return { where, when, total:where + when, miles, hours };
 }
 
@@ -171,11 +173,14 @@ export function projectGeo(geo, rounds, { isGm = false, player = null } = {}) {
     else if (player && byPlayer?.[player]) guesses[id] = { [player]:byPlayer[player] };
   }
   const current = geoCurrentId(geo);
-  /* who has locked in on the current photo, never where */
-  const lockedIn = Object.keys(geo.guesses?.[current] || {});
+  /* who has locked in on the current photo and who is still working on a
+     guess, never where or when */
+  const entries = Object.entries(geo.guesses?.[current] || {});
+  const lockedIn = entries.filter(([, guess]) => guess?.done).map(([name]) => name);
+  const drafting = entries.filter(([, guess]) => !guess?.done).map(([name]) => name);
   return {
     geo:{ ...geo, guesses, total:geo.order.length, order:geo.order.slice(0, geo.index + 1),
-      guessed:lockedIn.length, lockedIn },
+      guessed:lockedIn.length, lockedIn, drafting },
     geoRounds:shown,
   };
 }

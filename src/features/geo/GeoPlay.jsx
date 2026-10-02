@@ -7,6 +7,7 @@ import { GEO_ROUND_MS } from "../../../shared/geo.js";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { GeoMap, preloadGeoMap } from "./GeoMap.jsx";
 import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
+import { PlaceSearch } from "./PlaceSearch.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "./geoModel.js";
 import "./geo.css";
 
@@ -57,41 +58,92 @@ function Clock({ closesAt, now }) {
   </span>;
 }
 
-/* the guess: the photo, where, when, then Lock in */
+/* The guess: the photo, where, when, then Lock in. The draft saves itself
+   as it changes (and once more just before the clock runs out), so
+   whatever is set when time is up is the guess: a pin and no date scores
+   the pin. A part never touched is not sent, so the wheels' starting date
+   never counts. Lock in marks it done; later changes still save. */
+const AUTOSAVE_MS = 450;
 function GuessGame({ view, onGuess, now }) {
   const mine = view.mine;
-  const [step, setStep] = useState(mine ? "map" : "photo");
-  const [pin, setPin] = useState(mine ? { lat:mine.lat, lng:mine.lng } : null);
+  const pinned = Number.isFinite(mine?.lat) && Number.isFinite(mine?.lng);
+  const [step, setStep] = useState(pinned ? "map" : "photo");
+  const [pin, setPin] = useState(pinned ? { lat:mine.lat, lng:mine.lng } : null);
   const [wall, setWall] = useState(() => parseWhen(mine?.when));
-  const [whenSet, setWhenSet] = useState(!!mine);
+  const [whenSet, setWhenSet] = useState(!!mine?.when);
   const [fill, setFill] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [focus, setFocus] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [stamped, setStamped] = useState(0);
-  const busy = useRef(false);
-  const when = formatWhen(wall);
-  const same = !!mine && !!pin && mine.lat === Math.round(pin.lat * 1e5) / 1e5 && mine.lng === Math.round(pin.lng * 1e5) / 1e5
-    && mine.when === when;
+  const sent = useRef(null), inflight = useRef(null), again = useRef(false), lockedRef = useRef(!!mine?.done);
+  const draft = { lat:pin ? pin.lat : null, lng:pin ? pin.lng : null, when:whenSet ? formatWhen(wall) : null };
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const left = view.closesAt - now;
+  const seconds = Math.max(0, Math.ceil(left / 1000));
+  /* the server takes a guess for a few seconds past the clock (GEO_GRACE_MS) */
+  const over = left < -3000;
+  const overRef = useRef(over);
+  overRef.current = over;
+
+  /* one save at a time; the newest draft wins */
+  const save = async (done = lockedRef.current) => {
+    const current = draftRef.current;
+    if (overRef.current || (current.lat === null && !current.when)) return null;
+    const payload = { roundId:view.roundId, ...current, done };
+    const key = JSON.stringify(payload);
+    if (key === sent.current) return { ok:true };
+    if (inflight.current) { again.current = true; return inflight.current; }
+    setSaving(true);
+    inflight.current = (async () => {
+      try {
+        const result = await onGuess(payload);
+        if (result?.ok === true) { sent.current = key; setError(""); }
+        else if (!overRef.current) setError(result?.error || "Not saved. Trying again.");
+        return result;
+      } catch { setError("Not saved. Trying again."); return null; }
+      finally {
+        inflight.current = null; setSaving(false);
+        if (again.current) { again.current = false; save(); }
+      }
+    })();
+    return inflight.current;
+  };
+  const draftKey = JSON.stringify(draft);
+  useEffect(() => {
+    if (draft.lat === null && !draft.when) return undefined;
+    const timer = setTimeout(() => save(), AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [draftKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* the last second: send whatever is there now */
+  const flushed = useRef(false);
+  useEffect(() => {
+    if (!flushed.current && left < 1500 && left > -2500) { flushed.current = true; save(); }
+  }, [left < 1500]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const lockIn = async () => {
-    if (busy.current || !pin || same) return;
+    if (!pin || !whenSet) return;
     tapTick();
-    busy.current = true; setPending(true); setError("");
-    try {
-      const result = await onGuess({ roundId:view.roundId, lat:pin.lat, lng:pin.lng, when });
-      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
-      else setStamped(n => n + 1);
-    } catch { setError("Not saved. Try again."); }
-    finally { busy.current = false; setPending(false); }
+    lockedRef.current = true;
+    const result = await save(true);
+    if (result?.ok) setStamped(n => n + 1);
+    else lockedRef.current = !!mine?.done;
   };
   const go = next => { tapTick(); setStep(next); };
-  /* the server takes a guess for a few seconds past the clock (GEO_GRACE_MS) */
-  const over = now > view.closesAt + 3000;
-  const primary = over ? (mine ? { label:"Locked in", run:null, done:true } : { label:"Time's up", run:null })
-    : step === "photo" ? { label:"Guess where", run:() => go("map") }
-    : step === "map" ? (pin ? { label:"Next: when", run:() => go("when") } : { label:"Tap the map to drop your pin", run:null })
-      : !pin ? { label:"Drop your pin first", run:() => go("map") }
-        : same ? { label:"Locked in", run:null, done:true }
-          : { label:pending ? "Locking in…" : mine ? "Update guess" : "Lock in", run:lockIn, lock:true };
+  const locked = !!mine?.done;
+  /* the screen says time is up at zero; the server's grace still takes the last save */
+  const timeUp = left <= 0;
+  const hurry = !timeUp && seconds <= 10 ? ` · ${seconds}s` : "";
+  const primary = timeUp ? { label:mine ? "Time's up · guess saved" : "Time's up", run:null, done:!!mine }
+    : step === "photo" ? { label:`Guess where${hurry}`, run:() => go("map") }
+    : step === "map" ? (pin ? { label:`Next: when${hurry}`, run:() => go("when") }
+      : { label:`Tap the map to drop your pin${hurry}`, run:null })
+      : !pin ? { label:`Drop your pin${hurry}`, run:() => go("map") }
+        : locked ? { label:"Locked in", run:null, done:true }
+          : { label:`Lock in${hurry}`, run:lockIn, lock:true };
+  /* what is saved, in words, once time is up */
+  const kept = mine ? [Number.isFinite(mine.lat) ? "your pin" : "no pin", mine.when ? whenLabel(mine.when) : "no date"].join(" · ") : "";
   return <>
     <main className={`fd-geo-game-body is-${step}`}>
       {step === "photo" && <button type="button" className={`fd-geo-game-photo${fill ? " is-fill" : ""}`}
@@ -99,9 +151,13 @@ function GuessGame({ view, onGuess, now }) {
         <img src={geoPhotoSrc(view.round)} alt={`Photo ${view.n}`} /></button>}
       {step === "map" && <div className="fd-geo-game-map">
         <GeoMap mode="pick" pin={pin} onPick={point => { setPin(point); }} onTap={tapTick} className="fd-geo-full"
-          label="Drop your pin where this was taken" />
+          focus={focus} label="Drop your pin where this was taken" />
         <button type="button" className="fd-geo-peek" onClick={() => go("photo")} aria-label="Back to the photo">
           <img src={geoPhotoSrc(view.round)} alt="" /></button>
+        <PlaceSearch className="is-floating" onPick={place => {
+          setFocus({ lat:place.lat, lng:place.lng, zoom:place.zoom, key:`${place.key}:${Date.now()}` });
+          setPin({ lat:place.lat, lng:place.lng });
+        }} />
         <span className="fd-geo-tip">{pin ? "Drag the pin, or tap to move it" : "Tap where it was taken"}</span>
       </div>}
       {step === "when" && <div className="fd-geo-game-when">
@@ -118,11 +174,13 @@ function GuessGame({ view, onGuess, now }) {
             onClick={() => go(id)}>{done && id !== "photo" && <i aria-hidden="true">✓</i>}{name}</button>)}
       </nav>
       {error && <p className="fd-geo-error" role="alert">{error}</p>}
-      <button type="button" key={`${primary.done ? "done" : "go"}:${stamped}`} disabled={!primary.run || pending}
-        className={`fd-geo-primary${primary.lock ? " is-lock" : ""}${primary.done ? " is-done" : ""}`} onClick={primary.run || undefined}>
+      <button type="button" key={`${primary.done ? "done" : "go"}:${stamped}`} disabled={!primary.run}
+        className={`fd-geo-primary${primary.lock ? " is-lock" : ""}${primary.done ? " is-done" : ""}${hurry ? " is-hurry" : ""}`}
+        onClick={primary.run || undefined}>
         {primary.done && <i aria-hidden="true">✓</i>}{primary.label}</button>
-      {primary.done && !over && <p className="fd-geo-note">Change anything until the reveal.</p>}
-      {over && <p className="fd-geo-note">Waiting for the reveal.</p>}
+      {timeUp ? <p className="fd-geo-note">{mine ? `Saved: ${kept}. Waiting for the reveal.` : "Waiting for the reveal."}</p>
+        : (pin || whenSet) && <p className="fd-geo-note">{saving ? "Saving…" : locked
+          ? "Changes save until the reveal." : "Your guess saves as you go."}</p>}
     </footer>
   </>;
 }
@@ -140,15 +198,15 @@ function YourReveal({ me, view }) {
   return <>
     <main className="fd-geo-game-body is-reveal">
       <GeoMap mode="reveal" animate answer={answer} className="fd-geo-full" label="The answer and your pin"
-        guesses={score ? [{ lat:score.guess.lat, lng:score.guess.lng, color:identity.color, label:"" }] : []} />
+        guesses={score && score.miles !== null ? [{ lat:score.guess.lat, lng:score.guess.lng, color:identity.color, label:"" }] : []} />
     </main>
     <footer className="fd-geo-game-foot is-reveal">
       <div className="fd-geo-result">
         <div className="fd-geo-answer"><small>The answer</small><strong>{answer.place}</strong>
           <span>{whenLabel(answer.when)}</span>{answer.caption && <em>{answer.caption}</em>}</div>
         {score ? <div className="fd-geo-score">
-          <div><small>Where</small><b>+{fmt(where)}</b><span>{milesLabel(miles)} off</span></div>
-          <div><small>When</small><b>+{fmt(whenPts)}</b><span>{offLabel(score.hours)}</span></div>
+          <div><small>Where</small><b>+{fmt(where)}</b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
+          <div><small>When</small><b>+{fmt(whenPts)}</b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
         </div> : <p className="fd-geo-note">No guess this photo.</p>}
         {row && <p className="fd-geo-rank"><b>{fmt(row.total)}</b> total · {ordinal(row.rank)} of {view.standings.length}</p>}
       </div>
@@ -171,6 +229,9 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
   }, [force]);
   const open = !!view && view.playing && !blocked && dismissed !== key && !!view.round
     && (view.phase === "guess" || view.revealed);
+  const leftMs = view ? view.closesAt - at : 0;
+  const secondsLeft = Math.max(0, Math.ceil(leftMs / 1000));
+  const urgent = view?.phase === "guess" && leftMs > 0 && secondsLeft <= 10;
   const playing = !!view?.playing;
   useEffect(() => { if (playing) preloadGeoMap(); }, [playing]);
   useEffect(() => {
@@ -180,12 +241,17 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
     return () => { document.body.style.overflow = before; };
   }, [open]);
   if (!open) return null;
-  return <div className={`fd-geo-game is-${view.phase}`} role="dialog" aria-modal="true" aria-label="Where and When">
+  return <div className={`fd-geo-game is-${view.phase}${urgent ? " is-urgent" : ""}`} role="dialog" aria-modal="true"
+    aria-label="Where and When">
     <header className="fd-geo-game-head">
       <span className="fd-geo-count"><small>Where and When</small><b>Photo {view.n} <i>of {view.total}</i></b></span>
       {view.phase === "guess" && <Clock closesAt={view.closesAt} now={at} />}
       <button type="button" className="fd-geo-close" onClick={() => setDismissed(key)} aria-label="Close">×</button>
+      {/* the minute, draining across the top of the screen */}
+      {view.phase === "guess" && <span className="fd-geo-timebar" aria-hidden="true">
+        <i style={{ transform:`scaleX(${Math.max(0, Math.min(1, leftMs / GEO_ROUND_MS))})` }} /></span>}
     </header>
+    {urgent && secondsLeft <= 5 && <span className="fd-geo-final" key={secondsLeft} aria-hidden="true">{secondsLeft}</span>}
     {view.phase === "guess"
       ? <GuessGame key={view.roundId} view={view} onGuess={onGuess} now={at} />
       : <YourReveal key={view.roundId} me={me} view={view} />}

@@ -128,6 +128,23 @@ test("the game: start once under way, guess until the reveal, next, and the top 
   assert.equal(geoBeat(state, where(state)), null, "nothing left to direct");
 });
 
+test("a draft is a guess: a pin alone or a date alone counts for its part; Lock in stays", () => {
+  const state = ready();
+  act(state, "geoStart", { evId:"where" });
+  const r1 = ROUNDS[0].id;
+  assert.equal(refuse(state, "geoGuess", { roundId:r1, lat:null, lng:null, when:null }, as(evan)), "Drop your pin or set the date");
+  act(state, "geoGuess", { roundId:r1, lat:37.82, lng:-122.48, when:null }, as(evan));
+  act(state, "geoGuess", { roundId:r1, lat:null, lng:null, when:"2019-07-04T21" }, as(khoa));
+  act(state, "geoGuess", { roundId:r1, lat:37.82, lng:-122.48, when:"2019-07-04T21", done:true }, as(sahil));
+  act(state, "geoGuess", { roundId:r1, lat:37.8, lng:-122.48, when:"2019-07-04T21", done:false }, as(sahil));
+  assert.equal(state.geo.guesses[r1][sahil].done, true, "Lock in stays once given");
+  act(state, "geoReveal", { roundId:r1 });
+  const pinOnly = scoreGuess(ROUNDS[0], state.geo.guesses[r1][evan]);
+  assert.ok(pinOnly.where > 4900 && pinOnly.when === 0 && pinOnly.hours === null);
+  const dateOnly = scoreGuess(ROUNDS[0], state.geo.guesses[r1][khoa]);
+  assert.ok(dateOnly.where === 0 && dateOnly.miles === null && dateOnly.when === 5000);
+});
+
 test("result slots: one winner, then the next two ranks", () => {
   const rows = [
     { player:"A", rank:1, guessed:3 }, { player:"B", rank:2, guessed:3 }, { player:"C", rank:2, guessed:3 },
@@ -149,7 +166,11 @@ test("privacy: no answer, upcoming photo or other guess reaches a phone before i
   const live = publicState(state, { player:evan });
   assert.deepEqual(live.geoRounds, [{ id:r1, n:1, photo:ROUNDS[0].photo }], "the photo only");
   assert.deepEqual(Object.keys(live.geo.guesses[r1]), [evan], "only your own guess");
-  assert.equal(live.geo.guessed, 2);
+  assert.deepEqual([live.geo.lockedIn, [...live.geo.drafting].sort()], [[], [evan, khoa].sort()],
+    "who is still guessing, never where");
+  act(state, "geoGuess", { roundId:r1, lat:37.8, lng:-122.45, when:"2019-07-04T20", done:true }, as(evan));
+  assert.deepEqual(publicState(state, { player:sahil }).geo.lockedIn, [evan]);
+  assert.equal(publicState(state, { player:sahil }).geo.guessed, 1);
   assert.equal(live.geo.total, 3);
   assert.deepEqual(live.geo.order, [r1], "upcoming rounds stay hidden");
   assert.ok(!JSON.stringify(live).includes("Times Square") && !JSON.stringify(live).includes("Golden Gate"));

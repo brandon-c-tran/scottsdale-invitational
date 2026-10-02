@@ -5,6 +5,7 @@ import { prepareMoment } from "../photos/prepareMoment.js";
 import { GeoMap } from "./GeoMap.jsx";
 import { whenLabel } from "./geoModel.js";
 import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
+import { PlaceSearch } from "./PlaceSearch.jsx";
 import "./geo.css";
 
 const newRoundId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -20,41 +21,12 @@ function DeskPhoto({ id, alt }) {
   return src ? <img src={src} alt={alt} /> : <span className="fd-geo-desk-blank" aria-hidden="true" />;
 }
 
-/* a place search for the answer pin (OpenStreetMap's own geocoder) */
-function PlaceSearch({ onFound }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const search = async event => {
-    event.preventDefault();
-    const q = query.trim();
-    if (q.length < 2 || busy) return;
-    setBusy(true);
-    try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`,
-        { headers:{ Accept:"application/json" } });
-      const found = r.ok ? await r.json() : [];
-      setResults(Array.isArray(found) ? found.slice(0, 5) : []);
-    } catch { setResults([]); }
-    finally { setBusy(false); }
-  };
-  return <form className="fd-geo-search" onSubmit={search}>
-    <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search a place"
-      aria-label="Search a place" />
-    <button type="submit" disabled={busy}>{busy ? "…" : "Search"}</button>
-    {results.length > 0 && <ul>{results.map(item => <li key={item.place_id}>
-      <button type="button" onClick={() => {
-        onFound({ lat:Number(item.lat), lng:Number(item.lon), name:String(item.name || item.display_name || "").split(",")[0] });
-        setResults([]);
-      }}>{item.display_name}</button></li>)}</ul>}
-  </form>;
-}
-
 /* one round: the photo, the answer pin, the place's name, the date and hour */
 function RoundEditor({ round, onSave, onCancel }) {
   const [photo, setPhoto] = useState(round?.photo || null);
   const [preview, setPreview] = useState(null);
   const [pin, setPin] = useState(round ? { lat:round.lat, lng:round.lng } : null);
+  const [focus, setFocus] = useState(() => round ? { lat:round.lat, lng:round.lng, zoom:13, key:"saved" } : null);
   const [place, setPlace] = useState(round?.place || "");
   const [wall, setWall] = useState(() => parseWhen(round?.when));
   const [whenSet, setWhenSet] = useState(!!round);
@@ -94,8 +66,12 @@ function RoundEditor({ round, onSave, onCancel }) {
         {busy === "photo" ? "Uploading…" : photo ? "Change photo" : "Choose photo"}</button>
       <input ref={file} type="file" accept="image/*" hidden onChange={choose} />
     </div>
-    <PlaceSearch onFound={found => { setPin({ lat:found.lat, lng:found.lng }); if (!place) setPlace(found.name.slice(0, GEO_PLACE_MAX)); }} />
-    <GeoMap mode="pick" pin={pin} onPick={setPin} className="fd-geo-pick" label="Drop the answer pin" />
+    <PlaceSearch onPick={found => {
+      setPin({ lat:found.lat, lng:found.lng });
+      setFocus({ lat:found.lat, lng:found.lng, zoom:found.zoom, key:`${found.key}:${Date.now()}` });
+      if (!place) setPlace(found.name.slice(0, GEO_PLACE_MAX));
+    }} />
+    <GeoMap mode="pick" pin={pin} onPick={setPin} focus={focus} className="fd-geo-pick" label="Drop the answer pin" />
     <label className="fd-geo-field"><span>Place</span><input value={place} maxLength={GEO_PLACE_MAX}
       onChange={event => setPlace(event.target.value)} placeholder="Shown at the reveal" /></label>
     <div className="fd-geo-field"><span>When it was taken</span>

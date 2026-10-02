@@ -3159,6 +3159,13 @@ var init_soundKit = __esm({
         name: "Several chips at once",
         ms: 300,
         play: (E, t, o = {}) => riffle(E, t, Math.max(3, Math.min(6, o.n || 4)), { gain: 0.7, gap: 0.04 })
+      },
+      /* a picker wheel passing one value: a dry, quiet detent click */
+      {
+        id: "detent",
+        name: "A wheel passes a value",
+        ms: 20,
+        play: (E, t) => M.tick(E, t, { gain: 0.45, pitch: 1.25 })
       }
     ].map(Object.freeze));
     SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map((s) => [s.id, s])));
@@ -5625,13 +5632,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React82, { useEffect as useEffect55, useRef as useRef61, useState as useState65 } from "react";
+import React83, { useEffect as useEffect56, useRef as useRef62, useState as useState66 } from "react";
 function InvitationArt() {
-  return /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React82.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React82.createElement("span", null, EDITION.year)), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("span", null, "FIELD"), /* @__PURE__ */ React82.createElement("span", null, "DAY", /* @__PURE__ */ React82.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React82.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React82.createElement("span", null, /* @__PURE__ */ React82.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React82.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React82.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React82.createElement("span", null, EDITION.short, /* @__PURE__ */ React82.createElement("br", null), "2026")));
+  return /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React83.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React83.createElement("span", null, EDITION.year)), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", null, "FIELD"), /* @__PURE__ */ React83.createElement("span", null, "DAY", /* @__PURE__ */ React83.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React83.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React83.createElement("span", null, /* @__PURE__ */ React83.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React83.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React83.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React83.createElement("span", null, EDITION.short, /* @__PURE__ */ React83.createElement("br", null), "2026")));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React82.createElement("div", null, /* @__PURE__ */ React82.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React82.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React82.createElement(
+  return /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React83.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React83.createElement(
     "button",
     {
       type: "button",
@@ -5639,7 +5646,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React82.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React82.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React82.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("span", null), /* @__PURE__ */ React82.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React82.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React82.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React82.createElement("div", null, /* @__PURE__ */ React82.createElement("strong", null, s.label), /* @__PURE__ */ React82.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React82.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React82.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React83.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", null), /* @__PURE__ */ React83.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React83.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("strong", null, s.label), /* @__PURE__ */ React83.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React83.createElement(
     "button",
     {
       type: "button",
@@ -5653,21 +5660,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState65(me || null);
-  const [ratings, setRatings] = useState65({});
-  const [display, setDisplay] = useState65("");
-  const [photo, setPhoto] = useState65(null);
-  const [num, setNum] = useState65("");
-  const [size, setSize] = useState65(null);
-  const [flightsBooked, setFlightsBooked] = useState65(null);
-  const [flightIn, setFlightIn] = useState65(null);
-  const [flightOut, setFlightOut] = useState65(null);
-  const [busy, setBusy] = useState65(false);
-  const [error, setError] = useState65("");
-  const submit = useRef61(createCheckInSubmission());
-  const heading = useRef61(null);
-  const hydratedPlayer = useRef61(null);
-  useEffect55(() => {
+  const [selected, setSelected] = useState66(me || null);
+  const [ratings, setRatings] = useState66({});
+  const [display, setDisplay] = useState66("");
+  const [photo, setPhoto] = useState66(null);
+  const [num, setNum] = useState66("");
+  const [size, setSize] = useState66(null);
+  const [flightsBooked, setFlightsBooked] = useState66(null);
+  const [flightIn, setFlightIn] = useState66(null);
+  const [flightOut, setFlightOut] = useState66(null);
+  const [busy, setBusy] = useState66(false);
+  const [error, setError] = useState66("");
+  const submit = useRef62(createCheckInSubmission());
+  const heading = useRef62(null);
+  const hydratedPlayer = useRef62(null);
+  useEffect56(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -5680,7 +5687,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect55(() => {
+  useEffect56(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -5722,12 +5729,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React82.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React82.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React82.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React82.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React82.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React82.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React82.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React82.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React82.createElement(InvitationArt, null) : /* @__PURE__ */ React82.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React82.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React82.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React82.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React82.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React82.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React82.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React82.createElement("p", null, intro)), /* @__PURE__ */ React82.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React82.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React82.createElement(InstallHint, null), /* @__PURE__ */ React82.createElement("p", null, "Open it from your home screen to check in.")), step === 0 && /* @__PURE__ */ React82.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React82.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React82.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React82.createElement("span", null, p), /* @__PURE__ */ React82.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React82.createElement(React82.Fragment, null, /* @__PURE__ */ React82.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React82.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React82.createElement("strong", null, "1,000", /* @__PURE__ */ React82.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React82.createElement("div", { className: "fd-weekend-rules" }, [
+  return /* @__PURE__ */ React83.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React83.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React83.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React83.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React83.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React83.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React83.createElement(InvitationArt, null) : /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React83.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React83.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React83.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React83.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React83.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React83.createElement("p", null, intro)), /* @__PURE__ */ React83.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React83.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React83.createElement(InstallHint, null), /* @__PURE__ */ React83.createElement("p", null, "Open it from your home screen to check in.")), step === 0 && /* @__PURE__ */ React83.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React83.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React83.createElement("span", null, p), /* @__PURE__ */ React83.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React83.createElement("strong", null, "1,000", /* @__PURE__ */ React83.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React83.createElement("div", { className: "fd-weekend-rules" }, [
     ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
     ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React82.createElement("div", { key: n }, /* @__PURE__ */ React82.createElement("span", null, n), /* @__PURE__ */ React82.createElement("div", null, /* @__PURE__ */ React82.createElement("h2", null, name), /* @__PURE__ */ React82.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React82.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React82.createElement(TravelMap, null), /* @__PURE__ */ React82.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React82.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React82.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React82.createElement(React82.Fragment, null, /* @__PURE__ */ React82.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React82.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React82.createElement("h2", null, "Information I need"), /* @__PURE__ */ React82.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React82.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React82.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React83.createElement("div", { key: n }, /* @__PURE__ */ React83.createElement("span", null, n), /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("h2", null, name), /* @__PURE__ */ React83.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React83.createElement(TravelMap, null), /* @__PURE__ */ React83.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React83.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React83.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React83.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React83.createElement("h2", null, "Information I need"), /* @__PURE__ */ React83.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React83.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React83.createElement(
     ProfileEditor,
     {
       state,
@@ -5741,7 +5748,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React82.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React82.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React82.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React82.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React82.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React82.createElement("span", { "aria-hidden": "true" }, "\u2197")), /* @__PURE__ */ React82.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React82.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, "\u2190 Back"), step === 0 && onTv && /* @__PURE__ */ React82.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React82.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React83.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React83.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React83.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React83.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React83.createElement("span", { "aria-hidden": "true" }, "\u2197")), /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, "\u2190 Back"), step === 0 && onTv && /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React83.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -9380,7 +9387,7 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React83, { useState as useState66, useEffect as useEffect56, useLayoutEffect as useLayoutEffect17, useRef as useRef62, useMemo as useMemo17, useCallback as useCallback7, useId as useId6, lazy, Suspense } from "react";
+import React84, { useState as useState67, useEffect as useEffect57, useLayoutEffect as useLayoutEffect17, useRef as useRef63, useMemo as useMemo17, useCallback as useCallback7, useId as useId6, lazy, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
@@ -11514,7 +11521,7 @@ init_controls();
 var MVP_RESULT_MS = 2 * 60 * 1e3;
 
 // src/features/geo/GeoPlay.jsx
-import React73, { useEffect as useEffect50, useRef as useRef54, useState as useState59 } from "react";
+import React74, { useEffect as useEffect51, useRef as useRef55, useState as useState60 } from "react";
 init_serverClock();
 init_motion();
 init_PlayerIdentityContext();
@@ -11524,6 +11531,9 @@ import React72, { useEffect as useEffect49, useMemo as useMemo14 } from "react";
 
 // src/features/geo/Wheel.jsx
 import React71, { useEffect as useEffect48, useLayoutEffect as useLayoutEffect15, useRef as useRef53, useState as useState58 } from "react";
+init_sound();
+var ROWS = 5;
+var CENTER = (ROWS - 1) / 2;
 
 // src/features/geo/WhenPicker.jsx
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -11531,24 +11541,27 @@ var MONTH_ITEMS = MONTHS.map((label2, i) => ({ value: i + 1, label: label2 }));
 var YEAR_ITEMS = Array.from({ length: 2026 - 1980 + 1 }, (_, i) => ({ value: 1980 + i, label: String(1980 + i) }));
 var HOUR_ITEMS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: hourLabel(h) }));
 
+// src/features/geo/PlaceSearch.jsx
+import React73, { useEffect as useEffect50, useRef as useRef54, useState as useState59 } from "react";
+
 // src/features/geo/GeoDesk.jsx
-import React74, { useEffect as useEffect51, useRef as useRef55, useState as useState60 } from "react";
+import React75, { useEffect as useEffect52, useRef as useRef56, useState as useState61 } from "react";
 
 // src/features/jersey/Jersey.jsx
 init_core();
 init_guestSetup();
 init_Travel();
-import React75, { useId as useId4 } from "react";
+import React76, { useId as useId4 } from "react";
 
 // src/features/profile/TripDetails.jsx
 init_guestSetup();
-import React76, { useId as useId5 } from "react";
+import React77, { useId as useId5 } from "react";
 
 // src/App.jsx
 init_guestSetup();
 
 // src/features/music/WinSongPicker.jsx
-import React78, { useEffect as useEffect53, useRef as useRef57, useState as useState62 } from "react";
+import React79, { useEffect as useEffect54, useRef as useRef58, useState as useState63 } from "react";
 
 // src/features/music/previewPlayer.js
 import { useSyncExternalStore as useSyncExternalStore4 } from "react";
@@ -11556,12 +11569,12 @@ init_sound();
 var KNOWN_MS = 8 * 60 * 1e3;
 
 // src/features/music/SnippetPreview.jsx
-import React77, { useEffect as useEffect52, useRef as useRef56, useState as useState61 } from "react";
+import React78, { useEffect as useEffect53, useRef as useRef57, useState as useState62 } from "react";
 init_sound();
 
 // src/features/awards/AwardsDesk.jsx
 init_core();
-import React79, { useEffect as useEffect54, useMemo as useMemo15, useRef as useRef58, useState as useState63 } from "react";
+import React80, { useEffect as useEffect55, useMemo as useMemo15, useRef as useRef59, useState as useState64 } from "react";
 init_serverClock();
 init_PlayerIdentity();
 init_controls();
@@ -11570,16 +11583,16 @@ init_controls();
 init_core();
 init_controls();
 init_PlayerIdentity();
-import React80, { useRef as useRef59, useState as useState64 } from "react";
+import React81, { useRef as useRef60, useState as useState65 } from "react";
 
 // src/ui/Shell.jsx
-import React81 from "react";
+import React82 from "react";
 function Shell({ children, tv, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React81.createElement("div", { className: `fd-shell${tv ? " fd-night" : ""}` }, /* @__PURE__ */ React81.createElement("div", { className: `fd-shell-inner${tv ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React81.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+  return /* @__PURE__ */ React82.createElement("div", { className: `fd-shell${tv ? " fd-night" : ""}` }, /* @__PURE__ */ React82.createElement("div", { className: `fd-shell-inner${tv ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React82.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/ui/usePhaseTheme.js
-import { useLayoutEffect as useLayoutEffect16, useMemo as useMemo16, useRef as useRef60 } from "react";
+import { useLayoutEffect as useLayoutEffect16, useMemo as useMemo16, useRef as useRef61 } from "react";
 init_motion2();
 var STAGING = (() => {
   try {
@@ -11603,7 +11616,7 @@ var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React83.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React84.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -11627,7 +11640,7 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
   const av = size === "lg" ? 34 : 26;
   const f = size === "lg" ? 19 : 14;
   const tf = size === "lg" ? 26 : 17;
-  return /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: size === "lg" ? 18 : 10, alignItems: "stretch" } }, [teams[0], null, teams[1]].map((t, i) => i === 1 ? /* @__PURE__ */ React83.createElement("div", { key: "vs", style: {
+  return /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: size === "lg" ? 18 : 10, alignItems: "stretch" } }, [teams[0], null, teams[1]].map((t, i) => i === 1 ? /* @__PURE__ */ React84.createElement("div", { key: "vs", style: {
     alignSelf: "center",
     width: size === "lg" ? 54 : 36,
     height: size === "lg" ? 54 : 36,
@@ -11643,14 +11656,14 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
     fontSize: size === "lg" ? 24 : 16,
     border: "2px solid var(--ink)",
     zIndex: 2
-  } }, "VS") : /* @__PURE__ */ React83.createElement("div", { key: i, style: {
+  } }, "VS") : /* @__PURE__ */ React84.createElement("div", { key: i, style: {
     background: "var(--paper)",
     border: "1.5px solid var(--ink)",
     borderRadius: 10,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column"
-  } }, /* @__PURE__ */ React83.createElement("div", { style: {
+  } }, /* @__PURE__ */ React84.createElement("div", { style: {
     background: SIDE_COLORS[i === 0 ? 0 : 1],
     color: BONE,
     fontFamily: DISPLAY,
@@ -11663,8 +11676,8 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap"
-  } }, teamLabel(state, t)), /* @__PURE__ */ React83.createElement("div", { style: { padding: size === "lg" ? "10px 14px" : "8px 11px" } }, t.players.map(
-    (p) => React83.createElement(onPlayer ? "button" : "div", {
+  } }, teamLabel(state, t)), /* @__PURE__ */ React84.createElement("div", { style: { padding: size === "lg" ? "10px 14px" : "8px 11px" } }, t.players.map(
+    (p) => React84.createElement(onPlayer ? "button" : "div", {
       key: p,
       type: onPlayer ? "button" : void 0,
       onClick: onPlayer ? () => onPlayer(p) : void 0,
@@ -11677,11 +11690,11 @@ function VersusDraw({ state, teams, size = "md", onPlayer }) {
         width: "100%",
         flexDirection: i === 0 ? "row" : "row-reverse"
       }
-    }, /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement(Avatar, { state, p, size: av }), /* @__PURE__ */ React83.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: f, color: "var(--ink)" } }, disp(state, p))))
+    }, /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: av }), /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: f, color: "var(--ink)" } }, disp(state, p))))
   )))));
 }
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
-  return /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement(
     EventAnnouncement,
     {
       state,
@@ -11690,14 +11703,14 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
       onClose,
       onBets,
       holdMs: prefersReducedMotion2() ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS,
-      visual: /* @__PURE__ */ React83.createElement(GameMoment, { gameId: ev.game })
+      visual: /* @__PURE__ */ React84.createElement(GameMoment, { gameId: ev.game })
     }
   );
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId6(), saving = useRef62(false);
-  const [counts, setCounts] = useState66(() => {
+  const countId = useId6(), saving = useRef63(false);
+  const [counts, setCounts] = useState67(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -11705,12 +11718,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
+  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React83.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React83.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React83.createElement("label", { htmlFor: countId + value }, fmt8(value), " chips"), /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React84.createElement("label", { htmlFor: countId + value }, fmt8(value), " chips"), /* @__PURE__ */ React84.createElement(
     "button",
     {
       type: "button",
@@ -11719,7 +11732,7 @@ function ChipCounter({ start, onDone }) {
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
     "\u2212"
-  ), /* @__PURE__ */ React83.createElement(
+  ), /* @__PURE__ */ React84.createElement(
     "input",
     {
       id: countId + value,
@@ -11732,7 +11745,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React83.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, "+"))), /* @__PURE__ */ React83.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React83.createElement("span", null, "Total"), /* @__PURE__ */ React83.createElement("strong", null, fmt8(total))), error && /* @__PURE__ */ React83.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React83.createElement(ActionButton, { disabled: pending, onClick: async () => {
+  ), /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, "+"))), /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React84.createElement("span", null, "Total"), /* @__PURE__ */ React84.createElement("strong", null, fmt8(total))), error && /* @__PURE__ */ React84.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React84.createElement(ActionButton, { disabled: pending, onClick: async () => {
     if (saving.current) return;
     saving.current = true;
     setPending(true);
@@ -11750,9 +11763,9 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState66(null);
-  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
-  const saving = useRef62(false);
+  const [fixing, setFixing] = useState67(null);
+  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
+  const saving = useRef63(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -11778,10 +11791,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React83.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
+  return /* @__PURE__ */ React84.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c = pk.counts?.[p];
-    return /* @__PURE__ */ React83.createElement("div", { key: p }, /* @__PURE__ */ React83.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React83.createElement(
+    return /* @__PURE__ */ React84.createElement("div", { key: p }, /* @__PURE__ */ React84.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React84.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -11792,10 +11805,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React83.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React83.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React83.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React83.createElement("strong", null, fmt8(c)) : /* @__PURE__ */ React83.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React83.createElement(
+      /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React84.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React84.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React84.createElement("strong", null, fmt8(c)) : /* @__PURE__ */ React84.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React84.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -11808,27 +11821,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React83.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React84.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React83.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React84.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React83.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React83.createElement("span", { style: {
+  }), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React84.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt8(sum)), /* @__PURE__ */ React83.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt8(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt8(sum - pk.total)} over` : `${fmt8(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React83.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React83.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt8(sum)), /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt8(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt8(sum - pk.total)} over` : `${fmt8(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React84.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React83.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React84.createElement(
     "button",
     {
       type: "button",
@@ -11837,16 +11850,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React83.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React83.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React84.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React84.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React83.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React83.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React83.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React83.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React83.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React83.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React84.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React84.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React84.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React84.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React84.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -11854,7 +11867,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React83.createElement("span", { style: { ...label, color: "var(--accent2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React83.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React83.createElement("span", { style: {
+    } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React84.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 11.5,
@@ -11864,7 +11877,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React83.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React84.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 10.5,
@@ -11872,15 +11885,15 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React83.createElement("div", { style: {
+  return /* @__PURE__ */ React84.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
     border: "1px solid rgba(194,88,50,0.38)"
-  } }, /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React83.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
+  } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React83.createElement(
+    if (onPlayer) return /* @__PURE__ */ React84.createElement(
       "button",
       {
         type: "button",
@@ -11889,18 +11902,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React83.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React83.createElement("span", null, /* @__PURE__ */ React83.createElement("strong", null, disp(state, item.player))),
-      /* @__PURE__ */ React83.createElement("small", null, meta.label)
+      /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React84.createElement("span", null, /* @__PURE__ */ React84.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React84.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React83.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React84.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React83.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React83.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React83.createElement("div", { style: {
+    } }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React84.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -11908,7 +11921,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player))), /* @__PURE__ */ React83.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React84.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 10.5,
@@ -11928,14 +11941,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React83.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React84.createElement("div", { style: {
     background: "var(--paper2)",
     border: "1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React83.createElement("div", { style: {
+  } }, /* @__PURE__ */ React84.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 10.5,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -11946,12 +11959,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided3 = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided3 && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React83.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React84.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React83.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React83.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React83.createElement(
+    } }, /* @__PURE__ */ React84.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React84.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React84.createElement(
       "button",
       {
         key: String(key),
@@ -11971,8 +11984,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React83.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React83.createElement("span", { style: {
+      /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React84.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -11982,10 +11995,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React83.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, isFinal ? "\u{1F3C6}" : "\u2713")
+      isThrough && /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, isFinal ? "\u{1F3C6}" : "\u2713")
     );
   }));
-  return /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React84.createElement(
     GroupCard,
     {
       key: i,
@@ -11994,7 +12007,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React83.createElement(
+  )), finalists && /* @__PURE__ */ React84.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -12039,27 +12052,27 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState66(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState67(false);
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState66(false);
-  const [confirmRemove, setConfirmRemove] = useState66(false);
-  const [confirmClear, setConfirmClear] = useState66(false);
-  const [clearReason, setClearReason] = useState66("");
-  const [confirmScrap, setConfirmScrap] = useState66(false);
-  const [confirmShelve, setConfirmShelve] = useState66(false);
+  const [confirmRedraw, setConfirmRedraw] = useState67(false);
+  const [confirmRemove, setConfirmRemove] = useState67(false);
+  const [confirmClear, setConfirmClear] = useState67(false);
+  const [clearReason, setClearReason] = useState67("");
+  const [confirmScrap, setConfirmScrap] = useState67(false);
+  const [confirmShelve, setConfirmShelve] = useState67(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState66(false);
-  const [howTo, setHowTo] = useState66(false);
-  const [more, setMore] = useState66(false);
-  const [eName, setEName] = useState66("");
-  const [eDesc, setEDesc] = useState66("");
-  const [eValue, setEValue] = useState66(400);
-  const [eSession, setESession] = useState66(null);
+  const [editOpen, setEditOpen] = useState67(false);
+  const [howTo, setHowTo] = useState67(false);
+  const [more, setMore] = useState67(false);
+  const [eName, setEName] = useState67("");
+  const [eDesc, setEDesc] = useState67("");
+  const [eValue, setEValue] = useState67(400);
+  const [eSession, setESession] = useState67(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -12067,16 +12080,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState66(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState66(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState66(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState66(""), [swapIn, setSwapIn] = useState66("");
-  const [showOuts, setShowOuts] = useState66(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState66(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState66(null);
-  const [advance, setAdvance] = useState66(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState66(false);
-  const [contestPending, setContestPending] = useState66(false);
+  const [suggested] = useState67(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState67(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState67(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState67(""), [swapIn, setSwapIn] = useState67("");
+  const [showOuts, setShowOuts] = useState67(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState67(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState67(null);
+  const [advance, setAdvance] = useState67(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState67(false);
+  const [contestPending, setContestPending] = useState67(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -12085,8 +12098,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState66("");
-  const setupBusy = useRef62(false);
+  const [setupError, setSetupError] = useState67("");
+  const setupBusy = useRef63(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -12121,7 +12134,7 @@ function EventSheet({
   const suggestedGroups = Math.min(4, Math.max(2, Math.round(stageEntrantCount / (canHeats ? 4 : 3))));
   const groupsChoice = nGroups ?? ev.stageCfg?.nGroups ?? suggestedGroups;
   const heatsFit = inPlayers.length >= groupsChoice * 2;
-  return /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement(
     Sheet,
     {
       title: ev.name,
@@ -12130,9 +12143,9 @@ function EventSheet({
       wide: !!br,
       busy: setupPending || contestPending,
       subtitle: [SESSIONS.find((s) => s.id === ev.session)?.label, ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" \xB7 "),
-      headerActions: /* @__PURE__ */ React83.createElement(React83.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React83.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React83.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React84.createElement(React84.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    /* @__PURE__ */ React83.createElement(
+    /* @__PURE__ */ React84.createElement(
       ContestPanel,
       {
         state,
@@ -12148,35 +12161,35 @@ function EventSheet({
         onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
       }
     ),
-    br && !contestActive && /* @__PURE__ */ React83.createElement(CompetitionBracket, { state, ev, me, onPlayer }),
-    /* @__PURE__ */ React83.createElement("details", { className: "fd-event-info", open: !draw && !st && !contestActive || void 0 }, /* @__PURE__ */ React83.createElement("summary", null, /* @__PURE__ */ React83.createElement("span", null, "Event info"), table?.[0] > 0 && /* @__PURE__ */ React83.createElement("small", null, fmt8(table[0]), " chips to win")), ev.desc && /* @__PURE__ */ React83.createElement("p", null, ev.desc), table && /* @__PURE__ */ React83.createElement("div", { className: "fd-event-awards" }, awardPlan(ev, draw).map((row) => /* @__PURE__ */ React83.createElement("span", { key: row.place }, /* @__PURE__ */ React83.createElement("small", null, row.place === "crew" ? "Crew" : SLOT_META[row.place].label), /* @__PURE__ */ React83.createElement("strong", null, "+", fmt8(row.pts)))))),
-    !contestActive && onBets && /* @__PURE__ */ React83.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    howTo && /* @__PURE__ */ React83.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, onClose: () => setHowTo(false) }),
-    draftLive && !draw && /* @__PURE__ */ React83.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() }),
-    draw && !br && !st && /* @__PURE__ */ React83.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 8 } }, "The draw"), draw.teams.length === 2 ? /* @__PURE__ */ React83.createElement(VersusDraw, { state, teams: draw.teams, onPlayer }) : /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap: 8 } }, draw.teams.map((t, i) => /* @__PURE__ */ React83.createElement("div", { key: i, style: {
+    br && !contestActive && /* @__PURE__ */ React84.createElement(CompetitionBracket, { state, ev, me, onPlayer }),
+    /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info", open: !draw && !st && !contestActive || void 0 }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "Event info"), table?.[0] > 0 && /* @__PURE__ */ React84.createElement("small", null, fmt8(table[0]), " chips to win")), ev.desc && /* @__PURE__ */ React84.createElement("p", null, ev.desc), table && /* @__PURE__ */ React84.createElement("div", { className: "fd-event-awards" }, awardPlan(ev, draw).map((row) => /* @__PURE__ */ React84.createElement("span", { key: row.place }, /* @__PURE__ */ React84.createElement("small", null, row.place === "crew" ? "Crew" : SLOT_META[row.place].label), /* @__PURE__ */ React84.createElement("strong", null, "+", fmt8(row.pts)))))),
+    !contestActive && onBets && /* @__PURE__ */ React84.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    howTo && /* @__PURE__ */ React84.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, onClose: () => setHowTo(false) }),
+    draftLive && !draw && /* @__PURE__ */ React84.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() }),
+    draw && !br && !st && /* @__PURE__ */ React84.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 8 } }, "The draw"), draw.teams.length === 2 ? /* @__PURE__ */ React84.createElement(VersusDraw, { state, teams: draw.teams, onPlayer }) : /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap: 8 } }, draw.teams.map((t, i) => /* @__PURE__ */ React84.createElement("div", { key: i, style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "10px 12px",
       ...draw.teams.length > 3 && draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: "var(--accent2)", marginBottom: 5 } }, teamLabel(state, t)), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, t.players.map((p) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: p, className: "fd-player-link", "aria-label": `View ${disp(state, p)}'s player card`, onClick: () => onPlayer?.(p) }, /* @__PURE__ */ React83.createElement(Avatar, { state, p, size: 30 }))))))), /* @__PURE__ */ React83.createElement(EventCrewCard, { state, roles: draw.roles, onPlayer })),
-    st && /* @__PURE__ */ React83.createElement("details", { className: "fd-event-info", open: !contestActive || void 0 }, /* @__PURE__ */ React83.createElement("summary", null, /* @__PURE__ */ React83.createElement("span", null, "All ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React83.createElement("small", null, st.advance, " through from each")), /* @__PURE__ */ React83.createElement(StageGrid, { state, ev, gm: false, onPlayer })),
-    (br || st) && /* @__PURE__ */ React83.createElement(EventCrewCard, { state, roles: draw?.roles || st?.roles, compact: true, onPlayer }),
+    } }, /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: "var(--accent2)", marginBottom: 5 } }, teamLabel(state, t)), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, t.players.map((p) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: p, className: "fd-player-link", "aria-label": `View ${disp(state, p)}'s player card`, onClick: () => onPlayer?.(p) }, /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: 30 }))))))), /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw.roles, onPlayer })),
+    st && /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info", open: !contestActive || void 0 }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "All ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React84.createElement("small", null, st.advance, " through from each")), /* @__PURE__ */ React84.createElement(StageGrid, { state, ev, gm: false, onPlayer })),
+    (br || st) && /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw?.roles || st?.roles, compact: true, onPlayer }),
     res && res.slots && (() => {
       const awards = resultAwards(state, ev, res);
       const crew = awards.filter((award) => award.place === "crew");
-      return /* @__PURE__ */ React83.createElement("div", { style: { marginBottom: 14 } }, res.slots.map((players, i) => players?.length > 0 && /* @__PURE__ */ React83.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React83.createElement("span", { style: { color: SLOT_META[i].color, fontWeight: 700 } }, SLOT_META[i].label, ":"), " ", players.map((p) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: p, className: "fd-player-link", onClick: () => onPlayer?.(p) }, disp(state, p))), " ", /* @__PURE__ */ React83.createElement("span", { style: { color: "var(--muted)" } }, res.stacks ? `${fmt8(res.stacks[players[0]] ?? 0)} chips` : `+${fmt8(awards.find((award) => award.place === i)?.pts ?? 0)} each`))), crew.length > 0 && /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React83.createElement("span", { style: { fontWeight: 700 } }, "Crew:"), " ", crew.map(({ player }) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: player, className: "fd-player-link", onClick: () => onPlayer?.(player) }, disp(state, player))), " ", /* @__PURE__ */ React83.createElement("span", { style: { color: "var(--muted)" } }, "+", fmt8(crew[0].pts), " each")), (() => {
+      return /* @__PURE__ */ React84.createElement("div", { style: { marginBottom: 14 } }, res.slots.map((players, i) => players?.length > 0 && /* @__PURE__ */ React84.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("span", { style: { color: SLOT_META[i].color, fontWeight: 700 } }, SLOT_META[i].label, ":"), " ", players.map((p) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: p, className: "fd-player-link", onClick: () => onPlayer?.(p) }, disp(state, p))), " ", /* @__PURE__ */ React84.createElement("span", { style: { color: "var(--muted)" } }, res.stacks ? `${fmt8(res.stacks[players[0]] ?? 0)} chips` : `+${fmt8(awards.find((award) => award.place === i)?.pts ?? 0)} each`))), crew.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("span", { style: { fontWeight: 700 } }, "Crew:"), " ", crew.map(({ player }) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: player, className: "fd-player-link", onClick: () => onPlayer?.(player) }, disp(state, player))), " ", /* @__PURE__ */ React84.createElement("span", { style: { color: "var(--muted)" } }, "+", fmt8(crew[0].pts), " each")), (() => {
         const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
         const reason = res.correctionReason || correction?.reason;
         const voided = Array.isArray(correction?.voided) ? correction.voided.length : 0;
-        return reason && (res.correctedAt || correction) ? /* @__PURE__ */ React83.createElement("p", { className: "fd-event-correction" }, "Corrected \xB7 ", reason, voided ? ` \xB7 ${voided} ${voided === 1 ? "bet" : "bets"} voided` : "") : null;
+        return reason && (res.correctedAt || correction) ? /* @__PURE__ */ React84.createElement("p", { className: "fd-event-correction" }, "Corrected \xB7 ", reason, voided ? ` \xB7 ${voided} ${voided === 1 ? "bet" : "bets"} voided` : "") : null;
       })());
     })(),
-    gm && !state.frozen && /* @__PURE__ */ React83.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 14 } }, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    gm && !state.frozen && /* @__PURE__ */ React84.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 14 } }, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, flex: 1 } }, shape.size === 1 ? "Draw the bracket" : "Draw teams"), /* @__PURE__ */ React83.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+      return /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, flex: 1 } }, shape.size === 1 ? "Draw the bracket" : "Draw teams"), /* @__PURE__ */ React84.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
         cursor: "pointer",
         fontFamily: SANS,
         fontWeight: 700,
@@ -12186,12 +12199,12 @@ function EventSheet({
         background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
         border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
         color: diff !== 0 ? "var(--clay-text)" : "var(--ink)"
-      } }, inPlayers.length, " competitors ", showOuts ? "\u25B4" : "\u25BE")), /* @__PURE__ */ React83.createElement("div", { style: {
+      } }, inPlayers.length, " competitors ", showOuts ? "\u25B4" : "\u25BE")), /* @__PURE__ */ React84.createElement("div", { style: {
         fontFamily: SANS,
         fontSize: 12.5,
         marginBottom: 8,
         color: diff !== 0 ? "var(--clay-text)" : "var(--muted)"
-      } }, "Format: ", shapeLabel(shape), shape.size === 1 ? "" : `, fits ${fit2}`, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React83.createElement(
+      } }, "Format: ", shapeLabel(shape), shape.size === 1 ? "" : `, fits ${fit2}`, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React84.createElement(
         PlayerChip,
         {
           key: p,
@@ -12201,13 +12214,13 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React83.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: {
         background: "var(--paper2)",
         border: "1px solid rgba(194,88,50,0.38)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React83.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), /* @__PURE__ */ React83.createElement("div", { style: {
+      } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), /* @__PURE__ */ React84.createElement("div", { style: {
         fontFamily: SANS,
         fontSize: 11.5,
         lineHeight: 1.4,
@@ -12215,14 +12228,14 @@ function EventSheet({
         marginBottom: 9
       } }, table?.[2] > 0 ? `Crew do not compete and earn the 3rd-place award, +${fmt8(table[2])}.` : "Crew do not compete or score."), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        return /* @__PURE__ */ React83.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React84.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React83.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React83.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React83.createElement("div", { style: {
+        } }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React84.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
           fontSize: 12.5,
@@ -12230,7 +12243,7 @@ function EventSheet({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap"
-        } }, disp(state, player))), /* @__PURE__ */ React83.createElement(
+        } }, disp(state, player))), /* @__PURE__ */ React84.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
@@ -12249,9 +12262,9 @@ function EventSheet({
               fontSize: 11.5
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React83.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React84.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), (!participantFit.ok || !announceNext) && /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 10 } }, participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React83.createElement(
+      }))), (!participantFit.ok || !announceNext) && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 10 } }, participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -12259,7 +12272,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React83.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React84.createElement(
         Btn,
         {
           kind: "dark",
@@ -12269,10 +12282,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React83.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -12289,7 +12302,7 @@ function EventSheet({
         fontWeight: 700,
         fontSize: 12.5
       };
-      return /* @__PURE__ */ React83.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React83.createElement("summary", null, /* @__PURE__ */ React83.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React83.createElement(
+      return /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React84.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -12298,9 +12311,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React83.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React83.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React83.createElement(
+        /* @__PURE__ */ React84.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React84.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React84.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -12309,9 +12322,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React83.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React83.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React83.createElement(
+        /* @__PURE__ */ React84.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React84.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React84.createElement(
         ActionButton,
         {
           compact: true,
@@ -12326,14 +12339,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React83.createElement("p", null, "Bets on the team stay. Outright bets on the player leaving are voided."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React83.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React83.createElement("div", { style: {
+      )), /* @__PURE__ */ React84.createElement("p", null, "Bets on the team stay. Outright bets on the player leaving are voided."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React84.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React84.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React83.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React84.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -12343,7 +12356,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", showOuts ? "\u25B4" : "\u25BE")), showOuts && /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React83.createElement(
+    } }, inPlayers.length, " playing ", showOuts ? "\u25B4" : "\u25BE")), showOuts && /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React84.createElement(
       PlayerChip,
       {
         key: p,
@@ -12353,7 +12366,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React83.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React83.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React83.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React84.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -12364,7 +12377,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React83.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React83.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React83.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React84.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React84.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React84.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -12375,7 +12388,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React83.createElement(
+    } }, n))), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -12393,17 +12406,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React83.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React83.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React83.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React84.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React83.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React83.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React83.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React84.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React83.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -12411,7 +12424,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React83.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -12419,14 +12432,14 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React83.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React83.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && onTakeBack && announcementTakeBack(state, ev).enabled && (confirmTakeBack ? /* @__PURE__ */ React83.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React83.createElement("p", { style: { ...pStyle, fontSize: 13, marginBottom: 8 } }, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React83.createElement(
+    ), res && !confirmClear && /* @__PURE__ */ React84.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && onTakeBack && announcementTakeBack(state, ev).enabled && (confirmTakeBack ? /* @__PURE__ */ React84.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 13, marginBottom: 8 } }, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -12439,7 +12452,7 @@ function EventSheet({
         })
       },
       setupPending ? "Taking back\u2026" : "Take it back"
-    ), /* @__PURE__ */ React83.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it"))) : /* @__PURE__ */ React83.createElement(
+    ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it"))) : /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "destructive",
@@ -12447,13 +12460,13 @@ function EventSheet({
         style: { width: "100%", marginTop: 10 }
       },
       "Take back the announcement"
-    )), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React83.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, "Next: ", lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React83.createElement("div", { style: {
+    )), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, "Next: ", lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React84.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React83.createElement(
+    } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React84.createElement(
       "input",
       {
         value: clearReason,
@@ -12474,7 +12487,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React83.createElement(
+    ), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -12483,7 +12496,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React83.createElement(
+    ), /* @__PURE__ */ React84.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -12494,13 +12507,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React83.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React84.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React83.createElement(
+    } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React84.createElement(
       "input",
       {
         value: eName,
@@ -12521,7 +12534,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "How it works"), /* @__PURE__ */ React83.createElement(
+    ), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "How it works"), /* @__PURE__ */ React84.createElement(
       "textarea",
       {
         value: eDesc,
@@ -12544,7 +12557,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth", res ? ". Clear the result to change it" : ""), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React83.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth", res ? ". Clear the result to change it" : ""), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React84.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -12555,7 +12568,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "When"), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React83.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "When"), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React84.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -12565,7 +12578,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React83.createElement(
+    } }, lb))), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -12576,7 +12589,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React83.createElement("button", { onClick: () => setMore(true), style: {
+    ), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React84.createElement("button", { onClick: () => setMore(true), style: {
       background: "none",
       border: "none",
       cursor: "pointer",
@@ -12588,14 +12601,14 @@ function EventSheet({
       padding: "8px 0",
       display: "block",
       marginLeft: "auto"
-    } }, "More options \u25BE") : /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement(Btn, { kind: "danger", onClick: () => {
+    } }, "More options \u25BE") : /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt8(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React83.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React83.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React83.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove")))
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt8(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove")))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState66(false);
+  const [pending, setPending] = useState67(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -12608,7 +12621,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React83.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React84.createElement(
     ContestPanel,
     {
       state,
@@ -12623,7 +12636,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React83.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React83.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React84.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
@@ -12664,14 +12677,14 @@ function ResultSheet({ ev, state, onClose, save }) {
     }
     return [[], [], []];
   }, []);
-  const [slots, setSlots] = useState66(initial);
-  const [active, setActive] = useState66(editableSlots[0] ?? 0);
-  const [byPlayer, setByPlayer] = useState66(false);
-  const [confirmCorrection, setConfirmCorrection] = useState66(false);
-  const [correctionReason, setCorrectionReason] = useState66("");
-  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
-  const [emptyCheck, setEmptyCheck] = useState66(null);
-  const saving = useRef62(false);
+  const [slots, setSlots] = useState67(initial);
+  const [active, setActive] = useState67(editableSlots[0] ?? 0);
+  const [byPlayer, setByPlayer] = useState67(false);
+  const [confirmCorrection, setConfirmCorrection] = useState67(false);
+  const [correctionReason, setCorrectionReason] = useState67("");
+  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
+  const [emptyCheck, setEmptyCheck] = useState67(null);
+  const saving = useRef63(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;
     if (!allowEmpty && emptyPaid.length) {
@@ -12729,9 +12742,9 @@ function ResultSheet({ ev, state, onClose, save }) {
     if (was !== active) nx[active] = [...nx[active], ...t.players];
     return nx;
   });
-  return /* @__PURE__ */ React83.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React83.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React83.createElement("small", null, "Winner"), /* @__PURE__ */ React83.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React83.createElement("span", null, "+", fmt8(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React83.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), twoTeams && /* @__PURE__ */ React83.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 8 } }, "Winner"), /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.map((team, i) => {
+  return /* @__PURE__ */ React84.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React84.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React84.createElement("small", null, "Winner"), /* @__PURE__ */ React84.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React84.createElement("span", null, "+", fmt8(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), twoTeams && /* @__PURE__ */ React84.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 8 } }, "Winner"), /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.map((team, i) => {
     const won = team.players.length > 0 && team.players.every((p) => slots[0].includes(p));
-    return /* @__PURE__ */ React83.createElement(
+    return /* @__PURE__ */ React84.createElement(
       "button",
       {
         key: i,
@@ -12752,8 +12765,8 @@ function ResultSheet({ ev, state, onClose, save }) {
           border: won ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
         }
       },
-      /* @__PURE__ */ React83.createElement(AvatarStack, { state, players: team.players, size: 26, max: 5 }),
-      /* @__PURE__ */ React83.createElement("span", { style: {
+      /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: team.players, size: 26, max: 5 }),
+      /* @__PURE__ */ React84.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: 14,
@@ -12764,16 +12777,16 @@ function ResultSheet({ ev, state, onClose, save }) {
         maxWidth: "100%"
       } }, teamLabel(state, team))
     );
-  })), slots[0].length > 0 && /* @__PURE__ */ React83.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)", margin: "0 0 12px" } }, "+", fmt8(paysEach(0)), " each to the winners", table[1] > 0 ? `, +${fmt8(paysEach(1))} each to the other team` : "", table[2] > 0 && draw.roles?.length ? `, +${fmt8(table[2])} each to the crew` : "", ".")), !twoTeams && !!editableSlots.length && /* @__PURE__ */ React83.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React83.createElement("button", { key: i, onClick: () => setActive(i), style: {
+  })), slots[0].length > 0 && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)", margin: "0 0 12px" } }, "+", fmt8(paysEach(0)), " each to the winners", table[1] > 0 ? `, +${fmt8(paysEach(1))} each to the other team` : "", table[2] > 0 && draw.roles?.length ? `, +${fmt8(table[2])} each to the crew` : "", ".")), !twoTeams && !!editableSlots.length && /* @__PURE__ */ React84.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React84.createElement("button", { key: i, onClick: () => setActive(i), style: {
     flex: 1,
     padding: "10px 6px",
     cursor: "pointer",
     borderRadius: 14,
     border: "1px solid " + (active === i ? "var(--accent)" : "var(--line)"),
     background: active === i ? "rgba(194,88,50,0.1)" : "var(--paper2)"
-  } }, /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React83.createElement("div", { style: { fontFamily: SANS, fontSize: 11, color: "var(--muted)" } }, "+", fmt8(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React83.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt8(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
+  } }, /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 11, color: "var(--muted)" } }, "+", fmt8(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt8(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
     const w = teamSlot(t);
-    return /* @__PURE__ */ React83.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
+    return /* @__PURE__ */ React84.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -12784,7 +12797,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       background: w === active ? GOLD_GRAD : "var(--paper)",
       border: w === active ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
       ...draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React83.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React83.createElement("span", { style: {
+    } }, /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React84.createElement("span", { style: {
       flex: 1,
       fontFamily: SANS,
       fontWeight: 600,
@@ -12794,16 +12807,16 @@ function ResultSheet({ ev, state, onClose, save }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       color: w === active ? "var(--ink0)" : "var(--ink)"
-    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React83.createElement("span", { style: {
+    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React84.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 11,
       color: SLOT_META[w].color,
       flexShrink: 0
     } }, SLOT_META[w].label));
-  })) : /* @__PURE__ */ React83.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
+  })) : /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
     const w = taken(p);
-    return /* @__PURE__ */ React83.createElement(
+    return /* @__PURE__ */ React84.createElement(
       PlayerChip,
       {
         key: p,
@@ -12814,7 +12827,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         style: centeredGridCell(i, ROSTER.length)
       }
     );
-  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React83.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
+  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React84.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
     background: "none",
     border: "none",
     cursor: "pointer",
@@ -12825,13 +12838,13 @@ function ResultSheet({ ev, state, onClose, save }) {
     minHeight: 44,
     padding: "6px 0",
     display: "block"
-  } }, byPlayer ? "Back to teams" : "Pick by player")), error && /* @__PURE__ */ React83.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React83.createElement("div", { role: "alert", style: {
+  } }, byPlayer ? "Back to teams" : "Pick by player")), error && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React84.createElement("div", { role: "alert", style: {
     marginBottom: 10,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, emptyPaid.map((i) => /* @__PURE__ */ React83.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt8(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React83.createElement(
+  } }, emptyPaid.map((i) => /* @__PURE__ */ React84.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt8(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React84.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -12840,7 +12853,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Leave empty"
-  ), /* @__PURE__ */ React83.createElement(
+  ), /* @__PURE__ */ React84.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -12852,7 +12865,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React83.createElement(
+  ))), !existing ? /* @__PURE__ */ React84.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || pending,
@@ -12860,7 +12873,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
     "Post official result"
-  ) : !confirmCorrection ? /* @__PURE__ */ React83.createElement(
+  ) : !confirmCorrection ? /* @__PURE__ */ React84.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || unchanged || pending,
@@ -12868,13 +12881,13 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
     unchanged ? `Official result \xB7 revision ${existing.revision || 1}` : "Review result correction"
-  ) : /* @__PURE__ */ React83.createElement("div", { style: {
+  ) : /* @__PURE__ */ React84.createElement("div", { style: {
     marginTop: 4,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, /* @__PURE__ */ React83.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for the correction"), /* @__PURE__ */ React83.createElement(
+  } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for the correction"), /* @__PURE__ */ React84.createElement(
     "input",
     {
       value: correctionReason,
@@ -12896,7 +12909,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         outline: "none"
       }
     }
-  ), /* @__PURE__ */ React83.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React83.createElement(
+  ), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -12908,56 +12921,56 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Replace official result"
-  ), /* @__PURE__ */ React83.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
+  ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
     setConfirmCorrection(false);
     setCorrectionReason("");
   }, style: { flex: 1 } }, "Keep current"))));
 }
 function GameMoment({ gameId }) {
   const Hero = GAME_HEROES[gameId];
-  return /* @__PURE__ */ React83.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion2() ? /* @__PURE__ */ React83.createElement(Hero, null) : /* @__PURE__ */ React83.createElement(GameMark, { id: gameId, size: 72 }));
+  return /* @__PURE__ */ React84.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion2() ? /* @__PURE__ */ React84.createElement(Hero, null) : /* @__PURE__ */ React84.createElement(GameMark, { id: gameId, size: 72 }));
 }
 function DieHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React83.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React83.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React83.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React83.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React83.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React83.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
 }
 function PongHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function FlipHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-flip-cup 2.2s ease-in-out 1 both", transformOrigin: "90px 46px" } }, /* @__PURE__ */ React83.createElement("path", { d: "M78 32h24l-3 28H81z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("ellipse", { cx: "90", cy: "32", rx: "12", ry: "3.4", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-flip-cup 2.2s ease-in-out 1 both", transformOrigin: "90px 46px" } }, /* @__PURE__ */ React84.createElement("path", { d: "M78 32h24l-3 28H81z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "90", cy: "32", rx: "12", ry: "3.4", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" })));
 }
 function PuttHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React83.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function EightHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React83.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React84.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
 }
 function BballHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React83.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React83.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React84.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function SpikeHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React83.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
 }
 function PingpongHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React83.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React83.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React83.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React83.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React84.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React84.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React84.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
 }
 function FoosHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React83.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React84.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function VolleyHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React83.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React84.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function PickleHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React83.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React83.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
 }
 function KartHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React83.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React84.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
 }
 function RageHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React83.createElement("g", { key: x }, /* @__PURE__ */ React83.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React83.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React84.createElement("g", { key: x }, /* @__PURE__ */ React84.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
 }
 function GauntletHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [36, 68, 100, 132, 164].map((x, i) => /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [36, 68, 100, 132, 164].map((x, i) => /* @__PURE__ */ React84.createElement(
     "rect",
     {
       key: x,
@@ -12970,10 +12983,10 @@ function GauntletHero() {
       stroke: "var(--ink)",
       strokeWidth: "1.4"
     }
-  )), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-gauntlet 2.8s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "12", cy: "44", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  )), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-gauntlet 2.8s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "12", cy: "44", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
 }
 function PokerHero() {
-  return /* @__PURE__ */ React83.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React83.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React83.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React83.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React83.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React83.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React83.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
 }
 var GAME_HEROES = {
   die: DieHero,
@@ -12993,7 +13006,7 @@ var GAME_HEROES = {
   poker: PokerHero
 };
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
-  return /* @__PURE__ */ React83.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
+  return /* @__PURE__ */ React84.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
 }
 
 // <stdin>

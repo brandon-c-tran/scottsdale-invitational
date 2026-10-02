@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./geo.css";
 
-/* Where and When's map. A vector map (MapLibre over OpenFreeMap's free dark
-   style: smooth pinch and zoom, crisp labels at every zoom), loaded only
-   when a map first shows. A device without WebGL gets raster tiles through
+/* Where and When's map. A vector map (MapLibre over OpenFreeMap's free
+   "Liberty" style: OpenStreetMap's landmarks, parks, water, roads and
+   street names with their icons, the closest free match to Google Maps;
+   smooth pinch and zoom, crisp labels at every zoom), loaded only when a
+   map first shows. A device without WebGL gets raster tiles through
    Leaflet instead. Both draw the same pins. */
-const STYLE = "https://tiles.openfreemap.org/styles/dark";
+const STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const RASTER = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const RASTER_CREDIT = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 /* the lower 48, where most of the group's photos will be */
@@ -47,7 +49,7 @@ function pinNode(kind, { color = "", label = "", drop = false, delay = 0 } = {})
    with `animate`, the guesses drop one by one, the lines draw out, the
    answer lands, and the camera opens to frame them all. */
 export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guesses = [], className = "", label = "Map",
-  interactive = true, animate = false, onTap }) {
+  interactive = true, animate = false, onTap, focus = null }) {
   const box = useRef(null), map = useRef(null), lib = useRef(null), kind = useRef(null);
   const markers = useRef([]), pinMarker = useRef(null), timers = useRef([]);
   const pickRef = useRef(onPick);
@@ -70,6 +72,11 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
         const point = event.lngLat.wrap();
         tapRef.current?.();
         pickRef.current?.({ lat:point.lat, lng:point.lng });
+      });
+      /* a point of interest the style names but ships no icon for draws
+         without one, instead of warning */
+      m.on("styleimagemissing", event => {
+        if (!m.hasImage(event.id)) m.addImage(event.id, { width:1, height:1, data:new Uint8Array(4) });
       });
       m.on("load", () => {
         if (gone) return;
@@ -122,6 +129,8 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     if (kind.current === "gl") {
       pinMarker.current = new L.Marker({ element:node, anchor:"bottom", draggable:interactive })
         .setLngLat([pin.lng, pin.lat]).addTo(m);
+      /* a pin set off screen (a search, a saved guess) comes into view */
+      if (!m.getBounds().contains([pin.lng, pin.lat])) m.easeTo({ center:[pin.lng, pin.lat], duration:reducedMotion() ? 0 : 600 });
       pinMarker.current.on("dragend", () => {
         const point = pinMarker.current.getLngLat().wrap();
         tapRef.current?.();
@@ -136,6 +145,15 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
       });
     }
   }, [ready, pinKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* a searched place: fly there ({ lat, lng, zoom, key }) */
+  useEffect(() => {
+    if (!ready || !focus) return;
+    const m = map.current;
+    if (kind.current === "gl") m.flyTo({ center:[focus.lng, focus.lat], zoom:focus.zoom ?? 14, duration:reducedMotion() ? 0 : 1400,
+      essential:true });
+    else m.setView([focus.lat, focus.lng], focus.zoom ?? 14);
+  }, [ready, focus?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* the reveal */
   const revealKey = JSON.stringify([answer, guesses]);

@@ -257,10 +257,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   is 60 s on the phones' full-screen game (`GeoPlaySheet`, opens itself
   once per photo and per reveal, Home's row reopens it): Photo (tap to
   fill), Where (a full-bleed map: tap to drop the pin, drag to move it,
-  a tick on each), When (four iOS-style scroll wheels, `Wheel.jsx` /
-  `WhenPicker.jsx`, shared with the desk: month, day, year, hour, ticking
-  as each value passes), then Lock in; changeable until the reveal, and
-  "Time's up" once the clock and its grace have run out. The reveal runs
+  or search a place, `PlaceSearch.jsx` over Photon, free, which flies
+  there and drops the pin), When (four ticker wheels, `Wheel.jsx` /
+  `WhenPicker.jsx`, shared with the desk: month, day, year, hour; each
+  owns its touches so it moves only up and down, follows the finger with
+  momentum, clicks the `detent` sound part per value and vibrates on
+  Android; iPhone's haptic tick fires only on touch and release, a web
+  limit), then Lock in. The draft saves itself (`geoGuess` partial: a pin
+  alone or a date alone counts for that part; a part never touched is not
+  sent) 450 ms after each change and once more in the last 1.5 s, so
+  running out of time keeps whatever was set; Lock in adds `done`, which
+  stays, and is what the TV's chips and the pill count ("N locked in · M
+  still guessing"). The clock is a draining bar under the header and a
+  ring; the last 10 s turn both red, warm the header and put the seconds
+  on the button; the last 5 count down across the screen; at zero the
+  phone says Time's up while the server's 3 s grace takes the last save. The reveal runs
   on the map: the guesses drop, lines draw to the answer, the answer
   lands, the camera opens, and the phone's scores count up. Scoring is GeoGuessr's shape in
   miles: 5,000 × e^(−mi/155) for where, 5,000 × e^(−hours/2,880) for when.
@@ -271,9 +282,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   the photos shown so far, an answer once revealed, their own guesses, who
   has locked in, and everyone's guesses on revealed rounds; a photo is
   served to anyone only once its round is shown. The map is MapLibre GL
-  over OpenFreeMap's free dark vector style (no key; its own chunk,
+  over OpenFreeMap's free "Liberty" vector style (no key: OpenStreetMap's
+  landmarks, parks, water, roads and street names with icons, the closest
+  free match to Google Maps, whose data needs a paid key; its own chunk,
   preloaded once a game runs); a device without WebGL falls back to
-  Leaflet over OpenStreetMap raster tiles darkened by a CSS filter.
+  Leaflet over OpenStreetMap raster tiles.
   CARTO's free basemaps now need an API key, so they are not used.
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone

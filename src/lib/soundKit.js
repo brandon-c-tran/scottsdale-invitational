@@ -325,6 +325,9 @@ export const PARTS = Object.freeze([
     play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.5, gain:0.55 }); M.knock(E, t + 0.02, { pitch:0.85, gain:0.45 }); } },
   { id:"crowd", name:"Several chips at once", ms:300,
     play:(E, t, o = {}) => riffle(E, t, Math.max(3, Math.min(6, o.n || 4)), { gain:0.7, gap:0.04 }) },
+  /* a picker wheel passing one value: a dry, quiet detent click */
+  { id:"detent", name:"A wheel passes a value", ms:20,
+    play:(E, t) => M.tick(E, t, { gain:0.45, pitch:1.25 }) },
 ].map(Object.freeze));
 
 export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map(s => [s.id, s])));

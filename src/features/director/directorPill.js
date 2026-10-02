@@ -155,7 +155,9 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) lines.push("You’re playing");
   if (beat.type === "geo-reveal" && state.geo) {
     const players = geoPlayers(state, ROSTER, { isActivePlayer, isAway }).length;
-    lines.push(`${Object.keys(state.geo.guesses?.[beat.roundId] || {}).length} of ${players} guessed`);
+    const guesses = Object.values(state.geo.guesses?.[beat.roundId] || {});
+    const locked = guesses.filter(guess => guess?.done).length;
+    lines.push(`${locked} of ${players} locked in${guesses.length > locked ? ` · ${guesses.length - locked} still guessing` : ""}`);
   }
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;

@@ -85,21 +85,29 @@ export function geoActions({ ok, err, gmOnly, run }) {
         closesAt:now + GEO_ROUND_MS, author:ctx.player || null, guesses:{} };
       return ok();
     },
-    /* a player's pin and time for the current photo; changeable until the reveal */
-    geoGuess(state, { roundId, lat, lng, when }, ctx) {
+    /* A player's pin and time for the current photo. The phone saves the
+       draft as it changes, so whatever is set when time runs out is the
+       guess: a pin alone, a date and hour alone, or both. `done` is Lock
+       in, and stays once given. Changeable until the reveal. */
+    geoGuess(state, { roundId, lat, lng, when, done }, ctx) {
       const geo = state.geo;
       if (!started(state) || geo.phase !== "guess" || geoCurrentId(geo) !== roundId) return err("That photo is closed");
       if (!ctx.player) return err("Check in first");
       if (!geoPlayersOf(state).includes(ctx.player)) return err("You are not playing this one");
       if (Date.now() > Number(geo.closesAt) + GEO_GRACE_MS) return err("Time is up");
-      const point = cleanPoint(lat, lng);
-      if (!point) return err("Drop your pin");
-      const wall = cleanWhen(when);
-      if (!wall) return err("Pick the date and hour");
+      const hasPoint = lat !== null && lat !== undefined && lng !== null && lng !== undefined;
+      const point = hasPoint ? cleanPoint(lat, lng) : null;
+      if (hasPoint && !point) return err("Drop your pin");
+      const hasWhen = when !== null && when !== undefined && when !== "";
+      const wall = hasWhen ? cleanWhen(when) : null;
+      if (hasWhen && !wall) return err("Pick the date and hour");
+      if (!point && !wall) return err("Drop your pin or set the date");
       const prior = geo.guesses?.[roundId]?.[ctx.player];
-      if (prior && prior.lat === point.lat && prior.lng === point.lng && prior.when === wall) return ok({ unchanged:true });
+      const next = { ...(point || {}), ...(wall ? { when:wall } : {}), ...(done === true || prior?.done ? { done:true } : {}) };
+      if (prior && prior.lat === next.lat && prior.lng === next.lng && prior.when === next.when && !!prior.done === !!next.done)
+        return ok({ unchanged:true });
       geo.guesses = { ...(geo.guesses || {}), [roundId]:{ ...(geo.guesses?.[roundId] || {}),
-        [ctx.player]:{ ...point, when:wall, at:Date.now() } } };
+        [ctx.player]:{ ...next, at:Date.now() } } };
       return ok();
     },
     geoReveal(state, { roundId }, ctx) {

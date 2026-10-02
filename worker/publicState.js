@@ -17,6 +17,10 @@
      a question's totals appear only after the TV reveals it.
    - Team MVP votes (shared/mvp.js projectMvp): a voter gets their own pick
      back and everyone the turnout; the counts appear once it closes.
+   - Where and When (shared/geo.js projectGeo): the commissioner's rounds and
+     answers are theirs; everyone else gets only the photos shown so far, an
+     answer once its round is revealed, their own guesses, and everyone's
+     guesses on revealed rounds.
    - Photo desk records (worker/moments.js) are not in state; the Durable
      Object passes its index in. Everyone gets the visible ones, the
      commissioner also the hidden ones; never byte counts or device ids.
@@ -26,6 +30,7 @@
 import * as core from "../shared/core.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { projectMvp } from "../shared/mvp.js";
+import { projectGeo } from "../shared/geo.js";
 import { publicMoments } from "./moments.js";
 
 const { isActivePlayer } = core;
@@ -40,7 +45,7 @@ const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds"]);
 
 function normalizeViewer(viewer) {
   return {
@@ -119,6 +124,7 @@ function viewerProjection(state, viewer, extras = {}) {
     duels:redactDuels(state?.duels || [], { isGm, player }),
     prompts:projectPrompts(state?.prompts, { isGm, player }),
     mvp:projectMvp(state?.mvp, { player }),
+    ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
     ...(moments.length ? { moments } : {}),
   };
 }

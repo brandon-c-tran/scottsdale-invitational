@@ -1,0 +1,45 @@
+/* Where and When on the TV: the photo or the map on the left, the round on
+   the right. 24px minimum text. */
+.tv-geo { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 560px; gap:28px; padding:8px 56px 20px; }
+.tv-geo-stage { position:relative; min-width:0; min-height:0; border-radius:16px; overflow:hidden;
+  background:var(--night-deep); border:1px solid var(--ghost-line); }
+.tv-geo-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; animation:si-fade .6s ease-out both; }
+.tv-geo-side { min-width:0; display:flex; flex-direction:column; gap:18px; }
+.tv-geo-head { display:flex; flex-direction:column; gap:6px; }
+.tv-geo-count { font-size:56px; line-height:1; color:var(--bone); }
+.tv-geo-clock { font-size:200px; line-height:.9; color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-geo-clock.is-low { color:var(--live2); }
+.tv-geo-status { font:700 32px/1.2 var(--fd-body); color:var(--bone); }
+.tv-geo-roster { display:flex; flex-wrap:wrap; gap:10px; }
+.tv-geo-chip { opacity:.3; transition:opacity .3s ease; }
+.tv-geo-chip.is-in { opacity:1; }
+.tv-geo-prompt { margin-top:auto; font:600 30px/1.3 var(--fd-body); color:var(--night-text); }
+
+.tv-geo-map { position:absolute; inset:0; height:auto; border:0; border-radius:0; }
+.tv-geo-map .leaflet-control-attribution { font-size:12px; }
+.tv-geo-map .fd-geo-pin { width:34px; height:34px; margin:-3px; }
+.tv-geo-map .fd-geo-pin b { font-size:13px; }
+.tv-geo-map .fd-geo-pin.is-answer { width:40px; height:40px; margin:-6px; }
+.tv-geo-answer { position:absolute; left:24px; top:24px; z-index:500; max-width:70%; display:grid; gap:4px;
+  padding:16px 22px; border-radius:14px; background:var(--night2); border:2px solid var(--sun); box-shadow:var(--shadow-3); }
+.tv-geo-answer .tv-display { font-size:52px; line-height:1; color:var(--bone); text-transform:uppercase; }
+.tv-geo-answer span:not(.tv-display) { font:700 30px/1.2 var(--fd-body); color:var(--sun); }
+.tv-geo-answer em { font:500 26px/1.3 var(--fd-body); color:var(--night-text); font-style:normal; }
+
+.tv-geo-results { display:grid; gap:8px; margin:0; padding:0; list-style:none; overflow:hidden; }
+.tv-geo-results li { display:flex; align-items:center; gap:14px; min-height:58px; padding:6px 14px; border-radius:12px;
+  background:var(--night2); border:1px solid var(--ghost-line); animation:si-fade .5s ease-out both; }
+.tv-geo-who { flex:1; min-width:0; display:grid; }
+.tv-geo-who b { font:700 26px/1.1 var(--fd-body); color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-geo-who small { font:600 24px/1.2 var(--fd-body); color:var(--night-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-geo-points { font-size:40px; line-height:1; color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-geo-none { font:600 28px/1.2 var(--fd-body); color:var(--night-text); }
+
+.tv-geo.is-final { grid-template-columns:1fr; }
+.tv-geo-final { display:flex; flex-direction:column; gap:16px; max-width:1100px; margin:0 auto; width:100%; }
+.tv-geo-final ol { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.tv-geo-final li { display:flex; align-items:center; gap:20px; padding:8px 20px; border-radius:14px; background:var(--night2); }
+.tv-geo-final li.is-podium { border:2px solid var(--sun); }
+.tv-geo-rank { width:56px; font-size:44px; color:var(--night-text); text-align:center; }
+.tv-geo-name { flex:1; font-size:44px; color:var(--bone); text-transform:uppercase; }
+@media (prefers-reduced-motion:reduce) { .tv-geo-photo, .tv-geo-results li { animation:none; } }

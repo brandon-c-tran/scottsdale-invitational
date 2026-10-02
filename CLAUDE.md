@@ -241,6 +241,32 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   card, keepsake plates, and the awards desk's counted "Most MVPs" award
   (`source:"mvps"`, tallied from MVPs at close, never on the phone ballot).
   QA jumps vote and close it.
+- **Where and When** (Oct 1, `shared/geo.js`, `worker/geo.js`,
+  `src/features/geo/`, `features/tv/TVGeo.jsx`): Brandon's photos, played
+  live. He authors up to 25 rounds in Commissioner > Where and When
+  (`GeoDesk`): a photo (resized on the phone, uploaded to `POST
+  /api/geo/photo`, EXIF stripped on the server, stored as
+  `moment:geo:<id>` so snapshots, restores and resets skip it like the
+  photo desk), an answer pin (map tap or an OpenStreetMap place search),
+  the place's name, the date and hour (`"YYYY-MM-DDTHH"`, the photo's own
+  wall clock, so no time zone enters), an optional caption.
+  `state.geoRounds` is configuration (kept by a progress reset);
+  `state.geo` is the game (cleared). Once the event is locked and started
+  the director pill runs it (`geoBeat`): Start game (the author, whoever
+  starts it, does not play), Reveal, Next photo, Post result. Each photo
+  is 60 s on the phones' sheet (`GeoPlaySheet`, opens itself once per
+  photo and per reveal, Home's row reopens it): drop a pin, pick the date
+  and hour, change it until the reveal. Scoring is GeoGuessr's shape in
+  miles: 5,000 × e^(−mi/155) for where, 5,000 × e^(−hours/2,880) for when.
+  Post result (`geoFinish`) runs beginResultEntry and saveResult with the
+  final order (a single 1st; ties break on where points, then the faster
+  guesses), so payouts, bets and the win song follow as for any result.
+  Frames carry `projectGeo`: the commissioner everything; anyone else only
+  the photos shown so far, an answer once revealed, their own guesses, who
+  has locked in, and everyone's guesses on revealed rounds; a photo is
+  served to anyone only once its round is shown. The map is Leaflet
+  (its own chunk, loaded when a map first shows) over OpenStreetMap tiles
+  darkened by a CSS filter (CARTO's free basemaps now need an API key).
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone
   resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no
@@ -363,8 +389,9 @@ shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
 Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball and
 Trivia as 4 teams of 3, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
-Kart; poker. Where and When and Trivia are played off-app and entered like
-any result. 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
+Kart; poker. Trivia is played off-app and entered like any result; Where
+and When is played in the app when it has photos (else entered like any
+result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
 or the captains' snake splits whoever is present 7 v 6, with no crew. Tests
 that need a dropped shape (pairs pools, solo heats of three, an even
 two-team game) add it through `tests/support/legacy-events.mjs`. Past eight the TV draws the bracket from both ends toward

@@ -52,7 +52,14 @@ import { mvpDue, nextMvpDeadline } from "../shared/mvp.js";
 import { findPreview, previewCache } from "./previews.js";
 import { findAlbumUpload } from "./youtube.js";
 import { projectPrompts } from "../shared/prompts.js";
-import { MomentDesk } from "./moments.js";
+import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
+import { geoPhotoId, geoShownIds } from "../shared/geo.js";
+
+/* Where and When photos ride the photo desk's prefix, so every snapshot,
+   restore and reset leaves them alone exactly as it does the desk's */
+const geoPhotoKey = id => `${MOMENT_PREFIX}geo:${id}`;
+/* the phone's resize (photoModel PHOTO_PREP) tops out at 1.45 MB */
+const GEO_PHOTO_BYTES = 1_500_000;
 
 const tokenEncoder = new TextEncoder();
 /* The Durable Object value limit is 2 MB; warn well before it. */
@@ -273,6 +280,7 @@ export class Tournament {
     if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
     if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
       return this.momentDesk.handle(req, url);
+    if (url.pathname.startsWith("/api/geo/")) return this.handleGeo(req, url);
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
@@ -309,6 +317,62 @@ export class Tournament {
     }
 
     return new Response("Not found", { status: 404 });
+  }
+
+  /* ── Where and When photos (shared/geo.js) ──
+     POST   /api/geo/photo         multipart { photo } (GM token): stored under
+                                   the photo desk's prefix (moment:geo:<id>),
+                                   so snapshots, restores and resets skip it
+     GET    /api/geo/photo/<id>    the commissioner always; anyone once its
+                                   round has been shown on the TV
+     DELETE /api/geo/round/<id>    the round and its photo (GM token) */
+  async handleGeo(req, url) {
+    const parts = url.pathname.split("/").filter(Boolean); // ["api","geo",kind,id?]
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const isGm = await this.adminGmToken(req);
+    if (parts[2] === "photo" && parts.length === 3 && req.method === "POST") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      if (Number(req.headers.get("Content-Length") || 0) > GEO_PHOTO_BYTES * 1.2)
+        return json({ ok:false, error:"That photo is too large" }, 413);
+      let form;
+      try { form = await req.formData(); } catch { return json({ ok:false, error:"That photo could not be read" }, 400); }
+      const file = form.get("photo");
+      const raw = file && typeof file.arrayBuffer === "function" ? new Uint8Array(await file.arrayBuffer()) : null;
+      if (!raw || raw.byteLength > GEO_PHOTO_BYTES) return json({ ok:false, error:"That photo is too large" }, 413);
+      /* a photo's own date and place would give the answer away */
+      const photo = stripJpegMetadata(raw);
+      const info = photo && jpegInfo(photo);
+      if (!info || Math.max(info.width, info.height) > 2048) return json({ ok:false, error:"That photo could not be read" }, 400);
+      const id = `g${Date.now().toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+      await this.ctx.storage.put(geoPhotoKey(id), photo);
+      return json({ ok:true, photo:{ id, w:info.width, h:info.height } });
+    }
+    if (parts[2] === "photo" && parts.length === 4 && req.method === "GET") {
+      const id = parts[3];
+      if (!geoPhotoId(id)) return new Response("Not found", { status:404 });
+      const shown = geoShownIds(this.state.geo).some(roundId =>
+        (this.state.geoRounds || []).find(round => round.id === roundId)?.photo?.id === id);
+      if (!shown && !isGm) return new Response("Not found", { status:404 });
+      const bytes = await this.ctx.storage.get(geoPhotoKey(id));
+      if (!bytes) return new Response("Not found", { status:404 });
+      return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
+        "Cache-Control":shown ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "round" && parts.length === 4 && req.method === "DELETE") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      const round = (this.state.geoRounds || []).find(item => item.id === parts[3]);
+      const result = await this.applyHttpAction("geoDeleteRound", { id:parts[3] }, { isGm:true });
+      if (result.ok && round?.photo?.id) await this.ctx.storage.delete(geoPhotoKey(round.photo.id));
+      return json(result, result.ok ? 200 : 409);
+    }
+    return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  /* a commissioner token on an HTTP request (Bearer or the GM header) */
+  async adminGmToken(req) {
+    const auth = req.headers.get("Authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
+    return !!token && !!await this.gmTokenId(token);
   }
 
   /* One write from an HTTP request, on the same path a socket action takes:

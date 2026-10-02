@@ -70,6 +70,8 @@ import { QABar } from "./features/qa/QABar.jsx";
 import { QASheet } from "./features/qa/QASheet.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
+import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
+import { GeoDesk } from "./features/geo/GeoDesk.jsx";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
@@ -544,6 +546,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   }, [since]);
   /* Home's flight question is answered once per device and player */
   const [flightsAnswered, setFlightsAnswered] = useState(false);
+  /* Home's Where and When row reopens the guess sheet */
+  const [geoForce, setGeoForce] = useState(0);
   useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
   const openSince = route => {
     setSince(null);
@@ -1466,7 +1470,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
           awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
-          mvpContent={<MvpHome state={state} me={me} events={events} onPlayer={p => setModal({type:"player", p})} />}
+          mvpContent={<>
+            <GeoHome state={state} me={me} onOpen={() => setGeoForce(n => n + 1)} />
+            <MvpHome state={state} me={me} events={events} onPlayer={p => setModal({type:"player", p})} />
+          </>}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
                 onStart={pokerStart} onCancel={pokerCancel}
@@ -1555,6 +1562,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {modal?.type === "house" && <Sheet title="Trip details" onClose={() => setModal(null)}><VenueCard lg={state.logistics || {}} /></Sheet>}
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
       {me && <MvpVoteSheet state={state} me={me} events={events} blocked={!!modal} />}
+      {me && <GeoPlaySheet state={state} me={me} blocked={!!modal} force={geoForce} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
@@ -1582,6 +1590,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
             {lockerRoomAvailability(state).enabled && <MenuRow name="Back to the locker room"
               onClick={() => pushModal({type:"lockerRoom"})} />}
           </MenuGroup>}
+          <MenuGroup title="Games">
+            <MenuRow name="Where and When" note={`${(state.geoRounds || []).length} photos`}
+              onClick={() => pushModal({type:"geoDesk"})} />
+          </MenuGroup>
           <MenuGroup title="Awards night">
             <MenuRow name="Awards" note={deskNote(state)} onClick={() => pushModal({type:"awards"})} />
           </MenuGroup>
@@ -1623,6 +1635,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       )}
       {gmView && modal?.type === "awards" && <AwardsDesk state={state} events={events} notify={notify}
         onClose={() => setModal(null)} onBack={modalBack} />}
+      {gmView && modal?.type === "geoDesk" && <Sheet title="Where and When" onClose={() => setModal(null)} onBack={modalBack}>
+        <GeoDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload)} />
+      </Sheet>}
       {gmView && showControlAllowed && modal?.type === "showControl" && (
         <ShowControlSheet
           state={state}

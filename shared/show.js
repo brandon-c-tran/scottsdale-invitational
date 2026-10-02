@@ -6,6 +6,7 @@ import { computeStandings, resolveWeekendOperation, resolveCurrentContest, sugge
   contestUndoAvailability, isAway, bracketMatchName } from "./core.js";
 import { awardsRevealBlocker, revealBallot, revealedCount } from "./prompts.js";
 import { mvpOpen, mvpVoters } from "./mvp.js";
+import { geoBeat } from "./geo.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -346,6 +347,12 @@ function lifecycleBeat(state, operation) {
   if (action.type === "start-event")
     return beat({ ...action, type:"lock-start", label:"Start",
       subject:contestName(state, ev, contest), contestId:contest?.id });
+  /* Where and When plays its rounds before its result */
+  if (["enter-result", "post-result"].includes(action.type)
+      || (action.type === "record-contest-winner" && contest?.kind === "ffa")) {
+    const geo = geoBeat(state, ev);
+    if (geo) return beat({ ...action, ...geo });
+  }
   if (action.type === "record-contest-winner" && contest && contest.kind !== "ffa")
     return beat({ ...action, label:"Record winner", subject:contestName(state, ev, contest), contestId:contest.id });
   if (action.type === "prepare-draw")

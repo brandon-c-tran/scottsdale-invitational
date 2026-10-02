@@ -71,9 +71,27 @@ export function contestPlan(state, ev) {
   return [{ kind:"ffa", name:ev.name }];
 }
 
-const decideBeat = (ev, contest) => contest.kind === "ffa"
-  ? beat("enter-result", "Enter result", ev.name)
-  : beat("record-contest-winner", "Record winner", contest.name);
+/* Where and When with photos plays its rounds where a free-for-all would
+   enter a result: from the beat the pill is on (shared/geo.js geoBeat) to
+   the result. Null when the game has no photos. */
+function geoPlan(state, ev) {
+  const rounds = state.geoRounds || [];
+  if (ev?.game !== "where" || !rounds.length || state.results?.[ev.id]) return null;
+  const geo = state.geo?.eventId === ev.id && state.geo.order ? state.geo : null;
+  const n = geo ? geo.order.length : rounds.length;
+  const photo = i => `Photo ${i + 1} of ${n}`;
+  const out = geo ? [] : [beat("geo-start", "Start game", `${ev.name} · ${n} photos`)];
+  for (let i = geo ? geo.index : 0; i < n; i++) {
+    if (!(geo && i === geo.index && geo.phase !== "guess")) out.push(beat("geo-reveal", "Reveal", photo(i)));
+    if (i < n - 1) out.push(beat("geo-next", "Next photo", photo(i)));
+  }
+  out.push(beat("geo-finish", "Post result", ev.name));
+  return out;
+}
+
+const decideBeats = (state, ev, contest) => contest.kind === "ffa"
+  ? geoPlan(state, ev) || [beat("enter-result", "Enter result", ev.name)]
+  : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV
    plays it. */
@@ -88,7 +106,7 @@ function eventBeats(state, ev, showControl) {
     ? [beat("captains-draft", "Captains draft", ev.name), beat("announce", "Announce", ev.name)]
     : [beat(drawNeeded ? "announce-draw" : "announce", drawNeeded ? "Announce and draw" : "Announce", ev.name)];
   contestPlan(state, ev).forEach(contest => out.push(beat("lock-start", "Lock and start",
-    contest.kind === "ffa" ? ev.name : contest.name), decideBeat(ev, contest)));
+    contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest)));
   return [...out, ...afterResult(showControl)];
 }
 
@@ -120,14 +138,16 @@ function lifecycleAfter(state, events, director, showControl) {
     const current = plan[0];
     const rest = plan.slice(1);
     const contestBeats = list => list.flatMap(contest => [beat("lock-start", "Lock and start",
-      contest.kind === "ffa" ? ev.name : contest.name), decideBeat(ev, contest)]);
+      contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest)]);
     if (["announce", "announce-draw", "captains-draft", "open-betting", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type)) {
       if (["captains-draft", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type))
         out.push(beat("announce", "Announce", ev.name));
       out.push(...contestBeats(plan), ...afterResult(showControl));
     } else if (now.type === "lock-start" || now.type === "lock-betting" || now.type === "start-event") {
-      if (current) out.push(decideBeat(ev, current));
+      if (current) out.push(...decideBeats(state, ev, current));
       out.push(...contestBeats(rest), ...afterResult(showControl));
+    } else if (now.type?.startsWith("geo-")) {
+      out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl));
     } else if (now.type === "record-contest-winner") {
       out.push(...contestBeats(rest), ...afterResult(showControl));
     } else if (now.type === "enter-result" || now.type === "post-result") {

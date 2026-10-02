@@ -46,6 +46,7 @@ import { useRoomSound } from "./roomSound.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
 import { NowPlaying } from "./NowPlaying.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
+import { TVGeo } from "./TVGeo.jsx";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
@@ -777,6 +778,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     reducedMotion,
   };
 
+  const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
   let content, liveShown = false, bandTall = false;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
@@ -812,6 +814,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied, cham
     content = <TVPoker state={state} standings={standings} now={now} />;
   } else if (draftLive) {
     content = <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />;
+  } else if (geoOnTv) {
+    /* Where and When holds the room from its first photo to its result */
+    content = <TVGeo state={state} now={now} />;
   } else if (liveEv) {
     liveShown = true;
     const inContest = liveContest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(liveContest.phase);

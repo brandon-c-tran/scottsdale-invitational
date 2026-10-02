@@ -4,9 +4,10 @@
    test both read this, so the count measures the real controls. */
 import {
   disp, resolveCurrentContest, overflowRoleMeta, computeStandings, resolveWager, wagerMatchesContest,
-  pokerClock, contestUndoAvailability, duelOpen,
+  pokerClock, contestUndoAvailability, duelOpen, ROSTER, isActivePlayer, isAway,
 } from "../../../shared/core.js";
 import { postedFinalUndo } from "../../../shared/show.js";
+import { geoPlayers } from "../../../shared/geo.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene",
@@ -117,6 +118,11 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     case "post-poker-result": run = { open:"pokerResult" }; break;
     case "crown-champion": run = { open:"crown" }; break;
     case "close-mvp": run = { write:"mvpClose", payload:{ evId:beat.eventId } }; break;
+    /* Where and When's rounds */
+    case "geo-start": run = { write:"geoStart", payload:{ evId:ev.id } }; break;
+    case "geo-reveal": run = { write:"geoReveal", payload:{ roundId:beat.roundId } }; break;
+    case "geo-next": run = { write:"geoNext", payload:{ roundId:beat.roundId } }; break;
+    case "geo-finish": run = { write:"geoFinish", payload:{ evId:ev.id } }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;
@@ -147,6 +153,10 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     lines.push(`${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`);
   }
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) lines.push("You’re playing");
+  if (beat.type === "geo-reveal" && state.geo) {
+    const players = geoPlayers(state, ROSTER, { isActivePlayer, isAway }).length;
+    lines.push(`${Object.keys(state.geo.guesses?.[beat.roundId] || {}).length} of ${players} guessed`);
+  }
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;
     if (open) lines.push(`Voids ${open} open duel${open === 1 ? "" : "s"}`);

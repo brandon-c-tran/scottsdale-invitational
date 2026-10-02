@@ -479,6 +479,24 @@ export async function hiddenMomentUrl(id, thumb = false) {
   } catch { return null; }
 }
 
+/* Where and When (commissioner): a round's photo, uploaded before its
+   answer is saved; a photo not yet shown is fetched with the token */
+export function geoUploadPhoto(photo) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  return momentRequest("/api/geo/photo", { method:"POST", headers:momentHeaders(), body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const geoDeleteRound = id => momentRequest(`/api/geo/round/${encodeURIComponent(id)}`,
+  { method:"DELETE", headers:momentHeaders() },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't delete. Try again." });
+export async function geoPhotoUrl(id) {
+  try {
+    const r = await fetch(`/api/geo/photo/${encodeURIComponent(id)}`, { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {
   try {

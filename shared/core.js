@@ -96,7 +96,7 @@ const RAW_BUILTIN_EVENTS = [
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
   { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
-    desc:"Ten rounds from the group's past: five places and five photos. Guess where it is, or the month and year it was taken. Highest total wins." },
+    desc:"Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins." },
   /* ── Saturday morning · 800 ── */
   /* everyone plays: captains draft two sides of seven and six. Winners only. */
   { id:"bball5", n:4, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
@@ -250,12 +250,13 @@ const GAMES = {
       "Make yours while the player to your left is still shooting and stack on them. Stacked players drink and are out.",
       "The last two go head to head. The loser drinks the center cup."],
     win:"Last one standing takes 1st, the final loser 2nd, the third-to-last out 3rd. 1st and 2nd pay the same." } },
-  where: { name:"Where and When", howto:{ players:"Solo", gear:["The TV"],
-    objective:"Place the moment: where it was, or when.",
-    steps:["Ten rounds, alternating a place and a photo from the group's life.",
-      "Place rounds: guess where it is. Photo rounds: guess the month and year.","45 seconds a round.",
-      "Each round scores up to 1,000. The closer the guess, the more it scores."],
-    win:"Highest total wins. Ties go to the best single round." } },
+  where: { name:"Where and When", howto:{ players:"Solo", gear:["Your phone", "The TV"],
+    objective:"Place each photo: where it was taken, and when.",
+    steps:["A photo from Brandon's past goes up on the TV and your phone.",
+      "Drop a pin where it was taken and pick the date and hour. You can change it until the reveal.",
+      "60 seconds a photo.",
+      "Each photo scores up to 5,000 for where and 5,000 for when. 10 miles off is about 4,700; a month off about 3,900."],
+    win:"Highest total wins. A tie goes to more points for where, then to the faster guesses." } },
   trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["The TV"],
     objective:"Answer first and right.",
     steps:["Four teams, single elimination, two teams a match.","A question goes up on the TV.",
@@ -396,7 +397,8 @@ function cleanLogistics(stored) {
 const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
-  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, jerseysLocked:false, updatedAt:0 };
+  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, jerseysLocked:false,
+  geoRounds:[], geo:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -410,6 +412,9 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "prompts",
   /* the jersey order is placed once, whatever the games do */
   "jerseysLocked",
+  /* Where and When's authored photos and answers are configuration; the
+     game played on them (state.geo) is progress */
+  "geoRounds",
 ]);
 
 /* ─────────── helpers ─────────── */

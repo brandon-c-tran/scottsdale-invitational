@@ -33,6 +33,7 @@ import { QA_PROGRESS_KEYS } from "../shared/qa.js";
 import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
+import { geoActions } from "./geo.js";
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
@@ -482,6 +483,8 @@ function closeMvp(state, evId, now) {
 export const ACTIONS = {
   /* D6: awards ballots (worker/prompts.js), honors only */
   ...PROMPT_ACTIONS,
+  /* Where and When (worker/geo.js): a finish posts through saveResult */
+  ...geoActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* ── team MVP ── */
   mvpVote(state, { evId, pick }, ctx) {
     const record = state.mvp?.[evId];

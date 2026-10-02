@@ -254,9 +254,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `state.geo` is the game (cleared). Once the event is locked and started
   the director pill runs it (`geoBeat`): Start game (the author, whoever
   starts it, does not play), Reveal, Next photo, Post result. Each photo
-  is 60 s on the phones' sheet (`GeoPlaySheet`, opens itself once per
-  photo and per reveal, Home's row reopens it): drop a pin, pick the date
-  and hour, change it until the reveal. Scoring is GeoGuessr's shape in
+  is 60 s on the phones' full-screen game (`GeoPlaySheet`, opens itself
+  once per photo and per reveal, Home's row reopens it): Photo (tap to
+  fill), Where (a full-bleed map: tap to drop the pin, drag to move it,
+  a tick on each), When (four iOS-style scroll wheels, `Wheel.jsx` /
+  `WhenPicker.jsx`, shared with the desk: month, day, year, hour, ticking
+  as each value passes), then Lock in; changeable until the reveal, and
+  "Time's up" once the clock and its grace have run out. The reveal runs
+  on the map: the guesses drop, lines draw to the answer, the answer
+  lands, the camera opens, and the phone's scores count up. Scoring is GeoGuessr's shape in
   miles: 5,000 × e^(−mi/155) for where, 5,000 × e^(−hours/2,880) for when.
   Post result (`geoFinish`) runs beginResultEntry and saveResult with the
   final order (a single 1st; ties break on where points, then the faster
@@ -264,9 +270,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Frames carry `projectGeo`: the commissioner everything; anyone else only
   the photos shown so far, an answer once revealed, their own guesses, who
   has locked in, and everyone's guesses on revealed rounds; a photo is
-  served to anyone only once its round is shown. The map is Leaflet
-  (its own chunk, loaded when a map first shows) over OpenStreetMap tiles
-  darkened by a CSS filter (CARTO's free basemaps now need an API key).
+  served to anyone only once its round is shown. The map is MapLibre GL
+  over OpenFreeMap's free dark vector style (no key; its own chunk,
+  preloaded once a game runs); a device without WebGL falls back to
+  Leaflet over OpenStreetMap raster tiles darkened by a CSS filter.
+  CARTO's free basemaps now need an API key, so they are not used.
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone
   resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no

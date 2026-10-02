@@ -53,7 +53,7 @@ export function TVGeo({ state, now }) {
 
   return <div className="tv-geo is-reveal">
     <div className="tv-geo-stage">
-      <GeoMap mode="reveal" interactive={false} answer={answer} className="tv-geo-map" label="The answer and every guess"
+      <GeoMap mode="reveal" animate interactive={false} answer={answer} className="tv-geo-map" label="The answer and every guess"
         guesses={view.results.map(row => ({ lat:row.guess.lat, lng:row.guess.lng, color:colorOf(state, row.player),
           label:initials(state, row.player) }))} />
       <div className="tv-geo-answer">
@@ -65,7 +65,7 @@ export function TVGeo({ state, now }) {
     <aside className="tv-geo-side">
       {head}
       <ol className="tv-geo-results">
-        {view.results.slice(0, 12).map(row => <li key={row.player}>
+        {view.results.slice(0, 12).map((row, i) => <li key={row.player} style={{ "--row":i }}>
           <Avatar state={state} p={row.player} size={44} />
           <span className="tv-geo-who"><b>{disp(state, row.player)}</b>
             <small>{milesLabel(row.miles)} · {offLabel(row.hours)}</small></span>

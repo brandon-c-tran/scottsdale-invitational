@@ -3,10 +3,10 @@ import { GEO_CAPTION_MAX, GEO_MAX_ROUNDS, GEO_PLACE_MAX } from "../../../shared/
 import { geoDeleteRound, geoPhotoUrl, geoUploadPhoto } from "../../lib/client.js";
 import { prepareMoment } from "../photos/prepareMoment.js";
 import { GeoMap } from "./GeoMap.jsx";
-import { hourLabel, whenLabel } from "./geoModel.js";
+import { whenLabel } from "./geoModel.js";
+import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
 import "./geo.css";
 
-const HOURS = Array.from({ length:24 }, (_, h) => h);
 const newRoundId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
 /* a photo not yet shown is the commissioner's: fetched with the token */
@@ -56,8 +56,8 @@ function RoundEditor({ round, onSave, onCancel }) {
   const [preview, setPreview] = useState(null);
   const [pin, setPin] = useState(round ? { lat:round.lat, lng:round.lng } : null);
   const [place, setPlace] = useState(round?.place || "");
-  const [date, setDate] = useState(round ? round.when.slice(0, 10) : "");
-  const [hour, setHour] = useState(round ? Number(round.when.slice(11, 13)) : 19);
+  const [wall, setWall] = useState(() => parseWhen(round?.when));
+  const [whenSet, setWhenSet] = useState(!!round);
   const [caption, setCaption] = useState(round?.caption || "");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -80,8 +80,9 @@ function RoundEditor({ round, onSave, onCancel }) {
   const save = async () => {
     if (busy) return;
     setBusy("save"); setError("");
+    if (!whenSet) { setBusy(""); setError("Set the date and hour"); return; }
     const result = await onSave({ id:round?.id || newRoundId(), photo, lat:pin?.lat, lng:pin?.lng, place,
-      when:date ? `${date}T${String(hour).padStart(2, "0")}` : "", caption });
+      when:formatWhen(wall), caption });
     setBusy("");
     if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
   };
@@ -97,11 +98,8 @@ function RoundEditor({ round, onSave, onCancel }) {
     <GeoMap mode="pick" pin={pin} onPick={setPin} className="fd-geo-pick" label="Drop the answer pin" />
     <label className="fd-geo-field"><span>Place</span><input value={place} maxLength={GEO_PLACE_MAX}
       onChange={event => setPlace(event.target.value)} placeholder="Shown at the reveal" /></label>
-    <div className="fd-geo-when">
-      <label><span>Date</span><input type="date" value={date} min="1950-01-01" max="2030-12-31"
-        onChange={event => setDate(event.target.value)} /></label>
-      <label><span>Hour</span><select value={hour} onChange={event => setHour(Number(event.target.value))}>
-        {HOURS.map(h => <option key={h} value={h}>{hourLabel(h)}</option>)}</select></label>
+    <div className="fd-geo-field"><span>When it was taken</span>
+      <WhenPicker value={wall} set={whenSet} onChange={(next, turned) => { setWall(next); if (turned) setWhenSet(true); }} />
     </div>
     <label className="fd-geo-field"><span>Caption · optional</span><input value={caption} maxLength={GEO_CAPTION_MAX}
       onChange={event => setCaption(event.target.value)} placeholder="Shown at the reveal" /></label>

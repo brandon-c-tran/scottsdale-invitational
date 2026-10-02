@@ -16,10 +16,15 @@
 .tv-geo-prompt { margin-top:auto; font:600 30px/1.3 var(--fd-body); color:var(--night-text); }
 
 .tv-geo-map { position:absolute; inset:0; height:auto; border:0; border-radius:0; }
-.tv-geo-map .leaflet-control-attribution { font-size:12px; }
-.tv-geo-map .fd-geo-pin { width:34px; height:34px; margin:-3px; }
-.tv-geo-map .fd-geo-pin b { font-size:13px; }
-.tv-geo-map .fd-geo-pin.is-answer { width:40px; height:40px; margin:-6px; }
+/* the room reads the pins from across it (sized by their parts: the map
+   positions each pin with its own transform) */
+.tv-geo-map .fd-geo-marker { width:54px; height:72px; }
+.tv-geo-map .fd-geo-head { width:46px; height:46px; border-width:4px; }
+.tv-geo-map .fd-geo-head b { font-size:15px; }
+.tv-geo-map .fd-geo-stem { width:4px; height:24px; }
+.tv-geo-map .fd-geo-marker.is-answer { width:70px; height:70px; }
+.tv-geo-map .fd-geo-marker.is-answer .fd-geo-head { width:54px; height:54px; border-width:6px; }
+.tv-geo-map .fd-geo-marker.is-answer .fd-geo-head i { width:16px; height:16px; }
 .tv-geo-answer { position:absolute; left:24px; top:24px; z-index:500; max-width:70%; display:grid; gap:4px;
   padding:16px 22px; border-radius:14px; background:var(--night2); border:2px solid var(--sun); box-shadow:var(--shadow-3); }
 .tv-geo-answer .tv-display { font-size:52px; line-height:1; color:var(--bone); text-transform:uppercase; }
@@ -27,8 +32,11 @@
 .tv-geo-answer em { font:500 26px/1.3 var(--fd-body); color:var(--night-text); font-style:normal; }
 
 .tv-geo-results { display:grid; gap:8px; margin:0; padding:0; list-style:none; overflow:hidden; }
+/* the round's scores slide in, best first, after the answer lands */
 .tv-geo-results li { display:flex; align-items:center; gap:14px; min-height:58px; padding:6px 14px; border-radius:12px;
-  background:var(--night2); border:1px solid var(--ghost-line); animation:si-fade .5s ease-out both; }
+  background:var(--night2); border:1px solid var(--ghost-line);
+  animation:tv-geo-row .45s cubic-bezier(.2,.8,.2,1) calc(2.6s + var(--row, 0) * 120ms) both; }
+@keyframes tv-geo-row { from { opacity:0; transform:translateX(40px); } }
 .tv-geo-who { flex:1; min-width:0; display:grid; }
 .tv-geo-who b { font:700 26px/1.1 var(--fd-body); color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tv-geo-who small { font:600 24px/1.2 var(--fd-body); color:var(--night-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

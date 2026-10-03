@@ -42,6 +42,7 @@ export function commissionerMenu(f = {}) {
       f.crownReady && { id:"crown", name:"Crown the champion", icon:"trophy" },
       { id:"attendance", name:"Who is here", icon:"people", value:away.length ? `${away.length} away` : "Everyone" },
       { id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") },
+      { id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") },
       { id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null },
     ]),
     section("fix", "Fix", "undo", [

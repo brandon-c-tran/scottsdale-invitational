@@ -37,6 +37,7 @@ import {
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
 import { geoActions } from "./geo.js";
+import { triviaActions } from "./trivia.js";
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
@@ -488,6 +489,8 @@ export const ACTIONS = {
   ...PROMPT_ACTIONS,
   /* Where and When (worker/geo.js): a finish posts through saveResult */
   ...geoActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
+  /* Trivia (worker/trivia.js): a finish posts through saveResult */
+  ...triviaActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* ── team MVP ── */
   mvpVote(state, { evId, pick }, ctx) {
     const record = state.mvp?.[evId];

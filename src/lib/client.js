@@ -534,6 +534,29 @@ export async function geoPhotoUrl(id) {
   } catch { return null; }
 }
 
+/* Trivia (worker/tournament.js handleTrivia). The commissioner uploads a
+   picture question's photo and reads the bank with the token; the TV asks
+   for a tune's clip once its question is up. */
+export function triviaUploadPhoto(photo) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  return momentRequest("/api/trivia/photo", { method:"POST", headers:momentHeaders(), body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const triviaBank = () => momentRequest("/api/trivia/bank", { headers:momentHeaders(), cache:"no-store" },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the bank" });
+export const triviaClip = questionId => momentRequest(`/api/trivia/clip/${encodeURIComponent(questionId)}`,
+  { headers:momentHeaders(), cache:"no-store" }, { ms:MOMENT_EDIT_MS, timeout:"No clip", failed:"No clip" });
+export const triviaClipCheck = ({ title = "", artist = "", isrc = "" } = {}) =>
+  momentRequest(`/api/trivia/clip?${new URLSearchParams({ title, artist, isrc })}`, { headers:momentHeaders(), cache:"no-store" },
+    { ms:MOMENT_EDIT_MS, timeout:"No answer", failed:"No clip" });
+export async function triviaPhotoUrl(id) {
+  try {
+    const r = await fetch(`/api/trivia/photo/${encodeURIComponent(id)}`, { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {
   try {

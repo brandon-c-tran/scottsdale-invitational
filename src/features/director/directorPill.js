@@ -8,6 +8,7 @@ import {
 } from "../../../shared/core.js";
 import { postedFinalUndo } from "../../../shared/show.js";
 import { geoPlayers } from "../../../shared/geo.js";
+import { triviaGame } from "../../../shared/trivia.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene",
@@ -123,6 +124,12 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     case "geo-reveal": run = { write:"geoReveal", payload:{ roundId:beat.roundId } }; break;
     case "geo-next": run = { write:"geoNext", payload:{ roundId:beat.roundId } }; break;
     case "geo-finish": run = { write:"geoFinish", payload:{ evId:ev.id } }; break;
+    /* Trivia's questions */
+    case "trivia-start": run = { write:"triviaStart", payload:{ evId:ev.id } }; break;
+    case "trivia-reveal": run = { write:"triviaReveal", payload:{ questionId:beat.questionId } }; break;
+    case "trivia-board": run = { write:"triviaBoard", payload:{ questionId:beat.questionId } }; break;
+    case "trivia-next": run = { write:"triviaNext", payload:{ questionId:beat.questionId } }; break;
+    case "trivia-finish": run = { write:"triviaFinish", payload:{ evId:ev.id } }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;
@@ -156,6 +163,11 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     const guesses = Object.values(state.geo.guesses?.[beat.roundId] || {});
     const locked = guesses.filter(guess => guess?.done).length;
     lines.push(`${locked} of ${players} locked in`);
+  }
+  if (beat.type === "trivia-reveal" && triviaGame(state)) {
+    const game = triviaGame(state);
+    const picks = Object.values(game.picks?.[beat.questionId] || {});
+    lines.push(`${picks.filter(pick => pick?.locked).length} of ${game.teams.length} teams locked in`);
   }
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;

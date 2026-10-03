@@ -93,6 +93,16 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`weekend/drawPath.js`, `DrawPath.jsx`) in a sticky footer above Place chips:
   bracket stops to the final with opponents' photo chips, or your heat/pool
   and the final; spectators, crew and replays see nothing new.
+- **Commissioner menu (Oct 3):** `director/menuModel.js` sections in the
+  order a hand reaches: Now (crown, lock bets, take back, locker room,
+  unfreeze; only what applies), TV and sound (TV: `director/TvSheet.jsx`
+  on the pure `tvSheetModel.js`, what is on the TV now with its steps as
+  lamps, the TVs and their sound, scenes as tiles, the kiosk shortcut;
+  Speaker: `features/speaker/`, always its own row when the audio
+  capability is on, valued with the chosen speaker), Games (Where and
+  When, Awards; a desk is one entry in `GAME_DESKS`), People and trip,
+  Setup (devices, export, QA opens the console with the strip's switch
+  inside, Reset game progress, its one entry), Exit alone.
 - **Motion foundation** (`src/lib/motion.js`, tokens in `src/ui/motion.css`):
   every animated surface uses it. `MOTION`/`EASE` are the named timings
   (count 750, delta 1100, row 560, stamp 320, flight 340, settle hold 2400,
@@ -139,8 +149,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   moments another (`features/home/phoneSound.js`); the room reverb follows
   `weekendPhase`. The profile's Sound switch (`si-sound`) sits under Haptics;
   a TV whose context is suspended shows "Click for sound", and the
-  commissioner menu copies the Chrome kiosk shortcut that keeps TV sound
-  across reloads. `/dev/sound-preview.html?selftest` renders every recipe.
+  commissioner's TV sheet copies the Chrome kiosk shortcut that keeps TV
+  sound across reloads. `/dev/sound-preview.html?selftest` renders every recipe.
 - **Results on your phone** (`src/features/results/`): a fresh broadcast that
   moves YOUR chips docks one receipt above the tab bar (`ChipReceipt`, from
   the pure `resultMoment` diff of `chipSnapshot`s: place and award, each bet
@@ -649,7 +659,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    marked `auto` and its alarm pauses the speaker at the clip's end if that
    song still plays; Undo, a correction, a cleared result or unfreezing stops
    it. QA jumps and resets are silent. Brandon accepted the Spotify Developer
-   Policy risk of automatic playback (Sept 29). Audio Director's "Play win
+   Policy risk of automatic playback (Sept 29). Speaker's "Play win
    songs automatically" switch (`private:spotify:auto`) turns it off. A win
    song starts at silence and fades up to the speaker's own level over 1.5 s
    (six volume calls), fades out over the 3 s before its clip ends (the alarm
@@ -672,7 +682,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    QA's Sim contest and Finish event play the win's song (jumps stay silent). Every speaker step runs in one queue (`songQueue`), so a
    fade never runs over the next song. The GM has no play chips: the rack
    beside the pill is only Stop while a song plays (manual play stays in
-   Audio Director), and the chosen speaker persists in
+   Speaker), and the chosen speaker persists in
    `private:spotify:device`.
 5. **GM auth:** the server-only `env.GM_PIN` Worker secret unlocks once per
    device and mints that device's token (`private:gm:tokens`); GM actions
@@ -852,6 +862,9 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    and live poker cards need `confirmPokerLive`. The console is
    `src/features/qa/`; the slow live driver stays as "Play it live".
 12. **Show Control is recoverable presentation state, not tournament truth.**
+   (On screen it is the commissioner's "TV" sheet and the audio desk is
+   "Speaker"; `showControl`, `audioDirector` and `spotify*` stay the code
+   and data names.)
    State schema `v:8` introduced `showControl`. Its active scene and step are
    persisted by the Durable Object, so every TV reconstructs after refresh or
    reconnect. Scenes reference current official events, results, and standings

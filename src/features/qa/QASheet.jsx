@@ -1,6 +1,7 @@
 /* The commissioner QA console, in the menu system's sections: where the
-   rehearsal stands, Step, Bets, Jump to, Lens, Checkpoints, then Reset
-   last. Every jump, step, bets action and checkpoint is one server write.
+   rehearsal stands, Step, Bets, Jump to, Lens (with the dock strip's
+   switch), Checkpoints, then Reset last. Reset game progress lives in the
+   commissioner menu's Setup, its one entry. Every jump, step, bets action and checkpoint is one server write.
    The slow live driver (real broadcasts, one player at a time) stays as
    Play live. Commissioner and QA capability only. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -68,7 +69,7 @@ const BET_ACTIONS = [
 
 export function QASheet({ state, status, me, guestLens, busy, environment, dispatch, notify, market = null,
   onSwitch, onLens, onPlayLive, onDuelMe, onDuels, pokerOn, onBustOne, onCountRest,
-  onRerun, onReplayMine, onResetRequest, onExit, onClose }) {
+  onRerun, onReplayMine, qaOn = false, onStrip, onBack, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const [name, setName] = useState("");
   const qa = useQaFast({ dispatch, environment, notify,
@@ -81,7 +82,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const finished = status.current === "No active event";
 
   return (
-    <Sheet title="QA" onClose={onClose} className="fd-qa-sheet"
+    <Sheet title="QA" onClose={onClose} onBack={onBack} className="fd-qa-sheet"
       headerActions={<span className={`fd-qa-badge is-sheet${status.environment === "production" ? " is-production" : ""}`}>
         <Icon name="flask" size={16} lit />{ENV[status.environment] || status.environment}</span>}>
       <QaConfirm qa={qa} />
@@ -185,6 +186,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         </div>
         <MenuGroup>
           <MenuRow name="Guest view" pressed={!!guestLens} onClick={onLens} />
+          {onStrip && <MenuRow name="QA strip" pressed={!!qaOn} onClick={onStrip} />}
           <MenuRow name="Redo check-in here" icon="undo" onClick={onReplayMine} />
         </MenuGroup>
       </Part>
@@ -220,8 +222,6 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
               onClick={() => { setConfirmRerun(false); onRerun(); }} />
           : <MenuRow name="Reopen check-in" chevron={false} onClick={() => setConfirmRerun(true)} />}
         {confirmRerun && <MenuRow name="Keep check-in closed" chevron={false} onClick={() => setConfirmRerun(false)} />}
-        <MenuRow name="Reset game progress" tone="destructive" disabled={off} onClick={onResetRequest} />
-        {onExit && <MenuRow name="QA mode" pressed onClick={onExit} />}
       </MenuGroup>
     </Sheet>
   );

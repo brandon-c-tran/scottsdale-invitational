@@ -9680,6 +9680,14 @@ var init_director = __esm({
   }
 });
 
+// src/features/director/tvHealth.js
+var TV_STALE_MS;
+var init_tvHealth = __esm({
+  "src/features/director/tvHealth.js"() {
+    TV_STALE_MS = 60 * 1e3;
+  }
+});
+
 // src/features/awards/awardsModel.js
 var AWARD_TIMING;
 var init_awardsModel = __esm({
@@ -9764,6 +9772,41 @@ var init_PlaceSearch = __esm({
   }
 });
 
+// src/features/director/tvSheetModel.js
+var TV_STEP_NAMES;
+var init_tvSheetModel = __esm({
+  "src/features/director/tvSheetModel.js"() {
+    init_core();
+    init_show();
+    init_phase();
+    init_tvHealth();
+    TV_STEP_NAMES = Object.freeze({
+      title: "Title",
+      room: "Roster",
+      ready: "Ready",
+      winner: "Winner",
+      standings: "Standings",
+      board: "Board",
+      champion: "Champion",
+      class: "Class photo"
+    });
+  }
+});
+
+// src/features/speaker/speakerModel.js
+var init_speakerModel = __esm({
+  "src/features/speaker/speakerModel.js"() {
+  }
+});
+
+// src/features/speaker/speakerStatus.js
+import { useEffect as useEffect53, useSyncExternalStore as useSyncExternalStore6 } from "react";
+var init_speakerStatus = __esm({
+  "src/features/speaker/speakerStatus.js"() {
+    init_client();
+  }
+});
+
 // src/features/check-in/submission.js
 function createCheckInSubmission() {
   let pending = null;
@@ -9797,7 +9840,7 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React79, { useEffect as useEffect53, useRef as useRef55, useState as useState60 } from "react";
+import React79, { useEffect as useEffect54, useRef as useRef55, useState as useState60 } from "react";
 function InvitationArt() {
   return /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React79.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React79.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("span", null, "Field"), /* @__PURE__ */ React79.createElement("span", null, "Day"))), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React79.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React79.createElement("span", null, /* @__PURE__ */ React79.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React79.createElement("small", null, "Players"))), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React79.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React79.createElement("span", null, /* @__PURE__ */ React79.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React79.createElement("br", null), EDITION.year)));
 }
@@ -9839,7 +9882,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
   const submit = useRef55(createCheckInSubmission());
   const heading = useRef55(null);
   const hydratedPlayer = useRef55(null);
-  useEffect53(() => {
+  useEffect54(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -9852,7 +9895,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect53(() => {
+  useEffect54(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -12235,7 +12278,7 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React80, { useState as useState61, useEffect as useEffect54, useLayoutEffect as useLayoutEffect17, useRef as useRef56, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
+import React80, { useState as useState61, useEffect as useEffect55, useLayoutEffect as useLayoutEffect17, useRef as useRef56, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
@@ -12512,13 +12555,9 @@ init_PlayerIdentity();
 var MISS_SHOWN_MS = 10 * 60 * 1e3;
 
 // src/features/director/TvHealth.jsx
-import React65, { useEffect as useEffect43, useState as useState51 } from "react";
-
-// src/features/director/tvHealth.js
-var TV_STALE_MS = 60 * 1e3;
-
-// src/features/director/TvHealth.jsx
+init_tvHealth();
 init_Icon();
+import React65, { useEffect as useEffect43, useState as useState51 } from "react";
 
 // src/features/director/CommissionerDock.jsx
 import React66, { useLayoutEffect as useLayoutEffect14, useRef as useRef45 } from "react";
@@ -12627,6 +12666,9 @@ var STAGING = (() => {
 init_theme();
 init_controls();
 init_Menu();
+init_tvSheetModel();
+init_speakerModel();
+init_speakerStatus();
 init_Icon();
 var Onboarding2 = lazy2(() => Promise.resolve().then(() => (init_Onboarding(), Onboarding_exports)).then((module) => ({ default: module.Onboarding })));
 var prefersReducedMotion2 = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;

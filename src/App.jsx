@@ -82,15 +82,10 @@ import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
 import { deskNote } from "./features/awards/awardsModel.js";
 import { directorPill } from "./features/director/directorPill.js";
-import {
-  SHOW_SCENE_DEFINITIONS,
-  resolveShowScene,
-  resolveDirector,
-} from "../shared/show.js";
+import { resolveShowScene, resolveDirector } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
-  spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect, spotifyAutoWinSongs,
-  spotifyPlay, spotifyPause, spotifyDevice, reportTvSound, setTvView,
+  reportTvSound, setTvView,
 } from "./lib/client.js";
 
 import { Shell } from "./ui/Shell.jsx";
@@ -99,6 +94,9 @@ import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/the
 import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/controls.jsx";
 import { MenuSections } from "./ui/Menu.jsx";
 import { commissionerMenu, moreMenu } from "./features/director/menuModel.js";
+import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
+import { speakerValue } from "./features/speaker/speakerModel.js";
+import { useSpeakerStatus } from "./features/speaker/speakerStatus.js";
 import { Icon } from "./ui/Icon.jsx";
 
 const Onboarding = lazy(() => import("./features/check-in/Onboarding.jsx")
@@ -112,7 +110,9 @@ const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.js
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
-const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, AwardsDesk, PokerSetupSheet, CrownSheet];
+const TvSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/TvSheet.jsx"), "TvSheet");
+const SpeakerSheet = /* @__PURE__ */ lazyPart(() => import("./features/speaker/SpeakerSheet.jsx"), "SpeakerSheet");
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -364,6 +364,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const audioCatalogAllowed = capabilities.audioCatalog === true;
   useWalkoutWatch(state, gmView && capabilities.audioPlayback === true);
   const qaActive = qaAllowed && qa;
+  /* the Speaker row's value: read each time the commissioner menu opens */
+  const speakerStatus = useSpeakerStatus(gmView && audioDirectorAllowed && modalStack.at(-1)?.type === "gmMenu");
 
   const events = useMemo(() => allEventsOf(state), [state]);
   const activeShowScene = useMemo(
@@ -1449,7 +1451,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
      header of any open sheet) is only the Stop for the one playing */
   /* QA: the contest taking bets, for the quick bets (worker/qa.js runQaBets) */
   const qaMarket = (() => {
-    if (!qaActive || !onDeckEv) return null;
+    if (!qaAllowed || !onDeckEv) return null;
     const contest = resolveCurrentContest(state, onDeckEv);
     if (contest?.phase !== "betting-open") return null;
     const pending = (state.wagers || []).filter(w => wagerMatchesContest(w, contest)
@@ -1466,8 +1468,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the More menu and the commissioner's menu: one model, one renderer
      (features/director/menuModel.js, ui/Menu.jsx); each row's id acts here */
   const gmMenuFacts = modal?.type === "gmMenu" ? {
-    showControl:showControlAllowed, audioDirector:audioDirectorAllowed,
-    scene:activeShowScene ? `${activeShowScene.definition?.label || "Scene"} ${activeShowScene.stepIndex + 1}/${activeShowScene.stepCount}` : null,
+    audioDirector:audioDirectorAllowed, speaker:speakerValue(speakerStatus),
+    tvNow:tvNowLabel(activeShowScene, tvAmbient(state, events, weekendOperation.event)),
     crownReady:state.live && !state.frozen && crownReady,
     lockerRoom:state.live && !state.frozen && lockerRoomAvailability(state).enabled,
     away:Object.keys(state.away || {}), geoPhotos:(state.geoRounds || []).length, awardsNote:deskNote(state),
@@ -1476,6 +1478,12 @@ function TournamentApp({ tournament, onUpdateReload }) {
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
     qaAllowed, qaOn:qa, progressReset:progressResetAllowed,
   } : null;
+  /* A5: launched this way, the TV keeps its sound after every reload */
+  const copyTvShortcut = () => {
+    const command = tvKioskCommand(window.location.origin);
+    return (navigator.clipboard?.writeText ? navigator.clipboard.writeText(command) : Promise.reject(new Error("no clipboard")))
+      .then(() => notify("Shortcut copied"), () => notify(command));
+  };
   const menuItem = id => {
     const sheet = type => pushModal({ type });
     if (id.startsWith("takeBack:")) {
@@ -1489,24 +1497,17 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "commissioner":
         if (!gm) return sheet("pin");
         setGuestLens(false); return sheet("gmMenu");
-      case "showControl": case "audioDirector": case "crown": case "attendance": case "lockerRoom":
+      case "showControl": case "audioDirector": case "qa": case "crown": case "attendance": case "lockerRoom":
       case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": return sheet(id);
       case "geo": return sheet("geoDesk");
       case "awards": return sheet("awards");
       case "reset": return sheet("resetProgress");
-      /* A5: launched this way, the TV keeps its sound after every reload */
-      case "tvShortcut": {
-        const command = tvKioskCommand(window.location.origin);
-        return (navigator.clipboard?.writeText ? navigator.clipboard.writeText(command) : Promise.reject(new Error("no clipboard")))
-          .then(() => notify("Shortcut copied"), () => notify(command));
-      }
       case "lockBets": return setOnDeck(null).then(locked => {
         if (locked.ok) { setModal(null); notify("Bets locked"); }
         return locked;
       });
       case "snapshot": return downloadSnapshot().then(exported => notify(exported.ok
         ? `Snapshot exported from ${exported.metadata.environment}` : exported.error || "Export failed"));
-      case "qa": toggleQa(); setModal(null); return undefined;
       case "exit": return exitGm();
       default: return undefined;
     }
@@ -1649,23 +1650,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "geoDesk" && <Sheet title="Where and When" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><GeoDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload)} /></Suspense>
       </Sheet>}
-      {gmView && showControlAllowed && modal?.type === "showControl" && (
-        <ShowControlSheet
-          state={state}
-          events={events}
-          scene={activeShowScene}
-          onClose={() => setModal(null)}
-          onBack={modalBack}
-          onStart={startShowScene}
-          onAdvance={advanceShowScene}
-          onEnd={endShowScene}
-          onRetry={retryShowScene}
-          onAudio={audioDirectorAllowed ? () => pushModal({type:"audioDirector"}) : null}
-        />
-      )}
-      {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && (
-        <AudioDirectorSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify} />
-      )}
+      {gmView && modal?.type === "showControl" && <Suspense fallback={null}>
+        <TvSheet state={state} events={events} scene={activeShowScene} operationEvent={weekendOperation.event}
+          scenes={showControlAllowed} tvs={tournament.tvs} tvsAt={tournament.tvsAt}
+          onClose={() => setModal(null)} onBack={modalBack}
+          onStart={startShowScene} onAdvance={advanceShowScene} onEnd={endShowScene} onRetry={retryShowScene}
+          onShortcut={copyTvShortcut} /></Suspense>}
+      {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && <Suspense fallback={null}>
+        <SpeakerSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify} /></Suspense>}
       {gmView && modal?.type === "logistics" && (
         <Sheet title="Trip details" onClose={() => setModal(null)} onBack={modalBack}>
           <LogisticsEditor state={state} onSave={async vals => {
@@ -1789,7 +1781,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {qaAllowed && modal?.type === "qa" && <Suspense fallback={null}><QASheet state={state} busy={!!sim}
         status={qaStatus} me={me} guestLens={guestLens} market={qaMarket}
         environment={environment} dispatch={dispatch} notify={notify}
-        onExit={() => { toggleQa(); setModal(null); }}
+        qaOn={qa} onStrip={toggleQa} onBack={modalBack}
         onSwitch={player => switchPlayer(player, false)}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         pokerOn={pokerLive(state)}
@@ -1811,7 +1803,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }}
         onRerun={() => { rerunOnboard(); setModal(null); }}
         onReplayMine={() => { replayOnboardHere(); setModal(null); }}
-        onResetRequest={() => setModal({type:"resetProgress"})}
         onClose={() => setModal(null)} /></Suspense>}
       {progressResetAllowed && modal?.type === "resetProgress" && (
         <ResetProgressSheet state={state} environment={environment} busy={!!sim}
@@ -4013,388 +4004,6 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
 }
 
 /* ─────────── reveal (draws, heats, pools) ─────────── */
-function ShowControlSheet({
-  state, events, scene, onClose, onBack, onStart, onAdvance, onEnd, onRetry, onAudio,
-}) {
-  const [busy, setBusy] = useState(false);
-  const operation = resolveWeekendOperation(state, events);
-  let latest = null;
-  for (const [eventId, result] of Object.entries(state.results || {})) {
-    const event = events.find(item => item.id === eventId);
-    if (event && result?.slots?.[0]?.length && (!latest || Number(result.ts) > Number(latest.result.ts)))
-      latest = { event, result };
-  }
-  const run = async action => {
-    if (busy) return;
-    setBusy(true);
-    try { await action(); }
-    finally { setBusy(false); }
-  };
-  const last = state.showControl?.history?.[0] || null;
-  const startOptions = [
-    { kind:"opening", label:"Opening", note:"Title, then the roster" },
-    operation.event && {
-      kind:"event-intro",
-      eventId:operation.event.id,
-      label:"Event intro",
-      note:operation.event.name,
-    },
-    latest && {
-      kind:"winner",
-      eventId:latest.event.id,
-      label:"Winner",
-      note:latest.event.name,
-    },
-    { kind:"standings", label:"Standings", note:"Current board" },
-    state.frozen && { kind:"champion", label:"Champion", note:"Final standings" },
-  ].filter(Boolean);
-  const stepNames = {
-    title:"Title",
-    room:"Room",
-    ready:"Ready",
-    winner:"Winner",
-    standings:"Standings",
-    board:"Board",
-    champion:"Champion",
-  };
-
-  return (
-    <Sheet title="Show Control" onClose={onClose} onBack={onBack}>
-      {scene ? (
-        <>
-          <div style={{ border:"1.5px solid var(--ink)", borderRadius:14, overflow:"hidden",
-            marginBottom:14, background:"var(--paper2)" }}>
-            <div className="fd-night" style={{ background:"var(--night)", padding:"12px 14px", display:"flex",
-              alignItems:"center", gap:10 }}>
-              <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22,
-                textTransform:"uppercase", color:"var(--bone)" }}>
-                {scene.definition
-                  ? `On TV: ${scene.definition.label}, ${scene.stepIndex + 1} of ${scene.stepCount}`
-                  : "Unsupported scene"}</div>
-            </div>
-            <div style={{ padding:14 }}>
-              {scene.event && (
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:15,
-                  color:"var(--ink)", marginBottom:5 }}>{scene.event.name}</div>
-              )}
-              <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>
-                {scene.staleReason || stepNames[scene.stepKey] || "Waiting for the commissioner"}</div>
-            </div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <ActionButton disabled={busy || !scene.definition} style={{ gridColumn:"1 / -1" }}
-              onClick={() => run(() => onAdvance(scene.active.id))}>
-              Next</ActionButton>
-            <ActionButton variant="secondary" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "skipped"))}>Skip</ActionButton>
-            <ActionButton variant="tertiary" disabled={busy}
-              onClick={() => run(() => onEnd(scene.active.id, "cancelled"))}>End scene</ActionButton>
-          </div>
-          {onAudio && <ActionButton variant="secondary" onClick={onAudio}
-            style={{ width:"100%", marginTop:12 }}>Open Audio Director</ActionButton>}
-        </>
-      ) : (
-        <>
-          <div style={{ ...label, marginBottom:7 }}>Start a scene</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {startOptions.map(option => (
-              <button key={`${option.kind}:${option.eventId || ""}`} disabled={busy}
-                onClick={() => run(() => onStart({ kind:option.kind, eventId:option.eventId }))}
-                style={{ minHeight:68, padding:"10px 12px", textAlign:"left", borderRadius:10,
-                  border:"1.5px solid var(--line)", background:"var(--paper2)",
-                  color:"var(--ink)", cursor:busy ? "default" : "pointer",
-                  opacity:busy ? 0.45 : 1 }}>
-                <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13,
-                  textTransform:"uppercase", letterSpacing:"0.04em" }}>{option.label}</div>
-                <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
-                  marginTop:4, lineHeight:1.3 }}>{option.note}</div>
-              </button>
-            ))}
-          </div>
-          {last && (
-            <div style={{ marginTop:18, paddingTop:14, borderTop:"1px solid var(--line)" }}>
-              <div style={{ ...label, marginBottom:7 }}>Last scene</div>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)" }}>
-                    {SHOW_SCENE_DEFINITIONS[last.kind]?.label || last.kind}</div>
-                  <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>
-                    {last.outcome}</div>
-                </div>
-                <ActionButton variant="tertiary" compact disabled={busy}
-                  onClick={() => run(() => onRetry(last.id))}>Retry</ActionButton>
-              </div>
-            </div>
-          )}
-          {onAudio && <ActionButton variant="secondary" onClick={onAudio}
-            style={{ width:"100%", marginTop:14 }}>Open Audio Director</ActionButton>}
-        </>
-      )}
-    </Sheet>
-  );
-}
-
-function AudioDirectorSheet({ state, onClose, onBack, notify }) {
-  const [status, setStatus] = useState(null);
-  const [player, setPlayer] = useState(null);
-  const [deviceId, setDeviceId] = useState("");
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
-  const savedCues = ROSTER.map(player => ({
-    player,
-    track:state.profiles?.[player]?.walkoutTrack,
-  })).filter(item => item.track);
-
-  const refreshPlayer = useCallback(async () => {
-    setBusy("refresh"); setError("");
-    const result = await spotifyPlayer();
-    setBusy("");
-    if (!result.ok) {
-      setPlayer(null);
-      setError(result.error || "Could not read Spotify");
-      return;
-    }
-    setPlayer(result);
-    const devices = result.devices || [];
-    setDeviceId(current => devices.some(device => device.id === current)
-      ? current : (devices.find(device => device.active) || devices[0])?.id || current || "");
-  }, []);
-  /* the chosen speaker is saved on the server and every cue is sent to it */
-  const chooseDevice = async id => {
-    setDeviceId(id);
-    if (!id) return;
-    const name = (player?.devices || []).find(device => device.id === id)?.name || "";
-    const result = await spotifyDevice({ deviceId:id, name });
-    if (!result.ok) setError(result.error || "Could not save the speaker");
-    else setStatus(current => current ? { ...current, device:result.device } : current);
-  };
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const result = await spotifyStatus();
-      if (!active) return;
-      setStatus(result);
-      if (result.device?.id) setDeviceId(result.device.id);
-      if (!result.ok) setError(result.error || "Could not read Spotify setup");
-      else if (result.connected) refreshPlayer();
-    })();
-    return () => { active = false; };
-  }, [refreshPlayer]);
-
-  const connect = async () => {
-    if (busy) return;
-    setBusy("connect"); setError("");
-    const result = await spotifyAuthorize();
-    if (!result.ok) {
-      setBusy("");
-      setError(result.error || "Could not start Spotify authorization");
-      return;
-    }
-    window.location.assign(result.authorizationUrl);
-  };
-  const disconnect = async () => {
-    if (busy || !window.confirm("Disconnect the commissioner Spotify session?")) return;
-    setBusy("disconnect"); setError("");
-    const result = await spotifyDisconnect();
-    setBusy("");
-    if (!result.ok) return setError(result.error || "Disconnect failed");
-    setStatus(current => ({ ...current, connected:false, account:null }));
-    setPlayer(null);
-    notify("Spotify disconnected");
-  };
-  const runSearch = async () => {
-    if (busy || query.trim().length < 2) return;
-    setBusy("search"); setError("");
-    const result = await spotifySearch(query.trim());
-    setBusy("");
-    if (!result.ok) {
-      setResults([]);
-      setError(result.error || "Search failed");
-    } else {
-      setResults(result.tracks || []);
-    }
-  };
-  const playTrack = async (track, playerName = null) => {
-    if (busy) return;
-    setBusy(`play:${track.trackId}`); setError("");
-    const result = await spotifyPlay({
-      uri:track.uri,
-      deviceId,
-      positionMs:track.startMs || 0,
-      player:playerName,
-      durationMs:track.durationMs,
-    });
-    setBusy("");
-    if (!result.ok) return setError(result.error || "Playback failed");
-    notify(playerName ? `${disp(state, playerName)}'s song playing` : `${track.name} playing`,
-      null, "gold", playerName);
-    setTimeout(refreshPlayer, 450);
-  };
-  const toggleAuto = async () => {
-    if (busy) return;
-    const next = status.autoWinSongs === false;
-    setBusy("auto"); setError("");
-    const result = await spotifyAutoWinSongs(next);
-    setBusy("");
-    if (!result.ok) return setError(result.error || "Could not change win songs");
-    setStatus(current => ({ ...current, autoWinSongs:result.autoWinSongs }));
-  };
-  const playbackAction = async kind => {
-    if (busy) return;
-    setBusy(kind); setError("");
-    const result = kind === "pause"
-      ? await spotifyPause({ deviceId })
-      : await spotifyPlay({ deviceId });
-    setBusy("");
-    if (!result.ok) return setError(result.error || "Playback command failed");
-    setTimeout(refreshPlayer, 350);
-  };
-
-  if (!status) {
-    return <Sheet title="Audio Director" onClose={onClose} onBack={onBack}>
-      <div style={{ ...pStyle, padding:"18px 0" }}>Checking Spotify…</div>
-    </Sheet>;
-  }
-
-  return (
-    <Sheet title="Audio Director" onClose={onClose} onBack={onBack}>
-      {!status.configured ? (
-        <div>
-          <Tag tone="gold">Setup needed</Tag>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
-            Connect the Spotify app</div>
-          <div style={{ ...pStyle, marginBottom:14 }}>
-            Add <b>SPOTIFY_CLIENT_ID</b> and <b>SPOTIFY_CLIENT_SECRET</b> as Worker
-            secrets, then register this exact callback URL in Spotify:</div>
-          <div style={{ padding:"11px 12px", border:"1px solid var(--line)", borderRadius:10,
-            background:"var(--paper2)", fontFamily:"var(--fd-mono)",
-            fontSize:12, lineHeight:1.45, overflowWrap:"anywhere", color:"var(--ink)",
-            userSelect:"text" }}>{status.redirectUri || "Callback URL unavailable"}</div>
-          <Btn kind="ghost" onClick={() => navigator.clipboard?.writeText(status.redirectUri || "")}
-            disabled={!status.redirectUri} style={{ width:"100%", marginTop:9 }}>Copy callback URL</Btn>
-        </div>
-      ) : !status.connected ? (
-        <div>
-          <Tag tone="gold">{status.reconnect ? "Reconnect needed" : "Ready to authorize"}</Tag>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:27, lineHeight:1,
-            textTransform:"uppercase", color:"var(--ink)", margin:"12px 0 7px" }}>
-            {status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</div>
-          <div style={{ ...pStyle, marginBottom:14 }}>
-            Use the Spotify Premium account that controls the speaker.</div>
-          <Btn onClick={connect} disabled={!!busy}
-            style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…"
-              : status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</Btn>
-          <div style={{ ...label, margin:"18px 0 6px" }}>Registered callback</div>
-          <div style={{ fontFamily:"var(--fd-mono)",
-            fontSize:12, overflowWrap:"anywhere", color:"var(--muted)" }}>{status.redirectUri}</div>
-        </div>
-      ) : (
-        <>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14,
-            padding:"11px 12px", background:"var(--paper2)", border:"1px solid var(--line)",
-            borderRadius:11 }}>
-            <Tag tone="green">Connected</Tag>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
-                color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis",
-                whiteSpace:"nowrap" }}>{status.account?.displayName || "Spotify"}</div>
-              <div style={{ fontFamily:SANS, fontSize:12,
-                color:status.premium === false ? "var(--clay-text)" : "var(--muted)" }}>
-                {status.premium === false ? `${status.account?.product || "Free"} account · playback needs Premium`
-                  : status.account?.product || "account"}</div>
-            </div>
-            <Btn kind="danger" disabled={!!busy} onClick={disconnect}
-              style={{ minHeight:38, padding:"8px 9px", fontSize:12 }}>Disconnect</Btn>
-          </div>
-
-          <div className="fd-profile-vibration" style={{ marginBottom:14 }}>
-            <span id="fd-auto-win-label">Play win songs automatically</span>
-            <button type="button" role="switch" aria-checked={status.autoWinSongs !== false}
-              aria-labelledby="fd-auto-win-label" className="fd-switch" disabled={busy === "auto"}
-              onClick={toggleAuto}><span aria-hidden="true" /></button>
-          </div>
-
-          <div style={{ ...label, marginBottom:6 }}>Playback device</div>
-          <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-            <select value={deviceId} onChange={event => chooseDevice(event.target.value)}
-              aria-label="Spotify playback device"
-              style={{ flex:1, minWidth:0, height:44, border:"1.5px solid var(--line)",
-                borderRadius:10, padding:"0 10px", background:"var(--paper2)", color:"var(--ink)",
-                fontFamily:SANS, fontWeight:600 }}>
-              {!(player?.devices || []).length && <option value={deviceId}>
-                {status.device?.name || (deviceId ? "Saved speaker" : "No devices found")}</option>}
-              {(player?.devices || []).map(device => (
-                <option key={device.id} value={device.id} disabled={device.restricted}>
-                  {device.name}{device.active ? " · active" : ""}{device.restricted ? " · unavailable" : ""}
-                </option>
-              ))}
-            </select>
-            <Btn kind="ghost" disabled={!!busy} onClick={refreshPlayer}
-              style={{ minHeight:44, padding:"9px 11px" }}>Refresh</Btn>
-          </div>
-
-          {player?.playback?.track && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ ...label, marginBottom:6 }}>Now playing</div>
-              <SpotifyTrackCard track={player.playback.track} />
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:8 }}>
-                <Btn kind="dark" disabled={!!busy} onClick={() => playbackAction("resume")}>Resume</Btn>
-                <Btn kind="ghost" disabled={!!busy} onClick={() => playbackAction("pause")}>Pause</Btn>
-              </div>
-            </div>
-          )}
-
-          {!!savedCues.length && (
-            <div style={{ marginBottom:16 }}>
-              <div style={{ ...label, marginBottom:7 }}>Win songs</div>
-              <div style={{ display:"grid", gap:7 }}>
-                {savedCues.map(item => (
-                  <div key={item.player}>
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12,
-                      color:"var(--muted)", margin:"0 0 4px 2px" }}>{disp(state, item.player)}</div>
-                    <SpotifyTrackCard track={item.track} compact action={() => playTrack(item.track, item.player)}
-                      actionLabel={busy === `play:${item.track.trackId}` ? "Playing…" : "Play"} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div style={{ ...label, marginBottom:7 }}>Find a track</div>
-          <div style={{ display:"flex", gap:8 }}>
-            <input value={query} onChange={event => setQuery(event.target.value)}
-              onKeyDown={event => event.key === "Enter" && runSearch()}
-              maxLength={80} placeholder="Track or artist" aria-label="Search Spotify"
-              style={{ flex:1, minWidth:0, height:46, padding:"0 12px", borderRadius:10,
-                border:"1.5px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
-                fontFamily:SANS, fontSize:15, outline:"none" }} />
-            <Btn kind="dark" disabled={!!busy || query.trim().length < 2} onClick={runSearch}
-              style={{ minHeight:46, padding:"10px 13px" }}>
-              {busy === "search" ? "Searching" : "Search"}</Btn>
-          </div>
-          {!!results.length && (
-            <div style={{ display:"grid", gap:7, marginTop:10 }}>
-              {results.map(track => <SpotifyTrackCard key={track.trackId} track={track} compact
-                action={() => playTrack(track)}
-                actionLabel={busy === `play:${track.trackId}` ? "Playing…" : "Play"} />)}
-            </div>
-          )}
-          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
-            lineHeight:1.4, marginTop:9 }}>Search results and artwork provided by Spotify.</div>
-        </>
-      )}
-      {error && <div role="alert" style={{ marginTop:13, padding:"10px 11px",
-        border:"1px solid var(--danger-line)", borderRadius:9, background:"var(--clay-tint)",
-        fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--clay-text)",
-        lineHeight:1.4 }}>{error}</div>}
-    </Sheet>
-  );
-}
-
 /* the draw on a phone, on the room's clock; the TV draws its own inside the canvas */
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
   return <DrawAnnouncement state={state} reveal={reveal} me={me} synced onClose={onClose} onBets={onBets} onPlayer={onPlayer}/>;

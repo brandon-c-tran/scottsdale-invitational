@@ -1,0 +1,44 @@
+/* The commissioner's TV sheet (TvSheet.jsx): the card for what is on the
+   TV now (a painted glass field, lit magenta while a scene plays), its
+   steps as lamp inserts, the TVs in the room, then the scenes as tiles. */
+.fd-tvnow { padding:14px; }
+.fd-tvnow-main { display:flex; align-items:center; gap:12px; }
+.fd-tvnow-text { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.fd-tvnow-text strong { font-size:30px; line-height:1.15; color:var(--ink); overflow-wrap:anywhere; }
+.fd-tvnow-event { font:600 15px/1.3 var(--fd-body); color:var(--muted2); overflow-wrap:anywhere; }
+/* a step not reached yet: the lens with its lamp off (backglass.css .fd-insert) */
+.fd-insert.is-off { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-insert.is-off::after { opacity:.38; }
+.fd-tvnow-steps { display:flex; flex-wrap:wrap; gap:8px 18px; margin:14px 0 0; padding:0; list-style:none; }
+.fd-tvnow-steps li { display:inline-flex; align-items:center; gap:8px; min-height:24px; color:var(--muted);
+  font:800 14px/1.15 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-tvnow-steps li.is-live { color:var(--ink); }
+.fd-tvnow-stale { margin:12px 0 0; color:var(--clay-text); font:600 13px/1.35 var(--fd-body); }
+.fd-tvnow-room { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:14px 0 0; padding:10px 0 0;
+  border-top:1px solid var(--line); list-style:none; color:var(--muted2); font:600 13px/1.3 var(--fd-body); }
+.fd-tvnow-room li, .fd-tvnow-room.is-missing { display:inline-flex; align-items:center; gap:6px; min-height:24px; }
+.fd-tvnow-room .is-off, .fd-tvnow-room.is-missing { color:var(--clay-text); }
+
+.fd-tv-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 18px; }
+.fd-tv-controls .is-next { grid-column:1 / -1; }
+
+.fd-tv-tiles { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.fd-tv-tile { display:flex; align-items:center; gap:10px; min-height:72px; padding:10px 12px; border:1px solid var(--line);
+  border-radius:10px; background:var(--paper2); box-shadow:var(--glass-edge); color:var(--ink); text-align:left; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; transition:transform .1s, opacity .15s; }
+.fd-tv-tile:not(:disabled):active { transform:scale(.98); background:var(--ink-tint); }
+.fd-tv-tile:disabled { cursor:default; opacity:.6; }
+.fd-tv-tile:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+.fd-tv-tile-text { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.fd-tv-tile-text b { font:800 17px/1.15 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; overflow-wrap:anywhere; }
+.fd-tv-tile-text small { font:600 13px/1.3 var(--fd-body); color:var(--muted2); overflow-wrap:anywhere; }
+
+/* a line glyph in the game marks' round glass insert */
+.fd-tv-glyph { flex:0 0 auto; display:inline-grid; place-items:center; border-radius:50%; color:var(--ink);
+  background:var(--paper2); box-shadow:0 0 0 1.5px var(--ink0), inset 0 -1px 0 color-mix(in srgb, var(--bone) 16%, transparent); }
+.fd-tv-glyph.is-mark { background:none; box-shadow:none; }
+
+.fd-tv-retry, .fd-tv-shortcut { display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; }
+.fd-tv-retry { margin-top:8px; }
+.fd-tv-shortcut { margin-top:4px; }
+@media (prefers-reduced-motion: reduce) { .fd-tv-tile { transition:none; } }

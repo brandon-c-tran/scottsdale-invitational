@@ -510,11 +510,11 @@ test("a revoked grant reports reconnect, never connected, and concurrent refresh
     () => call(tournament, "play", { uri:"spotify:track:1234567890123456789012" }));
   const body = await failed.json();
   assert.equal(body.code, "reauthorize");
-  assert.equal(body.error, "Reconnect Spotify in Audio Director");
+  assert.equal(body.error, "Spotify signed out. Reconnect in Speaker");
   const status = await (await call(tournament, "status")).json();
   assert.equal(status.connected, false);
   assert.equal(status.reconnect, true);
-  assert.equal(status.error, "Reconnect Spotify in Audio Director");
+  assert.equal(status.error, "Spotify signed out. Reconnect in Speaker");
 });
 
 /* ── TV repair pass (T1-T22) ── */

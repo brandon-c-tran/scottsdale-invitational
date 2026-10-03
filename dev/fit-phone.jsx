@@ -29,10 +29,12 @@ try {
   sessionStorage.setItem("fd-tab", TABS[params.get("tab")] || "board");
 } catch {}
 
-const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:false,
+const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
   audioDirector:gm && !!scenario.audio, audioCatalog:false, audioPlayback:false, push:false };
+globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 let version = 1;
-const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version });
+const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
+  ...(gm && scenario.tvs ? { tvs:scenario.tvs, tvsAt:Date.now() } : {}) });
 globalThis.__FIT_FRAME__ = frame();
 globalThis.__fitState = state;
 let seq = 0;
@@ -114,6 +116,15 @@ async function openSheet(kind) {
   if (kind === "menu" || kind === "gm-menu") {
     const label = kind === "menu" ? "More options" : "Commissioner";
     return tap(() => [...document.querySelectorAll(`header button[aria-label='${label}']`)].find(visible));
+  }
+  /* the commissioner's TV and Speaker sheets, from their menu rows */
+  if (kind === "tv" || kind === "speaker") {
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const name = kind === "tv" ? "TV" : "Speaker";
+    return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
   }
   if (kind === "qa") {
     return tap(() => document.querySelector("[data-qa-open]")

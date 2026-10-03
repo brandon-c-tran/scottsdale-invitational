@@ -582,12 +582,15 @@ test("the console: Step, Bets, Jump to, Lens, Checkpoints and Reset, every targe
   const props = { state, status, me:"Evan", guestLens:false, busy:false, market,
     environment:"staging", dispatch:async () => ({ ok:true }), notify:noop, onSwitch:noop, onLens:noop, onPlayLive:noop,
     onDuelMe:noop, onDuels:noop, pokerOn:false, onBustOne:noop, onCountRest:noop, onRerun:noop,
-    onReplayMine:noop, onResetRequest:noop, onExit:noop, onClose:noop };
+    onReplayMine:noop, qaOn:true, onStrip:noop, onClose:noop };
   const html = inProvider(state, React.createElement(QASheet, props));
   for (const text of ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset", "Sim contest", "Finish event", "Play live",
     "Everyone bets", "Back the favorite", "Spread evenly", "Clear bets", "Locker room",
-    "Friday Night", "Saturday Night", "Finale", "Crowned", "Reset game progress", "Guest view"])
+    "Friday Night", "Saturday Night", "Finale", "Crowned", "Reopen check-in", "Guest view", "QA strip"])
     assert.ok(html.includes(text), text);
+  /* one destination for the reset: the commissioner menu's Setup */
+  assert.ok(!html.includes("Reset game progress"), "no duplicate reset in the console");
+  assert.match(html, /aria-pressed="true"[^>]*><span class="fd-menu-name">QA strip<\/span>/, "the strip's switch");
   /* the order: Step, Bets, Jump to, Lens, Checkpoints, Reset last */
   const order = ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset"]
     .map(label => html.search(new RegExp(`<span>${label}</span>(<span class="fd-qa-aside">[^<]*</span>)?</h3>`)));

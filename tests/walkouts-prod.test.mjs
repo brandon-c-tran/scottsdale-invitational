@@ -289,7 +289,7 @@ test("a walkout never gates an official write and outlives a progress reset", as
   assert.deepEqual(walkoutOf(tournament.state), live, "the song is still on the speaker");
 });
 
-test("production gets Audio Director from its flags and plays only once its secrets exist", () => {
+test("production gets the Speaker from its flags and plays only once its secrets exist", () => {
   const production = flags => new Tournament(memoryContext().context,
     { APP_ENV:"production", M2_AUDIO_CATALOG_ENABLED:"true", M2_AUDIO_PLAYBACK_ENABLED:"true", ...flags }).capabilities;
   const unset = production({});

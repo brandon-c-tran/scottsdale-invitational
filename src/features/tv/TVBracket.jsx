@@ -111,6 +111,17 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
 
   const lines = [];
   rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
+    /* a bye (v3.1: the bottom of the board) enters already advanced */
+    if (slot?.t !== undefined && r > 0) {
+      const y = geo.rowY(r, m, index), leftward = geo.dir(r, m) < 0;
+      lines.push(<svg key={`${r}-${m}-${index}-bye`} className="tv-bracket-line is-on is-bye" aria-hidden="true"
+        viewBox="0 0 100 100" preserveAspectRatio="none"
+        style={{ left:leftward ? `calc(${colLeft(geo.col(r, m))} + ${colW})` : colLeft(geo.col(r, m), -dims.colGap),
+          width:dims.colGap, top:y - 2, height:4 }}>
+        <path d="M0 50 H100" vectorEffect="non-scaling-stroke" />
+      </svg>);
+      return;
+    }
     if (!slot?.w) return;
     const [fr, fm] = slot.w;
     const y1 = geo.center(fr, fm), y2 = geo.rowY(r, m, index);
@@ -154,7 +165,9 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
                 const winMoment = !!step && won;
                 const loseMoment = !!step && lost;
                 const arrive = !!landing && landing.index === index && !!team;
+                const bye = r > 0 && [match.a, match.b][index]?.t !== undefined && !!team;
                 const content = <>
+                  {bye && <i className="fd-insert tv-bracket-bye" role="img" aria-label="Bye" />}
                   {dims.faces > 0 && team && <span className="tv-bracket-faces">
                     {team.players.slice(0, 3).map(p => <ChipFace key={p} p={p} size={dims.faces} />)}</span>}
                   <BracketName text={team ? teamLabel(state, team) : "TBD"} dims={side ? dims : null} />

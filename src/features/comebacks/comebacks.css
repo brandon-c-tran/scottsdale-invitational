@@ -19,3 +19,6 @@
 /* the TV horizon: the wanted player's lamp stands over their name */
 .tv-tower-bounty { --lamp:var(--sun); position:absolute; left:50%; top:-30px; transform:translateX(-50%); line-height:0; }
 .tv-tower-bounty .fd-insert { width:22px; height:22px; box-shadow:var(--lens-rim), 0 0 18px 4px color-mix(in srgb, var(--sun) 60%, transparent); }
+/* the TV bracket's byes (TVBracket.jsx): advanced, an info lamp at the row's head */
+.tv-bracket-line.is-bye path { stroke:var(--lamp-info); stroke-dasharray:8 6; }
+.tv-bracket-bye { --lamp:var(--lamp-info); flex:none; width:16px; height:16px; }

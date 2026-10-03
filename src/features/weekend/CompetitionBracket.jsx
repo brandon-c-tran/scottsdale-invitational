@@ -125,6 +125,17 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
   /* one elbow per fed slot, from the feeder's right edge to the slot it fills */
   const connectors = [];
   rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
+    /* a bye (v3.1: the bottom of the board) enters already advanced: its
+       line runs in from the round it skipped */
+    if (slot?.t !== undefined && r > 0) {
+      const y = rowY(r, m, index);
+      connectors.push(<svg key={`${r}-${m}-${index}-bye`} className="fd-bracket-line is-bye" aria-hidden="true"
+        viewBox="0 0 100 100" preserveAspectRatio="none"
+        style={{ left:`calc(${colLeft(r)} - ${dims.colGap}px)`, width:dims.colGap, top:y - 1, height:2 }}>
+        <path d="M0 50 H100" vectorEffect="non-scaling-stroke" />
+      </svg>);
+      return;
+    }
     if (!slot?.w) return;
     const [fr, fm] = slot.w;
     const y1 = centers[fr][fm] * unit, y2 = rowY(r, m, index);
@@ -160,8 +171,11 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
           const name = team ? teamLabel(state, team) : "TBD";
           const fullName = team?.players.map(player => disp(state, player)).join(" & ");
           const mine = !!team?.players.includes(me);
-          const className = `fd-bracket-team${won ? " is-winner" : ""}${lost ? " is-loser" : ""}${mine ? " is-you" : ""}${team ? "" : " is-empty"}`;
+          const bye = r > 0 && [match.a, match.b][index]?.t !== undefined && !!team;
+          const className = `fd-bracket-team${won ? " is-winner" : ""}${lost ? " is-loser" : ""}${mine ? " is-you" : ""}${team ? "" : " is-empty"}${bye ? " is-bye" : ""}`;
+          const byeLamp = bye && <i className="fd-insert fd-bracket-bye" role="img" aria-label="Bye" />;
           if (compact) return <div key={index} className={className}>
+            {byeLamp}
             {team && <span className="fd-bracket-faces" aria-hidden="true">{team.players.slice(0, 3).map(player =>
               <Avatar key={player} state={state} p={player} size={20} />)}</span>}
             <span className="fd-bracket-name">{name}</span>
@@ -169,6 +183,7 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
           </div>;
           const selectable = canRecord && isCurrent && !decided && sides.every(side => side !== null && side !== undefined);
           return <div key={index} className={className}>
+            {byeLamp}
             {team && <div className="fd-bracket-players">{team.players.map(player => <button key={player} type="button"
               aria-label={`View ${disp(state, player)}'s player card`} disabled={pending || !onPlayer}
               onClick={() => onPlayer?.(player)}><Avatar state={state} p={player} size={26} /></button>)}</div>}

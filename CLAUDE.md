@@ -459,7 +459,7 @@ Wave 2 (Brandon's staging feedback: less busy, color by role, one type
 family: Big Shoulders Display 900 plus the Inline cut for hero lettering
 only, Shrikhand removed; hero-only drum reels; no stranger's numbers;
 commissioner dock; new TV ticker and calm towers; touch tilt, glass
-reflection, parallax painting, coin chips; the per-team draw partner beat;
+reflection, parallax painting, coin chips; the per-team draw partner beat (replaced Oct 3: a team now turns as one card, `drawBeats`);
 in-app TV mode counted as a TV) went to staging as `d87c5798`. Wave 3 (new
 mark "the chip, lit" and icon set; `npm run audit:fit` fit audit, 179 views
 clean; 23.5 s crown; champion card and big-bracket stage; PayoutLadder

@@ -327,6 +327,35 @@ function awards() {
   return state;
 }
 
+/* v3.1 comebacks: Beer Die's first match opened with a leader on one side
+   and that side 1,000+ ahead, so the board carries Bounty +200 and an
+   underdog paying 2:1. The draw is real; the market is taken back, the
+   leader is ruled up, and betting reopens so the odds are fixed then. */
+export function comebackBoard({ bets = true } = {}) {
+  const state = fresh("event:putt:done");
+  act(state, "announceAndDraw", { evId:"die" });
+  const ev = eventOf(state, "die");
+  const side = resolveCurrentContest(state, ev).sides[0];
+  act(state, "takeBackAnnouncement", { evId:"die" });
+  side.players.forEach((player, i) => act(state, "adjust", { player, delta:i ? 900 : 1500, reason:"fit" }));
+  act(state, "announceEvent", { evId:"die" });
+  const contest = resolveCurrentContest(state, ev);
+  if (bets) contest.sides.forEach((item, k) => ROSTER.filter(player => !contest.players.includes(player)).slice(k * 3, k * 3 + 3)
+    .forEach((player, i) => act(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name, stake:STAKES[i] || 100,
+      contestId:contest.id, contestRevision:contest.revision, match:contest.match, teamIdx:item.key, drawId:contest.drawId } },
+    playerCtx(player))));
+  return state;
+}
+/* the commissioner's pill on Beer Die's draw beat: the crew check opens */
+const crewBeat = () => fresh("event:putt:done");
+/* a bracket of nine seeded on a moved board: the byes sit at the bottom */
+function byeBracket() {
+  const state = fresh("event:putt:done");
+  ROSTER.slice(9).forEach(player => act(state, "setAway", { player, away:true }));
+  act(state, "announceAndDraw", { evId:"bball1" });
+  return state;
+}
+
 /* a stand-in album cover (the audit never reaches Spotify's image host) */
 const FIT_COVER = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <rect width="64" height="64" fill="#1d2b5e"/><circle cx="44" cy="22" r="12" fill="#f2b33d"/>
@@ -460,6 +489,10 @@ export const TV_SCENARIOS = Object.freeze([
     moment:{ kind:"walkout", t:3000, record:true } },
   { id:"tv-faceoff", build:() => fresh("event:pickleball:open"), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-faceoff-solo", build:() => bracketOf(13), moment:{ kind:"faceoff", t:5000 } },
+  /* v3.1 comebacks: the bounty and the underdog's 2:1 on the board and the face-off */
+  { id:"tv-comeback-open", build:() => comebackBoard() },
+  { id:"tv-comeback-faceoff", build:() => comebackBoard({ bets:false }), moment:{ kind:"faceoff", t:5000 } },
+  { id:"tv-bracket9-byes", build:byeBracket },
   { id:"tv-bust", build:() => fresh("poker:live"), moment:{ kind:"bust", t:1500, player:"Richard" } },
   { id:"tv-blinds", build:() => fresh("poker:live"), moment:{ kind:"blinds", t:1500 } },
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },
@@ -575,6 +608,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"names-long-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia"), tabs:["home", "bets"] },
   { id:"names-long-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball"), tabs:["bets"], sheets:["event"] },
   { id:"gm-names", build:() => fresh("event:volley:open"), viewer:"gm", tabs:[], sheets:["event"] },
+  /* v3.1: the crew check before a draw, a bounty matchup and an underdog board */
+  { id:"gm-crew-check", build:crewBeat, viewer:"gm", tabs:["home"], sheets:["crew-check"] },
+  { id:"comeback-board", build:() => comebackBoard(), tabs:["home", "bets"], sheets:["card"] },
+  { id:"bracket9-byes", build:byeBracket, tabs:[], sheets:["event"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

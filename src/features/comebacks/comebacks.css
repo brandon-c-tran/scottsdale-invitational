@@ -10,9 +10,9 @@
 .fd-side-pays.is-underdog { color:var(--sun); }
 
 /* the TV: 24px is the floor for any text on the canvas */
-.fd-side-terms.is-tv { gap:16px; min-height:44px; justify-content:center; }
-.fd-side-terms.is-tv .fd-side-pays { font-size:30px; letter-spacing:.04em; }
-.fd-side-terms.is-tv .fd-bounty-tag { gap:10px; padding:6px 16px 6px 12px; border-radius:10px; font-size:30px; letter-spacing:.04em; }
+.fd-side-terms.is-tv { gap:8px 12px; min-height:44px; justify-content:center; flex-wrap:wrap; overflow:visible; }
+.fd-side-terms.is-tv .fd-side-pays { font-size:28px; letter-spacing:.03em; }
+.fd-side-terms.is-tv .fd-bounty-tag { gap:8px; padding:6px 12px 6px 10px; border-radius:10px; font-size:28px; letter-spacing:.03em; }
 .fd-side-terms.is-tv .fd-insert { width:16px; height:16px; }
 .tv-faceoff-terms { margin-top:14px; }
 .tv-side-terms { margin-top:8px; }

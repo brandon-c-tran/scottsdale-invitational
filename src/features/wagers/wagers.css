@@ -404,6 +404,7 @@
 @media (prefers-reduced-motion:reduce) { .fd-wagers-pot.is-held .fd-wagers-backer.is-lost { animation:none; opacity:.45; } }
 /* v3.1 comebacks: a side's payout and its bounty share one row on every card
    of a two-sided board; a wide board lights only the wanted player's row */
-.fd-wagers-terms { height:24px; min-height:24px; padding:0 8px; }
+/* two short lines, the same on every card: the payout, then the bounty */
+.fd-wagers-terms { flex-direction:column; align-items:flex-start; justify-content:center; gap:4px; height:44px; min-height:44px; padding:0 8px; }
 .fd-wagers-pick.is-one-line > .fd-wagers-wanted { grid-row:1; grid-column:1; justify-self:end; align-self:start; margin:7px 8px 0 0; }
 .fd-wagers-pick.is-one-line > .fd-wagers-terms { display:none; }

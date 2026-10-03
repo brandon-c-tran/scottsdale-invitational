@@ -142,6 +142,12 @@ async function openSheet(kind) {
     return tap(() => document.querySelector("[data-qa-open]")
       || [...document.querySelectorAll("button")].find(b => visible(b) && b.textContent.trim() === "Console"));
   }
+  /* v3.1: the pill's draw beat opens Before the draw */
+  if (kind === "crew-check") {
+    const ok = await tap(() => document.querySelector(".fd-director-pill"));
+    await sleep(500);
+    return ok && !!document.querySelector(".fd-crew-check");
+  }
   if (kind === "pill-more") {
     return tap(() => document.querySelector("[data-pill-more]"));
   }

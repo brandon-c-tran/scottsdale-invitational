@@ -19,8 +19,9 @@
   border:0; border-radius:10px; background:none; color:var(--ink); cursor:pointer; }
 .fd-crew-chip:disabled { cursor:default; }
 .fd-crew-face { position:relative; display:block; border-radius:50%; line-height:0; transition:filter .18s, opacity .18s, box-shadow .18s; }
-.fd-crew-name { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:700 13px/1.15 var(--fd-body);
-  color:var(--ink); }
+/* a long name takes a second line, never an ellipsis */
+.fd-crew-name { max-width:100%; min-height:2.3em; font:700 13px/1.15 var(--fd-body); color:var(--ink); text-align:center;
+  text-wrap:balance; overflow-wrap:anywhere; }
 .fd-crew-seat.is-crew .fd-crew-face { box-shadow:0 0 0 2px var(--lamp-info), 0 0 14px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
 .fd-crew-seat.is-away .fd-crew-face { filter:grayscale(1); opacity:.38; }
 .fd-crew-seat.is-away .fd-crew-face::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:2px; margin-top:-1px;
@@ -28,9 +29,12 @@
 .fd-crew-seat.is-away .fd-crew-name { color:var(--disabled); text-decoration:line-through; }
 .fd-crew-seat.is-pending .fd-crew-face { animation:fd-crew-wait 1.2s steps(1, end) infinite; }
 @keyframes fd-crew-wait { 50% { opacity:.55; } }
-.fd-crew-role { min-height:28px; max-width:100%; padding:0 8px; border-radius:6px; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent);
+.fd-crew-role { min-height:28px; max-width:none; padding:0 6px; border-radius:6px; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent);
   background:color-mix(in srgb, var(--lamp-info) 12%, var(--paper)); color:var(--lamp-info); cursor:pointer;
-  font:800 12px/1 var(--fd-show); letter-spacing:.06em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  font:800 13px/1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; }
+.fd-crew-role { position:relative; }
+/* a 44px target around the tag */
+.fd-crew-role::before { content:""; position:absolute; inset:-8px -4px; }
 .fd-crew-role:disabled { cursor:default; opacity:.6; }
 .fd-crew-error { margin:0 0 10px; color:var(--clay-text); font-size:13px; }
 @media (prefers-reduced-motion:reduce) { .fd-crew-seat.is-pending .fd-crew-face { animation:none; } .fd-crew-face { transition:none; } }

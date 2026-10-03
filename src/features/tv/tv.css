@@ -267,7 +267,8 @@
 /* once any chip lands every spot is the same window in the pane */
 .tv-sides.is-field:not(.is-quiet) .tv-side.is-spot { border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
 .tv-spot-id { display:flex; align-items:center; gap:12px; min-width:0; height:60px; }
-.tv-spot-id .tv-side-title { font-size:40px; }
+/* a name lettered as written, one line, at the size every spot shares */
+.tv-spot-name { min-width:0; line-height:1.15; color:var(--bone); white-space:nowrap; }
 .tv-spot-felt > .tv-side-total { position:absolute; left:0; right:0; top:0; text-align:center; margin:0; font-size:40px; line-height:1.1; }
 .tv-spot-felt { position:relative; height:var(--field-stack-h, 150px); display:flex; align-items:flex-end; justify-content:center; }
 .tv-spot-felt .tv-stacks { flex-wrap:nowrap; align-items:flex-end; justify-content:center; gap:12px; }
@@ -491,7 +492,13 @@
 
 /* ── the poker finale: a broadcast table ── */
 .tv-table { position:relative; padding:0; }
-.tv-table-stage { position:absolute; left:0; top:0; width:1920px; height:836px; }
+/* the finale's room: the table under its own lamp, the painting's floor
+   falling away into the dark around it, so no horizon or saguaro stands
+   behind a seat; the sky above stays the session's */
+.tv-table::before { content:""; position:absolute; left:0; right:0; top:240px; bottom:-140px; z-index:0; pointer-events:none;
+  background:radial-gradient(60% 52% at 50% 40%, color-mix(in srgb, var(--sun) 9%, transparent), transparent 72%),
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--night-deep) 96%, transparent) 48%); }
+.tv-table-stage { position:absolute; z-index:1; left:0; top:0; width:1920px; height:836px; }
 .tv-table-felt { position:absolute; left:0; top:0; }
 .tv-table-rail { fill:var(--ink0); stroke:var(--line); stroke-width:2px; }
 .tv-table-rim { fill:none; stroke:var(--sun); stroke-width:4px; }
@@ -729,6 +736,14 @@
 .tv-result-headline-name { line-height:1.12; color:var(--bone); white-space:nowrap; text-shadow:var(--keyline); }
 .tv-result-headline .tv-leadchange { margin-top:8px; }
 .tv-towers-head { position:absolute; left:var(--tv-edge); right:var(--tv-edge); top:12px; }
+/* the next event over the board's sky: one ribbon of liquid glass */
+.tv-next-ribbon, .tv-next-ribbon.fd-liquid-sweep { position:absolute; left:50%; top:34px; transform:translateX(-50%); display:flex; align-items:center; gap:28px;
+  max-width:calc(1920px - 2 * var(--tv-edge)); height:140px; padding:0 44px 0 24px; border-radius:24px; white-space:nowrap;
+  animation:tv-ribbon-in .7s var(--ease-out) both; }
+.tv-next-ribbon-name { font-size:92px; line-height:1.12; color:var(--bone); }
+.tv-next-ribbon-ladder { flex-shrink:0; padding-left:28px; border-left:1px solid var(--bone-line); }
+@keyframes tv-ribbon-in { from { opacity:0; transform:translate(-50%, -24px); } to { opacity:1; transform:translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .tv-next-ribbon { animation:none; } }
 @media (prefers-reduced-motion: reduce) {
   /* the end state: the board at rest */
   .tv-tower-delta { display:none; }

@@ -834,6 +834,27 @@ export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = 
   return { size:Math.max(24, Math.min(max, two)), lines };
 }
 
+/* A wide field's names (one spot a side): one size for every spot and one
+   line each, never a size per name or a wrap. The faces step down (56, 48,
+   40) until every name stands beside them at 30px or more, else at the
+   size the longest allows at the smallest faces (never under 24). Names are
+   lettered as written (show weight, about .47em a letter). `players` is
+   the most a side has (a pair's faces overlap by 30%). */
+export function fieldNameFit(names = [], spot = 236, players = 1, { max = 40, min = 24, pad = 32, gap = 12 } = {}) {
+  const longest = Math.max(4, ...names.map(name => String(name || "").length));
+  const n = Math.max(1, players);
+  const fit = face => {
+    const facesW = face + (n - 1) * face * 0.7;
+    return { face, size:Math.min(max, Math.floor((spot - pad - facesW - gap) / (longest * ADVANCE))) };
+  };
+  for (const face of [56, 48, 40]) {
+    const at = fit(n > 1 ? face - 12 : face);
+    if (at.size >= 30) return at;
+  }
+  const last = fit(n > 1 ? 32 : 40);
+  return { face:last.face, size:Math.max(min, last.size) };
+}
+
 /* the wall clock in the masthead, from the server's time, with its AM/PM:
    without it "4:00" reads as a countdown */
 export const tvClock = now => {

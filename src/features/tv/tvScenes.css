@@ -89,7 +89,24 @@
 .tv-canvas:has(.tv-crown.is-flooded.is-ink-bone) :is(.tv-mast-title, .tv-mast-edition, .tv-status) { color:var(--bone); }
 .tv-crown { position:absolute; inset:0; }
 /* the champion's color, the whole screen under the masthead's type */
-.tv-crown-flood { position:absolute; left:0; right:0; top:calc(-1 * var(--tv-mast-h, 118px)); bottom:0; z-index:2; background:var(--champ-color); }
+/* lit glass, not a flat field: their color is the light behind the pane,
+   brighter from above and falling off to its edges and foot, the pane's two
+   reflection bands across it, a halftone of their own ink shading the
+   corner the way a printed backglass shades a field. The middle, where the
+   name and the stack sit, stays their exact color (champ-ink is read
+   against it). */
+.tv-crown-flood { position:absolute; left:0; right:0; top:calc(-1 * var(--tv-mast-h, 118px)); bottom:0; z-index:2;
+  background:var(--lg-bands),
+    radial-gradient(64% 78% at 66% 48%, transparent 46%, color-mix(in srgb, var(--ink0) 34%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bone) 12%, transparent), transparent 26%),
+    var(--champ-color); }
+.tv-crown-flood::after { content:""; position:absolute; right:0; bottom:0; width:46%; height:52%; pointer-events:none;
+  background:radial-gradient(circle, color-mix(in srgb, var(--ink0) 16%, transparent) 0 1.6px, transparent 2.4px) 0 0 / 10px 10px;
+  -webkit-mask-image:linear-gradient(to top left, var(--ink0), transparent 70%); mask-image:linear-gradient(to top left, var(--ink0), transparent 70%); }
+/* at rest the champion's chip turns a few degrees, slowly, a coin on show */
+.tv-crown:not(.is-playing) .tv-crown-coin-spin { animation:tv-coin-show 9s ease-in-out infinite; }
+@keyframes tv-coin-show { 0%, 100% { transform:rotateY(-16deg) rotateX(4deg); } 50% { transform:rotateY(16deg) rotateX(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .tv-crown:not(.is-playing) .tv-crown-coin-spin { animation:none; } }
 
 .tv-crown .tv-champ { position:absolute; z-index:3; inset:0; margin:0; padding:16px 64px 54px; gap:56px;
   background:transparent; border:0; border-radius:0; color:var(--champ-ink, var(--bone)); }

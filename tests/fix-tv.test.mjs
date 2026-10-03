@@ -261,7 +261,8 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
      exists only as material), defined once as --tv-sheen */
   const sheen = css.match(/--tv-sheen:[^;]*;/g) || [];
   assert.equal(sheen.length, 1, "one reflection token");
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css.replace(sheen[0], "")), "tokens only, flat");
+  /* tokens only: a gradient is the glass's own light (liquid glass), never a raw color */
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(/i.test(css.replace(sheen[0], "")), "tokens only");
   const shell = readFileSync(new URL("../src/ui/shell.css", import.meta.url), "utf8");
   assert.ok(!shell.includes("si-glow"));
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");

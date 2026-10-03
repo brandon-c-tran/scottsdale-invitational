@@ -69,7 +69,7 @@
 .fd-lamp.is-void { box-shadow:none; border-color:var(--line); opacity:.55;
   background-image:linear-gradient(to top right, transparent calc(50% - 1px), var(--muted) calc(50% - 1px), var(--muted) calc(50% + 1px), transparent calc(50% + 1px)); }
 @keyframes fd-lamp-flash { 0% { box-shadow:0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge); }
-  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp) 30%, transparent), var(--glass-edge); } }
+  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp) 55%, transparent), 0 0 8px color-mix(in srgb, var(--lamp) 14%, transparent), var(--glass-edge); } }
 /* a lamp insert: a lensed lamp set in the glass. A dark seat and a chrome
    rim hold a domed lens; lit, the lens glows from its center and blooms,
    with a specular glint up and to the left. Unlit (done) is the same lens
@@ -78,6 +78,9 @@
   --lamp-on:var(--lamp, var(--lamp-live));
   --lens-lit:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 45%, var(--bone)) 0 18%, var(--lamp-on) 48%, color-mix(in srgb, var(--lamp-on) 55%, var(--ink0)) 100%);
   --lens-off:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 26%, var(--ink0)) 0 40%, color-mix(in srgb, var(--lamp-on) 10%, var(--ink0)) 100%);
+  /* a pending lamp's low phase: the filament still glowing, never off, so
+     a flashing lamp never reads as an unlit one */
+  --lens-dim:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 62%, var(--ink0)) 0 30%, color-mix(in srgb, var(--lamp-on) 30%, var(--ink0)) 100%);
   /* a spent lamp is clear glass: no hue left in it, so done never reads as
      a dim live */
   --lens-spent:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--muted) 34%, var(--ink0)) 0 40%, color-mix(in srgb, var(--muted) 14%, var(--ink0)) 100%);
@@ -91,7 +94,7 @@
 .fd-insert.is-done::after, .fd-insert.is-void::after { opacity:.38; }
 .fd-insert.is-void::before { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px; z-index:1;
   border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
-@keyframes fd-insert-flash { 50% { background:var(--lens-off); box-shadow:var(--lens-rim); } }
+@keyframes fd-insert-flash { 50% { background:var(--lens-dim); box-shadow:var(--lens-rim), 0 0 5px color-mix(in srgb, var(--lamp-on) 30%, transparent); } }
 /* you: the filament. Reserved; nothing else uses --you. */
 .fd-you-lit { box-shadow:var(--you-bloom); border-color:var(--you) !important; }
 @media(prefers-reduced-motion:reduce) { .fd-lamp.is-pending, .fd-insert.is-pending { animation:none; } }

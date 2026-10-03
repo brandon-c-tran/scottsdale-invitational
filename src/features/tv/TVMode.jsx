@@ -21,7 +21,7 @@ import {
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
   tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, tvClock, stageChrome, boardLevel,
-  backersRail,
+  backersRail, fieldNameFit,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
@@ -303,17 +303,34 @@ const towerClass = winners => row => `${towerMoved(row) ? "is-moved" : "is-still
 /* the sky above the towers: a sign, or a result's headline in the empty
    upper half (the towers stand under it) */
 const HEADLINE_TOP = 330;
-function TowersView({ state, rows, head = null, headline = null, winners = null, height, towers, fallback, change = false,
-  sound = "fresh" }) {
+function TowersView({ state, rows, head = null, headline = null, ribbon = null, winners = null, height, towers, fallback,
+  change = false, sound = "fresh" }) {
   const leaders = towerLeaders(rows);
   return (
     <div className={`tv-towers-pane${change ? " is-change" : ""}`}>
       <TowersBoard fallback={fallback} rows={rows} leaders={leaders} width={1920} height={height}
-        baseY={towerBase(height)} top={headline ? HEADLINE_TOP : head ? 120 : 40} pixelRatio={towers.pixelRatio}
+        baseY={towerBase(height)} top={headline ? HEADLINE_TOP : ribbon ? RIBBON_TOP : head ? 120 : 40} pixelRatio={towers.pixelRatio}
         reducedMotion={towers.reducedMotion} labelFor={towerLabel(state, { change })}
         labelClass={change ? towerClass(winners || new Set()) : null} sound={sound} />
       {headline}
+      {ribbon}
       {head && <div className="tv-towers-head tv-sign">{head}</div>}
+    </div>
+  );
+}
+
+/* The board's sky while the weekend waits: what is next, one ribbon of
+   liquid glass high over the towers (its mark, its name, what it pays). No
+   "Next" label: the composition says it. */
+const RIBBON_TOP = 190;
+function NextRibbon({ ev }) {
+  return (
+    <div className="tv-next-ribbon fd-liquid fd-liquid-sweep" aria-label={`Next: ${ev.name}`}>
+      <GameMark id={ev.game} variant={ev.variant} size={92} />
+      <span className="fd-show tv-next-ribbon-name"
+        style={{ fontSize:Math.max(40, Math.min(92, Math.floor(1120 / (Math.max(6, ev.name.length) * 0.47)))) }}>
+        <EventName name={ev.name} /></span>
+      <PayoutLadder ev={ev} size="ticker" className="tv-next-ribbon-ladder" />
     </div>
   );
 }
@@ -401,21 +418,22 @@ export function fieldLayout(count, width) {
 function FieldFelt({ state, ev, contest, stacks, width }) {
   const layout = fieldLayout(contest.sides.length, width);
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
+  const views = contest.sides.map(side => contestSideView(state, ev, contest, side));
+  /* every spot letters its name at one size, on one line, beside faces of one size */
+  const nameFit = fieldNameFit(views.map(view => view.name), layout.spot, Math.max(1, ...views.map(view => view.players.length)));
   return (
     <div className={`tv-sides is-field${any ? "" : " is-quiet"}`}
       style={{ gridTemplateColumns:`repeat(${layout.perRow}, minmax(0, 1fr))`, "--field-stack-h":`${layout.stackH}px` }}>
-      {contest.sides.map(side => {
-        const view = contestSideView(state, ev, contest, side);
+      {contest.sides.map((side, index) => {
+        const view = views[index];
         const ride = stacks.get(side.key) || { stacks:[], total:0 };
-        const face = view.players.length > 1 ? 44 : 56;
-        const facesW = face + (view.players.length - 1) * face * 0.7;
         /* one stack carries its own amount; two or more get the side's total */
         const summed = ride.stacks.length > 1;
         return (
           <div key={String(side.key)} className={`tv-side is-spot${ride.stacks.length ? " has-chips" : ""}`}>
             <div className="tv-spot-id">
-              <Faces players={view.players} size={face} overlap />
-              <SideName name={view.name} width={layout.spot - 28 - facesW - 12} max={40} min={24} />
+              <Faces players={view.players} size={nameFit.face} overlap />
+              <div className="fd-show tv-spot-name" style={{ fontSize:nameFit.size }}>{view.name}</div>
             </div>
             {any && <div className="tv-spot-felt">
               {summed && <div className="tv-side-total">{fmt(ride.total)}</div>}
@@ -1108,6 +1126,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
       /></div>;
     content = towers.on ? <TowersView state={state} rows={standingsTowerRows(standings)}
+      ribbon={nextEv && !final ? <NextRibbon ev={nextEv} /> : null}
       height={towers.height} towers={towers} fallback={flat} /> : flat;
   }
   /* betting open on an event not yet in play: its name in the masthead */

@@ -388,6 +388,29 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `triviaSimAnswers` (QA capability) answers for every unlocked team.
   `/dev/trivia-preview.html` rehearses every moment on a player's phone, a
   spectator's, the TV and the desk (`&desk=bank|round|choice|tune`).
+- **Team names** (Oct 3, `shared/teamNames.js`, `worker/teamNames.js`,
+  `src/features/teams/`): suggestions are made from the team itself (a
+  first-name alliteration or blend, "Brankhoa", jersey numbers, "Seven
+  Twenty-Three", chip color families, "Gold Rush", team size, the game's
+  puns, the desert; the old mascots are one flavor), seeded by the draw
+  id's random part + team index, so every screen and a seeded rehearsal
+  agree; three a round, the shuffle reads the next three, each at most 20
+  characters and screened (`safeName`). A draw or confirmed draft stores
+  the first suggestion as a team of 3+'s `name`; pairs stay "A & B" until
+  named. `nameTeam { evId, drawId, team, name }`: any member (device claim)
+  until the event's first contest locks or starts (`teamNamesLocked`), the
+  commissioner always; stale draw ids, duplicates (case-insensitive),
+  blanks, over 24 characters and words over 15 letters are refused; a pair
+  may clear back to its names; retries replay from server-only
+  `eventOps.nameCommands`. The team records `named { by, gm, at }`. Names
+  are labels only (wagers, brackets, results key on team index and
+  players). Home and the event sheet show your team's "Name your team" card
+  (`TeamNameCard`, suggestions as chips, the current one lit, Write your
+  own), the Commissioner section `TeamNameDesk`; a fresh rename re-letters
+  in place (`RenameText`: TV side names, bracket cells, stage groups, the
+  phone bets board) and the TV plays one `stamp` at `named.at`
+  (`roomSound.js`). Fit audit views: `tv-names-*`, `name-team*`,
+  `names-long*`, `gm-names`.
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone
   resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no

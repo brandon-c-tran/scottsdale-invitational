@@ -20,6 +20,7 @@ import { WinLine } from "../standings/WinLine.jsx";
 import { GlassArt } from "../../ui/GlassArt.jsx";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { RenameText } from "../teams/RenameText.jsx";
 import { Coin } from "../../ui/Coin.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
 import "./wagers.css";
@@ -77,7 +78,8 @@ export const isUncertainResult = result => result?.ok !== true && (result?.uncer
 
 const PLACE_QUEUE = 4;
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
-  roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine, winSlot = false, lines = 2 }) {
+  roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine, winSlot = false, lines = 2,
+  named = false }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
@@ -299,21 +301,25 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
   const pot = <span ref={mineRef} className={`fd-wagers-pot-stack${sideTotal > 0 ? "" : " is-empty"}`} aria-hidden="true">
     {sideTotal > 0 && potStack}
   </span>;
+  const faceOnly = players.length > 3 || (lines === 1 && players.length > 2 || named)
+    && players.some(player => disp(state, player).length > (named ? 10 : 8));
   return <div className={`fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}`}>
-    <div className={`fd-wagers-pick-identity${players.length > 2 ? " is-team" : ""}`}>
+    <div className={`fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : ""}`}>
       {players.length === 1 ? <button type="button" className="fd-wagers-player" disabled={!onPlayer}
         onClick={() => onPlayer?.(players[0])} aria-label={`View ${name}'s player card`}>
         <Avatar state={state} p={players[0]} size={lines === 1 ? 34 : 26} />{winInline ? <span className="fd-wagers-player-text">
           <span>{name}</span><WinLine line={inlineLine} className="fd-wagers-win-inline" /></span> : <span>{name}</span>}
       </button> : <>
-        {players.length > 2 && <span className="fd-wagers-team-name">{name}</span>}
+        {/* a team's name (a pair's too, once it takes one), re-lettered when it changes */}
+        {(players.length > 2 || named) && <RenameText name={name} className={`fd-wagers-team-name${name.length > 16 ? " is-long" : ""}`} />}
         {/* a team past three shows its faces across the card, no names, so
-            all of them fit without a scroll */}
-        <span className={`fd-wagers-team-players${players.length > 3 ? " is-many" : ""}`}
-          style={players.length > 3 ? { "--fd-team-n":players.length } : undefined}>{players.map(player => <button type="button" key={player}
+            all of them fit without a scroll; so does a team of three on a
+            narrow card (a board of 3+ sides) once a name would not fit */}
+        <span className={`fd-wagers-team-players${faceOnly ? " is-many" : ""}`}
+          style={faceOnly ? { "--fd-team-n":players.length } : undefined}>{players.map(player => <button type="button" key={player}
           disabled={!onPlayer} onClick={() => onPlayer?.(player)} title={disp(state, player)}
           aria-label={`View ${disp(state, player)}'s player card`}>
-          <Avatar state={state} p={player} size={24} />{players.length <= 3 && <span>{disp(state, player)}</span>}
+          <Avatar state={state} p={player} size={24} />{!faceOnly && <span>{disp(state, player)}</span>}
         </button>)}</span>
       </>}
     </div>
@@ -679,7 +685,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     const pick = contestPick(contest, side, ev);
     const eligible = !!me && contestBetEligibility(contest, me, side.key);
     const otherSide = eligible && heldSide !== null && heldSide !== side.key;
-    return { key:side.key, state, me, players:side.players, name, marketOpen,
+    return { key:side.key, state, me, players:side.players, name, named:side.players.length === 2 && !!drawnTeam?.name, marketOpen,
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
       onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)), winLine:wide && !own ? null : winLineFor(winLines, side.key),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,

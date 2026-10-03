@@ -38,6 +38,8 @@ import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
 import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
+import { teamNameActions } from "./teamNames.js";
+import { defaultTeamNames } from "../shared/teamNames.js";
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
@@ -491,6 +493,8 @@ export const ACTIONS = {
   ...geoActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* Trivia (worker/trivia.js): a finish posts through saveResult */
   ...triviaActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
+  /* a team's name: its members until it locks, the commissioner always */
+  ...teamNameActions({ ok, err }),
   /* ── team MVP ── */
   mvpVote(state, { evId, pick }, ctx) {
     const record = state.mvp?.[evId];
@@ -2171,13 +2175,15 @@ export const ACTIONS = {
     /* an everyone-plays event may end one apart (7 v 6) once the pool is empty */
     if (participationForEvent(ev).type !== "all" && d.teams.some(team => team.players.length !== fit.size))
       return err(`Teams must have exactly ${fit.size} players`);
-    const mascots = (fit.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+    /* the seeded rehearsal's random stream stays as it was (shared/core.js TEAM_NAMES) */
+    if ((fit.size || 0) >= 3) shuffle(TEAM_NAMES);
     const now = Date.now(), turn = draftTurn(d), drawId = `d${now}-${crypto.randomUUID()}`;
+    const names = defaultTeamNames(state, ev, drawId, d.teams);
     state.draws[evId] = { id:drawId, method:"draft", ts:now, sourceDraftId:d.id,
       draft:{ id:d.id, revision:turn.draftRevision, picks:d.picks.map(pick => ({ ...pick })) },
       roles:(d.roles || []).map(role => ({ ...role })),
       teams:d.teams.map((team, index) => ({ captain:team.captain, players:[...team.players],
-        ...(mascots ? { name:mascots[index % mascots.length] } : {}) })) };
+        ...(names[index] ? { name:names[index] } : {}) })) };
     delete state.stages[evId];
     if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(state.draws[evId].teams.length);
     else delete state.brackets[evId];

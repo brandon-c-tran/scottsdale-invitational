@@ -210,6 +210,17 @@ function matchupBets(a, b) {
   return state;
 }
 
+/* Team names at their longest (features/teams): every team renamed by the
+   commissioner to a 24-character name, one of them a single long word */
+export const LONG_TEAM_NAMES = Object.freeze(["Les Quizerables Reunited", "Periwinkle Twinkle Stars",
+  "Unstoppableones Club", "Smarty Pints and Friends", "Dink Responsibly Please", "Kitchen Nightmares Crew"]);
+export function longNames(state, evId) {
+  const draw = state.draws[evId];
+  draw.teams.forEach((team, index) => act(state, "nameTeam", { evId, drawId:draw.id, team:index,
+    name:LONG_TEAM_NAMES[index % LONG_TEAM_NAMES.length] }));
+  return state;
+}
+
 /* Where and When: three rounds, the room guessing, a reveal, the end */
 export const GEO_ROUNDS = Object.freeze([
   { id:"gfitround1", photo:{ id:"gfitphoto1", w:1600, h:1200 }, lat:37.8199, lng:-122.4783, place:"Golden Gate Bridge",
@@ -455,6 +466,15 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-nowplaying-mvp", build:() => walkoutRecord(fresh("event:pickleball:open"), "Jeremy", { mvp:true }), at:{ walkout:12000 } },
   { id:"tv-nowplaying-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), at:{ walkout:12000 } },
   { id:"tv-nowplaying-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), at:{ walkout:12000 } },
+  /* team names at their longest on every board that letters them */
+  { id:"tv-names-team", build:() => longNames(fresh("event:bball5:open"), "bball5") },
+  { id:"tv-names-team4", build:() => longNames(fresh("event:volley:open"), "volley") },
+  { id:"tv-names-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia") },
+  { id:"tv-names-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball") },
+  { id:"tv-names-podium", build:() => longNames(posted("event:bball5:open", "bball5"), "bball5"), at:{ result:3600 } },
+  { id:"tv-names-faceoff", build:() => longNames(fresh("event:volley:open"), "volley"), moment:{ kind:"faceoff", t:5000 } },
+  { id:"tv-names-nowplaying", build:() => walkoutRecord(longNames(fresh("event:bball5:done"), "bball5"), "Brandon", { cover:true }),
+    at:{ walkout:12000 } },
 ]);
 
 /* ── the phone ──
@@ -547,6 +567,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
   { id:"walkout-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), settle:false, tabs:[],
     sheets:["walkout"] },
+  /* naming your team: the card on Home (a team of seven, a team of three),
+     writing your own, and the longest names on every phone board */
+  { id:"name-team7", build:() => fresh("event:bball5:open"), tabs:["home"], sheets:["teamname-write"] },
+  { id:"name-team3", build:() => fresh("event:volley:open"), tabs:["home"], sheets:["event"] },
+  { id:"names-long", build:() => longNames(fresh("event:volley:open"), "volley"), tabs:["home", "bets"], sheets:["event"] },
+  { id:"names-long-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia"), tabs:["home", "bets"] },
+  { id:"names-long-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball"), tabs:["bets"], sheets:["event"] },
+  { id:"gm-names", build:() => fresh("event:volley:open"), viewer:"gm", tabs:[], sheets:["event"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

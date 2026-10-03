@@ -30,6 +30,7 @@ import { StageGroups, RosterWall, TrophyCard, TVWinLine, useContestWinLines } fr
 import { winLineFor } from "../standings/winImpact.js";
 import { TVBracket } from "./TVBracket.jsx";
 import { TVPodium, BackersRail } from "./TVPodium.jsx";
+import { RenameText } from "../teams/RenameText.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
 import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
@@ -388,7 +389,8 @@ function SideName({ name, width, max, min }) {
   const fit = sideNameFit(name, width, { max, min, caps:true });
   return (
     <div className="tv-side-title" style={{ fontSize:fit.size }}>
-      <div className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</div>
+      {/* a team renamed on a fresh frame re-letters in place (features/teams) */}
+      <RenameText name={name} as="div" className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</RenameText>
     </div>
   );
 }

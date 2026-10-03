@@ -3,6 +3,7 @@ import { ROSTER, disp, stageEntrantView } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
+import { RenameText } from "../teams/RenameText.jsx";
 import { TrophyHero, TrophyPlates, trophyPlates } from "../weekend/Trophy.jsx";
 import { editionLabel } from "./tvModel.js";
 import { contestWinLines, winLineFor } from "../standings/winImpact.js";
@@ -39,8 +40,8 @@ export function StageGroups({ state, ev }) {
             {group.entrants.map(key => {
               const view = stageEntrantView(state, st, key);
               const through = (group.through || []).includes(key);
-              return <span key={String(key)} className={group.through?.length ? (through ? "is-through" : "is-out") : ""}>
-                {view.name}</span>;
+              return <RenameText key={String(key)} name={view.name}
+                className={group.through?.length ? (through ? "is-through" : "is-out") : ""} />;
             })}
           </div>
         </div>

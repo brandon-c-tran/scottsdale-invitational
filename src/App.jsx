@@ -75,6 +75,7 @@ import { TvHealth } from "./features/director/TvHealth.jsx";
 import { CommissionerDock } from "./features/director/CommissionerDock.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
+import { TeamNameCard, TeamNameDesk, TeamNamesHome } from "./features/teams/TeamNameCard.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
 import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
 import { triviaQuestionTotal } from "../shared/trivia.js";
@@ -1569,7 +1570,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlayer={p => setModal({type:"player", p})}
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
-          awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
+          awardsContent={<>
+            <TeamNamesHome state={state} me={me} events={events} />
+            <AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />
+          </>}
           mvpContent={<>
             <GeoHome state={state} me={me} onOpen={() => setGeoForce(n => n + 1)} />
             <TriviaHome state={state} me={me} onOpen={() => setTriviaForce(n => n + 1)} />
@@ -2696,6 +2700,8 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
       {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} ev={ev} onClose={()=>setHowTo(false)}/>}
       {/* the contest: live it leads; a commissioner's quick Undo shows here in any state */}
       <ContestPanel {...contestProps} part="contest" />
+      {/* your team's name, while it is still open */}
+      <TeamNameCard state={state} ev={ev} me={me} />
       {stage === "before" && <>
         {who}
         <GameSteps game={ev} size="card" className="fd-es-steps" />
@@ -2719,6 +2725,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
       {gm && <section className="fd-es-gm" aria-labelledby={`fd-es-gm-${ev.id}`}>
         <h2 id={`fd-es-gm-${ev.id}`}>Commissioner</h2>
         <ContestPanel {...contestProps} part="commissioner" />
+        <TeamNameDesk state={state} ev={ev} />
         {!state.frozen && <>
           {ev.teamCfg && !draw && !draftLive && !res && (() => {
             const shape = teamFit(ev, present.length) || ev.teamCfg;

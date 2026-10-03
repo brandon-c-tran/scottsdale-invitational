@@ -47,7 +47,7 @@ const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps", "contestMarkets"]);
    frame ever carries a device id or a replay key, at any depth. */
 const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
 const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
-const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
+const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands", "nameCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs"]);
 const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds", "trivia", "triviaRounds", "logistics"]);

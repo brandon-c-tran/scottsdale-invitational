@@ -280,6 +280,55 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   card, keepsake plates, and the awards desk's counted "Most MVPs" award
   (`source:"mvps"`, tallied from MVPs at close, never on the phone ballot).
   QA jumps vote and close it.
+- **Comebacks (v3.1, Oct 3; Brandon chose "Noticeable")**: three rules in
+  `shared/core.js`, each derived or fixed at a named moment so a correction
+  moves it with the record and later standings never do.
+  **Leader bounty** (`BOUNTY_PTS` 200): when a contest's betting locks
+  (`lockAndStart`, or `setOnDeck` closing it) the leaders who play in it are
+  stamped in `eventOps[ev].bounties[contestId]` (`players`, `kind`, its
+  match/group/stage/draw, `field` for a free-for-all, `at`); ties stamp every
+  tied leader, and nothing is stamped when every player in it leads (the
+  level board before the weekend) or no leader plays. `bountyAwards` pays
+  every player on the winning side 200 only while the recorded outcome has
+  no bounty player on it and one on a losing side (a free-for-all: 1st
+  place, the leader in the field and not 1st), derived in
+  `computeStandings` (row `bountyPts`) like `mvpAwards`, so undo, correction
+  and a cleared result take it back and the exposure trim covers it; never
+  in the finale, never to a leader. A fresh lock of the same contest
+  re-stamps it. **Underdog odds** (`UNDERDOG_GAP` 1,000, `UNDERDOG_MULT` 2):
+  `oddsFor` compares a two-sided contest's sides as average chips per
+  player times 2 when its market first opens (`openContest`), stored in
+  `eventOps[ev].odds[contestId]` (`underdog` side key or null) and kept if
+  that contest opens again (a correction's replay); every new ticket stores
+  `mult` = `contestMult(contest, side)`, and `wagerMult` reads any ticket's
+  `mult` (legacy outright 2, other legacy 1), so settlement stays derived.
+  `resolveCurrentContest` attaches `odds` (only with an underdog) and the
+  stamped `bounty`. **Byes to the bottom**: `seedBracket(state, draw)` (every
+  draw and finalized draft) gives `bracketByeSlots` (slots whose first
+  match is after round one, so 5's three and 6's two) to the lowest teams
+  by average chips, lowest into the earliest slot, ties by a hash of the
+  drawn teams, the rest in draw order; a level board keeps the draw order.
+  The bracket stores `seeds[slot]` and `byes`. Surfaces (`features/comebacks/`:
+  `contestTerms`, `boardBounty`, `BountyLamp`, `SideTerms`): an amber bounty
+  lamp on the wanted player's Home row, card and TV tower; each side's
+  "Winner pays 2:1"/"1:1" when a contest carries odds and "Bounty +200" on
+  the side facing the leader (bets board, Home matchup, TV board, face-off;
+  a wide field lights the leader's row instead); the pill's lock beat names
+  both; a bye enters its bracket advanced with an info lamp; the receipt,
+  `chipChanges` (kind `bounty`), last card, season card carry the bounty;
+  the TV rings `payout` 3.4 s after a fresh bounty's decision. Weekend >
+  Rules draws them as the "Comebacks" set (words await Brandon's review).
+- **Before the draw (v3.1)**: the director pill never runs a draw of
+  people directly. A team draw, heats or a captains draft (and the Random
+  draw / Captains draft alternatives) open `features/director/CrewCheck.jsx`
+  (`run.open:"crewCheck"`, `run.then` the beat's own write or the draft
+  sheet): every player as a photo chip, the suggested crew lit (cyan, the
+  role tag under it cycles), a Crew/Away brush (Away writes `setAway` at
+  once and the suggestion follows the room until the crew is touched), the
+  shape, one confirm. `crewCheckRun` puts the confirmed players and crew on
+  `announceAndDraw` (or the draft's pool). The server contract is unchanged;
+  "Change crew" is gone. A draw that already exists (pools of drawn teams)
+  stays one tap.
 - **Where and When** (Oct 1, `shared/geo.js`, `worker/geo.js`,
   `src/features/geo/`, `features/tv/TVGeo.jsx`): Brandon's photos, played
   live. He authors up to 25 rounds in Commissioner > Where and When
@@ -674,15 +723,19 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    carried all weekend is the stack you are dealt. Every value in the economy
    (awards, stakes, duel antes, rulings) is a multiple of PT and one rendered
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
-   team MVPs + wager net + rulings, computed fresh from state every time. No stored
-   balances.
+   team MVPs + leader bounties + wager net + rulings, computed fresh from state
+   every time. No stored balances.
 4. **Current-contest betting:** a free-for-all with more than two sides pays
    2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
    winner pays 1:1. Any contest with exactly two sides, including a
    two-team game like Volleyball, Flip Cup or 5v5, is a matchup paying 1:1,
-   and competitors may back only their own side. Payout copy is always
-   "Winner pays 1:1" or "Winner pays 2:1", never "even". Every bettor holds one side
-   per contest. New outright tickets store their `mult`. The board exposes only that one current contest,
+   except its underdog's side when the sides opened 1,000 or more apart
+   (average chips per player, times 2): that side pays 2:1 (v3.1, Comebacks
+   above). Competitors may back only their own side. Payout copy is always
+   "Winner pays 1:1" or "Winner pays 2:1", never "even", said per side when a
+   contest carries odds. Every bettor holds one side
+   per contest. Every new ticket stores its `mult`; legacy tickets without
+   one keep 2:1 (outright) or 1:1 (everything else). The board exposes only that one current contest,
    never every unresolved bracket matchup or an event-wide outright market
    for an event being played as matches or stages. A competitor may optionally
    back themself or their own team in that contest; spectators may back any

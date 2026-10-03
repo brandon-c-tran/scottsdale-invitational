@@ -7,7 +7,7 @@ import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { DRAW_PARTNER_BEAT_MS, drawRevealGroups, drawStepAt, drawStepDelay, partnerFaces, revealTimeline, startDrawPlayback } from "./drawReveal.js";
+import { DRAW_INTRO_MS, DRAW_PARTNER_BEAT_MS, drawRevealGroups, drawStepAt, drawStepDelay, partnerFaces, revealTimeline, startDrawPlayback } from "./drawReveal.js";
 import { TeamSort, teamOf } from "../moments/TeamSort.jsx";
 import { playSound } from "../../lib/sound.js";
 import { drawPath } from "./drawPath.js";
@@ -15,6 +15,7 @@ import { DrawPathLine } from "./DrawPath.jsx";
 import { currentFrame } from "../../lib/frameGate.js";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { GameSteps, hasGameSteps } from "../rules/GameSteps.jsx";
+import { GameIntro } from "../intro/GameIntro.jsx";
 import "./announcement.css";
 
 /* The announcement's hero, one composed block centred on the sheet: the
@@ -31,10 +32,16 @@ function AnnouncementHero({ ev, visual = null, lamp = null, size = "hero" }) {
   </header>;
 }
 
-export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3000, visual, now:clockNow = serverNow }) {
+/* `live`: the announcement as it happens, opened by the intro on every
+   phone: the game intro (features/intro) heads the sheet on the room's
+   clock from `anchor` (eventOps.announcedAt), the same frame as the TV. */
+export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = DRAW_INTRO_MS, visual, live = false, anchor = null,
+  reduced = false, now:clockNow = serverNow }) {
   const contest = resolveCurrentContest(state,ev);
   /* the match by its name; what the event pays is the ladder, not a line */
-  const detail = !handoff && contest?.kind !== "ffa" ? contestName(state, ev, contest) : null;
+  const named = !handoff && contest?.kind !== "ffa" ? contestName(state, ev, contest) : null;
+  /* never the event's name a second time */
+  const detail = named && named !== ev.name ? named : null;
   /* the handoff bar runs on the room's clock, so a phone that heard late
      starts it part-filled and every bar ends at the shared handoff */
   const [elapsed] = useState(() => {
@@ -42,8 +49,12 @@ export function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs 
     return introAt ? Math.min(holdMs, Math.max(0, clockNow() - introAt)) : 0;
   });
   return <Sheet title={ev.name} heading={false} onClose={onClose} layer={290} className="fd-announcement">
-    <AnnouncementHero ev={ev} visual={visual}
-      lamp={handoff ? { label:"On deck", state:"done" } : { label:"Betting open", state:"pending" }} />
+    {live ? <div className="fd-announcement-intro">
+      <GameIntro ev={ev} surface="phone" anchor={anchor} reduced={reduced} handoff={handoff} now={clockNow} sound />
+      <span className="fd-announcement-state"><i className={`fd-insert is-live${handoff ? " is-done" : " is-pending"}`} aria-hidden="true" />
+        {handoff ? "On deck" : "Betting open"}</span>
+    </div> : <AnnouncementHero ev={ev} visual={visual}
+      lamp={handoff ? { label:"On deck", state:"done" } : { label:"Betting open", state:"pending" }} />}
     {detail && <p className="fd-announcement-detail">{detail}</p>}
     <div className={`fd-announcement-pays${handoff ? " is-handoff" : ""}`}><PayoutLadder ev={ev} size="phone" /></div>
     {!handoff && hasGameSteps(ev) && <GameSteps game={ev} size="card" notes={false} className="fd-announcement-steps" />}

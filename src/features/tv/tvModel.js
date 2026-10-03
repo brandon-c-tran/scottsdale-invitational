@@ -10,11 +10,13 @@ import {
 import { constellationStars, constellationLines } from "./desertModel.js";
 import { liveEventOf, openEvent } from "../../ui/phase.js";
 import { contestStacks, contestOfEntry, settledStacks, eventWinnerStacks } from "../wagers/betStacks.js";
+import { INTRO_MS } from "../intro/introTiming.js";
 
 export const TV_WIDTH = 1920;
 export const TV_HEIGHT = 1080;
-/* the event intro plays as an overlay, then the live board takes over */
-export const TV_INTRO_OVERLAY_MS = 3000;
+/* the event intro plays as an overlay, then the live board takes over:
+   the game intro's own length, the same instant the phones hand over */
+export const TV_INTRO_OVERLAY_MS = INTRO_MS;
 /* the unscripted (no Show Control) intro and draw on the TV close on their own */
 export const TV_INTRO_AUTO_MS = 7000;
 export const TV_INTRO_AUTO_REDUCED_MS = 2200;

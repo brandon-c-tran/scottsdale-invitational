@@ -12,6 +12,8 @@
 
    Nothing here reads tournament state or the DOM. */
 
+import { INTRO_TIMING } from "../features/intro/introTiming.js";
+
 export const NOTE = Object.freeze({ D2:73.42, A2:110, D3:146.83, A3:220, D4:293.66, E4:329.63, Fs4:369.99,
   A4:440, B4:493.88, D5:587.33, E5:659.25, Fs5:739.99, A5:880, B5:987.77, D6:1174.66, E6:1318.51, Fs6:1479.98,
   A6:1760 });
@@ -316,6 +318,68 @@ export function roll(E, t, o = {}) {
   }
 }
 
+/* ── the game intros (S2) ──
+   Seconds from the announcement, on introTiming.js's beats: the move
+   starts at INTRO_TIMING.play and lands on INTRO_TIMING.hit. Every pitched
+   note stays in D. */
+const HIT = INTRO_TIMING.hit / 1000, PLAY = INTRO_TIMING.play / 1000;
+const bloop = (E, t, f, gain = 0.4) => { const v = voice(E, { send:0.2, bright:0.7, gain });
+  mode(E, v, t, f * 1.5, 0.16, 0.5, { drop:-0.33 }); };
+const bounce = (E, t, gain = 0.7, pitch = 1) => { M.drum(E, t, { f:118 * pitch, dec:0.12, gain }); M.felt(E, t + 0.004, { gain:gain * 0.6 }); };
+const swish = (E, t, gain = 0.35) => burst(E, voice(E, { send:0.25, bright:1, gain }), t, { type:"bandpass", f:3400, q:0.8, d:0.26, peak:0.6 });
+const hum = (E, t, d, f0, f1, peak = 0.06) => swell(E, voice(E, { send:0.2, bright:0.6 }), t, { d, f0, f1, q:1.2, peak });
+export const INTRO_FOLEY = Object.freeze({
+  putting:(E, t) => { M.knock(E, t + PLAY, { pitch:1.7, gain:0.45 }); M.clack(E, t + PLAY + 0.004, { pitch:0.8, gain:0.4, double:false });
+    hum(E, t + PLAY, HIT - PLAY - 0.1, 320, 210, 0.05);
+    M.clack(E, t + HIT - 0.09, { pitch:0.7, gain:0.35, double:false }); M.clack(E, t + HIT - 0.05, { pitch:0.66, gain:0.3, double:false });
+    M.knock(E, t + HIT, { pitch:0.72, gain:0.7 }); },
+  die:(E, t) => { whoosh(E, t + PLAY, { d:0.4, peak:0.12 }); M.knock(E, t + 1.38, { gain:0.8 });
+    M.knock(E, t + 1.6, { pitch:1.2, gain:0.25 }); bloop(E, t + HIT, NOTE.D5); burst(E, voice(E, { gain:0.3 }), t + HIT + 0.02, { type:"highpass", f:2600, d:0.12, peak:0.3 }); },
+  where:(E, t) => { M.tick(E, t + PLAY); for (let i = 0; i < 9; i++) M.tick(E, t + PLAY + 0.1 + i * 0.1 * (1 - i * 0.05), { gain:0.3, pitch:1.3 });
+    hum(E, t + HIT - 0.35, 0.34, 2400, 800, 0.08); M.felt(E, t + HIT, { gain:0.8 }); M.knock(E, t + HIT + 0.005, { gain:0.6 }); },
+  "basketball:5v5":(E, t) => { bounce(E, t + 0.45, 0.5); whoosh(E, t + PLAY + 0.05, { d:0.5, peak:0.14 }); swish(E, t + HIT, 0.45); },
+  pickleball:(E, t) => { M.knock(E, t + 0.9, { pitch:1.9, gain:0.6 }); M.clack(E, t + 0.902, { pitch:0.75, gain:0.5, double:false });
+    M.knock(E, t + HIT, { pitch:1.6, gain:0.4 }); M.knock(E, t + HIT + 0.24, { pitch:1.6, gain:0.22 }); },
+  "basketball:1v1":(E, t) => { bounce(E, t + 0.475); bounce(E, t + 0.825); swish(E, t + HIT, 0.45);
+    bounce(E, t + 2.15, 0.55); bounce(E, t + 2.4, 0.35); },
+  volleyball:(E, t) => { M.felt(E, t + PLAY, { gain:0.5 }); M.slap(E, t + 1.3, { gain:0.9 }); whoosh(E, t + 1.32, { d:0.4, peak:0.16 });
+    M.felt(E, t + HIT, { gain:1 }); burst(E, voice(E, { gain:0.4, bright:0.5 }), t + HIT, { type:"lowpass", f:900, d:0.2, peak:0.4 }); },
+  trivia:(E, t) => { M.tick(E, t + 0.9); M.tick(E, t + 1.05, { pitch:1.2 });
+    for (let i = 0; i < 8; i++) M.bell(E, t + 0.9 + i * 0.11, ladderNote(i % 4 + 3), { gain:0.12, dec:0.3, send:0.15 });
+    const v = voice(E, { send:0.15, bright:0.35, gain:0.5 }); mode(E, v, t + HIT, NOTE.A3, 0.4, 0.09, { type:"sawtooth", a:0.004 });
+    mode(E, v, t + HIT, NOTE.A2, 0.4, 0.07, { type:"square", a:0.004 }); },
+  "8ball":(E, t) => { M.clack(E, t + 1.05, { pitch:0.8, gain:0.7 }); M.knock(E, t + 1.05, { pitch:1.4, gain:0.3 });
+    riffle(E, t + 1.25, 8, { pitch:1.25, gap:0.022, gain:0.75 }); M.clack(E, t + 1.5, { pitch:1.2, gain:0.25, double:false });
+    M.knock(E, t + HIT, { pitch:0.78, gain:0.75 }); M.drum(E, t + HIT + 0.01, { f:110, dec:0.15, gain:0.45 }); },
+  pong:(E, t) => { whoosh(E, t + PLAY, { d:0.35, peak:0.06 }); bloop(E, t + HIT, NOTE.A4, 0.5);
+    burst(E, voice(E, { gain:0.25 }), t + HIT + 0.01, { type:"highpass", f:3000, d:0.1, peak:0.3 }); M.knock(E, t + HIT + 0.08, { pitch:1.5, gain:0.2 }); },
+  ragecage:(E, t) => { M.knock(E, t + 1.15, { pitch:1.6, gain:0.5 }); bloop(E, t + 1.35, NOTE.D5, 0.35);
+    M.knock(E, t + 1.2, { pitch:1.7, gain:0.3 }); hum(E, t + 1.45, 0.34, 600, 1300, 0.05);
+    M.slap(E, t + HIT, { gain:0.9 }); M.knock(E, t + HIT + 0.01, { pitch:1.2, gain:0.6 }); },
+  beerio:(E, t) => { const v = voice(E, { send:0.15, bright:0.4, gain:0.35 });
+    mode(E, v, t + 0.5, NOTE.A2, 1.5, 0.08, { type:"sawtooth", drop:-0.25, a:0.2 }); mode(E, v, t + 0.5, NOTE.D3, 1.5, 0.05, { type:"square", drop:-0.25, a:0.2 });
+    burst(E, voice(E, { gain:0.25 }), t + 1.3, { type:"bandpass", f:2600, q:3, d:0.32, peak:0.3 });
+    M.bell(E, t + HIT, NOTE.D5, { gain:0.35, dec:0.8 }); M.bell(E, t + HIT + 0.09, NOTE.Fs5, { gain:0.35, dec:0.8 }); },
+  poker:(E, t) => { M.tick(E, t + PLAY); M.tick(E, t + PLAY + 0.16);
+    for (let i = 0; i < 17; i++) M.clack(E, t + 1.0 + i * 0.045 + (i > 4 ? 0.02 : 0), { pitch:1 - (i % 6) * 0.02, gain:0.4, double:false });
+    M.tick(E, t + HIT - 0.12, { pitch:1.1 }); M.tick(E, t + HIT - 0.04, { pitch:1.15 }); },
+  mark:(E, t) => { hum(E, t + PLAY, HIT - PLAY, 1200, 400, 0.05); M.felt(E, t + HIT, { gain:0.8 }); M.knock(E, t + HIT + 0.01, { gain:0.6 }); },
+});
+/* the backlight catching (relay clicks under a rising hum), then the game's
+   move, then the name: the frame drum and the motif A, D, F sharp */
+function gameIntro(E, t, o = {}) {
+  const chord = at => { M.drum(E, at, { f:NOTE.D2, dec:0.8, gain:0.75 }); M.slap(E, at, { gain:0.35 });
+    M.bell(E, at + 0.01, NOTE.A4, { gain:0.55, dec:2.6 }); M.bell(E, at + 0.07, NOTE.D5, { gain:0.5, dec:2.6 });
+    M.bell(E, at + 0.14, NOTE.Fs5, { gain:0.42, dec:3 }); };
+  if (o.summary) { chord(t); return; }
+  M.knock(E, t, { pitch:0.7, gain:0.4 });
+  [0.09, 0.15, 0.26, 0.34].forEach((dt, i) => M.tick(E, t + dt, { gain:0.25 + i * 0.05, pitch:0.9 }));
+  hum(E, t, 0.6, 180, 900, 0.07);
+  (INTRO_FOLEY[o.game] || INTRO_FOLEY.mark)(E, t);
+  chord(t + HIT);
+  M.bell(E, t + INTRO_TIMING.sweep / 1000 + 0.3, NOTE.A5, { gain:0.14, dec:1.6, send:0.4 });
+}
+
 /* ── the kit ──
    where: tv (the room), phone (the owner's own moments), gm (the
    commissioner's phone). ms: roughly how long it rings. */
@@ -323,9 +387,11 @@ export const KIT = Object.freeze([
   { id:"S1", name:"Field Day call", where:["tv"], ms:900,
     play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.9, gain:0.7 }); M.bell(E, t, NOTE.A4, { gain:0.8 });
       M.bell(E, t + 0.17, NOTE.D5, { gain:0.75 }); M.bell(E, t + 0.34, NOTE.Fs5, { gain:0.7, dec:3.2 }); } },
-  { id:"S2", name:"Event intro", where:["tv"], ms:1200,
-    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.8 }); M.bell(E, t + 0.02, NOTE.D4, { gain:0.8, dec:3 });
-      M.bell(E, t + 0.02, NOTE.A4, { gain:0.6, dec:3 }); M.bell(E, t + 0.42, NOTE.D5, { gain:0.4 }); } },
+  /* the game intro: the backlight catching, the game's own move on the
+     intro's beats (introFoley), and the name's chord on the hit; opts.game
+     is the intro scene, opts.summary (reduced motion) is the chord alone */
+  { id:"S2", name:"Event intro", where:["tv", "phone"], ms:INTRO_TIMING.total,
+    play:(E, t, o = {}) => gameIntro(E, t, o) },
   { id:"S3", name:"Card turns", where:["tv"], ms:30,
     play:(E, t) => M.tick(E, t) },
   { id:"S4", name:"Your card", where:["phone"], ms:500,

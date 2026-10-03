@@ -1413,7 +1413,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
         <Suspense fallback={null}><TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
-          EventSpotlight={EventSpotlight}
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
           onSoundStatus={reportTvSound}
@@ -1957,10 +1956,12 @@ function TournamentApp({ tournament, onUpdateReload }) {
 }
 
 /* event intro: when betting opens, the event announces itself on every phone
-   with the game's own moment. The TV draws its own inside the canvas. */
+   with the game's own intro (features/intro), on the room's clock. The TV
+   draws the same intro inside its canvas. */
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
-  return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets}
-    holdMs={prefersReducedMotion() ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS} visual={<GameMoment gameId={ev.game}/>}/>;
+  const reduced = prefersReducedMotion();
+  return <EventAnnouncement state={state} ev={ev} handoff={handoff} onClose={onClose} onBets={onBets} live reduced={reduced}
+    anchor={Number(state.eventOps?.[ev.id]?.announcedAt) || null} holdMs={reduced ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS} />;
 }
 
 /* ─────────── shell ─────────── */
@@ -3339,241 +3340,9 @@ function ResultSheet({ ev, state, onClose, save }) {
 }
 
 /* ─────────── how to play ─────────── */
-/* The original game moments are part of the reveal, on phones and the TV. */
-function GameMoment({ gameId }) {
-  const Hero = GAME_HEROES[gameId];
-  return <div className="fd-game-moment" aria-hidden="true">
-    {Hero && !prefersReducedMotion() ? <Hero/> : <GameMark id={gameId} size={72}/>}</div>;
-}
-function EventSpotlight({ gameId, big=false }) {
-  const mark = big ? 150 : 112;
-  const box = big ? 242 : 176;
-  return (
-    <div style={{ position:"relative", width:box, height:box, display:"grid", placeItems:"center" }}>
-      <span className="si-event-ring" aria-hidden="true" />
-      <span className="si-event-ring si-event-ring-2" aria-hidden="true" />
-      <span className="si-event-rule si-event-rule-left" aria-hidden="true" />
-      <span className="si-event-rule si-event-rule-right" aria-hidden="true" />
-      <span className="si-event-mark" style={GAME_HEROES[gameId] ? {transform:big ? "scale(1.4)" : undefined} : undefined}>
-        {GAME_HEROES[gameId] ? <GameMoment gameId={gameId}/> : <GameMark id={gameId} size={mark} hero />}</span>
-    </div>
-  );
-}
-/* beer die flagship: a die that arcs and bounces off the far edge of the table */
-function DieHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="8" y1="66" x2="172" y2="66" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round" opacity="0.4"/>
-      <g style={{ animation:"si-die-arc 2.6s linear 1 both" }}>
-        <rect x="0" y="0" width="20" height="20" rx="4.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-        <circle cx="5.5" cy="5.5" r="1.7" fill="var(--ink)"/>
-        <circle cx="14.5" cy="5.5" r="1.7" fill="var(--ink)"/>
-        <circle cx="10" cy="10" r="1.7" fill="var(--ink)"/>
-        <circle cx="5.5" cy="14.5" r="1.7" fill="var(--ink)"/>
-        <circle cx="14.5" cy="14.5" r="1.7" fill="var(--ink)"/>
-      </g>
-    </svg>
-  );
-}
-/* pong ball arcs down the table and drops in the cup */
-function PongHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M112 30h20l-2.5 28h-15z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
-      <ellipse cx="122" cy="30" rx="10" ry="3" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
-      <g style={{ animation:"si-pong-arc 2s linear 1 both" }}>
-        <circle cx="8" cy="0" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* putt rolls the length of the green and drops at the flag */
-function PuttHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="132" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="146" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="139" y1="60" x2="139" y2="26" stroke="var(--ink)" strokeWidth="1.8"/>
-      <path d="M139 26h16l-5 5.5 5 5.5h-16z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
-      <g style={{ animation:"si-putt 2.4s ease-in-out 1 both" }}>
-        <circle cx="12" cy="54" r="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* cue ball breaks, the 8 rolls for the corner */
-function EightHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <g style={{ animation:"si-cue 2.4s ease-out 1 both" }}>
-        <circle cx="26" cy="52" r="7" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-      <g style={{ animation:"si-eight 2.4s ease-out 1 both" }}>
-        <circle cx="96" cy="52" r="7" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.6"/>
-        <circle cx="96" cy="52" r="3.2" fill="var(--paper)"/>
-        <text x="96" y="54.6" textAnchor="middle" fontSize="5" fontWeight="700" fontFamily={SANS} fill="var(--ink0)">8</text>
-      </g>
-    </svg>
-  );
-}
-/* the shot arcs in off the glass */
-function BballHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="158" y1="12" x2="158" y2="34" stroke="var(--ink)" strokeWidth="2.2"/>
-      <line x1="142" y1="32" x2="158" y2="32" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round"/>
-      <line x1="144" y1="32" x2="147" y2="43" stroke="var(--ink)" strokeWidth="1.2" opacity="0.6"/>
-      <line x1="155" y1="32" x2="153" y2="43" stroke="var(--ink)" strokeWidth="1.2" opacity="0.6"/>
-      <g style={{ animation:"si-bball 2.4s ease-in-out 1 both" }}>
-        <circle cx="16" cy="50" r="7" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
-        <path d="M9 50h14M16 43v14" stroke="var(--ink)" strokeWidth="1.1" opacity="0.7"/>
-      </g>
-    </svg>
-  );
-}
-/* serve down onto the net, pocket shot pops away */
-function SpikeHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <ellipse cx="90" cy="52" rx="22" ry="6" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.8"/>
-      <path d="M74 56l-5 4M106 56l5 4" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
-      <g style={{ animation:"si-spike 2.2s ease-in 1 both" }}>
-        <circle cx="14" cy="8" r="5.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* rally over the net, three touches across */
-function PingpongHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="90" y1="60" x2="90" y2="46" stroke="var(--ink)" strokeWidth="2"/>
-      <g transform="rotate(-30 22 48)">
-        <ellipse cx="22" cy="44" rx="8" ry="10" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
-        <rect x="20" y="54" width="4" height="9" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.2"/>
-      </g>
-      <g transform="rotate(30 158 48)">
-        <ellipse cx="158" cy="44" rx="8" ry="10" fill="var(--pool)" stroke="var(--ink)" strokeWidth="1.6"/>
-        <rect x="156" y="54" width="4" height="9" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.2"/>
-      </g>
-      <g style={{ animation:"si-pingpong 2.4s linear 1 both" }}>
-        <circle cx="34" cy="40" r="4" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4"/>
-      </g>
-    </svg>
-  );
-}
-/* the rod snaps and the shot beats the keeper */
-function FoosHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M160 38v22M172 38v22M160 38h12" fill="none" stroke="var(--ink)" strokeWidth="2"/>
-      <g style={{ animation:"si-foosman 2.4s ease-in-out 1 both" }}>
-        <line x1="96" y1="10" x2="96" y2="50" stroke="var(--ink)" strokeWidth="2.4"/>
-        <path d="M91 32h10l-1.6 14h-6.8z" fill="var(--clay)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
-      </g>
-      <g style={{ animation:"si-foos 2.4s ease-out 1 both" }}>
-        <circle cx="24" cy="54" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* high arc over the tall net, side out */
-function VolleyHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="90" y1="60" x2="90" y2="18" stroke="var(--ink)" strokeWidth="2.2"/>
-      <line x1="82" y1="18" x2="98" y2="18" stroke="var(--ink)" strokeWidth="2.6" strokeLinecap="round"/>
-      <path d="M84 24h12M84 30h12" stroke="var(--ink)" strokeWidth="1.1" opacity="0.55"/>
-      <g style={{ animation:"si-volley 2.4s ease-in-out 1 both" }}>
-        <circle cx="18" cy="46" r="6.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-        <path d="M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13" stroke="var(--ink)" strokeWidth="1.1" opacity="0.7"/>
-      </g>
-    </svg>
-  );
-}
-/* third shot drops soft over the kitchen */
-function PickleHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <line x1="90" y1="60" x2="90" y2="40" stroke="var(--ink)" strokeWidth="2"/>
-      <line x1="83" y1="40" x2="97" y2="40" stroke="var(--ink)" strokeWidth="2.4" strokeLinecap="round"/>
-      <line x1="64" y1="60" x2="64" y2="56" stroke="var(--ink)" strokeWidth="1.6" opacity="0.6"/>
-      <line x1="116" y1="60" x2="116" y2="56" stroke="var(--ink)" strokeWidth="1.6" opacity="0.6"/>
-      <g style={{ animation:"si-pickle 2.4s ease-in-out 1 both" }}>
-        <circle cx="18" cy="50" r="5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.5"/>
-      </g>
-    </svg>
-  );
-}
-/* the kart hops the finish line, beer stays upright */
-function KartHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <path d="M150 60v-22M150 38h6v4h-6M150 46h6v4h-6" stroke="var(--ink)" strokeWidth="1.8" fill="none"/>
-      <g style={{ animation:"si-kart 2.6s ease-in-out 1 both" }}>
-        <path d="M10 46h30l-4 8H16z" fill="var(--clay)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
-        <path d="M20 40h12l2 6H18z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4" strokeLinejoin="round"/>
-        <circle cx="17" cy="56" r="4.4" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.4"/>
-        <circle cx="35" cy="56" r="4.4" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.4"/>
-      </g>
-    </svg>
-  );
-}
-/* sink, stack, next cup in the ring */
-function RageHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      {[64, 90, 116].map(x => (
-        <g key={x}>
-          <path d={`M${x - 9} 36h18l-2.4 24h-13.2z`} fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
-          <ellipse cx={x} cy="36" rx="9" ry="2.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.2"/>
-        </g>
-      ))}
-      <g style={{ animation:"si-rage 2.2s ease-in 1 both" }}>
-        <circle cx="16" cy="10" r="4.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.4"/>
-      </g>
-    </svg>
-  );
-}
-/* two cards hit the felt, the chip follows */
-function PokerHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <g style={{ animation:"si-deal1 2.4s ease-out 1 both" }}>
-        <rect x="70" y="26" width="18" height="26" rx="3" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-      <g style={{ animation:"si-deal2 2.4s ease-out 1 both" }}>
-        <rect x="92" y="26" width="18" height="26" rx="3" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-        <circle cx="101" cy="39" r="3.4" fill="var(--accent)"/>
-      </g>
-      <g style={{ animation:"si-chip-in 2.4s ease-in-out 1 both" }}>
-        <circle cx="16" cy="52" r="7.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
-        <circle cx="16" cy="52" r="4.2" fill="none" stroke="var(--chip-mark)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* One hero per GAMES id. HowToSheet, EventIntro, and the TV betting board all
-   read this registry; anything unregistered falls back to its GameMark, and
-   custom events fall back to the FD chip. Adding an event later:
-   BUILTIN_EVENTS entry in core (or the GM add-event flow), then optionally a
-   GAMES howto, a GameMark (ui/GameMark.jsx), and a hero here. Nothing else to wire. */
-const GAME_HEROES = { die: DieHero, pong: PongHero,
-  putting: PuttHero, "8ball": EightHero, basketball: BballHero, spikeball: SpikeHero,
-  pingpong: PingpongHero, foosball: FoosHero, volleyball: VolleyHero,
-  pickleball: PickleHero, beerio: KartHero, ragecage: RageHero, poker: PokerHero };
+/* Each game's intro scene lives in features/intro (IntroScenes.jsx SCENES):
+   phone and TV read the one registry; a game without a scene drops its
+   GameMark, which falls back to the FD chip. */
 /* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
 
 

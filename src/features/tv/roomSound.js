@@ -3,7 +3,8 @@
    the same frame:
 
      S1  the Opening scene (and the crown's last notes)
-     S2  the event intro, at eventOps.announcedAt
+     S2  the event intro, at eventOps.announcedAt: the game's own scene
+         (introScene) on the intro's beats, its chord alone under reduced motion
      S3  each draw card, at revealTimeline().revealAt + drawStepDelay(i, n),
          panned to the card's column
      land  the held beat: a draw card's last partner landing
@@ -51,6 +52,7 @@ import { FACEOFF_TICKS_MAX, FACEOFF_TIMING as F, faceOffView } from "./faceOff.j
 import { podiumBeatAt, TV_ADVANCE_MS } from "./tvModel.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
+import { introScene } from "../intro/introTiming.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -97,10 +99,10 @@ export function contestChipCounts(state, events, contest) {
 /* Everything on the TV that can sound, reduced to comparable facts. */
 export function roomSnapshot(state, events = [], { standings = null, allTied = false, liveEv = null, showScene = null } = {}) {
   if (!state) return null;
-  const announced = {}, reveals = {}, locks = {}, results = {}, drafts = {};
+  const announced = {}, games = {}, reveals = {}, locks = {}, results = {}, drafts = {};
   for (const ev of events) {
     const op = state.eventOps?.[ev.id] || {};
-    if (Number(op.announcedAt) > 0) announced[ev.id] = Number(op.announcedAt);
+    if (Number(op.announcedAt) > 0) { announced[ev.id] = Number(op.announcedAt); games[ev.id] = introScene(ev); }
     if (Number(op.bettingLockedAt) > 0) locks[ev.id] = Number(op.bettingLockedAt);
     const res = state.results?.[ev.id];
     if (res?.slots?.[0]?.length) results[ev.id] = { revision:Number(res.revision || 1), at:posted(res),
@@ -129,7 +131,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
   const pk = state.poker || null;
   const active = showScene?.active || null;
   return {
-    announced, reveals, locks, results, drafts, chips,
+    announced, games, reveals, locks, results, drafts, chips,
     leader:leaderRows.map(row => row.player).sort().join("+"),
     decidedAt:liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0,
     frozen:!!state.frozen,
@@ -163,7 +165,8 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
 
   /* the intro, then the draw's cards */
   const intro = newest(next.announced, (evId, at) => prev.announced[evId] !== at);
-  if (intro) add("S2", intro[1], { key:`intro:${intro[0]}:${intro[1]}` });
+  if (intro) add("S2", intro[1], { key:`intro:${intro[0]}:${intro[1]}`,
+    opts:{ game:next.games?.[intro[0]] || "mark", ...(reduced ? { summary:true } : {}) } });
   for (const [evId, reveal] of Object.entries(next.reveals)) {
     const before = prev.reveals[evId];
     const freshAnnounce = prev.announced[evId] !== next.announced[evId];

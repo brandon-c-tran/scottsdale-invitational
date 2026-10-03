@@ -1,41 +1,41 @@
 import React, { useEffect, useRef, useState } from "react";
 import { disp, teamLabel, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
-import { GameMark } from "../../ui/GameMark.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { DRAW_PARTNER_BEAT_MS, drawStepAt, drawSequenceMs, partnerFaces, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
 import "./tv-moments.css";
 import { serverNow } from "../../lib/serverClock.js";
+import { GameIntro } from "../intro/GameIntro.jsx";
 import {
-  TV_INTRO_AUTO_MS, TV_INTRO_AUTO_REDUCED_MS, TV_REVEAL_HOLD_MS, oddsLine, phaseBand,
+  TV_INTRO_AUTO_MS, TV_INTRO_AUTO_REDUCED_MS, TV_REVEAL_HOLD_MS, oddsLine,
 } from "./tvModel.js";
 
 /* The TV's own ceremonies. They render INSIDE the scaled canvas, so a 1080p
    set and a 4K set show the same layout; the phone versions stay sheets. */
 
-/* The announcement: the game's own moment, its name, and what it pays as
-   a ladder of medallions on chips (no rules, no meta line). With
-   Show Control the event-intro scene drives it; without, the legacy chain
-   does, and it closes on its own (or hands over to the draw). */
-export function IntroOverlay({ state, ev, EventSpotlight, handoff = false, reducedMotion = false, onDone = null }) {
+/* The announcement: the game intro (features/intro) at canvas scale, the
+   game's own scene, its name, and what it pays as the podium on the floor
+   (no rules, no meta line). It runs from the announcement's server stamp,
+   the same frame as every phone; a TV that joins late joins mid-scene.
+   With Show Control the event-intro scene drives it (its start is the
+   fallback anchor); without, the legacy chain does, and it closes on its
+   own on the same clock (or hands over to the draw at INTRO_MS). */
+export function IntroOverlay({ state, ev, handoff = false, reducedMotion = false, onDone = null, sceneAt = null,
+  now:clockNow = serverNow }) {
+  const stamped = Number(state?.eventOps?.[ev.id]?.announcedAt) || Number(sceneAt) || 0;
+  const [anchor] = useState(() => stamped > 0 && clockNow() - stamped < TV_INTRO_AUTO_MS ? stamped : clockNow());
   const doneRef = useRef(onDone); doneRef.current = onDone;
   useEffect(() => {
     if (!doneRef.current) return undefined;
-    const t = setTimeout(() => doneRef.current?.(), reducedMotion ? TV_INTRO_AUTO_REDUCED_MS : TV_INTRO_AUTO_MS);
+    const hold = reducedMotion ? TV_INTRO_AUTO_REDUCED_MS : TV_INTRO_AUTO_MS;
+    const t = setTimeout(() => doneRef.current?.(), Math.max(1500, anchor + hold - clockNow()));
     return () => clearTimeout(t);
-  }, [ev.id, reducedMotion]);
+  }, [ev.id, reducedMotion]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="tv-intro fd-night" role="status" aria-label={`Up next: ${ev.name}`}>
-      <div className="tv-intro-band" style={{ background:phaseBand(ev) }} />
-      <div className="tv-intro-moment">
-        <div className="tv-intro-moment-scale">
-          {EventSpotlight ? <EventSpotlight gameId={ev.game} big /> : <GameMark id={ev.game} variant={ev.variant} size={200} />}
-        </div>
-      </div>
-      <div className="fd-show is-marquee tv-intro-name"><EventName name={ev.name} /></div>
-      <PayoutLadder ev={ev} size="tv" className="tv-intro-ladder" />
-      {handoff && <div className="tv-label tv-intro-handoff">Drawing teams</div>}
+      <GameIntro ev={ev} surface="tv" anchor={anchor} reduced={reducedMotion} handoff={handoff} now={clockNow}
+        ladder={<PayoutLadder ev={ev} size="tv" className="tv-intro-ladder" />} />
     </div>
   );
 }

@@ -405,6 +405,7 @@ Named timings live once in `src/lib/motion.js` (`MOTION`, `EASE`) and mirror as 
 
 | Moment | Lean-in | Reveal | Settle / total |
 |---|---|---|---|
+| Game intro (TV and every phone) | dark glass, the backlight flickers on 0 to 560ms; the painting and the game's set push in on plates 120 to 1620ms | the game's move from 700ms lands at 1800ms, the name stamps there (380ms), light crosses the glass 2200ms, the podium rises 2500ms | a draw follows: the set dims and the name docks 3750ms; the draw takes over at 4200ms |
 | Face-off (TV) | dim 0 to 900ms, sting | sides slam at 900 / 1250ms, VS at 1900ms, record types 42ms a letter from 2700ms, win lines 3900ms | lifts off at 6600ms (3 beats + 600ms), total 7100ms |
 | You're up (phone) | your color floods 0 to 700ms | YOU'RE UP stamps at 250ms (380ms), sting on the TV's VS | 7000ms player, 5000ms spectator banner |
 | Walkout (win song) | color floods from the chip 0 to 800ms | art stands 250ms (520ms), name stamps 700ms (360ms) with the song's fade-in, song and artist 1100ms | docks into Now playing at 8400ms (700ms), total 9100ms |

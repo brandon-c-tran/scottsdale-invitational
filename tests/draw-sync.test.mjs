@@ -348,5 +348,5 @@ test("the intro's handoff bar starts part-filled for a phone that heard late", (
   const { state, ev } = announced();
   const at = state.eventOps[ev.id].announcedAt + 1200;
   const { html } = render(EventAnnouncement, { state, ev, handoff:true, holdMs:DRAW_INTRO_MS, now:() => at, onClose:() => {} });
-  assert.match(html, /--intro-hold:3000ms;--intro-elapsed:-1200ms/);
+  assert.ok(html.includes(`--intro-hold:${DRAW_INTRO_MS}ms;--intro-elapsed:-1200ms`));
 });

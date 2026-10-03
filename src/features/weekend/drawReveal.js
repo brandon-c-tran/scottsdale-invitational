@@ -1,3 +1,4 @@
+import { INTRO_MS, INTRO_REDUCED_MS } from "../intro/introTiming.js";
 import { bracketMatchName, coalescePendingReveals, disp, ROUND_NAMES, resolveSlot, stageEntrantView, teamLabel } from "../../../shared/core.js";
 
 /* A draw reveal only matters while its event is still ahead. Events that
@@ -97,11 +98,12 @@ export function drawRevealGroups(state, reveal) {
    Every phone and the TV read those stamps against serverNow(), so the intro
    hands over and each card turns at the same instant on every screen, and a
    screen that opens late joins at the current step. States from before the
-   stamp keep the old per-device clock. DRAW_INTRO_MS equals the TV's
-   event-intro overlay (TV_INTRO_OVERLAY_MS), so a directed intro and the
-   phones hand over together too. */
-export const DRAW_INTRO_MS = 3000;
-export const DRAW_INTRO_REDUCED_MS = 650;
+   stamp keep the old per-device clock. DRAW_INTRO_MS is the game intro's
+   own length (intro/introTiming.js INTRO_MS), as is the TV's event-intro
+   overlay (TV_INTRO_OVERLAY_MS), so a directed intro and the phones hand
+   over together too. */
+export const DRAW_INTRO_MS = INTRO_MS;
+export const DRAW_INTRO_REDUCED_MS = INTRO_REDUCED_MS;
 export const DRAW_FIRST_STEP_MS = 480;
 /* Each card holds the room about two seconds (Backglass takeover grammar):
    the card turns, its first faces deal in, and the last partner of each

@@ -86,5 +86,6 @@
 @keyframes fd-draw-player { from { transform:translateX(-9px); opacity:0; } to { transform:none; opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-bye,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
 @media(max-width:359px) { .fd-draw-announcement { grid-template-columns:1fr; } }
+/* the live announcement: the game intro heads the sheet, its state a lamp under it */
+.fd-announcement-intro { display:flex; flex-direction:column; align-items:center; gap:10px; margin:-4px 0 12px; }
 .fd-announcement-game { display:flex; align-items:center; justify-content:center; min-height:90px; padding:0; overflow:hidden; }
-.fd-game-moment { display:grid; place-items:center; width:180px; height:82px; }

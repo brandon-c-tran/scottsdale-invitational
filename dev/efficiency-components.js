@@ -3227,7 +3227,7 @@ function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size 
         style: { left: colLeft(r), width: `calc(${colW})`, top: topOf(r, m), height: cardH },
         "aria-label": `${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`
       },
-      !compact && /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React10.createElement("span", null, bracketMatchName(bracket, r, m)), status && /* @__PURE__ */ React10.createElement("strong", null, status)),
+      !compact && /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React10.createElement("span", null, bracketMatchName(bracket, r, m)), status && /* @__PURE__ */ React10.createElement("strong", { className: "fd-bracket-lamp" }, /* @__PURE__ */ React10.createElement("i", { className: `fd-insert${status === "Betting open" ? " is-pending" : status === "Up next" ? " is-done" : ""}`, "aria-hidden": "true" }), /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-sr fd-sr" }, status))),
       sides.map((key, index) => {
         const team = key === null || key === void 0 ? null : draw.teams[key];
         const won = decided3 && match.winner === key, lost = decided3 && !!team && !won;
@@ -3289,7 +3289,8 @@ var init_CompetitionBracket = __esm({
     init_PlayerIdentity();
     init_competition_bracket();
     SIZES2 = {
-      full: { head: 22, row: 48, gap: 14, minCol: 210, colGap: 34 },
+      /* two rounds stand side by side on a 390px phone: a round past them is a swipe, landing on its column */
+      full: { head: 22, row: 48, gap: 14, minCol: 160, colGap: 28 },
       compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 },
       /* a field past eight: the same picture at a glance, tighter rows */
       compactTall: { head: 0, row: 22, gap: 6, minCol: 0, colGap: 14 }
@@ -7579,7 +7580,7 @@ var init_layout = __esm({
 });
 
 // src/ui/useGlassTilt.js
-import { useEffect as useEffect19 } from "react";
+import { useEffect as useEffect20 } from "react";
 function leanToward(clientX, clientY, rect, { dragging = false } = {}) {
   if (!rect?.width || !rect?.height) return { x: 0, y: 0 };
   const reach = dragging ? 1 : GLASS_TILT.press;
@@ -7601,7 +7602,7 @@ function supports3d() {
   return CSS.supports("transform-style", "preserve-3d");
 }
 function useGlassTilt(ref, { enabled = true, max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx, glare = true } = {}) {
-  useEffect19(() => {
+  useEffect20(() => {
     const el = ref?.current;
     if (!enabled || !el || typeof window === "undefined" || typeof document === "undefined") return void 0;
     const lean3d = supports3d();
@@ -7867,7 +7868,7 @@ var init_install = __esm({
 });
 
 // src/features/tv/tvModel.js
-var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
+var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, PODIUM_STAGE, BACKERS_RAIL, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
 var init_tvModel = __esm({
   "src/features/tv/tvModel.js"() {
     init_core();
@@ -7877,6 +7878,32 @@ var init_tvModel = __esm({
     init_introTiming();
     RESULT_PODIUM_BEATS_MS = Object.freeze([0, 900, 2400]);
     RESULT_PODIUM_STEP_MS = RESULT_PODIUM_BEATS_MS[1];
+    PODIUM_STAGE = Object.freeze({
+      floor: 756,
+      lid: 26,
+      roomTop: 136,
+      pad: 22,
+      gap: 14,
+      minFace: 44,
+      order: Object.freeze([2, 1, 3]),
+      width: Object.freeze({ 1: 600, 2: 460, 3: 460 }),
+      height: Object.freeze({ 1: 318, 2: 226, 3: 164 }),
+      /* the largest faces a place stands: alone, a pair, a team */
+      face: Object.freeze({ 1: Object.freeze([168, 128, 104]), 2: Object.freeze([128, 104, 88]), 3: Object.freeze([128, 104, 88]) }),
+      name: Object.freeze({ 1: 92, 2: 60, 3: 60 }),
+      title: Object.freeze({ max: 92, min: 56, mark: 84, gap: 26, width: 1792 })
+    });
+    BACKERS_RAIL = Object.freeze({
+      width: 1792,
+      pad: 30,
+      tag: 236,
+      total: 200,
+      named: 236,
+      bare: 120,
+      more: 92,
+      gap: 18,
+      afterMs: 300
+    });
     TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
     FACT_ROLES = Object.freeze({ streak: "info", first: "chip", wins: "info", bet: "won" });
     TICKER_FACT_TAGS = Object.freeze({ first: "Milestone" });
@@ -7885,7 +7912,7 @@ var init_tvModel = __esm({
 });
 
 // src/features/tv/tvMotion.js
-import { useEffect as useEffect21, useRef as useRef22, useState as useState23 } from "react";
+import { useEffect as useEffect22, useRef as useRef22, useState as useState23 } from "react";
 var ADVANCE_TIMING, CROWN_TIMING, inOut;
 var init_tvMotion = __esm({
   "src/features/tv/tvMotion.js"() {
@@ -7972,7 +7999,7 @@ var init_tvMotion = __esm({
 });
 
 // src/features/tv/faceOff.js
-import { useEffect as useEffect22, useRef as useRef23, useState as useState24 } from "react";
+import { useEffect as useEffect23, useRef as useRef23, useState as useState24 } from "react";
 var FACEOFF_TIMING;
 var init_faceOff = __esm({
   "src/features/tv/faceOff.js"() {
@@ -8020,10 +8047,10 @@ var init_audio = __esm({
 });
 
 // src/features/check-in/InstallHint.jsx
-import React43, { useEffect as useEffect25, useState as useState31 } from "react";
+import React43, { useEffect as useEffect26, useState as useState31 } from "react";
 function InstallHint() {
   const [, bump] = useState31(0);
-  useEffect25(() => onInstallReady(() => bump((x) => x + 1)), []);
+  useEffect26(() => onInstallReady(() => bump((x) => x + 1)), []);
   if (installEvt) return /* @__PURE__ */ React43.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
   if (isIOS2()) return /* @__PURE__ */ React43.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React43.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React43.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React43.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
   return /* @__PURE__ */ React43.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
@@ -8639,7 +8666,7 @@ var init_wagers = __esm({
 });
 
 // src/features/wagers/Wagers.jsx
-import React54, { useEffect as useEffect30, useLayoutEffect as useLayoutEffect11, useMemo as useMemo9, useRef as useRef34, useState as useState40 } from "react";
+import React54, { useEffect as useEffect31, useLayoutEffect as useLayoutEffect11, useMemo as useMemo9, useRef as useRef34, useState as useState40 } from "react";
 function wagerPickLabel(state, w, events) {
   const ev = events.find((e) => e.id === w.eventId);
   const evName = ev?.name || "removed event";
@@ -8711,17 +8738,17 @@ function MarketPick({
   const sideTotal = mineTotal + stacksTotal(otherStacks);
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
   const shownTotal = useRef34(mineTotal);
-  useEffect30(() => {
+  useEffect31(() => {
     if (shownTotal.current === mineTotal) return;
     shownTotal.current = mineTotal;
     setActionError(null);
   }, [mineTotal]);
   const alive = useRef34(true);
-  useEffect30(() => () => {
+  useEffect31(() => () => {
     alive.current = false;
     flightRef.current?.cancel();
   }, []);
-  useEffect30(() => {
+  useEffect31(() => {
     if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal)) {
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
@@ -8896,14 +8923,14 @@ function MarketPick({
     {
       type: "button",
       ref: wellRef,
-      className: `fd-wagers-place${capLabel ? " is-capped" : ""}`,
+      className: `fd-wagers-place${capLabel != null ? " is-capped" : ""}`,
       disabled: !canPick || busyPlace,
       onClick: () => act("place", onPick),
       "aria-label": canPick ? `Place a chip on ${name}` : name,
       "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt6(tapStake)} chips` : void 0)
     },
     /* @__PURE__ */ React54.createElement(Icon, { name: "plus", size: lines === 1 ? 18 : 20 }),
-    /* @__PURE__ */ React54.createElement("span", null, capLabel || fmt6(tapStake))
+    capLabel !== "" && /* @__PURE__ */ React54.createElement("span", null, capLabel || fmt6(tapStake))
   );
   const retract = () => act("remove", () => onRetract(mine[mine.length - 1].w.id));
   const backerRow = (item) => {
@@ -8985,7 +9012,7 @@ function MarketPick({
       "aria-description": unavailableReason || void 0
     },
     roleLabel && /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel),
-    /* @__PURE__ */ React54.createElement("span", { ref: mineRef, className: `fd-wagers-pot-total${sideTotal > 0 ? "" : " is-empty"}` }, fmt6(sideTotal)),
+    /* @__PURE__ */ React54.createElement("span", { ref: mineRef, className: `fd-wagers-pot-total${sideTotal > 0 ? "" : " is-empty"}` }, sideTotal > 0 ? fmt6(sideTotal) : null),
     /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pot-who" }, mineTotal > 0 ? marketOpen ? /* @__PURE__ */ React54.createElement(
       "button",
       {
@@ -9019,8 +9046,8 @@ function MarketPick({
       "aria-busy": !!busyKind,
       "aria-description": unavailableReason || void 0
     },
-    /* @__PURE__ */ React54.createElement("div", { className: "fd-wagers-pot-head" }, pot, /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pot-total" }, fmt6(sideTotal)), roleLabel && /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel)),
-    /* @__PURE__ */ React54.createElement("ol", { className: "fd-wagers-backers" }, shownRows.map(backerRow)),
+    /* @__PURE__ */ React54.createElement("div", { className: "fd-wagers-pot-head" }, pot, sideTotal > 0 && /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pot-total" }, fmt6(sideTotal)), roleLabel && /* @__PURE__ */ React54.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel)),
+    shownRows.length ? /* @__PURE__ */ React54.createElement("ol", { className: "fd-wagers-backers" }, shownRows.map(backerRow)) : /* @__PURE__ */ React54.createElement("div", { className: `fd-wagers-seat${showWell ? " is-open" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React54.createElement("i", null)),
     /* @__PURE__ */ React54.createElement("div", { className: "fd-wagers-backers-more" }, more > 0 && /* @__PURE__ */ React54.createElement(
       "button",
       {
@@ -9090,7 +9117,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   const mineRef = useRef34(null);
   useStageHold(`bets:held:${held.id}`, true);
   const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
-  useEffect30(() => {
+  useEffect31(() => {
     if (!me || paid <= 0) return void 0;
     const timer = setTimeout(() => {
       const svg = mineRef.current?.querySelector(".fd-stack > svg");
@@ -9284,7 +9311,7 @@ function Wagers({
   const [settledOpen, setSettledOpen] = useState40(() => openSettled && me ? `st:${me}` : null);
   const [settledShown, setSettledShown] = useState40(!!openSettled);
   const settledRef = useRef34(null);
-  useEffect30(() => {
+  useEffect31(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
@@ -9317,7 +9344,7 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect30(() => {
+  useEffect31(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
@@ -9372,6 +9399,7 @@ function Wagers({
   picks.forEach((pick) => {
     pick.winSlot = winSlot;
     pick.lines = lines;
+    if (lines === 1 && pick.capLabel) pick.capLabel = "";
   });
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result" ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
   const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
@@ -9400,20 +9428,20 @@ function Wagers({
     setHeld(null);
     setDealing((value) => value + 1);
   };
-  useEffect30(() => {
+  useEffect31(() => {
     if (!held) return void 0;
     const timer = setTimeout(endHold, MOTION.settleHold);
     return () => clearTimeout(timer);
   }, [held?.id]);
-  useEffect30(() => {
+  useEffect31(() => {
     if (held && (!heldView || frame2.correction)) setHeld(null);
   }, [held?.id, !!heldView, frame2.seq]);
-  useEffect30(() => {
+  useEffect31(() => {
     if (!dealing) return void 0;
     const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
     return () => clearTimeout(timer);
   }, [dealing]);
-  useEffect30(() => {
+  useEffect31(() => {
     if (!settling) return void 0;
     const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
     return () => clearTimeout(timer);
@@ -9546,7 +9574,7 @@ var init_Wagers = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React55, { useCallback as useCallback3, useEffect as useEffect31, useRef as useRef35, useState as useState41 } from "react";
+import React55, { useCallback as useCallback3, useEffect as useEffect32, useRef as useRef35, useState as useState41 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -9580,7 +9608,7 @@ function PhotoCropper({
   const [status, setStatus] = useState41("loading");
   const [error, setError] = useState41("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect31(() => {
+  useEffect32(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -9593,7 +9621,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect31(() => {
+  useEffect32(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -9629,10 +9657,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect31(() => {
+  useEffect32(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect31(() => {
+  useEffect32(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -10055,7 +10083,7 @@ var init_PhotoCropper = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React56, { useEffect as useEffect32, useId as useId5, useRef as useRef36, useState as useState42 } from "react";
+import React56, { useEffect as useEffect33, useId as useId5, useRef as useRef36, useState as useState42 } from "react";
 function ProfileEditor({
   state,
   me,
@@ -10158,7 +10186,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   );
   const wasLate = useRef36(lateClaim);
   const [justClaimed, setJustClaimed] = useState42(false);
-  useEffect32(() => {
+  useEffect33(() => {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
@@ -10340,7 +10368,7 @@ var init_walkoutTeam = __esm({
 });
 
 // src/features/moments/walkout.js
-import { useEffect as useEffect36, useRef as useRef40, useState as useState45 } from "react";
+import { useEffect as useEffect37, useRef as useRef40, useState as useState45 } from "react";
 var WALKOUT_TIMING;
 var init_walkout = __esm({
   "src/features/moments/walkout.js"() {
@@ -10419,7 +10447,7 @@ var init_geo2 = __esm({
 });
 
 // src/features/geo/GeoMap.jsx
-import React71, { useEffect as useEffect47, useRef as useRef49, useState as useState55 } from "react";
+import React71, { useEffect as useEffect48, useRef as useRef49, useState as useState55 } from "react";
 var init_GeoMap = __esm({
   "src/features/geo/GeoMap.jsx"() {
     init_geo2();
@@ -10427,7 +10455,7 @@ var init_GeoMap = __esm({
 });
 
 // src/features/geo/Wheel.jsx
-import React72, { useEffect as useEffect48, useLayoutEffect as useLayoutEffect15, useRef as useRef50, useState as useState56 } from "react";
+import React72, { useEffect as useEffect49, useLayoutEffect as useLayoutEffect15, useRef as useRef50, useState as useState56 } from "react";
 var ROWS, CENTER2;
 var init_Wheel = __esm({
   "src/features/geo/Wheel.jsx"() {
@@ -10449,7 +10477,7 @@ var init_geoModel = __esm({
 });
 
 // src/features/geo/WhenPicker.jsx
-import React73, { useEffect as useEffect49, useMemo as useMemo13 } from "react";
+import React73, { useEffect as useEffect50, useMemo as useMemo13 } from "react";
 var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
 var init_WhenPicker = __esm({
   "src/features/geo/WhenPicker.jsx"() {
@@ -10463,7 +10491,7 @@ var init_WhenPicker = __esm({
 });
 
 // src/features/geo/PlaceSearch.jsx
-import React74, { useEffect as useEffect50, useRef as useRef51, useState as useState57 } from "react";
+import React74, { useEffect as useEffect51, useRef as useRef51, useState as useState57 } from "react";
 var init_PlaceSearch = __esm({
   "src/features/geo/PlaceSearch.jsx"() {
     init_haptics();
@@ -10514,7 +10542,7 @@ var init_speakerModel = __esm({
 });
 
 // src/features/speaker/speakerStatus.js
-import { useEffect as useEffect55, useSyncExternalStore as useSyncExternalStore6 } from "react";
+import { useEffect as useEffect56, useSyncExternalStore as useSyncExternalStore6 } from "react";
 var init_speakerStatus = __esm({
   "src/features/speaker/speakerStatus.js"() {
     init_client();
@@ -10554,7 +10582,7 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React82, { useEffect as useEffect56, useRef as useRef57, useState as useState62 } from "react";
+import React82, { useEffect as useEffect57, useRef as useRef57, useState as useState62 } from "react";
 function InvitationArt() {
   return /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React82.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React82.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("span", null, "Field"), /* @__PURE__ */ React82.createElement("span", null, "Day"))), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React82.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React82.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React82.createElement("span", null, /* @__PURE__ */ React82.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React82.createElement("small", null, "Players"))), /* @__PURE__ */ React82.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React82.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React82.createElement("span", null, /* @__PURE__ */ React82.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React82.createElement("br", null), EDITION.year)));
 }
@@ -10596,7 +10624,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
   const submit = useRef57(createCheckInSubmission());
   const heading = useRef57(null);
   const hydratedPlayer = useRef57(null);
-  useEffect56(() => {
+  useEffect57(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -10609,7 +10637,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect56(() => {
+  useEffect57(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -12711,7 +12739,7 @@ init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_motion();
-import React35, { useCallback as useCallback2, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef20, useState as useState21 } from "react";
+import React35, { useCallback as useCallback2, useEffect as useEffect19, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef20, useState as useState21 } from "react";
 
 // src/features/standings/boardModel.js
 var BOARD_BEATS = Object.freeze({
@@ -12791,7 +12819,7 @@ init_motion();
 // src/features/alerts/Alerts.jsx
 init_client();
 init_install();
-import React37, { useEffect as useEffect20, useRef as useRef21, useState as useState22, useSyncExternalStore as useSyncExternalStore3 } from "react";
+import React37, { useEffect as useEffect21, useRef as useRef21, useState as useState22, useSyncExternalStore as useSyncExternalStore3 } from "react";
 
 // src/features/alerts/pocketAlerts.js
 init_client();
@@ -12812,7 +12840,7 @@ init_serverClock();
 init_sound();
 init_faceOff();
 init_tvMotion();
-import { useEffect as useEffect23, useMemo as useMemo5, useRef as useRef24, useState as useState25 } from "react";
+import { useEffect as useEffect24, useMemo as useMemo5, useRef as useRef24, useState as useState25 } from "react";
 var UP_TIMING = Object.freeze({
   flood: 0,
   floodMs: 700,
@@ -12867,7 +12895,7 @@ import React41, { lazy, useState as useState29 } from "react";
 // src/features/home/phoneSound.js
 init_core();
 init_sound();
-import { useEffect as useEffect24, useRef as useRef26 } from "react";
+import { useEffect as useEffect25, useRef as useRef26 } from "react";
 
 // src/App.jsx
 init_drawReveal();
@@ -12907,7 +12935,7 @@ init_playerIdentity();
 init_PlayerPass();
 init_CompetitionBracket();
 init_Trophy();
-import React47, { useEffect as useEffect28, useMemo as useMemo8, useRef as useRef30, useState as useState34 } from "react";
+import React47, { useEffect as useEffect29, useMemo as useMemo8, useRef as useRef30, useState as useState34 } from "react";
 
 // src/features/results/LastCard.jsx
 init_core();
@@ -12915,9 +12943,10 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
 init_motion();
+init_useRisoTilt();
 init_serverClock();
 init_lastCard();
-import React46, { useEffect as useEffect27, useMemo as useMemo7, useRef as useRef29, useState as useState33 } from "react";
+import React46, { useEffect as useEffect28, useMemo as useMemo7, useRef as useRef29, useState as useState33 } from "react";
 
 // src/features/results/cardImage.js
 init_lastCard();
@@ -12932,7 +12961,7 @@ init_crownTiming();
 init_sound();
 
 // src/features/results/SavePoster.jsx
-import React45, { useEffect as useEffect26, useRef as useRef28, useState as useState32 } from "react";
+import React45, { useEffect as useEffect27, useRef as useRef28, useState as useState32 } from "react";
 init_classPhoto();
 
 // src/features/results/posterImage.js
@@ -12975,7 +13004,7 @@ init_PlayerIdentity();
 init_controls();
 init_client();
 init_photoModel();
-import React48, { useEffect as useEffect29, useRef as useRef31, useState as useState35 } from "react";
+import React48, { useEffect as useEffect30, useRef as useRef31, useState as useState35 } from "react";
 init_Icon();
 
 // src/features/photos/PhotoDesk.jsx
@@ -13006,13 +13035,13 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React83, { useState as useState63, useEffect as useEffect57, useLayoutEffect as useLayoutEffect17, useRef as useRef58, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
+import React83, { useState as useState63, useEffect as useEffect58, useLayoutEffect as useLayoutEffect17, useRef as useRef58, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React57, { useEffect as useEffect33, useMemo as useMemo10, useRef as useRef37, useState as useState43 } from "react";
+import React57, { useEffect as useEffect34, useMemo as useMemo10, useRef as useRef37, useState as useState43 } from "react";
 init_PlayerPass();
 init_seasonStats();
 init_motion2();
@@ -13077,10 +13106,10 @@ function PlayerSheet({
     section?.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll: true });
   };
-  useEffect33(() => {
+  useEffect34(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect33(() => {
+  useEffect34(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
   }, [p]);
@@ -13184,13 +13213,13 @@ init_BetStacks();
 init_motion();
 init_sound();
 init_resultMoment();
-import React59, { useEffect as useEffect35, useLayoutEffect as useLayoutEffect12, useRef as useRef39 } from "react";
+import React59, { useEffect as useEffect36, useLayoutEffect as useLayoutEffect12, useRef as useRef39 } from "react";
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
 init_sound();
-import React58, { useEffect as useEffect34, useMemo as useMemo11, useRef as useRef38, useState as useState44 } from "react";
+import React58, { useEffect as useEffect35, useMemo as useMemo11, useRef as useRef38, useState as useState44 } from "react";
 var SHOWER_CHIPS = 16;
 var RAIN = Object.freeze({ min: 4, max: SHOWER_CHIPS, first: 420, gap: 110, fall: 620, bounce: 280, hold: 650, sweep: 520 });
 
@@ -13204,7 +13233,7 @@ init_sound();
 init_haptics();
 init_walkout();
 init_walkoutTeam();
-import React60, { useEffect as useEffect37, useRef as useRef41 } from "react";
+import React60, { useEffect as useEffect38, useRef as useRef41 } from "react";
 init_OneSafe();
 init_ScoreReel();
 
@@ -13218,12 +13247,12 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_desertModel();
 init_walkoutTeam();
-import React61, { useEffect as useEffect38, useMemo as useMemo12, useState as useState46 } from "react";
+import React61, { useEffect as useEffect39, useMemo as useMemo12, useState as useState46 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
 init_lastCard();
-import { useCallback as useCallback4, useEffect as useEffect39, useState as useState47 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect40, useState as useState47 } from "react";
 
 // src/App.jsx
 init_install();
@@ -13233,7 +13262,7 @@ init_core();
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React62, { useCallback as useCallback5, useEffect as useEffect40, useLayoutEffect as useLayoutEffect13, useRef as useRef42, useState as useState48 } from "react";
+import React62, { useCallback as useCallback5, useEffect as useEffect41, useLayoutEffect as useLayoutEffect13, useRef as useRef42, useState as useState48 } from "react";
 init_haptics();
 init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
@@ -13248,13 +13277,13 @@ init_core();
 init_PlayerIdentity();
 init_directorPill();
 init_haptics();
-import React65, { useEffect as useEffect42, useRef as useRef45, useState as useState50 } from "react";
+import React65, { useEffect as useEffect43, useRef as useRef45, useState as useState50 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_Icon();
 init_serverClock();
 init_haptics();
-import React64, { useEffect as useEffect41, useRef as useRef44 } from "react";
+import React64, { useEffect as useEffect42, useRef as useRef44 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
@@ -13272,7 +13301,7 @@ init_core();
 init_client();
 init_serverClock();
 init_haptics();
-import React66, { useEffect as useEffect43, useState as useState51, useSyncExternalStore as useSyncExternalStore4 } from "react";
+import React66, { useEffect as useEffect44, useState as useState51, useSyncExternalStore as useSyncExternalStore4 } from "react";
 
 // src/features/director/walkout.js
 init_audio();
@@ -13285,7 +13314,7 @@ var MISS_SHOWN_MS = 10 * 60 * 1e3;
 // src/features/director/TvHealth.jsx
 init_tvHealth();
 init_Icon();
-import React67, { useEffect as useEffect44, useState as useState52 } from "react";
+import React67, { useEffect as useEffect45, useState as useState52 } from "react";
 
 // src/features/director/CommissionerDock.jsx
 import React68, { useLayoutEffect as useLayoutEffect14, useRef as useRef46 } from "react";
@@ -13300,7 +13329,7 @@ init_prompts();
 init_awardsModel();
 init_awards();
 init_Icon();
-import React69, { useEffect as useEffect45, useRef as useRef47, useState as useState53 } from "react";
+import React69, { useEffect as useEffect46, useRef as useRef47, useState as useState53 } from "react";
 
 // src/features/mvp/MvpHome.jsx
 init_core();
@@ -13309,7 +13338,7 @@ init_client();
 init_haptics();
 init_serverClock();
 init_controls();
-import React70, { useEffect as useEffect46, useRef as useRef48, useState as useState54 } from "react";
+import React70, { useEffect as useEffect47, useRef as useRef48, useState as useState54 } from "react";
 
 // src/features/mvp/mvpHome.js
 init_mvp();
@@ -13331,7 +13360,7 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
-import React75, { useEffect as useEffect51, useRef as useRef52, useState as useState58 } from "react";
+import React75, { useEffect as useEffect52, useRef as useRef52, useState as useState58 } from "react";
 
 // src/features/trivia/TriviaPlay.jsx
 init_client();
@@ -13347,7 +13376,7 @@ init_OneSafe();
 init_triviaModel();
 init_geo2();
 init_trivia2();
-import React76, { useEffect as useEffect52, useRef as useRef53, useState as useState59 } from "react";
+import React76, { useEffect as useEffect53, useRef as useRef53, useState as useState59 } from "react";
 
 // src/App.jsx
 init_trivia();
@@ -13368,7 +13397,7 @@ init_guestSetup();
 
 // src/features/music/WinSongPicker.jsx
 init_client();
-import React80, { useEffect as useEffect54, useRef as useRef55, useState as useState61 } from "react";
+import React80, { useEffect as useEffect55, useRef as useRef55, useState as useState61 } from "react";
 
 // src/features/music/previewPlayer.js
 init_client();
@@ -13379,7 +13408,7 @@ var KNOWN_MS = 8 * 60 * 1e3;
 // src/features/music/SnippetPreview.jsx
 init_client();
 init_sound();
-import React79, { useEffect as useEffect53, useRef as useRef54, useState as useState60 } from "react";
+import React79, { useEffect as useEffect54, useRef as useRef54, useState as useState60 } from "react";
 
 // src/features/music/WinSongPicker.jsx
 init_Icon();

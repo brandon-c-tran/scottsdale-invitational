@@ -947,8 +947,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const winColor = podiumWin.length === 1 ? resolvePlayerIdentity(state.profiles, podiumWin[0].players[0]).color : null;
   const champColor = state.frozen && !crownPlaying && !directed && (coChamps || []).length <= 1 && standings[0]
     ? resolvePlayerIdentity(state.profiles, standings[0].player).color : null;
-  /* the game intro runs the frame in the session's own lamp */
+  /* the game intro runs the frame in the session's own lamp; the draw
+     after it keeps that lamp lit at the rest pace while its cards turn */
   const momentTakeovers = [(sceneIntroEv || ceremonyIntroEv) && { chase:{ color:"var(--phase)", pace:"run" } },
+    ceremonyReveal && { chase:{ color:"var(--phase)", pace:"rest" } },
     winColor && { chase:{ color:winColor, pace:"run" } },
     champColor && { chase:{ color:champColor, pace:"rest" } },
     faceOff && { takeover:"faceoff", chase:{ color:"var(--lamp-live)", pace:"run" } },

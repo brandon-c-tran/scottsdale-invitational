@@ -667,7 +667,10 @@ test("T2: the TV draws the intro and the draw inside its canvas", () => {
   const html = tvWith({ intro:null, reveal, handoff:false });
   const canvas = html.indexOf("data-tv-canvas"), inner = html.indexOf("tv-reveal"), exit = html.indexOf("tv-exit");
   assert.ok(canvas >= 0 && inner > canvas && inner < exit, "inside the scaled canvas");
-  assert.ok(reveal.groups.every(group => group.lines.every(line => html.includes(line.text.replace(/&/g, "&amp;")))));
+  /* every card stands on the canvas from the start, unturned: its people
+     land when it turns (Oct 3, draw-unit.test.mjs), never before */
+  assert.equal([...html.matchAll(/class="tv-draw-card /g)].length, reveal.groups.length);
+  assert.ok(reveal.groups.every(group => group.lines.every(line => !html.includes(`>${line.text.replace(/&/g, "&amp;")}<`))));
   const intro = tvWith({ intro:"8ball", reveal:null, handoff:true });
   assert.ok(intro.indexOf("tv-intro") > intro.indexOf("data-tv-canvas"));
   /* a draw follows: the intro docks its name where the draw letters it,

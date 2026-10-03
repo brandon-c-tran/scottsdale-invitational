@@ -24,6 +24,7 @@ import { publishFrame } from "../src/lib/frameGate.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
 import { TV_SCENARIOS, buildScenario, latestPostedAt } from "./fit/scenarios.js";
+import { DRAW_INTRO_MS, buildEventReveal, drawStepDelay } from "../src/features/weekend/drawReveal.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
@@ -82,6 +83,26 @@ function crownStates(state) {
   if (after.showControl?.active) after.showControl.active = null;
   return { before, after };
 }
+
+/* a draw scene: the event's announcement and draw stamps moved so the
+   room's clock reads `step` cards turned (and 300 ms into the last), `t`
+   ms after the reveal starts, or the whole draw; the real TVDrawReveal then
+   joins there as a late TV would. ?t=ms overrides. */
+function drawCeremony(state) {
+  const spec = scenario.draw;
+  const ev = allEventsOf(state).find(item => item.id === spec.ev);
+  const reveal = ev ? buildEventReveal(state, ev) : null;
+  if (!reveal) return null;
+  const total = (reveal.versus ? 2 : reveal.groups.length) + (reveal.crew?.length ? 1 : 0);
+  const t = params.get("t") ? Number(params.get("t")) : spec.t !== undefined ? spec.t
+    : spec.step ? drawStepDelay(spec.step - 1, total) + 300 : 60000;
+  const at = Date.now() - t - DRAW_INTRO_MS;
+  const op = state.eventOps[ev.id] || (state.eventOps[ev.id] = {});
+  op.announcedAt = at; op.drawRevealedAt = at;
+  for (const item of [state.draws?.[ev.id], state.stages?.[ev.id]]) if (item?.id === reveal.id) item.ts = at;
+  return { reveal };
+}
+const drawn = scenario.draw ? drawCeremony(scenario.state) : null;
 
 /* ?live=1 lets it run (frame timing), otherwise the still is frozen */
 /* ?hide=a,b hides selectors (frame-time bisection) */
@@ -162,7 +183,7 @@ function Harness() {
       <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
         champion={state.frozen ? standings[0] : null} coChamps={state.frozen ? standings.filter(r => r.rank === 1) : []}
         showControlEnabled={false} rankDeltas={{}} connection={{ ready:true, connected:true, status:"open", version:1 }}
-        EventSpotlight={() => null} ceremony={scenario.ceremony || null} onExit={() => {}} now={now} />
+        EventSpotlight={() => null} ceremony={drawn || scenario.ceremony || null} onExit={() => {}} now={now} />
       <TextFloor px={24}><MomentLayer state={state} events={events} /></TextFloor>
     </Shell></PlayerIdentityProvider>
   );

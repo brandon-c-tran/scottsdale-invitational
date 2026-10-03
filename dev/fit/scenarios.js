@@ -469,6 +469,22 @@ export const TV_SCENARIOS = Object.freeze([
     moment:{ kind:"walkout", t:3000, record:true } },
   { id:"tv-faceoff", build:() => fresh("event:pickleball:open"), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-faceoff-solo", build:() => bracketOf(13), moment:{ kind:"faceoff", t:5000 } },
+  /* the draw on the TV for every shape: `draw.step` cards turned (mid),
+     none yet (`t` ms before the first turns), or complete. dev/fit-tv.jsx
+     moves the event's stamps so the room's clock reads that instant */
+  { id:"tv-draw-covered", build:() => fresh("event:pong:open"), draw:{ ev:"pong", t:-6000 }, wait:1400 },
+  { id:"tv-draw-playin-mid", build:() => fresh("event:pong:open"), draw:{ ev:"pong", step:1 } },
+  { id:"tv-draw-playin", build:() => fresh("event:pong:open"), draw:{ ev:"pong" } },
+  { id:"tv-draw-bracket13-mid", build:() => bracketOf(13), draw:{ ev:"bball1", step:3 } },
+  { id:"tv-draw-bracket13", build:() => bracketOf(13), draw:{ ev:"bball1" } },
+  { id:"tv-draw-bracket7", build:() => bracketOf(7), draw:{ ev:"bball1" } },
+  { id:"tv-draw-bracket9", build:() => bracketOf(9), draw:{ ev:"bball1" } },
+  { id:"tv-draw-split-mid", build:() => fresh("event:bball5:open"), draw:{ ev:"bball5", step:1 } },
+  { id:"tv-draw-split", build:() => fresh("event:bball5:open"), draw:{ ev:"bball5" } },
+  { id:"tv-draw-semis", build:() => fresh("event:volley:open"), draw:{ ev:"volley" } },
+  { id:"tv-draw-teams4", build:() => fresh("event:trivia:open"), draw:{ ev:"trivia" } },
+  { id:"tv-draw-heats-mid", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio", step:2 } },
+  { id:"tv-draw-heats", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio" } },
   { id:"tv-bust", build:() => fresh("poker:live"), moment:{ kind:"bust", t:1500, player:"Richard" } },
   { id:"tv-blinds", build:() => fresh("poker:live"), moment:{ kind:"blinds", t:1500 } },
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },
@@ -607,7 +623,7 @@ export function buildScenario(list, id) {
   const spec = list.find(item => item.id === id);
   if (!spec) throw new Error(`Unknown fit scenario ${id}`);
   const built = spec.build();
-  const settled = spec.settle === false || spec.at || spec.moment ? built : aged(built);
+  const settled = spec.settle === false || spec.at || spec.moment || spec.draw ? built : aged(built);
   return { ...spec, state:dress(settled) };
 }
 

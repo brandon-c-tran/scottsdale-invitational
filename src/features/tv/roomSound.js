@@ -6,8 +6,7 @@
      S2  the event intro, at eventOps.announcedAt: the game's own scene
          (introScene) on the intro's beats, its chord alone under reduced motion
      S3  each draw card, at revealTimeline().revealAt + drawStepDelay(i, n),
-         panned to the card's column
-     land  the held beat: a draw card's last partner landing
+         panned to the card's column (everyone on a card lands with it)
      faceOff  D2, the broadcast sting: the lean-in sting, a whoosh panned to
          each side's edge, VS (drum, slap, low bell), the record typing in
          (the face-off itself waits for the intro, the draw or the decided
@@ -52,8 +51,8 @@ import { pokerClock, resolveCurrentContest, resolveWager, wagerMatchesContest } 
 import { MOTION } from "../../lib/motion.js";
 import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { DRAW_PARTNER_BEAT_MS, buildEventReveal, drawRevealGroups, drawStepDelay, partnerFaces, revealReady, revealTimeline }
-  from "../weekend/drawReveal.js";
+import { buildEventReveal, drawStepDelay, revealReady, revealTimeline } from "../weekend/drawReveal.js";
+import { drawPans, gridBoxes } from "./drawLayout.js";
 import { sideKeyOf } from "../wagers/betStacks.js";
 import { levelAnchor, levelRoll } from "../poker/pokerMotion.js";
 import { ADVANCE_TIMING as A, CROWN_TIMING as C, crownOutAt } from "./tvMotion.js";
@@ -69,19 +68,12 @@ export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
 const posted = res => Number(res?.confirmedAt || res?.ts) || 0;
 const panAt = (col, cols) => cols > 1 ? Math.round((-0.6 + 1.2 * col / (cols - 1)) * 100) / 100 : 0;
 
-/* the draw's cards across the TV canvas (TVDrawReveal's layout) */
+/* the draw's cards across the TV canvas, where TVDrawReveal stands them
+   (drawLayout: a card's column depends on the count alone) */
 export function revealPans(reveal) {
   if (!reveal) return [];
   if (reveal.versus) return [-0.5, 0.5];
-  const groups = reveal.groups || [];
-  const cols = groups.length === 4 ? 2 : Math.min(3, Math.max(1, groups.length));
-  return groups.map((_, index) => panAt(index % cols, cols));
-}
-/* which draw cards hold a beat for a last partner (partnerFaces): the TV
-   and the phones land those faces late, the room hears it */
-export function revealPartners(state, reveal) {
-  if (!reveal) return [];
-  return drawRevealGroups(state, reveal).map(group => partnerFaces(group).some(face => face >= 0));
+  return drawPans({ boxes:gridBoxes((reveal.groups || []).length) });
 }
 /* the contest's sides across the board (ContestBoard's grid) */
 export function sidePans(contest) {
@@ -128,7 +120,6 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
       if (reveal) {
         const cards = reveal.versus ? 2 : (reveal.groups || []).length;
         reveals[ev.id] = { id:reveal.id, total:cards + (reveal.crew?.length ? 1 : 0), pans:revealPans(reveal),
-          partners:revealPartners(state, reveal),
           revealAt:revealTimeline(state, ev.id, { reveal })?.revealAt ?? null,
           reducedAt:revealTimeline(state, ev.id, { reveal, reducedMotion:true })?.revealAt ?? null };
       }
@@ -243,10 +234,8 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
     if (reveal.revealAt === null) continue;
     for (let i = 0; i < reveal.total; i++) {
       const turn = reveal.revealAt + drawStepDelay(i, reveal.total);
+      /* the card turns with everyone on it: one sound a card */
       add("S3", turn, { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}` });
-      /* the held beat: the card's last partner lands */
-      if (reveal.partners?.[i])
-        add("land", turn + DRAW_PARTNER_BEAT_MS, { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}:partner` });
     }
   }
 

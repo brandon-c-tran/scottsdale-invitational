@@ -1,5 +1,5 @@
 /* Backglass moments on the TV: the takeover grammar, the Walkout, the
-   finale's bust card and blinds-up, and the draw's held partner beat.
+   finale's bust card and blinds-up.
    Tokens only, flat, text 24px and up. Every animation runs from its
    moment's shared server instant: --tl is minus the ms already gone when
    this TV joined, so calc(var(--tl) + 700ms) is "700 ms after the start".
@@ -158,12 +158,6 @@
 .tv-blinds-new { font-size:220px; line-height:1.05; color:var(--sun);
   animation:tv-walk-stamp 380ms var(--ease-land) calc(var(--tl) + 700ms) both; }
 .tv-blinds-label { font:700 40px/1 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; color:var(--bone); }
-
-/* ── the draw: the last partner of each card lands after a held beat ── */
-.tv-reveal-card.is-shown .tv-partner { animation:tv-partner-in 420ms var(--ease-land) var(--partner-beat, 900ms) both; }
-@keyframes tv-partner-in { 0% { opacity:0; transform:translateY(-60px) scale(1.25); } 70% { opacity:1; transform:translateY(5px) scale(.97); }
-  100% { opacity:1; transform:none; } }
-.tv-reveal-card.is-shown[style*="animation: none"] .tv-partner { animation:none; }
 
 /* the Now playing strip for a team's win: the team's photo chips in a
    stack where the cover sits for one winner, then its name and the song */

@@ -7,7 +7,7 @@ import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { DRAW_INTRO_MS, DRAW_PARTNER_BEAT_MS, drawRevealGroups, drawStepAt, drawStepDelay, partnerFaces, revealTimeline, startDrawPlayback } from "./drawReveal.js";
+import { DRAW_INTRO_MS, drawRevealGroups, drawStepAt, drawStepDelay, revealTimeline, startDrawPlayback } from "./drawReveal.js";
 import { TeamSort, teamOf } from "../moments/TeamSort.jsx";
 import { playSound } from "../../lib/sound.js";
 import { drawPath } from "./drawPath.js";
@@ -135,11 +135,10 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
     playback.current?.stop();
     setShown(reducedMotion ? total : 0); setRun(value => value + 1);
   };
-  /* the held beat: a card's last partner lands after the rest (partner) */
-  const playerButton = (player, visible, index = 0, partner = false) => <button type="button" key={player}
+  /* a card turns over as one unit: its faces and names come round with it */
+  const playerButton = (player, visible) => <button type="button" key={player}
     disabled={!visible || !onPlayer} tabIndex={visible ? undefined : -1}
-    onClick={() => { if (visible) onPlayer?.(player); }} className={partner ? "is-partner" : undefined}
-    style={{ "--deal-index":index, ...(partner ? { "--partner-beat":`${DRAW_PARTNER_BEAT_MS}ms` } : null) }}
+    onClick={() => { if (visible) onPlayer?.(player); }}
     aria-label={`View ${disp(state,player)}'s player card`}>
     <Avatar state={state} p={player} size={30}/><span>{disp(state,player)}</span></button>;
   const revealEv = allEventsOf(state).find(item => item.id === reveal.evId) || null;
@@ -158,14 +157,12 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
       /* your own team, heat or matchup rings in your color as it turns */
       const mine = !!me && group.lines.some(line => (line.avatars || []).includes(me));
       const ring = mine && visible && animate && !settled;
-      const held = partnerFaces(group);
       const lines = group.lines.map((line,j)=>{
         const people = line.avatars || [];
         const namedTeam = line.text && people.length > 1 && line.text !== people.map(player => disp(state,player)).join(" & ") && line.text !== group.title;
         const body = <>
-          {namedTeam && <strong className="fd-draw-team-name">{line.text}</strong>}
-          <div className="fd-draw-people">{people.length ? people.map((player, playerIndex)=>playerButton(player,visible,playerIndex,
-            playerIndex === held[j])) : <span>{line.text}</span>}</div>
+          {namedTeam && <strong className="fd-draw-team-name"><EventName name={line.text} /></strong>}
+          <div className="fd-draw-people">{people.length ? people.map(player=>playerButton(player,visible)) : <span>{line.text}</span>}</div>
         </>;
         if (group.bye) return <div key={j} style={{ "--deal-index":j }}
           className={`fd-draw-bye${me && people.includes(me) ? " is-mine" : ""}`}>{body}</div>;
@@ -179,7 +176,7 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
         <div className="fd-draw-card-back" aria-hidden="true"><span>{String(index + 1).padStart(2,"0")}</span></div>
         {ring && <i className="fd-draw-ring" aria-hidden="true"/>}
         <div className="fd-draw-card-front" aria-hidden={!visible}>
-          <h3>{group.title}{mine && visible && <span className="fd-draw-you">You</span>}</h3>
+          <h3><EventName name={group.title} />{mine && visible && <span className="fd-draw-you">You</span>}</h3>
           {group.bye ? <div className="fd-draw-byes">{lines}</div> : lines}
         </div>
       </section>;

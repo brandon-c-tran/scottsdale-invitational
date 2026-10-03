@@ -5985,41 +5985,49 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--sun);
+  border: 1px solid var(--ghost-line);
   border-radius: 10px;
-  background: var(--paper);
-  color: var(--sun);
+  background:
+    radial-gradient(
+      80% 62% at 50% 42%,
+      color-mix(in srgb, var(--bone) 8%, transparent),
+      transparent 72%),
+    var(--paper);
+  color: var(--muted2);
+  box-shadow: var(--glass-edge);
   backface-visibility: hidden;
 }
 .fd-draw-card-back::before {
   content: "";
   position: absolute;
-  inset: 5px;
-  border: 1px dashed var(--line);
-  border-radius: 6px;
+  inset: 4px;
+  border: 1px solid color-mix(in srgb, var(--bone) 12%, transparent);
+  border-radius: 7px;
 }
 .fd-draw-card-back span {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border: 2px solid var(--sun);
+  border: 2px dashed color-mix(in srgb, var(--bone) 24%, transparent);
   border-radius: 50%;
-  font: 700 23px/1 var(--fd-display);
+  font: 800 22px/1 var(--fd-display);
 }
 .fd-draw-card.is-revealed .fd-draw-card-back {
   animation: fd-draw-back .5s cubic-bezier(.2, .8, .3, 1) both;
 }
 .fd-draw-announcement h3 {
   color: var(--muted2);
-  font: 600 12px/1.4 var(--fd-body);
-  margin: 0 0 5px;
+  font: 900 16px/1.15 var(--fd-show);
+  letter-spacing: .01em;
+  margin: 0 0 4px;
 }
 .fd-draw-team-name {
   display: block;
-  font: 600 12px/1.4 var(--fd-body);
+  font: 900 17px/1.15 var(--fd-show);
+  letter-spacing: .01em;
   margin: 4px 0 1px;
-  color: var(--ink);
+  color: var(--bone);
 }
 .fd-draw-people {
   display: flex;
@@ -6030,7 +6038,7 @@
 .fd-draw-crew button {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
   min-height: 44px;
   border: 0;
@@ -6040,7 +6048,7 @@
   color: var(--ink);
   cursor: pointer;
   text-align: left;
-  font: 500 12px/1.3 var(--fd-body);
+  font: 600 14px/1.25 var(--fd-body);
 }
 .fd-draw-people button span {
   overflow-wrap: anywhere;
@@ -6048,30 +6056,6 @@
 .fd-draw-people button:disabled,
 .fd-draw-crew button:disabled {
   cursor: default;
-}
-.fd-draw-card.is-revealed .fd-draw-people button {
-  animation: fd-draw-player .38s cubic-bezier(.2, .8, .3, 1) calc(.12s + var(--deal-index,0)*.055s) backwards;
-}
-.fd-draw-card.is-revealed .fd-draw-people button.is-partner {
-  animation: fd-draw-partner .42s var(--ease-land) var(--partner-beat, .9s) backwards;
-}
-.fd-draw-card.is-settled .fd-draw-people button.is-partner,
-.fd-draw-announcement.is-reduced .fd-draw-card .fd-draw-people button.is-partner {
-  animation: none;
-}
-@keyframes fd-draw-partner {
-  0% {
-    opacity: 0;
-    transform: translateY(-28px) scale(1.2);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(3px) scale(.97);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
 }
 .fd-draw-versus {
   display: block;
@@ -6259,16 +6243,6 @@
   to {
     transform: rotateY(90deg);
     visibility: hidden;
-  }
-}
-@keyframes fd-draw-player {
-  from {
-    transform: translateX(-9px);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -16954,7 +16928,7 @@ strong.fd-relettered {
   gap: 8px;
 }
 
-/* ../scottsdale-invitational/node_modules/maplibre-gl/dist/maplibre-gl.css */
+/* node_modules/maplibre-gl/dist/maplibre-gl.css */
 .maplibregl-map {
   font:
     12px/20px Helvetica Neue,
@@ -17647,7 +17621,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
   z-index: 99999;
 }
 
-/* ../scottsdale-invitational/node_modules/leaflet/dist/leaflet.css */
+/* node_modules/leaflet/dist/leaflet.css */
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -22681,26 +22655,6 @@ summary:focus-visible {
   text-transform: uppercase;
   color: var(--bone);
 }
-.tv-reveal-card.is-shown .tv-partner {
-  animation: tv-partner-in 420ms var(--ease-land) var(--partner-beat, 900ms) both;
-}
-@keyframes tv-partner-in {
-  0% {
-    opacity: 0;
-    transform: translateY(-60px) scale(1.25);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(5px) scale(.97);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-.tv-reveal-card.is-shown[style*="animation: none"] .tv-partner {
-  animation: none;
-}
 .tv-now.is-team {
   padding-left: 10px;
 }
@@ -22719,6 +22673,351 @@ summary:focus-visible {
   .tv-now-stack > span {
     animation: none;
   }
+}
+
+/* src/features/tv/tv-draw.css */
+.tv-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  overflow: hidden;
+  background: var(--night-deep);
+  --lamp:var(--phase);
+  --veil:.45;
+}
+.tv-reveal-paint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 854px;
+}
+.tv-reveal-paint > .fd-glass-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.tv-reveal-paint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      transparent 60%,
+      color-mix(in srgb, var(--ink0) 70%, transparent));
+}
+.tv-reveal-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--night-deep);
+  opacity: var(--veil);
+  pointer-events: none;
+}
+.tv-reveal.is-fresh .tv-reveal-veil {
+  animation: tv-draw-veil 700ms var(--ease-out) both;
+}
+@keyframes tv-draw-veil {
+  from {
+    opacity: .94;
+  }
+  to {
+    opacity: var(--veil);
+  }
+}
+.tv-reveal-name {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  top: 37px;
+  margin: 0;
+  text-align: center;
+  font-size: 120px;
+  line-height: 1.15;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.tv-draw-card {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 28px;
+  border-radius: 18px;
+  transform-origin: 50% 50%;
+}
+.tv-draw-card.is-shown {
+  background: var(--tv-sheen), var(--tv-glass);
+  border: 1px solid var(--line);
+  box-shadow: var(--glass-edge), var(--shadow-2);
+}
+.tv-draw-card.is-covered {
+  border: 1px solid var(--ghost-line);
+  background:
+    radial-gradient(
+      80% 62% at 50% 38%,
+      color-mix(in srgb, var(--bone) 8%, transparent),
+      transparent 72%),
+    var(--tv-sheen),
+    var(--tv-glass-deep);
+  box-shadow: var(--glass-edge), var(--shadow-2);
+}
+.tv-draw-card.is-covered::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 14px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--bone) 12%, transparent);
+}
+.tv-draw-title {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 34px;
+  line-height: 1.15;
+  color: var(--muted2);
+  overflow-wrap: normal;
+  word-break: normal;
+  text-wrap: balance;
+}
+.tv-draw-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.tv-draw-card.is-vs .tv-draw-body {
+  gap: 0;
+}
+.tv-draw-card.is-roster .tv-draw-body {
+  justify-content: flex-start;
+}
+.tv-draw-tiles {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--tiles, 1), minmax(0, 1fr));
+  gap: 12px;
+  align-content: center;
+}
+.tv-draw-tile {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--tv-window);
+  box-shadow: var(--tv-cut);
+}
+.tv-draw-line {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+.tv-draw-card.is-stack .tv-draw-line {
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+.tv-draw-faces {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.tv-draw-face {
+  display: block;
+  flex-shrink: 0;
+}
+.tv-draw-text {
+  flex: 1;
+  min-width: 0;
+}
+.tv-draw-card.is-stack .tv-draw-text {
+  flex: none;
+  width: 100%;
+}
+.tv-draw-name {
+  font-size: var(--name);
+  line-height: 1.15;
+  color: var(--bone);
+  overflow-wrap: normal;
+  word-break: normal;
+  text-wrap: balance;
+}
+.tv-draw-members {
+  margin-top: 6px;
+  font: 600 28px/1.25 var(--fd-body);
+  color: var(--muted2);
+  text-wrap: balance;
+}
+.tv-draw-vs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 30px;
+  margin: 14px 0;
+  font: 800 24px/1 var(--fd-display);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+.tv-draw-vs::before,
+.tv-draw-vs::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--bone-line);
+}
+.tv-draw-seat {
+  display: block;
+  flex-shrink: 0;
+  width: var(--face);
+  height: var(--face);
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px dashed color-mix(in srgb, var(--bone) 20%, transparent);
+  background: color-mix(in srgb, var(--bone) 3%, transparent);
+}
+.tv-draw-plate {
+  display: block;
+  width: min(72%, 320px);
+  height: calc(var(--name, 34px) * .62);
+  margin: calc(var(--name, 34px) * .27) 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bone) 8%, transparent);
+}
+.tv-draw-plate.is-small {
+  width: min(56%, 260px);
+  height: 18px;
+  margin: 10px 0 7px;
+}
+.tv-draw-title .tv-draw-plate {
+  width: min(54%, 260px);
+  height: 22px;
+  margin: 10px auto 7px;
+}
+.tv-draw-card.is-stack .tv-draw-plate {
+  margin-left: auto;
+  margin-right: auto;
+}
+.tv-reveal.is-fresh .tv-draw-card.is-covered {
+  animation: tv-draw-stand 420ms var(--ease-out) calc(var(--card-index, 0) * 45ms) both;
+}
+.tv-draw-card.is-shown {
+  animation: tv-draw-turn 620ms var(--ease-out) both;
+}
+.tv-draw-card.is-shown::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      104deg,
+      transparent 30%,
+      color-mix(in srgb, var(--bone) 10%, transparent) 46%,
+      transparent 62%);
+  opacity: 0;
+  animation: tv-draw-shine 900ms var(--ease-out) 200ms both;
+}
+.tv-draw-card.is-settled,
+.tv-draw-card.is-settled::after,
+.tv-reveal.is-still .tv-draw-card,
+.tv-reveal.is-still .tv-draw-card::after,
+.tv-reveal.is-still .tv-reveal-veil {
+  animation: none;
+}
+.tv-draw-card.is-settled::after,
+.tv-reveal.is-still .tv-draw-card::after {
+  display: none;
+}
+@keyframes tv-draw-stand {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tv-draw-turn {
+  0% {
+    opacity: .25;
+    transform: perspective(1800px) rotateY(-78deg) scale(.96);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tv-draw-shine {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.tv-reveal-vs {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  font-size: 44px;
+}
+.tv-reveal.is-fresh .tv-reveal-vs {
+  animation: tv-draw-stand 420ms var(--ease-out) 90ms both;
+}
+.tv-reveal-foot {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  top: 950px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+}
+.tv-reveal-crew {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 28px;
+  visibility: hidden;
+  font: 700 32px/1.15 var(--fd-body);
+  color: var(--bone);
+}
+.tv-reveal-crew.is-shown {
+  visibility: visible;
+  animation: si-in .4s ease-out both;
+}
+.tv-reveal-crew-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.tv-reveal-odds {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font: 700 30px/1.2 var(--fd-body);
+  color: var(--muted2);
+  animation: si-in .4s ease-out both;
+}
+.tv-reveal.is-still .tv-reveal-odds,
+.tv-reveal.is-still .tv-reveal-crew {
+  animation: none;
 }
 
 /* src/features/tv/tv-draft.css */
@@ -26357,39 +26656,6 @@ summary:focus-visible {
   inset: 0;
   z-index: 20;
 }
-.tv-reveal {
-  position: absolute;
-  inset: 0;
-  z-index: 21;
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  padding: 40px 64px 36px;
-  background: var(--night-deep);
-}
-.tv-reveal-head {
-  text-align: center;
-}
-.tv-reveal-name {
-  font-size: 120px;
-  line-height: 1.08;
-  color: var(--bone);
-}
-.tv-reveal-grid {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  gap: 22px;
-  align-content: center;
-}
-.tv-reveal-versus {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 32px;
-  align-items: center;
-}
 .tv-vs {
   align-self: center;
   width: 72px;
@@ -26402,122 +26668,6 @@ summary:focus-visible {
   color: var(--bone);
   font: 800 32px/1 var(--fd-display);
   letter-spacing: .04em;
-}
-.tv-reveal-vs {
-  width: 110px;
-  height: 110px;
-  font-size: 40px;
-}
-.tv-reveal-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 26px 30px;
-  border-radius: 18px;
-  background: var(--night2);
-  border: 1.5px solid var(--ghost-line);
-  visibility: hidden;
-}
-.tv-reveal-card.is-shown {
-  visibility: visible;
-  animation: si-flag .55s ease-out both;
-}
-.tv-reveal-group {
-  font-size: 44px;
-  line-height: 1.1;
-  color: var(--muted2);
-  margin-bottom: 4px;
-}
-.tv-reveal-versus-mark {
-  font: 700 24px/1 var(--fd-body);
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--night-text);
-}
-.tv-reveal-bye {
-  padding: 10px 18px;
-  border-radius: 10px;
-  background: var(--night);
-  border: 1.5px solid var(--ghost-line);
-}
-.tv-reveal-card.is-shown .tv-reveal-bye {
-  animation: si-flag .5s ease-out calc(.15s + var(--deal-index,0)*.12s) backwards;
-}
-.tv-draw-line {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-.tv-draw-faces {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  flex-shrink: 0;
-  max-width: 60%;
-}
-.tv-draw-text {
-  min-width: 0;
-}
-.tv-draw-name {
-  font: 800 48px/1.1 var(--fd-display);
-  text-transform: uppercase;
-  color: var(--bone);
-  overflow-wrap: normal;
-  word-break: normal;
-}
-.tv-draw-crew {
-  font: 600 28px/1.25 var(--fd-body);
-  color: var(--night-text);
-  margin-top: 6px;
-}
-.tv-reveal-versus .tv-draw-line {
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.tv-reveal-versus .tv-draw-faces {
-  justify-content: center;
-  max-width: none;
-}
-.tv-reveal-versus .tv-draw-name {
-  font-size: 72px;
-}
-.tv-reveal-foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  min-height: 60px;
-}
-.tv-reveal-crew {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 14px 28px;
-  visibility: hidden;
-  font: 700 32px/1.1 var(--fd-body);
-  color: var(--bone);
-}
-.tv-reveal-crew.is-shown {
-  visibility: visible;
-  animation: si-in .4s ease-out both;
-}
-.tv-reveal-crew-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-.tv-reveal-odds {
-  display: flex;
-  align-items: baseline;
-  gap: 28px;
-  font: 700 30px/1.2 var(--fd-body);
-  color: var(--muted2);
-}
-.tv-reveal-odds b {
-  color: var(--bone);
 }
 .tv-champ-pane {
   padding-top: 4px;

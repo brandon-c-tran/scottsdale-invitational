@@ -417,10 +417,12 @@
 /* next up: the event in backglass lettering on glass */
 /* over the towers' horizon: the game's mark and name left, what it pays
    right, one row so the sky above the towers stays open */
+/* a set width, so a long name wraps by words inside its column instead of
+   the card shrinking around it */
 .tv-next-card { position:relative; overflow:hidden; display:flex; align-items:flex-end; gap:72px;
-  padding:44px 72px 0; max-width:1640px; }
+  padding:44px 72px 0; width:min(1640px, 100%); }
 .tv-next-band { position:absolute; left:0; right:0; top:0; height:12px; }
-.tv-next-head { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:18px; max-width:1060px; padding-bottom:40px;
+.tv-next-head { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:18px; max-width:1060px; padding-bottom:40px;
   text-align:left; }
 /* a long name wraps inside its column; it never runs under the ladder */
 .tv-next-name { max-width:100%; font-size:120px; line-height:1.05; color:var(--bone); white-space:normal;

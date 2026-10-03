@@ -270,3 +270,7 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
   .fd-you-strip-score .fd-reel { font-size:30px; }
 }
 @media(prefers-reduced-motion:reduce) { button.fd-you-strip:active { transform:none; } }
+/* v3.1: a side's payout and its bounty, under the side */
+.fd-home-side:has(> .fd-home-terms) { flex-wrap:wrap; row-gap:4px; }
+.fd-home-terms { flex-basis:100%; }
+.fd-home-team .fd-home-terms { margin-top:6px; }

@@ -9,6 +9,7 @@ import {
 import { postedFinalUndo } from "../../../shared/show.js";
 import { geoPlayers } from "../../../shared/geo.js";
 import { triviaGame } from "../../../shared/trivia.js";
+import { bountyLine, contestBountyPlayers, payLine } from "../comebacks/comebacks.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene",
@@ -163,6 +164,14 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     const bets = (state.wagers || []).filter(wager => wagerMatchesContest(wager, contest)
       && resolveWager(state, wager, events).status === "pending").length;
     lines.push(`${bets} bet${bets === 1 ? "" : "s"} in`);
+  }
+  /* v3.1: the underdog's payout and the bounty, said once on the beat
+     that locks them in */
+  if (beat.type === "lock-start" && contest) {
+    const underdog = contest.odds ? contest.sides.find(side => side.key === contest.odds.underdog) : null;
+    if (underdog) lines.push(`${sideName(state, underdog)}: ${payLine(contest.odds.mult)}`);
+    const wanted = contestBountyPlayers(state, contest);
+    if (wanted.length) lines.push(`${bountyLine()} on ${namesOf(state, wanted)}`);
   }
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) lines.push("You’re playing");
   if (beat.type === "geo-reveal" && state.geo) {

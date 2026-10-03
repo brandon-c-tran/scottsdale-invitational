@@ -23,6 +23,8 @@ import { Icon } from "../../ui/Icon.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
 import { Coin } from "../../ui/Coin.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
+import { BountyLamp, SideTerms } from "../comebacks/Comebacks.jsx";
+import { contestTerms } from "../comebacks/comebacks.js";
 import "./wagers.css";
 
 /* the pot's chip, px across: a side card's tower, and a wide board's row */
@@ -79,7 +81,7 @@ export const isUncertainResult = result => result?.ok !== true && (result?.uncer
 const PLACE_QUEUE = 4;
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
   roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine, winSlot = false, lines = 2,
-  named = false }) {
+  named = false, terms = null, termsSlot = false, wanted = false }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
@@ -324,6 +326,9 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       </>}
     </div>
     {winSlot && !winInline && <div className="fd-wagers-win-slot"><WinLine line={winLine} className="fd-wagers-win" /></div>}
+    {/* v3.1: this side's payout and the bounty it collects, one row on every card */}
+    {termsSlot && <SideTerms terms={terms} className="fd-wagers-terms" />}
+    {wanted && <BountyLamp className="fd-wagers-wanted" />}
     {lines === 1
       /* a wide board's row: the pot, how many back it (yours lit, a tap
          takes your last chip back), then the + */
@@ -458,7 +463,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   return <section className="fd-wagers-event fd-wagers-held" onClick={onSkip} aria-label={`${label} settled`}>
     <div className="fd-wagers-contest-heading">
       <div><h2>{contest.kind === "ffa" ? "Winner" : label}</h2>
-        <p>{contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"}</p></div>
+        {!contest.odds && <p>{contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"}</p>}</div>
     </div>
     <div className="fd-wagers-picks">{sides.map(side => {
       const head = side.won ? side.paid > 0 && <span className="fd-wagers-held-head is-up">+{fmt(side.paid)}</span>
@@ -678,6 +683,9 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     [state, ev?.id, contest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   /* a wide field shows only your own side's win line, as on Home (X8) */
   const wide = contest?.kind === "ffa" && (contest?.sides || []).length > 2;
+  /* v3.1: underdog odds and the leader bounty, per side */
+  const terms = contest ? contestTerms(state, contest, standings) : null;
+  const termsSlot = !!terms?.any && !terms.wide;
   const picks = (contest?.sides || []).map(side => {
     const own = side.players.includes(me);
     const drawnTeam = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
@@ -689,6 +697,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
       onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)), winLine:wide && !own ? null : winLineFor(winLines, side.key),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
+      terms:termsSlot ? terms.sides[side.key] : null, termsSlot, wanted:!!terms?.wide && !!terms.sides[side.key]?.holdsBounty,
       unavailableReason:restricted && !eligible ? restriction
         : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel:restricted && !eligible ? "Opponent" : "Other side",
@@ -780,7 +789,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
           <i className={liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done"} aria-hidden="true" />{holding ? "Settled" : status}
         </span>
         {/* the payout is said once, here */}
-        {contest && !holding && <span className="fd-wagers-payout">{evenMoney ? "Winner pays 1:1" : "Winner pays 2:1"}</span>}
+        {contest && !holding && !terms?.odds && <span className="fd-wagers-payout">{evenMoney ? "Winner pays 1:1" : "Winner pays 2:1"}</span>}
       </div>
     </header> : <PageHeading title="Bets" />}
 

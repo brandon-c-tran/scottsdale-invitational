@@ -1,0 +1,21 @@
+/* comebacks: the bounty lamp, the bounty tag, a side's payout. Amber is the
+   chips lamp (DESIGN.md, Fixed Jobs). */
+.fd-bounty-lamp, .fd-bounty-tag { --lamp:var(--sun); display:inline-flex; align-items:center; gap:5px; flex:none; white-space:nowrap;
+  font:800 12px/1 var(--fd-show); letter-spacing:.08em; text-transform:uppercase; color:var(--sun); }
+.fd-bounty-lamp .fd-insert, .fd-bounty-tag .fd-insert { width:9px; height:9px; }
+.fd-bounty-tag { padding:3px 7px 3px 5px; border-radius:6px; border:1px solid color-mix(in srgb, var(--sun) 55%, transparent);
+  background:color-mix(in srgb, var(--sun) 12%, transparent); font-size:13px; letter-spacing:.05em; }
+.fd-side-terms { display:flex; align-items:center; gap:6px; min-height:22px; flex-wrap:nowrap; overflow:hidden; }
+.fd-side-pays { font:800 13px/1 var(--fd-show); letter-spacing:.05em; text-transform:uppercase; color:var(--muted2); white-space:nowrap; }
+.fd-side-pays.is-underdog { color:var(--sun); }
+
+/* the TV: 24px is the floor for any text on the canvas */
+.fd-side-terms.is-tv { gap:16px; min-height:44px; justify-content:center; }
+.fd-side-terms.is-tv .fd-side-pays { font-size:30px; letter-spacing:.04em; }
+.fd-side-terms.is-tv .fd-bounty-tag { gap:10px; padding:6px 16px 6px 12px; border-radius:10px; font-size:30px; letter-spacing:.04em; }
+.fd-side-terms.is-tv .fd-insert { width:16px; height:16px; }
+.tv-faceoff-terms { margin-top:14px; }
+.tv-side-terms { margin-top:8px; }
+/* the TV horizon: the wanted player's lamp stands over their name */
+.tv-tower-bounty { --lamp:var(--sun); position:absolute; left:50%; top:-30px; transform:translateX(-50%); line-height:0; }
+.tv-tower-bounty .fd-insert { width:22px; height:22px; box-shadow:var(--lens-rim), 0 0 18px 4px color-mix(in srgb, var(--sun) 60%, transparent); }

@@ -9,6 +9,8 @@ import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { BountyLamp } from "../comebacks/Comebacks.jsx";
+import { boardBounty } from "../comebacks/comebacks.js";
 import "./standings.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -189,7 +191,7 @@ function useStuckBottom(enabled) {
 }
 
 function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas, out, adjustment, scoreLabel, scale,
-  onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef }) {
+  onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef, wanted = false }) {
   const isMe = row.player === me;
   const stuckRef = useStuckBottom(isMe);
   const setRow = useCallback(node => { rowRef?.(node); stuckRef(node); }, [rowRef, stuckRef]);
@@ -220,9 +222,10 @@ function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas
       <Avatar state={state} p={row.player} size={32} />
       <span className="fd-standing-player">
         <span className="fd-standing-line"><span className="fd-standing-name">{disp(state, row.player)}</span>
-          {(isMe || out) && <span className="fd-standing-flags">
+          {(isMe || out || wanted) && <span className="fd-standing-flags">
             {isMe && <span className="fd-standing-you">You</span>}
             {out && <span className="fd-standing-out">Out</span>}
+            {wanted && <BountyLamp className="fd-standing-bounty" />}
           </span>}
         </span>
         {!starting && <ChipBar p={row.player} pts={count.value} scale={scale}
@@ -318,6 +321,8 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
   const refFor = useRowSlide(order, starting ? "starting" : "board");
   const leader = useNewLeader(soleLeader(standings, starting || tied));
   const ranks = rankLabels(standings, { starting, tied });
+  /* v3.1: the leader carries the bounty */
+  const wanted = starting ? [] : boardBounty(state, undefined, standings);
   return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}${starting ? " is-starting" : ""}`}>
     <div className="fd-standings-column-head" aria-hidden="true"><span>{starting ? "" : "Rank"}</span><span>Player</span>
       <span>{scoreLabel || (starting ? "STARTING CHIPS" : "Chips")}</span></div>
@@ -326,6 +331,7 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
         index={index} me={me} starting={starting} tied={tied} rankText={ranks[index]} deltas={deltas} adjustment={adjustment}
         scoreLabel={scoreLabel} scale={scale} onPlayer={onPlayer} onAdjust={onAdjust} StatPills={StatPills}
         myAtRisk={bets} myDuels={myDuels} newLeader={leader?.player === row.player ? leader.id : null}
+        wanted={wanted.includes(row.player)}
         out={!!(state.poker?.startedAt && !state.results?.[state.poker.id]
           && state.poker.outs?.some(item => item.player === row.player))} />)}
     </ol>

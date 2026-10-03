@@ -15,6 +15,8 @@ import { useCountUp } from "../../lib/motion.js";
 import { DraftEntry } from "../draft/DraftSheet.jsx";
 import { contestStacks } from "../wagers/betStacks.js";
 import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js";
+import { SideTerms } from "../comebacks/Comebacks.jsx";
+import { contestTerms } from "../comebacks/comebacks.js";
 import { WinLine } from "../standings/WinLine.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { AlertsCard } from "../alerts/Alerts.jsx";
@@ -239,6 +241,9 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
     : contestWinLines(state, event, contest, { events, standings, keys:sided || teamBlocks ? null : [ownSide] }),
   [state, event.id, contest?.id, events, standings, sided, ownSide, teamBlocks]); // eslint-disable-line react-hooks/exhaustive-deps
   const twoUp = sided && contest.sides.length === 2 && contest.sides.every(side => side.players.length <= 2);
+  /* v3.1: what each side pays and which one faces the bounty */
+  const terms = sided && contest ? contestTerms(state, contest, standings) : null;
+  const termsFor = side => terms?.any && !terms.wide ? terms.sides[side.key] : null;
   /* sides of three or more read as team blocks, not a row of names */
   const teamSides = sided && teamBlocks;
   const song = !away ? yourSongLine(state, contest, me, { songs }) : null;
@@ -294,6 +299,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
                     {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}</h3>
                   <TeamFaces state={state} players={side.players} onPlayer={onPlayer} />
                   <WinLine line={line} className="fd-home-team-win" />
+                  {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}
                 </div>
               </React.Fragment>;
             })}
@@ -307,6 +313,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
                   <People state={state} players={side.players} onPlayer={onPlayer} />
                   {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}>
                     <strong>{fmt(pot)}</strong></span>}
+                  {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}
                 </div>
               </React.Fragment>;
             })}

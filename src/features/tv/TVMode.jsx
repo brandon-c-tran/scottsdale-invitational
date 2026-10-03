@@ -58,6 +58,8 @@ import { TVTrivia } from "./TVTrivia.jsx";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
+import { SideTerms } from "../comebacks/Comebacks.jsx";
+import { boardBounty, contestTerms } from "../comebacks/comebacks.js";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -272,10 +274,12 @@ export const towerNameSize = name => towerNameFit(name).size;
    change takes the count's line and fades, a tower that did not move shows
    nothing there, every name stays (the winner's lit green), then the board
    is at rest again. */
-const towerLabel = (state, { change = false } = {}) => row => {
+const towerLabel = (state, { change = false, wanted = [] } = {}) => row => {
   const name = disp(state, row.player);
   const delta = change ? (row.award || 0) + (row.bets || 0) : 0;
   return <>
+    {/* v3.1: the wanted player's lamp, over the name */}
+    {wanted.includes(row.player) && <span className="tv-tower-bounty" role="img" aria-label="Bounty"><i className="fd-insert" /></span>}
     {delta ? <span className={`tv-tower-delta${delta < 0 ? " is-down" : ""}`}>{signed(delta)}</span> : null}
     <TowerName name={name} />
     <span className="tv-tower-pts">{fmt(row.pts)}</span>
@@ -372,7 +376,7 @@ function FlatHorizon({ rows, label }) {
    It replaces the old standings rail, so the board gets the full width. */
 function Horizon({ state, standings, towers }) {
   const rows = standingsTowerRows(standings);
-  const label = towerLabel(state);
+  const label = towerLabel(state, { wanted:boardBounty(state, undefined, standings) });
   const flat = <FlatHorizon rows={rows} label={label} />;
   return (
     <section className="tv-horizon" aria-label="Standings">
@@ -455,6 +459,7 @@ function FieldFelt({ state, ev, contest, stacks, width }) {
    own outline below, never a second heading. */
 function ContestBand({ state, ev, contest, stacks, width, lamp }) {
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
+  const terms = contestTerms(state, contest);
   const half = Math.floor((width - PANEL_PAD * 2 - 260) / 2);
   const cards = contest.sides.map((side, index) => {
     const view = contestSideView(state, ev, contest, side);
@@ -468,6 +473,7 @@ function ContestBand({ state, ev, contest, stacks, width, lamp }) {
           <Faces players={view.players} size={face} overlap={view.players.length > 1} />
           <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />
         </div>
+        {terms?.any && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms" />}
         {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
           {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
           {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={30}
@@ -522,6 +528,8 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
   const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
   const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
+  /* v3.1: each side's payout (underdog odds) and the bounty it collects */
+  const terms = field ? null : contestTerms(state, contest);
   let body;
   if (field) body = <FieldFelt state={state} ev={ev} contest={contest} stacks={stacks} width={inner} />;
   else {
@@ -549,6 +557,7 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
             {!many && <SideName name={view.name} width={h2h ? sideW - facesW - 18 : sideW} max={h2h ? 64 : 48} min={h2h ? 44 : 32} />}
           </div>
           {anyWinLine && <div className="tv-side-win"><TVWinLine lines={winLines} sideKey={side.key} /></div>}
+          {terms?.any && !terms.wide && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms" />}
           {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
             {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
             {felt || <span className="tv-felt-empty">No bets</span>}

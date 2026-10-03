@@ -168,3 +168,4 @@ button.fd-now-card { cursor:pointer; }
 @media (prefers-reduced-motion:reduce) {
   .fd-rank-roll .fd-rank-old { display:none; }
 }
+.fd-standing-flags { align-items:center; }

@@ -154,6 +154,8 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
     settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}`, tone:"chip" },
     settledDuels > 0 && { key:"duels", value:recordText(duels), label:"Quick Draw" },
     season.mvps > 0 && { key:"mvps", value:String(season.mvps), label:season.mvps === 1 ? "Team MVP" : "Team MVPs" },
+    season.bounties?.count > 0 && { key:"bounties", value:signedChips(season.bounties.pts),
+      label:season.bounties.count === 1 ? "Bounty" : `Bounties ${season.bounties.count}`, tone:"chip" },
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
   return <span className="fd-pass-season" ref={bodyRef}>

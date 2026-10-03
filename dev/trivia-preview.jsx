@@ -63,6 +63,10 @@ const withPhotos = frame => {
   for (const q of frame.trivia?.questions || []) if (q.photo) q.photo = { ...q.photo, src:PHOTO };
   return frame;
 };
+/* &desk=bank|round|choice|tune|number|picture opens that editor */
+const DESK_VIEWS = { bank:{ source:"bank", category:"music" }, round:{ source:"custom", id:"tfitgroom1" },
+  choice:{ source:"custom", id:"tfitgroom1", question:"qfitlong01" }, tune:{ source:"custom", id:"tfitgroom1", question:"qfittune01" },
+  picture:{ source:"custom", id:"tfitgroom1", question:"qfitpic001" }, number:{ source:"custom", id:"tfitgroom1", question:"new" } };
 const crewOf = state => state.draws?.trivia?.roles?.[0]?.player || null;
 
 function Phone({ base, me, step }) {
@@ -102,7 +106,8 @@ function Desk({ base }) {
   };
   return <PlayerIdentityProvider profiles={frame.profiles}><Shell environment="production">
     <Sheet title="Trivia" onClose={() => {}}>
-      <TriviaDesk state={state} onAct={onAct} notify={() => {}} loadBank={async () => ({ ok:true, categories:bankForDesk() })} />
+      <TriviaDesk state={state} onAct={onAct} notify={() => {}} loadBank={async () => ({ ok:true, categories:bankForDesk() })}
+        initial={DESK_VIEWS[params.get("desk")] || null} />
     </Sheet>
   </Shell></PlayerIdentityProvider>;
 }

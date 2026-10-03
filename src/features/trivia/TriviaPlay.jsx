@@ -219,8 +219,10 @@ function TeamLamps({ state, view }) {
 
 /* the reveal, from your team's side: the right answer stamped, your points
    counting with the speed bonus as its own fill, then the four teams */
-function Reveal({ state, view, me, fresh }) {
+function Reveal({ state, view, me, fresh:arrived }) {
   const { question, myScore } = view;
+  /* the count runs once, if the reveal landed while the sheet was up */
+  const [fresh] = useState(arrived);
   const number = question.format === "number";
   const max = number ? TRIVIA_NEAR[0] + TRIVIA_EXACT : TRIVIA_BASE + TRIVIA_SPEED;
   const points = useCountTo(myScore?.points || 0, { delay:700, run:fresh });
@@ -230,7 +232,7 @@ function Reveal({ state, view, me, fresh }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   /* the reveal needs no action: one scroll, your points first */
   return <main className="fd-trivia-body is-reveal">
-    {view.team && <div className={`fd-trivia-points${myScore?.points ? "" : " is-none"}`}>
+    {view.team && <div className={`fd-trivia-points${myScore?.points ? "" : myScore?.answered ? " is-wrong" : " is-none"}`}>
       <b>{myScore?.points ? `+${fmtNumber(Math.round(points / 10) * 10)}` : myScore?.answered ? "0" : "No answer"}</b>
       {myScore?.points > 0 && <span className="fd-trivia-split" aria-hidden="true">
         <i className="is-base" style={{ "--w":myScore.base / max }} /><i className="is-bonus" style={{ "--w":myScore.bonus / max }} /></span>}

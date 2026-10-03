@@ -203,7 +203,7 @@ function QuestionEditor({ question, onSave, onCancel }) {
     {showing && !checked.error && <Preview question={checked.question} />}
     {error && <p className="fd-trivia-error" role="alert">{error}</p>}
     <div className="fd-trivia-editor-actions">
-      <ActionButton onClick={save} disabled={!!busy}>Save question</ActionButton>
+      <ActionButton onClick={save} disabled={!!busy}>Save</ActionButton>
       <ActionButton variant="secondary" disabled={!!checked.error} onClick={() => setShowing(value => !value)}>
         {showing ? "Hide preview" : "Preview"}</ActionButton>
       <ActionButton variant="tertiary" onClick={onCancel}>Cancel</ActionButton>
@@ -212,10 +212,10 @@ function QuestionEditor({ question, onSave, onCancel }) {
 }
 
 /* a round the commissioner writes: its name and its questions */
-function CustomRound({ round, onSave, onCancel }) {
+function CustomRound({ round, onSave, onCancel, initialQuestion = null }) {
   const [name, setName] = useState(round?.name || "");
   const [questions, setQuestions] = useState(round?.questions || []);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState(initialQuestion);
   const [error, setError] = useState("");
   if (editing) return <QuestionEditor question={editing === "new" ? null : questions.find(question => question.id === editing)}
     onCancel={() => setEditing(null)}
@@ -297,12 +297,13 @@ function BankRound({ round, category, onSave, onCancel }) {
 /* Commissioner > Trivia: the set list in play order. Rounds come from the
    bank or are written here. Locked while a game runs; Restart clears the
    answers, never the set list. */
-export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank }) {
+/* `initial` opens an editor straight away (the rehearsal page) */
+export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null }) {
   const rounds = state.triviaRounds || [];
   const game = state.trivia?.questions?.length ? state.trivia : null;
   const running = !!game && !triviaFinished(state);
   const { bank, error } = useBank(loadBank);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState(initial);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const save = async payload => {
@@ -313,7 +314,8 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank }) {
   const nameOf = round => round.source === "bank" ? bank?.find(category => category.id === round.category)?.name || "Bank round" : round.name;
   if (editing) {
     const round = editing.id ? rounds.find(item => item.id === editing.id) : null;
-    if (editing.source === "custom") return <CustomRound round={round} onSave={save} onCancel={() => setEditing(null)} />;
+    if (editing.source === "custom") return <CustomRound round={round} onSave={save} onCancel={() => setEditing(null)}
+      initialQuestion={editing.question || null} />;
     const category = bank?.find(item => item.id === (round?.category || editing.category));
     if (!category) return <p className="fd-trivia-hint">{error || "Loading the bank"}</p>;
     return <BankRound round={round} category={category} onSave={save} onCancel={() => setEditing(null)} />;

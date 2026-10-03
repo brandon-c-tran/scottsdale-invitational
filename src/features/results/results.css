@@ -188,7 +188,18 @@
   background:var(--paper2); color:var(--ink); font:600 14px var(--fd-body); cursor:pointer; }
 
 .fd-lastcard { position:relative; overflow:hidden; padding:16px 16px 14px; border-radius:18px;
-  background:var(--card-color); color:var(--card-ink); box-shadow:var(--shadow-2); }
+  background:var(--card-color); color:var(--card-ink); box-shadow:var(--lg-lip), var(--shadow-2); }
+/* held: the card leans toward a finger like the player card, a band of
+   light sliding across its glass (liquid glass: --lg-sweep) */
+.fd-lastcard-held { position:relative; perspective:1100px; touch-action:pan-y; -webkit-user-select:none; user-select:none; }
+.fd-lastcard-held > .fd-lastcard, .fd-lastcard-glare { transform:rotateX(calc(var(--ty,0) * -6deg)) rotateY(calc(var(--tx,0) * 8deg)); }
+.fd-lastcard-glare { position:absolute; inset:0; z-index:2; overflow:hidden; border-radius:18px; pointer-events:none; }
+.fd-lastcard-glare > span { position:absolute; top:-20%; bottom:-20%; left:-60%; right:-60%; background:var(--lg-sweep);
+  opacity:calc(.35 + var(--tm,0) * .65); transform:translateX(calc(var(--tx,0) * 26% - 14%)); }
+.fd-lastcard-held.is-tilting :is(.fd-lastcard, .fd-lastcard-glare, .fd-lastcard-glare > span) { will-change:transform; }
+.fd-lastcard-held.is-releasing :is(.fd-lastcard, .fd-lastcard-glare, .fd-lastcard-glare > span) {
+  transition:transform var(--tilt-release,520ms) cubic-bezier(.16,1,.3,1), opacity var(--tilt-release,520ms) ease-out; }
+@media (prefers-reduced-motion:reduce) { .fd-lastcard-glare > span { opacity:.3; transform:translateX(-14%); } }
 .fd-lastcard.is-turning { animation:fd-lastcard-turn var(--motion-card-flight) var(--ease-out) backwards; transform-origin:50% 50%; }
 @keyframes fd-lastcard-turn { from { transform:perspective(900px) rotateY(88deg); opacity:.4; } }
 .fd-lastcard-top { display:flex; justify-content:space-between; gap:10px; font:700 12px/1.2 var(--fd-body); letter-spacing:.06em; }

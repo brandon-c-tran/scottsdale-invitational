@@ -243,9 +243,18 @@
    commissioner's dock while the board scrolls under it, then it stays at
    the board's end, so the bracket and the bets below are never under it. */
 .fd-wagers-play { position:relative; }
+/* Liquid glass: while it rides over the board, the felt and its backers
+   show through it frosted (the one place on the phone where something
+   really sits over the page), so the rows it passes over read as under
+   glass, not cut off. Its lit lip, fringes and bands are the --lg-* recipe. */
 .fd-wagers-rack { position:sticky; bottom:calc(var(--fd-nav-height,74px) + var(--fd-dock-h,0px) + 8px); z-index:8; margin:10px 0 14px;
-  border-radius:14px; padding:10px 14px 12px; background:var(--paper); color:var(--ink); border:1px solid var(--ghost-line);
-  box-shadow:var(--glass-edge), var(--shadow-3); }
+  border-radius:14px; padding:10px 14px 12px; color:var(--ink); border:1px solid var(--ghost-line);
+  background:var(--lg-bands), var(--lg-fall), color-mix(in srgb, var(--paper) 96%, transparent);
+  box-shadow:var(--lg-lip), var(--lg-fringe), var(--shadow-3); }
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))) {
+  .fd-wagers-rack { background:var(--lg-bands), var(--lg-fall), color-mix(in srgb, var(--paper) 72%, transparent);
+    -webkit-backdrop-filter:blur(18px) saturate(1.5); backdrop-filter:blur(18px) saturate(1.5); }
+}
 .fd-wagers-meter { position:relative; padding:0 2px; font-variant-numeric:tabular-nums; }
 .fd-wagers-meter-top,.fd-wagers-meter-scale { position:relative; }
 .fd-wagers-meter-top { display:flex; align-items:baseline; justify-content:space-between; gap:12px; min-height:26px; margin-bottom:6px; }
@@ -335,7 +344,14 @@
 .fd-wagers-pot { display:grid; grid-template-rows:auto calc(4 * 44px + 3px) 30px 56px; margin:4px 6px 6px; min-width:0; }
 .fd-wagers-pot-head { display:flex; align-items:flex-end; gap:10px; min-height:64px; padding:6px 4px 8px; border-bottom:1px solid var(--line); min-width:0; }
 .fd-wagers-pot-stack { flex-shrink:0; display:flex; align-items:flex-end; justify-content:center; width:34px; min-height:16px; line-height:0; }
-.fd-wagers-pot-stack.is-empty { height:16px; border-radius:50%; box-shadow:inset 0 0 0 1.5px var(--ghost-line); width:30px; align-self:flex-end; }
+.fd-wagers-pot-stack.is-empty { height:16px; align-self:flex-end; }
+/* an empty side: the felt's open seat, a chip's ring printed on the cloth,
+   lit faintly amber where you can put the first chip. No "0", no hollow pot. */
+.fd-wagers-seat { display:grid; place-items:center; min-height:0; }
+.fd-wagers-seat > i { width:72px; height:72px; border-radius:50%; border:1.5px dashed var(--ghost-line);
+  background:radial-gradient(circle, color-mix(in srgb, var(--bone) 5%, transparent) 0 50%, transparent 51%); }
+.fd-wagers-seat.is-open > i { border-color:color-mix(in srgb, var(--sun) 50%, transparent);
+  background:radial-gradient(circle, var(--sun-tint) 0 50%, transparent 51%); }
 .fd-wagers-pot-total { font:800 30px/1.15 var(--fd-display); letter-spacing:.01em; color:var(--sun); font-variant-numeric:tabular-nums; }
 .fd-wagers-pot-head .fd-wagers-pick-role { margin-left:auto; align-self:center; white-space:normal; text-align:right; }
 .fd-wagers-backers { list-style:none; margin:0; padding:0; min-width:0; }

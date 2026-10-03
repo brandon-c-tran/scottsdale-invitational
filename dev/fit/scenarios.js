@@ -464,6 +464,8 @@ export const PHONE_TABS = Object.freeze(["home", "events", "bets", "weekend"]);
 export const PHONE_SCENARIOS = Object.freeze([
   { id:"locker", build:() => fresh("locker"), sheets:["card", "card-back", "event"] },
   { id:"ffa-open", build:() => fresh("event:putt:open"), sheets:["event"] },
+  /* a pairs bracket on Home: the long pair "Henry Nguyen & Squilliam" beside VS */
+  { id:"pairs-open", build:() => fresh("event:die:open"), tabs:["home"] },
   /* the betting sides: 0, 1, 3, 4, 6, 8 and 9 backers a side, both sides mirrored */
   { id:"felt-0-1", build:() => matchupBets(0, 1), tabs:["bets"] },
   { id:"felt-3-1", build:() => matchupBets(3, 1), tabs:["bets"] },

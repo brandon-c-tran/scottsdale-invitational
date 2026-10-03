@@ -1,7 +1,10 @@
 /* A printed bracket: rounds are columns, connector lines carry winners right.
    Positions come from bracketLayout; this file only paints. */
 .fd-competition-bracket { min-width:0; }
-.fd-bracket-scroll { overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.fd-bracket-scroll { overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; padding-bottom:4px;
+  scroll-snap-type:x proximity; }
+/* a swipe lands on a round, never on half a name */
+.fd-competition-bracket:not(.is-compact) .fd-bracket-match { scroll-snap-align:start; }
 .fd-bracket-heads { position:relative; height:22px; margin-bottom:6px; }
 .fd-bracket-heads span { position:absolute; top:0; color:var(--muted2); font:600 13px/22px var(--fd-body);
   letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
@@ -19,6 +22,8 @@
 .fd-bracket-match-label { flex:0 0 22px; display:flex; align-items:center; justify-content:space-between; gap:4px;
   padding:0 9px; color:var(--muted); font:500 12px/22px var(--fd-body); border-bottom:1px solid var(--line); white-space:nowrap; }
 .fd-bracket-match-label strong { color:var(--ink); font-weight:600; }
+.fd-bracket-lamp { display:inline-flex; align-items:center; flex-shrink:0; }
+.fd-bracket-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
 
 .fd-bracket-team { flex:1 1 0; display:flex; align-items:center; min-width:0; }
 .fd-bracket-team+.fd-bracket-team { border-top:1px solid var(--line); }

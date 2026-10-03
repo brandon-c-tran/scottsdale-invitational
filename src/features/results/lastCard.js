@@ -220,7 +220,7 @@ export function crownKey(state, standings = computeStandings(state)) {
    level until the next. Session ticks sit under the first step of each
    session and are dropped when they would crowd the one before. */
 export function chartModel(history, { width = 330, height = 128, top = 20, bottom = 20, left = 4, right = 10,
-  minTickGap = 52 } = {}) {
+  minTickGap = 0, tickChar = 7.8 } = {}) {
   const steps = history?.length ? history : [{ pts:START, session:SESSION_ORDER[0] }];
   const series = steps.length === 1 ? [steps[0], steps[0]] : steps;
   const peakValue = Math.max(START, ...series.map(step => step.pts));
@@ -243,23 +243,37 @@ export function chartModel(history, { width = 330, height = 128, top = 20, botto
      axis labels (a bust at 0): then above it */
   const below = last.y + 16;
   last.label = { x:last.x - 8, y:cameFrom < last.y && below <= height - bottom - 2 ? below : last.y - 8, anchor:"end" };
-  const ticks = [];
+  /* A session ticks once, where the weekend first reaches it: only a step
+     into a later session than any before it ticks, so a correction that
+     steps back never prints FRI twice. */
+  const found = [];
+  let reached = -1;
   series.forEach((step, i) => {
-    if (i > 0 && step.session === series[i - 1].session) return;
-    const tick = { x:x(i), label:SESSION_TICKS[step.session] || "", anchor:"start" };
-    if (!tick.label) return;
-    if (ticks.length && tick.x - ticks[ticks.length - 1].x < minTickGap) return;
+    const at = SESSION_ORDER.indexOf(step.session);
+    if (at <= reached) return;
+    reached = at;
+    const label = SESSION_TICKS[step.session] || "";
+    if (label) found.push({ x:x(i), label, anchor:"start" });
+  });
+  /* Each label takes its own measured width (tickChar a letter, the 12px
+     caps the card sets them in). One at the right edge reads leftward to
+     stay on the card; a label that would touch the one before it is
+     dropped, except the last, which wins (the finish matters most). */
+  const labelWidth = tick => tick.label.length * tickChar;
+  const extent = tick => {
+    const w = labelWidth(tick);
+    return tick.anchor === "start" ? [tick.x, tick.x + w] : tick.anchor === "end" ? [tick.x - w, tick.x] : [tick.x - w / 2, tick.x + w / 2];
+  };
+  const ticks = [];
+  found.forEach((tick, index) => {
+    if (extent(tick)[1] > width) tick.anchor = extent({ ...tick, anchor:"middle" })[1] <= width ? "middle" : "end";
+    const lastOne = index === found.length - 1;
+    while (ticks.length && extent(tick)[0] < extent(ticks[ticks.length - 1])[1] + Math.max(6, minTickGap - labelWidth(ticks[ticks.length - 1]))) {
+      if (!lastOne) return;
+      ticks.pop();
+    }
     ticks.push(tick);
   });
-  /* a tick at the right edge reads leftward so it stays on the card, and
-     gives way if that would run it into the one before */
-  const labelWidth = tick => tick.label.length * 5.4;
-  const edge = ticks[ticks.length - 1];
-  if (edge && edge.x + labelWidth(edge) > width) {
-    edge.anchor = "middle";
-    const before = ticks[ticks.length - 2];
-    if (before && edge.x - labelWidth(edge) / 2 < before.x + labelWidth(before) + 4) ticks.splice(ticks.length - 2, 1);
-  }
   return { width, height, max, d, points, baseY:y(START), peak, last, ticks, axisY:height - bottom };
 }
 const r1 = n => Math.round(n * 10) / 10;

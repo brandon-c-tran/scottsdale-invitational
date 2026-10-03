@@ -111,6 +111,10 @@ button.fd-now-card { cursor:pointer; }
   background:color-mix(in srgb, var(--you) 9%, var(--fd-row-ground)); box-shadow:var(--you-bloom); }
 .fd-standings-list>.is-you .fd-standing-position { color:var(--you); }
 .fd-home .fd-standings-list>.is-you { position:sticky; bottom:calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 8px); }
+/* stuck to the bottom of the screen, it carries the ground with it: the gap
+   under it is filled and the rows passing behind fade out above it */
+.fd-home .fd-standings-list>.is-you[data-stuck] { box-shadow:var(--you-bloom), 0 0 0 9px var(--fd-row-ground, var(--bg)),
+  0 -18px 18px 0 color-mix(in srgb, var(--fd-row-ground, var(--bg)) 90%, transparent); }
 .si-sheet .fd-standings-list>.is-you { position:sticky; bottom:8px; }
 /* M2 + M3: the board after a fresh change (timings in boardModel.js
    BOARD_BEATS). Resting styles are the end state; reduced motion never

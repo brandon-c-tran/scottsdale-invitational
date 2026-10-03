@@ -85,7 +85,7 @@ export function drawLastCard(ctx, model, { color, ink }) {
 
   /* the weekend, one step line */
   const chartTop = nameTop + nameSize * 0.82 + 12, chartH = 118;
-  const chart = chartModel(model.history, { width:W - PAD * 2 + 8, height:chartH, minTickGap:48 });
+  const chart = chartModel(model.history, { width:W - PAD * 2 + 8, height:chartH, minTickGap:48, tickChar:5.2 });
   ctx.save();
   ctx.translate(PAD - 4, chartTop);
   ctx.globalAlpha = 0.4; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);

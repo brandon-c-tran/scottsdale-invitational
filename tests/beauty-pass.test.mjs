@@ -126,3 +126,21 @@ test("podium: liquid glass from the tokens only, transforms and opacity, a reduc
   for (const name of ["--lg-lip", "--lg-fringe", "--lg-fall", "--lg-bands", "--lg-caustic", "--lg-sweep"])
     assert.ok(tokens.includes(`${name}:`), `${name} lives in :root`);
 });
+
+/* the last card's session axis: a session ticks once, labels never touch */
+import { chartModel, SESSION_TICKS } from "../src/features/results/lastCard.js";
+test("last card axis: a session ticks only when the weekend first reaches it, spaced by its label's width", () => {
+  const steps = ["fri", "fri", "sam", "fri", "sap", "sap", "san", "fin"].map((session, i) => ({ pts:1000 + i * 100, session }));
+  const chart = chartModel(steps, { width:330, height:128 });
+  const labels = chart.ticks.map(tick => tick.label);
+  assert.equal(labels.filter(label => label === "FRI").length, 1, "a step back to Friday never ticks it again");
+  assert.equal(new Set(labels).size, labels.length);
+  assert.equal(labels[labels.length - 1], SESSION_TICKS.fin, "the finish keeps its tick");
+  const extent = tick => {
+    const w = tick.label.length * 7.8;
+    return tick.anchor === "start" ? [tick.x, tick.x + w] : tick.anchor === "end" ? [tick.x - w, tick.x] : [tick.x - w / 2, tick.x + w / 2];
+  };
+  for (let i = 1; i < chart.ticks.length; i++)
+    assert.ok(extent(chart.ticks[i])[0] >= extent(chart.ticks[i - 1])[1] + 6, `${labels[i - 1]} and ${labels[i]} touch`);
+  chart.ticks.forEach(tick => assert.ok(extent(tick)[1] <= 330 && extent(tick)[0] >= 0, `${tick.label} stays on the card`));
+});

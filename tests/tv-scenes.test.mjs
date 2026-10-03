@@ -297,7 +297,8 @@ test("a fresh crown plays the produced crown: every tower in final order, dark f
 
 test("the scenes stay flat, tokened, and legible", () => {
   const css = readFileSync(new URL("../src/features/tv/tvScenes.css", import.meta.url), "utf8");
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css), "tokens only, flat");
+  /* tokens only; a gradient only as the glass's own light (DESIGN.md) */
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(/i.test(css), "tokens only");
   const sizes = [...css.matchAll(/font(?:-size)?:[^;]*?(\d+)px/g)].map(m => Number(m[1]));
   assert.ok(sizes.length > 3 && sizes.every(size => size >= 24), `TV text sizes ${sizes}`);
   assert.doesNotMatch(css, /glow|text-shadow/);

@@ -73,7 +73,8 @@ export function mirroredLayout(bracket) {
 }
 
 const SIZES = {
-  full:{ head:22, row:48, gap:14, minCol:210, colGap:34 },
+  /* two rounds stand side by side on a 390px phone: a round past them is a swipe, landing on its column */
+  full:{ head:22, row:48, gap:14, minCol:160, colGap:28 },
   compact:{ head:0, row:28, gap:10, minCol:0, colGap:18 },
   /* a field past eight: the same picture at a glance, tighter rows */
   compactTall:{ head:0, row:22, gap:6, minCol:0, colGap:14 },
@@ -150,7 +151,9 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
         style={{ left:colLeft(r), width:`calc(${colW})`, top:topOf(r, m), height:cardH }}
         aria-label={`${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`}>
         {!compact && <div className="fd-bracket-match-label"><span>{bracketMatchName(bracket, r, m)}</span>
-          {status && <strong>{status}</strong>}</div>}
+          {/* the state is the lamp (the card is already lit live); the word stays for a reader */}
+          {status && <strong className="fd-bracket-lamp"><i className={`fd-insert${status === "Betting open" ? " is-pending"
+            : status === "Up next" ? " is-done" : ""}`} aria-hidden="true" /><span className="fd-bracket-sr fd-sr">{status}</span></strong>}</div>}
         {sides.map((key, index) => {
           const team = key === null || key === undefined ? null : draw.teams[key];
           const won = decided && match.winner === key, lost = decided && !!team && !won;

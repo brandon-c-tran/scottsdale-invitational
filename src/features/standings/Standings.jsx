@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { awardTable, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
@@ -165,9 +165,34 @@ export function rankLabels(standings = [], { starting = false, tied = false } = 
   });
 }
 
+/* Your row rides the bottom of Home's screen: while it is stuck there it
+   is marked (data-stuck, written straight to the node, no render) so it
+   carries the page's ground with it and no neighbor's number shows in the
+   gap under it or creeps out above it. Viewport-scrolled Home only. */
+function useStuckBottom(enabled) {
+  const observer = useRef(null);
+  useEffect(() => () => observer.current?.disconnect(), []);
+  return useCallback(node => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!node || !enabled || typeof IntersectionObserver !== "function" || !node.closest?.(".fd-home")) return;
+    const bottom = parseFloat(getComputedStyle(node).bottom);
+    if (!Number.isFinite(bottom)) return;
+    observer.current = new IntersectionObserver(([entry]) => {
+      const root = entry.rootBounds;
+      const stuck = !!root && entry.intersectionRatio < 1 && entry.boundingClientRect.bottom >= root.bottom - 1
+        && entry.boundingClientRect.top < root.bottom;
+      node.toggleAttribute("data-stuck", stuck);
+    }, { rootMargin:`0px 0px ${-(Math.ceil(bottom) + 1)}px 0px`, threshold:[1] });
+    observer.current.observe(node);
+  }, [enabled]);
+}
+
 function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas, out, adjustment, scoreLabel, scale,
   onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef }) {
   const isMe = row.player === me;
+  const stuckRef = useStuckBottom(isMe);
+  const setRow = useCallback(node => { rowRef?.(node); stuckRef(node); }, [rowRef, stuckRef]);
   const leading = !starting && row.rank === 1 && !tied;
   const shared = !starting && !tied && !/^\d+$/.test(text);
   /* M2: the total counts in 100s and the change rises off it */
@@ -185,7 +210,7 @@ function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas
   const delta = !starting && !tied && deltas?.[row.player];
   const chipDescription = starting || scoreLabel === "STARTING CHIPS" ? "starting chips" : "chips";
   const rise = count.delta && count.delta.amount !== 0 ? count.delta : null;
-  return <li ref={rowRef} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}`}>
+  return <li ref={setRow} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}`}>
     {newLeader && <i className="fd-lead-sweep" key={newLeader} aria-hidden="true" />}
     <button type="button" onClick={() => onPlayer(row.player)} className="fd-standings-row"
       data-new-leader={newLeader ? "" : undefined}

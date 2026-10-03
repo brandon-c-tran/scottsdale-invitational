@@ -54,7 +54,7 @@ import { sideKeyOf } from "../wagers/betStacks.js";
 import { levelAnchor, levelRoll } from "../poker/pokerMotion.js";
 import { ADVANCE_TIMING as A, CROWN_TIMING as C, crownOutAt } from "./tvMotion.js";
 import { FACEOFF_TICKS_MAX, FACEOFF_TIMING as F, faceOffView } from "./faceOff.js";
-import { podiumBeatAt, TV_ADVANCE_MS } from "./tvModel.js";
+import { podiumBeatAt, podiumBackersAt, TV_ADVANCE_MS } from "./tvModel.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
@@ -111,7 +111,10 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     if (Number(op.bettingLockedAt) > 0) locks[ev.id] = Number(op.bettingLockedAt);
     const res = state.results?.[ev.id];
     if (res?.slots?.[0]?.length) results[ev.id] = { revision:Number(res.revision || 1), at:posted(res),
-      places:res.stacks ? 0 : Math.min(3, (res.slots || []).filter(slot => slot?.length).length) };
+      places:res.stacks ? 0 : Math.min(3, (res.slots || []).filter(slot => slot?.length).length),
+      /* someone backed the winner: the backers' rail lands under the podium */
+      paid:!res.stacks && (state.wagers || []).some(w => w.eventId === ev.id && w.kind === "outright"
+        && resolveWager(state, w, events).status === "won") };
     if (announced[ev.id] && revealReady(state, ev.id) && !state.results?.[ev.id] && !op.startedAt) {
       const reveal = buildEventReveal(state, ev);
       if (reveal) {
@@ -316,6 +319,8 @@ export function podiumCues(res, key) {
     if (k === 0 && place !== 1) continue;
     cues.push({ id:"podium", at:Number(res.at) + podiumBeatAt(k), opts:{ place }, key:`${key}:podium:${place}` });
   }
+  /* the winners' backers paid, as their rail lands (TVPodium BackersRail) */
+  if (res?.paid && places) cues.push({ id:"S12", at:Number(res.at) + podiumBackersAt(places), key:`${key}:paid` });
   return cues;
 }
 

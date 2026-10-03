@@ -4,6 +4,7 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
 import { useCountBetween, useReducedMotion } from "../../lib/motion.js";
+import { useRisoTilt } from "../profile/useRisoTilt.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { chartModel, lastCardModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage } from "./cardImage.js";
@@ -77,6 +78,21 @@ export function LastCardFace({ model, turn = false }) {
     </dl>}
     <div className="fd-lastcard-foot"><span>{model.dates}</span><span>{model.footer}</span></div>
   </article>;
+}
+
+/* Your last card is held like the player card: it leans toward a finger
+   (sideways drags; vertical drags still scroll), arrives leaning and
+   settles, and one band of light slides across its glass as it turns
+   (useRisoTilt writes --tx/--ty, CSS turns them into transforms). Reduced
+   motion: still and level. */
+function HeldCard({ children }) {
+  const ref = useRef(null);
+  const reduced = useReducedMotion();
+  const tilt = useRisoTilt(ref, !reduced);
+  return <div ref={ref} className="fd-lastcard-held" {...tilt.handlers}>
+    {children}
+    <i className="fd-lastcard-glare" aria-hidden="true"><span /></i>
+  </div>;
 }
 
 /* D1: the phone half of the crown, on the TV's own server instant (the
@@ -207,7 +223,7 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", gm 
             <small>{leaders.length > 1 ? "Tied for the championship" : "Champion"}</small></span>
           <strong>{fmt(champion.pts)}</strong>
         </div>
-        <LastCardFace model={model} turn={turned.current && !reduced} />
+        <HeldCard><LastCardFace model={model} turn={turned.current && !reduced} /></HeldCard>
         <div className="fd-crown-actions">
           <button type="button" className="fd-crown-save" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save card"}</button>
           <button type="button" className="fd-crown-board" onClick={onStandings}>Leaderboard <Icon name="open" size="1em" /></button>

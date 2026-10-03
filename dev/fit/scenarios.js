@@ -130,6 +130,33 @@ function posted(target, evId) {
   return state;
 }
 
+/* the result as the newest write, as it is in the room (QA's jumps stamp ahead) */
+function newest(state, evId) {
+  const res = state.results[evId];
+  const stamps = [];
+  const walk = node => { if (!node || typeof node !== "object") return;
+    for (const v of Object.values(node)) { if (typeof v === "number" && v > 1e12) stamps.push(v); else walk(v); } };
+  walk(state.eventOps); walk(state.draws); walk(state.brackets); walk(state.stages);
+  if (res) res.ts = res.confirmedAt = Math.max(Number(res.ts) || 0, ...stamps) + 1;
+  return state;
+}
+
+/* A free-for-all posted with ties (1st is always one): two share 2nd,
+   four share 3rd (a counted tie) */
+function postedTie(evId = "putt") {
+  const state = fresh(`event:${evId}:open`);
+  const ev = eventOf(state, evId);
+  const contest = resolveCurrentContest(state, ev);
+  act(state, "lockAndStart", { evId, contestId:contest.id, contestRevision:contest.revision });
+  act(state, "beginResultEntry", { evId });
+  const p = contest.sides.map(side => (side.players || [side.key])[0]);
+  act(state, "saveResult", { evId, slots:[[p[8]], [p[2], p[5]], [p[10], p[0], p[3], p[4]]] });
+  const res = state.results[evId];
+  const last = Math.max(0, ...Object.values(state.eventOps?.[evId] || {}).filter(v => typeof v === "number" && v > 1e12));
+  if (res && last >= Number(res.ts)) res.ts = res.confirmedAt = last + 1;
+  return state;
+}
+
 /* A bracket played to its final the way the commissioner plays it, the
    side holding `player` winning every match it is in (the long pair
    "Henry Nguyen & Squilliam" takes Beer Die) */
@@ -392,6 +419,11 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-result-team-standings", build:() => posted("event:bball5:open", "bball5"), at:{ result:9500 } },
   { id:"tv-result-latest", build:() => fresh("event:bball5:done"), at:{ turn:2 } },
   { id:"tv-result-bracket-podium", build:() => fresh("event:bball1:done"), at:{ result:3600 } },
+  /* the podium for each shape: a pair's bracket (a split 3rd), four teams
+     of three, ties, and the rail of the winner's backers landing */
+  { id:"tv-result-pairs-podium", build:() => newest(bracketWonBy("die", "Henry"), "die"), at:{ result:3600 } },
+  { id:"tv-result-team3-podium", build:() => posted("event:trivia:open", "trivia"), at:{ result:3600 } },
+  { id:"tv-result-tie-podium", build:() => postedTie("putt"), at:{ result:3600 } },
   { id:"tv-crowned-rest", build:() => fresh("crowned") },
   { id:"tv-crowned-class", build:() => fresh("crowned"), at:{ crown:"class" } },
   ...crownBeats.map(([beat, t]) => ({ id:`tv-crown-${beat}`, build:() => fresh("crowned"), moment:{ kind:"crown", t } })),
@@ -432,6 +464,8 @@ export const PHONE_TABS = Object.freeze(["home", "events", "bets", "weekend"]);
 export const PHONE_SCENARIOS = Object.freeze([
   { id:"locker", build:() => fresh("locker"), sheets:["card", "card-back", "event"] },
   { id:"ffa-open", build:() => fresh("event:putt:open"), sheets:["event"] },
+  /* a pairs bracket on Home: the long pair "Henry Nguyen & Squilliam" beside VS */
+  { id:"pairs-open", build:() => fresh("event:die:open"), tabs:["home"] },
   /* the betting sides: 0, 1, 3, 4, 6, 8 and 9 backers a side, both sides mirrored */
   { id:"felt-0-1", build:() => matchupBets(0, 1), tabs:["bets"] },
   { id:"felt-3-1", build:() => matchupBets(3, 1), tabs:["bets"] },

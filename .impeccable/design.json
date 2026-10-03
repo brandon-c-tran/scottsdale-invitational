@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-02T20:39:51.241Z",
+  "generatedAt": "2026-10-03T16:50:31.820Z",
   "title": "Design System: Field Day",
   "extensions": {
     "colorMeta": {
@@ -695,6 +695,16 @@
         "name": "lamp-lit",
         "value": "0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge)",
         "purpose": ".fd-lamp is-live / is-pending frame, any job."
+      },
+      {
+        "name": "lg-lip",
+        "value": "inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.55)",
+        "purpose": "Liquid glass: the lit top lip and dark underside of a thick pane (hero objects only)."
+      },
+      {
+        "name": "lg-fringe",
+        "value": "inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16)",
+        "purpose": "Liquid glass: the cool and warm fringes where a thick pane splits light at its sides."
       }
     ],
     "motion": [
@@ -934,6 +944,22 @@
       "description": "Bone Big Shoulders (show weight) on a heavy ink keyline, lit in its lamp, over a session sky (flat bands).",
       "html": "<div class=\"ds-scene\"><h2>8-Ball Doubles</h2></div>",
       "css": ".ds-scene { width: 360px; padding: 48px 20px 18px; border-radius: 14px; background: linear-gradient(#2443c4 0 40%, #17aeb0 40% 62%, #c24a26 62% 82%, #4e2416 82%); } .ds-scene h2 { margin: 0; color: #f4ecd8; font: 400 36px/1 'Big Shoulders Display', 'Arial Narrow', sans-serif; text-shadow: 2px 0 0 #0a0910, -2px 0 0 #0a0910, 0 2px 0 #0a0910, 0 -2px 0 #0a0910, 1.5px 1.5px 0 #0a0910, -1.5px 1.5px 0 #0a0910, 1.5px -1.5px 0 #0a0910, -1.5px -1.5px 0 #0a0910, 0 4px 0 #0a0910, 0 0 22px color-mix(in srgb, #ff3fa4 75%, transparent); }"
+    },
+    {
+      "name": "Liquid Glass Pane",
+      "kind": "surface",
+      "refersTo": "fd-liquid",
+      "description": "The hero objects' material (the podium steps, the rack, the champion's flood, your last card, the next-event ribbon): a thick pane that bends light. Lit lip, side fringes, light falling off down the pane, two reflection bands, light gathering at the foot, one sweep of light when it lands. Built only from the --lg-* tokens over the pane's own fill; frosted (backdrop blur) only where something really sits behind it (the rack over the felt).",
+      "html": "<div class=\"ds-liquid\">+1,600</div>",
+      "css": ".ds-liquid { padding:24px 32px; border-radius:18px; color:#f4ecd8; font:800 40px/1 \"Big Shoulders Display\", sans-serif; background:linear-gradient(112deg,transparent 0 55%,rgba(244,236,216,.075) 55% 62%,transparent 62% 66%,rgba(244,236,216,.04) 66% 68.5%,transparent 68.5%), linear-gradient(180deg,rgba(244,236,216,.13),rgba(244,236,216,.035) 32%,transparent 60%), radial-gradient(90% 60% at 50% 112%,rgba(244,236,216,.11),transparent 70%), #12141f; box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.55), inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16), 0 8px 24px rgba(2,3,10,.7); }"
+    },
+    {
+      "name": "Podium Step",
+      "kind": "tv",
+      "refersTo": "tv-step",
+      "description": "One place on the TV result podium: a liquid-glass plinth (lid seen from above, front face) standing on the painted desert floor, 2nd 1st 3rd joined. Its place is cut in the glass in the Inline lettering (1st amber, 2nd silver, 3rd bronze), its award stamped under it in amber; its people stand on the lid sized by count (podiumStage). 1st is lit through in its winner's own color with a shaft of that light from above.",
+      "html": "<div class=\"ds-step\"><span>1</span><b>+400</b></div>",
+      "css": ".ds-step { width:300px; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:0 0 6px 6px; background:radial-gradient(75% 60% at 50% 0,rgba(255,166,48,.34),transparent 78%), linear-gradient(180deg,#1b2033,#0b0b13); box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16), 0 8px 24px rgba(2,3,10,.7); } .ds-step span { font:900 96px/1 \"Big Shoulders Inline Display\", sans-serif; color:#ffa630; } .ds-step b { font:800 40px/1.1 \"Big Shoulders Display\", sans-serif; color:#ffa630; }"
     }
   ],
   "narrative": {
@@ -991,6 +1017,11 @@
       {
         "name": "The Light Means State Rule",
         "body": "A glow is a lamp, and a lamp is state. Nothing glows for decoration; an element blooms only when it is live, pending, chips in play, the active tab, or you.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Liquid Glass Rule",
+        "body": "Liquid glass is for the hero objects that deserve a body (the podium, the champion, your last card, the rack, the next-event ribbon), never for everyday rows or sheets. It is built from the --lg-* tokens only, animates transform and opacity, and frosts with a backdrop blur only where something really sits behind it.",
         "section": "elevation"
       }
     ],

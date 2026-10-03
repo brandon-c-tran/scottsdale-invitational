@@ -224,7 +224,8 @@ test("the bust card names the place out, and takeovers share the canvas mark", (
   assert.equal(ui.takeoverList("walkout", "faceoff", true), "walkout faceoff");
   assert.equal(ui.takeoverList("walkout faceoff", "walkout", false), "faceoff");
   const css = read("src/features/tv/tv-moments.css");
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css), "tokens only, flat");
+  /* tokens only; a gradient only as the glass's own light (DESIGN.md) */
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(/i.test(css), "tokens only");
   const sizes = [...css.matchAll(/font(?:-size)?:[^;]*?(\d+)px/g)].map(m => Number(m[1]));
   assert.ok(sizes.every(size => size >= 24), `TV text 24px and up: ${sizes.filter(s => s < 24)}`);
 });

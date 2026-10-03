@@ -135,9 +135,17 @@ function SoloWalkout({ state, moment }) {
         </div>
         <LampChase color={color} className="tv-walkout-chase" />
         <div className={`tv-walkout-art${art ? " has-cover" : ""}`} aria-hidden="true">
-          {art ? <img src={art} alt="" width={640} height={640} />
-            : <span className="tv-walkout-coin"><ChipFace p={moment.player} size={560} flat /></span>}
-          <span className="tv-walkout-photo"><Avatar state={state} p={moment.player} size={art ? 240 : 210} /></span>
+          {art ? <>
+            <img src={art} alt="" width={640} height={640} />
+            <span className="tv-walkout-photo"><Avatar state={state} p={moment.player} size={240} /></span>
+          </> : (
+            /* no cover: the song is a record, the winner's chip its label */
+            <span className="tv-walkout-record">
+              <i className="tv-walkout-grooves" />
+              <span className="tv-walkout-label"><ChipFace p={moment.player} size={280} flat /></span>
+              <i className="tv-walkout-sheen" />
+            </span>
+          )}
         </div>
         <div className="tv-walkout-text">
           <div className="fd-show is-marquee tv-walkout-name" style={{ fontSize:size }} aria-hidden="true">{name}</div>

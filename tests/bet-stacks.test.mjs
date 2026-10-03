@@ -277,7 +277,7 @@ test("TV free-for-all: a player's spot on the felt holds the stacks backing them
   const html = renderTv(state);
   const card = player => {
     const cards = html.split('class="tv-side is-spot').slice(1);
-    return cards.find(chunk => chunk.includes(`class="tv-side-name">${player}<`)) || "";
+    return cards.find(chunk => new RegExp(`tv-spot-name"[^>]*>${player}<`).test(chunk)) || "";
   };
   assert.match(card("Khoa"), /data-stack-player="Adi"/);
   assert.match(card("Khoa"), /data-stack-player="Ben"/);

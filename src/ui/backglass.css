@@ -69,7 +69,7 @@
 .fd-lamp.is-void { box-shadow:none; border-color:var(--line); opacity:.55;
   background-image:linear-gradient(to top right, transparent calc(50% - 1px), var(--muted) calc(50% - 1px), var(--muted) calc(50% + 1px), transparent calc(50% + 1px)); }
 @keyframes fd-lamp-flash { 0% { box-shadow:0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge); }
-  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp) 30%, transparent), var(--glass-edge); } }
+  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp) 55%, transparent), 0 0 8px color-mix(in srgb, var(--lamp) 14%, transparent), var(--glass-edge); } }
 /* a lamp insert: a lensed lamp set in the glass. A dark seat and a chrome
    rim hold a domed lens; lit, the lens glows from its center and blooms,
    with a specular glint up and to the left. Unlit (done) is the same lens
@@ -78,6 +78,9 @@
   --lamp-on:var(--lamp, var(--lamp-live));
   --lens-lit:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 45%, var(--bone)) 0 18%, var(--lamp-on) 48%, color-mix(in srgb, var(--lamp-on) 55%, var(--ink0)) 100%);
   --lens-off:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 26%, var(--ink0)) 0 40%, color-mix(in srgb, var(--lamp-on) 10%, var(--ink0)) 100%);
+  /* a pending lamp's low phase: the filament still glowing, never off, so
+     a flashing lamp never reads as an unlit one */
+  --lens-dim:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 62%, var(--ink0)) 0 30%, color-mix(in srgb, var(--lamp-on) 30%, var(--ink0)) 100%);
   /* a spent lamp is clear glass: no hue left in it, so done never reads as
      a dim live */
   --lens-spent:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--muted) 34%, var(--ink0)) 0 40%, color-mix(in srgb, var(--muted) 14%, var(--ink0)) 100%);
@@ -91,7 +94,7 @@
 .fd-insert.is-done::after, .fd-insert.is-void::after { opacity:.38; }
 .fd-insert.is-void::before { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px; z-index:1;
   border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
-@keyframes fd-insert-flash { 50% { background:var(--lens-off); box-shadow:var(--lens-rim); } }
+@keyframes fd-insert-flash { 50% { background:var(--lens-dim); box-shadow:var(--lens-rim), 0 0 5px color-mix(in srgb, var(--lamp-on) 30%, transparent); } }
 /* you: the filament. Reserved; nothing else uses --you. */
 .fd-you-lit { box-shadow:var(--you-bloom); border-color:var(--you) !important; }
 @media(prefers-reduced-motion:reduce) { .fd-lamp.is-pending, .fd-insert.is-pending { animation:none; } }
@@ -157,6 +160,25 @@
   border:1px solid color-mix(in srgb, var(--field) 22%, transparent); }
 /* a done panel's paint is still there, its lamp off */
 .fd-glass-field.fd-lamp.is-done { border-color:color-mix(in srgb, var(--field) 18%, transparent); }
+
+/* ── liquid glass: the hero objects' material ──
+   A thick pane that bends light, built from the --lg-* tokens over the
+   pane's own fill (--liquid, a glass or a lit color): the lit lip and its
+   dark underside, cool and warm fringes on the sides, light falling off
+   down the pane, the two reflection bands of a thick pane and the light
+   gathering at its foot. No blur: the pane is reverse-painted, nothing
+   behind it shows. Only for what deserves it (the podium's steps, the
+   champion, your last card, the rack); everyday panels stay painted fields.
+   .fd-liquid-sweep adds one pass of light across the pane (an ::after
+   band, transform only) when the class lands. */
+.fd-liquid { --liquid:color-mix(in srgb, var(--paper) 72%, var(--bg));
+  background:var(--lg-bands), var(--lg-fall), var(--lg-caustic), var(--liquid);
+  box-shadow:var(--lg-lip), var(--lg-fringe), var(--shadow-2); }
+.fd-liquid-sweep { position:relative; overflow:hidden; overflow:clip; }
+.fd-liquid-sweep::after { content:""; position:absolute; inset:-10% -60%; pointer-events:none; background:var(--lg-sweep);
+  transform:translateX(-70%); animation:fd-liquid-sweep 1.4s var(--ease-out) .2s both; }
+@keyframes fd-liquid-sweep { to { transform:translateX(70%); } }
+@media(prefers-reduced-motion:reduce) { .fd-liquid-sweep::after { animation:none; opacity:0; } }
 
 /* ── glass you can feel (useGlassTilt.js) ──
    A pane with the hook leans toward a finger and springs back; sideways

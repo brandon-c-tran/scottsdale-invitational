@@ -142,7 +142,7 @@ test("D1: the phone moment floods on every phone and sits on the TV's timeline",
   const css = readFileSync(new URL("../src/features/results/results.css", import.meta.url), "utf8");
   assert.ok(css.includes(`calc(var(--tl, 0ms) + ${CROWN_TIMING.flood}ms)`), "the phone's flood uses the TV's flood beat");
   assert.ok(css.includes(`calc(var(--tl, 0ms) + ${CROWN_TIMING.chip}ms)`), "and its chip beat");
-  assert.ok(!/#[0-9a-f]{3,6}\b|gradient/i.test(css), "tokens only, flat");
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css), "tokens only");
 });
 
 /* ── D2: the face-off before the bets ── */
@@ -322,7 +322,8 @@ test("D3: the TV draws the class photo on its step and as the frozen ambient", (
   const css = readFileSync(new URL("../src/features/tv/tvScenes.css", import.meta.url), "utf8");
   const sizes = [...css.matchAll(/font(?:-size)?:[^;]*?(\d+)px/g)].map(m => Number(m[1]));
   assert.ok(sizes.every(size => size >= 24), `TV text sizes ${sizes.filter(s => s < 24)}`);
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css), "tokens only, flat");
+  /* tokens only; a gradient only as the glass's own light (DESIGN.md) */
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(/i.test(css), "tokens only");
 });
 
 /* a canvas stand-in that records what was drawn */

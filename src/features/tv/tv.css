@@ -267,7 +267,8 @@
 /* once any chip lands every spot is the same window in the pane */
 .tv-sides.is-field:not(.is-quiet) .tv-side.is-spot { border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
 .tv-spot-id { display:flex; align-items:center; gap:12px; min-width:0; height:60px; }
-.tv-spot-id .tv-side-title { font-size:40px; }
+/* a name lettered as written, one line, at the size every spot shares */
+.tv-spot-name { min-width:0; line-height:1.15; color:var(--bone); white-space:nowrap; }
 .tv-spot-felt > .tv-side-total { position:absolute; left:0; right:0; top:0; text-align:center; margin:0; font-size:40px; line-height:1.1; }
 .tv-spot-felt { position:relative; height:var(--field-stack-h, 150px); display:flex; align-items:flex-end; justify-content:center; }
 .tv-spot-felt .tv-stacks { flex-wrap:nowrap; align-items:flex-end; justify-content:center; gap:12px; }
@@ -339,50 +340,13 @@
 .tv-settle-zone.is-won .tv-settle-head { color:var(--green); }
 .tv-settle-zone.is-lost .tv-settle-head { color:var(--clay-text); }
 .tv-settle .tv-stacks { flex-wrap:nowrap; align-items:flex-end; justify-content:center; }
-.tv-place-backers { align-self:stretch; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:12px 16px 10px;
-  border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
-.tv-place-backers .tv-settle-head { color:var(--green); font-size:40px; }
-.tv-place-backers .tv-stacks { justify-content:center; }
 @media (prefers-reduced-motion: reduce) {
   .tv-settle-head { animation:none; }
 }
 
-/* ── result: a podium under the game's sign ── */
-.tv-result { position:relative; justify-content:center; gap:20px; }
-/* the event's sign never gives up height to the podium below it */
-.tv-result-head { position:relative; align-self:center; flex-shrink:0; overflow:hidden; padding:16px 36px 14px; }
 .tv-faces.is-rows { display:grid; grid-template-columns:repeat(var(--face-cols), auto); justify-content:center; }
-.tv-result-name { font-size:72px; line-height:1.1; color:var(--bone); }
-.tv-result-sub { margin-top:4px; color:var(--muted2); }
-.tv-podium { display:grid; grid-template-columns:1fr 1.3fr 1fr; gap:36px; align-items:end; padding:0 40px; }
-.tv-place { display:flex; flex-direction:column; align-items:center; gap:12px; padding:24px 20px;
-  text-align:center; animation:tv-place-land .46s var(--ease-land) both; }
-/* each place drops onto its step with weight; 1st slams in bigger and its
-   glass flashes once in the winner's color */
-@keyframes tv-place-land { 0% { opacity:0; transform:translateY(-70px) scale(1.08); } 60% { opacity:1; transform:translateY(8px) scale(.99); }
-  100% { opacity:1; transform:none; } }
-.tv-place.is-first { animation:tv-place-slam .62s var(--ease-land) both; }
-@keyframes tv-place-slam { 0% { opacity:0; transform:scale(1.45); } 45% { opacity:1; transform:scale(.97); } 70% { transform:scale(1.015); }
-  100% { opacity:1; transform:none; } }
-.tv-place.is-first.is-lit::after { content:""; position:absolute; inset:-2px; border-radius:inherit; pointer-events:none;
-  box-shadow:0 0 0 0 var(--win); animation:tv-place-flash .9s ease-out .28s both; }
-@keyframes tv-place-flash { 0% { box-shadow:0 0 0 0 var(--win); opacity:.9; } 100% { box-shadow:0 0 0 28px var(--win); opacity:0; } }
-@media (prefers-reduced-motion:reduce) { .tv-place, .tv-place.is-first, .tv-place.is-first.is-lit::after { animation:none; } }
-/* first is the most solid pane on the podium, lit for its winner: their
-   color through the glass and its ring (a shared first stays bone) */
-.tv-place.is-first { position:relative; padding:28px 20px; border-radius:18px; background:var(--tv-sheen), color-mix(in srgb, var(--bone) 5%, var(--bg));
-  border:2px solid var(--ghost-line); box-shadow:var(--glass-edge), var(--shadow-2); }
-.tv-place.is-first.is-lit { background:var(--tv-sheen), color-mix(in srgb, var(--win) 20%, var(--bg)); border-color:var(--win); }
-.tv-place-rank { font:800 40px/1.15 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
-.tv-place.is-first .tv-place-rank { color:var(--bone); }
-.tv-place-faces { justify-content:center; flex-wrap:wrap; gap:12px; }
-.tv-place-name { line-height:1.05; color:var(--bone); overflow-wrap:normal; word-break:normal; }
-.tv-place-split { display:flex; flex-direction:column; gap:16px; align-items:center; }
-.tv-place-group { display:flex; flex-direction:column; align-items:center; gap:8px; }
-.tv-place-group-name { font-size:40px; line-height:1.1; color:var(--bone); }
-.tv-place-amount { font:800 40px/1.15 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
-.tv-place-slot { min-height:1px; }
 
+/* ── result: the podium is TVPodium (tv-podium.css); then the standings ── */
 .tv-result-rows { padding-top:12px; }
 .tv-result-rows-head { display:flex; align-items:center; gap:24px; height:76px; margin-bottom:8px; padding:0 22px;
   border-radius:14px; background:var(--tv-glass); }
@@ -530,7 +494,13 @@
 
 /* ── the poker finale: a broadcast table ── */
 .tv-table { position:relative; padding:0; }
-.tv-table-stage { position:absolute; left:0; top:0; width:1920px; height:836px; }
+/* the finale's room: the table under its own lamp, the painting's floor
+   falling away into the dark around it, so no horizon or saguaro stands
+   behind a seat; the sky above stays the session's */
+.tv-table::before { content:""; position:absolute; left:0; right:0; top:240px; bottom:-140px; z-index:0; pointer-events:none;
+  background:radial-gradient(60% 52% at 50% 40%, color-mix(in srgb, var(--sun) 9%, transparent), transparent 72%),
+    linear-gradient(180deg, transparent, color-mix(in srgb, var(--night-deep) 96%, transparent) 48%); }
+.tv-table-stage { position:absolute; z-index:1; left:0; top:0; width:1920px; height:836px; }
 .tv-table-felt { position:absolute; left:0; top:0; }
 .tv-table-rail { fill:var(--ink0); stroke:var(--line); stroke-width:2px; }
 .tv-table-rim { fill:none; stroke:var(--sun); stroke-width:4px; }
@@ -768,6 +738,14 @@
 .tv-result-headline-name { line-height:1.12; color:var(--bone); white-space:nowrap; text-shadow:var(--keyline); }
 .tv-result-headline .tv-leadchange { margin-top:8px; }
 .tv-towers-head { position:absolute; left:var(--tv-edge); right:var(--tv-edge); top:12px; }
+/* the next event over the board's sky: one ribbon of liquid glass */
+.tv-next-ribbon, .tv-next-ribbon.fd-liquid-sweep { position:absolute; left:50%; top:34px; transform:translateX(-50%); display:flex; align-items:center; gap:28px;
+  max-width:calc(1920px - 2 * var(--tv-edge)); height:140px; padding:0 44px 0 24px; border-radius:24px; white-space:nowrap;
+  animation:tv-ribbon-in .7s var(--ease-out) both; }
+.tv-next-ribbon-name { font-size:92px; line-height:1.12; color:var(--bone); }
+.tv-next-ribbon-ladder { flex-shrink:0; padding-left:28px; border-left:1px solid var(--bone-line); }
+@keyframes tv-ribbon-in { from { opacity:0; transform:translate(-50%, -24px); } to { opacity:1; transform:translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .tv-next-ribbon { animation:none; } }
 @media (prefers-reduced-motion: reduce) {
   /* the end state: the board at rest */
   .tv-tower-delta { display:none; }

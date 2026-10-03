@@ -261,7 +261,8 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
      exists only as material), defined once as --tv-sheen */
   const sheen = css.match(/--tv-sheen:[^;]*;/g) || [];
   assert.equal(sheen.length, 1, "one reflection token");
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css.replace(sheen[0], "")), "tokens only, flat");
+  /* tokens only: a gradient is the glass's own light (liquid glass), never a raw color */
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(/i.test(css.replace(sheen[0], "")), "tokens only");
   const shell = readFileSync(new URL("../src/ui/shell.css", import.meta.url), "utf8");
   assert.ok(!shell.includes("si-glow"));
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
@@ -606,7 +607,9 @@ test("T5: a split place stays split per drawn team, and tied stacks are named or
   assert.equal(third.groups.length, 2);
   assert.ok(third.names.every(name => name.includes(" & ")), third.names.join("|"));
   const html = renderTv(state, { now:state.results["8ball"].confirmedAt + 6000, showControl:false });
-  assert.ok(html.includes("tv-place-split"));
+  /* each drawn pair stands on 3rd's step as its own group, named its own way */
+  const thirdStep = html.slice(html.indexOf('class="tv-step is-p3'));
+  assert.ok((thirdStep.match(/class="tv-step-block"/g) || []).length >= 2, "a split 3rd stands as two groups");
   assert.ok(!html.includes("Team "), "never an invented team");
 
   const poker = structuredClone(EMPTY_STATE);
@@ -878,12 +881,14 @@ test("podium: first is lit in its winner's own color and the frame runs in it", 
   const events = allEventsOf(state);
   const anchor = resultMomentFor(state, events, Date.now(), null, null).anchor;
   const html = renderTv(state, { now:anchor + 3000, showControl:false });
-  assert.match(html, /class="tv-place is-first is-lit" style="--win:#[0-9a-f]{6}"/i);
+  assert.match(html, /class="tv-step is-p1 is-filled is-lit"[^>]*--win:#[0-9a-f]{6}/i);
   assert.match(html, /data-chase=""/);
   assert.match(html, /class="tv-frame-lamps is-run"[^>]*style="--chase:#[0-9a-f]{6}"/i);
   assert.ok(!html.includes("tv-result-band"), "no session band in a lamp color on the result sign");
   const css = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
-  assert.ok(!/\.tv-place-backers \{[^}]*border:/.test(css), "the backers sit in a window, not a card in the card");
+  const podium = readFileSync(new URL("../src/features/tv/TVPodium.jsx", import.meta.url), "utf8");
+  assert.ok(!/BetStacks|winnerStacks/.test(podium.slice(0, podium.indexOf("export function BackersRail"))),
+    "the backers ride their own rail, never inside 1st's step");
   assert.ok(!/\.tv-felt \{[^}]*border:/.test(css) && /\.tv-felt \{[^}]*var\(--tv-window\)/.test(css), "felts are windows in the pane");
 });
 

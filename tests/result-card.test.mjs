@@ -257,7 +257,7 @@ test("the chart is a step line with the high marked and session ticks that never
   assert.equal(chart.last.pts, 2200);
   assert.equal(chart.peak, null, "a high that is also the last point is drawn once");
   assert.ok(chart.ticks.length >= 1 && chart.ticks[0].label === "FRI");
-  for (let i = 1; i < chart.ticks.length; i++) assert.ok(chart.ticks[i].x - chart.ticks[i - 1].x >= 52);
+  for (let i = 1; i < chart.ticks.length; i++) assert.ok(chart.ticks[i].x - chart.ticks[i - 1].x >= chart.ticks[i - 1].label.length * 7.8 + 6, "labels never touch");
   const flat = ui.chartModel([{ pts:START, session:"fri" }]);
   assert.equal(flat.points.length, 2, "a single point still draws a line");
 });

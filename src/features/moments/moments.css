@@ -29,7 +29,7 @@
 .fd-moment-body { position:relative; width:100%; max-width:420px; display:grid; justify-items:center; gap:12px; text-align:center; }
 /* the subline under a takeover's headline: what and where, as units that
    wrap whole (an event name with a digit keeps its case, OneSafe.jsx) */
-.fd-moment-sub { margin:0; display:flex; flex-wrap:wrap; justify-content:center; gap:2px 14px;
+.fd-moment-sub { margin:0; display:flex; flex-wrap:wrap; justify-content:center; align-items:baseline; gap:2px 14px;
   font:800 19px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase;
   animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 450ms) both; }
 .fd-moment-sub>span { white-space:nowrap; }

@@ -272,10 +272,10 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
   const inlineLine = winInline && winLine?.text?.startsWith(namePrefix)
     ? { ...winLine, text:`Win ${winLine.text.slice(namePrefix.length)}` } : winLine;
   const busyPlace = !!busyKind && !(pendingAction === "place" && !checking && queued < PLACE_QUEUE);
-  const placeButton = showWell && <button type="button" ref={wellRef} className={`fd-wagers-place${capLabel ? " is-capped" : ""}`}
+  const placeButton = showWell && <button type="button" ref={wellRef} className={`fd-wagers-place${capLabel != null ? " is-capped" : ""}`}
     disabled={!canPick || busyPlace} onClick={() => act("place", onPick)} aria-label={canPick ? `Place a chip on ${name}` : name}
     aria-description={unavailableReason || capReason || (canPick ? `Add ${fmt(tapStake)} chips` : undefined)}>
-    <Icon name="plus" size={lines === 1 ? 18 : 20} /><span>{capLabel || fmt(tapStake)}</span>
+    <Icon name="plus" size={lines === 1 ? 18 : 20} />{capLabel !== "" && <span>{capLabel || fmt(tapStake)}</span>}
   </button>;
   const retract = () => act("remove", () => onRetract(mine[mine.length - 1].w.id));
   const backerRow = item => {
@@ -324,7 +324,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
       ? <div className="fd-wagers-pot is-row" role="group" aria-label={`Bets on ${name}`} aria-busy={!!busyKind}
         aria-description={unavailableReason || undefined}>
         {roleLabel && <span className="fd-wagers-pick-role">{roleLabel}</span>}
-        <span ref={mineRef} className={`fd-wagers-pot-total${sideTotal > 0 ? "" : " is-empty"}`}>{fmt(sideTotal)}</span>
+        <span ref={mineRef} className={`fd-wagers-pot-total${sideTotal > 0 ? "" : " is-empty"}`}>{sideTotal > 0 ? fmt(sideTotal) : null}</span>
         {/* yours, lit (a tap takes your last chip back), else how many back it */}
         <span className="fd-wagers-pot-who">{mineTotal > 0 ? (marketOpen
           ? <button type="button" className="fd-wagers-pot-you" disabled={!!busyKind} onClick={retract}
@@ -340,10 +340,12 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         aria-description={unavailableReason || undefined}>
         <div className="fd-wagers-pot-head">
           {pot}
-          <span className="fd-wagers-pot-total">{fmt(sideTotal)}</span>
+          {sideTotal > 0 && <span className="fd-wagers-pot-total">{fmt(sideTotal)}</span>}
           {roleLabel && <span className="fd-wagers-pick-role">{roleLabel}</span>}
         </div>
-        <ol className="fd-wagers-backers">{shownRows.map(backerRow)}</ol>
+        {/* nothing on it yet: the felt's open seat, where the first chip lands */}
+        {shownRows.length ? <ol className="fd-wagers-backers">{shownRows.map(backerRow)}</ol>
+          : <div className={`fd-wagers-seat${showWell ? " is-open" : ""}`} aria-hidden="true"><i /></div>}
         <div className="fd-wagers-backers-more">{more > 0 && <button type="button" onClick={() => setListOpen(true)}
           aria-label={`All ${everyone.length} backing ${name}`}>{more} more</button>}</div>
         <div className="fd-wagers-place-slot">{placeButton}</div>
@@ -695,7 +697,8 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
   const winSlot = picks.some(pick => !!pick.winLine?.text);
   /* a matchup keeps two lines of stacks; three sides or more keep one */
   const lines = picks.length > 2 ? 1 : 2;
-  picks.forEach(pick => { pick.winSlot = winSlot; pick.lines = lines; });
+  /* a wide board says its cap once, on the meter; each row's + goes quiet */
+  picks.forEach(pick => { pick.winSlot = winSlot; pick.lines = lines; if (lines === 1 && pick.capLabel) pick.capLabel = ""; });
   const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result"
     ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
   /* a live bracket game shows the bracket itself, which replaces the link */

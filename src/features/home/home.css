@@ -111,8 +111,10 @@ button.fd-you-strip:active { transform:scale(.99); }
 .fd-home-sides .fd-home-player-links { gap:0 14px; min-width:0; }
 .fd-home-sides .fd-home-player-links button { font-weight:600; }
 .fd-home-side-win { grid-column:1/-1; margin:-6px 0 7px; }
-/* "vs" sits on the hairline between the two sides */
-.fd-home-sides .fd-home-versus { position:relative; display:flex; align-items:center; justify-content:center; height:1px; background:var(--line);
+/* "vs" sits on the hairline between the two sides, in a band of its own,
+   so no name or chip control ever runs under it */
+.fd-home-sides .fd-home-versus { position:relative; display:flex; align-items:center; justify-content:center; height:18px;
+  background:linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
   color:var(--muted2); font:800 14px/1 var(--fd-display); text-transform:uppercase; }
 .fd-home-sides .fd-home-versus>span { padding:2px 8px; background:var(--window); border-radius:99px; }
 .fd-home-pot { flex-shrink:0; white-space:nowrap; }

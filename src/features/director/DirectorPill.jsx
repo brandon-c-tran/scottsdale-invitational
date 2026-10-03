@@ -12,7 +12,7 @@ import { Icon } from "../../ui/Icon.jsx";
 const UNDO_WINDOW_MS = 5000;
 
 /* The pill's more button: the tray above the pill holds the run of show
-   (Now, Next, Then), the beat's alternatives (Random draw, Change crew,
+   (Now, Next, Then), the beat's alternatives (Random draw, Captains draft,
    Open event...) and, last, its edge cases (Skip). A dot marks a tray that
    holds actions. A hold on the pill opens it too. */
 export function PillMore({ open, onToggle, actions = false, disabled = false }) {

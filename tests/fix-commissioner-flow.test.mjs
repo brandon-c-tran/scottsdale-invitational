@@ -126,7 +126,7 @@ async function drive(state, done, { me = "Brandon", sheets = {}, between = () =>
       if (opens.length) {
         const sheet = sheets[opens[0].open];
         assert.ok(sheet, `No sheet for ${opens[0].open}`);
-        taps.push(await sheet(state));
+        taps.push(...[].concat(await sheet(state, opens[0])));
       }
     }
     taps.push(...confirms);
@@ -267,29 +267,35 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   assert.equal(first.subject, "Pickleball Doubles");
   const model = directorPill(state, allEventsOf(state), director(state));
   assert.deepEqual(model.lines, ["Pickleball Doubles", "Crew: Jeremy (Event official)"]);
-  assert.deepEqual(model.extras.map(extra => extra.label), ["Change crew", "Skip"]);
-  assert.equal(model.run.write, "announceAndDraw");
-  assert.equal(model.run.startsWeekend, true, "The App's act() confirms the weekend start");
+  assert.deepEqual(model.extras.map(extra => extra.label), ["Skip"], "the crew check is the beat: no Change crew");
+  assert.equal(model.run.open, "crewCheck", "no draw runs from the pill without the crew check");
+  assert.equal(model.run.write, undefined);
+  assert.equal(model.run.then.write, "announceAndDraw");
+  assert.deepEqual(model.run.roles, [{ player:"Jeremy", role:"referee" }], "the suggestion is preselected");
+  assert.equal(model.run.then.startsWeekend, true, "The App's act() confirms the weekend start");
 
   /* Show Control on, before the weekend: the Opening beat, skippable */
   const opening = director(state, true);
   assert.equal(opening.nextAction.type, "start-opening-scene");
   const openingPill = directorPill(state, allEventsOf(state), opening);
   assert.equal(openingPill.extras[0].label, "Skip opening");
-  assert.equal(openingPill.extras[0].run.write, "announceAndDraw");
+  assert.equal(openingPill.extras[0].run.open, "crewCheck");
+  assert.equal(openingPill.extras[0].run.then.write, "announceAndDraw");
 
   /* teams of three or more lead with the captains draft; the one-tap random
      draw is the alternative */
   const volley = fresh(["volley"]);
   const volleyPill = directorPill(volley, allEventsOf(volley), director(volley));
   assert.equal(volleyPill.label, "Captains draft");
-  assert.equal(volleyPill.run.open, "draft");
-  assert.equal(volleyPill.run.pool.length, 12);
+  assert.equal(volleyPill.run.open, "crewCheck");
+  assert.deepEqual(volleyPill.run.then, { open:"draft", evId:"volley" });
+  assert.equal(volleyPill.run.players.length, 12);
   assert.equal(volleyPill.lines[0], "Sand Volleyball");
   assert.match(volleyPill.lines[1], /^Crew: /, "the thirteenth player's role, as with the draw");
   const random = volleyPill.extras.find(extra => extra.label === "Random draw");
-  assert.equal(random.run.write, "announceAndDraw");
-  assert.equal(random.run.startsWeekend, true);
+  assert.equal(random.run.open, "crewCheck");
+  assert.equal(random.run.then.write, "announceAndDraw");
+  assert.equal(random.run.then.startsWeekend, true);
   const five = fresh(["bball5"]);
   assert.equal(directorPill(five, allEventsOf(five), director(five)).label, "Captains draft", "the everyone-plays 5v5 too");
   act(volley, "startDraft", { evId:"volley", captains:["Evan", "Khoa", "Adi", "Allan"], players:ROSTER.slice(0, 12),
@@ -433,17 +439,30 @@ test("C26: Void all open duels confirms the count and names every duel first", a
   assert.equal(all, 1);
 });
 
-test("tap count: one Pickleball bracket from announce to posted result takes at most 12 taps", async () => {
+/* the crew check's one confirm, as shown (plus the weekend's confirm) */
+function crewConfirm(state, run) {
+  const payload = { ...run.then.payload, players:run.players, roles:run.roles };
+  let result = applyAction(state, run.then.write, payload, gm());
+  const taps = ["Announce and draw"];
+  if (!result.ok && result.extra?.needsStartConfirm) {
+    taps.push(`${result.extra.event} starts the weekend.`);
+    result = applyAction(state, run.then.write, { ...payload, startWeekend:true }, gm());
+  }
+  assert.equal(result.ok, true, result.error);
+  return taps;
+}
+test("tap count: one Pickleball bracket from announce to posted result takes at most 13 taps", async () => {
   const state = fresh(["pickleball"]);
-  const taps = await drive(state, s => !!s.results.pickleball);
-  /* announce (+ the one weekend confirm), then lock and record for five matches */
-  assert.ok(taps.length <= 12, `${taps.length} taps: ${taps.join(" | ")}`);
-  assert.equal(taps.length, 12);
+  const taps = await drive(state, s => !!s.results.pickleball, { sheets:{ crewCheck:crewConfirm } });
+  /* announce, the crew check's confirm (+ the one weekend confirm), then
+     lock and record for five matches */
+  assert.ok(taps.length <= 13, `${taps.length} taps: ${taps.join(" | ")}`);
+  assert.equal(taps.length, 13);
   assert.equal(taps.filter(tap => tap.startsWith("Record winner")).length, 5);
   assert.equal(state.results.pickleball.revision, 1);
-  /* a weekend already live skips the confirm: 11 */
+  /* a weekend already live skips the confirm: 12 */
   const live = fresh(["pickleball"]); live.live = true;
-  assert.equal((await drive(live, s => !!s.results.pickleball)).length, 11);
+  assert.equal((await drive(live, s => !!s.results.pickleball, { sheets:{ crewCheck:crewConfirm } })).length, 12);
 });
 
 test("tap count: the finale from table to crown takes at most 6 taps", async () => {

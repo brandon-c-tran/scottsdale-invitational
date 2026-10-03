@@ -309,3 +309,100 @@ test("the full weekend still closes through the QA fast-forward with comebacks i
   assert.ok(dogs > 0, "some contests opened with underdog odds");
   assert.ok(byes > 0, "brackets seated byes");
 });
+
+/* ── the forced crew check ── */
+import Module from "node:module";
+import { fileURLToPath } from "node:url";
+import { buildSync } from "esbuild";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { resolveDirector } from "../shared/show.js";
+import { directorPill } from "../src/features/director/directorPill.js";
+import { crewCheckModel, crewCheckRun, cycleRole, suggestedCrew, toggleCrew } from "../src/features/director/crewCheck.js";
+
+const ui = (() => {
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const compiled = buildSync({
+    stdin:{ contents:`export { CrewCheck } from "./src/features/director/CrewCheck.jsx";
+      export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
+    bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
+  });
+  const mod = new Module(fileURLToPath(new URL("comebacks.cjs", import.meta.url)));
+  mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
+  mod._compile(compiled.outputFiles[0].text, mod.filename);
+  return mod.exports;
+})();
+const pillOf = (state, events = allEventsOf(state)) => directorPill(state, events, resolveDirector(state, events, { showControl:false }));
+const ordered = ids => ({ ...fresh(), eventOrder:ids });
+const runs = model => [model.run, ...model.extras.map(extra => extra.run)];
+const drawsWithoutCheck = run => run?.write === "announceAndDraw" && Array.isArray(run.payload?.players)
+  || run?.open === "draft";
+
+test("the pill never runs a draw of people without the crew check", () => {
+  for (const ids of [["pickleball"], ["volley"], ["bball5"], ["beerio"], ["bball1"], ["die"]]) {
+    const state = ordered(ids);
+    const model = pillOf(state);
+    assert.equal(model.run.open, "crewCheck", `${ids[0]}: the beat opens the check`);
+    assert.ok(model.run.then?.write === "announceAndDraw" || model.run.then?.open === "draft", ids[0]);
+    for (const run of runs(model)) assert.ok(!drawsWithoutCheck(run), `${ids[0]}: ${JSON.stringify(run)}`);
+    assert.ok(!model.extras.some(extra => extra.label === "Change crew"));
+  }
+  /* the draft's alternatives are checked too */
+  const volley = pillOf(ordered(["volley"]));
+  const random = volley.extras.find(extra => extra.label === "Random draw");
+  assert.equal(random.run.open, "crewCheck");
+  assert.equal(random.run.then.write, "announceAndDraw");
+  const pairs = pillOf(ordered(["pickleball"]));
+  assert.deepEqual(pairs.run.roles, suggestedCrew(ordered(["pickleball"]), event(fresh(), "pickleball")),
+    "the suggestion is preselected and shown");
+});
+
+test("the confirmed crew reaches announceAndDraw, and Away changes the room", () => {
+  const state = ordered(["pickleball"]);
+  const ev = event(state, "pickleball");
+  const run = pillOf(state).run;
+  /* the commissioner swaps the suggested crew for someone else */
+  let crew = run.roles;
+  const suggested = crew[0].player;
+  const chosen = ROSTER.find(player => player !== suggested);
+  crew = toggleCrew(ev, toggleCrew(ev, crew, suggested), chosen);
+  crew = cycleRole(ev, crew, chosen);
+  const model = crewCheckModel(state, ev, crew);
+  assert.equal(model.fit.ok, true);
+  assert.equal(model.roster.find(item => item.player === chosen).state, "crew");
+  assert.equal(model.roster.find(item => item.player === suggested).state, "playing");
+  const write = crewCheckRun(run.then, model.playing, model.crew);
+  act(state, write.write, write.payload);
+  assert.deepEqual(state.draws.pickleball.roles, [{ player:chosen, role:crew[0].role }]);
+  assert.ok(!state.draws.pickleball.teams.some(team => team.players.includes(chosen)));
+  assert.ok(state.draws.pickleball.teams.some(team => team.players.includes(suggested)));
+
+  /* someone away: the check follows the room, and the fit says so */
+  const short = ordered(["pickleball"]);
+  act(short, "setAway", { player:ROSTER[12], away:true });
+  const after = crewCheckModel(short, ev, suggestedCrew(short, ev));
+  assert.equal(after.roster.find(item => item.player === ROSTER[12]).state, "away");
+  assert.equal(after.fit.ok, true, "twelve here play six pairs with no crew");
+  assert.equal(after.crew.length, 0);
+  const wrong = crewCheckModel(short, ev, [{ player:ROSTER[0], role:"referee" }]);
+  assert.equal(wrong.fit.ok, false);
+
+  /* a draft takes the confirmed room as its pool */
+  const draft = crewCheckRun({ open:"draft", evId:"volley" }, ROSTER.slice(0, 12), [{ player:ROSTER[12], role:"referee" }]);
+  assert.deepEqual(draft, { open:"draft", evId:"volley", pool:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"referee" }] });
+});
+
+test("the crew check renders every player as a photo chip with the suggestion lit", () => {
+  const state = ordered(["pickleball"]);
+  const ev = event(state, "pickleball");
+  state.away = { [ROSTER[11]]:true };
+  const html = renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{} },
+    React.createElement(ui.CrewCheck, { state, ev, roles:[{ player:ROSTER[3], role:"referee" }], onConfirm:() => ({ ok:true }) })));
+  assert.equal((html.match(/fd-crew-seat /g) || []).length, ROSTER.length);
+  assert.equal((html.match(/fd-crew-seat is-crew/g) || []).length, 1);
+  assert.equal((html.match(/fd-crew-seat is-away/g) || []).length, 1);
+  assert.match(html, /Before the draw/);
+  assert.match(html, /Announce and draw/);
+  assert.doesNotMatch(html, /Tap |Choose /, "no helper text");
+  assert.match(html, /role="alert"/, "a room that does not fit says so");
+});

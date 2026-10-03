@@ -1,0 +1,36 @@
+/* Before the draw (CrewCheck.jsx). Crew is the info lamp (a role), away is
+   an unlit seat struck through, playing is the plain face. */
+.fd-crew-brush { display:flex; align-items:center; gap:8px; margin:0 0 14px; }
+.fd-crew-brush-option { display:flex; align-items:center; gap:8px; min-height:44px; padding:0 14px 0 12px; border-radius:10px;
+  border:1px solid var(--line); background:var(--paper); color:var(--muted2); cursor:pointer; box-shadow:var(--glass-edge);
+  font:800 15px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; }
+.fd-crew-brush-option b { font:800 17px/1 var(--fd-show); color:var(--ink); font-variant-numeric:tabular-nums; }
+.fd-crew-brush-option.is-crew { --lamp:var(--lamp-info); }
+.fd-crew-brush-option.is-away { --lamp:var(--muted); }
+.fd-crew-brush-option.is-on { color:var(--ink); border-color:color-mix(in srgb, var(--lamp) 70%, transparent);
+  background:color-mix(in srgb, var(--lamp) 12%, var(--paper)); }
+.fd-crew-brush-option:disabled { cursor:default; opacity:.6; }
+.fd-crew-shape { margin-left:auto; font:800 15px/1.1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; color:var(--muted2);
+  text-align:right; }
+
+.fd-crew-grid { list-style:none; margin:0 0 12px; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 6px; }
+.fd-crew-seat { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
+.fd-crew-chip { display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; min-height:44px; padding:4px 2px;
+  border:0; border-radius:10px; background:none; color:var(--ink); cursor:pointer; }
+.fd-crew-chip:disabled { cursor:default; }
+.fd-crew-face { position:relative; display:block; border-radius:50%; line-height:0; transition:filter .18s, opacity .18s, box-shadow .18s; }
+.fd-crew-name { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:700 13px/1.15 var(--fd-body);
+  color:var(--ink); }
+.fd-crew-seat.is-crew .fd-crew-face { box-shadow:0 0 0 2px var(--lamp-info), 0 0 14px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
+.fd-crew-seat.is-away .fd-crew-face { filter:grayscale(1); opacity:.38; }
+.fd-crew-seat.is-away .fd-crew-face::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:2px; margin-top:-1px;
+  border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
+.fd-crew-seat.is-away .fd-crew-name { color:var(--disabled); text-decoration:line-through; }
+.fd-crew-seat.is-pending .fd-crew-face { animation:fd-crew-wait 1.2s steps(1, end) infinite; }
+@keyframes fd-crew-wait { 50% { opacity:.55; } }
+.fd-crew-role { min-height:28px; max-width:100%; padding:0 8px; border-radius:6px; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent);
+  background:color-mix(in srgb, var(--lamp-info) 12%, var(--paper)); color:var(--lamp-info); cursor:pointer;
+  font:800 12px/1 var(--fd-show); letter-spacing:.06em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-crew-role:disabled { cursor:default; opacity:.6; }
+.fd-crew-error { margin:0 0 10px; color:var(--clay-text); font-size:13px; }
+@media (prefers-reduced-motion:reduce) { .fd-crew-seat.is-pending .fd-crew-face { animation:none; } .fd-crew-face { transition:none; } }

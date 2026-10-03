@@ -117,7 +117,7 @@ test("one renderer: sections with icon heads, 52px rows, values on the right", (
 });
 
 test("the pill: Skip and the alternatives ride in the more tray, never beside the pill", () => {
-  const state = { ...structuredClone(EMPTY_STATE), eventOrder:["pickleball", "volley"] };
+  const state = { ...structuredClone(EMPTY_STATE), eventOrder:["volley", "pickleball"] };
   const events = allEventsOf(state);
   const model = directorPill(state, events, resolveDirector(state, events, { showControl:false }));
   assert.ok(model.extras.length >= 2);

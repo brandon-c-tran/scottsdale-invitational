@@ -322,12 +322,12 @@ function lifecycleBeat(state, operation) {
   }
   /* A draw for the next event is announced in the same write, so every
      screen plays the intro before the teams. The beat carries the default
-     crew (whoever has sat out least); the commissioner can change it. */
+     crew (whoever has sat out least); the pill opens the crew check with
+     it before anything is drawn (features/director/crewCheck.js). */
   if (action.type === "prepare-draw"
       || action.type === "prepare-stages" && (ev.stageCfg?.kind === "heats" || state.draws?.[ev.id])) {
     const suggestion = state.draws?.[ev.id] ? { players:null, roles:null } : suggestParticipants(state, ev);
     if (suggestion) {
-      if (suggestion.roles?.length) extras.push({ type:"change-crew", label:"Change crew", eventId:ev.id });
       swapIn();
       /* teams of three or more pick their sides: the draft leads, a random
          draw is the alternative */

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
   ROSTER, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation,
@@ -41,6 +41,7 @@ import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerChips, towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
+import { serverNow } from "../../lib/serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
 import { useRoomSound } from "./roomSound.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
@@ -865,7 +866,7 @@ function NextUpCard({ ev }) {
 
 /* ═════════════ the TV ═════════════ */
 function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allTiedInput, champion, coChamps, showControlEnabled,
-  rankDeltas = {}, connection: connectionInput = {}, onExit, EventSpotlight, ceremony = null, now: nowOverride,
+  rankDeltas = {}, connection: connectionInput = {}, onExit, ceremony = null, now: nowOverride,
   onSoundStatus = null }) {
   /* a level board has no leader and no ranks, whatever the caller says */
   const allTied = !!allTiedInput || (!state.frozen && boardLevel(standings));
@@ -873,6 +874,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   useTvWakeLock();
   useTvSoundReport(onSoundStatus);
   const now = nowOverride ?? tickNow;
+  /* the intro reads the room's clock once, when it opens */
+  const introClock = useCallback(() => nowOverride ?? serverNow(), [nowOverride]);
   const fit = useCanvasFit();
   const reducedMotion = reducedMotionNow();
   const connection = tvConnection(connectionInput);
@@ -1002,7 +1005,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const winColor = podiumWin.length === 1 ? resolvePlayerIdentity(state.profiles, podiumWin[0].players[0]).color : null;
   const champColor = state.frozen && !crownPlaying && !directed && (coChamps || []).length <= 1 && standings[0]
     ? resolvePlayerIdentity(state.profiles, standings[0].player).color : null;
-  const momentTakeovers = [winColor && { chase:{ color:winColor, pace:"run" } },
+  /* the game intro runs the frame in the session's own lamp */
+  const momentTakeovers = [(sceneIntroEv || ceremonyIntroEv) && { chase:{ color:"var(--phase)", pace:"run" } },
+    winColor && { chase:{ color:winColor, pace:"run" } },
     champColor && { chase:{ color:champColor, pace:"rest" } },
     faceOff && { takeover:"faceoff", chase:{ color:"var(--lamp-live)", pace:"run" } },
     walkoutMoment && { takeover:"walkout" }, pokerMoments.takeover && { takeover:pokerMoments.takeover },
@@ -1194,9 +1199,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         </main>
         {showHorizon && <Horizon state={state} standings={standings} towers={towers} />}
         {showTicker && <Ticker items={items} reducedMotion={reducedMotion} now={now} />}
-        {sceneIntroEv && <IntroOverlay state={state} ev={sceneIntroEv} EventSpotlight={EventSpotlight} reducedMotion={reducedMotion} />}
-        {ceremonyIntroEv && <IntroOverlay key={ceremonyIntroEv.id} state={state} ev={ceremonyIntroEv} EventSpotlight={EventSpotlight}
-          handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} />}
+        {sceneIntroEv && <IntroOverlay key={sceneIntroEv.id} state={state} ev={sceneIntroEv} reducedMotion={reducedMotion}
+          sceneAt={showScene?.active?.startedAt} now={introClock}
+          handoff={!!(state.draws?.[sceneIntroEv.id] || state.stages?.[sceneIntroEv.id])} />}
+        {ceremonyIntroEv && <IntroOverlay key={ceremonyIntroEv.id} state={state} ev={ceremonyIntroEv}
+          handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} now={introClock} />}
         {ceremonyReveal && <TVDrawReveal key={ceremonyReveal.id} state={state} events={events} reveal={ceremonyReveal}
           reducedMotion={reducedMotion} onDone={ceremony?.onRevealDone || null} />}
         <TVWalkout state={state} moment={walkoutMoment} />

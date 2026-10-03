@@ -270,7 +270,7 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
   assert.ok(!app.includes("10 is the chip quantum"));
 });
 
-test("the event intro overlays the live board for three seconds only", () => {
+test("the event intro overlays the live board for the intro's length only", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const t0 = state.showControl.active.startedAt;
@@ -667,7 +667,10 @@ test("T2: the TV draws the intro and the draw inside its canvas", () => {
   assert.ok(reveal.groups.every(group => group.lines.every(line => html.includes(line.text.replace(/&/g, "&amp;")))));
   const intro = tvWith({ intro:"8ball", reveal:null, handoff:true });
   assert.ok(intro.indexOf("tv-intro") > intro.indexOf("data-tv-canvas"));
-  assert.ok(intro.includes("Drawing teams"));
+  /* a draw follows: the intro docks its name where the draw letters it,
+     no "Drawing teams" line (Oct 3 intros) */
+  assert.match(intro, /class="fd-intro is-tv is-handoff/);
+  assert.ok(!intro.includes("Drawing teams"));
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.ok(!/<EventIntro[^>]*\bbig\b/.test(app) && !/<Reveal[^>]*\bbig\b/.test(app), "no phone overlays on the TV");
 });

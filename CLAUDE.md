@@ -73,6 +73,24 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   snapshots) and the director column shows "TV sound off" or "No TV
   connected" (`features/director/tvHealth.js`). Player chip ink is computed:
   whichever of --ink0 and --bone contrasts more (`identity/chipInk.js`).
+- **Game intros** (Oct 3, `src/features/intro/`): every announcement plays
+  the game's own intro on every phone (the head of the live
+  `EventAnnouncement` sheet) and the TV (`IntroOverlay`), one composition at
+  two scales: the glass dark, the backlight catching, the session's
+  painting (`GlassArt depth`) and the game's set pushing in on plates, the
+  game's one move landing on `INTRO_TIMING.hit` where its name stamps in the
+  Inline cut, light across the glass, the session lamp's chase, the podium
+  on the TV floor. `introTiming.js` is the one clock: `INTRO_MS` (4200) is
+  `DRAW_INTRO_MS` and `TV_INTRO_OVERLAY_MS`, every screen plays from
+  `eventOps.announcedAt` (late screens join mid-scene), and with a draw
+  behind it the set dims and the TV docks the name where the draw letters
+  it. One scene per slate game in `IntroScenes.jsx` `SCENES` (keyed by
+  `introScene(ev)`, basketball by variant); anything else drops its GameMark
+  (then the FD chip). S2 is the game's own sound on the same beats
+  (`INTRO_FOLEY`, the chord alone under reduced motion), on the room bus on
+  the TV and the owner's bus on a phone that follows live. Reduced motion
+  shows the last frame (`is-still`, `--fa`). `/dev/intro-preview.html`
+  rehearses every game on a phone and the TV side by side.
 - **Pocket alerts (Web Push, A10):** `worker/pushAlerts.js` picks, from the
   board before and after each persisted write, "You're playing" (your
   contest became current; not a wide free-for-all), "Your pick" and

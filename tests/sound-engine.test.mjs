@@ -441,7 +441,8 @@ test("A3: announce and draw: S2 at announcedAt, then one S3 per card on the room
   const now = Date.now();
   const cues = room.roomCues(before, after, { now });
   const at = state.eventOps["8ball"].announcedAt;
-  assert.deepEqual(cues.find(cue => cue.id === "S2"), { id:"S2", at, key:`intro:8ball:${at}` });
+  /* the game's own intro (Oct 3): the scene rides the cue */
+  assert.deepEqual(cues.find(cue => cue.id === "S2"), { id:"S2", at, key:`intro:8ball:${at}`, opts:{ game:"8ball" } });
   const ticks = cues.filter(cue => cue.id === "S3");
   const reveal = after.reveals["8ball"];
   assert.equal(ticks.length, reveal.total);

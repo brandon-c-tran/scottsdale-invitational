@@ -85,6 +85,9 @@
   font-variant-numeric:tabular-nums; color:var(--sun); text-shadow:0 2px 0 var(--ink0);
   animation:tv-step-stamp .34s var(--ease-land) calc(var(--tl) + var(--beat) + 220ms) both; }
 .tv-step.is-p2 .tv-step-amount, .tv-step.is-p3 .tv-step-amount { font-size:46px; }
+/* the award's reel: windows cut to the line the figure had */
+.tv-step-amount .fd-reel { font-size:.8em; align-self:center; }
+.tv-step-sign { align-self:center; margin-right:-4px; }
 .tv-step-amount small { font:700 28px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted2); }
 @keyframes tv-step-stamp { 0% { opacity:0; transform:scale(1.6); } 60% { opacity:1; transform:scale(.96); } 100% { opacity:1; transform:none; } }
 
@@ -149,6 +152,8 @@
 .tv-rail-tag { flex-shrink:0; }
 .tv-rail-total { flex-shrink:0; font:800 56px/1.1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--green);
   animation:tv-step-stamp .34s var(--ease-land) calc(var(--tl) + var(--rail-at) + 160ms) both; }
+.tv-rail-total { display:flex; align-items:center; gap:2px; }
+.tv-rail-total .fd-reel { font-size:.8em; }
 .tv-rail-cells { list-style:none; margin:0; padding:0; flex:1; min-width:0; display:flex; align-items:center; gap:var(--rail-gap); }
 .tv-rail-cell { flex-shrink:0; display:flex; align-items:center; gap:12px; min-width:0;
   animation:tv-rail-cell .4s var(--ease-out) calc(var(--tl) + var(--rail-at) + 260ms + var(--i) * 70ms) both; }

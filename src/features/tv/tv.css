@@ -223,6 +223,7 @@
   overflow:hidden; text-overflow:ellipsis; }
 /* the side's total: its amount, in the side's own header row */
 .tv-side-total { flex-shrink:0; margin-left:auto; font:800 56px/1.1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-side-total .fd-reel { font-size:.8em; }
 .tv-felt > .tv-side-total { margin:0; align-self:center; font-size:56px; }
 .tv-felt.is-empty > .tv-felt-empty { align-self:center; }
 .tv-side-win { height:34px; min-width:0; }
@@ -363,6 +364,7 @@
   font-variant-numeric:tabular-nums; }
 .tv-split.is-down { color:var(--clay-text); }
 .tv-move-row .tv-pts { font:800 40px/1 var(--fd-display); min-width:130px; text-align:right; color:var(--bone); font-variant-numeric:tabular-nums; }
+.tv-move-row .tv-pts .fd-reel { font-size:.82em; }
 .tv-move-row.is-lead { border-color:var(--ghost-line); }
 .tv-move-row.is-out .tv-name { text-decoration:line-through; color:var(--muted); }
 .tv-move-row.is-away .tv-name { color:var(--muted); }
@@ -426,9 +428,10 @@
   overflow-wrap:normal; word-break:normal; }
 .tv-champ-title { font:800 48px/1.15 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; }
 /* the one number */
-.tv-champ-stack { display:flex; align-items:baseline; gap:20px; }
-.tv-champ-stack b { font:800 136px/1.05 var(--fd-display); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
-.tv-champ-stack span { font:600 32px/1.2 var(--fd-body); opacity:.8; }
+.tv-champ-stack { display:flex; align-items:center; gap:20px; }
+.tv-champ-stack .fd-reel { font-size:.76em; }
+.tv-champ-stack b { display:flex; font:800 136px/1.05 var(--fd-display); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+.tv-champ-stack > span { font:600 32px/1.2 var(--fd-body); opacity:.8; }
 /* how they won: a medal per podium finish, the event's mark with its place */
 .tv-champ-medals { list-style:none; margin:0; padding:0; display:grid; gap:22px 20px; }
 .tv-medal { display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0; text-align:center; }
@@ -675,6 +678,8 @@
 .tv-tower-name { display:flex; justify-content:center; width:132px; }
 .tv-tower-name-text { display:inline-block; flex-shrink:0; white-space:nowrap; transform-origin:50% 50%; }
 .tv-tower-pts { font:800 34px/1.15 var(--fd-display); letter-spacing:.01em; color:var(--sun); font-variant-numeric:tabular-nums; }
+/* a mover's count, landing on the result's step (slim windows, cut to the line) */
+.tv-tower-pts .fd-reel { font-size:.88em; --reel-tint:var(--sun); --reel-mix:8%; }
 /* a result's step: a mover's change takes the count's own line once
    (rising in, holding, lifting away) and the new count settles back in
    under it; a tower that did not move leaves that line empty meanwhile.

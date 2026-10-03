@@ -224,7 +224,7 @@ test("phone: a side is one pot and its backers; your row retracts, anyone else's
   /* Pot and backers (Oct 2): one pot a side, no stack per bettor on the board */
   assert.equal(view.html.split('class="fd-wagers-pot"').length - 1, 2, "one pot a side");
   assert.doesNotMatch(view.html, /data-stack-player=/, "no bettor's own stack on a side card");
-  assert.match(view.html, /class="fd-wagers-pot-total">1,600</, "the side's total beside its pot");
+  assert.match(view.html, /class="fd-wagers-pot-total"><span class="fd-reel[^"]*" role="img" aria-label="1,600"/, "the side's total beside its pot");
   /* your own row is lit and reads "You"; biggest first */
   assert.match(view.html, /class="fd-wagers-backer is-you"[^>]*>.*?>You</);
   const order = view.buttons.map(b => /^View (.+)'s player card \(/.exec(b.name)?.[1]).filter(Boolean);
@@ -261,8 +261,8 @@ test("TV: bettors ride as named stacks, never a Name 200 list", () => {
   }
   assert.ok(textNodes(board).every(text => !/[A-Za-z] \d/.test(text)), textNodes(board).join(" | "));
   assert.doesNotMatch(board, /tv-side-riders/);
-  assert.match(board, /tv-side-total">2,000</);
-  assert.match(board, /tv-side-total">1,500</);
+  assert.match(board, /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="2,000"/);
+  assert.match(board, /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="1,500"/);
   /* a 1,000 stake caps at ten chips and stamps its value */
   assert.match(board, new RegExp(`data-stack-player="${bystanders[0]}" data-stack-chips="${STACK_CAP}"`));
   assert.ok(contest);
@@ -281,7 +281,7 @@ test("TV free-for-all: a player's spot on the felt holds the stacks backing them
   };
   assert.match(card("Khoa"), /data-stack-player="Adi"/);
   assert.match(card("Khoa"), /data-stack-player="Ben"/);
-  assert.match(card("Khoa"), /tv-side-total">500</);
+  assert.match(card("Khoa"), /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="500"/);
   assert.match(card("Evan"), /data-stack-player="Evan"/);
   assert.doesNotMatch(card("Chinh"), /data-stack-player|tv-side-total|No chips/);
   /* the card no longer repeats its own name with a number */

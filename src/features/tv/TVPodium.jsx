@@ -3,6 +3,7 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { disp } from "../../../shared/core.js";
 import { stackName } from "../wagers/betStacks.js";
 import {
@@ -64,7 +65,13 @@ function Step({ state, step, beat, lid, index }) {
       <div className="tv-step-face">
         <i className="tv-step-glow" aria-hidden="true" />
         <span className="fd-show is-marquee tv-step-num" aria-hidden="true">{place}</span>
-        {step.amount && <span className="tv-step-amount">{step.amount.text}{step.amount.each && <small>each</small>}</span>}
+        {/* the award rolls in on the step's own reel as it stamps, on the
+            room's clock (a late TV joins mid-roll, the ambient turn rests) */}
+        {step.amount && <span className="tv-step-amount" aria-label={step.amount.text}>
+          {entry.unit !== "stack" && <span className="tv-step-sign" aria-hidden="true">+</span>}
+          <ScoreReel value={entry.amount} from={0} motion="always" tone="chip" label=""
+            at="calc(var(--tl) + var(--beat) + 240ms)" />
+          {step.amount.each && <small>each</small>}</span>}
         <i className="tv-step-sweep" aria-hidden="true" />
       </div>
     </div>
@@ -111,7 +118,8 @@ export function BackersRail({ state, model, anchor = null, now = 0 }) {
         style={{ "--tl":`${age === null ? AT_REST : -Math.round(age)}ms`, "--rail-at":`${at}ms`,
           "--rail-pad":`${BACKERS_RAIL.pad}px`, "--rail-gap":`${BACKERS_RAIL.gap}px` }}>
         <span className="tv-ticker-tag tv-rail-tag" style={{ width:BACKERS_RAIL.tag }}>Bets paid</span>
-        <b className="tv-rail-total" style={{ width:BACKERS_RAIL.total }}>+{fmt(rail.paid)}</b>
+        <b className="tv-rail-total" style={{ width:BACKERS_RAIL.total }} aria-hidden="true">+<ScoreReel value={rail.paid}
+          from={0} motion="always" tone="won" slim label="" at="calc(var(--tl) + var(--rail-at) + 160ms)" /></b>
         <ol className="tv-rail-cells">
           {rail.cells.map((cell, i) => (
             <li key={cell.player} className="tv-rail-cell" style={{ "--i":i, width:rail.named ? BACKERS_RAIL.named : BACKERS_RAIL.bare }}>

@@ -51,6 +51,7 @@
 .fd-receipt-from { padding-bottom:5px; color:var(--muted); font:700 20px/1 var(--fd-display);
   text-decoration-thickness:2px; font-variant-numeric:tabular-nums; }
 .fd-receipt-to { color:var(--sun); font:700 50px/.9 var(--fd-display); font-variant-numeric:tabular-nums; display:inline-block; }
+.fd-receipt-to .fd-reel { font-size:.72em; display:flex; }
 .fd-receipt-rank { margin-left:auto; padding-bottom:3px; text-align:right; }
 .fd-receipt-rank b { display:block; font:700 24px/1 var(--fd-display); }
 .fd-receipt-rank small { font:700 12px/1.4 var(--fd-body); }
@@ -149,6 +150,8 @@
 @keyframes fd-crown-letter { from { opacity:0; transform:translateY(40px); } }
 .fd-crown-stack { margin:4px 0 0; font:600 15px/1 var(--fd-body); animation:fd-crown-fade 300ms ease-out calc(var(--tl, 0ms) + 17200ms) both; }
 .fd-crown-stack b { font:700 40px/1 var(--fd-display); font-variant-numeric:tabular-nums; margin-right:4px; }
+.fd-crown-stack b .fd-reel { font-size:.78em; vertical-align:middle; }
+.fd-crown-you-pts .fd-reel { font-size:.8em; }
 @keyframes fd-crown-fade { from { opacity:0; } }
 .fd-crown-skip { position:absolute; right:16px; bottom:calc(env(safe-area-inset-bottom) + 16px); min-width:64px; min-height:44px;
   border:1px solid currentColor; border-radius:10px; background:none; color:inherit; opacity:.75; font:600 14px var(--fd-body); cursor:pointer; }

@@ -271,14 +271,20 @@ export const towerNameSize = name => towerNameFit(name).size;
    the rank. On a result's step (`change`) the move shows once: a mover's
    change takes the count's line and fades, a tower that did not move shows
    nothing there, every name stays (the winner's lit green), then the board
-   is at rest again. */
+   is at rest again. A mover's count comes back on a slim reel showing what
+   it was, then rolls to what it is once the change has lifted away, its
+   windows lit for the step (the movers read apart from the rest); the
+   board at rest is plain numerals again. */
+export const TOWER_REEL_AT_MS = 3950;
 const towerLabel = (state, { change = false } = {}) => row => {
   const name = disp(state, row.player);
   const delta = change ? (row.award || 0) + (row.bets || 0) : 0;
   return <>
     {delta ? <span className={`tv-tower-delta${delta < 0 ? " is-down" : ""}`}>{signed(delta)}</span> : null}
     <TowerName name={name} />
-    <span className="tv-tower-pts">{fmt(row.pts)}</span>
+    <span className="tv-tower-pts">{delta
+      ? <ScoreReel value={row.pts} from={row.pts - delta} motion="always" slim label={fmt(row.pts)} at={TOWER_REEL_AT_MS} />
+      : fmt(row.pts)}</span>
   </>;
 };
 function TowerName({ name }) {
@@ -417,6 +423,9 @@ export function fieldLayout(count, width) {
   const chip = spot >= 220 ? FIELD.chip : FIELD.small;
   return { rows, perRow, spot, chip, slots:Math.max(1, Math.floor((spot - 24) / 84)), stackH:Math.ceil(stackMaxHeight(chip) + 58) };
 }
+/* a side's total on the felt: the contest's own number, so it rolls on a
+   reel as bets land (a fresh frame only) */
+const SideTotal = ({ total }) => <ScoreReel value={total} tone="chip" label={fmt(total)} />;
 function FieldFelt({ state, ev, contest, stacks, width }) {
   const layout = fieldLayout(contest.sides.length, width);
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
@@ -438,7 +447,7 @@ function FieldFelt({ state, ev, contest, stacks, width }) {
               <div className="fd-show tv-spot-name" style={{ fontSize:nameFit.size }}>{view.name}</div>
             </div>
             {any && <div className="tv-spot-felt">
-              {summed && <div className="tv-side-total">{fmt(ride.total)}</div>}
+              {summed && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
               {ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={layout.chip} cap={STACK_CAP} className="tv-stacks"
                 names={p => stackName(state, p)} slots={layout.slots} />}
             </div>}
@@ -469,7 +478,7 @@ function ContestBand({ state, ev, contest, stacks, width, lamp }) {
           <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />
         </div>
         {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
-          {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
+          {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
           {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={30}
             className="tv-stacks-fit" names={p => stackName(state, p)} valueAt="below" />}
         </div>}
@@ -550,7 +559,7 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
           </div>
           {anyWinLine && <div className="tv-side-win"><TVWinLine lines={winLines} sideKey={side.key} /></div>}
           {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
-            {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
+            {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
             {felt || <span className="tv-felt-empty">No bets</span>}
           </div>}
         </div>
@@ -698,6 +707,8 @@ function ResultHeadline({ model, lead = null }) {
 }
 
 const ROW_STEP = 60;
+/* a moved row's count lands once the rows have slid to their places */
+const RESULT_ROW_REEL_AT_MS = 600;
 /* one result, told twice: a podium climbing third to first, then all thirteen
    moving from where they stood to where they stand, each mover's change
    shown once (poker: final stacks). */
@@ -734,7 +745,9 @@ function ResultSequence({ state, model, phase, towers = null, anchor = null, now
                 <span className="tv-split">{row.away ? "Away" : row.busted ? "Busted" : `Started ${fmt(row.before)}`}</span>
               ) : <span className={`tv-split${row.change < 0 ? " is-down" : ""}`}>
                 {phase.sorted && row.change ? signed(row.change) : null}</span>}
-              <span className="tv-pts">{fmt(pts)}</span>
+              <span className="tv-pts">{phase.sorted && row.change && model.kind !== "stacks"
+                ? <ScoreReel value={pts} from={row.before} motion="always" slim label={fmt(pts)} at={RESULT_ROW_REEL_AT_MS} />
+                : fmt(pts)}</span>
             </div>
           );
         })}

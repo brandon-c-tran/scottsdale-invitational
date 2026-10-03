@@ -22,6 +22,7 @@ import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
 import { Coin } from "../../ui/Coin.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
 import "./wagers.css";
 
@@ -346,7 +347,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
         aria-description={unavailableReason || undefined}>
         <div className="fd-wagers-pot-head">
           {pot}
-          {sideTotal > 0 && <span className="fd-wagers-pot-total">{fmt(sideTotal)}</span>}
+          {sideTotal > 0 && <span className="fd-wagers-pot-total"><ScoreReel value={sideTotal} tone="chip" slim label={fmt(sideTotal)} /></span>}
           {roleLabel && <span className="fd-wagers-pick-role">{roleLabel}</span>}
         </div>
         {/* nothing on it yet: the felt's open seat, where the first chip lands */}
@@ -520,7 +521,7 @@ function StackMeter({ pts, cap, bets, duels, room, capBinds = false }) {
     {/* one fixed readout: what is left to bet, and what is already down */}
     <div className="fd-wagers-meter-top" aria-hidden="true">
       {capBinds ? <span className="fd-wagers-meter-room is-max"><strong>Max {fmt(cap)}</strong></span>
-        : <span className="fd-wagers-meter-room"><strong>{fmt(room)}</strong><small>to bet</small></span>}
+        : <span className="fd-wagers-meter-room"><strong><ScoreReel value={room} tone="chip" label={fmt(room)} /></strong><small>to bet</small></span>}
       {exposure > 0 && <span className="fd-wagers-meter-down">{fmt(exposure)}<small>in bets</small></span>}
     </div>
     <div className="fd-wagers-meter-bar" aria-hidden="true">

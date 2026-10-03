@@ -267,6 +267,7 @@
 .fd-wagers-meter-down { color:var(--sun); font:800 16px/1 var(--fd-display); letter-spacing:.02em; white-space:nowrap; }
 .fd-wagers-meter-down small { color:var(--muted2); }
 .fd-wagers-meter-top strong { font:800 26px/1 var(--fd-display); color:var(--sun); }
+.fd-wagers-meter-room .fd-reel { font-size:.8em; vertical-align:-.12em; }
 .fd-wagers-meter-room.is-max strong { color:var(--ink); }
 .fd-wagers-meter-scale .is-cap { transform:translateX(-50%); color:var(--ink); }
 .fd-wagers-meter-scale .is-stack { right:0; }
@@ -356,7 +357,8 @@
 .fd-wagers-seat.is-open > i { border-color:color-mix(in srgb, var(--sun) 50%, transparent);
   background:radial-gradient(circle, var(--sun-tint) 0 50%, transparent 51%); }
 .fd-wagers-pot-total { font:800 30px/1.15 var(--fd-display); letter-spacing:.01em; color:var(--sun); font-variant-numeric:tabular-nums; }
-.fd-wagers-pot-head .fd-wagers-pick-role { margin-left:auto; align-self:center; white-space:normal; text-align:right; }
+.fd-wagers-pot-head .fd-wagers-pot-total .fd-reel { font-size:.76em; }
+.fd-wagers-pot-head .fd-wagers-pick-role { margin-left:auto; align-self:center; white-space:normal; text-align:right; min-width:min-content; }
 .fd-wagers-backers { list-style:none; margin:0; padding:0; min-width:0; }
 .fd-wagers-backers > li + li { border-top:1px solid var(--line); }
 .fd-wagers-backer { display:grid; grid-template-columns:24px minmax(0,1fr) auto; align-items:center; column-gap:8px; width:100%;

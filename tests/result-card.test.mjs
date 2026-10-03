@@ -288,7 +288,10 @@ test("the receipt, the last card and Home's way back render their real content",
   assert.match(html, /2nd place/);
   assert.match(html, /\+1,600/);
   assert.match(html, /Settled bets/);
-  assert.match(html, />3,000</, "reduced or static: the total shows its end state");
+  /* the total's reel stands on its end state: its windows read 3,000 */
+  const total = html.match(/fd-receipt-to">([\s\S]*?)<\/strong>/)[1];
+  assert.equal([...total.matchAll(/fd-reel-strip[^"]*" style="--d:(\d+)/g)].map(m => Number(m[1]) % 10).join(""), "3000",
+    "reduced or static: the total shows its end state");
   assert.doesNotMatch(html, /—/);
 
   const state = weekend();

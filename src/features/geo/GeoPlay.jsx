@@ -11,6 +11,7 @@ import { PlaceSearch } from "./PlaceSearch.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "./geoModel.js";
 import "./geo.css";
 import { Icon } from "../../ui/Icon.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 
 const sendGuess = payload => dispatch("geoGuess", payload, { retry:true });
 const fmt = n => Math.round(n ?? 0).toLocaleString("en-US");
@@ -189,8 +190,6 @@ function YourReveal({ me, view }) {
   const score = view.mineScored;
   const row = view.standings.find(item => item.player === me);
   const answer = view.round;
-  const where = useCountTo(score?.where || 0, { delay:1700 });
-  const whenPts = useCountTo(score?.when || 0, { delay:1900 });
   const miles = useCountTo(score?.miles || 0, { delay:1500, ms:1100 });
   return <>
     <main className="fd-geo-game-body is-reveal">
@@ -202,8 +201,11 @@ function YourReveal({ me, view }) {
         <div className="fd-geo-answer"><small>The answer</small><strong>{answer.place}</strong>
           <span>{whenLabel(answer.when)}</span>{answer.caption && <em>{answer.caption}</em>}</div>
         {score ? <div className="fd-geo-score">
-          <div><small>Where</small><b>+{fmt(where)}</b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
-          <div><small>When</small><b>+{fmt(whenPts)}</b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
+          {/* each score lands on its reel as the camera opens, like an odometer from 0 */}
+          <div><small>Where</small><b aria-label={`+${fmt(score.where)}`}>+<ScoreReel value={score.where || 0} from={0} at={1700}
+            label="" /></b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
+          <div><small>When</small><b aria-label={`+${fmt(score.when)}`}>+<ScoreReel value={score.when || 0} from={0} at={1900}
+            label="" /></b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
         </div> : <p className="fd-geo-note">No guess</p>}
         {row && <p className="fd-geo-rank"><b>{fmt(row.total)}</b><span>{ordinal(row.rank)}</span></p>}
       </div>

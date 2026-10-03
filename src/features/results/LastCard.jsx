@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CHIP_MIN } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
-import { useCountBetween, useReducedMotion } from "../../lib/motion.js";
+import { useReducedMotion } from "../../lib/motion.js";
 import { useRisoTilt } from "../profile/useRisoTilt.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { chartModel, lastCardModel } from "./lastCard.js";
@@ -12,6 +11,7 @@ import { PHONE_CROWN as P, crownAnchor, crownPhonePlan, phonePlaceAt } from "./c
 import { chordNote, playSound } from "../../lib/sound.js";
 import { SavePoster } from "./SavePoster.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
@@ -107,8 +107,6 @@ function HeldCard({ children }) {
    crown". A tie stays on night. */
 function ChampionMoment({ leaders, you, elapsed, flood, floodColor, floodInk, onSkip }) {
   const pts = leaders[0]?.pts || 0;
-  const count = useCountBetween(0, pts, { play:true, step:CHIP_MIN, delay:P.count - elapsed, duration:P.countMs });
-  const yours = useCountBetween(0, you?.pts || 0, { play:!!you, step:CHIP_MIN, delay:P.you + 300 - elapsed, duration:1400 });
   const name = leaders.map(leader => leader.name).join(" & ");
   return <div className={`fd-crown-moment${flood ? " is-flood" : ""}`}
     style={{ "--tl":`${-Math.round(elapsed)}ms`, ...(flood ? { "--crown-color":floodColor, "--crown-ink":floodInk } : null),
@@ -118,7 +116,8 @@ function ChampionMoment({ leaders, you, elapsed, flood, floodColor, floodInk, on
     {you && <div className={`fd-crown-you${you.outAt ? " is-out" : " is-holding"}`} aria-hidden="true">
       <span className="fd-crown-you-chip"><ChipFace p={you.player} size={132} flat /></span>
       <b className="fd-crown-you-name">{you.name}</b>
-      <span className="fd-crown-you-pts">{fmt(yours)}</span>
+      <span className="fd-crown-you-pts"><ScoreReel value={you.pts} tone="you" label={fmt(you.pts)} from={0}
+        at={`calc(var(--tl, 0ms) + ${P.you + 300}ms)`} /></span>
       {you.outAt && <span className="fd-crown-you-place fd-show">{you.place}</span>}
     </div>}
     <span className="fd-crown-origin" aria-hidden="true"><ChipFace p={leaders[0].player} size={96} flat /></span>
@@ -129,7 +128,8 @@ function ChampionMoment({ leaders, you, elapsed, flood, floodColor, floodInk, on
       <p className="fd-crown-tag">{leaders.length > 1 ? "Tied for the championship" : "Champion"}</p>
       <h1 className="fd-crown-name fd-show" aria-label={name}>{[...name].map((letter, index) =>
         <span key={index} aria-hidden="true" style={{ "--fd-letter":index }}>{letter === " " ? " " : letter}</span>)}</h1>
-      <p className="fd-crown-stack"><b>{fmt(count)}</b> chips</p>
+      <p className="fd-crown-stack"><b><ScoreReel value={pts} drum tone="chip" label={fmt(pts)} from={0}
+        at={`calc(var(--tl, 0ms) + ${P.count}ms)`} /></b> chips</p>
     </div>
     <button type="button" className="fd-crown-skip" onClick={event => { event.stopPropagation(); onSkip(); }}>Skip</button>
   </div>;

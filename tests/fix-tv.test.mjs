@@ -670,7 +670,10 @@ test("T2: the TV draws the intro and the draw inside its canvas", () => {
   /* every card stands on the canvas from the start, unturned: its people
      land when it turns (Oct 3, draw-unit.test.mjs), never before */
   assert.equal([...html.matchAll(/class="tv-draw-card /g)].length, reveal.groups.length);
-  assert.ok(reveal.groups.every(group => group.lines.every(line => !html.includes(`>${line.text.replace(/&/g, "&amp;")}<`))));
+  /* only the draw's own cards: the betting board under it may name the live match */
+  const cards = html.slice(inner, exit);
+  assert.equal([...cards.matchAll(/class="tv-draw-card /g)].length, reveal.groups.length, "the slice holds every card");
+  assert.ok(reveal.groups.every(group => group.lines.every(line => !cards.includes(`>${line.text.replace(/&/g, "&amp;")}<`))));
   const intro = tvWith({ intro:"8ball", reveal:null, handoff:true });
   assert.ok(intro.indexOf("tv-intro") > intro.indexOf("data-tv-canvas"));
   /* a draw follows: the intro docks its name where the draw letters it,
@@ -780,7 +783,10 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   assert.ok(vhtml.includes("Winner pays 1:1"), "two teams pay 1:1, even as a free-for-all");
   const names = [...vhtml.matchAll(/class="tv-side-name">([^<]*)</g)].map(m => m[1]);
   assert.equal(names.length, 2);
-  assert.ok(names.every(name => !name.includes("&amp;")), names.join("|"));
+  /* a team reads as its team name, never as its members joined up (a
+     generated name may itself carry an "&", like "Basalt & Pepper") */
+  const rosters = volley.draws.volley.teams.map(team => team.players.map(p => volley.profiles?.[p]?.display || p).join(" &amp; "));
+  assert.ok(names.every(name => !rosters.some(roster => roster.startsWith(name.trim()) || name.includes(roster))), names.join("|"));
 });
 
 test("T20/T21: champion, progress, race, duels, and spotlight models", () => {

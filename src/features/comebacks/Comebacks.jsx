@@ -20,10 +20,10 @@ export function BountyTag({ pts = BOUNTY_PTS, className = "" }) {
 
 /* one side's terms row: its payout (when the contest carries odds) and the
    bounty it collects; an empty row keeps every card the same height */
-export function SideTerms({ terms, className = "", tv = false }) {
+export function SideTerms({ terms, className = "", tv = false, style }) {
   const cls = `fd-side-terms${tv ? " is-tv" : ""} ${className}`;
-  if (!terms) return <div className={cls} />;
-  return <div className={cls}>
+  if (!terms) return <div className={cls} style={style} />;
+  return <div className={cls} style={style}>
     {terms.payLine && <span className={`fd-side-pays${terms.underdog ? " is-underdog" : ""}`}>{terms.payLine}</span>}
     {terms.bounty > 0 && <BountyTag pts={terms.bounty} />}
   </div>;

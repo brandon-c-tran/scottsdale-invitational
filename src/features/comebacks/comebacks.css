@@ -22,3 +22,13 @@
 /* the TV bracket's byes (TVBracket.jsx): advanced, an info lamp at the row's head */
 .tv-bracket-line.is-bye path { stroke:var(--lamp-info); stroke-dasharray:8 6; }
 .tv-bracket-bye { --lamp:var(--lamp-info); flex:none; width:16px; height:16px; }
+/* the TV board: a side's terms ride the win line's row */
+.tv-side-win.has-terms { display:flex; align-items:center; gap:18px; flex-wrap:nowrap; }
+.tv-side-terms.is-inline { margin:0; min-height:0; justify-content:flex-start; flex-wrap:nowrap; }
+/* the big bracket's band: the terms stack under the name, in its width */
+.tv-band-name { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.tv-side.is-band.is-right .tv-band-name { align-items:flex-end; }
+.tv-side-terms.is-band { margin:0; min-height:0; gap:6px 10px; justify-content:flex-start; }
+.tv-side.is-band.is-right .tv-side-terms.is-band { justify-content:flex-end; }
+.tv-side-terms.is-band .fd-side-pays, .tv-side-terms.is-band .fd-bounty-tag { font-size:24px; }
+.tv-side-terms.is-band .fd-bounty-tag { padding:4px 10px 4px 8px; }

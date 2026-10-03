@@ -23,7 +23,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
 import { Coin } from "../../ui/Coin.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
-import { BountyLamp, SideTerms } from "../comebacks/Comebacks.jsx";
+import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import "./wagers.css";
 
@@ -81,7 +81,7 @@ export const isUncertainResult = result => result?.ok !== true && (result?.uncer
 const PLACE_QUEUE = 4;
 function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPick, onRetract, onPlayer,
   roleLabel, unavailableReason, unavailableLabel = "Opponent", tapStake, capLabel, capReason, winLine, winSlot = false, lines = 2,
-  named = false, terms = null, termsSlot = false, wanted = false }) {
+  named = false, terms = null, termsSlot = false }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [checking, setChecking] = useState(null);
@@ -328,7 +328,6 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     {winSlot && !winInline && <div className="fd-wagers-win-slot"><WinLine line={winLine} className="fd-wagers-win" /></div>}
     {/* v3.1: this side's payout and the bounty it collects, one row on every card */}
     {termsSlot && <SideTerms terms={terms} className="fd-wagers-terms" />}
-    {wanted && <BountyLamp className="fd-wagers-wanted" />}
     {lines === 1
       /* a wide board's row: the pot, how many back it (yours lit, a tap
          takes your last chip back), then the + */
@@ -697,7 +696,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
       onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)), winLine:wide && !own ? null : winLineFor(winLines, side.key),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
-      terms:termsSlot ? terms.sides[side.key] : null, termsSlot, wanted:!!terms?.wide && !!terms.sides[side.key]?.holdsBounty,
+      terms:termsSlot ? terms.sides[side.key] : null, termsSlot,
       unavailableReason:restricted && !eligible ? restriction
         : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel:restricted && !eligible ? "Opponent" : "Other side",

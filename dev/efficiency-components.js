@@ -7088,10 +7088,10 @@ function BountyLamp({ className = "", label: label2 = "Bounty" }) {
 function BountyTag({ pts = BOUNTY_PTS, className = "" }) {
   return /* @__PURE__ */ React18.createElement("span", { className: `fd-bounty-tag ${className}` }, /* @__PURE__ */ React18.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), bountyLine(pts));
 }
-function SideTerms({ terms, className = "", tv: tv2 = false }) {
+function SideTerms({ terms, className = "", tv: tv2 = false, style }) {
   const cls = `fd-side-terms${tv2 ? " is-tv" : ""} ${className}`;
-  if (!terms) return /* @__PURE__ */ React18.createElement("div", { className: cls });
-  return /* @__PURE__ */ React18.createElement("div", { className: cls }, terms.payLine && /* @__PURE__ */ React18.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine), terms.bounty > 0 && /* @__PURE__ */ React18.createElement(BountyTag, { pts: terms.bounty }));
+  if (!terms) return /* @__PURE__ */ React18.createElement("div", { className: cls, style });
+  return /* @__PURE__ */ React18.createElement("div", { className: cls, style }, terms.payLine && /* @__PURE__ */ React18.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine), terms.bounty > 0 && /* @__PURE__ */ React18.createElement(BountyTag, { pts: terms.bounty }));
 }
 var init_Comebacks = __esm({
   "src/features/comebacks/Comebacks.jsx"() {
@@ -9408,8 +9408,7 @@ function MarketPick({
   lines = 2,
   named = false,
   terms = null,
-  termsSlot = false,
-  wanted = false
+  termsSlot = false
 }) {
   const [pendingAction, setPendingAction] = useState41(null);
   const [actionError, setActionError] = useState41(null);
@@ -9696,7 +9695,7 @@ function MarketPick({
       /* @__PURE__ */ React56.createElement(Avatar, { state, p: player, size: 24 }),
       !faceOnly && /* @__PURE__ */ React56.createElement("span", null, disp(state, player))
     ))
-  ))), winSlot && !winInline && /* @__PURE__ */ React56.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React56.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), termsSlot && /* @__PURE__ */ React56.createElement(SideTerms, { terms, className: "fd-wagers-terms" }), wanted && /* @__PURE__ */ React56.createElement(BountyLamp, { className: "fd-wagers-wanted" }), lines === 1 ? /* @__PURE__ */ React56.createElement(
+  ))), winSlot && !winInline && /* @__PURE__ */ React56.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React56.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), termsSlot && /* @__PURE__ */ React56.createElement(SideTerms, { terms, className: "fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React56.createElement(
     "div",
     {
       className: "fd-wagers-pot is-row",
@@ -10084,7 +10083,6 @@ function Wagers({
       roleLabel: own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
       terms: termsSlot ? terms.sides[side.key] : null,
       termsSlot,
-      wanted: !!terms?.wide && !!terms.sides[side.key]?.holdsBounty,
       unavailableReason: restricted && !eligible ? restriction : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel: restricted && !eligible ? "Opponent" : "Other side",
       canPick: marketOpen && room >= PT && eligible && !otherSide,

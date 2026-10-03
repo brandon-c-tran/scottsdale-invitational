@@ -471,9 +471,13 @@ function ContestBand({ state, ev, contest, stacks, width, lamp }) {
       <div key={String(side.key)} className={`tv-side is-band${index ? " is-right" : ""}${ride.stacks.length ? " has-chips" : ""}`}>
         <div className="tv-side-top">
           <Faces players={view.players} size={face} overlap={view.players.length > 1} />
-          <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />
+          {/* v3.1: the side's terms under its name, in the name's own width, so
+              the felt keeps its room */}
+          {terms?.any ? <div className="tv-band-name" style={{ maxWidth:Math.max(nameW, 180) }}>
+            <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />
+            <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms is-band" />
+          </div> : <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />}
         </div>
-        {terms?.any && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms" />}
         {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
           {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
           {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={30}
@@ -530,6 +534,7 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
   /* v3.1: each side's payout (underdog odds) and the bounty it collects */
   const terms = field ? null : contestTerms(state, contest);
+  const termsRow = !!terms?.any && !terms.wide;
   let body;
   if (field) body = <FieldFelt state={state} ev={ev} contest={contest} stacks={stacks} width={inner} />;
   else {
@@ -556,8 +561,10 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
             <Faces players={view.players} size={face} overlap={many} />
             {!many && <SideName name={view.name} width={h2h ? sideW - facesW - 18 : sideW} max={h2h ? 64 : 48} min={h2h ? 44 : 32} />}
           </div>
-          {anyWinLine && <div className="tv-side-win"><TVWinLine lines={winLines} sideKey={side.key} /></div>}
-          {terms?.any && !terms.wide && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms" />}
+          {/* the win line and this side's terms share one row, so the felt keeps its room */}
+          {(anyWinLine || termsRow) && <div className={`tv-side-win${termsRow ? " has-terms" : ""}`}>
+            {anyWinLine && <TVWinLine lines={winLines} sideKey={side.key} />}
+            {termsRow && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms is-inline" />}</div>}
           {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
             {ride.total > 0 && <div className="tv-side-total">{fmt(ride.total)}</div>}
             {felt || <span className="tv-felt-empty">No bets</span>}

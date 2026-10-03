@@ -3069,6 +3069,43 @@
   width: 16px;
   height: 16px;
 }
+.tv-side-win.has-terms {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: nowrap;
+}
+.tv-side-terms.is-inline {
+  margin: 0;
+  min-height: 0;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+.tv-band-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.tv-side.is-band.is-right .tv-band-name {
+  align-items: flex-end;
+}
+.tv-side-terms.is-band {
+  margin: 0;
+  min-height: 0;
+  gap: 6px 10px;
+  justify-content: flex-start;
+}
+.tv-side.is-band.is-right .tv-side-terms.is-band {
+  justify-content: flex-end;
+}
+.tv-side-terms.is-band .fd-side-pays,
+.tv-side-terms.is-band .fd-bounty-tag {
+  font-size: 24px;
+}
+.tv-side-terms.is-band .fd-bounty-tag {
+  padding: 4px 10px 4px 8px;
+}
 
 /* src/features/profile/player-pass.css */
 .fd-pass-wrap {
@@ -13886,13 +13923,6 @@ strong.fd-relettered {
   height: 44px;
   min-height: 44px;
   padding: 0 8px;
-}
-.fd-wagers-pick.is-one-line > .fd-wagers-wanted {
-  grid-row: 1;
-  grid-column: 1;
-  justify-self: end;
-  align-self: start;
-  margin: 7px 8px 0 0;
 }
 .fd-wagers-pick.is-one-line > .fd-wagers-terms {
   display: none;

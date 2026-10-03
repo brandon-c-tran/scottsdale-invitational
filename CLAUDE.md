@@ -451,7 +451,10 @@ fit audit and the 139-check local e2e pass. On Oct 3 the commissioner menu
 restructure (TV, Speaker) and the new game intros merged on top (commit
 `cc16c63`, 866 tests): staging `89b88989-0e47-487d-9b2f-7cf28b8e806a`, then
 PRODUCTION `2f961de0-b233-4f9c-8c25-7c3a77a4636f`, deployed by Brandon without a
-snapshot at his call (branch and tags pushed to origin). Roll production back
+snapshot at his call (branch and tags pushed to origin). Then in-app Trivia
+merged and the TV next-event card fix landed (commit `b6aec4c`, 880 tests):
+staging `e06dd248-3361-49b9-a6cd-2acc89603f09`, PRODUCTION
+`a61d5030-56cf-42fb-8b96-05906f1bee41` (Oct 3). Roll production back
 with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522` (the Sept 30
 code with its secrets). Local dev
 note: a stale `vite dev`/workerd left running holds `.wrangler/state` and

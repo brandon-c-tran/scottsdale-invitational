@@ -16418,7 +16418,7 @@ button.fd-home-exposure {
   gap: 8px;
 }
 
-/* ../scottsdale-invitational/node_modules/maplibre-gl/dist/maplibre-gl.css */
+/* node_modules/maplibre-gl/dist/maplibre-gl.css */
 .maplibregl-map {
   font:
     12px/20px Helvetica Neue,
@@ -17111,7 +17111,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
   z-index: 99999;
 }
 
-/* ../scottsdale-invitational/node_modules/leaflet/dist/leaflet.css */
+/* node_modules/leaflet/dist/leaflet.css */
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,

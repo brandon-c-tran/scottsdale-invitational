@@ -18,7 +18,7 @@ import {
   DESERT_PHASES, desertPhase, isDaySky, isNightSky, constellationStars, constellationLines, desertScene,
 } from "../src/features/tv/desertModel.js";
 import { resultPresentation, championView } from "../src/features/tv/tvModel.js";
-import { trophyPlates, plateTiers } from "../src/features/weekend/trophy.js";
+import { trophyPlates, trophyCup } from "../src/features/weekend/trophy.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 let seq = 0;
@@ -237,18 +237,20 @@ test("one plate per event, blank until it posts, then the winners; skipped event
   post(state, "putt", [["Evan"], ["Adi"], ["Khoa"]]);
   state.shelved = { ...state.shelved, die:true };
   const plates = trophyPlates(state, allEventsOf(state));
-  assert.deepEqual(plates.find(plate => plate.eventId === "putt"), { eventId:"putt", name:"Long Putt", session:"fri",
-    winners:["Evan"], posted:true });
+  const putt = plates.find(plate => plate.eventId === "putt");
+  assert.equal(putt.posted, true);
+  assert.deepEqual(putt.winners, ["Evan"]);
+  assert.equal(putt.engraving.name, "Evan");
   assert.ok(!plates.some(plate => plate.eventId === "die"));
-  const tiers = plateTiers(plates);
-  assert.deepEqual(tiers.map(tier => tier.session), ["fri", "sam", "sap", "san"]);
-  assert.equal(tiers.reduce((n, tier) => n + tier.plates.length, 0), plates.length);
+  const cup = trophyCup(state, allEventsOf(state));
+  assert.deepEqual(cup.bands.map(band => band.session), ["fri", "sam", "sap", "san"]);
+  assert.equal(cup.bands.reduce((n, band) => n + band.plates.length, 0), plates.length);
 });
 
 /* ── rendered ── */
 const compiled = await build({
   stdin:{ contents:`export { TVMode } from "./src/features/tv/TVMode.jsx";
-    export { TrophyPlates } from "./src/features/weekend/Trophy.jsx";
+    export { TrophyCup } from "./src/features/weekend/Trophy.jsx";
     export { Guide } from "./src/features/weekend/Guide.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
     resolveDir:root, loader:"jsx" },
@@ -259,7 +261,7 @@ const mod = new Module(fileURLToPath(new URL("delight-tv.cjs", import.meta.url))
 mod.filename = mod.id;
 mod.paths = Module._nodeModulePaths(root);
 mod._compile(compiled.outputFiles[0].text, mod.filename);
-const { TVMode, TrophyPlates, Guide, PlayerIdentityProvider } = mod.exports;
+const { TVMode, TrophyCup, Guide, PlayerIdentityProvider } = mod.exports;
 
 test("the TV draws the session's band with the flat board where WebGL is absent", () => {
   const state = structuredClone(EMPTY_STATE);
@@ -275,7 +277,7 @@ test("the TV draws the session's band with the flat board where WebGL is absent"
   assert.ok(!html.includes("tv-towers-canvas"));
 });
 
-test("Weekend > Games shows the trophy with a stamped plate per posted event", () => {
+test("Weekend shows the cup: an engraved plate per posted event, the rest blank", () => {
   const state = structuredClone(EMPTY_STATE);
   post(state, "putt", [["Evan"], ["Adi"], ["Khoa"]]);
   state.profiles = { Evan:{ display:"Evan", num:7, color:"#2F7E83" } };
@@ -283,18 +285,14 @@ test("Weekend > Games shows the trophy with a stamped plate per posted event", (
   const html = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Guide, { events, state, me:"Evan", section:"games", onSection:() => {} })));
   assert.match(html, /aria-label="Long Putt: Evan"/);
-  assert.equal((html.match(/fd-trophy-plate is-posted/g) || []).length, 1);
-  assert.equal((html.match(/class="fd-trophy-plate"/g) || []).length, events.filter(ev => !ev.finale).length - 1,
+  assert.equal((html.match(/fd-cup-plate is-posted/g) || []).length, 1);
+  assert.equal((html.match(/class="fd-cup-plate( is-next)?"/g) || []).length, events.filter(ev => !ev.finale).length - 1,
     "every other plate is blank");
-  /* Oct 2: a plate shows the winner's chip and name; a jersey number never
-     stands in for a person */
-  assert.match(html, /class="fd-trophy-winner"[^>]*>Evan</, "the plate names its winner");
-  assert.ok(!/fd-trophy-stamp/.test(html), "no number stamps");
+  /* a plate shows the winner's chip and name; a jersey number never stands in for a person */
+  assert.match(html, /class="fd-cup-winner"[^>]*>Evan</, "the plate names its winner");
   const tv = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
-    React.createElement(TrophyPlates, { state, events, variant:"tv", cup:440 })));
-  assert.match(tv, /fd-trophy is-tv/);
-  assert.match(tv, />FIELD DAY</, "a cup big enough letters its plate at the TV's 24px floor");
-  const small = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
-    React.createElement(TrophyPlates, { state, events, variant:"tv", cup:200 })));
-  assert.doesNotMatch(small, />FIELD DAY</, "a smaller one leaves its plate blank rather than letter it under 24px");
+    React.createElement(TrophyCup, { state, events, variant:"tv" })));
+  assert.match(tv, /fd-cup is-tv/);
+  assert.match(tv, /aria-label="Friday Night"/, "one band per session");
+  assert.doesNotMatch(tv, /fd-cup-cartouche is-posted/, "the cup waits for the champion");
 });

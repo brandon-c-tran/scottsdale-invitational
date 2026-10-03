@@ -17,7 +17,7 @@ import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
 import { STACK_CAP, contestStacks, stackName, stackMaxHeight } from "../wagers/betStacks.js";
 import {
   fmt, signed, editionLabel, oddsLine, phaseBand,
-  tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TICKER_PAGE_MS,
+  tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
   tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, tvClock, stageChrome, boardLevel,
@@ -36,7 +36,7 @@ import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
 import { FaceOff } from "./TVFaceOff.jsx";
 import { faceOffView, useFaceOff } from "./faceOff.js";
-import { frozenAmbient } from "../results/classPhoto.js";
+import { FROZEN_TURNS, frozenAmbient } from "../results/classPhoto.js";
 import { crownAnchor } from "../results/crownTiming.js";
 import { Backglass } from "./DesertBand.jsx";
 import { constellationStars, isNightSky } from "./desertModel.js";
@@ -1021,7 +1021,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
       period:TV_AMBIENT_MS });
     const view = frame === "champion" ? championView(state, events, standings) : null;
     content = frame === "class" ? <ClassPhoto state={state} events={events} standings={standings} />
-      : frame === "trophy" ? <TrophyCard state={state} events={events} />
+      : frame === "trophy" ? <TrophyCard state={state} events={events} now={now}
+        turn={{ turnAt:Math.floor(now / TV_AMBIENT_MS) * TV_AMBIENT_MS, cycleMs:FROZEN_TURNS.length * TV_AMBIENT_MS,
+          hold:TV_RESULT_MOMENT_MS, crownEnd:(crown?.anchor || crownAt.current || 0) + CROWN_TIMING.total, crownHold:TV_AMBIENT_MS }} />
       : view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
     const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
@@ -1123,7 +1125,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     const model = resultPresentation(state, events, latest.ev.id);
     content = model ? <ResultSequence state={state} model={model} phase={{ phase:"podium", revealed:3 }} /> : null;
   } else if (scene === "trophy") {
-    content = <TrophyCard state={state} events={events} />;
+    /* the plates posted since the cup last held the room engrave on this turn */
+    content = <TrophyCard state={state} events={events} now={now}
+      turn={{ turnAt:Math.floor(now / TV_AMBIENT_TURN_MS) * TV_AMBIENT_TURN_MS, cycleMs:ambient.length * TV_AMBIENT_TURN_MS,
+        hold:TV_RESULT_MOMENT_MS }} />;
   } else {
     const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
       /></div>;

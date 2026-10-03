@@ -10,7 +10,9 @@ import { createRoot } from "react-dom/client";
 import { createPortal, flushSync } from "react-dom";
 import { allEventsOf, computeStandings, resolveCurrentContest, wagerBoardEvent } from "../shared/core.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
-import { TV_AMBIENT_TURN_MS, TV_TICKER_PAGE_MS } from "../src/features/tv/tvModel.js";
+import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS } from "../src/features/tv/tvModel.js";
+import { FROZEN_TURNS } from "../src/features/results/classPhoto.js";
+import { ENGRAVE } from "../src/features/weekend/trophy.js";
 import { CROWN_TIMING } from "../src/features/tv/tvMotion.js";
 import { crownAnchor } from "../src/features/results/crownTiming.js";
 import { TVWalkout } from "../src/features/tv/TVWalkout.jsx";
@@ -35,10 +37,25 @@ const crownBeat = moment?.kind === "crown";
    rotation of up to eight cards */
 const ROTATION = TV_AMBIENT_TURN_MS * 840;
 function pickNow(state) {
+  /* a plate mid-engrave: the newest result posted just before this trophy
+     turn (its result moment played), `engrave` ms into the cut */
+  if (at.engrave !== undefined) {
+    const turnAt = Math.ceil(Date.now() / ROTATION) * ROTATION + (at.turn || 0) * TV_AMBIENT_TURN_MS;
+    const res = Object.values(state.results || {}).sort((a, b) => (Number(b.confirmedAt || b.ts) || 0) - (Number(a.confirmedAt || a.ts) || 0))[0];
+    if (res) { res.confirmedAt = turnAt - TV_RESULT_MOMENT_MS - 1000; res.ts = res.confirmedAt; }
+    return turnAt + ENGRAVE.lead + at.engrave;
+  }
   if (at.turn !== undefined) return Math.ceil(Date.now() / ROTATION) * ROTATION + at.turn * TV_AMBIENT_TURN_MS
     + (at.tick || 0) * TV_TICKER_PAGE_MS + 300;
   if (at.result !== undefined) return latestPostedAt(state) + at.result;
   if (at.crown === "class") return (crownAnchor(state) || Date.now()) + CROWN_TIMING.total + 1000;
+  /* the frozen trophy turn a cycle after the one that engraves the champion */
+  if (at.crown === "trophy") {
+    const ready = (crownAnchor(state) || Date.now()) + CROWN_TIMING.total + TV_AMBIENT_MS;
+    let k = Math.ceil(ready / TV_AMBIENT_MS);
+    while (FROZEN_TURNS[k % FROZEN_TURNS.length] !== "trophy") k += 1;
+    return (k + FROZEN_TURNS.length) * TV_AMBIENT_MS + 300;
+  }
   if (at.award !== undefined) {
     const ballot = (state.prompts?.ballots || []).find(b => b?.reveal);
     return (Number(ballot?.reveal?.at) || Date.now()) + at.award;
@@ -75,6 +92,8 @@ if (params.get("hide")) {
 }
 function pause() {
   if (params.has("live")) return;
+  /* an engraving holds one frame exactly: the light half across the plate */
+  if (at.engrave !== undefined) document.getAnimations().forEach(anim => { anim.pause(); anim.currentTime = 760; });
   const style = document.createElement("style");
   style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
   document.head.append(style);
@@ -128,7 +147,8 @@ function Harness() {
       }, 400);
     } else {
       /* a scene whose rows enter on their own timers (the map's reveal) waits for them */
-      timer = setTimeout(() => { if (moment) pause(); window.__FIT_READY__ = true; }, moment ? 250 : scenario.wait || 900);
+      timer = setTimeout(() => { if (moment || at.engrave !== undefined) pause(); window.__FIT_READY__ = true; },
+        moment ? 250 : scenario.wait || 900);
     }
     return () => clearTimeout(timer);
   }, []);

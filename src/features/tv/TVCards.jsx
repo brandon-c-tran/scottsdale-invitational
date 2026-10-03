@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ROSTER, disp, stageEntrantView } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
-import { OneSafe } from "../../ui/OneSafe.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
-import { TrophyHero, TrophyPlates, trophyPlates } from "../weekend/Trophy.jsx";
+import { ENGRAVE, TrophyCup, TrophyHero, cupEngravings, engraveTotal, trophyCup } from "../weekend/Trophy.jsx";
+import { useReducedMotion } from "../../lib/motion.js";
+import { useEngraveSound } from "./roomSound.js";
 import { editionLabel } from "./tvModel.js";
 import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 
@@ -77,17 +78,37 @@ export function RosterWall({ state }) {
   );
 }
 
-/* the trophy filling up: a plate per event, stamped as each result posts */
-export function TrophyCard({ state, events }) {
-  const plates = trophyPlates(state, events);
-  const done = plates.filter(plate => plate.posted).length;
+/* The cup, engraved event by event (weekend/Trophy.jsx): the trophy's
+   own turn, standing on the painting with nothing over it. turn: { turnAt,
+   cycleMs, hold, crownEnd, crownHold } from TVMode (cupEngravings); the plates posted since
+   the last time it held the room engrave on this turn's clock. */
+function useEngraveTimeline(id, anchor, total, now) {
+  const reduced = useReducedMotion();
+  const ref = useRef({ id:undefined });
+  const [, rerender] = useState(0);
+  if (ref.current.id !== id) {
+    const elapsed = id ? Math.max(0, Number(now) - anchor) : total;
+    ref.current = { id, elapsed, done:!id || elapsed >= total };
+  }
+  const current = ref.current;
+  useEffect(() => {
+    if (current.done) return undefined;
+    const timer = setTimeout(() => { current.done = true; rerender(n => n + 1); }, Math.max(0, total - current.elapsed));
+    return () => clearTimeout(timer);
+  }, [current, total]);
+  return { playing:!current.done && !reduced, elapsed:current.elapsed };
+}
+export function TrophyCard({ state, events, turn = null, now = 0 }) {
+  const cup = useMemo(() => trophyCup(state, events), [state, events]);
+  const plan = turn ? cupEngravings(cup, turn) : [];
+  const id = plan.map(item => item.key).join("|");
+  const anchor = Number(turn?.turnAt) || 0;
+  const line = useEngraveTimeline(id || null, anchor, ENGRAVE.lead + engraveTotal(plan), now);
+  useEngraveSound(plan, ENGRAVE.cut);
+  const engrave = line.playing ? Object.fromEntries(plan.map(item => [item.target, item.at - anchor - line.elapsed])) : null;
   return (
     <div className="tv-pane tv-trophy-pane">
-      <div className="tv-card-head tv-sign">
-        <div className="fd-show tv-card-title">Trophy</div>
-        <div className="tv-label"><OneSafe text={`${done} of ${plates.length} posted`} /></div>
-      </div>
-      <div className="tv-trophy-stage"><TrophyPlates state={state} events={events} variant="tv" cup={200} /></div>
+      <TrophyCup state={state} events={events} variant="tv" cup={cup} engrave={engrave} />
     </div>
   );
 }

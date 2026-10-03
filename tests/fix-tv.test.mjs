@@ -954,10 +954,11 @@ test("ticker: live poker carries only the table's news, never a busted player as
   assert.ok(tags.includes("Average stack"));
 });
 
-test("trophy: the plinth is dark metal (cyan is navigation), winners engraved in green", () => {
+test("trophy: the cup is turned metal (cyan is navigation), winners cut into silver plates", () => {
   const css = readFileSync(new URL("../src/features/weekend/trophy.css", import.meta.url), "utf8");
   assert.ok(!css.includes("--accent"), "no cyan on the trophy");
-  assert.match(css, /\.fd-trophy-plate\.is-posted \.fd-trophy-winner \{ color:color-mix\(in srgb, var\(--green\)/);
+  assert.match(css, /\.fd-cup-plate\.is-posted \{ background:var\(--cup-silver\); color:var\(--cup-cut-ink\)/);
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css), "colors only from tokens");
   const jsx = readFileSync(new URL("../src/features/weekend/Trophy.jsx", import.meta.url), "utf8");
   assert.ok(!jsx.includes(`"--accent"`));
 });

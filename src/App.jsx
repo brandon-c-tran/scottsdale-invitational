@@ -2695,7 +2695,8 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
     <Sheet title={ev.name} show onClose={onClose} onBack={onBack} wide={!!br} busy={setupPending || contestPending}
       headerActions={<>
         {(draw || st) && onReplay && <button type="button" disabled={setupPending || contestPending} onClick={onReplay}>Replay draw</button>}
-        {hasGameRules(ev) && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
+        {/* before play the steps are on the sheet itself; after that the rules are a tap away */}
+        {hasGameRules(ev) && stage !== "before" && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
       </>}>
       {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} ev={ev} onClose={()=>setHowTo(false)}/>}
       {/* the contest: live it leads; a commissioner's quick Undo shows here in any state */}

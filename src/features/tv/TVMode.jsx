@@ -16,11 +16,12 @@ import { mergeWagerLines } from "../wagers/Wagers.jsx";
 import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
 import { STACK_CAP, contestStacks, stackName, stackMaxHeight } from "../wagers/betStacks.js";
 import {
-  fmt, signed, editionLabel, oddsLine, phaseBand, placeName,
+  fmt, signed, editionLabel, oddsLine, phaseBand,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TICKER_PAGE_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
   tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, tvClock, stageChrome, boardLevel,
+  backersRail,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
@@ -28,6 +29,7 @@ import { TVPoker } from "./TVPoker.jsx";
 import { StageGroups, RosterWall, TrophyCard, TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { winLineFor } from "../standings/winImpact.js";
 import { TVBracket } from "./TVBracket.jsx";
+import { TVPodium, BackersRail } from "./TVPodium.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
 import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
@@ -121,19 +123,6 @@ function usePointerActive() {
   }, []);
   return active;
 }
-
-/* a display size that keeps a name on one line where it can stand at 60%
-   of its full size, else fits its longest word and lets it wrap */
-const fitLine = (text, max, width) => {
-  const one = Math.floor(width / (Math.max(4, String(text || "").length) * 0.5));
-  return one >= max * 0.6 ? Math.min(max, one) : fitDisplay(text, max, width);
-};
-/* a display size that fits a name's longest word into its column */
-const fitDisplay = (text, max, width) => {
-  const longest = Math.max(4, ...String(text || "").split(/\s+/).map(word => word.length));
-  return Math.max(40, Math.min(max, Math.floor(width / (longest * 0.5))));
-};
-
 
 /* players as their photo chips: the identity chip with the saved photo in
    its middle, else the jersey number. One treatment everywhere on the TV. */
@@ -666,54 +655,6 @@ function CorrectionCard({ correction }) {
   );
 }
 
-/* one podium place: a single side large, a split place stacked, a wide tie
-   counted */
-function PodiumPlace({ state, item, backers = null }) {
-  const first = item.place === 1;
-  /* a win lights the glass for its winner: one winning side's own color */
-  const lit = first && item.groups.length === 1 ? resolvePlayerIdentity(state.profiles, item.players[0]).color : null;
-  const width = first ? 620 : 470;
-  const single = item.groups.length === 1;
-  const wide = item.groups.length > 3;
-  const riding = first && backers?.winners?.length > 0;
-  /* a team stands in one row of faces where the pane has the width */
-  const inner = width - 40;
-  const base = first ? (item.players.length > 4 ? 76 : item.players.length > 2 ? 104 : riding ? 128 : 176)
-    : item.players.length > 2 ? 76 : 120;
-  /* up to seven stand in one row, shrunk to the pane's width (never under
-     56); more stand in balanced rows */
-  const face = item.players.length > 2 && item.players.length <= 7
-    ? Math.max(56, Math.min(base, Math.floor((inner + 12) / item.players.length) - 12)) : base;
-  const cols = Math.max(1, Math.floor((inner + 12) / (face + 12)));
-  return (
-    <div className={`tv-place${first ? " is-first" : " tv-glass"}${lit ? " is-lit" : ""}`} style={lit ? { "--win":lit } : undefined}>
-      <div className="tv-place-rank"><OneSafe text={placeName(item.place)} /></div>
-      {single || wide ? <>
-        <Faces players={item.players} size={wide ? 64 : face} className="tv-place-faces" maxCols={cols} />
-        <div className="tv-display tv-place-name"
-          style={{ fontSize:fitLine(item.names[0], first ? 104 : 64, width) }}>{item.names[0]}</div>
-      </> : (
-        <div className="tv-place-split">
-          {item.groups.map(group => (
-            <div key={group.name} className="tv-place-group">
-              <Faces players={group.players} size={first ? 96 : 64} />
-              <div className="tv-display tv-place-group-name">{group.name}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {item.amount ? <div className="tv-place-amount">
-        {item.unit === "stack" ? `${fmt(item.amount)} chips` : `+${fmt(item.amount)}${item.players.length > 1 ? " each" : ""}`}
-      </div> : null}
-      {riding && <div className="tv-place-backers">
-        <div className="tv-settle-head" style={{ animationDelay:"900ms" }}>{signed(backers.paid)}</div>
-        <BetStacks stacks={backers.winners} size={46} names={p => stackName(state, p)} delay={900}
-          className="tv-stacks" valueAt="below" />
-      </div>}
-    </div>
-  );
-}
-
 /* A result's step, over the towers: the event and its winner in the
    backglass lettering, in the sky the towers leave empty; a lead change
    under it once the towers have sorted. */
@@ -740,30 +681,10 @@ const ROW_STEP = 60;
 /* one result, told twice: a podium climbing third to first, then all thirteen
    moving from where they stood to where they stand, each mover's change
    shown once (poker: final stacks). */
-function ResultSequence({ state, model, phase, towers = null }) {
+function ResultSequence({ state, model, phase, towers = null, anchor = null, now = 0 }) {
   if (!model) return null;
-  if (phase.phase === "podium") {
-    const shown = new Set(model.revealOrder.slice(0, Math.min(model.revealOrder.length, phase.revealed)).map(p => p.place));
-    const at = place => model.podium.find(item => item.place === place);
-    return (
-      <div className="tv-pane tv-result">
-        <div className="tv-result-head tv-sign">
-          <GameMark id={model.game} variant={model.variant} size={88} />
-          <div>
-            <div className="fd-show tv-result-name"><EventName name={model.eventName} /></div>
-            <div className="tv-label tv-result-sub">{model.kind === "stacks" ? "Final stacks" : "Final"}</div>
-          </div>
-        </div>
-        <div className="tv-podium">
-          {[2, 1, 3].map(place => {
-            const item = at(place);
-            if (!item || !shown.has(place)) return <div key={place} className="tv-place-slot" />;
-            return <PodiumPlace key={place} state={state} item={item} backers={model.winnerStacks} />;
-          })}
-        </div>
-      </div>
-    );
-  }
+  if (phase.phase === "podium")
+    return <TVPodium key={`${model.eventId}:${model.revision}:${anchor || 0}`} state={state} model={model} anchor={anchor} now={now} />;
   const order = phase.sorted ? model.rows.map(row => row.player) : model.beforeOrder;
   const leaderSet = new Set(model.leader?.players || []);
   const head = (
@@ -843,7 +764,7 @@ function DirectedScene({ state, events, scene, now, standings, reducedMotion, to
     const model = resultPresentation(state, events, scene.active.eventId);
     const anchor = scene.stepKey === "standings" ? Number(scene.active.updatedAt) : Number(scene.active.startedAt);
     const phase = resultMomentPhase(anchor, now, { reducedMotion, step:scene.stepKey });
-    return <ResultSequence state={state} model={model} phase={phase} towers={towers} />;
+    return <ResultSequence state={state} model={model} phase={phase} towers={towers} anchor={anchor} now={now} />;
   }
   return null;
 }
@@ -1052,7 +973,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
   /* Trivia holds the room from its first question to its result */
   const triviaOnTv = !!state.trivia?.questions?.length && !state.results?.[state.trivia.eventId];
-  let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null;
+  let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null, rail = null;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
       <div className="tv-opening tv-sign">
@@ -1061,6 +982,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
       </div>
     </div>;
   } else if (directed) {
+    /* a winner scene's podium: its backers ride the rail */
+    const scene = showScene?.active;
+    if (scene?.kind === "winner" && showScene.stepKey !== "standings") {
+      const model = resultPresentation(state, events, scene.eventId);
+      if (model) rail = { model, anchor:Number(scene.startedAt) };
+    }
     content = <DirectedScene state={state} events={events} scene={showScene} now={now}
       standings={standings} reducedMotion={reducedMotion} towers={towers} crown={crown}
       classMoment={classMoment} />;
@@ -1078,7 +1005,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
       : view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
     const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
-    content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers} />;
+    content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers}
+      anchor={resultMoment.anchor} now={now} />;
+    if (resultPhase.phase === "podium") rail = { model:resultModel, anchor:resultMoment.anchor };
   } else if (state.poker && !state.results[state.poker.id]) {
     mastEvent = events.find(e => e.id === state.poker.id) || null;
     mastLamp = state.poker.startedAt ? { label:"Playing", state:"live" } : null;
@@ -1187,6 +1116,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     mastLamp = { label:"Betting open", state:"pending" };
   }
   const showHorizon = (liveShown || horizonShown) && connection.mode !== "loading";
+  /* while a podium holds the room, its winners' backers take the ticker's place */
+  const railOn = !!rail && !!backersRail(rail.model.winnerStacks);
 
   const dockNode = dock?.kind === "correction" ? <CorrectionCard correction={dock.correction} />
     : dock?.kind === "lead" ? <LeadChange state={state} leader={dock.lead.leader} previous={dock.lead.previous} /> : null;
@@ -1205,7 +1136,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
           {content}
         </main>
         {showHorizon && <Horizon state={state} standings={standings} towers={towers} />}
-        {showTicker && <Ticker items={items} reducedMotion={reducedMotion} now={now} />}
+        {showTicker && (railOn ? <BackersRail state={state} model={rail.model} anchor={rail.anchor} now={now}
+          key={`rail:${rail.model.eventId}:${rail.model.revision}:${rail.anchor}`} />
+          : <Ticker items={items} reducedMotion={reducedMotion} now={now} />)}
         {sceneIntroEv && <IntroOverlay key={sceneIntroEv.id} state={state} ev={sceneIntroEv} reducedMotion={reducedMotion}
           sceneAt={showScene?.active?.startedAt} now={introClock}
           handoff={!!(state.draws?.[sceneIntroEv.id] || state.stages?.[sceneIntroEv.id])} />}

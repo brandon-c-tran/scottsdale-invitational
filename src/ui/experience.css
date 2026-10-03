@@ -55,6 +55,19 @@
   --you-tint:rgba(255,224,74,.1); --live-tint:rgba(255,63,164,.12); --info-tint:rgba(95,220,240,.1);
   /* a reverse-painted panel: lit from behind, bevelled at the glass edge */
   --glass-edge:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.45);
+  /* liquid glass (DESIGN.md): a thick pane that bends light, for the hero
+     objects only. A bright specular lip on top and a dark one under it; a
+     cool and a warm fringe where the side edges split the light; the light
+     falling off down the pane; two reflection bands (a thick pane shows
+     both faces); light gathering at its foot; one sweep of light that
+     crosses it once. Layered over the pane's own fill (backglass.css
+     .fd-liquid). */
+  --lg-lip:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.55);
+  --lg-fringe:inset 1px 0 0 rgba(95,220,240,.2),inset -1px 0 0 rgba(255,63,164,.16);
+  --lg-fall:linear-gradient(180deg,rgba(244,236,216,.13),rgba(244,236,216,.035) 32%,transparent 60%);
+  --lg-bands:linear-gradient(112deg,transparent 0 55%,rgba(244,236,216,.075) 55% 62%,transparent 62% 66%,rgba(244,236,216,.04) 66% 68.5%,transparent 68.5%);
+  --lg-caustic:radial-gradient(90% 60% at 50% 112%,rgba(244,236,216,.11),transparent 70%);
+  --lg-sweep:linear-gradient(100deg,transparent 0 30%,rgba(255,255,255,.16) 46%,rgba(255,255,255,.04) 54%,transparent 70%);
   /* clay is a fill and a line (loss, danger); text in that family is clay-text */
   --pool:#5fb8d6; --olive:#9fc96a; --clay:#e8433a; --clay-text:#ff8a7a; --live2:#ff74bf; --green:#7be38f;
   --night:var(--paper); --night2:var(--paper2); --night-deep:var(--bg);

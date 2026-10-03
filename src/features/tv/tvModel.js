@@ -276,6 +276,115 @@ export function resultMomentPhase(anchor, now, { reducedMotion = false, step = n
     sorted:reducedMotion || age >= RESULT_STANDINGS_AT_MS + RESULT_SORT_DELAY_MS };
 }
 
+/* ── the podium as a stage (TVPodium.jsx) ──
+   Three stepped glass plinths stand on the painting's desert floor, 2nd,
+   1st, 3rd, joined like a real podium. Each place's people stand on its
+   step; its place and award are lettered on the step's face. Every size is
+   chosen by count here, so a lone winner, a pair, a team of three, the
+   5v5's seven, a split place and a counted tie all stand on their step by
+   construction. Main-area pixels (masthead above, ticker below): the floor
+   is the painting's own (canvas y 880). */
+export const PODIUM_STAGE = Object.freeze({
+  floor:756, lid:26, roomTop:136, pad:22, gap:14, minFace:44,
+  order:Object.freeze([2, 1, 3]),
+  width:Object.freeze({ 1:600, 2:460, 3:460 }),
+  height:Object.freeze({ 1:318, 2:226, 3:164 }),
+  /* the largest faces a place stands: alone, a pair, a team */
+  face:Object.freeze({ 1:Object.freeze([168, 128, 104]), 2:Object.freeze([128, 104, 88]), 3:Object.freeze([128, 104, 88]) }),
+  name:Object.freeze({ 1:92, 2:60, 3:60 }),
+  title:Object.freeze({ max:92, min:56, mark:84, gap:26, width:1792 }),
+});
+const NAME_LINE = 1.12;
+
+/* faces in rows inside a box with a name under them: the largest size that
+   keeps every face and the name's lines inside it, one row while that is
+   about as big, else balanced rows (seven stand four and three) */
+export function standFit(count, width, height, { cap = 120, min = PODIUM_STAGE.minFace, gap = PODIUM_STAGE.gap, nameH = 0 } = {}) {
+  const n = Math.max(1, Number(count) || 1);
+  let best = null;
+  for (let rows = 1; rows <= Math.min(3, n); rows++) {
+    const cols = Math.ceil(n / rows);
+    const byWidth = Math.floor((width - (cols - 1) * gap) / cols);
+    const byHeight = Math.floor((height - nameH - gap - (rows - 1) * gap) / rows);
+    const size = Math.min(cap, byWidth, byHeight);
+    if (!best || size > best.size + 6) best = { size, cols, rows };
+  }
+  return { ...best, size:Math.max(min, best.size) };
+}
+
+/* the event's name over the podium: one line as large as fits beside its mark */
+export function podiumTitleFit(name) {
+  const t = PODIUM_STAGE.title;
+  return sideNameFit(name, t.width - t.mark - t.gap, { max:t.max, min:t.min });
+}
+
+/* what a step's face says under its place: an award ("+400", "+400 each"
+   for a team), or a poker stack as it stands */
+export const stepAmount = entry => !entry?.amount ? null : entry.unit === "stack"
+  ? { text:fmt(entry.amount), each:false }
+  : { text:`+${fmt(entry.amount)}`, each:entry.players.length > 1 };
+
+export function podiumStage(podium = []) {
+  const S = PODIUM_STAGE;
+  const total = S.order.reduce((sum, place) => sum + S.width[place], 0);
+  let x = Math.round((TV_WIDTH - total) / 2);
+  const steps = S.order.map(place => {
+    const width = S.width[place], height = S.height[place];
+    const left = x;
+    x += width;
+    const top = S.floor - height;
+    /* the people stand on the lid, under the event's name */
+    const room = Math.floor(top - S.lid * 0.5 - S.roomTop);
+    const inner = width - 2 * S.pad;
+    const entry = (podium || []).find(item => item.place === place) || null;
+    let blocks = [];
+    if (entry) {
+      const wide = entry.groups.length > 3;
+      const parts = wide || entry.groups.length === 1
+        ? [{ players:entry.players, name:entry.names[0] }]
+        : entry.groups.map(group => ({ players:group.players, name:group.name }));
+      const split = parts.length > 1;
+      const each = Math.floor((room - (parts.length - 1) * S.gap) / parts.length);
+      blocks = parts.map(part => {
+        const max = split ? (place === 1 ? 56 : 44) : S.name[place];
+        const name = sideNameFit(part.name, inner, { max, min:Math.max(28, Math.round(max * 0.55)) });
+        const nameH = Math.ceil(name.lines.length * name.size * NAME_LINE);
+        const caps = S.face[place];
+        const cap = (part.players.length === 1 ? caps[0] : part.players.length === 2 ? caps[1] : caps[2]) * (split ? 0.7 : 1);
+        const faces = standFit(part.players.length, inner, each, { cap:Math.round(cap), nameH, min:wide ? 40 : S.minFace });
+        return { players:part.players, name:part.name, nameSize:name.size, nameLines:name.lines, nameH,
+          face:faces.size, cols:faces.cols, rows:faces.rows };
+      });
+    }
+    return { place, left, width, height, top, room, inner, entry, blocks, amount:stepAmount(entry) };
+  });
+  return { steps, floor:S.floor, lid:S.lid };
+}
+
+/* The winning backers, on their own rail where the ticker runs, never in
+   1st's step: one cell a backer (photo chip, first name, what it paid),
+   named while the rail has the width, faces and amounts past that, and
+   "+N" past what fits. Biggest payout first. */
+export const BACKERS_RAIL = Object.freeze({ width:1792, pad:30, tag:236, total:200, named:236, bare:120, more:92, gap:18,
+  afterMs:300 });
+/* the rail lands just after the last place has turned */
+export const podiumBackersAt = places => podiumBeatAt(Math.max(0, (Number(places) || 1) - 1)) + BACKERS_RAIL.afterMs;
+export function backersRail(stacks) {
+  const winners = (stacks?.winners || []).filter(item => item.paid > 0);
+  if (!winners.length) return null;
+  const R = BACKERS_RAIL;
+  const room = R.width - 2 * R.pad - R.tag - R.total;
+  const row = (cell, n) => n * cell + Math.max(0, n - 1) * R.gap;
+  const cells = [...winners]
+    .sort((a, b) => b.paid - a.paid || b.stake - a.stake || a.player.localeCompare(b.player))
+    .map(item => ({ player:item.player, paid:item.paid, stake:item.stake }));
+  const paid = cells.reduce((sum, item) => sum + item.paid, 0);
+  if (row(R.named, cells.length) <= room) return { paid, cells, more:0, named:true };
+  if (row(R.bare, cells.length) <= room) return { paid, cells, more:0, named:false };
+  const fit = Math.max(1, Math.floor((room - R.more) / (R.bare + R.gap)));
+  return { paid, cells:cells.slice(0, fit), more:cells.length - fit, named:false };
+}
+
 /* the latest official write that moved the weekend on: a market, a start,
    result entry, a decided contest, a draw, a draft, the poker table */
 export function lastLifecycleWrite(state) {

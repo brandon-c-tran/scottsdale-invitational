@@ -76,6 +76,8 @@ import { CommissionerDock } from "./features/director/CommissionerDock.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
+import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
+import { triviaQuestionTotal } from "../shared/trivia.js";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
@@ -109,10 +111,11 @@ const TVMode = /* @__PURE__ */ lazyPart(() => import("./features/tv/TVMode.jsx")
 const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), "QABar");
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
+const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
-const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, AwardsDesk, PokerSetupSheet, CrownSheet];
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -566,6 +569,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [flightsAnswered, setFlightsAnswered] = useState(false);
   /* Home's Where and When row reopens the guess sheet */
   const [geoForce, setGeoForce] = useState(0);
+  /* Home's Trivia row reopens the game */
+  const [triviaForce, setTriviaForce] = useState(0);
   useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
   const openSince = route => {
     setSince(null);
@@ -1470,7 +1475,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
     scene:activeShowScene ? `${activeShowScene.definition?.label || "Scene"} ${activeShowScene.stepIndex + 1}/${activeShowScene.stepCount}` : null,
     crownReady:state.live && !state.frozen && crownReady,
     lockerRoom:state.live && !state.frozen && lockerRoomAvailability(state).enabled,
-    away:Object.keys(state.away || {}), geoPhotos:(state.geoRounds || []).length, awardsNote:deskNote(state),
+    away:Object.keys(state.away || {}), geoPhotos:(state.geoRounds || []).length,
+    triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
     takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
@@ -1492,6 +1498,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "showControl": case "audioDirector": case "crown": case "attendance": case "lockerRoom":
       case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": return sheet(id);
       case "geo": return sheet("geoDesk");
+      case "trivia": return sheet("triviaDesk");
       case "awards": return sheet("awards");
       case "reset": return sheet("resetProgress");
       /* A5: launched this way, the TV keeps its sound after every reload */
@@ -1565,6 +1572,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
           mvpContent={<>
             <GeoHome state={state} me={me} onOpen={() => setGeoForce(n => n + 1)} />
+            <TriviaHome state={state} me={me} onOpen={() => setTriviaForce(n => n + 1)} />
             <MvpHome state={state} me={me} events={events} onPlayer={p => setModal({type:"player", p})} />
           </>}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
@@ -1632,6 +1640,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
       {me && <MvpVoteSheet state={state} me={me} events={events} blocked={!!modal} />}
       {me && <GeoPlaySheet state={state} me={me} blocked={!!modal} force={geoForce} />}
+      {me && <TriviaPlaySheet state={state} me={me} blocked={!!modal} force={triviaForce} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
@@ -1648,6 +1657,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
         onClose={() => setModal(null)} onBack={modalBack} /></Suspense>}
       {gmView && modal?.type === "geoDesk" && <Sheet title="Where and When" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><GeoDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload)} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
+          onAct={(type, payload) => act(type, payload)} /></Suspense>
       </Sheet>}
       {gmView && showControlAllowed && modal?.type === "showControl" && (
         <ShowControlSheet

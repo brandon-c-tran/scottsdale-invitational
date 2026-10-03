@@ -50,6 +50,7 @@ import { TVWalkout, useTvWalkout } from "./TVWalkout.jsx";
 import { TVPokerMoments, usePokerMoments } from "./TVPokerMoments.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
 import { TVGeo } from "./TVGeo.jsx";
+import { TVTrivia } from "./TVTrivia.jsx";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
@@ -1044,6 +1045,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   };
 
   const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
+  /* Trivia holds the room from its first question to its result */
+  const triviaOnTv = !!state.trivia?.questions?.length && !state.results?.[state.trivia.eventId];
   let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
@@ -1081,6 +1084,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   } else if (geoOnTv) {
     /* Where and When holds the room from its first photo to its result */
     content = <TVGeo state={state} now={now} />;
+  } else if (triviaOnTv) {
+    mastEvent = events.find(e => e.id === state.trivia.eventId) || null;
+    mastLamp = state.trivia.phase === "question" ? { label:"Playing", state:"live" } : null;
+    content = <TVTrivia state={state} now={now} />;
   } else if (liveEv) {
     liveShown = true;
     mastEvent = liveEv;

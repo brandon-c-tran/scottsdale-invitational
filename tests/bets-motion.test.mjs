@@ -111,7 +111,7 @@ test("P1: the TV felt and the phone board render every bettor or a +N group, the
   assert.deepEqual(amounts, ["800", "700", "600", "500"]);
   assert.match(html, />4 more</);
   assert.match(html, /aria-label="All 8 backing [^"]+"/);
-  assert.match(html, /class="fd-wagers-pot-total">3,600</);
+  assert.match(html, /class="fd-wagers-pot-total"><span class="fd-reel[^"]*" role="img" aria-label="3,600"/);
   assert.doesNotMatch(html, /data-stack-player=|fd-stack-tag|has-tag|fd-stack-fan/);
 });
 

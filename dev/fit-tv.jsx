@@ -79,6 +79,8 @@ function pause() {
   style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
   document.head.append(style);
 }
+/* ?hold=ms freezes every animation that long after load (a still mid-roll) */
+if (params.get("hold")) setTimeout(pause, Number(params.get("hold")));
 
 function MomentLayer({ state, events }) {
   const [host, setHost] = useState(null);

@@ -765,9 +765,9 @@ function resultAwards(state, ev, res) {
   const draw = state.draws?.[ev?.id];
   const out = [];
   const thirdEach = table[2] || 0;
-  (res?.slots || []).forEach((players, place) => {
-    const each = table[place] || 0;
-    (players || []).forEach((player) => out.push({ player, place, pts: each }));
+  (res?.slots || []).forEach((players, place2) => {
+    const each = table[place2] || 0;
+    (players || []).forEach((player) => out.push({ player, place: place2, pts: each }));
   });
   if (!res?.stacks && thirdEach > 0) {
     const placed = new Set(out.map((award) => award.player));
@@ -780,7 +780,7 @@ function resultAwards(state, ev, res) {
 function awardPlan(ev, draw = null) {
   const table = awardTable(ev);
   const crew = draw ? (draw.roles || []).length > 0 : Number.isInteger(eventCapacity(ev)) && eventCapacity(ev) < ROSTER.length;
-  const rows = table.map((pts, place) => ({ place, pts }));
+  const rows = table.map((pts, place2) => ({ place: place2, pts }));
   return [
     ...rows,
     ...crew ? [{ place: "crew", pts: rows[2].pts }] : []
@@ -807,11 +807,11 @@ function computeStandings(state) {
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find((e) => e.id === eid);
     if (!ev || !res) return;
-    resultAwards(state, ev, res).forEach(({ player, place, pts: award }) => {
+    resultAwards(state, ev, res).forEach(({ player, place: place2, pts: award }) => {
       if (pts[player] === void 0) return;
       pts[player] += award;
       awardPts[player] += award;
-      if (place === 0) wins[player] += 1;
+      if (place2 === 0) wins[player] += 1;
     });
   });
   mvpAwards(state).forEach(({ player, pts: award }) => {
@@ -4347,7 +4347,7 @@ function ladderChips(amount, top, max) {
   return Math.max(1, Math.round(amount / unit));
 }
 function podiumOrder(steps) {
-  const by = (place) => steps.find((step) => step.place === place);
+  const by = (place2) => steps.find((step) => step.place === place2);
   const order = steps.length >= 2 && by(2) ? [by(2), by(1), ...steps.filter((step) => step.place !== 1 && step.place !== 2)] : steps;
   return order.filter(Boolean);
 }
@@ -6221,26 +6221,120 @@ var init_sound = __esm({
   }
 });
 
+// src/ui/reelModel.js
+function reelLanding(from, to) {
+  const a = Math.abs(Math.round(Number(from) || 0)), b = Math.abs(Math.round(Number(to) || 0));
+  const digits = reelDigits(b);
+  const down = b < a;
+  return [...digits].map((ch, i) => {
+    const place2 = 10 ** (digits.length - 1 - i);
+    const passed = Math.abs(Math.floor(b / place2) - Math.floor(a / place2));
+    const faces = passed % 10 + 10 * Math.min(REEL.maxTurns, Math.floor(passed / 10));
+    const f = Math.floor(a / place2) % 10;
+    const start = down ? 10 * (REEL.maxTurns + 1) + f : f;
+    const end = down ? start - faces : start + faces;
+    const ms = faces ? Math.min(REEL.maxLandMs, REEL.landMs + faces * REEL.perFaceMs) : 0;
+    return { digit: Number(ch), start, end, faces, ms, delay: i * REEL.staggerMs };
+  });
+}
+function reelStep(index, prev, digit, direction, faces = REEL.faces) {
+  const a = Number(prev) || 0, b = Number(digit) || 0;
+  const steps = a === b ? 0 : direction < 0 ? -((a - b + 10) % 10) : (b - a + 10) % 10;
+  let from = index;
+  if (from + steps < 1 || from + steps > faces - 2) from = REEL.band + a;
+  return { from, to: from + steps, steps, snapped: from !== index };
+}
+function reelMotion({ motion = "fresh", reduced = false, animate = false, now: now2 = 0, liveUntil = 0 } = {}) {
+  const until = animate ? now2 + REEL.freshMs : liveUntil;
+  const live2 = !reduced && (motion === "always" || motion === "fresh" && now2 < until);
+  return { live: live2, liveUntil: until };
+}
+var REEL, reelDigits, reelStripFaces;
+var init_reelModel = __esm({
+  "src/ui/reelModel.js"() {
+    REEL = Object.freeze({
+      faces: 30,
+      // a live strip: three runs of 0-9
+      band: 10,
+      // where a live strip rests (the middle run)
+      landMs: 520,
+      // a landing window's roll
+      perFaceMs: 24,
+      // each face it passes adds momentum
+      maxLandMs: 1250,
+      staggerMs: 80,
+      // each window lands this long after the one to its left
+      maxTurns: 2,
+      // a landing window never spins more than two whole turns
+      overshoot: 0.14,
+      // faces past the detent before it settles
+      freshMs: 2600
+      // a fresh frame lets a reel roll for this long (a count runs inside it)
+    });
+    reelDigits = (value) => String(Math.abs(Math.round(Number(value) || 0)));
+    reelStripFaces = (cells) => Math.max(REEL.faces, ...cells.map((cell) => Math.max(cell.start, cell.end) + 2));
+  }
+});
+
 // src/ui/ScoreReel.jsx
 import React17, { useEffect as useEffect9, useLayoutEffect as useLayoutEffect4, useRef as useRef8 } from "react";
+function place(el, prop, value) {
+  el.style.transition = "none";
+  el.style.setProperty(prop, value);
+  void el.offsetWidth;
+  el.style.removeProperty("transition");
+}
 function drumSteps(from, to, direction) {
   const a = Number(from) || 0, b = Number(to) || 0;
   if (a === b) return 0;
   return direction < 0 ? -((a - b + 10) % 10) : (b - a + 10) % 10;
 }
-function DrumDigit({ digit, value, register, index }) {
+function StripDigit({ digit, value, live: live2, land, faces }) {
   const ref = useRef8(null);
   const st = useRef8(null);
-  if (!st.current) st.current = { digit, value, angle: Number(digit) * DRUM.faceDeg, timers: [], placed: false };
+  if (!st.current) {
+    const index = land ? land.end : REEL.band + Number(digit);
+    st.current = { digit, value, index, init: index };
+  }
+  useIsoLayoutEffect(() => {
+    const el = ref.current, s = st.current;
+    const prev = s.value;
+    s.value = value;
+    if (!el || s.digit === digit) return;
+    if (!live2) {
+      s.index = REEL.band + Number(digit);
+      s.digit = digit;
+      place(el, "--d", s.index);
+      return;
+    }
+    const step = reelStep(s.index, s.digit, digit, value < prev ? -1 : 1, faces);
+    if (step.snapped) place(el, "--d", step.from);
+    el.style.setProperty("--strip-ms", `${drumRollMs(step.steps)}ms`);
+    el.style.setProperty("--d", step.to);
+    s.index = step.to;
+    s.digit = digit;
+  }, [digit, value]);
+  const rolling = !!land?.faces;
+  const style = { "--d": st.current.init };
+  if (rolling) Object.assign(style, {
+    "--s": land.start,
+    "--e": land.end,
+    "--land-ms": `${land.ms}ms`,
+    "--land-delay": `${land.delay}ms`,
+    "--ov": (land.end > land.start ? 1 : -1) * REEL.overshoot
+  });
+  return /* @__PURE__ */ React17.createElement("span", { ref, className: `fd-reel-strip${rolling ? " is-rolling" : ""}`, style }, Array.from({ length: faces }, (_, i) => /* @__PURE__ */ React17.createElement("span", { key: i }, i % 10)));
+}
+function DrumDigit({ digit, value, live: live2, land, register, index }) {
+  const ref = useRef8(null);
+  const st = useRef8(null);
+  if (!st.current) st.current = { digit, value, angle: (land ? land.end : Number(digit)) * DRUM.faceDeg, timers: [], placed: false };
   useIsoLayoutEffect(() => {
     const el = ref.current, s = st.current;
     if (!el) return;
     if (!s.placed) {
       s.placed = true;
-      el.style.transition = "none";
-      el.style.setProperty("--a", `${s.angle}deg`);
-      void el.offsetWidth;
-      el.style.removeProperty("transition");
+      place(el, "--a", `${s.angle}deg`);
       return;
     }
     const direction = value < s.value ? -1 : 1;
@@ -6249,6 +6343,10 @@ function DrumDigit({ digit, value, register, index }) {
     const steps = drumSteps(s.digit, digit, direction);
     s.digit = digit;
     s.angle += steps * DRUM.faceDeg;
+    if (!live2) {
+      place(el, "--a", `${s.angle}deg`);
+      return;
+    }
     el.style.setProperty("--drum-ms", `${drumRollMs(steps)}ms`);
     el.style.setProperty("--a", `${s.angle}deg`);
   }, [digit, value]);
@@ -6273,7 +6371,12 @@ function DrumDigit({ digit, value, register, index }) {
   }, [register, index]);
   useEffect9(() => () => st.current?.timers.forEach(clearTimeout), []);
   const cur = String(digit);
-  return /* @__PURE__ */ React17.createElement("span", { className: "fd-drum", ref }, [...DIGITS].map((d, i) => /* @__PURE__ */ React17.createElement(
+  const rolling = !!land?.faces;
+  return /* @__PURE__ */ React17.createElement("span", { className: `fd-drum${rolling ? " is-rolling" : ""}`, ref, style: rolling ? {
+    "--a0": `${land.start * DRUM.faceDeg}deg`,
+    "--land-ms": `${land.ms}ms`,
+    "--land-delay": `${land.delay}ms`
+  } : void 0 }, [...DIGITS].map((d, i) => /* @__PURE__ */ React17.createElement(
     "span",
     {
       key: d,
@@ -6283,16 +6386,35 @@ function DrumDigit({ digit, value, register, index }) {
     d
   )));
 }
-function ScoreReel({ value, tone = null, label: label2 = null, className = "", clack = false, drum = false, spin = false }) {
+function ScoreReel({
+  value,
+  tone = null,
+  label: label2 = null,
+  className = "",
+  clack = false,
+  drum = false,
+  spin = false,
+  motion = "fresh",
+  from = null,
+  at = 0,
+  landKey = null,
+  slim = false
+}) {
   const n = Number(value) || 0;
+  const reduced = useReducedMotion();
+  const change = useFreshChange(n);
+  const liveUntil = useRef8(0);
+  const gate = reelMotion({ motion, reduced, animate: change.animate, now: now(), liveUntil: liveUntil.current });
+  liveUntil.current = gate.liveUntil;
+  const live2 = gate.live;
   const last = useRef8({ value: n, at: 0 });
   useEffect9(() => {
     const prev = last.current;
     if (prev.value === n) return;
-    const at = now();
-    if (clack && at - prev.at >= CLACK_GAP_MS) {
+    const at2 = now();
+    if (clack && at2 - prev.at >= CLACK_GAP_MS) {
       playSound("detent", { bus: "you" });
-      last.current = { value: n, at };
+      last.current = { value: n, at: at2 };
     } else last.current = { value: n, at: prev.at };
   }, [n, clack]);
   const drums = useRef8(/* @__PURE__ */ new Map());
@@ -6303,16 +6425,25 @@ function ScoreReel({ value, tone = null, label: label2 = null, className = "", c
     };
   }).current;
   const flick = useRef8(null);
+  const landing = useRef8(null);
+  const landId = String(landKey ?? "");
+  if (from === null || from === void 0) landing.current = null;
+  else if (!landing.current || landing.current.id !== landId) {
+    const cells2 = reelLanding(from, n);
+    landing.current = { id: landId, cells: cells2, faces: reelStripFaces(cells2) };
+  }
+  const land = landing.current;
   const spinnable = drum && spin;
   const text = `${n < 0 ? "\u2212" : ""}${Math.abs(n).toLocaleString("en-US")}`;
   const cells = [...text];
+  const digitCount = cells.filter((ch) => /\d/.test(ch)).length;
   const spinAll = (speed, sign) => {
     const order = [...drums.current.keys()].sort((a, b) => a - b);
     const turns = flickTurns(speed);
-    order.forEach((index, at) => drums.current.get(index)?.spin(
-      turns + (at > 1 ? 1 : 0),
-      at * DRUM.spinStaggerMs,
-      DRUM.spinMs + at * DRUM.spinStaggerMs,
+    order.forEach((index, at2) => drums.current.get(index)?.spin(
+      turns + (at2 > 1 ? 1 : 0),
+      at2 * DRUM.spinStaggerMs,
+      DRUM.spinMs + at2 * DRUM.spinStaggerMs,
       sign
     ));
   };
@@ -6346,18 +6477,23 @@ function ScoreReel({ value, tone = null, label: label2 = null, className = "", c
       flick.current = null;
     }
   } : {};
+  const style = land ? { "--land-at": cssTime(at) } : void 0;
+  let digitAt = -1;
   return /* @__PURE__ */ React17.createElement(
     "span",
     {
-      className: `fd-reel${drum ? " is-drum" : ""}${spinnable ? " is-spinnable" : ""}${tone ? ` is-${tone}` : ""}${className ? ` ${className}` : ""}`,
+      className: `fd-reel${drum ? " is-drum" : ""}${spinnable ? " is-spinnable" : ""}${tone ? ` is-${tone}` : ""}${slim ? " is-slim" : ""}${land ? " is-landing" : ""}${className ? ` ${className}` : ""}`,
       role: "img",
       "aria-label": label2 ?? text,
+      style,
       ...handlers
     },
     cells.map((ch, i) => {
-      const key = cells.length - i;
+      const key = `${land ? `${landId}:` : ""}${cells.length - i}`;
       if (!/\d/.test(ch)) return /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-sep", key: `s${key}`, "aria-hidden": "true" }, ch);
-      return /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-cell", key: `d${key}`, "aria-hidden": "true" }, drum ? /* @__PURE__ */ React17.createElement(DrumDigit, { digit: ch, value: n, register: spinnable ? register : null, index: i }) : /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-strip", style: { "--d": ch } }, [...DIGITS].map((d) => /* @__PURE__ */ React17.createElement("span", { key: d }, d))), /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-sizer" }, ch));
+      digitAt += 1;
+      const cell = land && land.cells.length === digitCount ? land.cells[digitAt] : null;
+      return /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-cell", key: `d${key}`, "aria-hidden": "true" }, drum ? /* @__PURE__ */ React17.createElement(DrumDigit, { digit: ch, value: n, live: live2, land: cell, register: spinnable ? register : null, index: i }) : /* @__PURE__ */ React17.createElement(StripDigit, { digit: ch, value: n, live: live2, land: cell, faces: land ? land.faces : REEL.faces }), /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-sizer" }, "0"));
     })
   );
 }
@@ -6373,17 +6509,19 @@ function LampChase({ tone = "live", color = null, running: running2 = true, clas
     /* @__PURE__ */ React17.createElement("rect", { x: "0", y: "0", width: "100%", height: "100%", pathLength: "400" })
   );
 }
-var DIGITS, CLACK_GAP_MS, useIsoLayoutEffect, now, DRUM, drumRollMs, flickTurns;
+var DIGITS, CLACK_GAP_MS, useIsoLayoutEffect, now, cssTime, DRUM, drumRollMs, flickTurns;
 var init_ScoreReel = __esm({
   "src/ui/ScoreReel.jsx"() {
     init_sound();
     init_haptics();
     init_motion();
+    init_reelModel();
     init_backglass();
     DIGITS = "0123456789";
     CLACK_GAP_MS = 45;
     useIsoLayoutEffect = typeof window === "undefined" ? useEffect9 : useLayoutEffect4;
     now = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+    cssTime = (at) => typeof at === "number" ? `${Math.round(at)}ms` : at || "0ms";
     DRUM = Object.freeze({
       faceDeg: 36,
       // ten faces round the ring
@@ -6898,7 +7036,7 @@ var init_seasonStats = __esm({
   "src/features/profile/seasonStats.js"() {
     init_core();
     decided = (value) => value !== null && value !== void 0;
-    placeLabel = (place) => ["1st", "2nd", "3rd"][place] || `${place + 1}th`;
+    placeLabel = (place2) => ["1st", "2nd", "3rd"][place2] || `${place2 + 1}th`;
     ROUND_SHORT = { Semifinals: "SF", Semifinal: "SF", Quarterfinals: "QF", Quarterfinal: "QF" };
     teamIndexOf = (draw, player) => Array.isArray(draw?.teams) ? draw.teams.findIndex((team) => team?.players?.includes(player)) : -1;
     recordText = ({ won = 0, lost = 0, push = 0 }) => `${won}-${lost}${push ? `-${push}` : ""}`;
@@ -9529,7 +9667,7 @@ function MarketPick({
       "aria-busy": !!busyKind,
       "aria-description": unavailableReason || void 0
     },
-    /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-pot-head" }, pot, sideTotal > 0 && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-pot-total" }, fmt6(sideTotal)), roleLabel && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel)),
+    /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-pot-head" }, pot, sideTotal > 0 && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-pot-total" }, /* @__PURE__ */ React55.createElement(ScoreReel, { value: sideTotal, tone: "chip", slim: true, label: fmt6(sideTotal) })), roleLabel && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel)),
     shownRows.length ? /* @__PURE__ */ React55.createElement("ol", { className: "fd-wagers-backers" }, shownRows.map(backerRow)) : /* @__PURE__ */ React55.createElement("div", { className: `fd-wagers-seat${showWell ? " is-open" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React55.createElement("i", null)),
     /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-backers-more" }, more > 0 && /* @__PURE__ */ React55.createElement(
       "button",
@@ -9678,7 +9816,7 @@ function StackMeter({ pts, cap, bets, duels, room, capBinds = false }) {
       "aria-valuenow": exposure,
       "aria-valuetext": `${fmt6(exposure)} at risk, ${fmt6(cap)} maximum, ${fmt6(pts)} in your stack${duels ? `, ${fmt6(duels)} reserved for duels` : ""}`
     },
-    /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, capBinds ? /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-room is-max" }, /* @__PURE__ */ React55.createElement("strong", null, "Max ", fmt6(cap))) : /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-room" }, /* @__PURE__ */ React55.createElement("strong", null, fmt6(room)), /* @__PURE__ */ React55.createElement("small", null, "to bet")), exposure > 0 && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-down" }, fmt6(exposure), /* @__PURE__ */ React55.createElement("small", null, "in bets"))),
+    /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, capBinds ? /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-room is-max" }, /* @__PURE__ */ React55.createElement("strong", null, "Max ", fmt6(cap))) : /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-room" }, /* @__PURE__ */ React55.createElement("strong", null, /* @__PURE__ */ React55.createElement(ScoreReel, { value: room, tone: "chip", label: fmt6(room) })), /* @__PURE__ */ React55.createElement("small", null, "to bet")), exposure > 0 && /* @__PURE__ */ React55.createElement("span", { className: "fd-wagers-meter-down" }, fmt6(exposure), /* @__PURE__ */ React55.createElement("small", null, "in bets"))),
     /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React55.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React55.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React55.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React55.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
     /* @__PURE__ */ React55.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, /* @__PURE__ */ React55.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt6(cap)), at(cap) <= 72 && /* @__PURE__ */ React55.createElement("span", { className: "is-stack" }, fmt6(pts)))
   );
@@ -10043,6 +10181,7 @@ var init_Wagers = __esm({
     init_Icon();
     init_RenameText();
     init_Coin();
+    init_ScoreReel();
     init_useGlassTilt();
     init_wagers();
     PHONE_CHIP = 28;
@@ -11796,22 +11935,22 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   )), showEntrants && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-entrants", "aria-label": contest.label }, contest.sides.map((side) => {
     const name = nameOf2(state, side), selected = winner === side.key;
     const qualifier = selectingQualifiers && !selected;
-    const place = order.indexOf(side.key);
-    const label2 = !canChoose ? name : ordering ? place >= 0 ? `Remove ${name} from ${ORD[place]}` : `${ORD[order.length]}: ${name}` : `${qualifier ? "Also advances" : "Winner"}: ${name}`;
-    return /* @__PURE__ */ React11.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected || place === 0 ? "is-winner" : ""}` }, /* @__PURE__ */ React11.createElement(
+    const place2 = order.indexOf(side.key);
+    const label2 = !canChoose ? name : ordering ? place2 >= 0 ? `Remove ${name} from ${ORD[place2]}` : `${ORD[order.length]}: ${name}` : `${qualifier ? "Also advances" : "Winner"}: ${name}`;
+    return /* @__PURE__ */ React11.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected || place2 === 0 ? "is-winner" : ""}` }, /* @__PURE__ */ React11.createElement(
       "button",
       {
         type: "button",
         className: "fd-contest-entrant-pick",
-        disabled: pending || blocked || !canChoose || ordering && place < 0 && order.length >= needed,
+        disabled: pending || blocked || !canChoose || ordering && place2 < 0 && order.length >= needed,
         role: canChoose && qualifier ? "checkbox" : void 0,
         "aria-checked": canChoose && qualifier ? qualifiers.includes(side.key) : void 0,
-        "aria-pressed": canChoose && (ordering ? place >= 0 : advance > 1 && !qualifier ? selected : void 0),
+        "aria-pressed": canChoose && (ordering ? place2 >= 0 : advance > 1 && !qualifier ? selected : void 0),
         "aria-label": label2,
         onClick: () => {
           if (busy.current || operationBusy.current || !canChoose) return;
           if (ordering) {
-            setOrder((current) => place >= 0 ? current.slice(0, place) : current.length < needed ? [...current, side.key] : current);
+            setOrder((current) => place2 >= 0 ? current.slice(0, place2) : current.length < needed ? [...current, side.key] : current);
             return;
           }
           if (advance === 1) return record(side.key);
@@ -11824,7 +11963,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         }
       },
       /* @__PURE__ */ React11.createElement("span", null, name),
-      canChoose && /* @__PURE__ */ React11.createElement("small", null, ordering ? place >= 0 ? ORD[place] : order.length < needed ? ORD[order.length] : "" : selected ? "Winner" : qualifier ? /* @__PURE__ */ React11.createElement(Icon, { name: qualifiers.includes(side.key) ? "check" : "plus", size: "1em" }) : "Win")
+      canChoose && /* @__PURE__ */ React11.createElement("small", null, ordering ? place2 >= 0 ? ORD[place2] : order.length < needed ? ORD[order.length] : "" : selected ? "Winner" : qualifier ? /* @__PURE__ */ React11.createElement(Icon, { name: qualifiers.includes(side.key) ? "check" : "plus", size: "1em" }) : "Win")
     ), /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-entrant-players" }, side.players.map((player) => /* @__PURE__ */ React11.createElement(
       "button",
       {
@@ -13423,7 +13562,6 @@ init_Trophy();
 import React47, { useEffect as useEffect29, useMemo as useMemo8, useRef as useRef30, useState as useState34 } from "react";
 
 // src/features/results/LastCard.jsx
-init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
@@ -13457,6 +13595,7 @@ init_classPhoto();
 
 // src/features/results/LastCard.jsx
 init_Icon();
+init_ScoreReel();
 
 // src/features/results/Keepsake.jsx
 init_lastCard();
@@ -13694,6 +13833,7 @@ init_resultMoment();
 // src/features/results/ChipReceipt.jsx
 init_Icon();
 init_PlayerIdentity();
+init_ScoreReel();
 init_BetStacks();
 init_motion();
 init_sound();
@@ -13749,6 +13889,7 @@ init_PlayerIdentity();
 init_controls();
 import React63, { useCallback as useCallback5, useEffect as useEffect42, useLayoutEffect as useLayoutEffect14, useRef as useRef42, useState as useState49 } from "react";
 init_haptics();
+init_ScoreReel();
 init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
 
@@ -14061,6 +14202,7 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
+init_ScoreReel();
 import React77, { useEffect as useEffect53, useRef as useRef53, useState as useState60 } from "react";
 
 // src/features/trivia/TriviaPlay.jsx

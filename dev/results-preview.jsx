@@ -108,7 +108,7 @@ function receiptStates() {
     { id:"w2", player:me, kind:"outright", eventId:"where", pick:sahil, pickPlayers:[sahil], stake:200, mult:2 },
   ];
   const after = structuredClone(before);
-  after.results.nine = { slots:[[khoa], [me], [adi]], ts:FRI + H, revision:1 };
+  after.results.ragecage = { slots:[[khoa], [me], [adi]], ts:FRI + H, revision:1 };
   return { before, after };
 }
 

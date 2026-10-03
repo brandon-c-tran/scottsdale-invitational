@@ -270,7 +270,7 @@ test("the meter draws stack, cap notch, bets, hatched duels and loss overflow wi
   assert.match(view.html, /class="is-bets" style="left:0;width:20%"/);
   assert.match(view.html, /class="is-duels" style="left:20%;width:10%"/);
   assert.match(view.html, /class="fd-wagers-meter-notch" style="left:50%"/);
-  assert.match(view.html, /<strong[^>]*>200<\/strong>/, "the gap carries the to-bet number");
+  assert.match(view.html, /<strong><span class="fd-reel[^"]*" role="img" aria-label="200"/, "the gap carries the to-bet number");
   assert.doesNotMatch(view.html, /at risk<\/span>|Includes .* in duels/);
   assert.match(view.html, /300 at risk, 500 maximum, 1,000 in your stack, 100 reserved for duels/);
 

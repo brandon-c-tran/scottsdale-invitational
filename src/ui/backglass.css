@@ -20,14 +20,34 @@
   border-top:max(1px, .03em) solid color-mix(in srgb, var(--bone) 12%, transparent);
   box-shadow:inset 0 .28em .2em -.18em color-mix(in srgb, var(--ink0) 72%, transparent), inset 0 -.28em .2em -.18em color-mix(in srgb, var(--ink0) 72%, transparent); }
 .fd-reel-sizer { display:block; height:var(--reel-h); line-height:var(--reel-h); visibility:hidden; }
+/* the strip behind a flat window: faces 0-9 repeated (ScoreReel writes --d,
+   the face in the window, and --strip-ms, longer for a longer turn) */
 .fd-reel-strip { position:absolute; left:var(--reel-pad); right:var(--reel-pad); top:0; display:flex; flex-direction:column; align-items:center;
   transform:translateY(calc(var(--d) * var(--reel-h) * -1));
-  transition:transform var(--motion-reel, 240ms) var(--ease-drum, cubic-bezier(.3,1.35,.5,1)); }
+  transition:transform var(--strip-ms, var(--motion-reel, 240ms)) var(--ease-drum, cubic-bezier(.3,1.35,.5,1)); }
 .fd-reel-strip>span { display:block; height:var(--reel-h); line-height:var(--reel-h); }
 .fd-reel-sep { display:inline-block; height:var(--reel-h); line-height:var(--reel-h); margin:0 .01em; }
 .fd-reel.is-you { color:var(--you); text-shadow:0 0 12px rgba(255,224,74,.45); --reel-tint:var(--you); --reel-mix:9%; }
 .fd-reel.is-chip { color:var(--sun); --reel-tint:var(--sun); --reel-mix:8%; }
 .fd-reel.is-live { color:var(--lamp-live-text); --reel-tint:var(--lamp-live); --reel-mix:9%; }
+.fd-reel.is-won { color:var(--green); --reel-tint:var(--green); --reel-mix:8%; }
+/* a narrow slot (a tower's label): the same window, cut closer to the figure */
+.fd-reel.is-slim { --reel-h:1.3em; --reel-pad:.07em; gap:.05em; }
+.fd-reel.is-slim .fd-reel-sep { margin:0 -.02em; }
+
+/* a landing (ScoreReel `from`): the number arrives with its moment and each
+   window rolls like an odometer from its first face (--s) to its last
+   (--e), spinning down fast and settling a hair past its detent (--ov), the
+   windows left to right (--land-delay) from the moment's start (--land-at,
+   a server-clock offset on the TV). It rests on --d, its last face, which
+   is also the reduced-motion end state. */
+.fd-reel.is-landing .fd-reel-strip.is-rolling {
+  animation:fd-reel-land var(--land-ms) linear calc(var(--land-at, 0ms) + var(--land-delay, 0ms)) backwards; }
+@keyframes fd-reel-land {
+  0% { transform:translateY(calc(var(--s) * var(--reel-h) * -1)); animation-timing-function:cubic-bezier(.16,.84,.3,1); }
+  86% { transform:translateY(calc((var(--e) + var(--ov)) * var(--reel-h) * -1)); animation-timing-function:cubic-bezier(.45,0,.4,1); }
+  100% { transform:translateY(calc(var(--e) * var(--reel-h) * -1)); }
+}
 
 /* the drum cut, for hero numbers (ScoreReel drum): ten faces set round a
    ring behind each window. ScoreReel writes --a, the ring's angle; the ring
@@ -45,15 +65,20 @@
 .fd-drum-face { position:absolute; left:0; right:0; top:0; height:var(--reel-h); line-height:var(--reel-h); text-align:center;
   -webkit-backface-visibility:hidden; backface-visibility:hidden;
   transform:rotateX(calc(var(--i) * -36deg)) translateZ(var(--r)); }
+/* a landing drum (ScoreReel drum + from) spins from its first face (--a0)
+   to its resting one with the flick's momentum, on the moment's clock */
+.fd-reel.is-landing .fd-drum.is-rolling {
+  animation:fd-drum-land var(--land-ms) var(--ease-drum-spin) calc(var(--land-at, 0ms) + var(--land-delay, 0ms)) backwards; }
+@keyframes fd-drum-land { from { transform:translateZ(calc(var(--r) * -1)) rotateX(var(--a0)); } }
 /* your own reel takes a flick (vertical); sideways still scrolls nothing */
 .fd-reel.is-spinnable { touch-action:pan-x pinch-zoom; cursor:grab; -webkit-user-select:none; user-select:none; }
 /* no 3D: the current face alone, flat */
 @supports not (transform-style:preserve-3d) {
-  .fd-drum { transform:none; transition:none; }
+  .fd-drum { transform:none; transition:none; animation:none !important; }
   .fd-drum-face { transform:none; visibility:hidden; }
   .fd-drum-face.is-current { visibility:visible; }
 }
-@media(prefers-reduced-motion:reduce) { .fd-reel-strip, .fd-drum { transition:none; } }
+@media(prefers-reduced-motion:reduce) { .fd-reel-strip, .fd-drum { transition:none; } .fd-reel.is-landing .fd-reel-strip.is-rolling, .fd-reel.is-landing .fd-drum.is-rolling { animation:none; } }
 
 /* ── lamps: one vocabulary for state, independent of hue ──
    steady = live, flashing = pending, unlit = done, struck = void. A lamp's

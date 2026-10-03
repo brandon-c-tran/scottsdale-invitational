@@ -2,12 +2,12 @@ import React, { memo, useEffect, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
-import { LampChase } from "../../ui/ScoreReel.jsx";
+import { LampChase, ScoreReel } from "../../ui/ScoreReel.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { TrophyFlat, TrophyHero } from "../weekend/Trophy.jsx";
 import { DesertBand } from "./DesertBand.jsx";
 import { fmt, readableInk, sideNameFit } from "./tvModel.js";
-import { CROWN_TIMING as C, crownOutAt, useTimeline, useTimelineCount } from "./tvMotion.js";
+import { CROWN_TIMING as C, crownOutAt, useTimeline } from "./tvMotion.js";
 import { Takeover } from "./TVTakeover.jsx";
 
 /* The champion, full frame, in their own identity color the way their
@@ -85,11 +85,6 @@ export function medalLayout(count, width = BODY_W) {
   return { rows, perRow, tile, named:tile >= MEDAL.named };
 }
 
-/* the counting number alone re-renders while it counts */
-function CountUp({ playing, startedAt, to, start, ms, step = 1 }) {
-  const value = useTimelineCount(playing, startedAt, { to, start, ms, step });
-  return <>{fmt(value)}</>;
-}
 
 export function ChampionMoment({ state, view, standings = [], moment = null }) {
   const lead = view.players[0];
@@ -162,7 +157,10 @@ export function ChampionMoment({ state, view, standings = [], moment = null }) {
           </div>
         </div>
         <div className="tv-champ-stack">
-          <b><CountUp playing={playing} startedAt={timeline.startedAt} to={view.pts} start={C.count} ms={C.countMs} step={25} /></b>
+          {/* the crown's one hero number: its drums spin up from zero on the
+              crown's own beat (a late TV joins mid-spin; at rest it stands) */}
+          <b><ScoreReel value={view.pts} drum tone="chip" label={fmt(view.pts)} from={playing ? 0 : null}
+            at={`calc(var(--tl) + ${C.count}ms)`} /></b>
           <span>final stack</span>
         </div>
         {medals && (

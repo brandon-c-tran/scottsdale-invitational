@@ -46,7 +46,7 @@
   flex-direction: column;
   align-items: center;
   transform: translateY(calc(var(--d) * var(--reel-h) * -1));
-  transition: transform var(--motion-reel, 240ms) var(--ease-drum, cubic-bezier(.3,1.35,.5,1));
+  transition: transform var(--strip-ms, var(--motion-reel, 240ms)) var(--ease-drum, cubic-bezier(.3,1.35,.5,1));
 }
 .fd-reel-strip > span {
   display: block;
@@ -74,6 +74,35 @@
   color: var(--lamp-live-text);
   --reel-tint:var(--lamp-live);
   --reel-mix:9%;
+}
+.fd-reel.is-won {
+  color: var(--green);
+  --reel-tint:var(--green);
+  --reel-mix:8%;
+}
+.fd-reel.is-slim {
+  --reel-h:1.3em;
+  --reel-pad:.07em;
+  gap: .05em;
+}
+.fd-reel.is-slim .fd-reel-sep {
+  margin: 0 -.02em;
+}
+.fd-reel.is-landing .fd-reel-strip.is-rolling {
+  animation: fd-reel-land var(--land-ms) linear calc(var(--land-at, 0ms) + var(--land-delay, 0ms)) backwards;
+}
+@keyframes fd-reel-land {
+  0% {
+    transform: translateY(calc(var(--s) * var(--reel-h) * -1));
+    animation-timing-function: cubic-bezier(.16, .84, .3, 1);
+  }
+  86% {
+    transform: translateY(calc((var(--e) + var(--ov)) * var(--reel-h) * -1));
+    animation-timing-function: cubic-bezier(.45, 0, .4, 1);
+  }
+  100% {
+    transform: translateY(calc(var(--e) * var(--reel-h) * -1));
+  }
 }
 .fd-reel.is-drum .fd-reel-cell {
   perspective: 4.6em;
@@ -104,6 +133,14 @@
   backface-visibility: hidden;
   transform: rotateX(calc(var(--i) * -36deg)) translateZ(var(--r));
 }
+.fd-reel.is-landing .fd-drum.is-rolling {
+  animation: fd-drum-land var(--land-ms) var(--ease-drum-spin) calc(var(--land-at, 0ms) + var(--land-delay, 0ms)) backwards;
+}
+@keyframes fd-drum-land {
+  from {
+    transform: translateZ(calc(var(--r) * -1)) rotateX(var(--a0));
+  }
+}
 .fd-reel.is-spinnable {
   touch-action: pan-x pinch-zoom;
   cursor: grab;
@@ -114,6 +151,7 @@
   .fd-drum {
     transform: none;
     transition: none;
+    animation: none !important;
   }
   .fd-drum-face {
     transform: none;
@@ -127,6 +165,10 @@
   .fd-reel-strip,
   .fd-drum {
     transition: none;
+  }
+  .fd-reel.is-landing .fd-reel-strip.is-rolling,
+  .fd-reel.is-landing .fd-drum.is-rolling {
+    animation: none;
   }
 }
 .fd-lamp {
@@ -10013,6 +10055,10 @@ button.fd-home-exposure {
   font-variant-numeric: tabular-nums;
   display: inline-block;
 }
+.fd-receipt-to .fd-reel {
+  font-size: .72em;
+  display: flex;
+}
 .fd-receipt-rank {
   margin-left: auto;
   padding-bottom: 3px;
@@ -10369,6 +10415,13 @@ button.fd-home-exposure {
   font: 700 40px/1 var(--fd-display);
   font-variant-numeric: tabular-nums;
   margin-right: 4px;
+}
+.fd-crown-stack b .fd-reel {
+  font-size: .78em;
+  vertical-align: middle;
+}
+.fd-crown-you-pts .fd-reel {
+  font-size: .8em;
 }
 @keyframes fd-crown-fade {
   from {
@@ -13254,6 +13307,10 @@ strong.fd-relettered {
   font: 800 26px/1 var(--fd-display);
   color: var(--sun);
 }
+.fd-wagers-meter-room .fd-reel {
+  font-size: .8em;
+  vertical-align: -.12em;
+}
 .fd-wagers-meter-room.is-max strong {
   color: var(--ink);
 }
@@ -13544,11 +13601,15 @@ strong.fd-relettered {
   color: var(--sun);
   font-variant-numeric: tabular-nums;
 }
+.fd-wagers-pot-head .fd-wagers-pot-total .fd-reel {
+  font-size: .76em;
+}
 .fd-wagers-pot-head .fd-wagers-pick-role {
   margin-left: auto;
   align-self: center;
   white-space: normal;
   text-align: right;
+  min-width: min-content;
 }
 .fd-wagers-backers {
   list-style: none;
@@ -14280,6 +14341,15 @@ strong.fd-relettered {
   font: 800 80px/1 var(--fd-display);
   text-shadow: 0 0 18px color-mix(in srgb, var(--you) 45%, transparent);
   animation: si-flag .5s both;
+}
+.fd-qd-mine:not(.is-foul) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .12em;
+}
+.fd-qd-mine .fd-reel {
+  font-size: .7em;
 }
 .fd-qd-mine.is-foul {
   color: var(--clay-text);
@@ -16401,8 +16471,14 @@ strong.fd-relettered {
   color: var(--ink);
   font: 800 34px/1 var(--fd-display);
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 1px;
 }
-.fd-geo-score span {
+.fd-geo-score b .fd-reel {
+  font-size: .74em;
+}
+.fd-geo-score > div > span {
   color: var(--muted2);
   font: 500 13px/1.3 var(--fd-body);
 }
@@ -16679,7 +16755,7 @@ strong.fd-relettered {
   gap: 8px;
 }
 
-/* node_modules/maplibre-gl/dist/maplibre-gl.css */
+/* ../scottsdale-invitational/node_modules/maplibre-gl/dist/maplibre-gl.css */
 .maplibregl-map {
   font:
     12px/20px Helvetica Neue,
@@ -17372,7 +17448,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
   z-index: 99999;
 }
 
-/* node_modules/leaflet/dist/leaflet.css */
+/* ../scottsdale-invitational/node_modules/leaflet/dist/leaflet.css */
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -23054,6 +23130,14 @@ summary:focus-visible {
 .tv-step.is-p3 .tv-step-amount {
   font-size: 46px;
 }
+.tv-step-amount .fd-reel {
+  font-size: .8em;
+  align-self: center;
+}
+.tv-step-sign {
+  align-self: center;
+  margin-right: -4px;
+}
 .tv-step-amount small {
   font: 700 28px/1 var(--fd-display);
   letter-spacing: .06em;
@@ -23332,6 +23416,14 @@ summary:focus-visible {
   font-variant-numeric: tabular-nums;
   color: var(--green);
   animation: tv-step-stamp .34s var(--ease-land) calc(var(--tl) + var(--rail-at) + 160ms) both;
+}
+.tv-rail-total {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.tv-rail-total .fd-reel {
+  font-size: .8em;
 }
 .tv-rail-cells {
   list-style: none;
@@ -25423,6 +25515,9 @@ summary:focus-visible {
   color: var(--sun);
   font-variant-numeric: tabular-nums;
 }
+.tv-side-total .fd-reel {
+  font-size: .8em;
+}
 .tv-felt > .tv-side-total {
   margin: 0;
   align-self: center;
@@ -25944,6 +26039,9 @@ summary:focus-visible {
   color: var(--bone);
   font-variant-numeric: tabular-nums;
 }
+.tv-move-row .tv-pts .fd-reel {
+  font-size: .82em;
+}
 .tv-move-row.is-lead {
   border-color: var(--ghost-line);
 }
@@ -26312,15 +26410,19 @@ summary:focus-visible {
 }
 .tv-champ-stack {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 20px;
 }
+.tv-champ-stack .fd-reel {
+  font-size: .76em;
+}
 .tv-champ-stack b {
+  display: flex;
   font: 800 136px/1.05 var(--fd-display);
   font-variant-numeric: tabular-nums;
   letter-spacing: .01em;
 }
-.tv-champ-stack span {
+.tv-champ-stack > span {
   font: 600 32px/1.2 var(--fd-body);
   opacity: .8;
 }
@@ -27065,6 +27167,11 @@ summary:focus-visible {
   letter-spacing: .01em;
   color: var(--sun);
   font-variant-numeric: tabular-nums;
+}
+.tv-tower-pts .fd-reel {
+  font-size: .88em;
+  --reel-tint:var(--sun);
+  --reel-mix:8%;
 }
 .tv-tower-delta {
   position: absolute;

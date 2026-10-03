@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { MOTION, fly, useCountBetween, useReducedMotion } from "../../lib/motion.js";
 import { playSound } from "../../lib/sound.js";
@@ -147,7 +148,9 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
     </ol>
     <div className="fd-receipt-total">
       {moment.from !== moment.to && <s className="fd-receipt-from">{fmt(moment.from)}</s>}
-      <strong ref={totalRef} className="fd-receipt-to">{fmt(total)}</strong>
+      {/* the new number counts in on its reel as the won chips land */}
+      <strong ref={totalRef} className="fd-receipt-to"><ScoreReel value={total} tone="chip" motion={animate ? "always" : "never"}
+        label={fmt(moment.to)} /></strong>
       <span className="fd-receipt-rank"><b>{ordinal(moment.rankTo)}</b>
         {move && <small className={move.up ? "is-up" : "is-down"}>{move.text}</small>}</span>
     </div>

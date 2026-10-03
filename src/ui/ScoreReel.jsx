@@ -1,19 +1,38 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { playSound } from "../lib/sound.js";
 import { tapTick } from "../lib/haptics.js";
-import { prefersReducedMotion } from "../lib/motion.js";
+import { prefersReducedMotion, useFreshChange, useReducedMotion } from "../lib/motion.js";
+import { REEL, reelLanding, reelMotion, reelStep, reelStripFaces } from "./reelModel.js";
 import "./backglass.css";
 
 /* A score reel: each digit sits on its own drum and rolls to its value, the
    way an electromechanical backglass counts. Give it the number on screen
-   (useCountUp's value while a count runs) and each changed drum turns; the
-   hundreds drum spins through a count, the higher drums click over once.
-   Drums are keyed from the right so a number that gains a digit keeps its
-   ones, tens and hundreds drums in place. Reduced motion shows the number.
+   (useCountUp's value while a count runs) and each changed window turns the
+   short way (forward on a count up, back on a loss); the hundreds window
+   spins through a count, the higher ones click over once. Windows are
+   keyed from the right so a number that gains a digit keeps its ones, tens
+   and hundreds windows in place. Reduced motion shows the number.
+
+   THE RULE: a reel wherever a number lands or changes as a moment; plain
+   numerals wherever people scan a list. A reel rolls only for a fresh
+   change (`motion="fresh"`, the default: a live broadcast on a settled
+   socket, and the count that follows it), so a load, reconnect, catch-up
+   or correction shows the end state. A caller that already decided its
+   moment is fresh (a receipt, a scene on the server clock) passes
+   motion="always"; reduced motion never rolls.
+
+   Two ways a reel moves:
+   - live: the number changes while the reel is on screen (above).
+   - landing (`from`): the number arrives with its moment and rolls in from
+     `from` like an odometer (reelModel.js: low windows spin, high ones
+     click over, left to right), starting `at` (a CSS time, so a scene on
+     the server clock passes calc(var(--tl) + ...) and a late TV joins
+     mid-roll).
 
    Two cuts of the same reel:
    - default: a flat strip behind each window, for every chip count that is
-     not the hero (calm, roomy windows; backglass.css .fd-reel).
+     not the hero (calm, roomy windows; backglass.css .fd-reel). `slim`
+     tightens the windows for a narrow slot.
    - `drum`: hero numbers only (your own count in the You strip, the
      champion, a scene's one big number). Each digit is a real cylinder,
      ten faces set round a rotateX ring, the window showing the front face
@@ -30,6 +49,14 @@ const DIGITS = "0123456789";
 const CLACK_GAP_MS = 45;
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 const now = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+const cssTime = at => typeof at === "number" ? `${Math.round(at)}ms` : at || "0ms";
+/* move without rolling: a change that is not a moment */
+function place(el, prop, value) {
+  el.style.transition = "none";
+  el.style.setProperty(prop, value);
+  void el.offsetWidth;
+  el.style.removeProperty("transition");
+}
 
 /* ── drum math (pure, exported for tests) ── */
 export const DRUM = Object.freeze({
@@ -54,23 +81,62 @@ export const drumRollMs = steps => Math.min(DRUM.maxRollMs, DRUM.rollMs + Math.m
 /* Whole turns for a flick of `speed` px/ms: at least one, at most three. */
 export const flickTurns = speed => Math.max(1, Math.min(DRUM.maxTurns, Math.round(Math.abs(Number(speed) || 0) * 1.6)));
 
-/* One drum. Its angle accumulates (a count of 90 to 100 rolls the tens
-   drum forward one face, not back nine) and is written to the element in
-   a layout effect, so a StrictMode double render never turns it twice. */
-function DrumDigit({ digit, value, register, index }) {
+/* One flat window: a strip of faces (0-9 repeated) behind it. Its index
+   accumulates so a count of 90 to 100 turns the tens window forward one
+   face, not back nine, and is written to the element in a layout effect,
+   so a StrictMode double render never turns it twice. A landing window
+   carries its roll in CSS (backglass.css fd-reel-land) and rests on its
+   end index, which is also the reduced-motion end state. */
+function StripDigit({ digit, value, live, land, faces }) {
   const ref = useRef(null);
   const st = useRef(null);
-  if (!st.current) st.current = { digit, value, angle:Number(digit) * DRUM.faceDeg, timers:[], placed:false };
+  if (!st.current) {
+    const index = land ? land.end : REEL.band + Number(digit);
+    st.current = { digit, value, index, init:index };
+  }
+  useIsoLayoutEffect(() => {
+    const el = ref.current, s = st.current;
+    const prev = s.value;
+    s.value = value;
+    if (!el || s.digit === digit) return;
+    if (!live) {
+      s.index = REEL.band + Number(digit);
+      s.digit = digit;
+      place(el, "--d", s.index);
+      return;
+    }
+    const step = reelStep(s.index, s.digit, digit, value < prev ? -1 : 1, faces);
+    if (step.snapped) place(el, "--d", step.from);
+    el.style.setProperty("--strip-ms", `${drumRollMs(step.steps)}ms`);
+    el.style.setProperty("--d", step.to);
+    s.index = step.to;
+    s.digit = digit;
+  }, [digit, value]);
+  const rolling = !!land?.faces;
+  const style = { "--d":st.current.init };
+  if (rolling) Object.assign(style, { "--s":land.start, "--e":land.end, "--land-ms":`${land.ms}ms`,
+    "--land-delay":`${land.delay}ms`, "--ov":(land.end > land.start ? 1 : -1) * REEL.overshoot });
+  return <span ref={ref} className={`fd-reel-strip${rolling ? " is-rolling" : ""}`} style={style}>
+    {Array.from({ length:faces }, (_, i) => <span key={i}>{i % 10}</span>)}
+  </span>;
+}
+
+/* One drum. Its angle accumulates (a count of 90 to 100 rolls the tens
+   drum forward one face, not back nine) and is written to the element in
+   a layout effect, so a StrictMode double render never turns it twice. A
+   landing drum rests on its last face and carries its spin from the first
+   in CSS (backglass.css fd-drum-land), like a flat window. */
+function DrumDigit({ digit, value, live, land, register, index }) {
+  const ref = useRef(null);
+  const st = useRef(null);
+  if (!st.current) st.current = { digit, value, angle:(land ? land.end : Number(digit)) * DRUM.faceDeg, timers:[], placed:false };
   useIsoLayoutEffect(() => {
     const el = ref.current, s = st.current;
     if (!el) return;
     if (!s.placed) {
       /* placed, not rolled, on mount */
       s.placed = true;
-      el.style.transition = "none";
-      el.style.setProperty("--a", `${s.angle}deg`);
-      void el.offsetWidth;
-      el.style.removeProperty("transition");
+      place(el, "--a", `${s.angle}deg`);
       return;
     }
     /* the whole number's change sets the way: a count up rolls forward,
@@ -81,6 +147,7 @@ function DrumDigit({ digit, value, register, index }) {
     const steps = drumSteps(s.digit, digit, direction);
     s.digit = digit;
     s.angle += steps * DRUM.faceDeg;
+    if (!live) { place(el, "--a", `${s.angle}deg`); return; }
     el.style.setProperty("--drum-ms", `${drumRollMs(steps)}ms`);
     el.style.setProperty("--a", `${s.angle}deg`);
   }, [digit, value]);
@@ -106,14 +173,26 @@ function DrumDigit({ digit, value, register, index }) {
   }, [register, index]);
   useEffect(() => () => st.current?.timers.forEach(clearTimeout), []);
   const cur = String(digit);
-  return <span className="fd-drum" ref={ref}>
+  const rolling = !!land?.faces;
+  return <span className={`fd-drum${rolling ? " is-rolling" : ""}`} ref={ref} style={rolling ? { "--a0":`${land.start * DRUM.faceDeg}deg`,
+    "--land-ms":`${land.ms}ms`, "--land-delay":`${land.delay}ms` } : undefined}>
     {[...DIGITS].map((d, i) => <span key={d} className={`fd-drum-face${d === cur ? " is-current" : ""}`}
       style={{ "--i":i }}>{d}</span>)}
   </span>;
 }
 
-export function ScoreReel({ value, tone = null, label = null, className = "", clack = false, drum = false, spin = false }) {
+export function ScoreReel({ value, tone = null, label = null, className = "", clack = false, drum = false, spin = false,
+  motion = "fresh", from = null, at = 0, landKey = null, slim = false }) {
   const n = Number(value) || 0;
+  const reduced = useReducedMotion();
+  /* the fresh gate: a change carried by a fresh frame opens a short window
+     in which this reel rolls (the count that follows the frame runs inside
+     it); any other change is placed */
+  const change = useFreshChange(n);
+  const liveUntil = useRef(0);
+  const gate = reelMotion({ motion, reduced, animate:change.animate, now:now(), liveUntil:liveUntil.current });
+  liveUntil.current = gate.liveUntil;
+  const live = gate.live;
   const last = useRef({ value:n, at:0 });
   useEffect(() => {
     const prev = last.current;
@@ -131,9 +210,19 @@ export function ScoreReel({ value, tone = null, label = null, className = "", cl
     return () => { if (drums.current.get(index) === api) drums.current.delete(index); };
   }).current;
   const flick = useRef(null);
+  /* a landing is fixed when it mounts (or when its key changes) */
+  const landing = useRef(null);
+  const landId = String(landKey ?? "");
+  if (from === null || from === undefined) landing.current = null;
+  else if (!landing.current || landing.current.id !== landId) {
+    const cells = reelLanding(from, n);
+    landing.current = { id:landId, cells, faces:reelStripFaces(cells) };
+  }
+  const land = landing.current;
   const spinnable = drum && spin;
   const text = `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")}`;
   const cells = [...text];
+  const digitCount = cells.filter(ch => /\d/.test(ch)).length;
   const spinAll = (speed, sign) => {
     const order = [...drums.current.keys()].sort((a, b) => a - b);
     const turns = flickTurns(speed);
@@ -164,20 +253,26 @@ export function ScoreReel({ value, tone = null, label = null, className = "", cl
       flick.current = null;
     },
   } : {};
+  const style = land ? { "--land-at":cssTime(at) } : undefined;
+  let digitAt = -1;
   return (
-    <span className={`fd-reel${drum ? " is-drum" : ""}${spinnable ? " is-spinnable" : ""}${tone ? ` is-${tone}` : ""}${className ? ` ${className}` : ""}`}
-      role="img" aria-label={label ?? text} {...handlers}>
+    <span className={`fd-reel${drum ? " is-drum" : ""}${spinnable ? " is-spinnable" : ""}${tone ? ` is-${tone}` : ""}${
+      slim ? " is-slim" : ""}${land ? " is-landing" : ""}${className ? ` ${className}` : ""}`}
+      role="img" aria-label={label ?? text} style={style} {...handlers}>
       {cells.map((ch, i) => {
-        const key = cells.length - i;
+        const key = `${land ? `${landId}:` : ""}${cells.length - i}`;
         if (!/\d/.test(ch)) return <span className="fd-reel-sep" key={`s${key}`} aria-hidden="true">{ch}</span>;
+        digitAt += 1;
+        /* a landing's windows line up with the value's digits; a digit
+           the value gained later is a live window */
+        const cell = land && land.cells.length === digitCount ? land.cells[digitAt] : null;
         return <span className="fd-reel-cell" key={`d${key}`} aria-hidden="true">
           {drum
-            ? <DrumDigit digit={ch} value={n} register={spinnable ? register : null} index={i} />
-            : <span className="fd-reel-strip" style={{ "--d":ch }}>
-                {[...DIGITS].map(d => <span key={d}>{d}</span>)}
-              </span>}
-          {/* sizes the cell to this digit's own width */}
-          <span className="fd-reel-sizer">{ch}</span>
+            ? <DrumDigit digit={ch} value={n} live={live} land={cell} register={spinnable ? register : null} index={i} />
+            : <StripDigit digit={ch} value={n} live={live} land={cell} faces={land ? land.faces : REEL.faces} />}
+          {/* sizes every window alike (a 0's width), so a digit rolling
+              over never changes the number's width */}
+          <span className="fd-reel-sizer">0</span>
         </span>;
       })}
     </span>

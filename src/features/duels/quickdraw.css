@@ -24,6 +24,8 @@
 .fd-qd-run.is-go { background:var(--lamp-live); }
 .fd-qd-go { color:var(--ink0); font:900 124px/1 var(--fd-marquee); }
 .fd-qd-mine { margin:8px 0 4px; color:var(--you); font:800 80px/1 var(--fd-display); text-shadow:0 0 18px color-mix(in srgb, var(--you) 45%, transparent); animation:si-flag .5s both; }
+.fd-qd-mine:not(.is-foul) { display:flex; align-items:center; justify-content:center; gap:.12em; }
+.fd-qd-mine .fd-reel { font-size:.7em; }
 .fd-qd-mine.is-foul { color:var(--clay-text); font-size:58px; text-shadow:none; }
 .fd-qd-board { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:360px; margin:26px 0; }
 .fd-qd-board:empty { display:none; }

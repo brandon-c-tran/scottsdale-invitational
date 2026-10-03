@@ -6,6 +6,7 @@ import { duelView, duelsOpen } from "./duelView.js";
 import "./quickdraw.css";
 import { useDuelClock } from "./useDuelClock.js";
 import { tapTick } from "../../lib/haptics.js";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { setQuickDrawHush } from "../../lib/sound.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -52,6 +53,8 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
   const serverRun = duel?.runs?.[me] && !duel.runs[me].played ? duel.runs[me] : null;
   const [local, setLocal] = useState("intro"); // intro | armed | go
   const [run, setRun] = useState(() => serverRun || readCaptured(duel?.id, me));
+  /* a draw made on this screen lands on its reel; one read back shows */
+  const drewNow = useRef(false);
   const [save, setSave] = useState({ status:serverRun ? "saved" : "idle", error:"" });
   const [busy, setBusy] = useState(null);
   const [actionError, setActionError] = useState("");
@@ -149,6 +152,7 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
     const reaction = local === "go" && flashAt.current
       ? reactionFor(performance.now() - flashAt.current) : FOUL;
     captured.current = reaction;
+    drewNow.current = true;
     storeCaptured(duel.id, me, reaction);
     setRun(reaction);
     setLocal("intro");
@@ -263,7 +267,8 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
         <Btn onClick={() => submit(captured.current)} style={BIG}>Send this draw again</Btn>
       </div>}
       <div className="fd-qd-label">Your draw</div>
-      <div className={`fd-qd-mine${run.foul ? " is-foul" : ""}`}>{run.foul ? "Foul" : `${run.ms} ms`}</div>
+      <div className={`fd-qd-mine${run.foul ? " is-foul" : ""}`} aria-label={run.foul ? "Foul" : `${run.ms} ms`}>{run.foul ? "Foul"
+        : <><ScoreReel value={run.ms} drum tone="you" label="" from={drewNow.current ? 0 : null} at={120} /> ms</>}</div>
       {run.foul && <p className="fd-qd-line is-strong">Too early.</p>}
       {save.status === "pending" && <p role="status" className="fd-qd-line" style={{ marginTop:10 }}>Saving your draw…</p>}
       {oppRun ? <div className="fd-qd-board">

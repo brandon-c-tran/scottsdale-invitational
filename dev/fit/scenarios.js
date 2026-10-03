@@ -372,6 +372,13 @@ function walkoutRecord(state, player, { mvp = false, cover = false } = {}) {
   return state;
 }
 
+/* the winning team's song, sung by a winner who is not the phone's viewer
+   (who the rehearsal crowns depends on the comebacks, so it is read back) */
+function teamWinSong(state, evId) {
+  const singer = (state.results?.[evId]?.slots?.[0] || []).find(player => player !== FIT_GUEST) || FIT_GM;
+  return walkoutRecord(state, singer, { cover:true });
+}
+
 /* flights saved on the guest's and the host's own profiles */
 function withFlights(state) {
   const set = (p, inLeg, outLeg) => { state.profiles[p] = { ...state.profiles[p], flightsBooked:true, flightIn:inLeg, flightOut:outLeg }; };
@@ -485,7 +492,7 @@ export const TV_SCENARIOS = Object.freeze([
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
   { id:"tv-walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), moment:{ kind:"walkout", t:3000, record:true } },
-  { id:"tv-walkout-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }),
+  { id:"tv-walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"),
     moment:{ kind:"walkout", t:3000, record:true } },
   { id:"tv-faceoff", build:() => fresh("event:pickleball:open"), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-faceoff-solo", build:() => bracketOf(13), moment:{ kind:"faceoff", t:5000 } },
@@ -498,7 +505,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },
   { id:"tv-nowplaying-mvp", build:() => walkoutRecord(fresh("event:pickleball:open"), "Jeremy", { mvp:true }), at:{ walkout:12000 } },
   { id:"tv-nowplaying-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), at:{ walkout:12000 } },
-  { id:"tv-nowplaying-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), at:{ walkout:12000 } },
+  { id:"tv-nowplaying-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), at:{ walkout:12000 } },
   /* team names at their longest on every board that letters them */
   { id:"tv-names-team", build:() => longNames(fresh("event:bball5:open"), "bball5") },
   { id:"tv-names-team4", build:() => longNames(fresh("event:volley:open"), "volley") },
@@ -506,7 +513,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-names-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball") },
   { id:"tv-names-podium", build:() => longNames(posted("event:bball5:open", "bball5"), "bball5"), at:{ result:3600 } },
   { id:"tv-names-faceoff", build:() => longNames(fresh("event:volley:open"), "volley"), moment:{ kind:"faceoff", t:5000 } },
-  { id:"tv-names-nowplaying", build:() => walkoutRecord(longNames(fresh("event:bball5:done"), "bball5"), "Brandon", { cover:true }),
+  { id:"tv-names-nowplaying", build:() => teamWinSong(longNames(fresh("event:bball5:done"), "bball5"), "bball5"),
     at:{ walkout:12000 } },
 ]);
 
@@ -598,7 +605,7 @@ export const PHONE_SCENARIOS = Object.freeze([
      both winning sides; another member's song plays): "walkout" lands the
      song on a fresh frame and holds the takeover once it has stamped */
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
-  { id:"walkout-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), settle:false, tabs:[],
+  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },
   /* naming your team: the card on Home (a team of seven, a team of three),
      writing your own, and the longest names on every phone board */

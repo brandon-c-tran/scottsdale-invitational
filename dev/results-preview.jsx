@@ -109,6 +109,11 @@ function receiptStates() {
   ];
   const after = structuredClone(before);
   after.results.nine = { slots:[[khoa], [me], [adi]], ts:FRI + H, revision:1 };
+  /* &bounty=1: you win Rage Cage with the leader in the field (v3.1) */
+  if (q.get("bounty")) {
+    after.eventOps.ragecage = { bounties:{ "ffa:ragecage:solo":{ players:[sahil], kind:"ffa", field:[...ROSTER], at:FRI + H } } };
+    after.results.ragecage = { slots:[[me], [khoa], [adi]], ts:FRI + H, revision:1 };
+  }
   return { before, after };
 }
 

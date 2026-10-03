@@ -352,13 +352,13 @@ mark "the chip, lit" and icon set; `npm run audit:fit` fit audit, 179 views
 clean; 23.5 s crown; champion card and big-bracket stage; PayoutLadder
 podium; no rules prose or "400 · 200 · 100" lines; Weekend as "the program"
 with drawn GameSteps (`src/features/rules/`, words in `rulesWords.js`, owner
-review at /dev/rules-review.html, not yet approved); state-driven event
+review at /dev/rules-review.html, approved Oct 3 with one edit; Gauntlet, Flip Cup and general basketball removed); state-driven event
 sheet with a separate Commissioner section; text sweep (/dev/copy-review.html);
 one menu system (`src/ui/Menu.jsx`, `director/menuModel.js`) with Skip in
 the pill's ⋯ tray; QA strip and `qaBets`; team walkouts; the star strip as
 one slot per event; Trivia as one four-team game; "Final" labels) is on
-STAGING as version `8c761dc8-826e-4c76-8164-61e2e3356599`: 834 tests, the
-fit audit and the 139-check local e2e pass. Uncommitted at deploy time;
+STAGING as version `ed47191a-ee72-4918-aec8-8b5b7044edc0` (commit `9044030`): 836 tests, the
+fit audit and the 139-check local e2e pass;
 production is unchanged. Local dev
 note: a stale `vite dev`/workerd left running holds `.wrangler/state` and
 makes every new dev server fail on its first `/ws` or `/api`; stop old ones.

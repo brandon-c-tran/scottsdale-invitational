@@ -35,7 +35,6 @@
 .fd-program-link { display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 4px; border:0; background:none;
   color:var(--lamp-info); font:600 15px/1.2 var(--fd-body); cursor:pointer; }
 .fd-program-head .fd-photo-add { margin-left:0; }
-.fd-program-trophy .fd-trophy { --plate-h:60px; }
 
 /* no photos yet: one window to put the first in */
 .fd-program-first-photo { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; width:100%;

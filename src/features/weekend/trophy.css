@@ -1,53 +1,144 @@
-/* The trophy: the turned cup on a stepped plinth, one tier per session and
-   one plate per event. Flat fills from the shared tokens; a blank plate is
-   dull metal, a posted one is bone engraved with its winners: their photo
-   chips and the name the room knows them by (in the green that means won),
-   never a jersey number. The plinth is dark turned metal, not a lamp
-   color: cyan is navigation only. Phone
-   sizes by default, TV sizes under .is-tv. Text never under 12px on the
-   phone or 24px on the TV, and every line box holds its descenders. */
-.fd-trophy { --trophy-base:color-mix(in srgb, var(--bone) 34%, var(--ink0));
-  --trophy-tier:color-mix(in srgb, var(--bone) 13%, var(--ink0)); --trophy-lip:color-mix(in srgb, var(--bone) 28%, var(--ink0));
-  --plate-h:64px; --plate-gap:5px; --tier-pad:6px; --name-font:14px; --winner-font:14px; --face-gap:-8px;
-  display:flex; flex-direction:column; align-items:center; width:100%; }
-.fd-trophy-plinth, .fd-trophy-plinth ol { list-style:none; margin:0; padding:0; }
-.fd-trophy-plinth { display:flex; flex-direction:column; align-items:center; width:100%; margin-top:calc(var(--cup, 150px) * -0.09); position:relative; }
-.fd-trophy-tier { width:calc(76% + var(--tier) * (24% / max(1, var(--tier-count) - 1))); padding:var(--tier-pad);
-  background:var(--trophy-tier); box-shadow:inset 0 3px 0 var(--trophy-lip);
-  border-left:1.5px solid var(--ink0); border-right:1.5px solid var(--ink0); }
-.fd-trophy-tier:last-child { border-bottom:1.5px solid var(--ink0); border-radius:0 0 6px 6px; }
-.fd-trophy-tier > ol { display:flex; gap:var(--plate-gap); }
-.fd-trophy-plate { flex:1 1 0; min-width:0; min-height:var(--plate-h); display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:3px; padding:4px 4px; border-radius:6px; text-align:center;
-  /* a blank plate is an unlit insert: frosted glass with no light behind
-     it yet, its centre a shade warmer, one glint along its top lip */
-  background:radial-gradient(ellipse 70% 80% at 50% 58%, color-mix(in srgb, var(--bone) 13%, var(--ink0)) 0,
-    color-mix(in srgb, var(--bone) 6%, var(--ink0)) 70%, color-mix(in srgb, var(--bone) 4%, var(--ink0)) 100%);
-  border:1.5px solid color-mix(in srgb, var(--bone) 16%, var(--ink0));
-  box-shadow:inset 0 1px 0 color-mix(in srgb, var(--bone) 14%, transparent), inset 0 -2px 0 color-mix(in srgb, var(--ink0) 70%, transparent); }
-.fd-trophy-plate.is-posted { background:var(--bone); color:var(--ink0); border-color:var(--ink0); box-shadow:none; }
-.fd-trophy-plate.is-posted .fd-trophy-winner { color:color-mix(in srgb, var(--green) 40%, var(--ink0)); }
-/* every plate lettered one way: as written (event names keep their digits'
-   case through EventName), never a mix of capitals and as-written plates */
-.fd-trophy-plate-name { max-width:100%; font:800 var(--name-font)/1.2 var(--fd-show); letter-spacing:.01em;
-  overflow-wrap:normal; text-wrap:balance; }
-.fd-trophy-win { display:flex; flex-direction:column; align-items:center; gap:3px; max-width:100%; min-width:0; }
-.fd-trophy-faces { flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-.fd-trophy-faces.is-overlap > svg + svg { margin-left:var(--face-gap); }
-.fd-trophy-winner { max-width:100%; font:900 var(--winner-font)/1.25 var(--fd-show); letter-spacing:.01em;
-  overflow-wrap:normal; text-wrap:balance; }
-/* a posted plate opens its event: the whole plate is the target */
-.fd-trophy-plate-open { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:100%; min-height:44px;
-  padding:0; border:0; background:none; color:inherit; font:inherit; text-align:center; cursor:pointer; border-radius:6px; }
-.fd-trophy-plate-open:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+/* The weekend's cup (Trophy.jsx TrophyCup): a gold cup whose cartouche
+   takes the champion, standing on a turned barrel of dark metal ringed in
+   bands, one band per session, each band a row of plates. The barrel reads
+   as a solid: a lit top face, rims that curve round it, light down its lit
+   side, its foot curving away. A blank plate is raised dark metal with the
+   event lightly cut; a posted plate is polished silver, its event and
+   winners engraved (ink with a lit lower lip, the way light catches a cut).
+   The event the live order runs next is outlined in bone, lit magenta
+   while it is in play. Colors only from tokens. Phone sizes by default,
+   TV sizes under .is-tv (canvas px, nothing under 24px); the phone 12px. */
 
-.fd-trophy.is-tv { --plate-h:124px; --plate-gap:12px; --tier-pad:12px 16px; --name-font:24px; --winner-font:28px; --face-gap:-14px; }
-.fd-trophy.is-tv .fd-trophy-plinth { width:1260px; }
-.fd-trophy.is-tv .fd-trophy-tier { box-shadow:inset 0 5px 0 var(--trophy-lip); padding-top:16px; }
-.fd-trophy.is-tv .fd-trophy-plate { gap:6px; padding:8px 14px; border-radius:6px; border-width:2px; }
-/* on the TV the chips and the name share one line under the event */
-.fd-trophy.is-tv .fd-trophy-win { flex-direction:row; gap:12px; }
-/* a pair or a long team name takes two lines rather than an ellipsis */
-.fd-trophy.is-tv .fd-trophy-winner { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
-  line-height:1.15; padding-bottom:.06em; text-align:left; overflow-wrap:normal; }
-.fd-trophy.is-tv .fd-trophy-plate-name { color:color-mix(in srgb, var(--ink0) 72%, var(--bone)); }
+.fd-cup {
+  --cup-metal:color-mix(in srgb, var(--bone) 13%, var(--ink0));
+  --cup-metal-edge:color-mix(in srgb, var(--bone) 4%, var(--ink0));
+  --cup-metal-lit:color-mix(in srgb, var(--silver) 34%, var(--ink0));
+  --cup-turned:linear-gradient(90deg, var(--cup-metal-edge) 0%, var(--cup-metal) 12%, var(--cup-metal-lit) 30%,
+    var(--cup-metal) 46%, var(--cup-metal) 78%, var(--cup-metal-edge) 100%);
+  --cup-rim:color-mix(in srgb, var(--silver) 62%, var(--ink0));
+  --cup-blank:linear-gradient(180deg, color-mix(in srgb, var(--silver) 24%, var(--ink0)),
+    color-mix(in srgb, var(--silver) 15%, var(--ink0)));
+  --cup-blank-edge:inset 0 1px 0 color-mix(in srgb, var(--bone) 20%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--ink0) 70%, transparent),
+    0 1px 0 color-mix(in srgb, var(--ink0) 80%, transparent);
+  --cup-silver:linear-gradient(180deg, color-mix(in srgb, var(--silver) 52%, var(--bone)) 0%, var(--silver) 52%,
+    color-mix(in srgb, var(--silver) 82%, var(--ink0)) 100%);
+  --cup-silver-edge:inset 0 1px 0 color-mix(in srgb, var(--bone) 75%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--ink0) 45%, transparent),
+    0 1px 0 var(--ink0);
+  --cup-cut-ink:var(--ink0);
+  --cup-cut-lip:0 1px 0 color-mix(in srgb, var(--bone) 62%, transparent);
+  --cup-radius:4px; --cup-face-gap:-8px; --cup-sag:8px; --cup-line:1.5px;
+  display:flex; flex-direction:column; align-items:center; width:100%; margin:0 auto; }
+:where(.fd-cup) ol { list-style:none; margin:0; padding:0; }
+
+/* ── the cup ── */
+.fd-cup-bowl { position:relative; width:min(72%, 280px); aspect-ratio:600 / 240; z-index:2; }
+.fd-cup-bowl-art { display:block; width:100%; height:100%; overflow:visible; }
+/* the cartouche on the bowl's face (box 600x240: x 170..430, y 72..184):
+   the finale's plate, polished gold with an engraved ring until the crown */
+.fd-cup-cartouche { position:absolute; left:28.33%; top:30%; width:43.33%; height:46.67%; border-radius:50%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:0 9%;
+  background:radial-gradient(80% 90% at 38% 30%, color-mix(in srgb, var(--sun) 80%, var(--bone)), var(--sun) 58%,
+    color-mix(in srgb, var(--sun) 80%, var(--ink0)));
+  box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--sun) 55%, var(--ink0)), inset 0 0 0 5px color-mix(in srgb, var(--sun) 50%, var(--bone)),
+    0 0 0 var(--cup-line) var(--ink0); }
+.fd-cup-cartouche.is-posted { background:var(--cup-silver); color:var(--cup-cut-ink);
+  box-shadow:inset 0 2px 0 color-mix(in srgb, var(--bone) 70%, transparent), inset 0 -2px 0 color-mix(in srgb, var(--ink0) 40%, transparent),
+    0 0 0 var(--cup-line) var(--ink0); }
+.fd-cup-champ { position:relative; z-index:1; max-width:100%; font:900 15px/1.12 var(--fd-show); text-align:center;
+  text-shadow:var(--cup-cut-lip); overflow-wrap:normal; text-wrap:balance; }
+.fd-cup-cartouche .fd-cup-faces { position:relative; z-index:1; }
+
+/* the collar: the cup's foot flaring onto the barrel's top face */
+.fd-cup-collar { display:block; position:relative; z-index:1; width:30%; height:8px; margin-top:-1px;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--sun) 40%, var(--ink0)), color-mix(in srgb, var(--sun) 60%, var(--bone)) 34%,
+    var(--sun) 52%, color-mix(in srgb, var(--sun) 50%, var(--ink0)));
+  border:var(--cup-line) solid var(--ink0); border-bottom:0; clip-path:polygon(14% 0, 86% 0, 100% 100%, 0 100%); }
+
+/* ── the barrel: turned dark metal, a lit top face, rims round it ── */
+.fd-cup-base { position:relative; z-index:0; width:100%; display:flex; flex-direction:column; gap:0;
+  margin-top:calc(var(--cup-sag) * -1); padding:calc(var(--cup-sag) * 2 + 2px) 0 calc(var(--cup-sag) + 6px);
+  background:var(--cup-turned); border:var(--cup-line) solid var(--ink0);
+  border-radius:50% 50% 50% 50% / calc(var(--cup-sag) + 2px) calc(var(--cup-sag) + 2px) calc(var(--cup-sag) * 2) calc(var(--cup-sag) * 2);
+  box-shadow:var(--shadow-2); }
+/* its top face, seen from a little above */
+.fd-cup-base::before { content:""; position:absolute; left:-1px; right:-1px; top:-1px; height:calc(var(--cup-sag) * 2 + 2px);
+  border-radius:50%; border:var(--cup-line) solid var(--ink0);
+  background:linear-gradient(90deg, var(--cup-metal), var(--cup-rim) 34%, color-mix(in srgb, var(--silver) 44%, var(--ink0)) 60%, var(--cup-metal)); }
+.fd-cup-band { position:relative; display:flex; flex-direction:column; gap:5px; padding:8px 6px 10px; }
+/* a rim turned round the barrel between bands: a curve, lowest in front */
+.fd-cup-band + .fd-cup-band::before { content:""; position:absolute; left:0; right:0; top:calc(var(--cup-sag) * -1.4);
+  height:calc(var(--cup-sag) * 2); border-radius:50%; border-bottom:2px solid var(--cup-rim);
+  box-shadow:0 2px 0 color-mix(in srgb, var(--ink0) 60%, transparent); pointer-events:none; }
+.fd-cup-session { position:relative; z-index:1; font:800 12px/1.2 var(--fd-show); text-transform:uppercase; letter-spacing:.08em;
+  color:var(--muted2); text-align:center; }
+.fd-cup-plates { position:relative; z-index:1; display:grid; gap:5px; }
+
+/* ── a plate ── */
+.fd-cup-plate { position:relative; min-width:0; min-height:58px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:3px; padding:6px 4px; border-radius:var(--cup-radius); text-align:center;
+  background:var(--cup-blank); box-shadow:var(--cup-blank-edge); }
+.fd-cup-plate.is-posted { background:var(--cup-silver); color:var(--cup-cut-ink); box-shadow:var(--cup-silver-edge); }
+.fd-cup-plate.is-next, .fd-cup-cartouche.is-next {
+  box-shadow:0 0 0 1.5px color-mix(in srgb, var(--bone) 60%, transparent), 0 0 14px color-mix(in srgb, var(--bone) 20%, transparent),
+    var(--cup-blank-edge); }
+.fd-cup-plate.is-live, .fd-cup-cartouche.is-live { box-shadow:var(--live-bloom), var(--cup-blank-edge); }
+.fd-cup-event { position:relative; z-index:1; max-width:100%; font:700 12px/1.15 var(--fd-show); letter-spacing:.01em;
+  color:var(--muted2); overflow-wrap:normal; text-wrap:balance; }
+.fd-cup-plate.is-posted .fd-cup-event { color:color-mix(in srgb, var(--ink0) 74%, var(--silver)); text-shadow:var(--cup-cut-lip); }
+.fd-cup-win { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:3px; max-width:100%; min-width:0; }
+.fd-cup-faces { flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.fd-cup-faces.is-overlap > svg + svg { margin-left:var(--cup-face-gap); }
+.fd-cup-winner { max-width:100%; font:900 13px/1.15 var(--fd-show); letter-spacing:.01em; text-shadow:var(--cup-cut-lip);
+  overflow-wrap:normal; text-wrap:balance; }
+
+/* a plate opens its event: the whole plate is the target */
+.fd-cup-plate-open { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  width:100%; min-height:46px; padding:0; border:0; background:none; color:inherit; font:inherit; text-align:center;
+  cursor:pointer; border-radius:var(--cup-radius); -webkit-tap-highlight-color:transparent; }
+.fd-cup-plate-open:focus-visible { outline:2px solid var(--lamp-info); outline-offset:4px; }
+.fd-cup-plate-open:active { transform:translateY(1px); }
+
+/* ── engraving: the blank metal gives way under a pass of light and the
+   names are cut in. Transform and opacity only; --cut-at is the start. ── */
+.fd-cup-cut { position:absolute; inset:0; z-index:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.fd-cup-cut.is-light { z-index:2; }
+.fd-cup-blank { position:absolute; inset:0; background:var(--cup-blank);
+  animation:fd-cup-unblank .5s var(--ease-out) calc(var(--cut-at, 0ms) + 480ms) both; }
+.fd-cup-cartouche .fd-cup-blank { background:var(--sun); }
+/* the light: a hard bright band, the way a lamp runs across polished metal */
+.fd-cup-sweep { position:absolute; top:-10%; bottom:-10%; left:-70%; width:70%;
+  background:linear-gradient(100deg, transparent 0 22%, color-mix(in srgb, var(--bone) 30%, transparent) 38%,
+    color-mix(in srgb, var(--bone) 78%, transparent) 48%, color-mix(in srgb, var(--bone) 24%, transparent) 56%, transparent 74%);
+  animation:fd-cup-sweep 1.1s cubic-bezier(.45,.05,.35,1) var(--cut-at, 0ms) both; }
+.is-engraving > .fd-cup-win, .is-engraving > .fd-cup-plate-open > .fd-cup-win,
+.is-engraving > .fd-cup-faces, .is-engraving > .fd-cup-champ {
+  animation:fd-cup-cut-in .42s var(--ease-out) calc(var(--cut-at, 0ms) + 560ms) both; }
+@keyframes fd-cup-unblank { from { opacity:1; } to { opacity:0; } }
+@keyframes fd-cup-sweep { from { transform:translateX(0); } to { transform:translateX(250%); } }
+@keyframes fd-cup-cut-in { from { opacity:0; transform:translateY(5px) scale(.97); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) {
+  .fd-cup-cut { display:none; }
+  .is-engraving > .fd-cup-win, .is-engraving > .fd-cup-plate-open > .fd-cup-win,
+  .is-engraving > .fd-cup-faces, .is-engraving > .fd-cup-champ { animation:none; }
+}
+
+/* ── the TV: canvas pixels, sized by cupTvLayout ── */
+.fd-cup.is-tv { --cup-radius:6px; --cup-face-gap:-14px; --cup-sag:16px; --cup-line:2.5px; flex-shrink:0; }
+.fd-cup.is-tv .fd-cup-bowl { width:600px; height:240px; aspect-ratio:auto; }
+.fd-cup.is-tv .fd-cup-cartouche { gap:4px; padding:0 16px; }
+.fd-cup.is-tv .fd-cup-cartouche.is-next { box-shadow:0 0 0 3px color-mix(in srgb, var(--bone) 60%, transparent),
+  0 0 26px color-mix(in srgb, var(--bone) 24%, transparent); }
+.fd-cup.is-tv .fd-cup-champ { font-size:40px; line-height:1.1; padding-bottom:.04em; }
+.fd-cup.is-tv .fd-cup-collar { width:200px; height:24px; }
+.fd-cup.is-tv .fd-cup-band { flex-direction:row; align-items:center; gap:0; padding:0 var(--cup-pad); }
+.fd-cup.is-tv .fd-cup-band + .fd-cup-band { margin-top:var(--cup-rim); }
+.fd-cup.is-tv .fd-cup-band + .fd-cup-band::before { top:calc(var(--cup-rim) * -1 - var(--cup-sag) * 1.6); border-bottom-width:3px; }
+.fd-cup.is-tv .fd-cup-session { width:var(--cup-label); flex-shrink:0; padding:0 16px 0 8px; font-size:28px; line-height:1.15;
+  letter-spacing:.06em; text-align:left; }
+.fd-cup.is-tv .fd-cup-plates { gap:var(--cup-gap); }
+.fd-cup.is-tv .fd-cup-plate { min-height:0; gap:6px; padding:0 16px; border-radius:6px; }
+.fd-cup.is-tv .fd-cup-plate.is-next { box-shadow:0 0 0 2px color-mix(in srgb, var(--bone) 60%, transparent),
+  0 0 22px color-mix(in srgb, var(--bone) 22%, transparent), var(--cup-blank-edge); }
+.fd-cup.is-tv .fd-cup-event { font-size:24px; line-height:1.15; font-weight:800; }
+.fd-cup.is-tv .fd-cup-win { flex-direction:row; gap:12px; }
+.fd-cup.is-tv .fd-cup-winner { line-height:1.12; padding-bottom:.04em; text-align:left; white-space:nowrap; }

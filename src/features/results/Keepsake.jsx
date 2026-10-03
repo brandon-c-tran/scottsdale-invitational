@@ -6,7 +6,7 @@ import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
-import { TrophyHero } from "../weekend/Trophy.jsx";
+import { TrophyCup, TrophyHero } from "../weekend/Trophy.jsx";
 import { LastCardFace } from "./LastCard.jsx";
 import { chartModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage, shareCardImages } from "./cardImage.js";
@@ -213,7 +213,7 @@ function SaveAllCards({ state, cards }) {
   </>;
 }
 
-export function Keepsake({ state, events, standings, me, gm = false, onPlayer, onBracket, photos = null }) {
+export function Keepsake({ state, events, standings, me, gm = false, onPlayer, onBracket, onPlate = null, photos = null }) {
   const model = useMemo(() => keepsakeModel(state, { events, standings }), [state, events, standings]);
   const [open, setOpen] = useState(null);
   if (!model) return null;
@@ -246,6 +246,11 @@ export function Keepsake({ state, events, standings, me, gm = false, onPlayer, o
         {lead.leaders.map(p => <PlayerChip key={p} state={state} p={p} size={26} onPlayer={onPlayer} named />)}
       </div>}
     </section>}
+
+    <section className="fd-kept-section fd-kept-cup" aria-labelledby="fd-kept-trophy">
+      <SectionHead id="fd-kept-trophy" title="Trophy" />
+      <TrophyCup state={state} events={events} onPlate={onPlate} />
+    </section>
 
     <section className="fd-kept-section" aria-labelledby="fd-kept-events">
       <SectionHead id="fd-kept-events" title="Events" detail={`${model.posted} of ${model.plates.length}`} />

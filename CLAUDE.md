@@ -49,7 +49,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and no WebGL, a failed load, a lost context or a slow TV falls back to the flat
   board for the session. `DesertBand` is the paper-cut backdrop by session phase
   (`--desert-*` tokens mixed from existing ones) with a star per winner from
-  Saturday night; `weekend/Trophy.jsx` shows a plate per posted event.
+  Saturday night; `weekend/Trophy.jsx` is the weekend's cup (one band per session, a
+  plate per event engraved as it posts, the champion on the cup).
   `features/director/` owns the commissioner pill
   model and the finale sheets. The player card tilts (`useRisoTilt`, never an
   iOS motion prompt), the identity chip is a spinnable `ChipCoin`, and

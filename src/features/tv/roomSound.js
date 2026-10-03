@@ -38,6 +38,8 @@
          clock like the blinds)
      stamp  a team takes a new name (features/teams): its card re-letters,
          one stamp at the name's own write time
+     engrave  the cup's trophy turn after a result: the new winners are cut
+         into their plate, one sound on the turn's clock (engraveCues)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -424,6 +426,21 @@ export function walkoutCues(plan) {
     { id:"stinger", at:Number(plan.anchor) + Number(plan.stamp || 0), key:`${key}:stinger`, open:true },
     { id:"stamp", at:Number(plan.anchor) + Number(plan.stamp || 0) + 40, key:`${key}:stamp`, open:true },
   ];
+}
+
+/* The cup's engraving on its trophy turn (trophy.js cupEngravings): one
+   sound as the first name is cut, however many plates take theirs. On the
+   turn's server clock, so a TV that joins after the cut stays quiet. */
+export function engraveCues(plan = [], cut = 0) {
+  const first = plan[0];
+  if (!first || !Number.isFinite(Number(first.at))) return [];
+  return [{ id:"engrave", at:Number(first.at) + Number(cut || 0), key:`engrave:${plan.map(item => item.key).join("|")}` }];
+}
+export function useEngraveSound(plan = [], cut = 0) {
+  const id = plan.map(item => item.key).join("|");
+  useEffect(() => {
+    if (id) playCues(engraveCues(plan, cut));
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /* The fresh gate: the first snapshot (a load, a TV joining late) and any

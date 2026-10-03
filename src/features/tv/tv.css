@@ -481,9 +481,6 @@
 .tv-card { border-radius:14px; background:var(--tv-glass); border:1px solid var(--line); }
 .tv-qr { padding:24px; border-radius:14px; background:var(--bone); text-align:center; }
 .tv-qr img { width:360px; display:block; image-rendering:pixelated; }
-.tv-trophy-stage { flex:1; min-height:0; display:flex; align-items:flex-start; justify-content:center; padding:18px 0;
-  border-radius:18px; background:var(--tv-glass); }
-.tv-trophy-pane .fd-trophy.is-tv { --plate-h:96px; --tier-pad:10px 16px; }
 
 .tv-roster-pane { gap:36px; }
 .tv-roster-head { gap:22px; }
@@ -787,3 +784,6 @@
 .tv-canvas .tv-awards { margin:20px 40px 28px; border-radius:18px; background:var(--tv-glass); border:1px solid var(--line);
   box-shadow:var(--glass-edge), var(--shadow-2); }
 .tv-canvas .tv-awards-title { font-family:var(--fd-show); font-weight:900; text-transform:none; letter-spacing:.01em; line-height:1.1; }
+
+/* the trophy's turn: the cup stands on the painting, nothing over it */
+.tv-trophy-pane { align-items:center; justify-content:flex-start; padding-top:4px; padding-bottom:0; }

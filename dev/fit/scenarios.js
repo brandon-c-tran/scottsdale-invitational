@@ -402,6 +402,15 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-ambient-next", build:() => fresh("session:fri"), at:{ turn:1 } },
   { id:"tv-ambient-latest", build:() => fresh("session:fri"), at:{ turn:2 } },
   { id:"tv-ambient-trophy", build:() => fresh("session:sam"), at:{ turn:3 } },
+  /* the cup through the weekend: two plates in, seven, every team named at
+     its longest, the crowned cup, and a plate being engraved on its turn
+     (engrave: ms into the cut when it mounts; the still is 900ms later) */
+  { id:"tv-trophy-early", build:() => fresh("event:die:done"), at:{ turn:3 } },
+  { id:"tv-trophy-mid", build:() => fresh("event:volley:done"), at:{ turn:3 } },
+  { id:"tv-trophy-names", build:() => ["die", "bball5", "pickleball", "volley", "trivia"]
+    .reduce((state, evId) => longNames(state, evId), fresh("event:trivia:done")), at:{ turn:3 } },
+  { id:"tv-trophy-crowned", build:() => fresh("crowned"), at:{ crown:"trophy" } },
+  { id:"tv-trophy-engrave", build:() => fresh("event:volley:done"), at:{ turn:3, engrave:-400 } },
   { id:"tv-ticker-1", build:() => fresh("session:sam"), at:{ turn:0, tick:1 } },
   { id:"tv-ticker-2", build:() => fresh("session:sam"), at:{ turn:0, tick:2 } },
   { id:"tv-intro", build:() => fresh("locker"), ceremony:{ intro:"putt" } },

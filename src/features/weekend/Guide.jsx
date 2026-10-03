@@ -7,7 +7,7 @@ import { EventName } from "../../ui/OneSafe.jsx";
 import { Sheet } from "../../ui/controls.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
 import { isStandalone } from "../check-in/install.js";
-import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
+import { TrophyCup, trophyCup } from "./Trophy.jsx";
 import { Keepsake } from "../results/Keepsake.jsx";
 import { PhotoDesk, PhotoAddButton, usePhotoAdd } from "../photos/PhotoDesk.jsx";
 import { PhotoGrid } from "../photos/PhotoGrid.jsx";
@@ -81,21 +81,22 @@ export function Guide({ events, state, me, onProfile, GameMark, standings, gm = 
   const cover = programCover(st, events);
   const kept = cover.mode === "kept";
   const [sheet, setSheet] = useState(null);
-  const plates = trophyPlates(st, events);
-  const posted = plates.filter(plate => plate.posted).length;
+  const cup = trophyCup(st, events);
   const tiles = hasAwards(st) ? [...TILES, ["awards", "Awards"]] : TILES;
   const eventOf = id => events.find(ev => ev.id === id);
+  const openPlate = onEvent ? id => { const ev = eventOf(id); if (ev) onEvent(ev); } : null;
   const close = () => setSheet(null);
 
   return <div className="fd-weekend fd-program">
     {kept
-      ? <Keepsake state={st} events={events} standings={standings} me={me} gm={gm} onPlayer={onPlayer} onBracket={onBracket} photos={photos} />
+      ? <Keepsake state={st} events={events} standings={standings} me={me} gm={gm} onPlayer={onPlayer} onBracket={onBracket} photos={photos}
+        onPlate={openPlate} />
       : <ProgramCover cover={cover} GameMark={GameMark} onEvent={onEvent} />}
 
     {!kept && <section className="fd-program-section fd-program-trophy" aria-labelledby="fd-program-trophy">
       <div className="fd-program-head"><h2 id="fd-program-trophy">Trophy</h2>
-        {posted > 0 && <span className="fd-program-count">{posted} of {plates.length}</span>}</div>
-      <TrophyPlates state={st} events={events} cup={112} onPlate={onEvent ? id => { const ev = eventOf(id); if (ev) onEvent(ev); } : null} />
+        {cup.posted > 0 && <span className="fd-program-count">{cup.posted} of {cup.total}</span>}</div>
+      <TrophyCup state={st} events={events} cup={cup} onPlate={openPlate} />
     </section>}
 
     <ProgramPhotos state={st} me={me} gm={gm} onPlayer={onPlayer} onAll={() => setSheet("photos")} />

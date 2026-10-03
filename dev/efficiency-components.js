@@ -5790,6 +5790,17 @@ var init_soundKit = __esm({
           M.knock(E, t + 0.01, { gain: 0.5, pitch: 0.9 });
         }
       },
+      /* a name cut into the cup: the graver's quick strokes, then the metal rings */
+      {
+        id: "engrave",
+        name: "A plate engraves",
+        ms: 1600,
+        play: (E, t) => {
+          for (let i = 0; i < 5; i++) M.tick(E, t + i * 0.055, { gain: 0.32, pitch: 1.35 + i * 0.04 });
+          M.bell(E, t + 0.3, NOTE.D6, { gain: 0.32, dec: 1.6, send: 0.3 });
+          M.bell(E, t + 0.3, NOTE.A5, { gain: 0.24, dec: 1.9, send: 0.3 });
+        }
+      },
       /* ── "You're up" on a competitor's phone: two notes, low then high ── */
       {
         id: "youUp",
@@ -8506,10 +8517,46 @@ var init_InstallHint = __esm({
   }
 });
 
+// src/features/weekend/programModel.js
+var init_programModel = __esm({
+  "src/features/weekend/programModel.js"() {
+    init_core();
+    init_prompts();
+  }
+});
+
 // src/features/weekend/trophy.js
+var SESSION_LABEL, ENGRAVE, CUP_TV;
 var init_trophy = __esm({
   "src/features/weekend/trophy.js"() {
     init_core();
+    init_teamNames();
+    init_programModel();
+    SESSION_LABEL = Object.fromEntries(SESSIONS.map((session) => [session.id, session.label]));
+    ENGRAVE = Object.freeze({ lead: 900, stagger: 700, sweep: 1100, cut: 520, settle: 600 });
+    CUP_TV = Object.freeze({
+      width: 1480,
+      label: 196,
+      pad: 12,
+      gap: 12,
+      rim: 6,
+      sag: 16,
+      line: 3,
+      top: 34,
+      foot: 27,
+      platePad: 10,
+      bowl: Object.freeze({ width: 600, height: 240, cartouche: Object.freeze({ width: 260, height: 112 }) }),
+      collar: 24,
+      height: 796,
+      plate: Object.freeze({
+        face: 44,
+        overlap: 14,
+        padX: 16,
+        gapX: 12,
+        event: 24,
+        name: Object.freeze({ max: 32, min: 28, two: 26, floor: 24 })
+      })
+    });
   }
 });
 
@@ -8520,15 +8567,18 @@ var init_trophy2 = __esm({
 });
 
 // src/features/weekend/Trophy.jsx
-import React44 from "react";
+import React44, { useEffect as useEffect27, useId as useId5, useLayoutEffect as useLayoutEffect11, useState as useState32 } from "react";
+var BOWL_BOX, ENGRAVE_MS;
 var init_Trophy = __esm({
   "src/features/weekend/Trophy.jsx"() {
-    init_core();
     init_PlayerIdentity();
-    init_tvModel();
     init_OneSafe();
+    init_motion();
+    init_programModel();
     init_trophy();
     init_trophy2();
+    BOWL_BOX = Object.freeze({ w: 600, h: 240 });
+    ENGRAVE_MS = ENGRAVE.sweep + ENGRAVE.settle;
   }
 });
 
@@ -8653,7 +8703,7 @@ var init_travel = __esm({
 });
 
 // src/features/travel/Travel.jsx
-import React50, { useState as useState37 } from "react";
+import React50, { useState as useState38 } from "react";
 function TravelMap() {
   const arc = (c) => {
     const mx = (c.x + TRAVEL_DEST.x) / 2;
@@ -9085,14 +9135,14 @@ var init_teams = __esm({
 });
 
 // src/features/teams/RenameText.jsx
-import React53, { useEffect as useEffect31, useLayoutEffect as useLayoutEffect11, useState as useState40 } from "react";
+import React53, { useEffect as useEffect32, useLayoutEffect as useLayoutEffect12, useState as useState41 } from "react";
 function RenameText({ name, as: Tag2 = "span", className = "", style, children }) {
   const change = useFreshChange(name);
-  const [flash, setFlash] = useState40(0);
-  useLayoutEffect11(() => {
+  const [flash, setFlash] = useState41(0);
+  useLayoutEffect12(() => {
     if (change.animate) setFlash(change.changeId);
   }, [change.changeId]);
-  useEffect31(() => {
+  useEffect32(() => {
     if (!flash) return void 0;
     const timer = setTimeout(() => setFlash(0), RELETTER_MS + 200);
     return () => clearTimeout(timer);
@@ -9147,7 +9197,7 @@ var init_wagers = __esm({
 });
 
 // src/features/wagers/Wagers.jsx
-import React55, { useEffect as useEffect32, useLayoutEffect as useLayoutEffect12, useMemo as useMemo9, useRef as useRef34, useState as useState41 } from "react";
+import React55, { useEffect as useEffect33, useLayoutEffect as useLayoutEffect13, useMemo as useMemo9, useRef as useRef34, useState as useState42 } from "react";
 function wagerPickLabel(state, w, events) {
   const ev = events.find((e) => e.id === w.eventId);
   const evName = ev?.name || "removed event";
@@ -9200,12 +9250,12 @@ function MarketPick({
   lines = 2,
   named = false
 }) {
-  const [pendingAction, setPendingAction] = useState41(null);
-  const [actionError, setActionError] = useState41(null);
-  const [checking, setChecking] = useState41(null);
+  const [pendingAction, setPendingAction] = useState42(null);
+  const [actionError, setActionError] = useState42(null);
+  const [checking, setChecking] = useState42(null);
   const pendingRef = useRef34(false);
   const pendingKindRef = useRef34(null), queueRef = useRef34([]);
-  const [queued, setQueued] = useState41(0);
+  const [queued, setQueued] = useState42(0);
   const wellRef = useRef34(null), mineRef = useRef34(null), flightRef = useRef34(null);
   const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
@@ -9220,17 +9270,17 @@ function MarketPick({
   const sideTotal = mineTotal + stacksTotal(otherStacks);
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
   const shownTotal = useRef34(mineTotal);
-  useEffect32(() => {
+  useEffect33(() => {
     if (shownTotal.current === mineTotal) return;
     shownTotal.current = mineTotal;
     setActionError(null);
   }, [mineTotal]);
   const alive = useRef34(true);
-  useEffect32(() => () => {
+  useEffect33(() => () => {
     alive.current = false;
     flightRef.current?.cancel();
   }, []);
-  useEffect32(() => {
+  useEffect33(() => {
     if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal)) {
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
@@ -9392,7 +9442,7 @@ function MarketPick({
   };
   const busyKind = pendingAction || checking?.kind || null;
   const everyone = orderStacks([...otherStacks, ...mineTotal > 0 ? [{ player: me, stake: mineTotal }] : []]);
-  const [listOpen, setListOpen] = useState41(false);
+  const [listOpen, setListOpen] = useState42(false);
   const showWell = !unavailableReason && marketOpen && players.length > 0;
   const shownRows = lines === 1 ? [] : backerRows(everyone, me);
   const more = everyone.length - shownRows.length;
@@ -9600,7 +9650,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   const mineRef = useRef34(null);
   useStageHold(`bets:held:${held.id}`, true);
   const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
-  useEffect32(() => {
+  useEffect33(() => {
     if (!me || paid <= 0) return void 0;
     const timer = setTimeout(() => {
       const svg = mineRef.current?.querySelector(".fd-stack > svg");
@@ -9687,7 +9737,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label2 = wagerPickLabel(state, w, events);
   const win = wagerMult(w) * w.stake;
-  const [confirming, setConfirming] = useState41(false), [voiding, setVoiding] = useState41(false);
+  const [confirming, setConfirming] = useState42(false), [voiding, setVoiding] = useState42(false);
   const voidBusy = useRef34(false);
   const ids = w.ids || [w.id];
   const voidable = gm && manage && r.status === "pending" && !!onVoid;
@@ -9791,18 +9841,18 @@ function Wagers({
   openSettled = false,
   onSettledSeen
 }) {
-  const [settledOpen, setSettledOpen] = useState41(() => openSettled && me ? `st:${me}` : null);
-  const [settledShown, setSettledShown] = useState41(!!openSettled);
+  const [settledOpen, setSettledOpen] = useState42(() => openSettled && me ? `st:${me}` : null);
+  const [settledShown, setSettledShown] = useState42(!!openSettled);
   const settledRef = useRef34(null);
-  useEffect32(() => {
+  useEffect33(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
     settledRef.current?.scrollIntoView?.({ block: "start" });
     onSettledSeen?.();
   }, [openSettled]);
-  const [denom, setDenom] = useState41(PT);
-  const [manage, setManage] = useState41(false);
+  const [denom, setDenom] = useState42(PT);
+  const [manage, setManage] = useState42(false);
   const resolved = useMemo9(
     () => (state.wagers || []).map((w) => ({ w, r: resolveWager(state, w, events) })),
     [state, events]
@@ -9827,7 +9877,7 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect32(() => {
+  useEffect33(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
@@ -9890,10 +9940,10 @@ function Wagers({
   const boardChange = useFreshChange(boardKey);
   const frame2 = useMotionFrame();
   const watched = useRef34(null);
-  const [settling, setSettling] = useState41(null);
-  const [held, setHeld] = useState41(null);
-  const [dealing, setDealing] = useState41(0);
-  useLayoutEffect12(() => {
+  const [settling, setSettling] = useState42(null);
+  const [held, setHeld] = useState42(null);
+  const [dealing, setDealing] = useState42(0);
+  useLayoutEffect13(() => {
     const prev = watched.current;
     watched.current = ev && contest ? { ev, contest, winSlot, label: contest.kind === "ffa" ? ev.name || "Winner" : contest.label } : null;
     if (!boardChange.fresh || !prev || prev.contest.id === contest?.id) return;
@@ -9912,20 +9962,20 @@ function Wagers({
     setHeld(null);
     setDealing((value) => value + 1);
   };
-  useEffect32(() => {
+  useEffect33(() => {
     if (!held) return void 0;
     const timer = setTimeout(endHold, MOTION.settleHold);
     return () => clearTimeout(timer);
   }, [held?.id]);
-  useEffect32(() => {
+  useEffect33(() => {
     if (held && (!heldView || frame2.correction)) setHeld(null);
   }, [held?.id, !!heldView, frame2.seq]);
-  useEffect32(() => {
+  useEffect33(() => {
     if (!dealing) return void 0;
     const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
     return () => clearTimeout(timer);
   }, [dealing]);
-  useEffect32(() => {
+  useEffect33(() => {
     if (!settling) return void 0;
     const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
     return () => clearTimeout(timer);
@@ -10059,7 +10109,7 @@ var init_Wagers = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React56, { useCallback as useCallback3, useEffect as useEffect33, useRef as useRef35, useState as useState42 } from "react";
+import React56, { useCallback as useCallback3, useEffect as useEffect34, useRef as useRef35, useState as useState43 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -10087,13 +10137,13 @@ function PhotoCropper({
   const stageRef = useRef35(null);
   const imageRef = useRef35(null);
   const dragRef = useRef35(null);
-  const [image, setImage] = useState42(null);
-  const [stageSize, setStageSize] = useState42(0);
-  const [view, setView] = useState42({ zoom: 1, x: 0, y: 0 });
-  const [status, setStatus] = useState42("loading");
-  const [error, setError] = useState42("");
+  const [image, setImage] = useState43(null);
+  const [stageSize, setStageSize] = useState43(0);
+  const [view, setView] = useState43({ zoom: 1, x: 0, y: 0 });
+  const [status, setStatus] = useState43("loading");
+  const [error, setError] = useState43("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect33(() => {
+  useEffect34(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -10106,7 +10156,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect33(() => {
+  useEffect34(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -10142,10 +10192,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect33(() => {
+  useEffect34(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect33(() => {
+  useEffect34(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -10568,7 +10618,7 @@ var init_PhotoCropper = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React57, { useEffect as useEffect34, useId as useId5, useRef as useRef36, useState as useState43 } from "react";
+import React57, { useEffect as useEffect35, useId as useId6, useRef as useRef36, useState as useState44 } from "react";
 function ProfileEditor({
   state,
   me,
@@ -10586,8 +10636,8 @@ function ProfileEditor({
 }) {
   const identity = usePlayerIdentity(me);
   const fileRef = useRef36(null);
-  const numberErrorId = useId5();
-  const [cropSource, setCropSource] = useState43(null);
+  const numberErrorId = useId6();
+  const [cropSource, setCropSource] = useState44(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
   const takenBy = num !== "" ? Object.entries(state.profiles || {}).find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
@@ -10657,7 +10707,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const lateClaim = !!state.live && !mine.color;
   const locked = !!state.live && !lateClaim;
   const { skin: savedSkin } = usePlayerIdentity(me);
-  const [draftSkin, setDraftSkin] = useState43(null);
+  const [draftSkin, setDraftSkin] = useState44(null);
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
   const patterns = /* @__PURE__ */ React57.createElement(
     PatternPicker,
@@ -10670,8 +10720,8 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     }
   );
   const wasLate = useRef36(lateClaim);
-  const [justClaimed, setJustClaimed] = useState43(false);
-  useEffect34(() => {
+  const [justClaimed, setJustClaimed] = useState44(false);
+  useEffect35(() => {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
@@ -10853,7 +10903,7 @@ var init_walkoutTeam = __esm({
 });
 
 // src/features/moments/walkout.js
-import { useEffect as useEffect38, useRef as useRef40, useState as useState46 } from "react";
+import { useEffect as useEffect39, useRef as useRef40, useState as useState47 } from "react";
 var WALKOUT_TIMING;
 var init_walkout = __esm({
   "src/features/moments/walkout.js"() {
@@ -10932,7 +10982,7 @@ var init_geo2 = __esm({
 });
 
 // src/features/geo/GeoMap.jsx
-import React73, { useEffect as useEffect49, useRef as useRef50, useState as useState57 } from "react";
+import React73, { useEffect as useEffect50, useRef as useRef50, useState as useState58 } from "react";
 var init_GeoMap = __esm({
   "src/features/geo/GeoMap.jsx"() {
     init_geo2();
@@ -10940,7 +10990,7 @@ var init_GeoMap = __esm({
 });
 
 // src/features/geo/Wheel.jsx
-import React74, { useEffect as useEffect50, useLayoutEffect as useLayoutEffect16, useRef as useRef51, useState as useState58 } from "react";
+import React74, { useEffect as useEffect51, useLayoutEffect as useLayoutEffect17, useRef as useRef51, useState as useState59 } from "react";
 var ROWS, CENTER2;
 var init_Wheel = __esm({
   "src/features/geo/Wheel.jsx"() {
@@ -10962,7 +11012,7 @@ var init_geoModel = __esm({
 });
 
 // src/features/geo/WhenPicker.jsx
-import React75, { useEffect as useEffect51, useMemo as useMemo13 } from "react";
+import React75, { useEffect as useEffect52, useMemo as useMemo13 } from "react";
 var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
 var init_WhenPicker = __esm({
   "src/features/geo/WhenPicker.jsx"() {
@@ -10976,7 +11026,7 @@ var init_WhenPicker = __esm({
 });
 
 // src/features/geo/PlaceSearch.jsx
-import React76, { useEffect as useEffect52, useRef as useRef52, useState as useState59 } from "react";
+import React76, { useEffect as useEffect53, useRef as useRef52, useState as useState60 } from "react";
 var init_PlaceSearch = __esm({
   "src/features/geo/PlaceSearch.jsx"() {
     init_haptics();
@@ -11027,7 +11077,7 @@ var init_speakerModel = __esm({
 });
 
 // src/features/speaker/speakerStatus.js
-import { useEffect as useEffect57, useSyncExternalStore as useSyncExternalStore6 } from "react";
+import { useEffect as useEffect58, useSyncExternalStore as useSyncExternalStore6 } from "react";
 var init_speakerStatus = __esm({
   "src/features/speaker/speakerStatus.js"() {
     init_client();
@@ -11067,7 +11117,7 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React84, { useEffect as useEffect58, useRef as useRef58, useState as useState64 } from "react";
+import React84, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
 function InvitationArt() {
   return /* @__PURE__ */ React84.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React84.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React84.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React84.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React84.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React84.createElement("span", null, "Field"), /* @__PURE__ */ React84.createElement("span", null, "Day"))), /* @__PURE__ */ React84.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React84.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React84.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React84.createElement("span", null, /* @__PURE__ */ React84.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React84.createElement("small", null, "Players"))), /* @__PURE__ */ React84.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React84.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React84.createElement("span", null, /* @__PURE__ */ React84.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React84.createElement("br", null), EDITION.year)));
 }
@@ -11095,21 +11145,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState64(me || null);
-  const [ratings, setRatings] = useState64({});
-  const [display, setDisplay] = useState64("");
-  const [photo, setPhoto] = useState64(null);
-  const [num, setNum] = useState64("");
-  const [size, setSize] = useState64(null);
-  const [flightsBooked, setFlightsBooked] = useState64(null);
-  const [flightIn, setFlightIn] = useState64(null);
-  const [flightOut, setFlightOut] = useState64(null);
-  const [busy, setBusy] = useState64(false);
-  const [error, setError] = useState64("");
+  const [selected, setSelected] = useState65(me || null);
+  const [ratings, setRatings] = useState65({});
+  const [display, setDisplay] = useState65("");
+  const [photo, setPhoto] = useState65(null);
+  const [num, setNum] = useState65("");
+  const [size, setSize] = useState65(null);
+  const [flightsBooked, setFlightsBooked] = useState65(null);
+  const [flightIn, setFlightIn] = useState65(null);
+  const [flightOut, setFlightOut] = useState65(null);
+  const [busy, setBusy] = useState65(false);
+  const [error, setError] = useState65("");
   const submit = useRef58(createCheckInSubmission());
   const heading = useRef58(null);
   const hydratedPlayer = useRef58(null);
-  useEffect58(() => {
+  useEffect59(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -11122,7 +11172,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect58(() => {
+  useEffect59(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -13409,7 +13459,7 @@ init_controls();
 init_InstallHint();
 init_install();
 init_Trophy();
-import React52, { useRef as useRef33, useState as useState39 } from "react";
+import React52, { useRef as useRef33, useState as useState40 } from "react";
 
 // src/features/results/Keepsake.jsx
 init_core();
@@ -13420,7 +13470,7 @@ init_playerIdentity();
 init_PlayerPass();
 init_CompetitionBracket();
 init_Trophy();
-import React47, { useEffect as useEffect29, useMemo as useMemo8, useRef as useRef30, useState as useState34 } from "react";
+import React47, { useEffect as useEffect30, useMemo as useMemo8, useRef as useRef30, useState as useState35 } from "react";
 
 // src/features/results/LastCard.jsx
 init_core();
@@ -13431,7 +13481,7 @@ init_motion();
 init_useRisoTilt();
 init_serverClock();
 init_lastCard();
-import React46, { useEffect as useEffect28, useMemo as useMemo7, useRef as useRef29, useState as useState33 } from "react";
+import React46, { useEffect as useEffect29, useMemo as useMemo7, useRef as useRef29, useState as useState34 } from "react";
 
 // src/features/results/cardImage.js
 init_lastCard();
@@ -13446,7 +13496,7 @@ init_crownTiming();
 init_sound();
 
 // src/features/results/SavePoster.jsx
-import React45, { useEffect as useEffect27, useRef as useRef28, useState as useState32 } from "react";
+import React45, { useEffect as useEffect28, useRef as useRef28, useState as useState33 } from "react";
 init_classPhoto();
 
 // src/features/results/posterImage.js
@@ -13481,7 +13531,7 @@ init_GlassArt();
 init_client();
 init_photoModel();
 init_prepareMoment();
-import React49, { useRef as useRef32, useState as useState36 } from "react";
+import React49, { useRef as useRef32, useState as useState37 } from "react";
 
 // src/features/photos/PhotoGrid.jsx
 init_core();
@@ -13489,7 +13539,7 @@ init_PlayerIdentity();
 init_controls();
 init_client();
 init_photoModel();
-import React48, { useEffect as useEffect30, useRef as useRef31, useState as useState35 } from "react";
+import React48, { useEffect as useEffect31, useRef as useRef31, useState as useState36 } from "react";
 init_Icon();
 
 // src/features/photos/PhotoDesk.jsx
@@ -13497,10 +13547,7 @@ init_Icon();
 
 // src/features/weekend/Guide.jsx
 init_photoModel();
-
-// src/features/weekend/programModel.js
-init_core();
-init_prompts();
+init_programModel();
 
 // src/features/weekend/ProgramSheets.jsx
 init_core();
@@ -13510,23 +13557,25 @@ init_OneSafe();
 init_PayoutLadder();
 init_PlayerIdentity();
 init_Travel();
-import React51, { useState as useState38 } from "react";
+import React51, { useState as useState39 } from "react";
+init_programModel();
 var HOST = ROSTER.includes("Brandon") ? "Brandon" : null;
 
 // src/App.jsx
+init_programModel();
 init_Wagers();
 init_PokerChips();
 init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React85, { useState as useState65, useEffect as useEffect59, useLayoutEffect as useLayoutEffect18, useRef as useRef59, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
+import React85, { useState as useState66, useEffect as useEffect60, useLayoutEffect as useLayoutEffect19, useRef as useRef59, useMemo as useMemo15, useCallback as useCallback6, useId as useId9, lazy as lazy2, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React58, { useEffect as useEffect35, useMemo as useMemo10, useRef as useRef37, useState as useState44 } from "react";
+import React58, { useEffect as useEffect36, useMemo as useMemo10, useRef as useRef37, useState as useState45 } from "react";
 init_PlayerPass();
 init_seasonStats();
 init_motion2();
@@ -13555,9 +13604,9 @@ function PlayerSheet({
   onDecline,
   onWithdraw
 }) {
-  const [ante, setAnte] = useState44(PT);
-  const [pending, setPending] = useState44(false);
-  const [error, setError] = useState44("");
+  const [ante, setAnte] = useState45(PT);
+  const [pending, setPending] = useState45(false);
+  const [error, setError] = useState45("");
   const sending = useRef37(false);
   const now2 = serverNow();
   const row = standings.find((item) => item.player === p);
@@ -13578,7 +13627,7 @@ function PlayerSheet({
   const dailyLimit = !!me && duelsSentToday(state, me, now2) >= DUEL_DAILY_LIMIT;
   const unavailable = dailyLimit ? "Daily limit of 3 challenges reached." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
-  const [turned, setTurned] = useState44(false);
+  const [turned, setTurned] = useState45(false);
   const duelRef = useRef37(null);
   const reducedMotion = useReducedMotion();
   const canRematch = useMemo10(
@@ -13591,10 +13640,10 @@ function PlayerSheet({
     section?.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll: true });
   };
-  useEffect35(() => {
+  useEffect36(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect35(() => {
+  useEffect36(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
   }, [p]);
@@ -13698,13 +13747,13 @@ init_BetStacks();
 init_motion();
 init_sound();
 init_resultMoment();
-import React60, { useEffect as useEffect37, useLayoutEffect as useLayoutEffect13, useRef as useRef39 } from "react";
+import React60, { useEffect as useEffect38, useLayoutEffect as useLayoutEffect14, useRef as useRef39 } from "react";
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
 init_sound();
-import React59, { useEffect as useEffect36, useMemo as useMemo11, useRef as useRef38, useState as useState45 } from "react";
+import React59, { useEffect as useEffect37, useMemo as useMemo11, useRef as useRef38, useState as useState46 } from "react";
 var SHOWER_CHIPS = 16;
 var RAIN = Object.freeze({ min: 4, max: SHOWER_CHIPS, first: 420, gap: 110, fall: 620, bounce: 280, hold: 650, sweep: 520 });
 
@@ -13718,7 +13767,7 @@ init_sound();
 init_haptics();
 init_walkout();
 init_walkoutTeam();
-import React61, { useEffect as useEffect39, useRef as useRef41 } from "react";
+import React61, { useEffect as useEffect40, useRef as useRef41 } from "react";
 init_OneSafe();
 init_ScoreReel();
 
@@ -13732,12 +13781,12 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_desertModel();
 init_walkoutTeam();
-import React62, { useEffect as useEffect40, useMemo as useMemo12, useState as useState47 } from "react";
+import React62, { useEffect as useEffect41, useMemo as useMemo12, useState as useState48 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
 init_lastCard();
-import { useCallback as useCallback4, useEffect as useEffect41, useState as useState48 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect42, useState as useState49 } from "react";
 
 // src/App.jsx
 init_install();
@@ -13747,7 +13796,7 @@ init_core();
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React63, { useCallback as useCallback5, useEffect as useEffect42, useLayoutEffect as useLayoutEffect14, useRef as useRef42, useState as useState49 } from "react";
+import React63, { useCallback as useCallback5, useEffect as useEffect43, useLayoutEffect as useLayoutEffect15, useRef as useRef42, useState as useState50 } from "react";
 init_haptics();
 init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
@@ -13755,20 +13804,20 @@ var FOUL = Object.freeze({ ms: null, foul: true });
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React64, { useRef as useRef43, useState as useState50 } from "react";
+import React64, { useRef as useRef43, useState as useState51 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
 init_directorPill();
 init_haptics();
-import React66, { useEffect as useEffect44, useRef as useRef45, useState as useState51 } from "react";
+import React66, { useEffect as useEffect45, useRef as useRef45, useState as useState52 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_Icon();
 init_serverClock();
 init_haptics();
-import React65, { useEffect as useEffect43, useRef as useRef44 } from "react";
+import React65, { useEffect as useEffect44, useRef as useRef44 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
@@ -13786,7 +13835,7 @@ init_core();
 init_client();
 init_serverClock();
 init_haptics();
-import React67, { useEffect as useEffect45, useState as useState52, useSyncExternalStore as useSyncExternalStore4 } from "react";
+import React67, { useEffect as useEffect46, useState as useState53, useSyncExternalStore as useSyncExternalStore4 } from "react";
 
 // src/features/director/walkout.js
 init_audio();
@@ -13799,10 +13848,10 @@ var MISS_SHOWN_MS = 10 * 60 * 1e3;
 // src/features/director/TvHealth.jsx
 init_tvHealth();
 init_Icon();
-import React68, { useEffect as useEffect46, useState as useState53 } from "react";
+import React68, { useEffect as useEffect47, useState as useState54 } from "react";
 
 // src/features/director/CommissionerDock.jsx
-import React69, { useLayoutEffect as useLayoutEffect15, useRef as useRef46 } from "react";
+import React69, { useLayoutEffect as useLayoutEffect16, useRef as useRef46 } from "react";
 
 // src/features/awards/AwardsHome.jsx
 init_core();
@@ -13814,7 +13863,7 @@ init_prompts();
 init_awardsModel();
 init_awards();
 init_Icon();
-import React70, { useEffect as useEffect47, useRef as useRef47, useState as useState54 } from "react";
+import React70, { useEffect as useEffect48, useRef as useRef47, useState as useState55 } from "react";
 
 // src/features/mvp/MvpHome.jsx
 init_core();
@@ -13823,7 +13872,7 @@ init_client();
 init_haptics();
 init_serverClock();
 init_controls();
-import React71, { useEffect as useEffect48, useRef as useRef48, useState as useState55 } from "react";
+import React71, { useEffect as useEffect49, useRef as useRef48, useState as useState56 } from "react";
 
 // src/features/mvp/mvpHome.js
 init_mvp();
@@ -13839,7 +13888,7 @@ init_haptics();
 init_PlayerIdentity();
 init_Icon();
 init_RenameText();
-import React72, { useRef as useRef49, useState as useState56 } from "react";
+import React72, { useRef as useRef49, useState as useState57 } from "react";
 
 // src/features/teams/teamNameModel.js
 init_core();
@@ -13882,10 +13931,10 @@ function checkTeamName(state, naming, raw) {
 init_teams();
 var sendName = (payload) => dispatch("nameTeam", payload, { retry: true });
 function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
-  const [pending, setPending] = useState56(null);
-  const [writing, setWriting] = useState56(false);
-  const [draft, setDraft] = useState56("");
-  const [error, setError] = useState56("");
+  const [pending, setPending] = useState57(null);
+  const [writing, setWriting] = useState57(false);
+  const [draft, setDraft] = useState57("");
+  const [error, setError] = useState57("");
   const busy = useRef49(false);
   const current = naming.name;
   const send = async (name) => {
@@ -14002,9 +14051,9 @@ function NamedBy({ state, named, size = 28 }) {
   return /* @__PURE__ */ React72.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React72.createElement(Avatar, { state, p: named.by, size }));
 }
 function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, onSend = sendName, className = "" }) {
-  const [round, setRound] = useState56(0);
+  const [round, setRound] = useState57(0);
   const resolved = given || (index !== null ? teamNaming(state, ev, index, { gm, round }) : myTeamNaming(state, ev, me, { gm, round }));
-  const [open, setOpen] = useState56(null);
+  const [open, setOpen] = useState57(null);
   if (!resolved) return null;
   const naming = resolved;
   const chosen = !!naming.named;
@@ -14061,7 +14110,7 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
-import React77, { useEffect as useEffect53, useRef as useRef53, useState as useState60 } from "react";
+import React77, { useEffect as useEffect54, useRef as useRef53, useState as useState61 } from "react";
 
 // src/features/trivia/TriviaPlay.jsx
 init_client();
@@ -14077,7 +14126,7 @@ init_OneSafe();
 init_triviaModel();
 init_geo2();
 init_trivia2();
-import React78, { useEffect as useEffect54, useRef as useRef54, useState as useState61 } from "react";
+import React78, { useEffect as useEffect55, useRef as useRef54, useState as useState62 } from "react";
 
 // src/App.jsx
 init_trivia();
@@ -14086,19 +14135,19 @@ init_trivia();
 init_core();
 init_guestSetup();
 init_Travel();
-import React79, { useId as useId6 } from "react";
+import React79, { useId as useId7 } from "react";
 init_Icon();
 
 // src/features/profile/TripDetails.jsx
 init_guestSetup();
-import React80, { useId as useId7 } from "react";
+import React80, { useId as useId8 } from "react";
 
 // src/App.jsx
 init_guestSetup();
 
 // src/features/music/WinSongPicker.jsx
 init_client();
-import React82, { useEffect as useEffect56, useRef as useRef56, useState as useState63 } from "react";
+import React82, { useEffect as useEffect57, useRef as useRef56, useState as useState64 } from "react";
 
 // src/features/music/previewPlayer.js
 init_client();
@@ -14109,7 +14158,7 @@ var KNOWN_MS = 8 * 60 * 1e3;
 // src/features/music/SnippetPreview.jsx
 init_client();
 init_sound();
-import React81, { useEffect as useEffect55, useRef as useRef55, useState as useState62 } from "react";
+import React81, { useEffect as useEffect56, useRef as useRef55, useState as useState63 } from "react";
 
 // src/features/music/WinSongPicker.jsx
 init_Icon();
@@ -14130,7 +14179,7 @@ function Shell({ children, tv: tv2, arrival, environment = "production" }) {
 // src/ui/usePhaseTheme.js
 init_phase();
 init_motion2();
-import { useLayoutEffect as useLayoutEffect17, useMemo as useMemo14, useRef as useRef57 } from "react";
+import { useLayoutEffect as useLayoutEffect18, useMemo as useMemo14, useRef as useRef57 } from "react";
 var STAGING = (() => {
   try {
     return import.meta.env?.MODE === "staging";
@@ -14196,8 +14245,8 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId8(), saving = useRef59(false);
-  const [counts, setCounts] = useState65(() => {
+  const countId = useId9(), saving = useRef59(false);
+  const [counts, setCounts] = useState66(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -14205,7 +14254,7 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState65(false), [error, setError] = useState65("");
+  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
@@ -14250,8 +14299,8 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState65(null);
-  const [pending, setPending] = useState65(false), [error, setError] = useState65("");
+  const [fixing, setFixing] = useState66(null);
+  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
   const saving = useRef59(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
@@ -14539,7 +14588,7 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState65(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState66(false);
   const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -14547,20 +14596,20 @@ function EventSheet({
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState65(false);
-  const [confirmRemove, setConfirmRemove] = useState65(false);
-  const [confirmClear, setConfirmClear] = useState65(false);
-  const [clearReason, setClearReason] = useState65("");
-  const [confirmScrap, setConfirmScrap] = useState65(false);
-  const [confirmShelve, setConfirmShelve] = useState65(false);
+  const [confirmRedraw, setConfirmRedraw] = useState66(false);
+  const [confirmRemove, setConfirmRemove] = useState66(false);
+  const [confirmClear, setConfirmClear] = useState66(false);
+  const [clearReason, setClearReason] = useState66("");
+  const [confirmScrap, setConfirmScrap] = useState66(false);
+  const [confirmShelve, setConfirmShelve] = useState66(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState65(false);
-  const [howTo, setHowTo] = useState65(false);
-  const [more, setMore] = useState65(false);
-  const [eName, setEName] = useState65("");
-  const [eDesc, setEDesc] = useState65("");
-  const [eValue, setEValue] = useState65(400);
-  const [eSession, setESession] = useState65(null);
+  const [editOpen, setEditOpen] = useState66(false);
+  const [howTo, setHowTo] = useState66(false);
+  const [more, setMore] = useState66(false);
+  const [eName, setEName] = useState66("");
+  const [eDesc, setEDesc] = useState66("");
+  const [eValue, setEValue] = useState66(400);
+  const [eSession, setESession] = useState66(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -14568,16 +14617,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState65(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState65(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState65(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState65(""), [swapIn, setSwapIn] = useState65("");
-  const [showOuts, setShowOuts] = useState65(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState65(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState65(null);
-  const [advance, setAdvance] = useState65(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState65(false);
-  const [contestPending, setContestPending] = useState65(false);
+  const [suggested] = useState66(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState66(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState66(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState66(""), [swapIn, setSwapIn] = useState66("");
+  const [showOuts, setShowOuts] = useState66(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState66(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState66(null);
+  const [advance, setAdvance] = useState66(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState66(false);
+  const [contestPending, setContestPending] = useState66(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -14586,7 +14635,7 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState65("");
+  const [setupError, setSetupError] = useState66("");
   const setupBusy = useRef59(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
@@ -15075,7 +15124,7 @@ function EventSheet({
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState65(false);
+  const [pending, setPending] = useState66(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -15144,13 +15193,13 @@ function ResultSheet({ ev, state, onClose, save }) {
     }
     return [[], [], []];
   }, []);
-  const [slots, setSlots] = useState65(initial);
-  const [active, setActive] = useState65(editableSlots[0] ?? 0);
-  const [byPlayer, setByPlayer] = useState65(false);
-  const [confirmCorrection, setConfirmCorrection] = useState65(false);
-  const [correctionReason, setCorrectionReason] = useState65("");
-  const [pending, setPending] = useState65(false), [error, setError] = useState65("");
-  const [emptyCheck, setEmptyCheck] = useState65(null);
+  const [slots, setSlots] = useState66(initial);
+  const [active, setActive] = useState66(editableSlots[0] ?? 0);
+  const [byPlayer, setByPlayer] = useState66(false);
+  const [confirmCorrection, setConfirmCorrection] = useState66(false);
+  const [correctionReason, setCorrectionReason] = useState66("");
+  const [pending, setPending] = useState66(false), [error, setError] = useState66("");
+  const [emptyCheck, setEmptyCheck] = useState66(null);
   const saving = useRef59(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;

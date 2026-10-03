@@ -540,6 +540,10 @@ export const PARTS = Object.freeze([
   /* the name stamps */
   { id:"stamp", name:"A name stamps", ms:300,
     play:(E, t) => { M.slap(E, t, { gain:0.8 }); M.knock(E, t + 0.01, { gain:0.5, pitch:0.9 }); } },
+  /* a name cut into the cup: the graver's quick strokes, then the metal rings */
+  { id:"engrave", name:"A plate engraves", ms:1600,
+    play:(E, t) => { for (let i = 0; i < 5; i++) M.tick(E, t + i * 0.055, { gain:0.32, pitch:1.35 + i * 0.04 });
+      M.bell(E, t + 0.3, NOTE.D6, { gain:0.32, dec:1.6, send:0.3 }); M.bell(E, t + 0.3, NOTE.A5, { gain:0.24, dec:1.9, send:0.3 }); } },
 
   /* ── "You're up" on a competitor's phone: two notes, low then high ── */
   { id:"youUp", name:"You're up", ms:1200,

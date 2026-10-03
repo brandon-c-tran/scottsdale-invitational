@@ -123,7 +123,7 @@ test("only the winning team votes, never for themself; the last vote closes it a
   assert.equal(ptsOf(s, RED[1]), before + MVP_PTS);
   assert.equal(refuse(s, "mvpVote", { evId:"flip", pick:RED[3] }, as(RED[0])), "The MVP vote is closed");
   const row = computeStandings(s).find(item => item.player === RED[1]);
-  assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.betNet + row.duelNet);
+  assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.bountyPts + row.betNet + row.duelNet);
 });
 
 test("a tie is drawn among the tied, and no votes at all draws the whole team", () => {

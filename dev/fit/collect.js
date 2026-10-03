@@ -175,6 +175,12 @@ export function collectFit({ mode = "tv", phase = "full", ignore = "", safe = nu
         || (c.y && (ink.bottom <= c.top || ink.top >= c.bottom)));
       if (gone) return;
       kept++;
+      /* text that opts into an ellipsis shows only what fits its own
+         ellipsis box: the rest is not on screen to overlap or leave it */
+      if (allowed(el, "ellipsis")) {
+        const cut = clips.find(c => c.trunc === "ellipsis" && c.x);
+        if (cut) { ink.left = Math.max(ink.left, cut.left); ink.right = Math.min(ink.right, cut.right); }
+      }
       lines.push({ id, el, ink });
       for (const c of clips) {
         if (c.el === el && !c.x && !c.y) continue;

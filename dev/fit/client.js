@@ -48,8 +48,10 @@ export const geoUploadPhoto = offline;
 export const geoDeleteRound = offline;
 export const geoPhotoUrl = async id => `/api/geo/photo/${encodeURIComponent(id)}`;
 export const reportClientError = () => {};
-export const spotifyStatus = offline;
-export const spotifyPlayer = offline;
+/* the scenario's stubbed Spotify answers (dev/fit/scenarios.js FIT_SPOTIFY) */
+const stubbed = key => async () => globalThis.__FIT_SPOTIFY__?.[key] || offline();
+export const spotifyStatus = stubbed("status");
+export const spotifyPlayer = stubbed("player");
 export const spotifySearch = offline;
 export const songSnippet = offline;
 export const songPreview = offline;

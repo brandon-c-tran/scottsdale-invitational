@@ -122,7 +122,7 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
   );
   if (reconnect && !sounding) return docked || pill ? null : chip("reconnect", {
     onClick:() => { setCueState({ reconnect:false }); onAudio?.(); },
-    glyph:<Icon name="song" size={15} />, text:"Reconnect Spotify in Audio Director" });
+    glyph:<Icon name="song" size={15} />, text:"Reconnect Spotify" });
   /* a win song that should have played and did not: why, and one retry */
   const miss = state.showControl?.audio?.miss;
   const missed = !sounding && miss?.player && serverNow() - Number(miss.at) < MISS_SHOWN_MS ? miss : null;

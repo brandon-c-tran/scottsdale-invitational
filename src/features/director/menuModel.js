@@ -2,11 +2,12 @@
    commissioner's menu (the star). One grouping logic and one renderer
    (src/ui/Menu.jsx MenuSections); App maps each item id to its action.
 
-   Grouping, in the order a hand reaches for it: who you are, the weekend,
-   the room's TV, then the commissioner's work by how often it happens. Rare
-   and destructive rows sit last, and every one of them still opens its own
+   The commissioner's sections run in the order a hand reaches for them:
+   what needs doing now, the room's TV and speaker, the games he runs, the
+   people and the trip, then setup. Destructive rows still open their own
    confirm; Exit stands alone at the foot. Values are state ("2 away",
-   "8 photos"), never a sentence about the row. Pure. */
+   "8 photos", the speaker's name), never a sentence about the row. A new
+   desk (Trivia) is one more item in GAME_DESKS. Pure. */
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -30,34 +31,36 @@ export function moreMenu(f = {}) {
   ].filter(item => item.items.length);
 }
 
+/* the games the commissioner runs from a desk of their own */
+const GAME_DESKS = [
+  f => ({ id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") }),
+  f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
+];
+
 export function commissionerMenu(f = {}) {
   const away = f.away || [];
   return [
-    section("show", "The room", "tv", [
-      f.showControl && { id:"showControl", name:"Show Control", value:f.scene || "Ambient" },
-      !f.showControl && f.audioDirector && { id:"audioDirector", name:"Audio Director" },
-      { id:"tvShortcut", name:"Copy TV sound shortcut", chevron:false },
-    ]),
-    section("weekend", "Weekend", "weekend", [
+    section("now", "Now", "then", [
       f.crownReady && { id:"crown", name:"Crown the champion", icon:"trophy" },
-      { id:"attendance", name:"Who is here", icon:"people", value:away.length ? `${away.length} away` : "Everyone" },
-      { id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") },
-      { id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null },
-    ]),
-    section("fix", "Fix", "undo", [
       f.onDeck && { id:"lockBets", name:"Lock bets", value:f.onDeck, icon:"lock", chevron:false },
       ...(f.takeBacks || []).map(ev => ({ id:`takeBack:${ev.id}`, name:`Take back ${ev.name}`, icon:"undo" })),
       f.lockerRoom && { id:"lockerRoom", name:"Back to the locker room", icon:"back" },
       f.frozen && { id:"unfreeze", name:"Unfreeze board", tone:"destructive" },
     ]),
-    section("records", "Records", "rules", [
-      { id:"logistics", name:"Trip details", icon:"house" },
-      { id:"travelSheet", name:"Travel sheet", icon:"plane" },
-      { id:"gmDevices", name:"Commissioner devices", icon:"person" },
-      f.snapshotExport && { id:"snapshot", name:"Export snapshot", chevron:false },
+    section("room", "TV and sound", "tv", [
+      { id:"showControl", name:"TV", icon:"tv", value:f.tvNow || null },
+      f.audioDirector && { id:"audioDirector", name:"Speaker", icon:"song", value:f.speaker || null },
     ]),
-    section("rehearsal", "Rehearsal", "flask", [
-      f.qaAllowed && { id:"qa", name:"QA mode", pressed:!!f.qaOn },
+    section("games", "Games", "games", GAME_DESKS.map(desk => desk(f))),
+    section("people", "People and trip", "people", [
+      { id:"attendance", name:"Who is here", icon:"people", value:away.length ? `${away.length} away` : "Everyone" },
+      { id:"travelSheet", name:"Travel sheet", icon:"plane" },
+      { id:"logistics", name:"Trip details", icon:"house" },
+    ]),
+    section("setup", "Setup", "lock", [
+      { id:"gmDevices", name:"Commissioner devices", icon:"person" },
+      f.snapshotExport && { id:"snapshot", name:"Export snapshot", icon:"down", chevron:false },
+      f.qaAllowed && { id:"qa", name:"QA", icon:"flask", value:f.qaOn ? "Strip on" : null },
       f.progressReset && { id:"reset", name:"Reset game progress", tone:"destructive" },
     ]),
     section("exit", null, null, [

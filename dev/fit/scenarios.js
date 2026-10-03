@@ -264,6 +264,34 @@ function missedSong(state, player) {
   return state;
 }
 
+/* the commissioner's TV and Speaker sheets: a scene on the TV (the latest
+   result's winner, its first step), win songs saved on three profiles, and
+   Spotify's answers stubbed (dev/fit/client.js reads `spotify`), never real */
+function onTv(state, kind, eventId) {
+  act(state, "startShowScene", { kind, ...(eventId ? { eventId } : {}) }, { ...gmCtx(), showControl:true });
+  return state;
+}
+const FIT_TRACK = (id, name, artists) => ({ trackId:id, uri:`spotify:track:${id}`, name, artists, imageUrl:null, durationMs:222000 });
+function withSongs(state) {
+  const songs = { Richard:FIT_TRACK("3n3Ppam7vgaVa1iaRUc9Lp", "Mr. Brightside", ["The Killers"]),
+    Jeremy:FIT_TRACK("4uLU6hMCjMI75M1A2tKUQC", "Never Gonna Give You Up (2022 Remaster and Extended Mix)", ["Rick Astley"]),
+    Brandon:FIT_TRACK("7ouMYWpwJ422jRcDASZB7P", "Kernkraft 400 (A Better Day)", ["Topic", "A7S"]) };
+  for (const [player, track] of Object.entries(songs)) state.profiles[player] = { ...state.profiles[player], walkoutTrack:track };
+  return state;
+}
+const CALLBACK = "https://fielddayseries.com/api/spotify/callback";
+export const FIT_SPOTIFY = Object.freeze({
+  connected:{
+    status:{ ok:true, configured:true, connected:true, account:{ displayName:"Brandon Tran", product:"premium" }, premium:true,
+      autoWinSongs:true, device:{ id:"d1", name:"Living Room Sonos" }, redirectUri:CALLBACK },
+    player:{ ok:true, devices:[{ id:"d1", name:"Living Room Sonos", type:"Speaker", active:true },
+      { id:"d2", name:"Brandon's iPhone", type:"Smartphone", active:false }],
+      playback:{ playing:true, progressMs:42000, track:FIT_TRACK("3n3Ppam7vgaVa1iaRUc9Lp", "Mr. Brightside", ["The Killers"]) } },
+  },
+  disconnected:{ status:{ ok:true, configured:true, connected:false, redirectUri:CALLBACK } },
+  setup:{ status:{ ok:true, configured:false, connected:false, redirectUri:CALLBACK } },
+});
+
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
    page), { result:ms } is that long after the latest result posted,
@@ -368,6 +396,19 @@ export const PHONE_SCENARIOS = Object.freeze([
      commissioner menu, the pill's more tray (a beat with a Skip), and QA
      mode on (its dock strip and console) */
   { id:"gm-menus", build:() => fresh("locker"), viewer:"gm", tabs:["home"], sheets:["menu", "gm-menu", "pill-more"] },
+  /* the commissioner's menu mid-weekend (a Now section: lock bets, take
+     back), with the TV and the Speaker on; the TV sheet idle and with a
+     scene playing; the Speaker connected, signed out and not set up */
+  { id:"gm-menu-live", build:() => fresh("event:putt:open"), viewer:"gm", show:true, audio:true, spotify:FIT_SPOTIFY.connected,
+    tvs:[{ ageMs:1000, sound:"on" }], tabs:[], sheets:["gm-menu", "tv"] },
+  { id:"gm-tv-scene", build:() => onTv(fresh("event:bball1:done"), "winner", "bball1"), viewer:"gm", show:true, audio:true,
+    spotify:FIT_SPOTIFY.connected, tvs:[{ ageMs:1000, sound:"on" }, { ageMs:1000, sound:"blocked" }], tabs:[], sheets:["tv"] },
+  { id:"gm-speaker", build:() => withSongs(fresh("event:putt:open")), viewer:"gm", audio:true, spotify:FIT_SPOTIFY.connected,
+    tabs:[], sheets:["speaker"] },
+  { id:"gm-speaker-off", build:() => fresh("event:putt:open"), viewer:"gm", audio:true, spotify:FIT_SPOTIFY.disconnected,
+    tabs:[], sheets:["speaker"] },
+  { id:"gm-speaker-setup", build:() => fresh("locker"), viewer:"gm", audio:true, spotify:FIT_SPOTIFY.setup,
+    tabs:[], sheets:["speaker"] },
   { id:"gm-qa", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:["home", "bets"], sheets:["qa", "pill-more"] },
   { id:"guest-menu", build:() => fresh("event:putt:open"), tabs:[], sheets:["menu"] },
   /* a win song playing on the commissioner's phone: its Stop rides in the

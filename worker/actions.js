@@ -47,7 +47,7 @@ const gmOnly = ctx => (ctx.isGm ? null : err("Commissioner only"));
 const duelBoardClosed = state => state.frozen ? "The board is frozen"
   : pokerLive(state) ? "The finale is live"
     : stacksPosted(state) ? "The finale is settled" : null;
-const showOnly = ctx => (ctx.showControl ? null : err("Show Control is unavailable"));
+const showOnly = ctx => (ctx.showControl ? null : err("TV scenes are unavailable"));
 const showControlOf = state => {
   if (!state.showControl || typeof state.showControl !== "object")
     state.showControl = { active:null, history:[] };

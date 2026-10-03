@@ -76,7 +76,7 @@ const GM_TOKENS_KEY = "private:gm:tokens";
 const GM_TOKEN_LIMIT = 20;
 const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
-/* the weekend speaker: chosen once in Audio Director, sent with every cue */
+/* the weekend speaker: chosen once in Speaker, sent with every cue */
 const SPOTIFY_DEVICE_KEY = "private:spotify:device";
 /* win songs play by themselves unless the commissioner turned them off */
 const SPOTIFY_AUTO_KEY = "private:spotify:auto";
@@ -583,7 +583,7 @@ export class Tournament {
     } catch (error) {
       if (!(error instanceof SpotifyServiceError) || error.status !== 404) throw error;
       if (!deviceId)
-        throw new SpotifyServiceError("Choose a speaker in Audio Director",
+        throw new SpotifyServiceError("No speaker chosen. Choose one in Speaker",
           { status:409, code:"no_device" });
       await this.spotifyUserApi("/me/player", {
         method:"PUT",

@@ -64,10 +64,10 @@ async function spotifyFetch(url, init = {}, fetchImpl = fetch) {
   return response;
 }
 
-const REAUTHORIZE_MESSAGE = "Reconnect Spotify in Audio Director";
+const REAUTHORIZE_MESSAGE = "Spotify signed out. Reconnect in Speaker";
 const PLAYER_MESSAGES = {
   PREMIUM_REQUIRED:"Spotify Premium is required for playback",
-  NO_ACTIVE_DEVICE:"No active speaker. Choose one in Audio Director",
+  NO_ACTIVE_DEVICE:"No active speaker. Choose one in Speaker",
 };
 async function spotifyError(response, fallback) {
   let message = fallback;

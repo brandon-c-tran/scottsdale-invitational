@@ -30,7 +30,7 @@ export const soundingWalkout = (walkout, serverNowMs) =>
 
 /* One chip per offered player with a saved track, plus the player whose
    walkout is playing even after their cue window closed (the Stop must
-   outlast the offer). A song started from Audio Director search has no
+   outlast the offer). A song started from Speaker search has no
    player and gets its own Stop chip. */
 export function cueRackItems(state, candidates = [], sounding = null) {
   const trackOf = player => state?.profiles?.[player]?.walkoutTrack || null;

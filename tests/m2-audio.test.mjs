@@ -145,7 +145,7 @@ test("Spotify OAuth uses an exact callback, state, and least-privilege playback 
   ]);
 });
 
-test("Audio Director advertises setup safely and persists OAuth state privately", async () => {
+test("Speaker (audio) advertises setup safely and persists OAuth state privately", async () => {
   const memory = memoryContext();
   const tournament = new Tournament(memory.context, {
     APP_ENV:"staging",

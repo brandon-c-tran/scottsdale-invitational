@@ -54,12 +54,16 @@ import { findAlbumUpload } from "./youtube.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
+import { triviaPhotoId } from "../shared/trivia.js";
+import { bankForDesk } from "./trivia.js";
 
 /* Where and When photos ride the photo desk's prefix, so every snapshot,
    restore and reset leaves them alone exactly as it does the desk's */
 const geoPhotoKey = id => `${MOMENT_PREFIX}geo:${id}`;
 /* the phone's resize (photoModel PHOTO_PREP) tops out at 1.45 MB */
 const GEO_PHOTO_BYTES = 1_500_000;
+/* Trivia's picture questions ride the same prefix and the same limits */
+const triviaPhotoKey = id => `${MOMENT_PREFIX}trivia:${id}`;
 
 const tokenEncoder = new TextEncoder();
 /* The Durable Object value limit is 2 MB; warn well before it. */
@@ -283,6 +287,7 @@ export class Tournament {
     if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
       return this.momentDesk.handle(req, url);
     if (url.pathname.startsWith("/api/geo/")) return this.handleGeo(req, url);
+    if (url.pathname.startsWith("/api/trivia/")) return this.handleTrivia(req, url);
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
@@ -368,6 +373,85 @@ export class Tournament {
       return json(result, result.ok ? 200 : 409);
     }
     return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  /* ── Trivia (shared/trivia.js) ──
+     POST /api/trivia/photo          multipart { photo } (GM token): a picture
+                                     question's photo, EXIF stripped, stored
+                                     as moment:trivia:<id> outside state
+     GET  /api/trivia/photo/<id>     the commissioner always; anyone once its
+                                     question has been shown
+     GET  /api/trivia/bank           the built-in bank, answers and all (GM)
+     GET  /api/trivia/clip/<qid>     a tune's 30-second clip address (Deezer,
+                                     worker/previews.js): anyone once shown
+     GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM) */
+  async handleTrivia(req, url) {
+    const parts = url.pathname.split("/").filter(Boolean); // ["api","trivia",kind,id?]
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const isGm = await this.adminGmToken(req);
+    const game = this.state.trivia?.questions?.length ? this.state.trivia : null;
+    const shown = game ? game.questions.slice(0, game.index + 1) : [];
+    if (parts[2] === "photo" && parts.length === 3 && req.method === "POST") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      if (Number(req.headers.get("Content-Length") || 0) > GEO_PHOTO_BYTES * 1.2)
+        return json({ ok:false, error:"That photo is too large" }, 413);
+      let form;
+      try { form = await req.formData(); } catch { return json({ ok:false, error:"That photo could not be read" }, 400); }
+      const file = form.get("photo");
+      const raw = file && typeof file.arrayBuffer === "function" ? new Uint8Array(await file.arrayBuffer()) : null;
+      if (!raw || raw.byteLength > GEO_PHOTO_BYTES) return json({ ok:false, error:"That photo is too large" }, 413);
+      const photo = stripJpegMetadata(raw);
+      const info = photo && jpegInfo(photo);
+      if (!info || Math.max(info.width, info.height) > 2048) return json({ ok:false, error:"That photo could not be read" }, 400);
+      const id = `p${Date.now().toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+      await this.ctx.storage.put(triviaPhotoKey(id), photo);
+      return json({ ok:true, photo:{ id, w:info.width, h:info.height } });
+    }
+    if (parts[2] === "photo" && parts.length === 4 && req.method === "GET") {
+      const id = parts[3];
+      if (!triviaPhotoId(id)) return new Response("Not found", { status:404 });
+      const visible = shown.some(question => question.photo?.id === id);
+      if (!visible && !isGm) return new Response("Not found", { status:404 });
+      const bytes = await this.ctx.storage.get(triviaPhotoKey(id));
+      if (!bytes) return new Response("Not found", { status:404 });
+      return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
+        "Cache-Control":visible ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "bank" && parts.length === 3 && req.method === "GET") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      return json({ ok:true, categories:bankForDesk() });
+    }
+    if (parts[2] === "clip" && req.method === "GET") {
+      let target = null;
+      if (parts.length === 4) {
+        const question = shown.find(item => item.id === parts[3])
+          || (isGm ? game?.questions.find(item => item.id === parts[3]) : null);
+        if (!question || question.format !== "tune" || !question.clip) return json({ ok:false, error:"Not found" }, 404);
+        target = question.clip;
+      } else if (parts.length === 3) {
+        if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+        target = { title:(url.searchParams.get("title") || "").slice(0, 120), artist:(url.searchParams.get("artist") || "").slice(0, 120),
+          isrc:(url.searchParams.get("isrc") || "").toUpperCase() };
+        if (!target.title.trim()) return json({ ok:false, error:"No song" }, 400);
+      } else return json({ ok:false, error:"Not found" }, 404);
+      const found = await this.triviaClip(target);
+      return found ? json({ ok:true, url:found.url }) : json({ ok:false, error:"No clip" }, 404);
+    }
+    return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  /* A tune's clip: by ISRC, else title and artist, else the two as one
+     search. Answers (misses included) are kept a few minutes. */
+  async triviaClip({ title = "", artist = "", isrc = "" }) {
+    const key = `trivia|${isrc || ""}|${title}|${artist}`.toLowerCase();
+    this.previews = this.previews || previewCache();
+    let found = this.previews.get(key);
+    if (found !== undefined) return found;
+    const fetchImpl = this.previewFetch || fetch;
+    found = await findPreview({ isrc:/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(isrc) ? isrc : null, name:title, artist }, fetchImpl)
+      || await findPreview({ name:`${title} ${artist}`.trim() }, fetchImpl);
+    this.previews.set(key, found);
+    return found;
   }
 
   /* a commissioner token on an HTTP request (Bearer or the GM header) */

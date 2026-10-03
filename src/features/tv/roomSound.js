@@ -31,6 +31,11 @@
      the walkout's stinger and stamp (walkoutCues), open past the song
      D6  an award: its ballot chips (the chip density rule), then S10 and
          S14 as the winner stamps, on AWARD_TIMING from reveal.at
+     Trivia: the lean-in sting as a question goes up (openedAt), a slap as
+         each team locks in, the stamp and the points riffle on the reveal
+         (revealedAt), a riffle as the scores stand (boardAt); the last five
+         seconds tick and the clock closing knocks (useTriviaClock, on the
+         clock like the blinds)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -139,7 +144,55 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
       posted:!!state.results?.[pk.id] } : null,
     scene:active && !showScene.staleReason ? { id:active.id, kind:active.kind, startedAt:Number(active.startedAt) || 0 } : null,
     award:awardOnTv(state, events),
+    trivia:triviaSnapshot(state),
   };
+}
+
+/* Trivia, reduced to what can sound */
+export function triviaSnapshot(state) {
+  const game = state?.trivia;
+  if (!game?.questions?.length || state.results?.[game.eventId]) return null;
+  const question = game.questions[game.index];
+  const time = game.times?.[question?.id] || {};
+  const picks = game.picks?.[question?.id] || {};
+  return { id:question?.id || null, phase:game.phase, openedAt:Number(time.openedAt) || 0, revealedAt:Number(time.revealedAt) || 0,
+    boardAt:Number(game.boardAt) || 0, locked:Object.keys(picks).filter(key => picks[key]?.locked).sort().join(","),
+    teams:(game.teams || []).length };
+}
+
+/* the cues one Trivia step owes the room */
+export function triviaCues(prev, next, { now = serverNow(), reduced = false } = {}) {
+  const t = next?.trivia, was = prev?.trivia;
+  if (!t?.id) return [];
+  const cues = [];
+  const key = `trivia:${t.id}`;
+  if (was?.id !== t.id && t.phase === "question") cues.push({ id:reduced ? "S3" : "sting", at:t.openedAt || now, key:`${key}:open` });
+  if (was?.id === t.id && t.phase === "question") {
+    const before = new Set((was.locked || "").split(",").filter(Boolean));
+    const fresh = (t.locked || "").split(",").filter(Boolean).filter(team => !before.has(team));
+    fresh.forEach((team, i) => cues.push({ id:"S18", at:now + i * 90, pan:t.teams > 1 ? Math.round((-0.6 + 1.2 * Number(team) / (t.teams - 1)) * 100) / 100 : 0,
+      key:`${key}:lock:${team}` }));
+  }
+  if (t.phase !== "question" && (was?.id !== t.id || was.phase === "question") && t.revealedAt) {
+    cues.push({ id:"stamp", at:t.revealedAt + 250, key:`${key}:reveal` });
+    if (!reduced) cues.push({ id:"S12", at:t.revealedAt + 1300, key:`${key}:points` });
+  }
+  if (t.phase === "board" && was?.phase !== "board" && t.boardAt)
+    cues.push({ id:reduced ? "S12" : "towersUp", at:t.boardAt, key:`${key}:board` });
+  return cues;
+}
+
+/* the question's clock in the room: a tick each of the last five seconds,
+   a knock as it closes. On the clock like the blinds, keyed so a second
+   ticks once; a TV joining late hears only what is still ahead. */
+export function useTriviaClock({ id = null, live = false, secondsLeft = 0, closesAt = 0 }) {
+  useEffect(() => {
+    if (!id || !live) return;
+    /* each cue is laid on the next second's edge, so it is never late */
+    if (secondsLeft >= 2 && secondsLeft <= 6)
+      cueAt("typeTick", closesAt - (secondsLeft - 1) * 1000, { key:`trivia:${id}:tick:${secondsLeft - 1}` });
+    if (secondsLeft === 1) cueAt("S8", closesAt, { key:`trivia:${id}:closed` });
+  }, [id, live, secondsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /* The cues one fresh step from `prev` to `next` owes the room. `now` is the
@@ -229,6 +282,8 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
   const award = next.award, before = prev.award;
   if (award && !(before && before.ballotId === award.ballotId && before.index === award.index))
     awardCues(award, { reduced }).forEach(cue => cues.push(cue));
+
+  triviaCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))

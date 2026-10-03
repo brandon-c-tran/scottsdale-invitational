@@ -68,7 +68,7 @@ const fitPlugin = {
     server.middlewares.use(async (req, res, next) => {
       const url = new URL(req.url, "http://fit.local");
       const photo = /^\/api\/photo\/([^/]+)$/.exec(url.pathname) || /^\/api\/moments\/([^/]+)/.exec(url.pathname);
-      const geo = /^\/api\/geo\/photo\/([^/]+)$/.exec(url.pathname);
+      const geo = /^\/api\/(?:geo|trivia)\/photo\/([^/]+)$/.exec(url.pathname);
       if (photo || geo) {
         res.setHeader("Content-Type", "image/svg+xml");
         res.end(photo ? PHOTO(decodeURIComponent(photo[1])) : GEO(geo[1]));
@@ -90,7 +90,8 @@ const server = await createServer({
   root:ROOT, configFile:false, logLevel:"error", clearScreen:false,
   plugins:[fitPlugin, react()],
   define:{ __FD_BUILD_ID__:JSON.stringify("fit") },
-  cacheDir:path.join(ROOT, "node_modules/.vite-fit"),
+  /* FIT_CACHE_DIR keeps a parallel checkout off the shared cache */
+  cacheDir:process.env.FIT_CACHE_DIR || path.join(ROOT, "node_modules/.vite-fit"),
   server:{ port:PORT, strictPort:false, host:"127.0.0.1", hmr:false },
   optimizeDeps:{ entries:["dev/fit-tv.jsx", "dev/fit-phone.jsx"] },
 });

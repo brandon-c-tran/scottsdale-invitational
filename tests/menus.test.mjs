@@ -46,7 +46,7 @@ test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup,
   const of = id => menu.find(section => section.id === id).items.map(item => item.id);
   assert.deepEqual(of("now"), ["crown", "lockBets", "takeBack:putt", "lockerRoom", "unfreeze"], "only what is actionable now, first");
   assert.deepEqual(of("room"), ["showControl", "audioDirector"]);
-  assert.deepEqual(of("games"), ["geo", "awards"]);
+  assert.deepEqual(of("games"), ["geo", "trivia", "awards"]);
   assert.deepEqual(of("people"), ["attendance", "travelSheet", "logistics"]);
   assert.deepEqual(of("setup"), ["gmDevices", "snapshot", "qa", "reset"]);
   const flat = menu.flatMap(section => section.items);

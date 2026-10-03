@@ -34,6 +34,7 @@ export function moreMenu(f = {}) {
 /* the games the commissioner runs from a desk of their own */
 const GAME_DESKS = [
   f => ({ id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") }),
+  f => ({ id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") }),
   f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
 ];
 

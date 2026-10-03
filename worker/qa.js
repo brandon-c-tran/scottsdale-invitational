@@ -26,6 +26,7 @@ import {
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
 import { mvpVoters } from "../shared/mvp.js";
+import { triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -284,9 +285,36 @@ function podium(run, ev) {
   return [0, 1, 2].map(i => place(order, i));
 }
 
+/* Trivia with a set list plays its game the way the room would: every
+   team answers each question (about half right), the commissioner reveals,
+   shows the scores at each round's end, and posts the result. */
+function playTrivia(run, ev) {
+  const { state } = run;
+  if (ev.game !== "trivia" || !triviaConfigured(state) || state.results?.[ev.id]) return false;
+  if (!triviaGame(state, ev.id)) {
+    if (resolveEventLifecycle(state, ev).phase !== "in-progress") return false;
+    run.gm("triviaStart", { evId:ev.id });
+  }
+  for (let guard = 0; guard < 400 && !state.results?.[ev.id]; guard++) {
+    const beat = triviaBeat(state, ev);
+    if (!beat) break;
+    if (beat.type === "trivia-reveal") {
+      const game = triviaGame(state, ev.id);
+      const picks = game.picks?.[triviaCurrent(game)?.id] || {};
+      if (game.teams.some(team => !picks[team.key]?.locked)) run.gm("triviaSimAnswers", { questionId:beat.questionId });
+      run.gm("triviaReveal", { questionId:beat.questionId });
+    } else if (beat.type === "trivia-board") run.gm("triviaBoard", { questionId:beat.questionId });
+    else if (beat.type === "trivia-next") run.gm("triviaNext", { questionId:beat.questionId });
+    else if (beat.type === "trivia-finish") run.gm("triviaFinish", { evId:ev.id });
+    else break;
+  }
+  return !!state.results?.[ev.id];
+}
+
 function postResult(run, ev) {
   const { state } = run;
   if (state.results?.[ev.id]) return;
+  if (playTrivia(run, ev)) return;
   const lifecycle = resolveEventLifecycle(state, ev);
   if (lifecycle.phase === "in-progress" && lifecycle.nextAction?.type === "enter-result")
     run.gm("beginResultEntry", { evId:ev.id });

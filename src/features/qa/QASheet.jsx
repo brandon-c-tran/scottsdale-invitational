@@ -107,6 +107,11 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
           <Btn kind="dark" compact disabled={off || finished} onClick={() => qa.jump("finish", "Event finished")}>
             Finish event</Btn>
           <Btn kind="ghost" compact disabled={off || finished} onClick={onPlayLive}>Play live</Btn>
+          {/* Trivia: every team that has not locked answers (worker/trivia.js triviaSimAnswers) */}
+          {state.trivia?.phase === "question" && !state.results?.[state.trivia.eventId] && state.trivia.questions?.[state.trivia.index]
+            && <Btn kind="ghost" compact disabled={off} onClick={() => dispatch("triviaSimAnswers",
+              { questionId:state.trivia.questions[state.trivia.index].id }).then(result => notify?.(result?.ok ? "Answers in" : result?.error || "Not saved"))}>
+              Sim answers</Btn>}
           {pokerOn && <Btn kind="ghost" compact disabled={off} onClick={onBustOne}>Bust one</Btn>}
           {pokerOn && <Btn kind="ghost" compact disabled={off} onClick={onCountRest}>Count the rest</Btn>}
         </div>

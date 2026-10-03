@@ -21,6 +21,10 @@
      answers are theirs; everyone else gets only the photos shown so far, an
      answer once its round is revealed, their own guesses, and everyone's
      guesses on revealed rounds.
+   - Trivia (shared/trivia.js projectTrivia): the set list is the
+     commissioner's; a game sends only the questions shown so far, an answer
+     once revealed, a team its own live pick and every team's locked or not,
+     and every pick once revealed. A commissioner on a team plays it blind.
    - Photo desk records (worker/moments.js) are not in state; the Durable
      Object passes its index in. Everyone gets the visible ones, the
      commissioner also the hidden ones; never byte counts or device ids.
@@ -31,6 +35,7 @@ import * as core from "../shared/core.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { projectMvp } from "../shared/mvp.js";
 import { projectGeo } from "../shared/geo.js";
+import { projectTrivia } from "../shared/trivia.js";
 import { publicMoments } from "./moments.js";
 
 const { isActivePlayer } = core;
@@ -45,7 +50,7 @@ const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds", "logistics"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds", "trivia", "triviaRounds", "logistics"]);
 /* the host's own legs in the trip sheet are public as times only: his flight
    codes go to the commissioner and to him, never to another guest */
 const HOST = "Brandon";
@@ -138,6 +143,7 @@ function viewerProjection(state, viewer, extras = {}) {
     prompts:projectPrompts(state?.prompts, { isGm, player }),
     mvp:projectMvp(state?.mvp, { player }),
     ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
+    ...projectTrivia(state?.trivia, state?.triviaRounds, { isGm, player }),
     ...(moments.length ? { moments } : {}),
     ...(state && "logistics" in state ? { logistics:projectLogistics(state.logistics, { isGm, player }) } : {}),
   };

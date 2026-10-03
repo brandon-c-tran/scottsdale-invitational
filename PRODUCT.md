@@ -31,7 +31,7 @@ A private, single-occasion game companion where the whole economy is real poker 
 ## Operating Context
 
 - A rented house in Scottsdale over three days, Friday arrival to Sunday departure. Sessions: Friday, Saturday morning, Saturday afternoon, Saturday night, and the poker finale.
-- The slate: Long Putt, Beer Die Doubles, Where and When (Fri); 5v5, Pickleball Doubles, 1v1 Basketball (Sat AM); Volleyball, Trivia, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio Kart; poker. Some are drinking games; Trivia is played off-app.
+- The slate: Long Putt, Beer Die Doubles, Where and When (Fri); 5v5, Pickleball Doubles, 1v1 Basketball (Sat AM); Volleyball, Trivia, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio Kart; poker. Some are drinking games; Trivia and Where and When are played in the app.
 - Phones are pulled out mid-game, outdoors in sun, at night, one-handed, often while holding a drink. The TV runs unattended in the living room as the constant status display.
 - Commissioners operate while also playing; routine running happens through a single next-action pill.
 - Before the weekend, the app is the invitation (sent months out) and collects what organizing needs: names, numbers, shirt and jersey details, flights, Venmo, drinking, food needs, photos, win songs.

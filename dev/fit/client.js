@@ -47,6 +47,11 @@ export const hiddenMomentUrl = async () => null;
 export const geoUploadPhoto = offline;
 export const geoDeleteRound = offline;
 export const geoPhotoUrl = async id => `/api/geo/photo/${encodeURIComponent(id)}`;
+export const triviaUploadPhoto = offline;
+export const triviaBank = offline;
+export const triviaClip = offline;
+export const triviaClipCheck = offline;
+export const triviaPhotoUrl = async id => `/api/trivia/photo/${encodeURIComponent(id)}`;
 export const reportClientError = () => {};
 /* the scenario's stubbed Spotify answers (dev/fit/scenarios.js FIT_SPOTIFY) */
 const stubbed = key => async () => globalThis.__FIT_SPOTIFY__?.[key] || offline();

@@ -249,12 +249,13 @@ const GAMES = {
       "60 seconds a photo.",
       "Each photo scores up to 5,000 for where and 5,000 for when. 10 miles off is about 4,700; a month off about 3,900."],
     win:"Highest total wins. A tie goes to more points for where, then to the faster guesses." } },
-  trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["The TV"],
-    objective:"Most right answers.",
-    steps:["All four teams play one game.","A question goes up on the TV.",
-      "Every right answer scores for that team.",
-      "Categories: the groom, the family, the group, a photo round, sports and pop culture."],
-    win:"Most points wins." } },
+  trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["Your phone", "The TV"],
+    objective:"Most points after every round.",
+    steps:["A question goes up on the TV and every phone.",
+      "Your team shares one answer. Anyone on it can change it until one of you locks it in.",
+      "A right answer scores 500, plus up to 500 the sooner your team locks.",
+      "Closest number: the nearest team scores 1,000, the next 500. Exact scores 250 more."],
+    win:"Most points wins. A tie goes to the team that locked its scoring answers faster." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
@@ -386,7 +387,7 @@ const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjus
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, jerseysLocked:false,
-  geoRounds:[], geo:null, updatedAt:0 };
+  geoRounds:[], geo:null, triviaRounds:[], trivia:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -403,6 +404,9 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   /* Where and When's authored photos and answers are configuration; the
      game played on them (state.geo) is progress */
   "geoRounds",
+  /* Trivia's set list (bank picks and the commissioner's own questions) is
+     configuration; the game played on it (state.trivia) is progress */
+  "triviaRounds",
 ]);
 
 /* ─────────── helpers ─────────── */

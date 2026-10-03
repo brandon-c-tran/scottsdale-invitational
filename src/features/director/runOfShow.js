@@ -89,8 +89,32 @@ function geoPlan(state, ev) {
   return out;
 }
 
+/* Trivia with a set list, the same way: each question revealed, the scores
+   at each round's end, then the result (shared/trivia.js triviaBeat). */
+function triviaPlan(state, ev) {
+  if (ev?.game !== "trivia" || state.results?.[ev.id]) return null;
+  const game = state.trivia?.eventId === ev.id && state.trivia.questions?.length ? state.trivia : null;
+  const rounds = game ? game.rounds : (state.triviaRounds || []).map(round => ({ name:round.name || round.category || "",
+    count:round.source === "bank" ? (round.picks || []).length : (round.questions || []).length })).filter(round => round.count)
+    .map((round, i, list) => ({ ...round, first:list.slice(0, i).reduce((sum, item) => sum + item.count, 0) }));
+  const total = rounds.reduce((sum, round) => sum + round.count, 0);
+  if (!total) return null;
+  const question = i => `Question ${i + 1} of ${total}`;
+  const ends = new Set(rounds.map(round => round.first + round.count - 1));
+  const out = game ? [] : [beat("trivia-start", "Start trivia", ev.name)];
+  for (let i = game ? game.index : 0; i < total; i++) {
+    const here = game && i === game.index;
+    if (!(here && game.phase !== "question")) out.push(beat("trivia-reveal", "Reveal", question(i)));
+    if (ends.has(i) && !(here && game.phase === "board"))
+      out.push(beat("trivia-board", i === total - 1 ? "Final scores" : "Scores", ev.name));
+    if (i < total - 1) out.push(beat("trivia-next", ends.has(i) ? "Next round" : "Next question", question(i + 1)));
+  }
+  out.push(beat("trivia-finish", "Post result", ev.name));
+  return out;
+}
+
 const decideBeats = (state, ev, contest) => contest.kind === "ffa"
-  ? geoPlan(state, ev) || [beat("enter-result", "Enter result", ev.name)]
+  ? geoPlan(state, ev) || triviaPlan(state, ev) || [beat("enter-result", "Enter result", ev.name)]
   : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV
@@ -148,6 +172,8 @@ function lifecycleAfter(state, events, director, showControl) {
       out.push(...contestBeats(rest), ...afterResult(showControl));
     } else if (now.type?.startsWith("geo-")) {
       out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl));
+    } else if (now.type?.startsWith("trivia-")) {
+      out.push(...(triviaPlan(state, ev) || []).slice(1), ...afterResult(showControl));
     } else if (now.type === "record-contest-winner") {
       out.push(...contestBeats(rest), ...afterResult(showControl));
     } else if (now.type === "enter-result" || now.type === "post-result") {

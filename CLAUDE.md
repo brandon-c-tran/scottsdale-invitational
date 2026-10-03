@@ -327,6 +327,67 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   preloaded once a game runs); a device without WebGL falls back to
   Leaflet over OpenStreetMap raster tiles.
   CARTO's free basemaps now need an API key, so they are not used.
+- **Trivia** (Oct 3, `shared/trivia.js`, `worker/trivia.js`,
+  `worker/triviaBank.js`, `src/features/trivia/`, `features/tv/TVTrivia.jsx`):
+  played live in the app by the event's four drawn teams of three, with
+  one SHARED answer per team: every teammate's phone shows the team's
+  answer card live, anyone on the team can change it (the face of whoever
+  set it rides the pick) until one of them locks it in, and a lock stays.
+  Four formats: multiple choice, closest number (a digit wheel a digit,
+  `Wheel.jsx` from Where and When, at least four wheels so the size never
+  gives the answer away), name that tune (the TV plays the first 10 s of the
+  song's 30-second Deezer clip from the question's `startsAt` on the server
+  clock through `previewAudioElement()`, `trivia/tuneClip.js`; phones stay
+  silent) and picture (the photo on the TV and the phone).
+  `state.triviaRounds` is the set list (configuration, kept by a progress
+  reset): `{ source:"bank", category, picks }` or `{ source:"custom", name,
+  questions }`. The BANK lives only in the Worker (`worker/triviaBank.js`,
+  11 categories: eight of fact questions and three name-that-tune rounds;
+  `tests/trivia.test.mjs` scans that nothing under `src/` or `shared/`
+  imports it or contains a bank question) and reaches the desk over `GET
+  /api/trivia/bank` with the commissioner token. `triviaStart` copies the
+  set list's questions (answers included, bank options dealt in a fresh
+  order) into `state.trivia` (progress, cleared by a reset), so editing the
+  set list never changes a running game; the desk is locked while one runs,
+  Restart (confirm) clears the answers. Each question opens with a 2.5 s
+  lead (the number stamps), then 20 s (30 s for closest number) on the
+  clock, plus a 3 s server grace for the last save. Scoring is in trivia
+  points, not chips: right = 500 + up to 500 for speed (linear on the time
+  left when the team locked, to the nearest 10; an answer never locked
+  counts at the deadline with no bonus); closest number = 1,000 nearest,
+  500 next nearest (ties share the place), exact +250. Teams rank by total,
+  a tie by the faster sum of scoring lock times. The pill (`triviaBeat`):
+  Start trivia, Reveal (note "N of 4 teams locked in"), Next question, Scores
+  at each round's end, Next round, Final scores, Post result
+  (`triviaFinish` runs beginResultEntry + saveResult with one winning team,
+  then the next two ranks), so payouts, bets, the MVP vote and the win song
+  follow as for any result. `triviaPick` writes carry the device and action
+  id, kept per team and question (`ops`, never projected), so a retry never
+  undoes a teammate's newer pick. Frames carry `projectTrivia`: the
+  commissioner everything (the set list, every answer) unless he is on a
+  team in the running game, when he plays it blind like anyone; everyone
+  else gets the questions shown so far (never a tune's recording), an answer
+  once revealed, their own team's live pick, every other team's locked/set
+  only, and every pick once revealed. HTTP: `POST /api/trivia/photo` (EXIF
+  stripped, `moment:trivia:<id>`, outside state like the geo photos), `GET
+  /api/trivia/photo/<id>` (anyone once shown), `GET /api/trivia/clip/<qid>`
+  (anyone once shown) and `?title&artist&isrc` (the desk's "Clip / No clip").
+  The phone (`TriviaPlay.jsx`) opens itself for a team player once per
+  question, reveal and scores; spectators (crew, away, a commissioner off
+  the teams) open it from Home's row. The reveal is one scroll: your points
+  first (the speed bonus its own amber fill), the right answer stamped
+  green with every team's tag on its answer, then the four teams. The TV
+  holds the room from the first question to the result: the question and
+  its answers lit magenta while live, the clock ring and four team lanes
+  (faces light as the team locks, never what), the reveal with each lane's
+  answer and points, the scores between rounds, a final podium the result
+  scene takes over from. Room sounds (`roomSound.js`): the sting as a
+  question goes up, a slap per lock, ticks over the last five seconds and a
+  knock at zero (`useTriviaClock`), the stamp and riffle on the reveal. QA
+  jumps play a configured game for real (`playTrivia` in `worker/qa.js`);
+  `triviaSimAnswers` (QA capability) answers for every unlocked team.
+  `/dev/trivia-preview.html` rehearses every moment on a player's phone, a
+  spectator's, the TV and the desk (`&desk=bank|round|choice|tune`).
 - **Photo desk** (D11, `worker/moments.js`, `src/features/photos/`): guests
   add weekend photos from Weekend > Photos (camera roll or camera). The phone
   resizes to 1600px JPEG 0.8 plus a 480px thumbnail (a canvas writes no
@@ -497,9 +558,8 @@ shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
 Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball and
 Trivia as 4 teams of 3, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
-Kart; poker. Trivia is played off-app and entered like any result; Where
-and When is played in the app when it has photos (else entered like any
-result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
+Kart; poker. Trivia is played in the app when it has a set list, and Where
+and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
 or the captains' snake splits whoever is present 7 v 6, with no crew. Tests
 that need a dropped shape (pairs pools, solo heats of three, an even
 two-team game) add it through `tests/support/legacy-events.mjs`. Past eight the TV draws the bracket from both ends toward

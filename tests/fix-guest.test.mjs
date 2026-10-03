@@ -56,7 +56,7 @@ const app = await load("fix-guest-app.cjs", `export { ProfileSheet, PokerCard, a
     const refuse=()=>{ throw new Error("transport must not run"); };
     export const dispatch=refuse, uploadPhoto=refuse, downloadSnapshot=refuse, spotifyStatus=refuse,
       spotifyPlayer=refuse, spotifySearch=refuse, spotifyAuthorize=refuse, spotifyDisconnect=refuse,
-      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse, spotifyRetry=refuse, geoUploadPhoto=refuse, geoDeleteRound=refuse, geoPhotoUrl=refuse, reportTvSound=refuse, setTvView=refuse;` }));
+      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse, spotifyRetry=refuse, geoUploadPhoto=refuse, geoDeleteRound=refuse, geoPhotoUrl=refuse, triviaUploadPhoto=refuse, triviaBank=refuse, triviaClip=refuse, triviaClipCheck=refuse, triviaPhotoUrl=refuse, reportTvSound=refuse, setTvView=refuse;` }));
 } }]);
 
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");

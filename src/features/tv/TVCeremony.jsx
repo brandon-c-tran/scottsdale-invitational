@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { disp, teamLabel, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
+import { disp, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
-import { DRAW_PARTNER_BEAT_MS, drawStepAt, drawSequenceMs, partnerFaces, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
+import { GlassArt } from "../../ui/GlassArt.jsx";
+import { drawStepAt, drawSequenceMs, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
+import { DRAW_TV, drawLayout, tvDrawGroups } from "./drawLayout.js";
 import "./tv-moments.css";
+import "./tv-draw.css";
 import { serverNow } from "../../lib/serverClock.js";
 import { GameIntro } from "../intro/GameIntro.jsx";
 import {
@@ -40,40 +43,72 @@ export function IntroOverlay({ state, ev, handoff = false, reducedMotion = false
   );
 }
 
-/* A draw item as the room reads it: the team name past two players, then
-   every face and name, large enough to read from the couch. */
-function DrawLine({ state, avatars, text, size = 64, partner = false }) {
-  const people = avatars || [];
-  const named = people.length > 2;
+/* One side or entry of a draw card as the room reads it: its faces and its
+   name, all on the card's one beat (the card turns, they are there). A card
+   that has not turned holds the same places as unlit seats and blank
+   plates, so nothing moves when it turns and nothing of it shows early. */
+function DrawLine({ state, line, face, covered = false }) {
+  const people = line.avatars || [];
+  if (covered) return (
+    <div className="tv-draw-line is-covered" aria-hidden="true">
+      <div className="tv-draw-faces">{people.map((_, i) => <i key={i} className="tv-draw-seat" />)}</div>
+      <div className="tv-draw-text">
+        <i className="tv-draw-plate" />
+        {line.members && <i className="tv-draw-plate is-small" />}
+      </div>
+    </div>
+  );
   return (
     <div className="tv-draw-line">
       <div className="tv-draw-faces">
-        {people.map((p, i) => partner && i === people.length - 1
-          /* the held beat: this side's last partner lands after the rest */
-          ? <span key={p} className="tv-partner" style={{ "--partner-beat":`${DRAW_PARTNER_BEAT_MS}ms` }}>
-              <Avatar state={state} p={p} size={size} /></span>
-          : <Avatar key={p} state={state} p={p} size={size} />)}
+        {people.map(p => <span key={p} className="tv-draw-face" data-player={p}><Avatar state={state} p={p} size={face} /></span>)}
       </div>
       <div className="tv-draw-text">
-        <div className="tv-draw-name">{text}</div>
-        {named && <div className="tv-draw-crew">{people.map(p => disp(state, p)).join(", ")}</div>}
+        <div className="fd-show tv-draw-name"><EventName name={line.text} /></div>
+        {line.members && <div className="tv-draw-members">{line.members}</div>}
       </div>
     </div>
   );
 }
 
-/* The draw at canvas scale: matchups, teams or heats land one at a time on
-   the room's clock (the server's announcement stamp, the same timeline every
-   phone reads), then the crew as the last step, exactly as the phones count
-   it. A TV that joins late starts at the current step. Reduced motion shows
-   the whole draw at once. Presentation only: it reads the saved draw. */
+function DrawCard({ state, group, card, box, index, shown, settled }) {
+  const covered = !shown;
+  const lines = group.lines.map((line, j) => group.bye
+    ? <div key={j} className="tv-draw-tile"><DrawLine state={state} line={line} face={card.face} covered={covered} /></div>
+    : <React.Fragment key={j}>
+        {group.vs && j > 0 && <div className="tv-draw-vs"><span>vs</span></div>}
+        <DrawLine state={state} line={line} face={card.face} covered={covered} />
+      </React.Fragment>);
+  return (
+    <section className={`tv-draw-card is-${card.kind || "team"} is-${card.mode}${shown ? " is-shown" : " is-covered"}${settled ? " is-settled" : ""}`}
+      aria-hidden={covered} data-card={index}
+      style={{ left:box.x, top:box.y, width:box.w, height:box.h, "--face":`${card.face}px`, "--name":`${card.name}px`,
+        "--card-index":index, "--tiles":card.tileCols || 1 }}>
+      {group.title && <h3 className="fd-show tv-draw-title">
+        {/* a team's own name stays covered with its people */}
+        {covered && group.team ? <i className="tv-draw-plate" /> : <EventName name={group.title} />}
+      </h3>}
+      <div className={group.bye ? "tv-draw-tiles" : "tv-draw-body"}>{lines}</div>
+    </section>
+  );
+}
+
+/* The draw at canvas scale, the game intro's next beat: the same painting
+   behind the dimmed glass, the event's name where the intro docked it, the
+   frame's lamps in the session's lamp (TVMode), and the cards standing on
+   the glass, lit but unturned, centered and balanced for any count
+   (drawLayout). Each card turns over as one unit on the room's clock (the
+   server's announcement stamp, the same timeline every phone reads), then
+   the crew as the last step, exactly as the phones count it. A TV that
+   joins late starts at the current step with the turned cards as they lie.
+   Reduced motion shows the whole draw at once. Presentation only: it reads
+   the saved draw. */
 const TV_REVEAL_LATE_HOLD_MS = 2500;
 export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false, onDone = null, now:clockNow = serverNow }) {
-  const versus = reveal.versus || null;
-  const groups = versus ? null : reveal.groups || [];
+  const groups = tvDrawGroups(state, reveal);
+  const layout = drawLayout(reveal, groups);
   const crew = reveal.crew || [];
-  const cards = versus ? 2 : groups.length;
-  const total = cards + (crew.length ? 1 : 0);
+  const total = groups.length + (crew.length ? 1 : 0);
   const startAt = revealTimeline(state, reveal.evId, { reveal, reducedMotion })?.revealAt ?? null;
   const [joined] = useState(() => reducedMotion ? total : startAt !== null ? drawStepAt(clockNow() - startAt, total) : 0);
   const [shown, setShown] = useState(joined);
@@ -93,53 +128,25 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
     const t = setTimeout(() => doneRef.current?.(), hold);
     return () => clearTimeout(t);
   }, [complete, reveal.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const settledStyle = index => index < joined && !reducedMotion ? { animation:"none" } : undefined;
   const ev = events.find(item => item.id === reveal.evId);
   const contest = ev && state.onDeck === ev.id ? resolveCurrentContest(state, ev) : null;
-  const cols = groups ? (groups.length === 4 ? 2 : Math.min(3, Math.max(1, groups.length))) : 0;
-  const faceSize = groups && groups.length > 3 ? 52 : 64;
+  /* the intro just handed over: the glass comes back up from its veil and
+     the unturned cards stand; a TV that joined later shows them as they lie */
+  const fresh = joined === 0 && !reducedMotion;
+  const versus = layout.kind === "versus";
+  const first = layout.boxes[0];
   return (
-    <div className="tv-reveal fd-night" role="status" aria-live="polite"
+    <div className={`tv-reveal fd-night${fresh ? " is-fresh" : ""}${reducedMotion ? " is-still" : ""}`} role="status" aria-live="polite"
       aria-label={`${reveal.title}: ${reveal.subtitle}`}>
-      <div className="tv-reveal-head">
-        <div className="fd-show tv-reveal-name"><EventName name={reveal.subtitle} /></div>
-        <div className="tv-label">{reveal.title}</div>
-      </div>
-      {versus ? (
-        <div className="tv-reveal-versus">
-          {versus.map((team, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && <div className="tv-vs tv-reveal-vs" style={{ visibility:shown > 1 ? "visible" : "hidden" }}>VS</div>}
-              <section className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
-                style={settledStyle(index)}>
-                <DrawLine state={state} avatars={team.players} text={teamLabel(state, team)}
-                  size={team.players.length > 3 ? 72 : 96} partner={team.players.length > 1} />
-              </section>
-            </React.Fragment>
-          ))}
-        </div>
-      ) : (
-        <div className="tv-reveal-grid" style={{ gridTemplateColumns:`repeat(${cols}, 1fr)` }}>
-          {groups.map((group, index) => (
-            <section key={index} className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
-              style={settledStyle(index)}>
-              <div className="tv-display tv-reveal-group">{group.title}</div>
-              {group.lines.map((line, j) => group.bye ? (
-                <div key={j} className="tv-reveal-bye"
-                  style={{ "--deal-index":j, ...(reducedMotion || index < joined ? { animation:"none" } : null) }}>
-                  <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize} />
-                </div>
-              ) : (
-                <React.Fragment key={j}>
-                  {group.vs && j > 0 && <div className="tv-reveal-versus-mark">vs</div>}
-                  <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize}
-                    partner={partnerFaces(group)[j] >= 0} />
-                </React.Fragment>
-              ))}
-            </section>
-          ))}
-        </div>
-      )}
+      <div className="tv-reveal-paint" aria-hidden="true"><GlassArt clear={{ from:.22, to:.78 }} /></div>
+      <i className="tv-reveal-veil" aria-hidden="true" />
+      <h2 className="fd-show is-marquee fd-glass-letter tv-reveal-name"><EventName name={reveal.subtitle} /></h2>
+      {groups.map((group, index) => (
+        <DrawCard key={index} state={state} group={group} card={layout.cards[index]} box={layout.boxes[index]} index={index}
+          shown={index < shown} settled={index < joined || reducedMotion} />
+      ))}
+      {versus && first && <div className="tv-vs tv-reveal-vs"
+        aria-hidden="true" style={{ left:first.x + first.w + DRAW_TV.gap, top:first.y + Math.round((layout.cardH - DRAW_TV.vsBadge) / 2) }}>VS</div>}
       <div className="tv-reveal-foot">
         {crew.length > 0 && (
           <div className={`tv-reveal-crew${complete ? " is-shown" : ""}`} aria-hidden={!complete}
@@ -153,7 +160,10 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
             ))}
           </div>
         )}
-        {complete && contest && <div className="tv-reveal-odds"><b>Betting open</b><span>{oddsLine(contest)}</span></div>}
+        {complete && contest && <div className="tv-reveal-odds">
+          <span className="tv-status is-pending"><i className="fd-insert is-pending" />Betting open</span>
+          <span>{oddsLine(contest)}</span>
+        </div>}
       </div>
     </div>
   );

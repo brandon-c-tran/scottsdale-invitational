@@ -78,7 +78,8 @@ export function buildEventReveal(state, ev, kind) {
     if (byes.length) groups.push({ title:names[1] ? `Straight to the ${names[1].toLowerCase()}` : "Bye",
       bye:true, lines:byes.map(line) });
   } else if (draw.teams.length !== 2) {
-    groups = draw.teams.map(team => ({ title:teamLabel(state, team),
+    /* `team`: the card's title is the team's own name, so it stays covered too */
+    groups = draw.teams.map(team => ({ title:teamLabel(state, team), team:true,
       lines:team.players.map(player => ({ avatars:[player], text:disp(state, player) })) }));
   }
   return { id:draw.id, evId:ev.id, title:"The draw", subtitle:ev.name, groups,
@@ -87,7 +88,7 @@ export function buildEventReveal(state, ev, kind) {
 
 export function drawRevealGroups(state, reveal) {
   return reveal.versus ? reveal.versus.map((team, index) => ({
-    title:team.name || `Team ${index + 1}`,
+    title:team.name || `Team ${index + 1}`, team:true,
     lines:[{ avatars:team.players, text:team.players.map(player => disp(state, player)).join(" & ") }],
   })) : reveal.groups || [];
 }
@@ -106,34 +107,29 @@ export const DRAW_INTRO_MS = INTRO_MS;
 export const DRAW_INTRO_REDUCED_MS = INTRO_REDUCED_MS;
 export const DRAW_FIRST_STEP_MS = 480;
 /* Each card holds the room about two seconds (Backglass takeover grammar):
-   the card turns, its first faces deal in, and the last partner of each
-   pair or team lands after a held beat (DRAW_PARTNER_BEAT_MS), so the room
-   says the name before it shows. A big field compresses toward
-   DRAW_SEQUENCE_CAP_MS, never under DRAW_STEP_MIN_MS a card. Phones and the
-   TV read these same numbers. */
+   the card turns and everything on it lands with it. A big field compresses
+   toward DRAW_SEQUENCE_CAP_MS, never under DRAW_STEP_MIN_MS a card. Phones
+   and the TV read these same numbers. */
 export const DRAW_STEP_MS = 2000;
 export const DRAW_STEP_MIN_MS = 1300;
 export const DRAW_SEQUENCE_CAP_MS = 16000;
-export const DRAW_PARTNER_BEAT_MS = 900;
 export const drawStepGap = total => total <= 1 ? DRAW_STEP_MS
   : Math.max(DRAW_STEP_MIN_MS, Math.min(DRAW_STEP_MS, DRAW_SEQUENCE_CAP_MS / (total - 1)));
 /* ms after the reveal starts that step `index` (0-based) turns */
 export const drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
-/* the held beat inside a card: the last face of a line of two or more lands
-   this long after its card turns (0 for everyone else) */
-export const partnerDelay = (faceIndex, faces) => faces > 1 && faceIndex === faces - 1 ? DRAW_PARTNER_BEAT_MS : 0;
-/* which face of each line of a draw card holds that beat (-1 for none).
-   A matchup card (`vs`) holds each side's own last partner, so both pairs
-   or teams land alike; a card that is one team or heat listed one player a
-   line holds its last face; byes hold nothing. The phone sheet, the TV and
-   the room's sound all read this, never a card-wide count of their own. */
-export function partnerFaces(group) {
-  const lines = group?.lines || [];
-  const count = line => (line.avatars || []).length;
-  if (group?.bye) return lines.map(() => -1);
-  if (group?.vs) return lines.map(line => partnerDelay(count(line) - 1, count(line)) ? count(line) - 1 : -1);
-  const faces = lines.reduce((n, line) => n + Math.max(1, count(line)), 0);
-  return lines.map((line, j) => faces > 1 && j === lines.length - 1 && count(line) ? count(line) - 1 : -1);
+/* A card turns over as one unit (Oct 3): every face and name on it, a
+   pair's two chips, a team's chips, a heat's racers, land on the card's own
+   beat, never a name first and a face a beat later. Nothing of a card that
+   has not turned (a face, a name, a team's name) is on any screen. The
+   phone sheet, the TV and the room's sound read this one model:
+   drawBeats(groups, total) is when each card's people land, and
+   shownPlayers(groups, shown) is who may be seen `shown` steps in. */
+const people = group => (group?.lines || []).flatMap(line => line.avatars || []);
+export function drawBeats(groups, total = (groups || []).length) {
+  return (groups || []).map((group, index) => ({ index, at:drawStepDelay(index, total), players:people(group) }));
+}
+export function shownPlayers(groups, shown) {
+  return new Set((groups || []).slice(0, Math.max(0, shown)).flatMap(people));
 }
 /* how many steps are showing `elapsed` ms after the reveal started */
 export function drawStepAt(elapsed, total) {

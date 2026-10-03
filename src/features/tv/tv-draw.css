@@ -1,0 +1,101 @@
+/* The draw on the TV (TVDrawReveal), the game intro's next beat. The intro
+   ends with its set dimmed under a veil and the event's name docked at the
+   top; the draw opens on that frame: the same painting (GlassArt, the same
+   window as the intro's), the veil lifting to let it read, the name exactly
+   where it docked (120px, top 37), the frame's lamps in the session's lamp.
+   The cards are reverse-painted glass placed by drawLayout.js; an unturned
+   card is lit from behind with unlit seats and blank plates where its
+   people will land, and it turns over as one unit on its beat. Transforms
+   and opacity only; a turned card that was already turned when this TV
+   joined (is-settled) shows as it lies. Text 24px and up. */
+
+.tv-reveal { position:absolute; inset:0; z-index:21; overflow:hidden; background:var(--night-deep); --lamp:var(--phase); --veil:.45; }
+.tv-reveal-paint { position:absolute; left:0; top:0; width:1920px; height:854px; }
+.tv-reveal-paint > .fd-glass-art { position:absolute; inset:0; width:100%; height:100%; }
+/* the floor falls into the dark under the painting, as in the intro */
+.tv-reveal-paint::after { content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--ink0) 70%, transparent)); }
+.tv-reveal-veil { position:absolute; inset:0; background:var(--night-deep); opacity:var(--veil); pointer-events:none; }
+.tv-reveal.is-fresh .tv-reveal-veil { animation:tv-draw-veil 700ms var(--ease-out) both; }
+@keyframes tv-draw-veil { from { opacity:.94; } to { opacity:var(--veil); } }
+
+/* where the intro docked it: its 150px name at .8, so nothing moves at the handoff */
+.tv-reveal-name { position:absolute; left:64px; right:64px; top:37px; margin:0; text-align:center;
+  font-size:120px; line-height:1.15; letter-spacing:.01em; white-space:nowrap; }
+
+/* ── a card ── */
+.tv-draw-card { position:absolute; box-sizing:border-box; display:flex; flex-direction:column; padding:22px 28px;
+  border-radius:18px; transform-origin:50% 50%; }
+.tv-draw-card.is-shown { background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line);
+  box-shadow:var(--glass-edge), var(--shadow-2); }
+/* lit but unturned: the backlight pooling under the glass, a keyline 4px in */
+.tv-draw-card.is-covered { border:1px solid var(--ghost-line);
+  background:radial-gradient(80% 62% at 50% 38%, color-mix(in srgb, var(--bone) 8%, transparent), transparent 72%),
+    var(--tv-sheen), var(--tv-glass-deep);
+  box-shadow:var(--glass-edge), var(--shadow-2); }
+.tv-draw-card.is-covered::before { content:""; position:absolute; inset:4px; border-radius:14px; pointer-events:none;
+  border:1px solid color-mix(in srgb, var(--bone) 12%, transparent); }
+
+.tv-draw-title { margin:0 0 12px; text-align:center; font-size:34px; line-height:1.15; color:var(--muted2);
+  overflow-wrap:normal; word-break:normal; text-wrap:balance; }
+.tv-draw-body { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:12px; }
+.tv-draw-card.is-vs .tv-draw-body { gap:0; }
+/* a roster's rows line up across cards: they hang from the title */
+.tv-draw-card.is-roster .tv-draw-body { justify-content:flex-start; }
+.tv-draw-tiles { flex:1; min-height:0; display:grid; grid-template-columns:repeat(var(--tiles, 1), minmax(0, 1fr));
+  gap:12px; align-content:center; }
+/* a team that skips round one: its own window in the card */
+.tv-draw-tile { min-width:0; padding:12px; border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
+
+/* one side or entry: faces beside the name (row) or over it (stack) */
+.tv-draw-line { display:flex; align-items:center; gap:18px; min-width:0; }
+.tv-draw-card.is-stack .tv-draw-line { flex-direction:column; gap:10px; text-align:center; }
+.tv-draw-faces { display:flex; gap:10px; flex-shrink:0; }
+.tv-draw-face { display:block; flex-shrink:0; }
+.tv-draw-text { flex:1; min-width:0; }
+.tv-draw-card.is-stack .tv-draw-text { flex:none; width:100%; }
+.tv-draw-name { font-size:var(--name); line-height:1.15; color:var(--bone); overflow-wrap:normal; word-break:normal; text-wrap:balance; }
+.tv-draw-members { margin-top:6px; font:600 28px/1.25 var(--fd-body); color:var(--muted2); text-wrap:balance; }
+.tv-draw-vs { display:flex; align-items:center; gap:16px; height:30px; margin:14px 0;
+  font:800 24px/1 var(--fd-display); letter-spacing:.18em; text-transform:uppercase; color:var(--muted2); }
+.tv-draw-vs::before, .tv-draw-vs::after { content:""; flex:1; height:1px; background:var(--bone-line); }
+
+/* the unturned places: a seat where each face lands, a blank plate where each name does */
+.tv-draw-seat { display:block; flex-shrink:0; width:var(--face); height:var(--face); box-sizing:border-box; border-radius:50%;
+  border:3px dashed color-mix(in srgb, var(--bone) 20%, transparent); background:color-mix(in srgb, var(--bone) 3%, transparent); }
+.tv-draw-plate { display:block; width:min(72%, 320px); height:calc(var(--name, 34px) * .62); margin:calc(var(--name, 34px) * .27) 0;
+  border-radius:6px; background:color-mix(in srgb, var(--bone) 8%, transparent); }
+.tv-draw-plate.is-small { width:min(56%, 260px); height:18px; margin:10px 0 7px; }
+.tv-draw-title .tv-draw-plate { width:min(54%, 260px); height:22px; margin:10px auto 7px; }
+.tv-draw-card.is-stack .tv-draw-plate { margin-left:auto; margin-right:auto; }
+
+/* ── motion ── */
+/* the handoff: the unturned cards stand on the glass before the first turns (480ms) */
+.tv-reveal.is-fresh .tv-draw-card.is-covered { animation:tv-draw-stand 420ms var(--ease-out) calc(var(--card-index, 0) * 45ms) both; }
+/* the turn: the card comes round with everything on it, and light catches its face once */
+.tv-draw-card.is-shown { animation:tv-draw-turn 620ms var(--ease-out) both; }
+.tv-draw-card.is-shown::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:linear-gradient(104deg, transparent 30%, color-mix(in srgb, var(--bone) 10%, transparent) 46%, transparent 62%);
+  opacity:0; animation:tv-draw-shine 900ms var(--ease-out) 200ms both; }
+.tv-draw-card.is-settled, .tv-draw-card.is-settled::after, .tv-reveal.is-still .tv-draw-card,
+  .tv-reveal.is-still .tv-draw-card::after, .tv-reveal.is-still .tv-reveal-veil { animation:none; }
+.tv-draw-card.is-settled::after, .tv-reveal.is-still .tv-draw-card::after { display:none; }
+@keyframes tv-draw-stand { from { opacity:0; transform:translateY(28px); } to { opacity:1; transform:none; } }
+@keyframes tv-draw-turn { 0% { opacity:.25; transform:perspective(1800px) rotateY(-78deg) scale(.96); }
+  45% { opacity:1; } 100% { opacity:1; transform:none; } }
+@keyframes tv-draw-shine { 0% { opacity:0; } 30% { opacity:1; } 100% { opacity:0; } }
+
+/* the two-team draw: a VS between the cards */
+.tv-reveal-vs { position:absolute; width:120px; height:120px; font-size:44px; }
+.tv-reveal.is-fresh .tv-reveal-vs { animation:tv-draw-stand 420ms var(--ease-out) 90ms both; }
+
+/* ── the foot: the crew (the last step), then betting open ── */
+.tv-reveal-foot { position:absolute; left:64px; right:64px; top:950px; height:64px; display:flex; align-items:center;
+  justify-content:center; gap:56px; }
+.tv-reveal-crew { display:flex; align-items:center; flex-wrap:wrap; justify-content:center; gap:14px 28px; visibility:hidden;
+  font:700 32px/1.15 var(--fd-body); color:var(--bone); }
+.tv-reveal-crew.is-shown { visibility:visible; animation:si-in .4s ease-out both; }
+.tv-reveal-crew-item { display:inline-flex; align-items:center; gap:12px; }
+.tv-reveal-odds { display:flex; align-items:center; gap:24px; font:700 30px/1.2 var(--fd-body); color:var(--muted2);
+  animation:si-in .4s ease-out both; }
+.tv-reveal.is-still .tv-reveal-odds, .tv-reveal.is-still .tv-reveal-crew { animation:none; }

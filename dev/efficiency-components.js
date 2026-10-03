@@ -4624,16 +4624,9 @@ var init_introTiming = __esm({
 function drawRevealGroups(state, reveal) {
   return reveal.versus ? reveal.versus.map((team, index) => ({
     title: team.name || `Team ${index + 1}`,
+    team: true,
     lines: [{ avatars: team.players, text: team.players.map((player) => disp(state, player)).join(" & ") }]
   })) : reveal.groups || [];
-}
-function partnerFaces(group) {
-  const lines = group?.lines || [];
-  const count = (line) => (line.avatars || []).length;
-  if (group?.bye) return lines.map(() => -1);
-  if (group?.vs) return lines.map((line) => partnerDelay(count(line) - 1, count(line)) ? count(line) - 1 : -1);
-  const faces = lines.reduce((n, line) => n + Math.max(1, count(line)), 0);
-  return lines.map((line, j) => faces > 1 && j === lines.length - 1 && count(line) ? count(line) - 1 : -1);
 }
 function drawStepAt(elapsed, total) {
   const count = Math.max(0, Math.floor(Number(total) || 0));
@@ -4685,7 +4678,7 @@ function startDrawPlayback({
   }
   return { stop, skip, joined };
 }
-var REVEAL_FRESH_MS, revealTime, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS, DRAW_FIRST_STEP_MS, DRAW_STEP_MS, DRAW_STEP_MIN_MS, DRAW_SEQUENCE_CAP_MS, DRAW_PARTNER_BEAT_MS, drawStepGap, drawStepDelay, partnerDelay, saved;
+var REVEAL_FRESH_MS, revealTime, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS, DRAW_FIRST_STEP_MS, DRAW_STEP_MS, DRAW_STEP_MIN_MS, DRAW_SEQUENCE_CAP_MS, drawStepGap, drawStepDelay, saved;
 var init_drawReveal = __esm({
   "src/features/weekend/drawReveal.js"() {
     init_introTiming();
@@ -4698,10 +4691,8 @@ var init_drawReveal = __esm({
     DRAW_STEP_MS = 2e3;
     DRAW_STEP_MIN_MS = 1300;
     DRAW_SEQUENCE_CAP_MS = 16e3;
-    DRAW_PARTNER_BEAT_MS = 900;
     drawStepGap = (total) => total <= 1 ? DRAW_STEP_MS : Math.max(DRAW_STEP_MIN_MS, Math.min(DRAW_STEP_MS, DRAW_SEQUENCE_CAP_MS / (total - 1)));
     drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
-    partnerDelay = (faceIndex, faces) => faces > 1 && faceIndex === faces - 1 ? DRAW_PARTNER_BEAT_MS : 0;
     saved = (state, reveal) => {
       const draw = state?.draws?.[reveal?.evId], stage = state?.stages?.[reveal?.evId];
       return draw?.id === reveal?.id ? draw : stage?.id === reveal?.id ? stage : null;
@@ -12478,7 +12469,7 @@ function DrawAnnouncement({
     setShown(reducedMotion ? total : 0);
     setRun((value) => value + 1);
   };
-  const playerButton = (player, visible, index = 0, partner = false) => /* @__PURE__ */ React24.createElement(
+  const playerButton = (player, visible) => /* @__PURE__ */ React24.createElement(
     "button",
     {
       type: "button",
@@ -12488,8 +12479,6 @@ function DrawAnnouncement({
       onClick: () => {
         if (visible) onPlayer?.(player);
       },
-      className: partner ? "is-partner" : void 0,
-      style: { "--deal-index": index, ...partner ? { "--partner-beat": `${DRAW_PARTNER_BEAT_MS}ms` } : null },
       "aria-label": `View ${disp(state, player)}'s player card`
     },
     /* @__PURE__ */ React24.createElement(Avatar, { state, p: player, size: 30 }),
@@ -12514,16 +12503,10 @@ function DrawAnnouncement({
       const settled = run2 === 0 && index < joined;
       const mine = !!me && group.lines.some((line) => (line.avatars || []).includes(me));
       const ring = mine && visible && animate && !settled;
-      const held = partnerFaces(group);
       const lines = group.lines.map((line, j) => {
         const people = line.avatars || [];
         const namedTeam = line.text && people.length > 1 && line.text !== people.map((player) => disp(state, player)).join(" & ") && line.text !== group.title;
-        const body = /* @__PURE__ */ React24.createElement(React24.Fragment, null, namedTeam && /* @__PURE__ */ React24.createElement("strong", { className: "fd-draw-team-name" }, line.text), /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-people" }, people.length ? people.map((player, playerIndex) => playerButton(
-          player,
-          visible,
-          playerIndex,
-          playerIndex === held[j]
-        )) : /* @__PURE__ */ React24.createElement("span", null, line.text)));
+        const body = /* @__PURE__ */ React24.createElement(React24.Fragment, null, namedTeam && /* @__PURE__ */ React24.createElement("strong", { className: "fd-draw-team-name" }, /* @__PURE__ */ React24.createElement(EventName, { name: line.text })), /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-people" }, people.length ? people.map((player) => playerButton(player, visible)) : /* @__PURE__ */ React24.createElement("span", null, line.text)));
         if (group.bye) return /* @__PURE__ */ React24.createElement(
           "div",
           {
@@ -12544,7 +12527,7 @@ function DrawAnnouncement({
         },
         /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-card-back", "aria-hidden": "true" }, /* @__PURE__ */ React24.createElement("span", null, String(index + 1).padStart(2, "0"))),
         ring && /* @__PURE__ */ React24.createElement("i", { className: "fd-draw-ring", "aria-hidden": "true" }),
-        /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-card-front", "aria-hidden": !visible }, /* @__PURE__ */ React24.createElement("h3", null, group.title, mine && visible && /* @__PURE__ */ React24.createElement("span", { className: "fd-draw-you" }, "You")), group.bye ? /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-byes" }, lines) : lines)
+        /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-card-front", "aria-hidden": !visible }, /* @__PURE__ */ React24.createElement("h3", null, /* @__PURE__ */ React24.createElement(EventName, { name: group.title }), mine && visible && /* @__PURE__ */ React24.createElement("span", { className: "fd-draw-you" }, "You")), group.bye ? /* @__PURE__ */ React24.createElement("div", { className: "fd-draw-byes" }, lines) : lines)
       );
     })),
     !!reveal.crew?.length && /* @__PURE__ */ React24.createElement("div", { className: `fd-draw-crew ${complete ? "is-revealed" : "is-covered"}`, "aria-hidden": !complete }, reveal.crew.map((role) => /* @__PURE__ */ React24.createElement("div", { key: role.player }, playerButton(role.player, complete), /* @__PURE__ */ React24.createElement("span", null, overflowRoleMeta(role.role).label)))),

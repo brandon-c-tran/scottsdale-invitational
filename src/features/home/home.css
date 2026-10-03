@@ -31,9 +31,9 @@ button.fd-you-strip:active { transform:scale(.99); }
 .fd-you-strip-score .fd-reel { font:800 32px/1 var(--fd-display); }
 .fd-you-strip-line { grid-column:1 / -1; display:flex; align-items:center; gap:10px; min-width:0; min-height:44px; padding:6px 10px 7px 12px;
   font:600 15px/1.3 var(--fd-body); }
-/* one line, always: the model names a team, never a roll call; an
-   ellipsis is the last resort */
-.fd-you-strip-line>span { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+/* the model names a team, never a roll call; a team's own long name
+   takes a second line rather than losing letters */
+.fd-you-strip-line>span { flex:1; min-width:0; overflow-wrap:anywhere; }
 /* "You're up vs ..." is a moment, lettered in the show face */
 .fd-you-strip-line>.fd-you-strip-up { font-size:24px; line-height:1.15; letter-spacing:.01em; padding-bottom:1px; }
 .fd-insert.is-live { --lamp:var(--lamp-live); }

@@ -98,6 +98,18 @@ async function openSheet(kind) {
     await sleep(1600);
     return !!document.querySelector(".fd-announcement");
   }
+  /* writing your own team name, the longest one there is */
+  if (kind === "teamname-write") {
+    const ok = await tap(() => [...document.querySelectorAll(".fd-teamname-link")].find(b => visible(b) && /Write your own/.test(b.textContent)));
+    await sleep(300);
+    const input = document.querySelector(".fd-teamname-write input");
+    if (!ok || !input) return false;
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    set.call(input, "Smarty Pints and Friends");
+    input.dispatchEvent(new Event("input", { bubbles:true }));
+    await sleep(200);
+    return true;
+  }
   if (kind === "lastcard" || kind === "auto") return !!document.querySelector(".fd-sheet, [role=dialog]");
   if (kind === "card" || kind === "card-back") {
     const ok = await tap(() => [...document.querySelectorAll("button[aria-label*='player card' i], button[aria-label*='card' i]")]

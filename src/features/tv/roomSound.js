@@ -30,6 +30,8 @@
      the walkout's stinger and stamp (walkoutCues), open past the song
      D6  an award: its ballot chips (the chip density rule), then S10 and
          S14 as the winner stamps, on AWARD_TIMING from reveal.at
+     stamp  a team takes a new name (features/teams): its card re-letters,
+         one stamp at the name's own write time
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -97,11 +99,15 @@ export function contestChipCounts(state, events, contest) {
 /* Everything on the TV that can sound, reduced to comparable facts. */
 export function roomSnapshot(state, events = [], { standings = null, allTied = false, liveEv = null, showScene = null } = {}) {
   if (!state) return null;
-  const announced = {}, reveals = {}, locks = {}, results = {}, drafts = {};
+  const announced = {}, reveals = {}, locks = {}, results = {}, drafts = {}, names = {};
   for (const ev of events) {
     const op = state.eventOps?.[ev.id] || {};
     if (Number(op.announcedAt) > 0) announced[ev.id] = Number(op.announcedAt);
     if (Number(op.bettingLockedAt) > 0) locks[ev.id] = Number(op.bettingLockedAt);
+    /* every drawn team's last naming, keyed by its draw: a new draw is
+       never a rename */
+    const draw = state.draws?.[ev.id];
+    if (draw?.id) (draw.teams || []).forEach((team, i) => { names[`${draw.id}:${i}`] = Number(team?.named?.at) || 0; });
     const res = state.results?.[ev.id];
     if (res?.slots?.[0]?.length) results[ev.id] = { revision:Number(res.revision || 1), at:posted(res),
       places:res.stacks ? 0 : Math.min(3, (res.slots || []).filter(slot => slot?.length).length) };
@@ -129,7 +135,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
   const pk = state.poker || null;
   const active = showScene?.active || null;
   return {
-    announced, reveals, locks, results, drafts, chips,
+    announced, reveals, locks, results, drafts, chips, names,
     leader:leaderRows.map(row => row.player).sort().join("+"),
     decidedAt:liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0,
     frozen:!!state.frozen,
@@ -182,6 +188,12 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
         add("land", turn + DRAW_PARTNER_BEAT_MS, { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}:partner` });
     }
   }
+
+  /* a team takes a new name: one stamp, the newest */
+  const renamed = Object.entries(next.names || {})
+    .filter(([key, at]) => at > 0 && prev.names?.[key] !== undefined && at > prev.names[key])
+    .sort((a, b) => b[1] - a[1])[0];
+  if (renamed) add("stamp", renamed[1], { key:`named:${renamed[0]}:${renamed[1]}` });
 
   /* the table closes */
   const lock = newest(next.locks, (evId, at) => at > (prev.locks[evId] || 0));

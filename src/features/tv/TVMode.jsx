@@ -28,6 +28,7 @@ import { TVPoker } from "./TVPoker.jsx";
 import { StageGroups, RosterWall, TrophyCard, TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { winLineFor } from "../standings/winImpact.js";
 import { TVBracket } from "./TVBracket.jsx";
+import { RenameText } from "../teams/RenameText.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
 import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
@@ -124,7 +125,16 @@ function usePointerActive() {
    of its full size, else fits its longest word and lets it wrap */
 const fitLine = (text, max, width) => {
   const one = Math.floor(width / (Math.max(4, String(text || "").length) * 0.5));
-  return one >= max * 0.6 ? Math.min(max, one) : fitDisplay(text, max, width);
+  return one >= max * 0.6 ? Math.min(max, one) : Math.min(fitDisplay(text, max, width), twoLines(text, width));
+};
+/* the size at which a long name (a team's own, up to 24 letters) takes at
+   most two lines, broken at its most even space */
+const twoLines = (text, width) => {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  let best = words.join(" ").length;
+  for (let i = 1; i < words.length; i++)
+    best = Math.min(best, Math.max(words.slice(0, i).join(" ").length, words.slice(i).join(" ").length));
+  return Math.max(40, Math.floor(width / (Math.max(4, best) * 0.5)));
 };
 /* a display size that fits a name's longest word into its column */
 const fitDisplay = (text, max, width) => {
@@ -380,7 +390,8 @@ function SideName({ name, width, max, min }) {
   const fit = sideNameFit(name, width, { max, min, caps:true });
   return (
     <div className="tv-side-title" style={{ fontSize:fit.size }}>
-      <div className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</div>
+      {/* a team renamed on a fresh frame re-letters in place (features/teams) */}
+      <RenameText name={name} as="div" className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</RenameText>
     </div>
   );
 }

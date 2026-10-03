@@ -67,7 +67,10 @@
 .fd-wagers-player:not(:disabled):hover > .fd-wagers-player-text > span { text-decoration:underline; text-underline-offset:3px; }
 .fd-wagers-win-inline { font-weight:500; }
 .fd-wagers-player:disabled,.fd-wagers-team-players > button:disabled { cursor:default; }
-.fd-wagers-team-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:650; line-height:1.4; }
+/* a team's name is the card's subject: show lettering, condensed, on one
+   line; a long one (a team's own, up to 24) steps down to fit */
+.fd-wagers-team-name { min-width:0; white-space:nowrap; font:900 17px/1.2 var(--fd-show); letter-spacing:.01em; }
+.fd-wagers-team-name.is-long { font-size:15px; }
 .fd-wagers-team-players { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(44px,1fr); gap:3px; width:100%; overflow-x:auto; scrollbar-width:none; }
 .fd-wagers-team-players::-webkit-scrollbar { display:none; }
 .fd-wagers-team-players.is-many { grid-auto-flow:row; grid-template-columns:repeat(var(--fd-team-n),minmax(0,1fr)); gap:0; overflow:visible; }

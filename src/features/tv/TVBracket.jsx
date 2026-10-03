@@ -6,6 +6,7 @@ import { EASE } from "../../lib/motion.js";
 import { ADVANCE_TIMING as T, bracketGeometry, railPoints, railPath, tokenKeyframes, useTimeline } from "./tvMotion.js";
 import { sideNameFit } from "./tvModel.js";
 import { Icon } from "../../ui/Icon.jsx";
+import { RenameText } from "../teams/RenameText.jsx";
 
 /* ── the bracket, drawn, at TV scale ──
    The same layout the phones draw (bracketLayout), rounds as columns and
@@ -189,13 +190,13 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
 /* A pair's name: one line where it fits; beside the live board, two lines
    broken at the "&" before it would shrink or be cut. */
 function BracketName({ text, dims = null }) {
-  if (!dims) return <span className="tv-bracket-name">{text}</span>;
+  if (!dims) return <RenameText name={text} className="tv-bracket-name" />;
   const fit = dims.twoLines === false
     ? { size:Math.max(24, Math.min(dims.nameMax, Math.floor(dims.nameW / Math.max(1, String(text).length * 0.52)))), lines:[text] }
     : sideNameFit(text, dims.nameW, { max:dims.nameMax, min:Math.min(dims.nameMax, 28), caps:true });
   return (
-    <span className={`tv-bracket-name${fit.lines.length > 1 ? " is-two" : ""}`} style={{ fontSize:fit.size }}>
-      {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : text}</span>
+    <RenameText name={text} className={`tv-bracket-name${fit.lines.length > 1 ? " is-two" : ""}`} style={{ fontSize:fit.size }}>
+      {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : text}</RenameText>
   );
 }
 

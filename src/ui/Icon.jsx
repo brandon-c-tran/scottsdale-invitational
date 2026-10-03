@@ -157,6 +157,11 @@ const ICONS = {
   /* skip: a step past the line */
   skip:{ line:<><path d="m5.5 6 6.5 6-6.5 6" /><path d="m12 6 6.5 6-6.5 6" /><path d="M20.5 5.5v13" /></> },
   undo:{ line:<><path d="M8.6 5.4 4.4 9.6l4.2 4.2" /><path d="M4.6 9.6h9.6a5.4 5.4 0 0 1 0 10.8H9.6" /></> },
+  /* the next suggestions (team names) */
+  shuffle:{ line:<><path d="M3.8 7.4h3.4c2.2 0 3.6 1.2 4.8 3.4l1 1.9c1.2 2.2 2.6 3.4 4.8 3.4h2.4" /><path d="M3.8 16.6h3.4c1.5 0 2.6-.5 3.5-1.5" />
+    <path d="M13.5 8.9c.9-1 2-1.5 3.5-1.5h2.4" /><path d="m17.6 4.9 2.6 2.5-2.6 2.5M17.6 14.1l2.6 2.5-2.6 2.5" /></> },
+  /* write your own */
+  pencil:{ line:<><path d="M15.6 4.8a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8L9 18.6l-4.4 1 1-4.4z" /><path d="m13.8 6.6 3.6 3.6" /></> },
   /* the rehearsal flask */
   flask:{
     line:<><path d="M9.4 3.6h5.2M10.2 3.6v5.6L4.9 18.3a1.4 1.4 0 0 0 1.2 2.1h11.8a1.4 1.4 0 0 0 1.2-2.1l-5.3-9.1V3.6" /><path d="M7.2 14.4h9.6" /></>,

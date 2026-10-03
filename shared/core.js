@@ -1,6 +1,7 @@
 /* Single source of truth for game logic. Imported by BOTH the React client
    and the Durable Object. The server is authoritative; the client uses these
    for display only. */
+import { MASCOTS, defaultTeamNames } from "./teamNames.js";
 
 /* Names are the shipped M0 storage keys, so Scottsdale keeps them as stable
    ids. The record shape separates identity from display and attendance without
@@ -610,9 +611,10 @@ function draftTurn(draft) {
     totalPicks:pickIndex + remaining, remaining, complete };
 }
 
-/* mascot bank for teams of 3+; assigned at draw time, stable for the event */
-const TEAM_NAMES = ["The Sidewinders","The Javelinas","The Roadrunners","The Coyotes","The Scorpions",
-  "The Gila Monsters","The Jackrabbits","The Rattlers","The Dust Devils","The Bobcats","The Vultures","The Quail"];
+/* the desert mascots: once every team's name, now one flavor of the
+   suggestions (shared/teamNames.js). A draw still shuffles them, unused, so a
+   seeded rehearsal's random stream (worker/qa.js) runs as it always has. */
+const TEAM_NAMES = MASCOTS.map(mascot => `The ${mascot}`);
 
 function teamLabel(state, t) {
   if (t.name) return t.name;
@@ -1192,10 +1194,13 @@ function drawTeams(ev, state, players, active = presentPlayers(state)) {
   const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
   if (participationForEvent(ev).type === "strict-teams"
       && groups.some(group => group.length !== fit.size)) return null;
-  const mascots = (fit.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
+  if ((fit.size || 0) >= 3) shuffle(TEAM_NAMES);
   /* two draws in one millisecond must not share an id: tickets key on it */
-  return { id:`d${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, method:"balanced", ts:Date.now(),
-    teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
+  const id = `d${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  /* a team of three or more opens with its first suggestion as its name */
+  const names = defaultTeamNames(state, ev, id, groups.map(players => ({ players })));
+  return { id, method:"balanced", ts:Date.now(),
+    teams: groups.map((players, i) => names[i] ? { players, name:names[i] } : { players }) };
 }
 
 function splitIntoGroups(keys, nGroups, strengthOf) {

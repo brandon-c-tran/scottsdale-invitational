@@ -232,10 +232,10 @@ test("the card: Name your team, three suggestions with the current one lit, then
   const me = state.draws.volley.teams[0].players[0];
   const naming = model.myTeamNaming(state, ev, me);
   const html = render(state, React.createElement(ui.TeamNameCard, { state, ev, me }));
-  assert.match(html, /<h2>Name your team<\/h2>/);
+  assert.match(html, /<h2 class="fd-teamname-ask">Name your team<\/h2>/, "the heading asks, no label over it");
   assert.equal((html.match(/class="fd-teamname-chip(?: is-on)?"/g) || []).length, 3, "three suggestions");
   assert.ok(html.includes(naming.name), "the current name");
-  assert.match(html, /aria-pressed="true"[^>]*>[^<]+</, "the draw's name is one of the three, lit");
+  assert.ok(new RegExp(`aria-pressed="true"[^>]*><span>${naming.name}</span>`).test(html), "the draw's name is one of the three, lit");
   assert.match(html, /Write your own/);
   assert.ok(!html.includes("—"), "no em dashes");
   const home = render(state, React.createElement(ui.TeamNamesHome, { state, me, events:allEventsOf(state) }));
@@ -243,6 +243,11 @@ test("the card: Name your team, three suggestions with the current one lit, then
   const spectator = render(state, React.createElement(ui.TeamNamesHome, { state, me:outsider(state, "volley", 0),
     events:[ev] }));
   assert.ok(!spectator.includes(naming.name), "only your own team");
+  /* a teammate names it: the card shows the new name, with their photo chip */
+  const mate = state.draws.volley.teams[0].players[1];
+  nameTeam(state, { ...ref(state, "volley", 0), name:"Sets Appeal" }, guest(mate));
+  const named = render(state, React.createElement(ui.TeamNameCard, { state, ev, me }));
+  assert.ok(named.includes("Sets Appeal") && named.includes(`Named by ${state.profiles?.[mate]?.display || mate}`));
   const desk = render(state, React.createElement(ui.TeamNameDesk, { state, ev }));
   assert.equal((desk.match(/fd-teamname /g) || []).length, 4, "the commissioner sees every team");
   const contest = resolveCurrentContest(state, ev);

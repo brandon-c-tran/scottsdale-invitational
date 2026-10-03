@@ -3,12 +3,13 @@
    suggestions are glass chips, the current one lit cyan. */
 .fd-teamname { margin:0 0 12px; padding:12px 12px 12px 14px; }
 .fd-teamname.is-desk { margin:0 0 8px; padding:8px 8px 8px 12px; }
-.fd-teamname-head { display:flex; align-items:flex-start; gap:10px; }
-.fd-teamname-title { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
-.fd-teamname-title h2 { margin:0; color:var(--ink); font:800 16px/1.15 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
-.fd-teamname-current { display:flex; align-items:center; gap:8px; min-width:0; }
+.fd-teamname-head { display:flex; align-items:center; gap:10px; min-height:44px; }
+/* the ask is the card's title (DESIGN Title: uppercase Big Shoulders 800) */
+.fd-teamname-ask { flex:1; min-width:0; margin:0; color:var(--ink); font:800 22px/1.15 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; }
+.fd-teamname-current { flex:1; display:flex; align-items:center; gap:8px; min-width:0; }
+.fd-teamname-current .fd-teamname-ask { flex:0 1 auto; }
 /* the name wraps whole words onto a second line rather than losing letters */
-.fd-teamname-name { min-width:0; color:var(--ink); font:900 30px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-teamname-name { min-width:0; margin:0; color:var(--ink); font:900 28px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
 .fd-teamname.is-desk .fd-teamname-name { font-size:24px; }
 .fd-teamname-by { flex-shrink:0; line-height:0; border-radius:50%; box-shadow:0 0 0 2px var(--ink0); }
 .fd-teamname-toggle { flex-shrink:0; width:44px; height:44px; display:grid; place-items:center; padding:0; border:1px solid var(--line);
@@ -17,7 +18,7 @@
 
 .fd-teamname-edit { margin-top:10px; }
 .fd-teamname-chips { display:flex; flex-wrap:wrap; gap:6px; }
-.fd-teamname-chip { min-height:44px; max-width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:10px;
+.fd-teamname-chip { display:inline-flex; align-items:center; gap:8px; min-height:44px; max-width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:10px;
   background:var(--bg); color:var(--ink); font:800 18px/1.15 var(--fd-show); letter-spacing:.01em; text-align:left;
   box-shadow:var(--glass-edge); cursor:pointer; overflow-wrap:anywhere;
   transition:background var(--motion-fast, 120ms) var(--ease-out, ease-out), border-color var(--motion-fast, 120ms) var(--ease-out, ease-out); }

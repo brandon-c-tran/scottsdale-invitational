@@ -35,10 +35,13 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
   const pick = name => { tapTick(); send(name); };
   return <div className="fd-teamname-edit" aria-busy={pending !== null}>
     <div className="fd-teamname-chips" role="group" aria-label="Suggestions">
-      {naming.suggestions.map(name => {
+      {/* the name the team has now, lit, with whoever chose it; then the suggestions */}
+      {[...(current && !naming.suggestions.includes(current) ? [current] : []), ...naming.suggestions].map(name => {
         const on = pending !== null ? pending === name : current === name;
         return <button type="button" key={name} className={`fd-teamname-chip${on ? " is-on" : ""}`} aria-pressed={on}
-          disabled={pending !== null} onClick={() => pick(name)}>{name}</button>;
+          disabled={pending !== null} onClick={() => pick(name)}>
+          {name === current ? <RenameText name={name} /> : name}
+          {name === current && pending === null && <NamedBy state={state} named={naming.named} size={22} />}</button>;
       })}
       <button type="button" className="fd-teamname-chip is-tool" aria-label="More names" disabled={pending !== null}
         onClick={() => { tapTick(); onRound(round + 1); }}><Icon name="shuffle" size={20} /></button>
@@ -62,10 +65,10 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
 }
 
 /* who named it, as their photo chip */
-function NamedBy({ state, named }) {
+function NamedBy({ state, named, size = 28 }) {
   if (!named?.by) return null;
-  return <span className="fd-teamname-by" aria-label={`Named by ${disp(state, named.by)}`}>
-    <Avatar state={state} p={named.by} size={28} /></span>;
+  return <span className="fd-teamname-by" role="img" aria-label={`Named by ${disp(state, named.by)}`}>
+    <Avatar state={state} p={named.by} size={size} /></span>;
 }
 
 /* One team's card. A team of three or more opens with its suggestions; a
@@ -81,14 +84,15 @@ export function TeamNameCard({ state, naming: given, ev, me, gm = false, index =
   const lamp = chosen || gm ? "" : " fd-lamp is-info is-pending";
   return <section className={`fd-teamname fd-glass-field fd-field-info${lamp}${gm ? " is-desk" : ""} ${className}`.trim()}
     aria-label={gm ? `${naming.label} name` : "Name your team"}>
+    {/* open, the heading asks and the chips answer (the current name is
+        the lit one); closed, the team's name is the heading */}
     <div className="fd-teamname-head">
-      <div className="fd-teamname-title">
-        {!gm && <h2>Name your team</h2>}
-        <div className="fd-teamname-current">
-          <RenameText name={naming.label} as="strong" className="fd-show fd-teamname-name" />
-          <NamedBy state={state} named={naming.named} />
-        </div>
-      </div>
+      {expanded && !gm ? <h2 className="fd-teamname-ask">Name your team</h2>
+        : <div className="fd-teamname-current">
+            {!gm && !naming.name ? <h2 className="fd-teamname-ask">Name your team</h2>
+              : <RenameText name={naming.label} as="h2" className="fd-show fd-teamname-name" />}
+            {naming.name && <NamedBy state={state} named={naming.named} />}
+          </div>}
       <button type="button" className={`fd-teamname-toggle${expanded ? " is-open" : ""}`} aria-expanded={expanded}
         aria-label={expanded ? "Close" : "Rename"} onClick={() => setOpen(!expanded)}>
         <Icon name={expanded ? "collapse" : "pencil"} size={20} /></button>

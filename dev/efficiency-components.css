@@ -10618,33 +10618,34 @@ button.fd-home-exposure {
 }
 .fd-teamname-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
+  min-height: 44px;
 }
-.fd-teamname-title {
+.fd-teamname-ask {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.fd-teamname-title h2 {
   margin: 0;
   color: var(--ink);
-  font: 800 16px/1.15 var(--fd-display);
-  letter-spacing: .08em;
+  font: 800 22px/1.15 var(--fd-display);
+  letter-spacing: .03em;
   text-transform: uppercase;
 }
 .fd-teamname-current {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
+.fd-teamname-current .fd-teamname-ask {
+  flex: 0 1 auto;
+}
 .fd-teamname-name {
   min-width: 0;
+  margin: 0;
   color: var(--ink);
-  font: 900 30px/1.15 var(--fd-show);
+  font: 900 28px/1.15 var(--fd-show);
   letter-spacing: .01em;
   overflow-wrap: anywhere;
 }
@@ -10683,6 +10684,9 @@ button.fd-home-exposure {
   gap: 6px;
 }
 .fd-teamname-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 44px;
   max-width: 100%;
   padding: 8px 12px;

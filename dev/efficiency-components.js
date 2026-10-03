@@ -13126,7 +13126,7 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     tapTick();
     send(name);
   };
-  return /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Suggestions" }, naming.suggestions.map((name) => {
+  return /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Suggestions" }, [...current && !naming.suggestions.includes(current) ? [current] : [], ...naming.suggestions].map((name) => {
     const on = pending !== null ? pending === name : current === name;
     return /* @__PURE__ */ React70.createElement(
       "button",
@@ -13138,7 +13138,8 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         disabled: pending !== null,
         onClick: () => pick(name)
       },
-      name
+      name === current ? /* @__PURE__ */ React70.createElement(RenameText, { name }) : name,
+      name === current && pending === null && /* @__PURE__ */ React70.createElement(NamedBy, { state, named: naming.named, size: 22 })
     );
   }), /* @__PURE__ */ React70.createElement(
     "button",
@@ -13200,9 +13201,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     "Use our names"
   )), error && /* @__PURE__ */ React70.createElement("p", { className: "fd-teamname-error", role: "alert" }, error));
 }
-function NamedBy({ state, named }) {
+function NamedBy({ state, named, size = 28 }) {
   if (!named?.by) return null;
-  return /* @__PURE__ */ React70.createElement("span", { className: "fd-teamname-by", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React70.createElement(Avatar, { state, p: named.by, size: 28 }));
+  return /* @__PURE__ */ React70.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React70.createElement(Avatar, { state, p: named.by, size }));
 }
 function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, onSend = sendName, className = "" }) {
   const [round, setRound] = useState55(0);
@@ -13219,7 +13220,7 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
       className: `fd-teamname fd-glass-field fd-field-info${lamp}${gm ? " is-desk" : ""} ${className}`.trim(),
       "aria-label": gm ? `${naming.label} name` : "Name your team"
     },
-    /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-head" }, /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-title" }, !gm && /* @__PURE__ */ React70.createElement("h2", null, "Name your team"), /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-current" }, /* @__PURE__ */ React70.createElement(RenameText, { name: naming.label, as: "strong", className: "fd-show fd-teamname-name" }), /* @__PURE__ */ React70.createElement(NamedBy, { state, named: naming.named }))), /* @__PURE__ */ React70.createElement(
+    /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-head" }, expanded && !gm ? /* @__PURE__ */ React70.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React70.createElement("div", { className: "fd-teamname-current" }, !gm && !naming.name ? /* @__PURE__ */ React70.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React70.createElement(RenameText, { name: naming.label, as: "h2", className: "fd-show fd-teamname-name" }), naming.name && /* @__PURE__ */ React70.createElement(NamedBy, { state, named: naming.named })), /* @__PURE__ */ React70.createElement(
       "button",
       {
         type: "button",

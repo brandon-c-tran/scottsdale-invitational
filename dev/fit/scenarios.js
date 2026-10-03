@@ -214,6 +214,62 @@ function geo(stage) {
   return state;
 }
 
+/* Trivia: a bank round (a choice and a closest number) and the
+   commissioner's own (a long question, a picture, a tune), played by the
+   four drawn teams through the real pick writes. `stage` stops the game at
+   a moment: "question" (the first, two teams locked, the guest's team
+   picked by a teammate), "picture", "tune", "number", "reveal" (the first
+   revealed), "number-reveal", "board" (after the bank round), "final". */
+export const TRIVIA_FIT_ROUNDS = Object.freeze([
+  { id:"tfitbank01", source:"bank", category:"geography", picks:["geography-06", "geography-13"] },
+  { id:"tfitgroom1", source:"custom", name:"The groom", questions:[
+    { id:"qfitlong01", format:"choice", text:"Which of these did Brandon order the first time he took everyone to the diner after the fantasy draft in 2019?",
+      options:["Chicken and waffles", "A patty melt with extra pickles", "Two breakfasts", "Nothing, he left early"], answer:1 },
+    { id:"qfitpic001", format:"picture", text:"Where was this taken?", photo:{ id:"pfitphoto01", w:1600, h:1200 },
+      options:["Lake Tahoe", "Big Sur", "Zion", "Sedona"], answer:3 },
+    { id:"qfittune01", format:"tune", text:"", options:[{ title:"Mr. Brightside", artist:"The Killers" },
+      { title:"Take Me Out", artist:"Franz Ferdinand" }, { title:"Somebody Told Me", artist:"The Killers" },
+      { title:"The Middle", artist:"Jimmy Eat World" }], answer:0 },
+  ] },
+]);
+const TRIVIA_STOPS = { question:0, number:1, reveal:0, "number-reveal":1, board:1, long:2, picture:3, tune:4, final:4 };
+export function triviaStage(stage = "question") {
+  const state = fresh("event:trivia:open");
+  TRIVIA_FIT_ROUNDS.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
+  const contest = resolveCurrentContest(state, eventOf(state, "trivia"));
+  act(state, "lockAndStart", { evId:"trivia", contestId:contest.id, contestRevision:contest.revision });
+  act(state, "triviaStart", { evId:"trivia" });
+  const stop = TRIVIA_STOPS[stage] ?? 0;
+  const guestTeam = () => state.trivia.teams.find(team => team.players.includes(FIT_GUEST));
+  const answer = (q, last) => {
+    state.trivia.teams.forEach((team, i) => {
+      const teammate = team === guestTeam() ? team.players.find(p => p !== FIT_GUEST) : team.players[0];
+      const right = i % 2 === 0;
+      const payload = q.format === "number" ? { value:Math.round(q.answer * (1 + (i - 1.5) * 0.02)) }
+        : { choice:right ? q.answer : (q.answer + i) % 4 };
+      /* the live question: one team still thinking, the guest's picked by a teammate and open */
+      if (last && i === 3 && team !== guestTeam()) return;
+      act(state, "triviaPick", { questionId:q.id, ...payload, lock:!last || team !== guestTeam() }, playerCtx(teammate));
+    });
+  };
+  for (let i = 0; i <= stop; i++) {
+    const q = state.trivia.questions[state.trivia.index];
+    const last = i === stop;
+    answer(q, last && !["reveal", "number-reveal", "board", "final"].includes(stage));
+    if (last && !["reveal", "number-reveal", "board", "final"].includes(stage)) break;
+    act(state, "triviaReveal", { questionId:q.id });
+    if (last && stage !== "board" && stage !== "final") break;
+    if (state.trivia.index === state.trivia.questions.length - 1 || (stage === "board" && last)) {
+      act(state, "triviaBoard", { questionId:q.id });
+      break;
+    }
+    if (state.trivia.rounds.some(round => round.first + round.count - 1 === state.trivia.index))
+      act(state, "triviaBoard", { questionId:q.id });
+    act(state, "triviaNext", { questionId:q.id });
+  }
+  return state;
+}
+
 /* the awards reveal, its first award turning on a crowned board */
 function awards() {
   const state = fresh("crowned");
@@ -315,6 +371,15 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-geo-guess", build:() => geo("guess"), settle:false },
   { id:"tv-geo-reveal", build:() => geo("reveal"), at:{ geoReveal:9000 }, wait:4500 },
   { id:"tv-geo-final", build:() => geo("final"), at:{ geoReveal:9000 }, wait:4500 },
+  { id:"tv-trivia-question", build:() => triviaStage("question"), at:{ trivia:6000 }, wait:1500 },
+  { id:"tv-trivia-long", build:() => triviaStage("long"), at:{ trivia:6000 }, wait:1500 },
+  { id:"tv-trivia-picture", build:() => triviaStage("picture"), at:{ trivia:6000 }, wait:1500 },
+  { id:"tv-trivia-tune", build:() => triviaStage("tune"), at:{ trivia:4000 }, wait:1500 },
+  { id:"tv-trivia-number", build:() => triviaStage("number"), at:{ trivia:6000 }, wait:1500 },
+  { id:"tv-trivia-reveal", build:() => triviaStage("reveal"), at:{ trivia:4000 }, wait:3000 },
+  { id:"tv-trivia-number-reveal", build:() => triviaStage("number-reveal"), at:{ trivia:4000 }, wait:3000 },
+  { id:"tv-trivia-board", build:() => triviaStage("board"), at:{ trivia:3000 }, wait:2500 },
+  { id:"tv-trivia-final", build:() => triviaStage("final"), at:{ trivia:3000 }, wait:3000 },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Richard" } },
   { id:"tv-walkout-mvp", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Jeremy", mvp:true } },
   /* a team's win walks out as the team: the moment is read from the record
@@ -376,6 +441,20 @@ export const PHONE_SCENARIOS = Object.freeze([
      and after its result posts, when nothing of it may stay on screen */
   { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"] },
   { id:"geo-posted", build:() => { const state = geo("final"); act(state, "geoFinish", { evId:"where" }); return state; }, tabs:["home"] },
+  /* Trivia on a player's phone (the guest's team picked by a teammate):
+     each format's question, the reveals, the scores; and the game gone once
+     its result posts */
+  { id:"trivia-question", build:() => triviaStage("question"), settle:false, tabs:["home"] },
+  { id:"trivia-long", build:() => triviaStage("long"), settle:false, tabs:["home"] },
+  { id:"trivia-picture", build:() => triviaStage("picture"), settle:false, tabs:["home"] },
+  { id:"trivia-tune", build:() => triviaStage("tune"), settle:false, tabs:["home"] },
+  { id:"trivia-number", build:() => triviaStage("number"), settle:false, tabs:["home"] },
+  { id:"trivia-reveal", build:() => triviaStage("reveal"), tabs:["home"] },
+  { id:"trivia-number-reveal", build:() => triviaStage("number-reveal"), tabs:["home"] },
+  { id:"trivia-board", build:() => triviaStage("board"), tabs:["home"] },
+  { id:"trivia-final", build:() => triviaStage("final"), tabs:["home"] },
+  { id:"trivia-posted", build:() => { const state = triviaStage("final"); act(state, "triviaFinish", { evId:"trivia" }); return state; },
+    tabs:["home"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },

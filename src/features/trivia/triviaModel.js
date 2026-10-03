@@ -7,7 +7,9 @@ import {
 } from "../../../shared/trivia.js";
 
 export const LETTERS = Object.freeze(["A", "B", "C", "D"]);
-export const triviaPhotoSrc = photo => photo?.id ? `/api/trivia/photo/${encodeURIComponent(photo.id)}` : null;
+/* a frame's photo is { id, w, h } (the Worker keeps nothing else); a
+   rehearsal page may hand a stand-in `src` */
+export const triviaPhotoSrc = photo => photo?.src || (photo?.id ? `/api/trivia/photo/${encodeURIComponent(photo.id)}` : null);
 export const fmtNumber = n => Number.isFinite(Number(n)) ? Number(n).toLocaleString("en-US") : "";
 /* "29,032 feet", or a year as written */
 export function numberLabel(value, unit = "") {

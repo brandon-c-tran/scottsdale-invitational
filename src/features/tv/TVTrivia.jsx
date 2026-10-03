@@ -2,6 +2,7 @@ import React from "react";
 import { TRIVIA_CLIP_MS } from "../../../shared/trivia.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import { LETTERS, fmtNumber, numberLabel, teamColor, triviaPhotoSrc, triviaView } from "../trivia/triviaModel.js";
 import { useTuneClip } from "../trivia/tuneClip.js";
 import { useTriviaClock } from "./roomSound.js";
@@ -46,7 +47,7 @@ function Lane({ state, lane, view }) {
     </div>
     <div className="tv-trivia-lane-row">
       <span className="tv-trivia-lane-faces">{lane.players.map(player =>
-        <span key={player} className={lane.locked || revealed ? "is-in" : ""}><ChipFace p={player} size={52} /></span>)}</span>
+        <span key={player} className={lane.locked || revealed ? "is-in" : ""}><ChipFace p={player} size={46} /></span>)}</span>
       {answer && <span className={`tv-display tv-trivia-lane-answer${score?.correct ? " is-right" : ""}`}>{answer}</span>}
       {revealed && <span className="tv-display tv-trivia-lane-total">{fmtNumber(lane.row?.total || 0)}</span>}
     </div>
@@ -103,7 +104,7 @@ function Board({ state, view }) {
           <span className="tv-trivia-step-faces">{row.players.map(player => <ChipFace key={player} p={player} size={row.rank === 1 ? 96 : 76} />)}</span>
           <span className="fd-show tv-trivia-step-name">{row.name}</span>
           <span className="tv-display tv-trivia-step-total">{fmtNumber(row.total)}</span>
-          <span className="tv-display tv-trivia-step-place">{row.rank === 1 ? "1st" : row.rank === 2 ? "2nd" : "3rd"}</span>
+          <span className="tv-display tv-trivia-step-place"><OneSafe text={row.rank === 1 ? "1st" : row.rank === 2 ? "2nd" : "3rd"} /></span>
         </div>)}
       </div>
       {rows.slice(3).map(row => <div key={row.key} className="tv-trivia-rest" style={{ "--team":teamColor(state, row) }}>
@@ -114,7 +115,7 @@ function Board({ state, view }) {
   return <div className="tv-trivia is-board">
     <div className="tv-trivia-board tv-glass">
       <div className="tv-trivia-board-head"><span className="fd-show tv-trivia-board-title">{view.round?.name || "Trivia"}</span>
-        <span className="tv-label">After question {view.n} of {view.total}</span></div>
+        <span className="tv-label"><OneSafe text={`After question ${view.n} of ${view.total}`} /></span></div>
       <ol>
         {rows.map((row, i) => <li key={row.key} style={{ "--team":teamColor(state, row), "--row":i }}>
           <span className="tv-display tv-trivia-board-rank">{row.rank}</span>
@@ -150,7 +151,7 @@ export function TVTrivia({ state, now }) {
     <section className="tv-trivia-stage tv-glass">
       <div className="tv-trivia-head">
         <span className="fd-show tv-trivia-round">{view.round?.name || "Trivia"}</span>
-        <span className="tv-display tv-trivia-count">Question {view.n} of {view.total}</span>
+        <span className="tv-display tv-trivia-count"><OneSafe text={`Question ${view.n} of ${view.total}`} /></span>
       </div>
       {text && <h2 className="fd-show tv-trivia-text" style={{ fontSize:triviaTextSize(text, media) }}>{text}</h2>}
       {picture && <div className="tv-trivia-photo"><img src={triviaPhotoSrc(question.photo)} alt="" /></div>}

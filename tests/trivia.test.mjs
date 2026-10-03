@@ -404,7 +404,7 @@ test("the phone: the game opens for a player on a team, follows the shared pick,
   assert.match(html, />Lock in</);
   const crew = state.draws.trivia.roles?.[0]?.player;
   if (crew) assert.equal(sheet(crew), "", "a spectator opens it from Home, not by itself");
-  assert.match(wrap(phone(a), React.createElement(TriviaHome, { state:phone(a), me:a, now, onOpen() {} })), /Question 1 of 2/);
+  assert.match(wrap(phone(a), React.createElement(TriviaHome, { state:phone(a), me:a, now, onOpen() {} })), /fd-trivia-home/);
   assert.match(wrap(publicState(state, {}), React.createElement(TVTrivia, { state:publicState(state, {}), now })), /tv-trivia is-question/);
   act(state, "triviaReveal", { questionId:q.id });
   assert.match(sheet(a), /fd-trivia-option is-picked is-wrong|is-right/);

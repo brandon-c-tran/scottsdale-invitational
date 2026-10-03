@@ -8,6 +8,7 @@ import { TRIVIA_BASE, TRIVIA_EXACT, TRIVIA_NEAR, TRIVIA_SPEED } from "../../../s
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Wheel } from "../geo/Wheel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import { LETTERS, fmtNumber, fromDigits, numberLabel, revealOrder, teamColor, toDigits, triviaPhotoSrc, triviaView } from "./triviaModel.js";
 import "../geo/geo.css";
 import "./trivia.css";
@@ -227,23 +228,21 @@ function Reveal({ state, view, me, fresh }) {
     if (!fresh || !myScore?.points || !freshFrameNow()) return;
     playSound("payout", { bus:"you", delayMs:700, opts:{ n:Math.max(4, Math.round(myScore.points / 100)) } });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return <>
-    <main className="fd-trivia-body is-reveal">
-      <QuestionText question={question} />
-      {question.format === "picture" && <Photo question={question} />}
-      {number ? <NumberReveal state={state} view={view} /> : <Options state={state} view={view} pending={null} disabled />}
-    </main>
-    <footer className="fd-trivia-foot is-reveal">
-      {view.team && <div className={`fd-trivia-points${myScore?.points ? "" : " is-none"}`}>
-        <b>{myScore?.points ? `+${fmtNumber(Math.round(points / 10) * 10)}` : myScore?.answered ? "0" : "No answer"}</b>
-        {myScore?.points > 0 && <span className="fd-trivia-split" aria-hidden="true">
-          <i className="is-base" style={{ "--w":myScore.base / max }} /><i className="is-bonus" style={{ "--w":myScore.bonus / max }} /></span>}
-        {myScore?.points > 0 && <small>{number ? myScore.bonus ? "Exact" : myScore.near === 1 ? "Closest" : "Second closest"
-          : myScore.bonus ? `Speed +${myScore.bonus}` : "Right"}</small>}
-      </div>}
-      <Standings state={state} view={view} me={me} compact />
-    </footer>
-  </>;
+  /* the reveal needs no action: one scroll, your points first */
+  return <main className="fd-trivia-body is-reveal">
+    {view.team && <div className={`fd-trivia-points${myScore?.points ? "" : " is-none"}`}>
+      <b>{myScore?.points ? `+${fmtNumber(Math.round(points / 10) * 10)}` : myScore?.answered ? "0" : "No answer"}</b>
+      {myScore?.points > 0 && <span className="fd-trivia-split" aria-hidden="true">
+        <i className="is-base" style={{ "--w":myScore.base / max }} /><i className="is-bonus" style={{ "--w":myScore.bonus / max }} /></span>}
+      {myScore?.points > 0 && <small>{number ? myScore.bonus ? "Exact" : myScore.near === 1 ? "Closest" : "Second closest"
+        : myScore.bonus ? `Speed +${myScore.bonus}` : "Right"}</small>}
+      {myScore?.answered && !myScore.points && <small>{number ? "Not close enough" : "Wrong"}</small>}
+    </div>}
+    <QuestionText question={question} />
+    {question.format === "picture" && <Photo question={question} />}
+    {number ? <NumberReveal state={state} view={view} /> : <Options state={state} view={view} pending={null} disabled />}
+    <Standings state={state} view={view} me={me} compact />
+  </main>;
 }
 
 /* closest number: the answer, then every team's guess, nearest first */
@@ -281,7 +280,7 @@ export function Standings({ state, view, compact = false }) {
 
 /* between rounds, and at the end */
 function Board({ state, view, me }) {
-  const title = view.last ? "Final" : view.round?.name || "Scores";
+  const title = view.last ? "Final" : "Scores";
   return <main className="fd-trivia-body is-board">
     <h2 className="fd-trivia-board-title">{title}</h2>
     <Standings state={state} view={view} me={me} />
@@ -291,13 +290,13 @@ function Board({ state, view, me }) {
 /* A player's game, full screen. It opens by itself for each question, its
    reveal and the scores (once each), waits while a sheet is open, and
    Home's row reopens it. Spectators open it from Home. */
-export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick = sendPick, now }) {
+export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick = sendPick, now, initiallyOpen = false }) {
   const at = now ?? serverNow();
   const view = triviaView(state, me, at);
   useTicking(!!view && view.phase === "question" && now === undefined);
   const key = view ? `${view.question.id}:${view.phase}` : null;
   const [dismissed, setDismissed] = useState(null);
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(initiallyOpen);
   const forced = useRef(force);
   useEffect(() => {
     if (force !== forced.current) { forced.current = force; setDismissed(null); setOpened(true); }
@@ -319,7 +318,7 @@ export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick 
   return <div className={`fd-trivia-game is-${view.phase}${urgent ? " is-urgent" : ""}`} role="dialog" aria-modal="true" aria-label="Trivia">
     <header className="fd-trivia-head">
       <span className="fd-trivia-count"><small>{view.round?.name || "Trivia"}</small>
-        <b>Question {view.n} <i>of {view.total}</i></b></span>
+        <b><OneSafe text={`Question ${view.n}`} /> <i><OneSafe text={`of ${view.total}`} /></i></b></span>
       {view.phase === "question" && <Clock view={view} now={at} />}
       <button type="button" className="fd-trivia-close" onClick={close} aria-label="Close"><Icon name="close" size={20} /></button>
       {view.phase === "question" && <span className="fd-trivia-timebar" aria-hidden="true">
@@ -361,7 +360,7 @@ export function TriviaHome({ state, me, onOpen, now }) {
       : view.mine?.locked ? "Locked in" : view.playing ? view.timeUp ? "Time's up" : `${view.secondsLeft} s` : `${view.lockedCount} of ${view.lanes.length} locked in`;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>
-      <strong>Question {view.n} of {view.total}</strong><em>{status}</em></span><Icon name="open" size="1em" />
+      <strong><OneSafe text={`Question ${view.n} of ${view.total}`} /></strong><em>{status}</em></span><Icon name="open" size="1em" />
   </button>;
 }
 

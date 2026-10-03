@@ -142,9 +142,11 @@
 .fd-trivia-primary.is-over { background:var(--paper2); color:var(--muted2); box-shadow:var(--glass-edge); }
 .fd-trivia-error { margin:0; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
 
-/* the reveal */
-.fd-trivia-foot.is-reveal { gap:12px; padding-top:14px; }
-.fd-trivia-points { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:4px 14px;
+/* the reveal: one scroll, your points first */
+.fd-trivia-game.is-reveal, .fd-trivia-game.is-board { grid-template-rows:auto minmax(0,1fr); }
+.fd-trivia-body.is-reveal { padding-bottom:calc(env(safe-area-inset-bottom) + 20px); }
+.fd-trivia-points { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:4px 14px; padding:12px 14px;
+  border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge);
   animation:fd-trivia-rise .45s cubic-bezier(.2,.8,.2,1) .5s both; }
 .fd-trivia-points > b { grid-row:span 2; font:800 44px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--ink); }
 .fd-trivia-points.is-none > b { font-size:24px; color:var(--muted2); }
@@ -206,6 +208,20 @@
 .fd-trivia-home small .fd-beat-dot { --lamp:var(--lamp-live); }
 .fd-trivia-home strong { font:800 22px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
 .fd-trivia-home em { font:700 15px/1.2 var(--fd-body); font-style:normal; color:var(--lamp-live-text); font-variant-numeric:tabular-nums; }
+
+/* a short phone: the question, its photo and four answers above the foot */
+@media (max-height:740px) {
+  .fd-trivia-body { gap:12px; padding-top:14px; }
+  .fd-trivia-text { font-size:26px; }
+  .fd-trivia-text.is-long { font-size:22px; }
+  .fd-trivia-option { min-height:52px; padding-top:6px; padding-bottom:6px; }
+  .fd-trivia-options { gap:8px; }
+  .fd-trivia-letter { width:32px; height:32px; }
+  .fd-trivia-photo { height:120px; }
+  .fd-trivia-listen { min-height:64px; }
+  .fd-trivia-foot { gap:8px; padding-top:8px; }
+  .fd-trivia-primary { min-height:52px; }
+}
 
 @media (prefers-reduced-motion:reduce) {
   .fd-trivia-game, .fd-trivia-text, .fd-trivia-options li, .fd-trivia-setter, .fd-trivia-option.is-locked, .fd-trivia-option.is-right,

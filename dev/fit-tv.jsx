@@ -43,6 +43,12 @@ function pickNow(state) {
     const ballot = (state.prompts?.ballots || []).find(b => b?.reveal);
     return (Number(ballot?.reveal?.at) || Date.now()) + at.award;
   }
+  if (at.trivia !== undefined) {
+    const game = state.trivia, q = game?.questions?.[game.index];
+    const time = game?.times?.[q?.id] || {};
+    const anchor = game?.phase === "board" ? game.boardAt : game?.phase === "reveal" ? time.revealedAt : time.startsAt;
+    return (Number(anchor) || Date.now()) + at.trivia;
+  }
   if (at.geoReveal !== undefined) return (Number(state.geo?.revealedAt) || Date.now()) + at.geoReveal;
   if (at.walkout !== undefined) return (Number(state.showControl?.audio?.walkout?.startedAt) || Date.now()) + at.walkout;
   /* a steady view holds still mid-page, never caught in a cross-fade */

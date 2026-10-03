@@ -16,12 +16,12 @@ const FORMAT_ICONS = { choice:"rules", number:"plus", tune:"song", picture:"phot
 const BANK_PICKS = 5;
 
 /* the bank, read once per desk with the commissioner token */
-function useBank() {
+function useBank(load) {
   const [bank, setBank] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let gone = false;
-    triviaBank().then(result => {
+    load().then(result => {
       if (gone) return;
       if (result?.ok) setBank(result.categories || []); else setError(result?.error || "Couldn't load the bank");
     });
@@ -297,11 +297,11 @@ function BankRound({ round, category, onSave, onCancel }) {
 /* Commissioner > Trivia: the set list in play order. Rounds come from the
    bank or are written here. Locked while a game runs; Restart clears the
    answers, never the set list. */
-export function TriviaDesk({ state, onAct, notify }) {
+export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank }) {
   const rounds = state.triviaRounds || [];
   const game = state.trivia?.questions?.length ? state.trivia : null;
   const running = !!game && !triviaFinished(state);
-  const { bank, error } = useBank();
+  const { bank, error } = useBank(loadBank);
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState(null);

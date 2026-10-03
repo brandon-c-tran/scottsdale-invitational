@@ -15,6 +15,8 @@
 .tv-trivia-text { margin:0; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; text-wrap:balance;
   animation:tv-trivia-rise .5s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes tv-trivia-rise { from { opacity:0; transform:translateY(18px); } }
+/* a question alone holds the middle of the pane, the answers below it */
+.tv-trivia.is-choice .tv-trivia-text { flex:1; display:flex; align-items:center; }
 
 /* the four answers: windows cut in the pane */
 .tv-trivia-options { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; margin:auto 0 0; padding:0; list-style:none; }
@@ -70,20 +72,20 @@
   70% { opacity:.5; } 100% { opacity:0; transform:translateY(-50%) scale(.96); } }
 
 /* the side: the clock, then a lane a team */
-.tv-trivia-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:24px; }
-.tv-trivia-ring { position:relative; flex-shrink:0; align-self:center; width:220px; height:220px; display:grid; place-items:center; }
+.tv-trivia-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:20px; }
+.tv-trivia-ring { position:relative; flex-shrink:0; align-self:center; width:184px; height:184px; display:grid; place-items:center; }
 .tv-trivia-ring svg { position:absolute; inset:0; transform:rotate(-90deg); overflow:visible; }
 .tv-trivia-ring circle { fill:none; stroke-width:14; }
 .tv-trivia-ring .track { stroke:var(--tv-window); }
 .tv-trivia-ring .run { stroke:var(--lamp-live); stroke-linecap:round; transition:stroke-dashoffset 1s linear;
   filter:drop-shadow(0 0 10px color-mix(in srgb, var(--lamp-live) 70%, transparent)); }
-.tv-trivia-ring b { font-size:120px; line-height:1; color:var(--bone); font-variant-numeric:tabular-nums; }
+.tv-trivia-ring b { font-size:104px; line-height:1; color:var(--bone); font-variant-numeric:tabular-nums; }
 .tv-trivia-ring.is-low .run { stroke:var(--clay); filter:drop-shadow(0 0 10px var(--clay)); }
 .tv-trivia-ring.is-low b { color:var(--clay-text); animation:tv-trivia-tick .9s cubic-bezier(.3,.7,.35,1.25) both; }
 @keyframes tv-trivia-tick { from { transform:scale(1.25); } }
-.tv-trivia-lanes { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-start; gap:12px; margin:0; padding:0; list-style:none; }
+.tv-trivia-lanes { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-start; gap:10px; margin:0; padding:0; list-style:none; }
 .tv-trivia.is-reveal .tv-trivia-lanes { gap:16px; }
-.tv-trivia-lane { display:grid; gap:10px; padding:14px 20px 16px; border-radius:16px; background:var(--tv-sheen), var(--tv-glass);
+.tv-trivia-lane { display:grid; gap:8px; padding:12px 18px 14px; border-radius:16px; background:var(--tv-sheen), var(--tv-glass);
   border:1px solid var(--line); box-shadow:var(--glass-edge); transition:border-color .3s ease; }
 .tv-trivia.is-reveal .tv-trivia-lane { padding:16px 22px 18px; }
 .tv-trivia-lane-head { display:flex; align-items:center; gap:14px; min-width:0; }
@@ -93,7 +95,7 @@
 @keyframes tv-trivia-pending { 50% { background:var(--team); } }
 .tv-trivia-lane.is-locked .tv-trivia-lane-lamp, .tv-trivia.is-reveal .tv-trivia-lane-lamp,
 .tv-trivia-board .tv-trivia-lane-lamp { background:var(--team); box-shadow:0 0 0 2px var(--ink0), 0 0 0 4px var(--bone); }
-.tv-trivia-lane-name { flex:1; min-width:0; font-size:38px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; }
+.tv-trivia-lane-name { flex:1; min-width:0; font-size:36px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; }
 .tv-trivia-lane-lock { flex-shrink:0; display:grid; place-items:center; width:48px; height:48px; border-radius:50%; background:var(--bone);
   color:var(--ink0); animation:tv-trivia-stamp-in .4s cubic-bezier(.3,.7,.35,1.25) both; }
 .tv-trivia-lane-row { display:flex; align-items:center; gap:16px; min-width:0; }

@@ -1,0 +1,58 @@
+/* Events: the program as a column of lamps. A session is a lettered
+   heading; a row is a lamp, the game's mark, the event's name with your part
+   under it, and what it pays (or, once posted, your place and its winners).
+   One glass pane per session, rows divided by hairlines; the live row is
+   clear glass lit from behind. Tokens only. */
+.fd-events-session { margin:0 0 26px; }
+.fd-events-session-heading { margin:0 0 8px; padding:0 2px; color:var(--muted2);
+  font:800 15px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-events-list { list-style:none; margin:0; padding:0 12px; border-radius:14px; background:var(--paper);
+  box-shadow:var(--glass-edge); border:1px solid var(--line); }
+.fd-events-row { position:relative; display:flex; flex-wrap:wrap; align-items:center; min-width:0; }
+.fd-events-row + .fd-events-row { border-top:1px solid var(--line); }
+.fd-events-open { display:flex; flex:1 1 100%; align-items:center; gap:10px; min-width:0; min-height:64px; padding:10px 0;
+  border:0; background:transparent; color:var(--ink); text-align:left; cursor:pointer; transition:transform .15s var(--ease-out); }
+.fd-events-open:active:not(:disabled) { transform:translateX(2px); }
+.fd-events-open:disabled { cursor:default; }
+.fd-events-open:focus-visible, .fd-events-bracket:focus-visible, .fd-events-session-toggle:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:8px; }
+.fd-events-lamp { display:grid; place-items:center; width:14px; flex-shrink:0; }
+.fd-events-mark { display:grid; place-items:center; width:38px; height:38px; flex-shrink:0; }
+.fd-events-body { display:flex; flex:1; flex-direction:column; gap:6px; min-width:0; }
+.fd-events-body > strong { font-size:23px; line-height:1.15; overflow-wrap:break-word; }
+.fd-events-part { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-width:0; }
+.fd-events-status { color:var(--ink); font:800 14px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-events-you { display:inline-flex; align-items:center; gap:7px; }
+.fd-events-you small { color:var(--muted2); font-size:12px; font-weight:600; }
+.fd-events-pays { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.fd-events-winners { display:inline-flex; }
+/* your place: the PayoutLadder's medallion, 1st lit amber, crew hollow */
+.fd-events-medal { box-sizing:border-box; display:grid; place-items:center; width:28px; height:28px; border-radius:50%;
+  background:var(--bone); color:var(--ink0); border:2px solid var(--ink0); font:800 15px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-events-medal.is-first { background:var(--sun); }
+.fd-events-medal.is-crew { background:transparent; border:2px dashed var(--muted); }
+/* lamp states: done reads quieter, void struck through */
+.fd-events-row.is-done .fd-events-body > strong { color:var(--muted2); }
+.fd-events-row.is-void .fd-events-body > strong { color:var(--muted); text-decoration:line-through; text-decoration-thickness:2px; }
+.fd-events-row.is-live { margin:0 -12px; padding:0 12px; background:var(--ink-tint); border-radius:10px; }
+.fd-events-row.is-live + .fd-events-row, .fd-events-row + .fd-events-row.is-live { border-top-color:transparent; }
+.fd-events-row.is-finale .fd-events-mark { border-radius:50%; background:var(--sun); color:var(--ink0); }
+/* a bracket game's own way in: under the name, where the row's part sits */
+.fd-events-bracket { flex-shrink:0; min-height:44px; margin:0 0 10px 62px; padding:0 14px; border:1px solid var(--line); border-radius:99px;
+  background:transparent; color:var(--lamp-info); font:600 13px/1 var(--fd-body); cursor:pointer; }
+.fd-events-bracket:hover { background:var(--info-tint); }
+/* a finished session folds to one row: its name and its winners */
+.fd-events-session.is-folded { margin-bottom:10px; }
+.fd-events-session-fold { margin:0; font:inherit; }
+.fd-events-session-toggle { display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:6px 14px;
+  border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge); color:var(--muted2); text-align:left; cursor:pointer; }
+.fd-events-session.is-done:not(.is-folded) .fd-events-session-toggle { margin-bottom:8px; }
+.fd-events-session-name { flex:1; min-width:0; font:800 15px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-events-session-winners { flex-shrink:0; }
+.fd-events-session.is-shelved .fd-events-row { opacity:.7; }
+@media (max-width:359px) {
+  .fd-events-open { gap:8px; }
+  .fd-events-body > strong { font-size:21px; }
+}
+@media (prefers-reduced-motion:reduce) { .fd-events-open { transition:none; } }
+.fd-events-row:has(.fd-weekend-reorder) .fd-events-open { flex:1 1 0; }
+.fd-events-row:has(.fd-events-bracket) .fd-events-open { padding-bottom:4px; min-height:56px; }

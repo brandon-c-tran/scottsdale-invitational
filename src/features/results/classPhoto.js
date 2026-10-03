@@ -31,11 +31,11 @@ export function classPhotoModel(state, standings = []) {
    (text tops, centred on the chip) */
 const TIERS = [
   { cy:300, gap:44, nameSize:56, stackSize:40, radius:count => count > 2 ? 92 : count > 1 ? 110 : 120 },
-  { cy:640, gap:30, nameSize:34, stackSize:30, radius:() => 68 },
-  { cy:890, gap:30, nameSize:34, stackSize:30, radius:() => 68 },
+  { cy:618, gap:30, nameSize:34, stackSize:30, radius:() => 68 },
+  { cy:846, gap:30, nameSize:34, stackSize:30, radius:() => 68 },
 ];
 const TITLE = { top:52, size:88 };
-/* a display size that keeps a name inside its slot (Barlow Condensed caps
+/* a display size that keeps a name inside its slot (Big Shoulders Display caps
    run about half an em a letter) */
 export const fitSize = (text, max, width, min = 24) =>
   Math.max(min, Math.min(max, Math.floor(width / (Math.max(4, String(text || "").length) * 0.52))));
@@ -76,11 +76,14 @@ export function classEntrance(layout) {
   return new Map(order.map((slot, i) => [slot.player, CLASS_TIMING.chip + i * CLASS_TIMING.chipStagger]));
 }
 
-/* The frozen TV's resting frame: the champion holds through the crown and
-   one ambient period after it, then the champion and the class photo take
-   turns on the server clock, the same on every TV. */
+/* The frozen TV's resting frame: the champion holds through the crown, the
+   produced crown ends on the class photo for one ambient period, and then
+   the champion, the class photo and the trophy (every event's winner on
+   its plate) take turns on the server clock, the same on every TV. */
+export const FROZEN_TURNS = Object.freeze(["champion", "class", "trophy"]);
 export function frozenAmbient({ now, crownAt = 0, crownMs = 0, period = 12000 } = {}) {
   const t = Number(now) || 0;
-  if (Number(crownAt) > 0 && t - crownAt < crownMs + period) return "champion";
-  return Math.floor(Math.max(0, t) / period) % 2 ? "class" : "champion";
+  if (Number(crownAt) > 0 && t - crownAt < crownMs) return "champion";
+  if (Number(crownAt) > 0 && t - crownAt < crownMs + period) return "class";
+  return FROZEN_TURNS[Math.floor(Math.max(0, t) / period) % FROZEN_TURNS.length];
 }

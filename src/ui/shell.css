@@ -11,7 +11,7 @@ body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-
 }
 button:active:not(:disabled) { transform: scale(0.97); }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-  outline:3px solid var(--sun); outline-offset:3px;
+  outline:2px solid var(--lamp-info); outline-offset:3px;
 }
 input::placeholder { color:var(--muted); }
 @keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
@@ -81,14 +81,6 @@ input::placeholder { color:var(--muted); }
   55%  { transform: translate(96px,0px);   opacity:1; }
   70%  { transform: translate(116px,16px); opacity:1; }
   80%, 100% { transform: translate(121px,30px); opacity:0; }
-}
-@keyframes si-flip-cup {
-  0%, 14%   { transform: translate(0,0) rotate(0deg); }
-  44%       { transform: translate(0,-26px) rotate(-120deg); }
-  62%       { transform: translate(0,-6px) rotate(-180deg); }
-  70%       { transform: translate(0,0) rotate(-180deg); }
-  76%       { transform: translate(0,-4px) rotate(-180deg); }
-  82%, 100% { transform: translate(0,0) rotate(-180deg); }
 }
 @keyframes si-putt {
   0%        { transform: translate(0,0); }
@@ -179,16 +171,6 @@ input::placeholder { color:var(--muted); }
   88%       { transform: translate(118px,0); }
   100%      { transform: translate(118px,0); }
 }
-@keyframes si-gauntlet {
-  0%        { transform: translate(0,0); }
-  18%       { transform: translate(24px,-16px); }
-  30%       { transform: translate(40px,0); }
-  44%       { transform: translate(60px,-16px); }
-  54%       { transform: translate(78px,0); }
-  66%       { transform: translate(96px,-16px); }
-  76%       { transform: translate(112px,0); }
-  88%       { transform: translate(134px,-18px); }
-  100%      { transform: translate(152px,-2px); }
 }
 /* the prize: flat blades rotated around one axis read as a solid */
 @keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }

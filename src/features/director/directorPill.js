@@ -138,26 +138,24 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   else if (beat.type === "record-contest-winner" && !sides && matchup) lines.push(`${beat.subject}: ${matchup}`);
   else if (beat.type === "crown-champion") {
     const leaders = computeStandings(state).filter(row => row.rank === 1);
-    lines.push(`${namesOf(state, leaders.map(row => row.player))} · ${fmt(leaders[0]?.pts)} chips`);
+    lines.push(`${namesOf(state, leaders.map(row => row.player))} with ${fmt(leaders[0]?.pts)}`);
   } else if (beat.subject) lines.push(beat.subject);
 
   if ((beat.type === "announce-draw" || beat.type === "captains-draft") && beat.roles?.length)
-    lines.push(`Crew: ${beat.roles.map(item => `${disp(state, item.player)} · ${overflowRoleMeta(item.role).label}`).join(", ")}`);
+    lines.push(`Crew: ${beat.roles.map(item => `${disp(state, item.player)} (${overflowRoleMeta(item.role).label})`).join(", ")}`);
   if (beat.away?.length)
     lines.push(`${namesOf(state, beat.away)} ${beat.away.length === 1 ? "is" : "are"} marked away`);
   if (beat.type === "lock-start" && ev && state.onDeck === ev.id) {
     const bets = (state.wagers || []).filter(wager => wagerMatchesContest(wager, contest)
       && resolveWager(state, wager, events).status === "pending").length;
-    const openedAt = Number(state.eventOps?.[ev.id]?.contest?.openedAt || state.eventOps?.[ev.id]?.bettingOpenedAt || 0);
-    const mins = openedAt ? Math.max(0, Math.round((now - openedAt) / 60000)) : null;
-    lines.push(`${bets} bet${bets === 1 ? "" : "s"} in${mins === null ? "" : ` · open ${mins} min`}`);
+    lines.push(`${bets} bet${bets === 1 ? "" : "s"} in`);
   }
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) lines.push("You’re playing");
   if (beat.type === "geo-reveal" && state.geo) {
     const players = geoPlayers(state, ROSTER, { isActivePlayer, isAway }).length;
     const guesses = Object.values(state.geo.guesses?.[beat.roundId] || {});
     const locked = guesses.filter(guess => guess?.done).length;
-    lines.push(`${locked} of ${players} locked in${guesses.length > locked ? ` · ${guesses.length - locked} still guessing` : ""}`);
+    lines.push(`${locked} of ${players} locked in`);
   }
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;
@@ -175,6 +173,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     lines.push(`${counted} of ${alive.length} counted`);
   }
 
+  /* extras live in the pill's more tray: alternatives (kind "alt") first,
+     then the edge cases (kind "skip") last; the pill shows only the beat */
   const extras = [];
   (director.extras || []).forEach(extra => {
     if (extra.type === "change-crew")
@@ -190,19 +190,19 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       extras.push({ label:extra.label, run:{ write:"mvpClose", payload:{ evId:extra.eventId } } });
     else if (extra.type === "skip-opening" && director.then) {
       const next = directorPill(state, events, { ...director, nextAction:director.then, then:null, extras:[] }, { me, now });
-      if (next?.run) extras.push({ label:extra.label, run:next.run });
+      if (next?.run) extras.push({ label:extra.label, run:next.run, kind:"skip" });
     }
   });
   if (sides) extras.push({ label:"Open event", run:{ open:"event", evId:ev.id } });
   if (beat.type === "advance-scene")
-    extras.push({ label:"Skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
+    extras.push({ label:"Skip", kind:"skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
   if (director.secondary?.type === "skip-event" && ev)
-    extras.push({ label:"Skip", run:{ open:"skipEvent", evId:ev.id } });
+    extras.push({ label:"Skip", kind:"skip", run:{ open:"skipEvent", evId:ev.id } });
   if (director.secondary?.type === "skip-awards")
-    extras.push({ label:"Skip", run:{ write:"promptRevealEnd", payload:{ id:director.secondary.ballotId } } });
+    extras.push({ label:"Skip", kind:"skip", run:{ write:"promptRevealEnd", payload:{ id:director.secondary.ballotId } } });
   if (director.secondary?.type === "skip-replay")
-    extras.push({ label:"Skip", run:{ write:"skipWinnerReplay", payload:{ eventId:director.secondary.eventId } } });
+    extras.push({ label:"Skip", kind:"skip", run:{ write:"skipWinnerReplay", payload:{ eventId:director.secondary.eventId } } });
 
-  return { type:beat.type, label:beat.label, lines, run:weekend(run), sides, extras:extras.map(extra => ({ ...extra, run:weekend(extra.run) })),
+  return { type:beat.type, label:beat.label, lines, run:weekend(run), sides, extras:extras.map(extra => ({ kind:"alt", ...extra, run:weekend(extra.run) })),
     blocked:false, evId:ev?.id || null };
 }

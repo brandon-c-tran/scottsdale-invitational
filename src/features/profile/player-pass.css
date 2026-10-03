@@ -1,166 +1,210 @@
+/* The player card is that player's backglass. The glass is painted in their
+   identity color front and back (never lit: identity is paint), the ink is
+   whichever of --ink0 or --bone reads on it (chipInk), a ring of lamp
+   sockets runs inside the frame, the name is lettered in the show face, and the
+   photo sits in a window lit from behind. Numbers are Big Shoulders; the
+   season back carries a black score window with the chips on a reel. */
 .fd-pass-wrap {
   --pass-color:var(--paper); --pass-ink:var(--ink);
+  --pass-deep:color-mix(in srgb, var(--pass-color) 58%, var(--ink0));
+  --pass-rule:color-mix(in srgb, var(--pass-ink) 30%, transparent);
   width:100%; max-width:360px; margin:0 auto 24px;
 }
 .fd-pass { position:relative; display:block; width:100%; aspect-ratio:4 / 5; padding:0; border:0;
   background:transparent; perspective:1200px; text-align:left; cursor:pointer;
-  font-family:'Inter',sans-serif; border-radius:6px;
+  font-family:var(--fd-body); border-radius:16px;
   /* vertical drags still scroll the sheet; sideways drags tilt the card */
   touch-action:pan-y; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
-.fd-pass:focus-visible { outline:3px solid var(--sun); outline-offset:6px; }
+.fd-pass:focus-visible { outline:3px solid var(--lamp-info); outline-offset:6px; }
 /* Riso tilt. --tx/--ty are unit values written per frame by useRisoTilt;
    every layer below turns them into a transform, so a frame never lays out. */
-.fd-pass-shadow { position:absolute; inset:0; display:block; border-radius:14px; box-shadow:var(--shadow-2);
+.fd-pass-shadow { position:absolute; inset:0; display:block; border-radius:16px; box-shadow:var(--shadow-3);
   transform:translate(calc(var(--tx,0) * -6px), calc(var(--ty,0) * -4px)); }
 .fd-pass-tilt { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d;
   transform:rotateX(calc(var(--ty,0) * -7deg)) rotateY(calc(var(--tx,0) * 9deg)); }
-.fd-pass.is-tilting :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-photo,.fd-pass-chip) { will-change:transform; }
-.fd-pass.is-releasing :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-photo,.fd-pass-chip) {
-  transition:transform var(--tilt-release,520ms) cubic-bezier(.2,.8,.2,1.12), opacity var(--tilt-release,520ms) ease-out; }
+.fd-pass.is-tilting :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-window,.fd-pass-chip) { will-change:transform; }
+.fd-pass.is-releasing :is(.fd-pass-shadow,.fd-pass-tilt,.fd-pass-number,.fd-pass-orbit,.fd-pass-window,.fd-pass-chip) {
+  transition:transform var(--tilt-release,520ms) cubic-bezier(.16,1,.3,1), opacity var(--tilt-release,520ms) ease-out; }
 .fd-pass-inner { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d; }
 .fd-pass-inner.is-flipped { transform:rotateY(180deg); }
+/* the glass: painted color in a black bevelled frame, its top edge caught */
 .fd-pass-face { display:flex; flex-direction:column; position:absolute; inset:0; overflow:hidden;
-  background:var(--pass-color); color:var(--pass-ink); border:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent); border-radius:14px; padding:22px;
+  background:var(--pass-color); color:var(--pass-ink); border:3px solid var(--ink0); border-radius:16px; padding:22px 22px 18px;
+  box-shadow:inset 0 0 0 1px var(--pass-rule), inset 0 2px 0 color-mix(in srgb, var(--bone) 32%, transparent),
+    inset 0 -18px 30px color-mix(in srgb, var(--ink0) 22%, transparent);
   backface-visibility:hidden; -webkit-backface-visibility:hidden; }
-.fd-pass-top,.fd-pass-foot { display:flex; justify-content:space-between; align-items:center; gap:12px;
-  font-family:var(--fd-body, 'Inter', sans-serif); font-size:10px; line-height:1.4; font-weight:600; letter-spacing:.055em; }
-.fd-pass-top { text-transform:uppercase; }
-.fd-pass-front .fd-pass-top>span:first-child { font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:16px; letter-spacing:-.035em; }
-.fd-pass-art { position:relative; flex:1; min-height:0; display:block; overflow:hidden; }
-.fd-pass-number { position:absolute; left:-5px; top:9%; font-family:'Barlow Condensed',sans-serif;
-  font-weight:700; font-size:clamp(120px,36vw,196px); line-height:.9; letter-spacing:-8px; opacity:.23;
+/* the lamp sockets: a ring of painted bulbs just inside the frame */
+.fd-pass-bulbs { position:absolute; inset:7px; border:3px dotted color-mix(in srgb, var(--pass-ink) 42%, transparent);
+  border-radius:11px; pointer-events:none; }
+.fd-pass-top,.fd-pass-foot { position:relative; display:flex; justify-content:space-between; align-items:center; gap:12px;
+  font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-pass-top>span:last-child,.fd-pass-foot>span:last-child { text-align:right; }
+.fd-pass-mark { font:900 22px/1 var(--fd-show); letter-spacing:.01em; text-transform:none; }
+.fd-pass-art { position:relative; flex:1; min-height:0; display:block; overflow:hidden; margin:4px -6px 0; }
+/* the number is painted in outline, the way a backglass letters its figures */
+.fd-pass-number { position:absolute; left:0; top:4%; font:900 clamp(120px,36vw,196px)/.86 var(--fd-display);
+  letter-spacing:-.02em; color:transparent; -webkit-text-stroke:2px var(--pass-ink); opacity:.36;
   transform:translate(calc(var(--tx,0) * -8px), calc(var(--ty,0) * -8px)); }
 /* the second ink plate: the same number slipping out of register */
-.fd-pass-number.fd-pass-plate { opacity:calc(var(--tm,0) * .12);
+.fd-pass-number.fd-pass-plate { color:var(--pass-ink); -webkit-text-stroke:0; opacity:calc(var(--tm,0) * .12);
   transform:translate(calc(var(--tx,0) * -11px), calc(var(--ty,0) * -11px)); }
-.fd-pass-orbit { position:absolute; width:96%; height:44%; top:32%; left:0; border:1px solid var(--pass-ink);
-  border-radius:50%; transform:translate(calc(var(--tx,0) * -3px), calc(var(--ty,0) * -3px)) rotate(-34deg); opacity:.45; }
-.fd-pass-photo { position:absolute; top:19%; right:9%; width:54%; aspect-ratio:1;
-  border-radius:50%; object-fit:cover; border:5px solid var(--pass-ink);
-  transform:translate(calc(var(--tx,0) * 5px), calc(var(--ty,0) * 5px)) rotate(5deg); }
-.fd-pass-chip { position:absolute; right:5%; top:25%; display:block;
+/* two painted rings around the window, concentric with it, on their own
+   depth so they part from it as the card tilts */
+.fd-pass-orbit { position:absolute; top:9%; right:8%; width:56%; aspect-ratio:1; border-radius:50%;
+  border:1.5px solid var(--pass-rule);
+  box-shadow:0 0 0 9px color-mix(in srgb, var(--pass-ink) 8%, transparent), 0 0 0 10.5px var(--pass-rule);
+  transform:translate(calc(var(--tx,0) * -3px), calc(var(--ty,0) * -3px)) scale(1.1); }
+/* the photo window: a black bezel, a bone rim, and light behind the glass */
+.fd-pass-window { position:absolute; top:9%; right:8%; width:56%; aspect-ratio:1; border-radius:50%; overflow:hidden;
+  border:5px solid var(--ink0); background:var(--ink0);
+  box-shadow:0 0 0 2px var(--bone), 0 0 0 4px var(--pass-deep), 0 0 28px 6px color-mix(in srgb, var(--bone) 45%, transparent);
+  transform:translate(calc(var(--tx,0) * 5px), calc(var(--ty,0) * 5px)); }
+.fd-pass-photo { display:block; width:100%; height:100%; object-fit:cover; }
+.fd-pass-window::after { content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--bone) 40%, transparent), inset 0 12px 18px -10px color-mix(in srgb, var(--bone) 55%, transparent); }
+.fd-pass-chip { position:absolute; right:7%; top:18%; display:block;
   transform:translate(calc(var(--tx,0) * 9px), calc(var(--ty,0) * 9px)) rotate(12deg); }
-.fd-pass-chip.with-photo { top:auto; bottom:12%; right:0;
+.fd-pass-chip.with-photo { top:auto; bottom:3%; right:2%;
   transform:translate(calc(var(--tx,0) * 9px), calc(var(--ty,0) * 9px)) rotate(-9deg); }
-.fd-pass-edition { position:absolute; bottom:12%; left:2%; font-size:9px; letter-spacing:.12em; line-height:1.6; }
 .fd-pass-front { container-type:inline-size; }
-.fd-pass-name { display:block; font-family:'Barlow Condensed',sans-serif; font-size:clamp(40px,12vw,58px);
-  font-size:min(clamp(40px,12vw,58px), calc(100cqw / (var(--pass-name-chars,8) * .58)));
-  text-transform:uppercase; line-height:1; font-weight:700; letter-spacing:-.025em; overflow-wrap:normal; word-break:normal; white-space:normal; }
-.fd-pass-foot { border-top:1px solid currentColor; margin-top:15px; padding-top:10px; }
+/* the name, lettered on the glass in the show face (condensed, so it runs
+   larger), sized to its longest word */
+.fd-pass-name { position:relative; display:block; margin-top:4px; font-family:var(--fd-show); font-weight:900;
+  font-size:clamp(42px,13.5vw,68px);
+  font-size:min(clamp(42px,13.5vw,68px), calc(100cqw / (var(--pass-name-chars,8) * .5)));
+  line-height:1.04; letter-spacing:.01em; text-transform:none; text-shadow:0 3px 0 var(--pass-deep);
+  overflow-wrap:normal; word-break:normal; white-space:normal; }
+.fd-pass-foot { border-top:1.5px solid var(--pass-rule); margin-top:10px; padding-top:9px; }
 .fd-pass-back { transform:rotateY(180deg); }
-.fd-pass-back-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:clamp(38px,10vw,50px); line-height:1.02;
-  letter-spacing:-.055em; margin:auto 0; }
-.fd-pass-facts { display:grid; gap:10px; font-size:11px; line-height:1.5; padding-bottom:12px; }
-.fd-pass-facts>span { display:flex; justify-content:space-between; gap:16px; }
-.fd-pass-facts strong { font-weight:600; text-align:right; max-width:60%; overflow-wrap:anywhere; }
+.fd-pass-back-title { position:relative; display:grid; gap:8px; margin:auto 0; }
+.fd-pass-back-title>span { font:900 clamp(40px,12vw,58px)/1.04 var(--fd-show); text-shadow:0 3px 0 var(--pass-deep); overflow-wrap:anywhere; }
+.fd-pass-back-title>b { font:800 20px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-pass-facts { position:relative; display:grid; font:600 13px/1.4 var(--fd-body); }
+.fd-pass-facts>span { display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding:7px 0; border-top:1px solid var(--pass-rule); }
+.fd-pass-facts strong { font-weight:700; text-align:right; max-width:60%; overflow-wrap:anywhere; }
+.fd-pass-facts .fd-pass-chips { font:800 20px/1 var(--fd-display); }
 /* The season back: a stat sheet printed in the card's own ink. The body is
    measured (flex:none keeps its natural height) and the turned card grows
    to fit it. */
 .fd-pass-back.is-season { justify-content:flex-start; }
-.fd-pass-season { display:flex; flex-direction:column; flex:none; gap:10px; }
-.fd-pass-season-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:4px; }
-.fd-pass-season-title { font:700 30px/.9 'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:-.02em; }
-.fd-pass-season-ghost { font:italic 700 42px/.8 'Barlow Condensed',sans-serif; letter-spacing:-.03em;
-  color:color-mix(in srgb,var(--pass-ink) 38%,var(--pass-color)); }
+.fd-pass-season { position:relative; display:flex; flex-direction:column; flex:none; gap:10px; }
+.fd-pass-season-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:2px; }
+.fd-pass-season-title { min-width:0; font:900 36px/1.04 var(--fd-show); text-shadow:0 2px 0 var(--pass-deep); overflow-wrap:anywhere; }
+.fd-pass-season-ghost { flex-shrink:0; font:900 44px/.8 var(--fd-display); color:transparent; -webkit-text-stroke:1.5px var(--pass-ink); opacity:.6; }
 .fd-pass-table { display:block; }
 .fd-pass-table-head,.fd-pass-table-row { display:grid; grid-template-columns:minmax(0,1fr) 46px 54px;
   gap:6px; align-items:baseline; }
 .fd-pass-table-head { padding-bottom:5px; border-bottom:1.5px solid var(--pass-ink);
-  font:700 8px/1 var(--fd-body,'Inter',sans-serif); letter-spacing:.1em; text-transform:uppercase; }
-.fd-pass-table-row { padding:5px 0; border-bottom:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent);
-  font:600 11px/1.25 var(--fd-body,'Inter',sans-serif); }
+  font:800 13px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-pass-table-row { padding:5px 0; border-bottom:1px solid var(--pass-rule); font:600 12px/1.25 var(--fd-body); }
 .fd-pass-table-row>span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fd-pass-table-row>strong { font:700 14px/1 'Barlow Condensed',sans-serif; white-space:nowrap; }
+.fd-pass-table-row>strong { font:800 15px/1 var(--fd-display); white-space:nowrap; }
 .fd-pass-table-head>span:last-child,.fd-pass-table-row>span:last-child { text-align:right; white-space:nowrap; }
-.fd-pass-table-row.is-placed>span:last-child,.fd-pass-table-row.is-crew>span:last-child {
-  font:700 14px/1 'Barlow Condensed',sans-serif; }
-.fd-pass-totals { display:grid; grid-auto-columns:minmax(0,1fr); grid-auto-flow:column; gap:4px; text-align:center; padding-top:2px; }
-.fd-pass-totals strong { display:block; font:700 21px/1 'Barlow Condensed',sans-serif; white-space:nowrap; }
-.fd-pass-totals small { display:block; margin-top:4px; font:700 8px/1.2 var(--fd-body,'Inter',sans-serif);
+.fd-pass-table-row.is-placed>span:last-child,.fd-pass-table-row.is-crew>span:last-child { font:800 15px/1 var(--fd-display); }
+/* the score window: black glass set into the card, figures on reels; chips
+   are amber here as everywhere */
+.fd-pass-totals { display:grid; grid-auto-columns:minmax(0,1fr); grid-auto-flow:column; gap:2px; text-align:center;
+  padding:9px 6px 8px; border-radius:10px; background:var(--ink0); color:var(--bone);
+  box-shadow:0 0 0 2px var(--pass-deep), var(--glass-edge); }
+.fd-pass-totals>span+span { border-left:1px solid var(--line); }
+.fd-pass-totals strong { display:block; font:800 24px/1 var(--fd-display); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.fd-pass-totals strong.is-chip { color:var(--sun); }
+.fd-pass-totals small { display:block; margin-top:4px; color:var(--muted2); font:800 12px/1.2 var(--fd-display);
   letter-spacing:.08em; text-transform:uppercase; }
 .fd-pass-box { display:grid; gap:1px; padding:8px 10px; border:1.5px solid var(--pass-ink); border-radius:10px; }
 .fd-pass-box-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding-bottom:3px;
-  font:700 9px/1.2 var(--fd-body,'Inter',sans-serif); letter-spacing:.1em; text-transform:uppercase; }
-.fd-pass-box-head strong { font:700 22px/1 'Barlow Condensed',sans-serif; letter-spacing:0; }
+  font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-pass-box-head strong { font:800 22px/1 var(--fd-display); letter-spacing:0; }
 .fd-pass-line { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:3px 0;
-  font:600 11px/1.3 var(--fd-body,'Inter',sans-serif); }
+  font:600 12px/1.3 var(--fd-body); }
 .fd-pass-line>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fd-pass-line>strong { flex-shrink:0; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font:700 14px/1 'Barlow Condensed',sans-serif; }
-.fd-pass-walkout { border-top:1px solid color-mix(in srgb,var(--pass-ink) 25%,transparent); padding-top:8px; }
-.fd-pass-walkout>strong { font:600 11px/1.3 var(--fd-body,'Inter',sans-serif); }
+  font:800 15px/1 var(--fd-display); }
+.fd-pass-walkout { border-top:1px solid var(--pass-rule); padding-top:8px; }
+.fd-pass-walkout>strong { font:600 12px/1.3 var(--fd-body); }
 @media(prefers-reduced-motion:no-preference) {
-  .fd-pass { transition:min-height var(--motion-story,720ms) var(--ease-out,cubic-bezier(.2,.8,.2,1)); }
   /* turning the card over deals its lines in, top to bottom */
   .fd-pass-inner.is-flipped .fd-pass-row { animation:fd-pass-row var(--motion-base,260ms) var(--ease-out,ease-out) both;
     animation-delay:calc(220ms + min(var(--i,0), 14) * 28ms); }
 }
 @keyframes fd-pass-row { from { opacity:0; transform:translateY(6px); } }
-.fd-pass-hint { display:block; text-align:center; margin-top:12px; font:11px/1.5 var(--fd-body, 'Inter', sans-serif); color:var(--muted); }
+.fd-pass-hint { display:block; text-align:center; margin-top:12px; font:500 12px/1.5 var(--fd-body); color:var(--muted); }
 .fd-pass-compact { max-width:300px; }
+
+/* ── the profile editor: the same glass as the rest of the phone; fields are
+   wells cut into the panel, a switch is a lamp ── */
 .fd-profile-editor { width:100%; }
 .fd-profile-controls { background:var(--paper); }
-.fd-profile-color-rail { height:2px; }
+/* your identity color, painted along the top of the fields */
+.fd-profile-color-rail { height:4px; border-radius:99px; margin-bottom:4px; }
 .fd-profile-fields { padding:0 0 12px; }
 .fd-profile-photo-row { padding:0 0 12px; }
 .fd-profile-preview { margin-bottom:12px; border-bottom:1px solid var(--line); }
-.fd-profile-preview summary { display:flex; align-items:center; min-height:44px; color:var(--muted2); cursor:pointer; font-size:12px; }
-.fd-profile-preview summary::after { content:"+"; margin-left:auto; font-size:18px; }
+.fd-profile-preview summary { display:flex; align-items:center; min-height:44px; color:var(--lamp-info); cursor:pointer;
+  font:800 14px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; list-style:none; }
+.fd-profile-preview summary::-webkit-details-marker { display:none; }
+.fd-profile-preview summary::after { content:"+"; margin-left:auto; font:500 20px/1 var(--fd-body); }
 .fd-profile-preview[open] summary::after { content:"−"; }
-.fd-profile-preview summary:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
+.fd-profile-preview summary:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 .fd-profile-preview .fd-pass-wrap { margin-top:8px; margin-bottom:14px; }
 .fd-profile-chip-locked { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
-.fd-profile-chip-locked strong { font:600 13px/1.4 var(--fd-body); }
+.fd-profile-chip-locked strong { font:800 16px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-profile-chip-locked p { margin:3px 0 0; color:var(--muted2); font:12px/1.4 var(--fd-body); }
 .fd-profile-vibration { display:flex; align-items:center; justify-content:space-between; gap:12px;
   min-height:54px; padding:5px 0; border-top:1px solid var(--line); color:var(--ink);
-  font:500 13px/1.4 'Inter',sans-serif; }
-.fd-switch { position:relative; flex-shrink:0; width:52px; min-height:44px; padding:0; border:0;
+  font:600 14px/1.4 var(--fd-body); }
+/* a switch is a lamp: unlit when off, a steady cyan lamp when on */
+.fd-switch { position:relative; flex-shrink:0; width:56px; min-height:44px; padding:0; border:0;
   background:transparent; cursor:pointer; }
-.fd-switch>span { position:absolute; left:4px; right:4px; top:50%; height:26px; margin-top:-13px;
-  border-radius:99px; background:var(--paper2); border:1px solid var(--line); }
-.fd-switch>span::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px;
-  border-radius:50%; background:var(--muted); }
-.fd-switch[aria-checked=true]>span { background:var(--sun); border-color:var(--sun); }
-.fd-switch[aria-checked=true]>span::after { left:auto; right:3px; background:var(--ink0); }
-.fd-switch:focus-visible { outline:2px solid var(--sun); outline-offset:2px; border-radius:99px; }
+.fd-switch>span { position:absolute; left:4px; right:4px; top:50%; height:28px; margin-top:-14px;
+  border-radius:99px; background:var(--bg); border:1px solid var(--ghost-line); box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 60%, transparent);
+  transition:background .18s, border-color .18s, box-shadow .18s; }
+.fd-switch>span::after { content:""; position:absolute; top:4px; left:4px; width:18px; height:18px;
+  border-radius:50%; background:var(--muted); transition:transform .18s cubic-bezier(.2,.8,.2,1), background .18s; }
+.fd-switch[aria-checked=true]>span { background:var(--info-tint); border-color:var(--lamp-info);
+  box-shadow:0 0 12px color-mix(in srgb, var(--lamp-info) 35%, transparent); }
+.fd-switch[aria-checked=true]>span::after { transform:translateX(20px); background:var(--lamp-info);
+  box-shadow:0 0 8px var(--lamp-info); }
+.fd-switch:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:99px; }
 .fd-switch:disabled { cursor:default; opacity:.5; }
+@media(prefers-reduced-motion:reduce) { .fd-switch>span, .fd-switch>span::after { transition:none; } }
 .fd-profile-photo-button { display:flex; align-items:center; gap:10px; width:100%;
   min-height:54px; padding:12px 0; background:transparent; border:0;
   border-bottom:1px solid var(--line); color:var(--ink); cursor:pointer;
-  text-align:left; font:500 13px/1.4 'Inter',sans-serif; }
+  text-align:left; font:600 14px/1.4 var(--fd-body); }
+.fd-profile-photo-button>svg { color:var(--lamp-info); }
 .fd-profile-photo-action { margin-left:auto; font-size:20px; font-weight:400;
-  line-height:1; color:var(--muted2); }
-.fd-profile-name-row { display:grid; grid-template-columns:minmax(0,1fr) 64px; gap:12px; }
+  line-height:1; color:var(--lamp-info); }
+.fd-profile-name-row { display:grid; grid-template-columns:minmax(0,1fr) 72px; gap:12px; }
 .fd-profile-field { display:grid; min-width:0; gap:7px; }
-.fd-profile-field>span { color:var(--muted); text-transform:uppercase;
-  font:600 10px/1.3 'Inter',sans-serif; letter-spacing:.06em; }
+.fd-profile-field>span { color:var(--muted2); font:800 13px/1.3 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+/* a field is a well cut into the glass */
 .fd-profile-field input { width:100%; min-width:0; height:48px; padding:0 12px;
-  border:1px solid var(--line); border-radius:6px; background:var(--paper2);
-  color:var(--ink); font:600 16px/1.3 'Inter',sans-serif; }
+  border:1px solid var(--ghost-line); border-radius:10px; background:var(--bg);
+  box-shadow:inset 0 2px 5px color-mix(in srgb, var(--ink0) 55%, transparent);
+  color:var(--ink); font:600 16px/1.3 var(--fd-body); }
+.fd-profile-field input:focus { border-color:var(--lamp-info); outline:none; box-shadow:0 0 0 1px var(--lamp-info), 0 0 14px color-mix(in srgb, var(--lamp-info) 30%, transparent); }
 .fd-profile-field input[aria-invalid=true] { border-color:var(--clay); }
 .fd-profile-number-field { text-align:center; }
-.fd-profile-number-field input { padding:0; text-align:center;
-  font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:25px; }
+.fd-profile-number-field input { padding:0; text-align:center; font:800 28px/1 var(--fd-display); }
 .fd-profile-number-error { margin-top:10px; padding:8px 10px;
-  border:1px solid var(--danger-line); border-radius:6px; background:var(--clay-tint);
-  color:var(--clay-text); font:600 12px/1.4 'Inter',sans-serif; }
+  border:1px solid var(--danger-line); border-radius:10px; background:var(--clay-tint);
+  color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
 .fd-trip-details { display:grid; gap:14px; margin-top:20px; padding-top:18px; border-top:1px solid var(--line); }
 .fd-profile-field>.fd-trip-venmo { position:relative; display:block; text-transform:none; letter-spacing:0; }
 .fd-trip-venmo i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted);
-  font:600 16px/1 'Inter',sans-serif; font-style:normal; pointer-events:none; }
+  font:600 16px/1 var(--fd-body); font-style:normal; pointer-events:none; }
 .fd-profile-field .fd-trip-venmo input { padding-left:28px; }
-.fd-trip-question { margin-bottom:-6px; color:var(--ink); font:600 15px/1.3 'Inter',sans-serif; }
+.fd-trip-question { margin-bottom:-6px; color:var(--ink); font:600 15px/1.3 var(--fd-body); }
 .fd-trip-choice { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.fd-trip-choice button { height:48px; border-radius:10px; border:1.5px solid var(--line); background:var(--paper2);
-  color:var(--ink); font:700 14px/1 'Inter',sans-serif; cursor:pointer; }
-.fd-trip-choice button[aria-pressed=true] { background:var(--sun); color:var(--ink0); border-color:var(--ink0); }
+.fd-trip-choice button { min-height:48px; border-radius:10px; border:1px solid var(--line); background:var(--paper2);
+  color:var(--ink); font:700 15px/1 var(--fd-body); cursor:pointer; box-shadow:var(--glass-edge); }
+/* matches the flights question above it (travel.css) */
+.fd-trip-choice button[aria-pressed=true] { background:var(--sun); color:var(--ink0); border-color:var(--sun); }
 .fd-chip-picker { container-type:inline-size; }
 .fd-chip-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr));
   gap:6px; margin-bottom:18px; }
-.fd-chip-late-note { margin:10px 0 16px; color:var(--muted2); font-size:12px; line-height:1.45; }
+.fd-chip-late-note { margin:10px 0 16px; color:var(--muted2); font-size:13px; line-height:1.45; }
 .fd-chip-patterns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
 @container (max-width:270px) {
   .fd-chip-patterns { grid-template-columns:repeat(3,minmax(0,1fr)); }

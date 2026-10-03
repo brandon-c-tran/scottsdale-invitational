@@ -24,7 +24,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = await build({
   stdin:{ contents:`export { TVMode } from "./src/features/tv/TVMode.jsx";
     export { TVBracket } from "./src/features/tv/TVBracket.jsx";
-    export { ChampionMoment, floodOrigin, crownRise } from "./src/features/tv/TVChampion.jsx";
+    export { ChampionMoment, crownHall } from "./src/features/tv/TVChampion.jsx";
     export { championView } from "./src/features/tv/tvModel.js";
     export { bracketLayout } from "./src/features/weekend/CompetitionBracket.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
@@ -36,7 +36,7 @@ const mod = new Module(fileURLToPath(new URL("tv-scenes.cjs", import.meta.url)))
 mod.filename = mod.id;
 mod.paths = Module._nodeModulePaths(root);
 mod._compile(compiled.outputFiles[0].text, mod.filename);
-const { TVMode, TVBracket, ChampionMoment, floodOrigin, crownRise, championView, bracketLayout,
+const { TVMode, TVBracket, ChampionMoment, crownHall, championView, bracketLayout,
   PlayerIdentityProvider } = mod.exports;
 let seq = 0;
 const gm = (showControl = false) => ({ isGm:true, player:"Brandon", deviceId:"gm-device", showControl });
@@ -207,7 +207,7 @@ test("a decided match keeps the bracket in view: the card takes the contest's sp
   const html = renderTv(state, { now:decidedAt + 1000 });
   assert.match(html, /class="tv-advance is-slot"/);
   assert.match(html, /class="tv-contest-slot"/);
-  assert.ok(html.indexOf("tv-contest-slot") < html.indexOf("tv-bracket is-strip"), "the bracket sits below the card");
+  assert.ok(html.indexOf("tv-contest-slot") < html.indexOf("tv-bracket is-side"), "the bracket sits below the card");
   assert.ok(!html.includes("tv-br-win") && !html.includes("tv-br-token"),
     "a render nobody saw arrive fresh shows the end state");
   assert.equal(advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 1000).kind, "match");
@@ -256,7 +256,7 @@ const crowned = (showControl) => {
 test("the champion frame floods in their color with readable ink; a reload shows it at rest", () => {
   const state = crowned(false);
   /* D3: a frozen TV takes turns with the class photo; this is the champion's turn */
-  const html = renderTv(state, { now:Math.floor(Date.now() / 24000) * 24000 + 1000 });
+  const html = renderTv(state, { now:Math.floor(Date.now() / 36000) * 36000 + 1000 });
   assert.match(html, /class="tv-crown is-flood is-ink-bone is-flooded"/);
   assert.match(html, /--champ-color:#2F7E83/);
   assert.match(html, /class="tv-crown-flood"/);
@@ -267,7 +267,7 @@ test("the champion frame floods in their color with readable ink; a reload shows
   assert.match(html, /class="tv-crown-coin"/, "their chip");
 });
 
-test("a fresh crown plays the prelude: the rows as they stood, the champion rising to the flood's origin", () => {
+test("a fresh crown plays the produced crown: every tower in final order, dark from last up, the champion's into the flood", () => {
   const state = crowned(false);
   const events = allEventsOf(state);
   const standings = computeStandings(state);
@@ -275,14 +275,20 @@ test("a fresh crown plays the prelude: the rows as they stood, the champion risi
   const html = wrap(state, React.createElement(ChampionMoment, { state, view, standings,
     moment:{ id:"c1", anchor:Date.now() - 100 } }));
   assert.match(html, /tv-crown is-playing/);
-  assert.equal((html.match(/class="tv-crown-row/g) || []).length, standings.length, "all thirteen as they stood");
-  assert.match(html, /tv-crown-row is-champ/);
-  assert.match(html, /class="tv-crown-letter"[^>]*style="animation-delay:calc\(var\(--tl\) \+ 2400ms\)"/);
-  /* the flood starts on the champion's face after the rise */
-  const o = floodOrigin(1);
-  assert.ok(Math.abs(o.y - (956 / 2 + 118)) < 1);
-  assert.ok(o.x > 56 && o.x < 200);
-  assert.equal(crownRise(0, 0, 1), 956 / 2 - 28 - 84);
+  assert.equal((html.match(/class="tv-crown-tower/g) || []).length, standings.length, "all thirteen towers, as they stood");
+  assert.match(html, /tv-crown-tower is-champ/);
+  assert.ok(html.includes(`class="tv-crown-letter" aria-hidden="true" style="animation-delay:calc(var(--tl) + ${CROWN_TIMING.name}ms)"`),
+    "the name lands on the crown's own beat");
+  /* Backglass (Oct 2): the produced crown's order, on CROWN_TIMING */
+  const hall = crownHall(standings, view.players);
+  assert.equal(hall[0].outAt, null, "the champion's tower rises instead");
+  assert.equal(hall[1].outAt, CROWN_TIMING.second, "2nd goes after the last two hold");
+  assert.equal(hall.at(-1).outAt, CROWN_TIMING.stepDown, "last place goes dark first");
+  hall.slice(2).forEach((tower, i, rest) => { if (i) assert.ok(tower.outAt < rest[i - 1].outAt, "then up the board"); });
+  assert.ok(hall.slice(2).every(tower => tower.outAt < CROWN_TIMING.holdTwo), "3rd is out before the hold");
+  assert.ok(hall.every((tower, i) => !i || tower.x > hall[i - 1].x), "in final order across the glass");
+  assert.ok(hall[0].chips >= hall.at(-1).chips, "the biggest stack stands tallest");
+  assert.match(html, /--flood-x:\d+px/, "the flood grows from the champion's tower");
   const tied = structuredClone(view); tied.tied = true; tied.players = ["Evan", "Adi"];
   const tie = wrap(state, React.createElement(ChampionMoment, { state, view:tied, standings }));
   assert.match(tie, /tv-crown is-tied/);

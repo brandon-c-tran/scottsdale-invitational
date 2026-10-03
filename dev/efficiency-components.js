@@ -295,28 +295,28 @@ function resolveDuel(duel) {
   const winner = score(a) < score(b) ? duel.from : duel.to;
   return { settled: true, push: false, winner, loser: winner === duel.from ? duel.to : duel.from };
 }
-function duelPhase(duel, now = Date.now()) {
+function duelPhase(duel, now2 = Date.now()) {
   if (!duel) return null;
   if (duel.status !== "open")
     return duel.status === "declined" || duel.status === "withdrawn" ? duel.status : "void";
   if (resolveDuel(duel).settled) return "settled";
-  if (!duelAccepted(duel)) return duelLapsed(duel, now) ? "lapsed" : "offered";
+  if (!duelAccepted(duel)) return duelLapsed(duel, now2) ? "lapsed" : "offered";
   return "live";
 }
-function duelReserve(state, player, now = Date.now()) {
+function duelReserve(state, player, now2 = Date.now()) {
   if (!player) return 0;
   return (state?.duels || []).reduce((sum, duel) => {
-    const phase = duelPhase(duel, now);
+    const phase = duelPhase(duel, now2);
     const stake = Number(duel.stake) || 0;
     if (phase === "live" && (duel.from === player || duel.to === player)) return sum + stake;
     if (phase === "offered" && duel.from === player) return sum + stake;
     return sum;
   }, 0);
 }
-function duelRoom(state, player, { events, rows, now = Date.now() } = {}) {
+function duelRoom(state, player, { events, rows, now: now2 = Date.now() } = {}) {
   const standings = rows || computeStandings(state);
   const pts = standings.find((row) => row.player === player)?.pts ?? 0;
-  const exposure = atRisk(state, player, events || allEventsOf(state)) + duelReserve(state, player, now);
+  const exposure = atRisk(state, player, events || allEventsOf(state)) + duelReserve(state, player, now2);
   const cap = maxRisk(pts);
   return {
     pts,
@@ -506,7 +506,8 @@ function contestTarget(state, ev) {
         kind: "match",
         match: [r, m],
         drawId: draw.id,
-        label: `${ROUND_NAMES[draw.teams.length]?.[r] || `Round ${r + 1}`} \xB7 Match ${m + 1}`,
+        /* named as the bracket names it: "Final", "Semifinal 1", "Round 1 Match 3" */
+        label: bracketMatchName(br, r, m),
         sides: keys.map((key) => ({ key, players: [...draw.teams[key].players] }))
       };
     }
@@ -599,7 +600,7 @@ function wagerMatchesContest(wager, contest) {
   if (contest.kind === "match") return wager.kind === "match" && wager.drawId === contest.drawId && wager.match?.[0] === contest.match[0] && wager.match?.[1] === contest.match[1];
   return wager.stagesId === contest.stagesId && (contest.kind === "heat" ? wager.kind === "heat" && !wager.final && wager.group === contest.group : wager.kind === "stage" && wager.final === true);
 }
-function enforceExposure(state, now = Date.now()) {
+function enforceExposure(state, now2 = Date.now()) {
   if (pokerLive(state) || stacksPosted(state)) return [];
   const events = allEventsOf(state);
   const rows = computeStandings(state);
@@ -610,16 +611,16 @@ function enforceExposure(state, now = Date.now()) {
     for (const w of (state.wagers || []).filter((w2) => w2.player === player && resolveWager(state, w2, events).status === "pending")) {
       const chips = Array.isArray(w.chips) && w.chips.length ? w.chips : null;
       if (!chips) items.push({ w, stake: w.stake, ts: w.updatedAt || w.ts || 0, order: 0 });
-      else chips.forEach((chip, index) => items.push({
+      else chips.forEach((chip2, index) => items.push({
         w,
-        chip,
-        stake: Number(chip.stake) || 0,
-        ts: chip.ts || w.ts || 0,
+        chip: chip2,
+        stake: Number(chip2.stake) || 0,
+        ts: chip2.ts || w.ts || 0,
         order: index
       }));
     }
     for (const d of state.duels || []) {
-      const phase = duelPhase(d, now);
+      const phase = duelPhase(d, now2);
       if (phase === "live" && (d.from === player || d.to === player) || phase === "offered" && d.from === player)
         items.push({ d, stake: d.stake, ts: d.acceptedAt || d.ts || 0, order: 0 });
     }
@@ -630,18 +631,18 @@ function enforceExposure(state, now = Date.now()) {
       if (item.d) {
         if (!(item.d.status === "open" && !resolveDuel(item.d).settled)) continue;
         item.d.status = "void";
-        Object.assign(item.d, { voidedAt: now, voidedBy: "exposure" });
+        Object.assign(item.d, { voidedAt: now2, voidedBy: "exposure" });
         voided.push({ type: "duel", id: item.d.id, players: [item.d.from, item.d.to], stake: item.d.stake });
       } else if (item.chip && item.w.chips.length > 1 && item.w.chips.at(-1) === item.chip) {
         item.w.chips.pop();
         item.w.stake = Math.max(0, item.w.stake - item.stake);
-        item.w.updatedAt = now;
-        item.w.voidedChips = [...item.w.voidedChips || [], { ...item.chip, voidedAt: now }];
+        item.w.updatedAt = now2;
+        item.w.voidedChips = [...item.w.voidedChips || [], { ...item.chip, voidedAt: now2 }];
         voided.push({ type: "chip", id: item.w.id, player, eventId: item.w.eventId, stake: item.stake });
       } else {
         if (item.w.status === "void") continue;
         item.w.status = "void";
-        Object.assign(item.w, { voidedAt: now, voidedBy: "exposure" });
+        Object.assign(item.w, { voidedAt: now2, voidedBy: "exposure" });
         voided.push({ type: "wager", id: item.w.id, player, eventId: item.w.eventId, stake: item.w.stake });
         exposure -= item.w.stake - item.stake;
       }
@@ -657,7 +658,7 @@ function refundTotals(items = []) {
   });
   return [...totals].map(([player, stake]) => ({ player, stake }));
 }
-function voidWagerRecords(state, ids, reason, now = Date.now()) {
+function voidWagerRecords(state, ids, reason, now2 = Date.now()) {
   const wanted = new Set(ids);
   const events = allEventsOf(state);
   const voided = [];
@@ -666,7 +667,7 @@ function voidWagerRecords(state, ids, reason, now = Date.now()) {
     const was = resolveWager(state, wager, events).status;
     wager.status = "void";
     wager.voidReason = reason;
-    wager.voidedAt = now;
+    wager.voidedAt = now2;
     if (was === "won" || was === "lost") wager.voidedFrom = was;
     voided.push({ id: wager.id, player: wager.player, stake: Number(wager.stake || 0) });
   });
@@ -701,11 +702,11 @@ function restoreContestEntry(state, evId, entry) {
     }
   } else if (state.stages?.[evId]) state.stages[evId].finalWinner = entry.previousWinner ?? null;
 }
-function applyContestCorrection(state, ev, contestId, now = Date.now()) {
-  const stack = [...contestStackOf(state, ev.id)];
-  const index = stack.findIndex((entry) => entry.id === contestId);
+function applyContestCorrection(state, ev, contestId, now2 = Date.now()) {
+  const stack2 = [...contestStackOf(state, ev.id)];
+  const index = stack2.findIndex((entry) => entry.id === contestId);
   if (index < 0) return null;
-  const target = stack[index], later = stack.slice(index + 1);
+  const target = stack2[index], later = stack2.slice(index + 1);
   const events = allEventsOf(state);
   const ids = /* @__PURE__ */ new Set();
   const current = resolveCurrentContest(state, ev);
@@ -718,20 +719,20 @@ function applyContestCorrection(state, ev, contestId, now = Date.now()) {
       if (wager.status !== "void" && wagerMatchesContest(wager, contest)) ids.add(wager.id);
     });
   });
-  [...stack.slice(index)].reverse().forEach((entry) => restoreContestEntry(state, ev.id, entry));
-  const returned = voidWagerRecords(state, [...ids], "Previous result corrected", now);
+  [...stack2.slice(index)].reverse().forEach((entry) => restoreContestEntry(state, ev.id, entry));
+  const returned = voidWagerRecords(state, [...ids], "Previous result corrected", now2);
   const op = state.eventOps[ev.id];
   if (target.kind === "match" && state.brackets?.[ev.id])
     state.brackets[ev.id].next = [target.match[0], target.match[1]];
   op.contestRevision = Number(op.contestRevision || 0) + 1;
   op.contest = { id: target.id, revision: op.contestRevision, phase: "in-progress" };
-  op.bettingLockedAt = now;
+  op.bettingLockedAt = now2;
   delete op.resultEntryAt;
-  op.contestStack = stack.slice(0, index);
+  op.contestStack = stack2.slice(0, index);
   if (op.contestStack.length) op.lastContest = op.contestStack.at(-1);
   else delete op.lastContest;
   if (state.onDeck === ev.id) state.onDeck = null;
-  const exposure = enforceExposure(state, now);
+  const exposure = enforceExposure(state, now2);
   return {
     contestId: target.id,
     contestRevision: op.contestRevision,
@@ -743,10 +744,10 @@ function applyContestCorrection(state, ev, contestId, now = Date.now()) {
     voided: exposure
   };
 }
-function contestCorrectionAvailability(state, ev, contestId = null, now = Date.now()) {
+function contestCorrectionAvailability(state, ev, contestId = null, now2 = Date.now()) {
   const op = eventOpOf(state, ev?.id);
-  const stack = ev ? contestStackOf(state, ev.id) : [];
-  const entry = contestId ? stack.find((item) => item.id === contestId) : stack.at(-1);
+  const stack2 = ev ? contestStackOf(state, ev.id) : [];
+  const entry = contestId ? stack2.find((item) => item.id === contestId) : stack2.at(-1);
   const short = entry ? contestEntryLabel(state, ev, entry) : "";
   const response = (blocker, preview2 = {}) => ({
     enabled: !blocker,
@@ -767,11 +768,11 @@ function contestCorrectionAvailability(state, ev, contestId = null, now = Date.n
   if (state.results?.[ev.id]) return response("The event result is already posted");
   if (state.poker || stacksPosted(state)) return response("The finale is underway");
   if (state.onDeck && state.onDeck !== ev.id) return response("Close the current betting market first");
-  const rewound = stack.slice(stack.indexOf(entry));
+  const rewound = stack2.slice(stack2.indexOf(entry));
   if (rewound.some((item) => item.drawId && state.draws?.[ev.id]?.id !== item.drawId || item.stagesId && state.stages?.[ev.id]?.id !== item.stagesId))
     return response("Draw changed, refresh and try again");
   const preview = structuredClone(state);
-  const moved = applyContestCorrection(preview, allEventsOf(preview).find((item) => item.id === ev.id), entry.id, now);
+  const moved = applyContestCorrection(preview, allEventsOf(preview).find((item) => item.id === ev.id), entry.id, now2);
   if (!moved) return response("No previous contest to correct");
   const { contestId: _id, contestRevision: _revision, label: _label, ...rest } = moved;
   return response(null, rest);
@@ -1062,7 +1063,7 @@ var init_core = __esm({
         sport: "volley",
         game: "volleyball",
         teamCfg: { teams: 4, size: 3, bracket: 4 },
-        desc: "Four teams of three, single elimination. Games to 15, win by 2. Rotate servers."
+        desc: "Four teams of three, single elimination. Best of three sets to 15, cap 17. Rotate servers."
       },
       {
         id: "8ball",
@@ -1097,8 +1098,8 @@ var init_core = __esm({
         name: "Trivia",
         kind: "team",
         game: "trivia",
-        teamCfg: { teams: 4, size: 3, bracket: 4 },
-        desc: "Four teams of three, single elimination. First correct answer scores. First team to 7 wins the match."
+        teamCfg: { teams: 4, size: 3 },
+        desc: "Four teams of three, one game. Most points wins."
       },
       {
         id: "ragecage",
@@ -1220,13 +1221,6 @@ var init_core = __esm({
           steps: ["Check the ball up top.", "Everything counts one.", "Make it, take it.", "Call your own fouls."],
           win: "First to five wins the game. Win the final to take the event."
         } },
-        { id: "3v3", label: "3v3", howto: {
-          players: "Teams of three",
-          gear: ["Half court", "One ball"],
-          objective: "Score seven before the other team.",
-          steps: ["Check the ball up top.", "Score by ones and twos.", "Take it back past the arc on a turnover.", "Call your own fouls."],
-          win: "First team to seven wins."
-        } },
         { id: "5v5", label: "5v5", howto: {
           players: "Two teams of five",
           gear: ["Full court", "One ball", "A clock"],
@@ -1271,13 +1265,6 @@ var init_core = __esm({
         steps: ["Serve underhand, cross court, past the kitchen.", "Let it bounce once each side before volleying.", "Stay out of the kitchen on volleys.", "Only the serving side scores."],
         win: "Games to eleven, win by two."
       } },
-      flipcup: { name: "Flip Cup", howto: {
-        players: "Two teams",
-        gear: ["Cups", "A table", "A pour each"],
-        objective: "Finish the line and flip clean before they do.",
-        steps: ["Line up across the table.", "Drink it all, then set the cup on the edge.", "Flip it upright with one finger.", "Land it, the next teammate goes."],
-        win: "First team down the line wins the round. Best of three."
-      } },
       beerio: { name: "Beerio Kart", howto: {
         players: "Heats of four",
         gear: ["Switch", "Four controllers", "A beer each"],
@@ -1312,14 +1299,14 @@ var init_core = __esm({
       trivia: { name: "Trivia", howto: {
         players: "Teams of three",
         gear: ["The TV"],
-        objective: "Answer first and right.",
+        objective: "Most right answers.",
         steps: [
-          "Four teams, single elimination, two teams a match.",
+          "All four teams play one game.",
           "A question goes up on the TV.",
-          "The first correct answer scores for that team.",
+          "Every right answer scores for that team.",
           "Categories: the groom, the family, the group, a photo round, sports and pop culture."
         ],
-        win: "First team to 7 correct wins the match."
+        win: "Most points wins."
       } },
       poker: { name: "Poker", howto: {
         players: "Everyone, one table",
@@ -1327,14 +1314,6 @@ var init_core = __esm({
         objective: "Finish with the biggest stack.",
         steps: ["Whatever you have Saturday night is the stack you start the finale with.", "No-limit hold'em. Blinds rise on the clock.", "Bust and you are out.", "When the last level ends, count your stack."],
         win: "Chip leader takes the championship. Final chip counts are the final standings, and elimination order ranks the busts."
-      } },
-      gauntlet: { name: "The Gauntlet", howto: {
-        players: "Solo, on the clock",
-        gear: ["Putter", "Cups", "Pong ball", "One die"],
-        objective: "Clear five stations faster than everyone else.",
-        steps: ["Sink the pressure putt.", "Flip your cup clean.", "Hit a pong shot.", "Land a die on the table.", "Finish at the center cup. Miss a station, run it back."],
-        win: "Fastest clean run takes 1st.",
-        house: "One runner at a time. Someone times each run."
       } }
     };
     SLOT_META = [
@@ -1350,10 +1329,10 @@ var init_core = __esm({
     CHIP_COLORS = [
       { hex: "#C05B33" },
       { hex: "#D97742" },
-      { hex: "#E39A3B", light: true },
-      { hex: "#D89C2F", light: true },
-      { hex: "#C9B25A", light: true },
-      { hex: "#A8A03F", light: true },
+      { hex: "#E39A3B" },
+      { hex: "#D89C2F" },
+      { hex: "#C9B25A" },
+      { hex: "#A8A03F" },
       { hex: "#77804C" },
       { hex: "#4E6E39" },
       { hex: "#6E9450" },
@@ -1376,10 +1355,10 @@ var init_core = __esm({
       { hex: "#8C6A54" },
       { hex: "#6F6546" },
       { hex: "#4E4A3C" },
-      { hex: "#9AA1A8", light: true },
-      { hex: "#B9AF9B", light: true },
-      { hex: "#D1C0A0", light: true },
-      { hex: "#E3D7BD", light: true }
+      { hex: "#9AA1A8" },
+      { hex: "#B9AF9B" },
+      { hex: "#D1C0A0" },
+      { hex: "#E3D7BD" }
     ];
     CHIP_SKINS = [
       "ticks",
@@ -1495,15 +1474,15 @@ var init_core = __esm({
     });
     DUEL_LAPSE_MS = 10 * 60 * 1e3;
     duelAccepted = (duel) => !!duel && (!duel.consent || !!duel.acceptedAt);
-    duelLapsed = (duel, now = Date.now()) => !!duel && duel.status === "open" && !duelAccepted(duel) && now - Number(duel.ts || 0) >= DUEL_LAPSE_MS;
+    duelLapsed = (duel, now2 = Date.now()) => !!duel && duel.status === "open" && !duelAccepted(duel) && now2 - Number(duel.ts || 0) >= DUEL_LAPSE_MS;
     duelLapsesAt = (duel) => duel?.consent ? Number(duel.ts || 0) + DUEL_LAPSE_MS : null;
-    duelOpen = (duel, now = Date.now()) => {
-      const phase = duelPhase(duel, now);
+    duelOpen = (duel, now2 = Date.now()) => {
+      const phase = duelPhase(duel, now2);
       return phase === "offered" || phase === "live";
     };
-    duelBetween = (state, a, b, now = Date.now()) => (state?.duels || []).find((duel) => duelOpen(duel, now) && duel.to && (duel.from === a && duel.to === b || duel.from === b && duel.to === a)) || null;
+    duelBetween = (state, a, b, now2 = Date.now()) => (state?.duels || []).find((duel) => duelOpen(duel, now2) && duel.to && (duel.from === a && duel.to === b || duel.from === b && duel.to === a)) || null;
     DUEL_DAILY_LIMIT = 3;
-    duelsSentToday = (state, player, now = Date.now()) => (state?.duels || []).filter((duel) => duel.from === player && Number(duel.ts || 0) > now - 24 * 60 * 60 * 1e3 && !["declined", "withdrawn", "lapsed"].includes(duelPhase(duel, now))).length;
+    duelsSentToday = (state, player, now2 = Date.now()) => (state?.duels || []).filter((duel) => duel.from === player && Number(duel.ts || 0) > now2 - 24 * 60 * 60 * 1e3 && !["declined", "withdrawn", "lapsed"].includes(duelPhase(duel, now2))).length;
     postCountRuling = (a, stacksRes = null) => a.pokerRevision !== void 0 || !!stacksRes && a.ts > stacksRes.ts;
     postCountRulingApplies = (a, stacksRes) => !!stacksRes && (a.pokerRevision !== void 0 ? Number(a.pokerRevision) === Number(stacksRes.revision || 1) : a.ts > stacksRes.ts);
     MVP_PTS = PT;
@@ -1552,8 +1531,8 @@ var init_core = __esm({
       stagesId: entry.stagesId,
       drawId: entry.drawId
     });
-    contestUndoAvailability = (state, ev, now = Date.now()) => contestCorrectionAvailability(state, ev, null, now);
-    contestCorrections = (state, ev, now = Date.now()) => ev ? [...contestStackOf(state, ev.id)].reverse().map((entry) => contestCorrectionAvailability(state, ev, entry.id, now)) : [];
+    contestUndoAvailability = (state, ev, now2 = Date.now()) => contestCorrectionAvailability(state, ev, null, now2);
+    contestCorrections = (state, ev, now2 = Date.now()) => ev ? [...contestStackOf(state, ev.id)].reverse().map((entry) => contestCorrectionAvailability(state, ev, entry.id, now2)) : [];
     refundText = (state, refunds = []) => refunds.length ? `Returns ${refunds.map((item) => `${disp(state, item.player)} ${item.stake}`).join(", ")}` : "";
     duelPairText = (state, players = []) => players.filter(Boolean).map((player) => disp(state, player)).join(" vs ");
     lifecycleAction = (type, label2, blockers = []) => ({
@@ -1569,11 +1548,11 @@ var init_core = __esm({
 var DISPLAY, SANS, BONE, GOLD_GRAD, label, pStyle;
 var init_theme = __esm({
   "src/ui/theme.js"() {
-    DISPLAY = "'Barlow Condensed','Arial Narrow',sans-serif";
-    SANS = "'Inter',system-ui,sans-serif";
+    DISPLAY = "var(--fd-display)";
+    SANS = "var(--fd-body)";
     BONE = "var(--bone)";
     GOLD_GRAD = "var(--sun)";
-    label = { fontFamily: SANS, fontWeight: 700, fontSize: 11, letterSpacing: "0.07em", color: "var(--muted)", textTransform: "uppercase" };
+    label = { fontFamily: DISPLAY, fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", color: "var(--muted2)", textTransform: "uppercase" };
     pStyle = { fontFamily: SANS, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", marginBottom: 14 };
   }
 });
@@ -1674,11 +1653,11 @@ function cubicBezier(x1, y1, x2, y2) {
 function useMotionFrame() {
   return useSyncExternalStore(subscribeFrame, currentFrame, currentFrame);
 }
-function freshChangeStep(committed, { value, key = null, frame: frame2, now = Date.now(), equals = Object.is }) {
+function freshChangeStep(committed, { value, key = null, frame: frame2, now: now2 = Date.now(), equals = Object.is }) {
   if (!committed) return { fresh: false, changeId: 0, from: value, to: value };
   if (key !== committed.key) return { fresh: false, changeId: committed.changeId, from: value, to: value };
   if (equals(value, committed.value)) return { fresh: false, changeId: committed.changeId, from: committed.from, to: committed.to };
-  const byFrame = !!frame2?.fresh && frame2.seq !== committed.frameSeq && now - (frame2.at || 0) <= FRESH_WINDOW_MS;
+  const byFrame = !!frame2?.fresh && frame2.seq !== committed.frameSeq && now2 - (frame2.at || 0) <= FRESH_WINDOW_MS;
   return byFrame ? { fresh: true, changeId: committed.changeId + 1, from: committed.value, to: value } : { fresh: false, changeId: committed.changeId, from: value, to: value };
 }
 function useFreshChange(value, key = null, { equals = Object.is } = {}) {
@@ -1763,6 +1742,20 @@ function flightLayer() {
   }
   return layerEl;
 }
+function coinBody(node, source) {
+  const face = source?.querySelector?.(".fd-coin3d") || source;
+  let color = "";
+  try {
+    color = window.getComputedStyle(face).getPropertyValue("--coin-color").trim();
+  } catch {
+  }
+  return React.createElement(
+    "span",
+    { className: "fd-coin3d fd-coin3d-fly", style: color ? { "--coin-color": color } : void 0 },
+    ...Array.from({ length: COIN_EDGE_LAYERS }, (_, i) => React.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
+    React.createElement("span", { key: "face", className: "fd-coin3d-face" }, node)
+  );
+}
 function fly(from, to, options = {}) {
   const {
     node = null,
@@ -1783,8 +1776,10 @@ function fly(from, to, options = {}) {
   if (!rectVisible(fromRect) || !rectVisible(toRect)) return skip;
   const layer = flightLayer();
   if (!layer) return skip;
+  const coinFrom = coinEnd(from), coinTo = coinEnd(to);
+  const coin = !!(coinFrom || coinTo) && !!node && React.isValidElement(node) && can3d();
   const shell = document.createElement("div");
-  shell.className = "fd-flight";
+  shell.className = coin ? "fd-flight is-coin" : "fd-flight";
   Object.assign(shell.style, {
     left: `${fromRect.left}px`,
     top: `${fromRect.top}px`,
@@ -1794,7 +1789,7 @@ function fly(from, to, options = {}) {
   let unmountReact = null, mounted = Promise.resolve();
   if (node && React.isValidElement(node)) {
     if (!portalHost) return skip;
-    const host = portalHost.add(shell, node);
+    const host = portalHost.add(shell, coin ? coinBody(node, coinFrom || coinTo) : node);
     unmountReact = host.remove;
     mounted = Promise.race([
       host.ready.then(() => true),
@@ -1830,15 +1825,24 @@ function fly(from, to, options = {}) {
       resolve(false);
       return;
     }
+    if (coin) {
+      try {
+        shell.firstElementChild?.animate(coinTurn(!coinFrom), { duration, delay, easing: EASE.out });
+      } catch {
+      }
+    }
     const pulse = (dest, on) => {
       const target = typeof dest === "string" ? flightTarget(dest) : dest;
       if (on && typeof target?.animate === "function" && !prefersReducedMotion()) {
+        const seat = coinEnd(target) ? target.querySelector(".fd-coin3d") : null;
         try {
-          target.animate(
-            [{ transform: "scale(1)" }, { transform: "scale(1.14)" }, { transform: "scale(1)" }],
-            { duration: MOTION.pop, easing: EASE.land }
-          );
+          if (seat) seat.animate(COIN_SEAT, { duration: MOTION.pop * 1.4, easing: EASE.drum, composite: "add" });
+          else target.animate(LAND_SQUASH, { duration: MOTION.pop, easing: EASE.out });
         } catch {
+          try {
+            target.animate(LAND_SQUASH, { duration: MOTION.pop, easing: EASE.out });
+          } catch {
+          }
         }
       }
     };
@@ -1874,17 +1878,40 @@ function fly(from, to, options = {}) {
           resolve(true);
           return;
         }
-        second.finished.then(
-          () => {
-            done();
-            pulse(next.to, next.land);
-            resolve(true);
-          },
-          () => {
-            done();
-            resolve(true);
+        if (coin && coinEnd(next.to)) {
+          try {
+            shell.firstElementChild?.animate(coinTurn(true), { duration: next.duration ?? MOTION.flight, easing: EASE.out });
+          } catch {
           }
-        );
+        }
+        second.finished.then(() => {
+          try {
+            next.onLand?.();
+          } catch {
+          }
+          pulse(next.to, next.land);
+          const child = next.settle && !prefersReducedMotion() ? shell.firstElementChild : null;
+          let squash = null;
+          try {
+            squash = child?.animate?.(LAND_SQUASH, { duration: MOTION.pop, easing: EASE.out }) || null;
+          } catch {
+          }
+          if (!squash) {
+            done();
+            resolve(true);
+            return;
+          }
+          squash.finished.then(() => {
+            done();
+            resolve(true);
+          }, () => {
+            done();
+            resolve(true);
+          });
+        }, () => {
+          done();
+          resolve(true);
+        });
       });
     }, () => {
       done();
@@ -1892,11 +1919,11 @@ function fly(from, to, options = {}) {
     });
   }));
 }
-function holdStage(id, { now = Date.now(), maxMs = MAX_STAGE_HOLD_MS } = {}) {
+function holdStage(id, { now: now2 = Date.now(), maxMs = MAX_STAGE_HOLD_MS } = {}) {
   if (!id) return () => {
   };
   const token = {};
-  stageHolds.set(id, { token, until: now + maxMs });
+  stageHolds.set(id, { token, until: now2 + maxMs });
   stageNotify();
   const timer = typeof setTimeout === "function" ? setTimeout(() => release(), maxMs) : 0;
   timer?.unref?.();
@@ -1911,7 +1938,7 @@ function holdStage(id, { now = Date.now(), maxMs = MAX_STAGE_HOLD_MS } = {}) {
 function useStageHold(id, active) {
   useEffect2(() => active && id ? holdStage(id) : void 0, [id, active]);
 }
-var MOTION, EASE, FRESH_WINDOW_MS, QUERY, prefersReducedMotion, parseBezier, easeFn, signedChips, targets, MAX_FLIGHTS, flightsInAir, rectOf, viewport, MAX_HOLD_MS, layerEl, portalHost, MAX_STAGE_HOLD_MS, stageHolds, stageSubs, stageNotify, BEAT_ANIMATIONS;
+var MOTION, EASE, FRESH_WINDOW_MS, QUERY, prefersReducedMotion, parseBezier, easeFn, signedChips, targets, MAX_FLIGHTS, flightsInAir, rectOf, viewport, MAX_HOLD_MS, layerEl, portalHost, LAND_SQUASH, coinEnd, COIN_EDGE_LAYERS, can3d, coinTurn, COIN_SEAT, MAX_STAGE_HOLD_MS, stageHolds, stageSubs, stageNotify, BEAT_ANIMATIONS;
 var init_motion = __esm({
   "src/lib/motion.js"() {
     init_core();
@@ -1945,13 +1972,17 @@ var init_motion = __esm({
       sheetOut: 200,
       settleHold: 2400,
       // how long a settled result holds before the next beat
-      beat: 2e3
+      beat: 2e3,
       // the shared heartbeat period
+      reel: 240
+      // a score-reel drum turns one digit
     });
     EASE = Object.freeze({
       out: "cubic-bezier(.2,.8,.2,1)",
       land: "cubic-bezier(.3,.7,.35,1.25)",
-      exit: "cubic-bezier(.5,0,.75,.4)"
+      exit: "cubic-bezier(.5,0,.75,.4)",
+      drum: "cubic-bezier(.3,1.35,.5,1)"
+      // a drum or coin settling on its detent
     });
     FRESH_WINDOW_MS = 1500;
     QUERY = "(prefers-reduced-motion: reduce)";
@@ -1988,11 +2019,25 @@ var init_motion = __esm({
     MAX_HOLD_MS = 2e4;
     layerEl = null;
     portalHost = null;
+    LAND_SQUASH = Object.freeze([
+      { transform: "none" },
+      { transform: "translateY(7px) scale(1.1, .9)", offset: 0.3 },
+      { transform: "translateY(-2px) scale(.97, 1.03)", offset: 0.65 },
+      { transform: "none" }
+    ]);
+    coinEnd = (end) => {
+      const el = typeof end === "string" ? flightTarget(end) : end;
+      return el?.dataset && "flyCoin" in el.dataset ? el : null;
+    };
+    COIN_EDGE_LAYERS = 5;
+    can3d = () => typeof CSS === "undefined" || typeof CSS.supports !== "function" || CSS.supports("transform-style", "preserve-3d");
+    coinTurn = (home) => home ? [{ transform: "rotateX(0deg)" }, { transform: "rotateX(360deg)" }] : [{ transform: "rotateY(0deg)" }, { transform: "rotateY(720deg)" }];
+    COIN_SEAT = Object.freeze([{ transform: "rotateX(40deg)" }, { transform: "rotateX(0deg)" }]);
     MAX_STAGE_HOLD_MS = 6e3;
     stageHolds = /* @__PURE__ */ new Map();
     stageSubs = /* @__PURE__ */ new Set();
     stageNotify = () => stageSubs.forEach((fn) => fn());
-    BEAT_ANIMATIONS = Object.freeze(/* @__PURE__ */ new Set(["fd-beat", "fd-beat-dot", "fd-beat-fill"]));
+    BEAT_ANIMATIONS = Object.freeze(/* @__PURE__ */ new Set(["fd-beat", "fd-beat-dot", "fd-beat-fill", "fd-beat-lamp"]));
   }
 });
 
@@ -2061,8 +2106,244 @@ var init_sheetMotion = __esm({
   }
 });
 
+// src/ui/Icon.jsx
+import React2, { useId } from "react";
+function opticalStroke(size) {
+  const px = typeof size === "number" ? size : 18;
+  return px <= 14 ? 2.1 : px <= 18 ? 1.95 : px <= 26 ? 1.8 : px <= 36 ? 1.65 : 1.5;
+}
+function Icon({ name, size = 16, className = "", strokeWidth, lit = false }) {
+  const def = ICONS[name];
+  const mask = `fd-icon-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  if (!def) return null;
+  const on = lit && def.lit;
+  return /* @__PURE__ */ React2.createElement(
+    "svg",
+    {
+      className: `fd-icon${on ? " is-lit" : ""}${className ? ` ${className}` : ""}`,
+      width: size,
+      height: size,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: strokeWidth ?? opticalStroke(size),
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+      focusable: "false"
+    },
+    !on ? def.line : def.lit.cut ? /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("defs", null, /* @__PURE__ */ React2.createElement("mask", { id: mask, maskUnits: "userSpaceOnUse", x: "0", y: "0", width: "24", height: "24" }, /* @__PURE__ */ React2.createElement("rect", { width: "24", height: "24", fill: "#fff", stroke: "none" }), /* @__PURE__ */ React2.createElement("g", { stroke: "#000", fill: "none" }, def.lit.cut))), /* @__PURE__ */ React2.createElement("g", { mask: `url(#${mask})`, fill: "currentColor" }, def.lit.fill)) : /* @__PURE__ */ React2.createElement("g", { fill: "currentColor" }, def.lit.fill)
+  );
+}
+var CHIP_TICKS, HOUSE, SPEAKER, CAMERA, STAR, PIN, PLANE, BOOK, CUP, STACK_TOP, ICONS, ICON_NAMES;
+var init_Icon = __esm({
+  "src/ui/Icon.jsx"() {
+    CHIP_TICKS = [30, 90, 150, 210, 270, 330].map((deg) => {
+      const a = deg * Math.PI / 180;
+      const p = (r) => `${(12 + Math.cos(a) * r).toFixed(2)} ${(12 + Math.sin(a) * r).toFixed(2)}`;
+      return `M${p(5.5)}L${p(6.6)}`;
+    }).join("");
+    HOUSE = "M4.5 10.3 12 4.2l7.5 6.1v8.2a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z";
+    SPEAKER = "M4 9.4h3.1L12 5.6v12.8l-4.9-3.8H4z";
+    CAMERA = "M3.5 8.6A2.1 2.1 0 0 1 5.6 6.5h2.1l1.7-2.4h5.2l1.7 2.4h2.1a2.1 2.1 0 0 1 2.1 2.1v9.3a2.1 2.1 0 0 1-2.1 2.1H5.6a2.1 2.1 0 0 1-2.1-2.1z";
+    STAR = "M12 3.7l2.55 5.2 5.7.82-4.13 4.03.98 5.68L12 16.75l-5.1 2.68.98-5.68L3.75 9.72l5.7-.82z";
+    PIN = "M12 20.8s-6.4-5.5-6.4-10.7a6.4 6.4 0 0 1 12.8 0c0 5.2-6.4 10.7-6.4 10.7z";
+    PLANE = "M12 3.2c.85 0 1.35.95 1.35 2.2v4.3l6.9 4.1v1.9l-6.9-2.1v4.1l2.1 1.6v1.5L12 20l-3.45.8v-1.5l2.1-1.6v-4.1l-6.9 2.1v-1.9l6.9-4.1V5.4c0-1.25.5-2.2 1.35-2.2z";
+    BOOK = "M12 6.6C10 5.1 7 4.6 4 5.2v13.6c3-.6 6-.1 8 1.4 2-1.5 5-2 8-1.4V5.2c-3-.6-6-.1-8 1.4z";
+    CUP = "M7.5 4.4h9v4.9a4.5 4.5 0 0 1-9 0z";
+    STACK_TOP = "M5 8.2c0-1.66 3.13-3 7-3s7 1.34 7 3-3.13 3-7 3-7-1.34-7-3z";
+    ICONS = {
+      /* the tab bar */
+      home: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: HOUSE }), /* @__PURE__ */ React2.createElement("path", { d: "M10 20v-4.4a2 2 0 0 1 4 0V20" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: HOUSE }), cut: /* @__PURE__ */ React2.createElement("path", { d: "M10.1 21v-5.3a1.9 1.9 0 0 1 3.8 0V21z", fill: "#000", stroke: "none" }) }
+      },
+      events: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "6.5", r: "1.7" }), /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "12", r: "1.7" }), /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "17.5", r: "1.7" }), /* @__PURE__ */ React2.createElement("path", { d: "M10.2 6.5h9.3M10.2 12h9.3M10.2 17.5h6.3" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "6.5", r: "2.1" }), /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "12", r: "2.1" }), /* @__PURE__ */ React2.createElement("circle", { cx: "5.6", cy: "17.5", r: "2.1" }), /* @__PURE__ */ React2.createElement("path", { d: "M10.2 6.5h9.3M10.2 12h9.3M10.2 17.5h6.3", fill: "none", strokeWidth: "2.4" })), cut: null }
+      },
+      bets: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "8.6" }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "2.9" }), /* @__PURE__ */ React2.createElement("path", { d: CHIP_TICKS })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "8.6" }), cut: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "2.9" }), /* @__PURE__ */ React2.createElement("path", { d: CHIP_TICKS })) }
+      },
+      weekend: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M6.6 16.4a5.4 5.4 0 0 1 10.8 0" }), /* @__PURE__ */ React2.createElement("path", { d: "M3.5 16.4h17M7.5 20h9M12 5.2v2M5.9 8.1l1.4 1.4M18.1 8.1l-1.4 1.4" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M6.2 16.4a5.8 5.8 0 0 1 11.6 0z" }), /* @__PURE__ */ React2.createElement("path", { d: "M3.5 16.4h17M7.5 20h9M12 5.2v2M5.9 8.1l1.4 1.4M18.1 8.1l-1.4 1.4", fill: "none" })), cut: null }
+      },
+      /* movement */
+      next: { line: /* @__PURE__ */ React2.createElement("path", { d: "m9.5 5.5 6.5 6.5-6.5 6.5" }) },
+      back: { line: /* @__PURE__ */ React2.createElement("path", { d: "m14.5 5.5-6.5 6.5 6.5 6.5" }) },
+      expand: { line: /* @__PURE__ */ React2.createElement("path", { d: "m5.5 9.5 6.5 6.5 6.5-6.5" }) },
+      collapse: { line: /* @__PURE__ */ React2.createElement("path", { d: "m5.5 14.5 6.5-6.5 6.5 6.5" }) },
+      open: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M7.4 16.6 16.4 7.6" }), /* @__PURE__ */ React2.createElement("path", { d: "M9.2 7.6h7.2v7.2" })) },
+      then: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M4.5 12h14.6" }), /* @__PURE__ */ React2.createElement("path", { d: "m13.6 6.5 5.5 5.5-5.5 5.5" })) },
+      up: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M12 19.5V4.9" }), /* @__PURE__ */ React2.createElement("path", { d: "m6.5 10.4 5.5-5.5 5.5 5.5" })) },
+      down: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M12 4.5v14.6" }), /* @__PURE__ */ React2.createElement("path", { d: "m6.5 13.6 5.5 5.5 5.5-5.5" })) },
+      /* marks */
+      check: {
+        line: /* @__PURE__ */ React2.createElement("path", { d: "m4.9 12.7 4.5 4.5 9.7-9.9" }),
+        lit: { fill: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "9.2" }), cut: /* @__PURE__ */ React2.createElement("path", { d: "m7.6 12.4 3 3 5.9-6.1" }) }
+      },
+      close: {
+        line: /* @__PURE__ */ React2.createElement("path", { d: "m6.6 6.6 10.8 10.8M17.4 6.6 6.6 17.4" }),
+        lit: { fill: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "9.2" }), cut: /* @__PURE__ */ React2.createElement("path", { d: "m8.6 8.6 6.8 6.8M15.4 8.6l-6.8 6.8" }) }
+      },
+      plus: {
+        line: /* @__PURE__ */ React2.createElement("path", { d: "M12 5v14M5 12h14" }),
+        lit: { fill: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "9.2" }), cut: /* @__PURE__ */ React2.createElement("path", { d: "M12 7.6v8.8M7.6 12h8.8" }) }
+      },
+      minus: { line: /* @__PURE__ */ React2.createElement("path", { d: "M5 12h14" }) },
+      more: { line: /* @__PURE__ */ React2.createElement("g", { fill: "currentColor", stroke: "none" }, /* @__PURE__ */ React2.createElement("circle", { cx: "5", cy: "12", r: "1.75" }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "1.75" }), /* @__PURE__ */ React2.createElement("circle", { cx: "19", cy: "12", r: "1.75" })) },
+      /* the app's menu (the header's More options): three bars, never the
+         pill's dots, which open the next step's alternatives */
+      menu: { line: /* @__PURE__ */ React2.createElement("path", { d: "M4.5 7h15M4.5 12h15M4.5 17h10" }) },
+      star: { line: /* @__PURE__ */ React2.createElement("path", { d: STAR }), lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: STAR }), cut: null } },
+      search: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "10.6", cy: "10.6", r: "6.1" }), /* @__PURE__ */ React2.createElement("path", { d: "m15.2 15.2 4.9 4.9" })) },
+      /* media and sound */
+      song: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M9 17.4V5.9l10-2v11.4" }), /* @__PURE__ */ React2.createElement("circle", { cx: "6.5", cy: "17.4", r: "2.5" }), /* @__PURE__ */ React2.createElement("circle", { cx: "16.5", cy: "15.3", r: "2.5" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M9 17.4V5.9l10-2v11.4", fill: "none" }), /* @__PURE__ */ React2.createElement("circle", { cx: "6.5", cy: "17.4", r: "2.5" }), /* @__PURE__ */ React2.createElement("circle", { cx: "16.5", cy: "15.3", r: "2.5" }), /* @__PURE__ */ React2.createElement("path", { d: "M9 6l10-2v3.2L9 9.2z" })), cut: null }
+      },
+      sound: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: SPEAKER }), /* @__PURE__ */ React2.createElement("path", { d: "M15.4 9.3a3.9 3.9 0 0 1 0 5.4M18.2 6.7a7.6 7.6 0 0 1 0 10.6" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: SPEAKER }), /* @__PURE__ */ React2.createElement("path", { d: "M15.4 9.3a3.9 3.9 0 0 1 0 5.4M18.2 6.7a7.6 7.6 0 0 1 0 10.6", fill: "none" })), cut: null }
+      },
+      mute: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: SPEAKER }), /* @__PURE__ */ React2.createElement("path", { d: "m15.6 9.5 5 5M20.6 9.5l-5 5" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: SPEAKER }), /* @__PURE__ */ React2.createElement("path", { d: "m15.6 9.5 5 5M20.6 9.5l-5 5", fill: "none" })), cut: null }
+      },
+      play: { line: /* @__PURE__ */ React2.createElement("path", { d: "M8 5.6v12.8l10.2-6.4z", fill: "currentColor" }) },
+      pause: { line: /* @__PURE__ */ React2.createElement("path", { d: "M7.6 5.6h2.4v12.8H7.6zM14 5.6h2.4v12.8H14z", fill: "currentColor" }) },
+      stop: { line: /* @__PURE__ */ React2.createElement("rect", { x: "6.4", y: "6.4", width: "11.2", height: "11.2", rx: "1.6", fill: "currentColor" }) },
+      camera: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: CAMERA }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "13.1", r: "3.5" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: CAMERA }), cut: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "13.1", r: "3.5" }) }
+      },
+      photo: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "3.5", y: "4.6", width: "17", height: "14.8", rx: "2.1" }), /* @__PURE__ */ React2.createElement("path", { d: "m3.8 16.6 4.6-4.6 4 4 2.6-2.6 5.2 5.2" }), /* @__PURE__ */ React2.createElement("circle", { cx: "15.6", cy: "9.4", r: "1.5" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("rect", { x: "3.5", y: "4.6", width: "17", height: "14.8", rx: "2.1" }), cut: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "m3.8 16.6 4.6-4.6 4 4 2.6-2.6 5.2 5.2" }), /* @__PURE__ */ React2.createElement("circle", { cx: "15.6", cy: "9.4", r: "1.5", fill: "#000" })) }
+      },
+      tv: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "3", y: "7", width: "18", height: "12.4", rx: "2.1" }), /* @__PURE__ */ React2.createElement("path", { d: "m8.5 2.9 3.5 3.5 3.5-3.5" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "3", y: "7", width: "18", height: "12.4", rx: "2.1" }), /* @__PURE__ */ React2.createElement("path", { d: "m8.5 2.9 3.5 3.5 3.5-3.5", fill: "none" })), cut: null }
+      },
+      /* the weekend */
+      trophy: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: CUP }), /* @__PURE__ */ React2.createElement("path", { d: "M7.5 6.5H5.4a2.6 2.6 0 0 0 2.6 4M16.5 6.5h2.1a2.6 2.6 0 0 1-2.6 4M12 13.8v3.2M8.6 20h6.8" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: CUP }), /* @__PURE__ */ React2.createElement("path", { d: "M7.5 6.5H5.4a2.6 2.6 0 0 0 2.6 4M16.5 6.5h2.1a2.6 2.6 0 0 1-2.6 4M12 13.8v3.2M8.6 20h6.8", fill: "none" })), cut: null }
+      },
+      pin: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: PIN }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "10.1", r: "2.4" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: PIN }), cut: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "10.1", r: "2.4", fill: "#000", stroke: "none" }) }
+      },
+      plane: { line: /* @__PURE__ */ React2.createElement("path", { d: PLANE }), lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: PLANE }), cut: null } },
+      /* the house: adobe, flat roof, its vigas and an arched door */
+      house: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M5 20V10.4a1.6 1.6 0 0 1 1.6-1.6h10.8a1.6 1.6 0 0 1 1.6 1.6V20" }), /* @__PURE__ */ React2.createElement("path", { d: "M3.4 20h17.2M3.6 11.6H5M19 11.6h1.4" }), /* @__PURE__ */ React2.createElement("path", { d: "M10 20v-3.8a2 2 0 0 1 4 0V20" })),
+        lit: {
+          fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M5 20V10.4a1.6 1.6 0 0 1 1.6-1.6h10.8a1.6 1.6 0 0 1 1.6 1.6V20z" }), /* @__PURE__ */ React2.createElement("path", { d: "M3.4 20h17.2M3.6 11.6H5M19 11.6h1.4", fill: "none" })),
+          cut: /* @__PURE__ */ React2.createElement("path", { d: "M10.1 19.2v-3a1.9 1.9 0 0 1 3.8 0v3z", fill: "#000", stroke: "none" })
+        }
+      },
+      rules: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: BOOK }), /* @__PURE__ */ React2.createElement("path", { d: "M12 6.6v13.6" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: BOOK }), cut: /* @__PURE__ */ React2.createElement("path", { d: "M12 6.2v14.4" }) }
+      },
+      games: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "4.4", y: "4.4", width: "15.2", height: "15.2", rx: "3.4" }), /* @__PURE__ */ React2.createElement("g", { fill: "currentColor", stroke: "none" }, /* @__PURE__ */ React2.createElement("circle", { cx: "8.7", cy: "8.7", r: "1.35" }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "1.35" }), /* @__PURE__ */ React2.createElement("circle", { cx: "15.3", cy: "15.3", r: "1.35" }))),
+        lit: {
+          fill: /* @__PURE__ */ React2.createElement("rect", { x: "4.4", y: "4.4", width: "15.2", height: "15.2", rx: "3.4" }),
+          cut: /* @__PURE__ */ React2.createElement("g", { fill: "#000", stroke: "none" }, /* @__PURE__ */ React2.createElement("circle", { cx: "8.7", cy: "8.7", r: "1.45" }), /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "12", r: "1.45" }), /* @__PURE__ */ React2.createElement("circle", { cx: "15.3", cy: "15.3", r: "1.45" }))
+        }
+      },
+      payouts: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: STACK_TOP }), /* @__PURE__ */ React2.createElement("path", { d: "M5 8.2v3.9c0 1.66 3.13 3 7 3s7-1.34 7-3V8.2M5 12.1V16c0 1.66 3.13 3 7 3s7-1.34 7-3v-3.9" })),
+        lit: {
+          fill: /* @__PURE__ */ React2.createElement("path", { d: "M5 8.2c0-1.66 3.13-3 7-3s7 1.34 7 3V16c0 1.66-3.13 3-7 3s-7-1.34-7-3z" }),
+          cut: /* @__PURE__ */ React2.createElement("path", { d: "M5 8.2c0 1.66 3.13 3 7 3s7-1.34 7-3M5 12.1c0 1.66 3.13 3 7 3s7-1.34 7-3" })
+        }
+      },
+      awards: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "14.6", r: "5" }), /* @__PURE__ */ React2.createElement("path", { d: "M8.9 10.7 6.6 3.8h3.6l1.8 5M15.1 10.7l2.3-6.9h-3.6l-1.8 5" })),
+        lit: {
+          fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "14.6", r: "5" }), /* @__PURE__ */ React2.createElement("path", { d: "M8.9 10.7 6.6 3.8h3.6l1.8 5M15.1 10.7l2.3-6.9h-3.6l-1.8 5", fill: "none" })),
+          cut: /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "14.6", r: "2", fill: "#000", stroke: "none" })
+        }
+      },
+      /* the menus and the commissioner's controls */
+      person: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "8.4", r: "3.9" }), /* @__PURE__ */ React2.createElement("path", { d: "M4.6 20.2a7.4 7.4 0 0 1 14.8 0" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "12", cy: "8.4", r: "3.9" }), /* @__PURE__ */ React2.createElement("path", { d: "M4.6 20.2a7.4 7.4 0 0 1 14.8 0z" })), cut: null }
+      },
+      people: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("circle", { cx: "9", cy: "8.6", r: "3.4" }), /* @__PURE__ */ React2.createElement("path", { d: "M2.9 19.6a6.1 6.1 0 0 1 12.2 0" }), /* @__PURE__ */ React2.createElement("path", { d: "M15.4 5.5a3.3 3.3 0 0 1 0 6.3M17.6 13.9a6.1 6.1 0 0 1 3.5 5.7" })) },
+      /* skip: a step past the line */
+      skip: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "m5.5 6 6.5 6-6.5 6" }), /* @__PURE__ */ React2.createElement("path", { d: "m12 6 6.5 6-6.5 6" }), /* @__PURE__ */ React2.createElement("path", { d: "M20.5 5.5v13" })) },
+      undo: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M8.6 5.4 4.4 9.6l4.2 4.2" }), /* @__PURE__ */ React2.createElement("path", { d: "M4.6 9.6h9.6a5.4 5.4 0 0 1 0 10.8H9.6" })) },
+      /* the rehearsal flask */
+      flask: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M9.4 3.6h5.2M10.2 3.6v5.6L4.9 18.3a1.4 1.4 0 0 0 1.2 2.1h11.8a1.4 1.4 0 0 0 1.2-2.1l-5.3-9.1V3.6" }), /* @__PURE__ */ React2.createElement("path", { d: "M7.2 14.4h9.6" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement("path", { d: "M10.2 3.6h3.6v5.6l5.3 9.1a1.4 1.4 0 0 1-1.2 2.1H6.1a1.4 1.4 0 0 1-1.2-2.1l5.3-9.1z" }), cut: /* @__PURE__ */ React2.createElement("path", { d: "M7.2 14.4h9.6" }) }
+      },
+      exit: { line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("path", { d: "M13.4 4.4H6.6a1.6 1.6 0 0 0-1.6 1.6v12a1.6 1.6 0 0 0 1.6 1.6h6.8" }), /* @__PURE__ */ React2.createElement("path", { d: "M10.4 12h10M16.6 8.2l3.8 3.8-3.8 3.8" })) },
+      lock: {
+        line: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "5", y: "10.4", width: "14", height: "10", rx: "2" }), /* @__PURE__ */ React2.createElement("path", { d: "M8.2 10.4V7.6a3.8 3.8 0 0 1 7.6 0v2.8" })),
+        lit: { fill: /* @__PURE__ */ React2.createElement(React2.Fragment, null, /* @__PURE__ */ React2.createElement("rect", { x: "5", y: "10.4", width: "14", height: "10", rx: "2" }), /* @__PURE__ */ React2.createElement("path", { d: "M8.2 10.4V7.6a3.8 3.8 0 0 1 7.6 0v2.8", fill: "none" })), cut: null }
+      }
+    };
+    ICONS.list = ICONS.events;
+    ICON_NAMES = Object.freeze(Object.keys(ICONS));
+  }
+});
+
+// src/ui/backglass.css
+var init_backglass = __esm({
+  "src/ui/backglass.css"() {
+  }
+});
+
+// src/ui/OneSafe.jsx
+import React3 from "react";
+function oneSafeParts(text, { all = false } = {}) {
+  const value = String(text ?? "");
+  if (all) return value.includes("1") ? value.split(/(1)/).filter((part) => part !== "") : [value];
+  if (!LONE_ONE.test(value) || !/[A-Za-z]/.test(value)) return [value];
+  return value.split(/((?<![\d,.])1(?![\d,.]))/).filter((part) => part !== "");
+}
+function OneSafe({ text, all = false }) {
+  const parts = oneSafeParts(text, { all });
+  if (parts.length === 1 && !(all && parts[0] === "1")) return parts[0];
+  return /* @__PURE__ */ React3.createElement(React3.Fragment, null, parts.map((part, i) => part === "1" ? /* @__PURE__ */ React3.createElement("span", { className: "fd-one", key: i }, "1") : part));
+}
+function EventName({ name }) {
+  const value = String(name ?? "");
+  if (!/\d/.test(value)) return value;
+  return /* @__PURE__ */ React3.createElement("span", { className: "fd-keep-case" }, /* @__PURE__ */ React3.createElement(OneSafe, { text: value }));
+}
+var LONE_ONE;
+var init_OneSafe = __esm({
+  "src/ui/OneSafe.jsx"() {
+    init_backglass();
+    LONE_ONE = /(?<![\d,.])1(?![\d,.])/;
+  }
+});
+
+// src/ui/menu.css
+var init_menu = __esm({
+  "src/ui/menu.css"() {
+  }
+});
+
+// src/ui/Menu.jsx
+import React4, { useRef as useRef2, useState as useState3 } from "react";
+var init_Menu = __esm({
+  "src/ui/Menu.jsx"() {
+    init_Icon();
+    init_menu();
+  }
+});
+
 // src/ui/controls.jsx
-import React2, { createContext, useContext, useState as useState3, useEffect as useEffect3, useRef as useRef2 } from "react";
+import React5, { createContext, useContext, useState as useState4, useEffect as useEffect3, useRef as useRef3 } from "react";
 function Tag({ children, tone = "dim", style }) {
   const tones = {
     dim: { color: "var(--muted)", background: "var(--ink-tint)" },
@@ -2070,10 +2351,10 @@ function Tag({ children, tone = "dim", style }) {
     flame: { color: "var(--live2)", background: "rgba(192,71,58,0.14)" },
     green: { color: "var(--green)", background: "var(--green-tint)" }
   };
-  return /* @__PURE__ */ React2.createElement("span", { style: {
-    fontFamily: SANS,
+  return /* @__PURE__ */ React5.createElement("span", { style: {
+    fontFamily: DISPLAY,
     fontWeight: 700,
-    fontSize: 11,
+    fontSize: 13,
     letterSpacing: "0.05em",
     padding: "3px 8px",
     borderRadius: 6,
@@ -2083,8 +2364,8 @@ function Tag({ children, tone = "dim", style }) {
   } }, children);
 }
 function ActionButton({ children, onClick, variant = "primary", pending, disabled, compact, style, ...props }) {
-  const [busy, setBusy] = useState3(false);
-  const busyRef = useRef2(false);
+  const [busy, setBusy] = useState4(false);
+  const busyRef = useRef3(false);
   const waiting = !!pending || busy;
   const off = disabled || waiting;
   const handle = (event) => {
@@ -2110,7 +2391,7 @@ function ActionButton({ children, onClick, variant = "primary", pending, disable
       throw error;
     }
   };
-  return /* @__PURE__ */ React2.createElement(
+  return /* @__PURE__ */ React5.createElement(
     "button",
     {
       onClick: handle,
@@ -2121,10 +2402,11 @@ function ActionButton({ children, onClick, variant = "primary", pending, disable
         fontFamily: SANS,
         fontWeight: 600,
         letterSpacing: "0",
-        fontSize: compact ? 12 : 13,
-        padding: compact ? "8px 11px" : "12px 16px",
-        borderRadius: 6,
+        fontSize: compact ? 13 : 15,
+        padding: compact ? "8px 12px" : "12px 16px",
+        borderRadius: 8,
         minHeight: compact ? 44 : 48,
+        boxShadow: "var(--glass-edge)",
         cursor: off ? "default" : "pointer",
         opacity: disabled ? 0.35 : waiting ? 0.6 : 1,
         transition: "transform .1s, opacity .15s",
@@ -2136,7 +2418,7 @@ function ActionButton({ children, onClick, variant = "primary", pending, disable
   );
 }
 function IconButton({ label: label2, onClick, size = 38, selected, disabled, style, children, ...props }) {
-  return /* @__PURE__ */ React2.createElement(
+  return /* @__PURE__ */ React5.createElement(
     "button",
     {
       onClick,
@@ -2150,9 +2432,9 @@ function IconButton({ label: label2, onClick, size = 38, selected, disabled, sty
         borderRadius: 5,
         flexShrink: 0,
         cursor: disabled ? "default" : "pointer",
-        background: selected ? "var(--sun)" : "transparent",
-        border: "1px solid " + (selected ? "var(--sun)" : "var(--line)"),
-        color: selected ? "var(--ink0)" : "var(--ink)",
+        background: selected ? "var(--info-tint)" : "transparent",
+        border: "1px solid " + (selected ? "var(--lamp-info)" : "var(--line)"),
+        color: selected ? "var(--lamp-info)" : "var(--ink)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -2164,14 +2446,27 @@ function IconButton({ label: label2, onClick, size = 38, selected, disabled, sty
   );
 }
 function Btn({ kind = "primary", ...props }) {
-  return /* @__PURE__ */ React2.createElement(ActionButton, { variant: BTN_KIND_VARIANT[kind], ...props });
+  return /* @__PURE__ */ React5.createElement(ActionButton, { variant: BTN_KIND_VARIANT[kind], ...props });
 }
-function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100 }) {
-  const dialog = useRef2(null);
-  const overlay = useRef2(null);
+function Sheet({
+  title,
+  subtitle,
+  headerActions,
+  onClose,
+  onBack,
+  children,
+  wide,
+  busy = false,
+  className = "",
+  layer = 100,
+  show = false,
+  heading = true
+}) {
+  const dialog = useRef3(null);
+  const overlay = useRef3(null);
   useSheetPresence(overlay, dialog);
   const dock = useContext(SheetDock);
-  const current = useRef2({ busy, onClose });
+  const current = useRef3({ busy, onClose });
   current.current = { busy, onClose };
   useEffect3(() => {
     const previousFocus = document.activeElement;
@@ -2212,7 +2507,7 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, []);
-  return /* @__PURE__ */ React2.createElement("div", { ref: overlay, className: "fd-sheet-overlay", onClick: busy ? void 0 : onClose, style: { zIndex: layer } }, /* @__PURE__ */ React2.createElement(
+  return /* @__PURE__ */ React5.createElement("div", { ref: overlay, className: "fd-sheet-overlay", onClick: busy ? void 0 : onClose, style: { zIndex: layer } }, /* @__PURE__ */ React5.createElement(
     "div",
     {
       ref: dialog,
@@ -2224,18 +2519,18 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
       "aria-label": title,
       "aria-busy": busy || void 0
     },
-    /* @__PURE__ */ React2.createElement("div", { className: "fd-sheet-header" }, onBack && /* @__PURE__ */ React2.createElement(
+    /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-header" }, onBack && /* @__PURE__ */ React5.createElement(
       IconButton,
       {
         label: "Back",
         onClick: onBack,
         size: 44,
         disabled: busy,
-        style: { fontSize: 18, marginLeft: -6 }
+        style: { marginLeft: -6, border: 0 }
       },
-      "\u2039"
-    ), /* @__PURE__ */ React2.createElement("div", { className: "fd-sheet-heading" }, /* @__PURE__ */ React2.createElement("div", null, title), subtitle && /* @__PURE__ */ React2.createElement("small", null, subtitle)), headerActions && /* @__PURE__ */ React2.createElement("div", { className: "fd-sheet-header-actions" }, headerActions), dock && /* @__PURE__ */ React2.createElement("div", { className: "fd-sheet-dock" }, dock), /* @__PURE__ */ React2.createElement(IconButton, { label: "Close", onClick: onClose, size: 44, disabled: busy, style: { fontSize: 14 } }, "\u2715")),
-    /* @__PURE__ */ React2.createElement("div", { className: "fd-sheet-body" }, children)
+      /* @__PURE__ */ React5.createElement("span", { style: { display: "flex", transform: "scaleX(-1)" } }, /* @__PURE__ */ React5.createElement(Icon, { name: "next", size: 20 }))
+    ), heading ? /* @__PURE__ */ React5.createElement("div", { className: `fd-sheet-heading${show ? " is-show" : ""}` }, /* @__PURE__ */ React5.createElement("div", null, typeof title === "string" ? /* @__PURE__ */ React5.createElement(EventName, { name: title }) : title), subtitle && /* @__PURE__ */ React5.createElement("small", null, typeof subtitle === "string" ? /* @__PURE__ */ React5.createElement(OneSafe, { text: subtitle }) : subtitle)) : /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-heading is-bare", "aria-hidden": "true" }), headerActions && /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-header-actions" }, headerActions), dock && /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-dock" }, dock), /* @__PURE__ */ React5.createElement(IconButton, { label: "Close", onClick: onClose, size: 44, disabled: busy, style: { border: 0 } }, /* @__PURE__ */ React5.createElement(Icon, { name: "close", size: 20 }))),
+    /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-body" }, children)
   ));
 }
 var ACTION_VARIANTS, BTN_KIND_VARIANT, SheetDock, openSheets, pageOverflow;
@@ -2243,6 +2538,9 @@ var init_controls = __esm({
   "src/ui/controls.jsx"() {
     init_theme();
     init_sheetMotion();
+    init_Icon();
+    init_OneSafe();
+    init_Menu();
     ACTION_VARIANTS = {
       primary: { background: "var(--action-fill)", color: "var(--action-ink)", border: "1px solid var(--action-fill)" },
       secondary: { background: "var(--paper)", color: "var(--ink)", border: "1px solid var(--line)" },
@@ -2257,14 +2555,180 @@ var init_controls = __esm({
   }
 });
 
+// shared/prompts.js
+var PROMPT_KINDS, PROMPT_SOURCES, PROMPT_RESULTS_WINDOW_MS;
+var init_prompts = __esm({
+  "shared/prompts.js"() {
+    init_core();
+    PROMPT_KINDS = Object.freeze(["awards"]);
+    PROMPT_SOURCES = Object.freeze(["mvps"]);
+    PROMPT_RESULTS_WINDOW_MS = 12 * 60 * 60 * 1e3;
+  }
+});
+
+// shared/mvp.js
+var MVP_HOW;
+var init_mvp = __esm({
+  "shared/mvp.js"() {
+    init_core();
+    MVP_HOW = Object.freeze(["votes", "tie", "none"]);
+  }
+});
+
+// shared/geo.js
+var GEO_ROUND_MS, GEO_HOURS_SCALE;
+var init_geo = __esm({
+  "shared/geo.js"() {
+    GEO_ROUND_MS = 60 * 1e3;
+    GEO_HOURS_SCALE = 120 * 24;
+  }
+});
+
+// shared/show.js
+function contestName(state, ev, contest) {
+  if (!contest) return ev?.name || "";
+  if (contest.kind === "match" && Array.isArray(contest.match)) {
+    const [r, m] = contest.match;
+    return bracketMatchName(state.brackets?.[ev?.id] || {}, r, m);
+  }
+  if (contest.kind === "ffa") return ev?.name || contest.label || "";
+  if (contest.kind === "stage-final" || contest.kind === "final") return "Final";
+  if (contest.kind === "heat" && Number.isInteger(contest.group))
+    return state.stages?.[ev?.id]?.groups?.[contest.group]?.name || contest.label || "";
+  return contest.label || ev?.name || "";
+}
+function postedFinalUndo(state, ev) {
+  const op = state.eventOps?.[ev?.id];
+  const last = op?.lastContest, result = state.results?.[ev?.id];
+  if (!last || !result || last.postedRevision === void 0 || last.postedRevision === null) return null;
+  if (Number(result.revision || 1) !== Number(last.postedRevision))
+    return {
+      enabled: false,
+      blocker: "The result was corrected",
+      contestId: last.id,
+      contestRevision: Number(op.contestRevision || 0),
+      refunds: [],
+      voidIds: []
+    };
+  const probe = { ...state, results: { ...state.results } };
+  delete probe.results[ev.id];
+  return contestUndoAvailability(probe, ev);
+}
+var SHOW_TERMINAL_OUTCOMES, SHOW_SCENE_DEFINITIONS, REPLAY_WINDOW_MS, SKIPPABLE_PHASES;
+var init_show = __esm({
+  "shared/show.js"() {
+    init_core();
+    init_prompts();
+    init_mvp();
+    init_geo();
+    SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
+    SHOW_SCENE_DEFINITIONS = Object.freeze({
+      opening: Object.freeze({
+        label: "Opening",
+        intensity: "major",
+        steps: Object.freeze(["title", "room"])
+      }),
+      /* one step: the intro says its piece and the next official write (lock
+         and start, the next announcement) retires it, so an announcement never
+         costs the host a Continue. Stored scenes from the two-step era clamp to
+         this step. */
+      "event-intro": Object.freeze({
+        label: "Event intro",
+        intensity: "normal",
+        requiresEvent: true,
+        steps: Object.freeze(["title"])
+      }),
+      winner: Object.freeze({
+        label: "Winner",
+        intensity: "major",
+        requiresEvent: true,
+        requiresResult: true,
+        steps: Object.freeze(["winner", "standings"])
+      }),
+      standings: Object.freeze({
+        label: "Standings",
+        intensity: "routine",
+        steps: Object.freeze(["board"])
+      }),
+      /* the crown, then (D3) the class photo: all thirteen in final order.
+         The second step is the commissioner's to take; the champion holds
+         until then. A one-step record from before reads as the first step. */
+      champion: Object.freeze({
+        label: "Champion",
+        intensity: "major",
+        requiresFrozen: true,
+        steps: Object.freeze(["champion", "class"])
+      })
+    });
+    REPLAY_WINDOW_MS = 15 * 60 * 1e3;
+    SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
+  }
+});
+
+// src/features/identity/chipInk.js
+function chipInks() {
+  if (live) return live;
+  try {
+    const root = globalThis.document?.documentElement;
+    const css = root && globalThis.getComputedStyle?.(root);
+    const dark = css?.getPropertyValue("--ink0")?.trim(), bone = css?.getPropertyValue("--bone")?.trim();
+    if (HEX.test(dark || "") && HEX.test(bone || "")) live = Object.freeze({ dark, bone });
+  } catch {
+  }
+  return live || CHIP_INKS;
+}
+function channels(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+}
+function luminance(hex) {
+  const c = channels(hex);
+  if (!c) return null;
+  const [r, g, b] = c.map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrastRatio(a, b) {
+  const x = luminance(a), y = luminance(b);
+  if (x === null || y === null) return null;
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+function chipInkIsDark(color, inks = chipInks()) {
+  const dark = contrastRatio(color, inks.dark), bone = contrastRatio(color, inks.bone);
+  return dark !== null && bone !== null && dark > bone;
+}
+function letterPlate(color, inks = chipInks(), min = 4.5) {
+  const c = channels(color);
+  if (!c) return { fill: color, ink: inks.bone, dark: false };
+  const dark = chipInkIsDark(color, inks);
+  const ink = dark ? inks.dark : inks.bone;
+  let fill = toHex(c);
+  for (let step = 1; step <= 20 && (contrastRatio(fill, ink) || 0) < min; step++) {
+    const t = step * 0.04;
+    fill = toHex(c.map((v) => dark ? v + (1 - v) * t : v * (1 - t)));
+  }
+  return { fill, ink, dark };
+}
+var CHIP_INKS, HEX, live, toHex;
+var init_chipInk = __esm({
+  "src/features/identity/chipInk.js"() {
+    CHIP_INKS = Object.freeze({ dark: "#151c1c", bone: "#f2eddf" });
+    HEX = /^#[0-9a-f]{6}$/i;
+    live = null;
+    toHex = (c) => "#" + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0")).join("");
+  }
+});
+
 // src/features/identity/playerIdentity.js
 function resolvePlayerIdentity(profiles, player) {
   const profile = profiles?.[player];
-  const claimedColor = CHIP_COLORS.find((color) => color.hex === profile?.color);
+  const claimedColor = CHIP_COLORS.find((color2) => color2.hex === profile?.color);
   const rosterIndex = ROSTER.indexOf(player);
+  const color = claimedColor?.hex ?? CHIP_GRAY;
   return {
-    color: claimedColor?.hex ?? CHIP_GRAY,
-    isLight: !!claimedColor?.light,
+    color,
+    /* dark ink on this chip (chipInk.js): whichever ink contrasts more */
+    isLight: chipInkIsDark(color),
     skin: CHIP_SKINS.includes(profile?.skin) ? profile.skin : "ticks",
     num: profile?.num ?? (rosterIndex < 0 ? null : rosterIndex + 1),
     photo: photoUrl(profile, player)
@@ -2274,6 +2738,7 @@ var photoUrl;
 var init_playerIdentity = __esm({
   "src/features/identity/playerIdentity.js"() {
     init_core();
+    init_chipInk();
     photoUrl = (profile, player) => profile?.photoV ? `/api/photo/${encodeURIComponent(player)}?v=${profile.photoV}` : null;
   }
 });
@@ -2283,6 +2748,35 @@ import { createContext as createContext2, createElement, useContext as useContex
 function PlayerIdentityProvider({ profiles, children }) {
   return createElement(PlayerIdentityContext.Provider, { value: profiles ?? null }, children);
 }
+function initialsTable(profiles) {
+  const key = profiles && typeof profiles === "object" ? profiles : null;
+  if (key && tables.has(key)) return tables.get(key);
+  const players = [.../* @__PURE__ */ new Set([...ROSTER, ...Object.keys(key || {})])];
+  const taken = /* @__PURE__ */ new Set(), table = {};
+  for (const player of players) {
+    const name = nameOf(key, player), letters = lettersOf(name);
+    if (!letters) {
+      table[player] = "";
+      continue;
+    }
+    const first = letters[0];
+    const words = name.split(/\s+/).map(lettersOf).filter(Boolean);
+    const options = [
+      ...words.length > 1 ? [words[0][0] + words[1][0]] : [],
+      letters.slice(0, 2),
+      first + letters[letters.length - 1],
+      ...[...letters.slice(2)].map((ch) => first + ch)
+    ];
+    const pick = options.find((pair) => pair.length === 2 && !taken.has(shapeOf(pair))) || letters.slice(0, 2);
+    taken.add(shapeOf(pick));
+    table[player] = pick;
+  }
+  if (key) tables.set(key, table);
+  return table;
+}
+function usePlayerInitials(player) {
+  return initialsOf(useContext2(PlayerIdentityContext), player);
+}
 function usePlayerIdentity(player) {
   const profiles = useContext2(PlayerIdentityContext);
   if (profiles === void 0) {
@@ -2290,25 +2784,36 @@ function usePlayerIdentity(player) {
   }
   return resolvePlayerIdentity(profiles, player);
 }
-var PlayerIdentityContext;
+var PlayerIdentityContext, LOOKALIKE, shapeOf, nameOf, lettersOf, tables, initialsOf, TextFloorContext, useTextFloor;
 var init_PlayerIdentityContext = __esm({
   "src/features/identity/PlayerIdentityContext.js"() {
     init_playerIdentity();
+    init_core();
     PlayerIdentityContext = createContext2(void 0);
+    LOOKALIKE = { Y: "V", D: "O", Q: "O" };
+    shapeOf = (pair) => pair.replace(/[YDQ]/g, (ch) => LOOKALIKE[ch]);
+    nameOf = (profiles, player) => String(profiles?.[player]?.display || player || "").trim().toUpperCase();
+    lettersOf = (name) => name.replace(/[^A-Z0-9]/g, "");
+    tables = /* @__PURE__ */ new WeakMap();
+    initialsOf = (profiles, player) => initialsTable(profiles)[player] ?? (profiles?.[player]?.display || player || "").trim().slice(0, 2).toUpperCase();
+    TextFloorContext = createContext2(12);
+    useTextFloor = () => useContext2(TextFloorContext);
   }
 });
 
 // src/features/identity/PlayerIdentity.jsx
-import React4, { useId, useState as useState5 } from "react";
-function Avatar({ state, p, size = 34, ring, style }) {
+import React9, { useId as useId2, useState as useState5 } from "react";
+function Avatar({ state, p, size = 34, ring, style, lettered = true }) {
   const prof = state.profiles?.[p];
   const photo = photoUrl(prof, p);
   const [failed, setFailed] = useState5(null);
   const src = photo && failed !== photo ? photo : null;
-  const initials = (prof?.display || p || "").slice(0, 2).toUpperCase();
+  const initials = usePlayerInitials(p);
   const identity = usePlayerIdentity(p);
-  const c = identity.color;
-  return /* @__PURE__ */ React4.createElement("div", { style: {
+  const plate = letterPlate(identity.color);
+  const floor2 = useTextFloor();
+  const letterPx = Math.max(floor2, Math.round(size * 0.42));
+  return /* @__PURE__ */ React9.createElement("div", { style: {
     width: size,
     height: size,
     borderRadius: "50%",
@@ -2317,24 +2822,37 @@ function Avatar({ state, p, size = 34, ring, style }) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: src ? "var(--paper2)" : c,
+    background: src ? "var(--paper2)" : plate.fill,
     position: "relative",
     border: ring ? "2px solid var(--bone)" : "1.5px solid var(--ink0)",
     ...style
-  } }, src ? /* @__PURE__ */ React4.createElement("img", { src, alt: "", onError: () => setFailed(photo), style: { width: "100%", height: "100%", objectFit: "cover" } }) : /* @__PURE__ */ React4.createElement("span", { style: {
+  } }, src ? /* @__PURE__ */ React9.createElement("img", { src, alt: "", onError: () => setFailed(photo), style: { width: "100%", height: "100%", objectFit: "cover" } }) : lettered && size >= letterPx * 1.7 && /* @__PURE__ */ React9.createElement("span", { className: "fd-avatar-initials", style: {
     position: "relative",
+    display: "block",
+    flex: "none",
+    width: "auto",
+    minWidth: 0,
+    maxWidth: "none",
+    margin: 0,
+    padding: 0,
+    overflow: "visible",
     fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontStyle: "italic",
-    fontSize: size * 0.44,
-    letterSpacing: "0.03em",
-    color: identity.isLight ? "var(--ink0)" : BONE
+    fontWeight: 800,
+    fontStyle: "normal",
+    fontSize: letterPx,
+    lineHeight: 1,
+    letterSpacing: 0,
+    textAlign: "center",
+    textTransform: "uppercase",
+    overflowWrap: "normal",
+    transform: "none",
+    color: plate.dark ? "var(--ink0)" : BONE
   } }, initials));
 }
 function AvatarStack({ state, players, size = 24, max = 4 }) {
   const show = players.slice(0, max);
   const extra = players.length - show.length;
-  return /* @__PURE__ */ React4.createElement("div", { style: { display: "flex", alignItems: "center" } }, show.map((p, pi) => /* @__PURE__ */ React4.createElement(Avatar, { key: p, state, p, size, style: { marginLeft: pi > 0 ? -size * 0.32 : 0 } })), extra > 0 && /* @__PURE__ */ React4.createElement("div", { style: {
+  return /* @__PURE__ */ React9.createElement("div", { style: { display: "flex", alignItems: "center" } }, show.map((p, pi) => /* @__PURE__ */ React9.createElement(Avatar, { key: p, state, p, size, lettered: false, style: { marginLeft: pi > 0 ? -size * 0.32 : 0 } })), extra > 0 && /* @__PURE__ */ React9.createElement("div", { style: {
     width: size,
     height: size,
     borderRadius: "50%",
@@ -2346,8 +2864,8 @@ function AvatarStack({ state, players, size = 24, max = 4 }) {
     justifyContent: "center",
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: size * 0.4,
-    color: "var(--muted)",
+    fontSize: Math.max(12, Math.round(size * 0.4)),
+    color: "var(--muted2)",
     flexShrink: 0
   } }, "+", extra));
 }
@@ -2363,11 +2881,13 @@ function ChipFace({
   valueRing = false,
   flat = false
 }) {
-  const uid = useId().replace(/:/g, "");
+  const uid = useId2().replace(/:/g, "");
   const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
+  const initials = usePlayerInitials(p);
+  const floor2 = useTextFloor();
   const [failed, setFailed] = useState5(null);
-  if (empty) return /* @__PURE__ */ React4.createElement("div", { style: {
+  if (empty) return /* @__PURE__ */ React9.createElement("div", { style: {
     width: size,
     height: size,
     borderRadius: "50%",
@@ -2382,8 +2902,11 @@ function ChipFace({
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
   const photo = stampOverride == null && size >= PHOTO_MIN && identity.photo && failed !== identity.photo ? identity.photo : null;
-  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : identity.num;
-  return /* @__PURE__ */ React4.createElement(
+  const lettered = stampOverride == null && fallback == null;
+  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : size >= Math.max(floor2, size * INITIALS_UNITS / 32) * 2.2 ? initials : "";
+  const initialsUnits = Math.max(INITIALS_UNITS, floor2 * 32 / size);
+  const plate = lettered && stamp ? letterPlate(color) : null;
+  return /* @__PURE__ */ React9.createElement(
     "svg",
     {
       width: size,
@@ -2396,11 +2919,11 @@ function ChipFace({
         filter: size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none"
       }
     },
-    /* @__PURE__ */ React4.createElement("defs", null, /* @__PURE__ */ React4.createElement("clipPath", { id: clipId }, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "14.7" })), photo && /* @__PURE__ */ React4.createElement("clipPath", { id: faceId }, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3" }))),
-    /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "14.7", fill: color, stroke: "var(--ink0)", strokeWidth: "1.45" }),
-    /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "13.25", fill: "none", stroke: inlayLine, strokeWidth: ".65", opacity: ".72" }),
-    /* @__PURE__ */ React4.createElement("g", { clipPath: `url(#${clipId})` }, chipMarks(skin, 16, 12.4, skinInk)),
-    photo ? /* @__PURE__ */ React4.createElement(React4.Fragment, null, /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "var(--paper2)" }), /* @__PURE__ */ React4.createElement(
+    /* @__PURE__ */ React9.createElement("defs", null, /* @__PURE__ */ React9.createElement("clipPath", { id: clipId }, /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "14.7" })), photo && /* @__PURE__ */ React9.createElement("clipPath", { id: faceId }, /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "9.3" }))),
+    /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "14.7", fill: color, stroke: "var(--ink0)", strokeWidth: "1.45" }),
+    /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "13.25", fill: "none", stroke: inlayLine, strokeWidth: ".65", opacity: ".72" }),
+    /* @__PURE__ */ React9.createElement("g", { clipPath: `url(#${clipId})` }, chipMarks(skin, 16, 12.4, skinInk)),
+    photo ? /* @__PURE__ */ React9.createElement(React9.Fragment, null, /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "var(--paper2)" }), /* @__PURE__ */ React9.createElement(
       "image",
       {
         href: photo,
@@ -2412,8 +2935,8 @@ function ChipFace({
         clipPath: `url(#${faceId})`,
         onError: () => setFailed(photo)
       }
-    ), /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "none", stroke: skinInk, strokeWidth: ".9" })) : /* @__PURE__ */ React4.createElement("circle", { cx: "16", cy: "16", r: "8.75", fill: inlay, stroke: inlayLine, strokeWidth: ".8" }),
-    /* @__PURE__ */ React4.createElement(
+    ), /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "9.3", fill: "none", stroke: skinInk, strokeWidth: ".9" })) : /* @__PURE__ */ React9.createElement("circle", { cx: "16", cy: "16", r: "8.75", fill: plate ? plate.fill : inlay, stroke: inlayLine, strokeWidth: ".8" }),
+    /* @__PURE__ */ React9.createElement(
       "path",
       {
         d: "M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4",
@@ -2424,7 +2947,7 @@ function ChipFace({
         opacity: ".65"
       }
     ),
-    /* @__PURE__ */ React4.createElement(
+    /* @__PURE__ */ React9.createElement(
       "path",
       {
         d: "M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6",
@@ -2435,7 +2958,7 @@ function ChipFace({
         opacity: ".55"
       }
     ),
-    valueRing && /* @__PURE__ */ React4.createElement(
+    valueRing && /* @__PURE__ */ React9.createElement(
       "circle",
       {
         cx: "16",
@@ -2447,7 +2970,7 @@ function ChipFace({
         opacity: ".48"
       }
     ),
-    !photo && size >= 20 && stamp != null && stamp !== "" && /* @__PURE__ */ React4.createElement(
+    !photo && size >= 20 && stamp != null && stamp !== "" && /* @__PURE__ */ React9.createElement(
       "text",
       {
         x: "16",
@@ -2455,23 +2978,27 @@ function ChipFace({
         textAnchor: "middle",
         dominantBaseline: "central",
         fontFamily: DISPLAY,
-        fontWeight: "700",
-        fontSize: valueRing && stamp >= 100 ? 8.7 : 11.7,
-        fill: light ? "var(--ink0)" : "var(--bone)"
+        fontWeight: plate ? 800 : 700,
+        fontStyle: "normal",
+        fontSize: plate ? initialsUnits : valueRing && stamp >= 100 ? 8.7 : 11.7,
+        letterSpacing: plate ? ".02em" : void 0,
+        fill: plate ? plate.dark ? "var(--ink0)" : "var(--bone)" : light ? "var(--ink0)" : "var(--bone)"
       },
       stamp
     )
   );
 }
 function BankChip({ p, size = 18, empty, val }) {
-  return /* @__PURE__ */ React4.createElement(ChipFace, { p, size, empty, stamp: val, valueRing: val != null });
+  return /* @__PURE__ */ React9.createElement(ChipFace, { p, size, empty, stamp: val, valueRing: val != null });
 }
-var CHIP_SKIN_PATHS, chipMarks, PHOTO_MIN;
+var CHIP_SKIN_PATHS, chipMarks, PHOTO_MIN, INITIALS_UNITS;
 var init_PlayerIdentity = __esm({
   "src/features/identity/PlayerIdentity.jsx"() {
+    init_Icon();
     init_theme();
     init_PlayerIdentityContext();
     init_playerIdentity();
+    init_chipInk();
     CHIP_SKIN_PATHS = Object.freeze({
       flame: "M0 -3.9C1.9 -1.5 2.3 -0.5 2.3 0.6 2.3 2.1 1.3 3 0 3S-2.3 2.1 -2.3 0.6C-2.3-0.5-1.9-1.5 0-3.9Z",
       star: "M0 -3C0.35-0.9 0.55-0.7 2.7-0.35 0.55 0 0.35 0.2 0 2.3c-0.35-2.1-0.55-2.3-2.7-2.65C-0.55-0.7-0.35-0.9 0-3Z",
@@ -2485,7 +3012,7 @@ var init_PlayerIdentity = __esm({
       };
       const lines = (n, off, r12, r22, w) => Array.from({ length: n }, (_, i) => {
         const [x1, y1] = pt(r12, i * (360 / n) + off), [x2, y2] = pt(r22, i * (360 / n) + off);
-        return /* @__PURE__ */ React4.createElement(
+        return /* @__PURE__ */ React9.createElement(
           "line",
           {
             key: i,
@@ -2500,7 +3027,7 @@ var init_PlayerIdentity = __esm({
         );
       });
       if (skin === "plain") return null;
-      if (skin === "dash") return /* @__PURE__ */ React4.createElement(
+      if (skin === "dash") return /* @__PURE__ */ React9.createElement(
         "circle",
         {
           cx,
@@ -2513,15 +3040,15 @@ var init_PlayerIdentity = __esm({
           strokeLinecap: "butt"
         }
       );
-      if (skin === "ring") return /* @__PURE__ */ React4.createElement(React4.Fragment, null, /* @__PURE__ */ React4.createElement("circle", { cx, cy: cx, r: edge - 2.5, fill: "none", stroke: ink, strokeWidth: "1.15" }), /* @__PURE__ */ React4.createElement("circle", { cx, cy: cx, r: edge - 4.4, fill: "none", stroke: ink, strokeWidth: ".8", opacity: ".8" }));
+      if (skin === "ring") return /* @__PURE__ */ React9.createElement(React9.Fragment, null, /* @__PURE__ */ React9.createElement("circle", { cx, cy: cx, r: edge - 2.5, fill: "none", stroke: ink, strokeWidth: "1.15" }), /* @__PURE__ */ React9.createElement("circle", { cx, cy: cx, r: edge - 4.4, fill: "none", stroke: ink, strokeWidth: ".8", opacity: ".8" }));
       if (skin === "quad") return lines(4, 0, edge - 3.6, edge + 0.6, 3.4);
       if (skin === "dots") return Array.from({ length: 12 }, (_, i) => {
         const [x, y] = pt(edge - 1.45, i * 30 + 15);
-        return /* @__PURE__ */ React4.createElement("circle", { key: i, cx: x, cy: y, r: "1.08", fill: ink });
+        return /* @__PURE__ */ React9.createElement("circle", { key: i, cx: x, cy: y, r: "1.08", fill: ink });
       });
       const around = (n, d, r, spin = 0) => Array.from({ length: n }, (_, i) => {
         const a = i * (360 / n) + spin, [x, y] = pt(r, a);
-        return /* @__PURE__ */ React4.createElement(
+        return /* @__PURE__ */ React9.createElement(
           "path",
           {
             key: i,
@@ -2537,7 +3064,7 @@ var init_PlayerIdentity = __esm({
           const [x, y] = pt(i % 2 ? edge - 3.6 : edge + 0.5, i * (180 / n) - 90);
           p2.push(`${x.toFixed(2)},${y.toFixed(2)}`);
         }
-        return /* @__PURE__ */ React4.createElement(
+        return /* @__PURE__ */ React9.createElement(
           "polygon",
           {
             points: p2.join(" "),
@@ -2557,9 +3084,9 @@ var init_PlayerIdentity = __esm({
           const [x, y] = pt(edge - 1.9 + Math.sin(i / n * Math.PI * 14) * 1.5, i * (360 / n));
           d.push(`${i ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`);
         }
-        return /* @__PURE__ */ React4.createElement("path", { d: d.join(" "), fill: "none", stroke: ink, strokeWidth: "1.5" });
+        return /* @__PURE__ */ React9.createElement("path", { d: d.join(" "), fill: "none", stroke: ink, strokeWidth: "1.5" });
       }
-      if (skin === "crown") return /* @__PURE__ */ React4.createElement(
+      if (skin === "crown") return /* @__PURE__ */ React9.createElement(
         "path",
         {
           d: CHIP_SKIN_PATHS.crown,
@@ -2570,6 +3097,1244 @@ var init_PlayerIdentity = __esm({
       return lines(8, 22.5, edge - 3, edge + 0.6, 2.4);
     };
     PHOTO_MIN = 24;
+    INITIALS_UNITS = 13;
+  }
+});
+
+// src/features/weekend/competition-bracket.css
+var init_competition_bracket = __esm({
+  "src/features/weekend/competition-bracket.css"() {
+  }
+});
+
+// src/features/weekend/CompetitionBracket.jsx
+import React10, { useEffect as useEffect4, useRef as useRef4 } from "react";
+function bracketLayout(bracket) {
+  const rounds = bracket?.rounds || [];
+  const centers = rounds.map((round) => round.map(() => null));
+  const at = { cursor: 0 };
+  const last = rounds.length - 1;
+  if (last >= 0) rounds[last].forEach((_, m) => placeTree(rounds, centers, last, m, at));
+  rounds.forEach((round, r) => round.forEach((_, m) => {
+    if (centers[r][m] === null) {
+      centers[r][m] = at.cursor + 0.5;
+      at.cursor += 1;
+    }
+  }));
+  return { centers, units: Math.max(at.cursor, 1) };
+}
+function placeTree(rounds, centers, r, m, at) {
+  const match = rounds[r]?.[m];
+  if (!match) return at.cursor;
+  const side = (slot) => {
+    if (slot?.w) return placeTree(rounds, centers, slot.w[0], slot.w[1], at);
+    const center2 = at.cursor + 0.25;
+    at.cursor += 0.5;
+    return center2;
+  };
+  const leaf = !match.a?.w && !match.b?.w;
+  let center;
+  if (leaf) {
+    center = at.cursor + 0.5;
+    at.cursor += 1;
+  } else center = (side(match.a) + side(match.b)) / 2;
+  centers[r][m] = center;
+  return center;
+}
+function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false, pickable = true }) {
+  const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
+  const scroller = useRef4(null);
+  const compact = size === "compact";
+  const contest = bracket && draw ? resolveCurrentContest(state, ev) : null;
+  const active = contest?.kind === "match" ? contest.match : null;
+  useEffect4(() => {
+    const el = scroller.current;
+    if (!el || compact || !active || el.scrollWidth <= el.clientWidth) return;
+    const card = el.querySelector(".fd-bracket-match.is-current");
+    if (card) el.scrollLeft = Math.max(0, card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2);
+  }, [compact, active?.[0], active?.[1]]);
+  if (!bracket || !draw) return null;
+  const rounds = bracket.rounds;
+  const R = rounds.length;
+  const { centers, units } = bracketLayout(bracket);
+  const dims = SIZES2[!compact ? "full" : R >= 4 ? "compactTall" : "compact"];
+  const cardH = dims.head + dims.row * 2 + 1 + 2;
+  const unit = cardH + dims.gap;
+  const height = Math.ceil(units * unit);
+  const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
+  const colLeft = (r) => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
+  const topOf = (r, m) => centers[r][m] * unit - cardH / 2;
+  const rowY = (r, m, index) => topOf(r, m) + 1 + dims.head + dims.row / 2 + index * (dims.row + 1);
+  const canRecord = pickable && gm && !!onPick && contest?.phase === "in-progress" && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
+  const names = ROUND_NAMES[bracket.size] || [];
+  const connectors = [];
+  rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
+    if (!slot?.w) return;
+    const [fr, fm] = slot.w;
+    const y1 = centers[fr][fm] * unit, y2 = rowY(r, m, index);
+    const top = Math.min(y1, y2) - 1, h = Math.abs(y2 - y1) + 2;
+    const decided3 = rounds[fr][fm].winner !== null && rounds[fr][fm].winner !== void 0;
+    const a = (y1 - top) / h * 100, b = (y2 - top) / h * 100;
+    connectors.push(/* @__PURE__ */ React10.createElement(
+      "svg",
+      {
+        key: `${r}-${m}-${index}`,
+        className: `fd-bracket-line${decided3 ? " is-advanced" : ""}`,
+        "aria-hidden": "true",
+        viewBox: "0 0 100 100",
+        preserveAspectRatio: "none",
+        style: { left: `calc(${colLeft(fr)} + ${colW})`, width: dims.colGap, top, height: h }
+      },
+      /* @__PURE__ */ React10.createElement("path", { d: `M0 ${a} H50 V${b} H100`, vectorEffect: "non-scaling-stroke" })
+    ));
+  })));
+  const stage = /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-stage", style: {
+    height,
+    minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap
+  } }, connectors, rounds.map((round, r) => round.map((match, m) => {
+    const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
+    const isCurrent = active?.[0] === r && active?.[1] === m;
+    const highlighted = isCurrent || hot?.[0] === r && hot?.[1] === m;
+    const decided3 = match.winner !== null && match.winner !== void 0;
+    const status = statusOf(contest, isCurrent);
+    return /* @__PURE__ */ React10.createElement(
+      "div",
+      {
+        key: `${r}-${m}`,
+        className: `fd-bracket-match${highlighted ? " is-current" : ""}${decided3 ? " is-decided" : ""}`,
+        style: { left: colLeft(r), width: `calc(${colW})`, top: topOf(r, m), height: cardH },
+        "aria-label": `${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`
+      },
+      !compact && /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React10.createElement("span", null, bracketMatchName(bracket, r, m)), status && /* @__PURE__ */ React10.createElement("strong", null, status)),
+      sides.map((key, index) => {
+        const team = key === null || key === void 0 ? null : draw.teams[key];
+        const won = decided3 && match.winner === key, lost = decided3 && !!team && !won;
+        const name = team ? teamLabel(state, team) : "TBD";
+        const fullName = team?.players.map((player) => disp(state, player)).join(" & ");
+        const mine = !!team?.players.includes(me);
+        const className = `fd-bracket-team${won ? " is-winner" : ""}${lost ? " is-loser" : ""}${mine ? " is-you" : ""}${team ? "" : " is-empty"}`;
+        if (compact) return /* @__PURE__ */ React10.createElement("div", { key: index, className }, team && /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-faces", "aria-hidden": "true" }, team.players.slice(0, 3).map((player) => /* @__PURE__ */ React10.createElement(Avatar, { key: player, state, p: player, size: 20 }))), /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-name" }, name), won && /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, /* @__PURE__ */ React10.createElement(Icon, { name: "check", size: "1em" })));
+        const selectable = canRecord && isCurrent && !decided3 && sides.every((side) => side !== null && side !== void 0);
+        return /* @__PURE__ */ React10.createElement("div", { key: index, className }, team && /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-players" }, team.players.map((player) => /* @__PURE__ */ React10.createElement(
+          "button",
+          {
+            key: player,
+            type: "button",
+            "aria-label": `View ${disp(state, player)}'s player card`,
+            disabled: pending || !onPlayer,
+            onClick: () => onPlayer?.(player)
+          },
+          /* @__PURE__ */ React10.createElement(Avatar, { state, p: player, size: 26 })
+        ))), /* @__PURE__ */ React10.createElement(
+          "button",
+          {
+            type: "button",
+            className: "fd-bracket-pick",
+            disabled: !selectable || pending,
+            "aria-label": selectable ? `Winner: ${fullName}` : `${fullName || "To be determined"}${won ? ", winner" : ""}`,
+            onClick: () => selectable && onPick(r, m, key)
+          },
+          /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-name" }, name),
+          won && /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, /* @__PURE__ */ React10.createElement(Icon, { name: "check", size: "1em" })),
+          selectable && /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-pick-hint" }, pending ? "Saving\u2026" : "Win")
+        ));
+      })
+    );
+  })));
+  const heads = /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-heads", style: { minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap } }, rounds.map((_, r) => /* @__PURE__ */ React10.createElement("span", { key: r, style: { left: colLeft(r), width: `calc(${colW})` } }, compact && R >= 4 && COMPACT_ROUNDS[names[r]] || names[r] || `Round ${r + 1}`)));
+  if (compact) return /* @__PURE__ */ React10.createElement("div", { className: "fd-competition-bracket is-compact", "aria-hidden": "true" }, /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-scroll" }, heads, stage));
+  return /* @__PURE__ */ React10.createElement("section", { className: "fd-competition-bracket", "aria-label": `${ev.name} bracket`, "aria-busy": pending }, /* @__PURE__ */ React10.createElement("div", { className: "fd-bracket-scroll", ref: scroller }, heads, stage));
+}
+function BracketPeek({ state, ev, me, onOpen, label: label2 = "Bracket", card = false }) {
+  if (!state.brackets?.[ev?.id] || !state.draws?.[ev.id]) return null;
+  return /* @__PURE__ */ React10.createElement(
+    "button",
+    {
+      type: "button",
+      className: `fd-bracket-peek${card ? " is-card" : ""}`,
+      onClick: () => onOpen(ev),
+      "aria-label": `Open the full ${ev.name} bracket`
+    },
+    /* @__PURE__ */ React10.createElement("span", { className: "fd-bracket-peek-head" }, /* @__PURE__ */ React10.createElement("span", null, label2), /* @__PURE__ */ React10.createElement("span", null, "Full bracket ", /* @__PURE__ */ React10.createElement(Icon, { name: "open", size: 16 }))),
+    /* @__PURE__ */ React10.createElement(CompetitionBracket, { state, ev, me, size: "compact" })
+  );
+}
+var SIZES2, COMPACT_ROUNDS, statusOf;
+var init_CompetitionBracket = __esm({
+  "src/features/weekend/CompetitionBracket.jsx"() {
+    init_Icon();
+    init_core();
+    init_PlayerIdentity();
+    init_competition_bracket();
+    SIZES2 = {
+      full: { head: 22, row: 48, gap: 14, minCol: 210, colGap: 34 },
+      compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 },
+      /* a field past eight: the same picture at a glance, tighter rows */
+      compactTall: { head: 0, row: 22, gap: 6, minCol: 0, colGap: 14 }
+    };
+    COMPACT_ROUNDS = { Quarterfinals: "Quarters", Semifinals: "Semis" };
+    statusOf = (contest, isCurrent) => !isCurrent ? null : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : contest.phase === "awaiting-result" ? "Awaiting result" : "Up next";
+  }
+});
+
+// src/features/director/directorPill.js
+function contestIsFinal(state, ev, contest) {
+  if (!contest) return false;
+  if (contest.kind === "stage-final") return true;
+  if (contest.kind !== "match") return false;
+  const rounds = state.brackets?.[ev.id]?.rounds || [];
+  return contest.match?.[0] === rounds.length - 1;
+}
+function lastWinnerUndo(state, ev) {
+  if (!ev) return { enabled: false };
+  return postedFinalUndo(state, ev) || contestUndoAvailability(state, ev);
+}
+var init_directorPill = __esm({
+  "src/features/director/directorPill.js"() {
+    init_core();
+    init_show();
+    init_geo();
+  }
+});
+
+// src/lib/haptics.js
+function isIOS({ userAgent = "", platform = "", maxTouchPoints = 0 } = {}) {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return true;
+  return /Macintosh/i.test(userAgent) && Number(maxTouchPoints) > 1 && !/Android/i.test(platform);
+}
+function isAndroid({ userAgent = "", platform = "" } = {}) {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return false;
+  return /Android/i.test(platform) || /Android/i.test(userAgent);
+}
+function hapticsAllowed({ userAgent, platform, canVibrate, reducedMotion, optedOut, tv: tv2 }) {
+  return !!canVibrate && isAndroid({ userAgent, platform }) && !reducedMotion && !optedOut && !tv2;
+}
+function tickAllowed({ userAgent, platform, maxTouchPoints, optedOut, tv: tv2 }) {
+  return isIOS({ userAgent, platform, maxTouchPoints }) && !optedOut && !tv2;
+}
+function hapticEnvironment() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return null;
+  return {
+    userAgent: navigator.userAgent || "",
+    platform: navigator.userAgentData?.platform || "",
+    canVibrate: typeof navigator.vibrate === "function",
+    maxTouchPoints: Number(navigator.maxTouchPoints) || 0,
+    reducedMotion: !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+    tv: tvSurface || isTvLocation(window.location || {})
+  };
+}
+function haptic(kind) {
+  const pattern = HAPTIC_PATTERNS[kind];
+  const env = hapticEnvironment();
+  if (!pattern || !env || !hapticsAllowed({ ...env, optedOut: vibrationOptedOut() })) return false;
+  try {
+    return navigator.vibrate(pattern) !== false;
+  } catch {
+    return false;
+  }
+}
+function tickSwitch(doc) {
+  const label2 = doc.createElement("label");
+  label2.setAttribute("aria-hidden", "true");
+  label2.style.display = "none";
+  const input = doc.createElement("input");
+  input.type = "checkbox";
+  input.setAttribute("switch", "");
+  input.tabIndex = -1;
+  label2.appendChild(input);
+  label2.addEventListener("click", (event) => event.stopPropagation());
+  return label2;
+}
+function tapTick() {
+  const env = hapticEnvironment();
+  if (!env || !tickAllowed({ ...env, optedOut: vibrationOptedOut() })) return false;
+  try {
+    const doc = globalThis.document;
+    const host = doc?.head || doc?.body;
+    if (!host) return false;
+    const label2 = tickSwitch(doc);
+    host.appendChild(label2);
+    label2.click();
+    label2.remove();
+    return true;
+  } catch {
+    return false;
+  }
+}
+var VIBRATION_KEY, HAPTIC_PATTERNS, storage, vibrationOptedOut, isTvLocation, tvSurface;
+var init_haptics = __esm({
+  "src/lib/haptics.js"() {
+    VIBRATION_KEY = "si-vibration";
+    HAPTIC_PATTERNS = Object.freeze({
+      place: 8,
+      retract: 5,
+      pick: [20, 40, 20],
+      settle: 15,
+      lead: [15, 50, 15]
+    });
+    storage = () => {
+      try {
+        return globalThis.localStorage || null;
+      } catch {
+        return null;
+      }
+    };
+    vibrationOptedOut = () => {
+      try {
+        return storage()?.getItem(VIBRATION_KEY) === "off";
+      } catch {
+        return false;
+      }
+    };
+    isTvLocation = ({ pathname = "", search = "" } = {}) => pathname === "/tv" || new URLSearchParams(search).has("tv");
+    tvSurface = false;
+  }
+});
+
+// src/features/identity/chipCoin.js
+function edgeInserts(skin, n = COIN_FACETS) {
+  const every = (step, width = 1, offset2 = 0) => Array.from(
+    { length: n },
+    (_, i) => (i - offset2 + n) % n % step < width
+  );
+  switch (skin) {
+    case "plain":
+    case "ring":
+      return Array(n).fill(false);
+    case "dash":
+      return every(4, 2);
+    case "quad":
+      return every(6, 2, 5);
+    case "dots":
+    case "saw":
+      return every(2);
+    case "flame":
+    case "star":
+    case "bolt":
+      return every(4, 1, 2);
+    case "wave":
+      return every(3, 2);
+    case "crown":
+      return Array.from({ length: n }, (_, i) => i === 0 || i === 1 || i === n - 1);
+    default:
+      return every(3);
+  }
+}
+function coinGeometry(size, n = COIN_FACETS) {
+  const radius = size * (15.4 / 32);
+  const thickness = Math.max(4, Math.round(size * 0.1));
+  const chord = 2 * radius * Math.sin(Math.PI / n) + 0.6;
+  const apothem = radius * Math.cos(Math.PI / n);
+  return { radius, thickness, chord, apothem, step: 360 / n };
+}
+function coinSettle(angle, velocity = 0) {
+  const a = Number.isFinite(angle) ? angle : 0;
+  const v = Number.isFinite(velocity) ? Math.max(-3, Math.min(3, velocity)) : 0;
+  const projected = a + v * 240;
+  const target = Math.round(projected / 360) * 360;
+  const duration = Math.round(Math.max(380, Math.min(1200, Math.abs(target - a) * 1.6)));
+  return { target: target === 0 ? 0 : target, duration };
+}
+var COIN_FACETS, COIN_DEG_PER_PX, COIN_TAP_SLOP;
+var init_chipCoin = __esm({
+  "src/features/identity/chipCoin.js"() {
+    COIN_FACETS = 24;
+    COIN_DEG_PER_PX = 0.9;
+    COIN_TAP_SLOP = 4;
+  }
+});
+
+// src/features/wagers/betStacks.js
+function stackGeometry(size, shown, ring = false) {
+  const D = Math.max(8, Number(size) || 0);
+  const pad = Math.max(1.5, D * 0.04);
+  const rx = D * 15.4 / 32, ry = rx * STACK_TILT, t = Math.max(2.4, D * 0.115);
+  const yFace = pad + D * STACK_TILT / 2;
+  return {
+    D,
+    pad,
+    rx,
+    ry,
+    t,
+    cx: pad + D / 2,
+    yFace,
+    width: D + pad * 2,
+    height: yFace + Math.max(1, shown) * t + ry + pad + (ring ? 3 : 0)
+  };
+}
+function stackView(stake, cap = STACK_CAP) {
+  const chips = stackChipCount(stake);
+  return { chips, shown: Math.min(chips, cap), capped: chips > cap };
+}
+function orderStacks(entries = []) {
+  const byPlayer = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (!entry?.player) continue;
+    byPlayer.set(entry.player, (byPlayer.get(entry.player) || 0) + (Number(entry.stake) || 0));
+  }
+  return [...byPlayer].filter(([, stake]) => stake > 0).map(([player, stake]) => ({ player, stake, ...stackView(stake) })).sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
+}
+function sideKeyOf(state, contest, wager) {
+  if (contest.kind === "ffa" && wager.pickTeam) {
+    const side = contest.sides?.find((item) => item.players.length === wager.pickPlayers?.length && item.players.every((p) => wager.pickPlayers.includes(p)));
+    if (side) return side.key;
+  }
+  return wagerSide(state, wager);
+}
+function settledStacks(state, events, contest, matches = (wager) => wagerMatchesContest(wager, contest)) {
+  const won = /* @__PURE__ */ new Map(), lost = /* @__PURE__ */ new Map();
+  (state.wagers || []).forEach((wager) => {
+    if (!contest || !matches(wager)) return;
+    const result = resolveWager(state, wager, events);
+    if (result.status !== "won" && result.status !== "lost") return;
+    const into = result.status === "won" ? won : lost;
+    const cur = into.get(wager.player) || { player: wager.player, stake: 0, paid: 0 };
+    cur.stake += Number(wager.stake) || 0;
+    if (result.status === "won") cur.paid += Math.max(0, result.delta);
+    into.set(wager.player, cur);
+  });
+  const shape = (map, status) => [...map.values()].map((item) => ({
+    ...item,
+    ...stackView(item.stake),
+    status,
+    after: status === "won" ? item.stake + item.paid : 0
+  })).sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
+  const winners = shape(won, "won"), losers = shape(lost, "lost");
+  return {
+    winners,
+    losers,
+    paid: winners.reduce((sum, item) => sum + item.paid, 0),
+    lost: losers.reduce((sum, item) => sum + item.stake, 0),
+    any: winners.length + losers.length > 0
+  };
+}
+function groupStacks(stacks = [], slots = Infinity, keep = null) {
+  const list = stacks || [];
+  const room = Math.max(1, Math.floor(Number(slots) || 0) || 1);
+  if (!Number.isFinite(Number(slots)) || list.length <= room) return { shown: list, rest: null };
+  const size = Math.max(1, room - 1);
+  let shown = list.slice(0, size);
+  const kept = keep ? list.find((item) => item.player === keep) : null;
+  if (kept && !shown.includes(kept)) shown = [...list.slice(0, size - 1), kept];
+  const tail = list.filter((item) => !shown.includes(item));
+  return { shown, rest: {
+    players: tail.map((item) => item.player),
+    count: tail.length,
+    total: stacksTotal(tail),
+    stacks: tail
+  } };
+}
+function contestWinnerKey(state, evId, contest) {
+  if (!contest) return null;
+  if (contest.kind === "ffa") {
+    const first = state.results?.[evId]?.slots?.[0];
+    const top = Array.isArray(first) ? first : first != null ? [first] : [];
+    if (!top.length) return null;
+    const side = (contest.sides || []).find((item) => item.players.some((p) => top.includes(p)));
+    return side ? side.key : null;
+  }
+  const stack2 = state.eventOps?.[evId]?.contestStack;
+  const list = Array.isArray(stack2) ? stack2 : state.eventOps?.[evId]?.lastContest ? [state.eventOps[evId].lastContest] : [];
+  for (let i = list.length - 1; i >= 0; i--) if (list[i]?.id === contest.id) return list[i].winner ?? null;
+  return null;
+}
+function decidedContest(state, events, evId, contest) {
+  const winner = contestWinnerKey(state, evId, contest);
+  if (!contest || winner === null || winner === void 0) return null;
+  const bySide = new Map((contest.sides || []).map((side) => [side.key, /* @__PURE__ */ new Map()]));
+  (state.wagers || []).forEach((wager) => {
+    if (!wagerMatchesContest(wager, contest)) return;
+    const result = resolveWager(state, wager, events);
+    if (result.status !== "won" && result.status !== "lost") return;
+    const side = bySide.get(sideKeyOf(state, contest, wager));
+    if (!side) return;
+    const cur = side.get(wager.player) || { player: wager.player, stake: 0, paid: 0, status: result.status };
+    cur.stake += Number(wager.stake) || 0;
+    if (result.status === "won") cur.paid += Math.max(0, result.delta);
+    side.set(wager.player, cur);
+  });
+  const sides = (contest.sides || []).map((side) => {
+    const stacks = [...bySide.get(side.key).values()].sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
+    const won = side.key === winner;
+    return {
+      key: side.key,
+      players: side.players,
+      won,
+      stacks,
+      total: stacksTotal(stacks),
+      paid: stacks.reduce((sum, item) => sum + item.paid, 0)
+    };
+  });
+  return {
+    winner,
+    sides,
+    paid: sides.reduce((sum, side) => sum + side.paid, 0),
+    lost: sides.filter((side) => !side.won).reduce((sum, side) => sum + side.total, 0),
+    any: sides.some((side) => side.stacks.length > 0)
+  };
+}
+var STACK_CAP, STACK_TILT, STACK_TOWER, towerTiers, towerGap, stackChipCount, stacksTotal, hoverRect, faceRect, rackTargetFor;
+var init_betStacks = __esm({
+  "src/features/wagers/betStacks.js"() {
+    init_core();
+    STACK_CAP = 10;
+    STACK_TILT = 0.6;
+    STACK_TOWER = 2;
+    towerTiers = (chips, cap = STACK_CAP) => chips <= cap ? 0 : chips <= 2 * cap ? 1 : STACK_TOWER;
+    towerGap = (size) => Math.max(4, Math.round(Math.max(8, Number(size) || 0) * 0.14));
+    stackChipCount = (stake) => {
+      const value = Math.max(0, Number(stake) || 0);
+      return value > 0 ? Math.max(1, Math.floor(value / PT)) : 0;
+    };
+    stacksTotal = (stacks) => stacks.reduce((sum, item) => sum + item.stake, 0);
+    hoverRect = (anchor, size, lift = 8) => anchor ? {
+      left: anchor.left + anchor.width / 2 - size / 2,
+      top: anchor.top - size - lift,
+      width: size,
+      height: size
+    } : null;
+    faceRect = (svgRect) => svgRect ? {
+      left: svgRect.left,
+      top: svgRect.top - svgRect.width * 0.2,
+      width: svgRect.width,
+      height: svgRect.width
+    } : null;
+    rackTargetFor = (value, denoms, fallback) => `bets:rack:${denoms.includes(value) ? value : fallback}`;
+  }
+});
+
+// src/features/wagers/bet-stacks.css
+var init_bet_stacks = __esm({
+  "src/features/wagers/bet-stacks.css"() {
+  }
+});
+
+// src/features/wagers/BetStacks.jsx
+import React12, { useEffect as useEffect6, useLayoutEffect as useLayoutEffect3, useMemo, useRef as useRef6, useState as useState7 } from "react";
+function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
+  const yb = yt + t;
+  const band = `M${r2(cx - rx)} ${r2(yt)}L${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}L${r2(cx + rx)} ${r2(yt)}A${r2(rx)} ${r2(ry)} 0 0 1 ${r2(cx - rx)} ${r2(yt)}Z`;
+  const marks = [];
+  inserts.forEach((ink, index) => {
+    if (!ink) return;
+    const mid = (index + turn) % COIN_FACETS * FACET + FACET / 2;
+    const a = Math.max(0, mid - FACET / 2), b = Math.min(180, mid + FACET / 2);
+    if (b <= a) return;
+    const pt = (deg, y) => `${r2(cx + rx * Math.cos(deg * Math.PI / 180))},${r2(y + ry * Math.sin(deg * Math.PI / 180))}`;
+    marks.push(/* @__PURE__ */ React12.createElement(
+      "polygon",
+      {
+        key: index,
+        className: "fd-stack-insert",
+        points: `${pt(a, yt)} ${pt(b, yt)} ${pt(b, yb)} ${pt(a, yb)}`
+      }
+    ));
+  });
+  return /* @__PURE__ */ React12.createElement(React12.Fragment, null, /* @__PURE__ */ React12.createElement("path", { className: "fd-stack-rim", d: band }), marks, /* @__PURE__ */ React12.createElement(
+    "path",
+    {
+      className: "fd-stack-seam",
+      d: `M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`,
+      strokeWidth: stroke
+    }
+  ));
+}
+function ChipStack({
+  p,
+  stake,
+  paid = 0,
+  size = 40,
+  cap = STACK_CAP,
+  mine = false,
+  settle = null,
+  delay = 0,
+  tag = true,
+  tagSize = null,
+  groups = null,
+  chip: chip2 = null,
+  count = null,
+  tower = false
+}) {
+  const player = usePlayerIdentity(p);
+  const floor2 = useTextFloor();
+  const identity = chip2 ? { color: chip2.color, isLight: !!chip2.isLight, skin: chip2.skin || "quad", num: chip2.stamp } : player;
+  const chips = count ?? stackChipCount(stake);
+  const paidChips = count == null ? stackChipCount(paid) : 0;
+  const tiers = tower ? towerTiers(chips + paidChips, cap) : 0;
+  const gap = tiers ? towerGap(size) : 0;
+  const shown = Math.max(1, Math.min(chips + paidChips, cap)) + tiers;
+  const base = settle === "won" && chips + paidChips > cap ? Math.max(1, Math.min(cap - 1, Math.round(cap * chips / (chips + paidChips)))) : Math.min(chips, shown);
+  const paying = settle === "won" && shown > base;
+  const seen = useRef6(null);
+  if (!seen.current) seen.current = { shown, from: shown };
+  else if (seen.current.shown !== shown)
+    seen.current = { shown, from: shown > seen.current.shown ? seen.current.shown : shown };
+  const dropped = settle ? 0 : Math.max(0, shown - seen.current.from);
+  const { D, pad, rx, ry, t, cx, width, yFace, height: body } = stackGeometry(size, shown);
+  const height = body + gap;
+  const inserts = edgeInserts(identity.skin);
+  const stroke = Math.max(0.8, D / 44);
+  const light = identity.isLight;
+  const value = stake + (settle === "won" ? paid : 0);
+  const capped = chips + paidChips > cap;
+  const breakAt = shown - tiers;
+  const chipAt = (i) => {
+    const yt = yFace + (shown - 1 - i) * t + (i < breakAt ? gap : 0);
+    const isPaid = paying && i >= base;
+    const isNew = !isPaid && i >= shown - dropped;
+    return /* @__PURE__ */ React12.createElement(
+      "g",
+      {
+        key: i,
+        className: `fd-stack-chip${isPaid ? " is-paid" : ""}${isNew ? " is-drop" : ""}`,
+        style: isPaid ? { animationDelay: `${delay + (i - base) * 70}ms` } : void 0
+      },
+      /* @__PURE__ */ React12.createElement(Rim, { cx, rx, ry, yt, t, inserts, turn: TURNS[i % TURNS.length] + 1, stroke })
+    );
+  };
+  const rims = [];
+  if (groups?.length) {
+    let start = 0;
+    groups.forEach((value2, index) => {
+      const end = index === groups.length - 1 ? shown : Math.min(shown, start + stackChipCount(value2));
+      if (end <= start) return;
+      rims.push(/* @__PURE__ */ React12.createElement("g", { key: `tap-${index}`, className: "fd-stack-tap", "data-chip-stake": value2 }, Array.from({ length: end - start }, (_, k) => chipAt(start + k))));
+      start = end;
+    });
+  } else for (let i = 0; i < shown; i++) rims.push(chipAt(i));
+  if (tiers) {
+    const yb = yFace + (shown - breakAt) * t + gap / 2;
+    rims.push(/* @__PURE__ */ React12.createElement(
+      "path",
+      {
+        key: "break",
+        className: "fd-stack-break",
+        strokeWidth: Math.max(1.2, D / 22),
+        d: `M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`
+      }
+    ));
+  }
+  const rise = paying ? (shown - base) * t : 0;
+  const stampPx = chip2 && identity.num != null ? D * (String(identity.num).length > 3 ? 0.25 : String(identity.num).length > 2 ? 0.3 : 0.36) : 0;
+  const stamp = chip2 && stampPx >= floor2 - 0.25 ? identity.num : null;
+  return /* @__PURE__ */ React12.createElement(
+    "span",
+    {
+      className: `fd-stack${light ? " is-light" : ""}${mine ? " is-mine" : ""}${settle ? ` is-${settle}` : ""}`,
+      style: { "--stack-color": identity.color, width, animationDelay: settle === "lost" ? `${delay}ms` : void 0 },
+      "data-stack-player": chip2 ? void 0 : p,
+      "data-chip-value": chip2 ? chip2.stamp : void 0,
+      "data-stack-chips": shown,
+      "data-stack-tower": tiers || void 0
+    },
+    capped && tag && /* @__PURE__ */ React12.createElement("span", { className: "fd-stack-tag", style: tagSize ? { fontSize: tagSize } : void 0 }, fmt(value)),
+    /* @__PURE__ */ React12.createElement("svg", { width: r2(width), height: r2(height), viewBox: `0 0 ${r2(width)} ${r2(height)}`, "aria-hidden": "true" }, mine && /* @__PURE__ */ React12.createElement(
+      "ellipse",
+      {
+        className: "fd-stack-ring",
+        cx: r2(cx),
+        cy: r2(yFace + shown * t + gap + 1.5),
+        rx: r2(rx + 2.5),
+        ry: r2(ry + 2),
+        strokeWidth: Math.max(1.6, D / 18)
+      }
+    ), rims, /* @__PURE__ */ React12.createElement(
+      "g",
+      {
+        key: `face-${shown}`,
+        className: `fd-stack-face${dropped ? " is-drop" : ""}${paying ? " is-rising" : ""}`,
+        style: paying ? {
+          "--stack-rise": `${r2(rise)}px`,
+          animationDelay: `${delay}ms`,
+          animationDuration: `${(shown - base) * 70 + 120}ms`
+        } : void 0
+      },
+      /* @__PURE__ */ React12.createElement("g", { transform: `translate(${r2(pad)} ${r2(yFace - D * STACK_TILT / 2)}) scale(1 ${STACK_TILT})` }, /* @__PURE__ */ React12.createElement(
+        ChipFace,
+        {
+          p,
+          size: D,
+          flat: true,
+          ...chip2 ? { stamp: "", color: identity.color, isLight: identity.isLight, skin: identity.skin } : {}
+        }
+      )),
+      D >= 20 && stamp != null && /* @__PURE__ */ React12.createElement(
+        "text",
+        {
+          x: r2(cx),
+          y: r2(yFace + D * 0.02),
+          textAnchor: "middle",
+          dominantBaseline: "central",
+          fontFamily: DISPLAY,
+          fontWeight: "700",
+          className: "fd-stack-num",
+          fontSize: r2(stampPx),
+          transform: `translate(0 ${r2(yFace)}) scale(1 .86) translate(0 ${r2(-yFace)})`
+        },
+        stamp
+      )
+    ))
+  );
+}
+function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, label: label2 = true, valueAt = "below", style = void 0 }) {
+  const players = rest.players;
+  const value = /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-value" }, fmt(rest.total));
+  return /* @__PURE__ */ React12.createElement(
+    "div",
+    {
+      className: "fd-stacks-slot fd-stacks-group",
+      role: "img",
+      style,
+      "aria-label": `${players.length} more: ${fmt(rest.total)} chips`
+    },
+    /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-body" }, /* @__PURE__ */ React12.createElement(
+      ChipStack,
+      {
+        chip: groupChip(players.length),
+        count: stackChipCount(rest.total),
+        size,
+        cap,
+        tag: false,
+        tower: true
+      }
+    ), valueAt === "side" && value),
+    valueAt !== "side" && value,
+    names && label2 && /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-name fd-stacks-count" }, "+", players.length)
+  );
+}
+function BetStacks({
+  stacks,
+  size = 40,
+  names = null,
+  cap = STACK_CAP,
+  settle = null,
+  delay = 0,
+  className = "",
+  mine = null,
+  slots = Infinity,
+  valueAt = "below"
+}) {
+  if (!stacks?.length) return null;
+  const { shown, rest } = groupStacks(stacks, slots, mine);
+  return /* @__PURE__ */ React12.createElement("div", { className: `fd-stacks${valueAt === "side" ? " is-value-side" : ""}${className ? ` ${className}` : ""}` }, shown.map((item, index) => {
+    const result = settle || item.status || null;
+    const at = delay + index * 90;
+    const value = /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-value" }, fmt(item.stake + (result === "won" ? item.paid || 0 : 0)));
+    return /* @__PURE__ */ React12.createElement(
+      "div",
+      {
+        key: item.player,
+        className: `fd-stacks-slot${result === "lost" ? " is-lost" : ""}`,
+        style: result === "lost" ? { animationDelay: `${at}ms` } : void 0
+      },
+      /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-body" }, /* @__PURE__ */ React12.createElement(
+        ChipStack,
+        {
+          p: item.player,
+          stake: item.stake,
+          paid: item.paid || 0,
+          size,
+          cap,
+          tag: false,
+          tower: true,
+          settle: result === "won" ? "won" : null,
+          delay: at,
+          mine: !!mine && item.player === mine
+        }
+      ), valueAt === "side" && value),
+      valueAt !== "side" && value,
+      names && /* @__PURE__ */ React12.createElement("span", { className: "fd-stacks-name" }, names(item.player))
+    );
+  }), rest && /* @__PURE__ */ React12.createElement(StackGroup, { key: "group", rest, size, cap, names: !!names, valueAt }));
+}
+var fmt, r2, FACET, TURNS, groupChip;
+var init_BetStacks = __esm({
+  "src/features/wagers/BetStacks.jsx"() {
+    init_theme();
+    init_PlayerIdentity();
+    init_PlayerIdentityContext();
+    init_chipCoin();
+    init_betStacks();
+    init_bet_stacks();
+    fmt = (n) => (Number(n) || 0).toLocaleString("en-US");
+    r2 = (n) => Math.round(n * 100) / 100;
+    FACET = 360 / COIN_FACETS;
+    TURNS = [0, 0, 1, 0, 2, 0, 1];
+    groupChip = (count) => ({ color: "var(--silver)", isLight: true, skin: "plain", stamp: `+${count}` });
+  }
+});
+
+// src/ui/payout-ladder.css
+var init_payout_ladder = __esm({
+  "src/ui/payout-ladder.css"() {
+  }
+});
+
+// src/ui/PayoutLadder.jsx
+import React13 from "react";
+function payoutSteps(pays, { crew = null } = {}) {
+  const table = Array.isArray(pays) ? pays : [0, 0, 0];
+  const places = table.map((amount, i) => ({ place: i + 1, amount: Number(amount) || 0 })).filter((step) => step.amount > 0);
+  if (crew && Number(crew) > 0) places.push({ place: null, amount: Number(crew), crew: true });
+  return places;
+}
+function ladderChips(amount, top, max) {
+  if (!max) return 0;
+  const unit = Math.max(100, Math.ceil(top / max / 100) * 100);
+  return Math.max(1, Math.round(amount / unit));
+}
+function podiumOrder(steps) {
+  const by = (place) => steps.find((step) => step.place === place);
+  const order = steps.length >= 2 && by(2) ? [by(2), by(1), ...steps.filter((step) => step.place !== 1 && step.place !== 2)] : steps;
+  return order.filter(Boolean);
+}
+function Winners({ state, players = [], label: label2 = null, size, me = null, onPlayer = null }) {
+  if (!state || !players.length) return null;
+  const named = players.length <= 2;
+  const name = (p) => state.profiles?.[p]?.display || p;
+  return /* @__PURE__ */ React13.createElement("span", { className: "fd-ladder-winners" }, /* @__PURE__ */ React13.createElement("span", { className: "fd-ladder-faces" }, players.map((p) => onPlayer ? /* @__PURE__ */ React13.createElement(
+    "button",
+    {
+      key: p,
+      type: "button",
+      className: `fd-ladder-face${p === me ? " is-you" : ""}`,
+      onClick: () => onPlayer(p),
+      "aria-label": `View ${name(p)}'s player card`
+    },
+    /* @__PURE__ */ React13.createElement(Avatar, { state, p, size })
+  ) : /* @__PURE__ */ React13.createElement(Avatar, { key: p, state, p, size }))), /* @__PURE__ */ React13.createElement("span", { className: "fd-ladder-who" }, named ? players.map(name).join(" & ") : label2 || `${players.length} players`));
+}
+function PayoutLadder({
+  ev = null,
+  pays = null,
+  size = "phone",
+  crew = null,
+  className = "",
+  state = null,
+  winners = null,
+  labels = null,
+  me = null,
+  onPlayer = null
+}) {
+  const table = pays || awardTable(ev);
+  const steps = payoutSteps(table, { crew });
+  if (!steps.length) return null;
+  const s = SIZES3[size] || SIZES3.phone;
+  const label2 = steps.map((step) => `${step.crew ? "Crew" : PLACE_LABEL[step.place - 1]} ${fmt2(step.amount)}`).join(", ");
+  if (!s.podium) {
+    const shown = size === "tiny" ? steps.slice(0, 1) : steps;
+    return /* @__PURE__ */ React13.createElement("ol", { className: `fd-ladder is-${size}${className ? ` ${className}` : ""}`, "aria-label": label2 }, shown.map((step) => /* @__PURE__ */ React13.createElement(
+      "li",
+      {
+        key: step.crew ? "crew" : step.place,
+        className: `fd-ladder-step is-place-${step.crew ? "crew" : step.place}`
+      },
+      /* @__PURE__ */ React13.createElement(
+        "span",
+        {
+          className: "fd-ladder-medal",
+          style: { width: s.medal, height: s.medal, fontSize: Math.round(s.medal * 0.5) },
+          "aria-hidden": "true"
+        },
+        step.crew ? "" : step.place
+      ),
+      /* @__PURE__ */ React13.createElement("b", { className: "fd-ladder-amount", "aria-hidden": "true" }, fmt2(step.amount))
+    )));
+  }
+  const top = Math.max(...steps.map((step) => step.amount));
+  const order = podiumOrder(steps);
+  const filled = !!winners && !!state;
+  return /* @__PURE__ */ React13.createElement(
+    "ol",
+    {
+      className: `fd-ladder is-podium is-${size}${filled ? " is-filled" : ""}${className ? ` ${className}` : ""}`,
+      "aria-label": label2,
+      style: { "--ladder-cols": order.length, "--ladder-step": `${s.step}px` }
+    },
+    order.map((step) => {
+      const key = step.crew ? "crew" : step.place;
+      const chips = ladderChips(step.amount, top, s.maxChips);
+      const who = filled ? step.crew ? winners.crew || [] : winners[step.place - 1] || [] : [];
+      return /* @__PURE__ */ React13.createElement("li", { key, className: `fd-ladder-step is-place-${key}`, style: { "--rise": STEP_RISE[key] } }, /* @__PURE__ */ React13.createElement("span", { className: "fd-ladder-stand", "aria-hidden": "true" }, /* @__PURE__ */ React13.createElement(
+        ChipStack,
+        {
+          chip: { ...PLACE_CHIP[key], stamp: step.crew ? "" : String(step.place) },
+          count: chips,
+          size: s.chip,
+          cap: s.maxChips,
+          tag: false
+        }
+      ), /* @__PURE__ */ React13.createElement("span", { className: "fd-ladder-plinth" }, /* @__PURE__ */ React13.createElement("b", { className: "fd-ladder-amount" }, fmt2(step.amount)))), filled && /* @__PURE__ */ React13.createElement(
+        Winners,
+        {
+          state,
+          players: who,
+          label: labels?.[step.crew ? "crew" : step.place - 1],
+          size: s.avatar,
+          me,
+          onPlayer
+        }
+      ));
+    })
+  );
+}
+var fmt2, SIZES3, PLACE_LABEL, STEP_RISE, PLACE_CHIP;
+var init_PayoutLadder = __esm({
+  "src/ui/PayoutLadder.jsx"() {
+    init_core();
+    init_BetStacks();
+    init_PlayerIdentity();
+    init_payout_ladder();
+    fmt2 = (n) => (Number(n) || 0).toLocaleString("en-US");
+    SIZES3 = {
+      tv: { chip: 76, maxChips: 9, step: 132, avatar: 56, podium: true },
+      phone: { chip: 42, maxChips: 8, step: 72, avatar: 36, podium: true },
+      ticker: { medal: 48, podium: false },
+      tiny: { medal: 24, podium: false }
+    };
+    PLACE_LABEL = ["1st", "2nd", "3rd"];
+    STEP_RISE = { 1: 1, 2: 0.78, 3: 0.6, crew: 0.52 };
+    PLACE_CHIP = {
+      1: { color: "var(--sun)", isLight: true, skin: "plain" },
+      2: { color: "var(--silver)", isLight: true, skin: "plain" },
+      3: { color: "var(--bronze)", isLight: true, skin: "plain" },
+      crew: { color: "var(--muted)", isLight: false, skin: "plain" }
+    };
+  }
+});
+
+// src/ui/GameMark.jsx
+import React15 from "react";
+function GameMark({ id, size = 54, hero = false, variant }) {
+  const glyph = MARKS[variant ? `${id}:${variant}` : id] || MARKS[id] || CHIP;
+  const small = size <= 34;
+  const scale = small ? 0.9 : 0.76;
+  const stroke = size <= 28 ? 2.05 : size <= 48 ? 1.85 : size <= 96 ? 1.65 : 1.45;
+  const at = 12 - 12 * scale;
+  const glass = hero ? "var(--paper)" : "var(--paper2)";
+  return /* @__PURE__ */ React15.createElement(
+    "svg",
+    {
+      className: `fd-game-mark${hero ? " is-hero" : ""}`,
+      width: size,
+      height: size,
+      viewBox: "0 0 24 24",
+      "aria-hidden": "true",
+      focusable: "false",
+      style: { flexShrink: 0, display: "block", color: "var(--fd-mark-ink, var(--ink))", "--fd-mark-glass": glass }
+    },
+    /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "11.9", fill: "var(--ink0)" }),
+    /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: small ? 11.1 : 10.9, fill: glass }),
+    /* @__PURE__ */ React15.createElement(
+      "path",
+      {
+        d: small ? "M2.2 13.6a9.9 9.9 0 0 0 19.6 0" : "M2.4 13.6a9.7 9.7 0 0 0 19.2 0",
+        fill: "none",
+        stroke: "var(--bone)",
+        strokeOpacity: ".16",
+        strokeWidth: ".5",
+        strokeLinecap: "round"
+      }
+    ),
+    /* @__PURE__ */ React15.createElement(
+      "g",
+      {
+        transform: `translate(${at} ${at}) scale(${scale})`,
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: stroke,
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+      },
+      glyph
+    )
+  );
+}
+var BALL, MARKS, CHIP, GAME_MARK_IDS;
+var init_GameMark = __esm({
+  "src/ui/GameMark.jsx"() {
+    BALL = { fill: "currentColor", stroke: "none" };
+    MARKS = {
+      /* Long Putt: the flag, the cup, and a ball a long way out */
+      putting: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M14 18.6V4.2" }), /* @__PURE__ */ React15.createElement("path", { d: "M14 4.2 19.6 6.6 14 9z", fill: "currentColor" }), /* @__PURE__ */ React15.createElement("ellipse", { cx: "14", cy: "18.8", rx: "3.4", ry: "1.15" }), /* @__PURE__ */ React15.createElement("circle", { cx: "5.2", cy: "18.6", r: "1.75", ...BALL })),
+      /* Beer Die: the die mid-toss */
+      die: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("rect", { x: "5.4", y: "5.4", width: "13.2", height: "13.2", rx: "3", transform: "rotate(-12 12 12)" }), /* @__PURE__ */ React15.createElement("g", { ...BALL }, /* @__PURE__ */ React15.createElement("circle", { cx: "8.8", cy: "9.4", r: "1.35" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "1.35" }), /* @__PURE__ */ React15.createElement("circle", { cx: "15.2", cy: "14.6", r: "1.35" }))),
+      /* Where and When: a pin dropped on the map, its ring on the ground */
+      where: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M12 16.6s-5-4.3-5-8.4a5 5 0 0 1 10 0c0 4.1-5 8.4-5 8.4z" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "8.2", r: "1.9", ...BALL }), /* @__PURE__ */ React15.createElement("path", { d: "M7.4 16.9c-2 .5-3.2 1.2-3.2 2 0 1.4 3.5 2.4 7.8 2.4s7.8-1 7.8-2.4c0-.8-1.2-1.5-3.2-2" })),
+      /* basketball: a ball with its seams (5v5); 1v1 is the hoop, side on, the
+         shot coming in */
+      basketball: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "8.4" }), /* @__PURE__ */ React15.createElement("path", { d: "M3.6 12h16.8M12 3.6v16.8M6.1 6c2.4 1.6 3.4 3.6 3.4 6s-1 4.4-3.4 6M17.9 6c-2.4 1.6-3.4 3.6-3.4 6s1 4.4 3.4 6" })),
+      "basketball:1v1": /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M17.2 3.4v9M17.2 8h2.6v12.6" }), /* @__PURE__ */ React15.createElement("path", { d: "M8.6 10.2h8.6M9.4 10.2l1.6 5.6h3.4l1.6-5.6" }), /* @__PURE__ */ React15.createElement("circle", { cx: "6.2", cy: "5.2", r: "2.4", ...BALL })),
+      /* Pickleball: the paddle and the holed ball */
+      pickleball: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("g", { transform: "rotate(-32 10.4 10.4)" }, /* @__PURE__ */ React15.createElement("rect", { x: "5.4", y: "2.8", width: "10", height: "11.6", rx: "3.2" }), /* @__PURE__ */ React15.createElement("path", { d: "M10.4 14.4v5.6", strokeWidth: "2.8" })), /* @__PURE__ */ React15.createElement("circle", { cx: "17.8", cy: "17.6", r: "2.9", ...BALL }), /* @__PURE__ */ React15.createElement("g", { fill: "var(--fd-mark-glass)", stroke: "none" }, /* @__PURE__ */ React15.createElement("circle", { cx: "16.9", cy: "16.8", r: ".55" }), /* @__PURE__ */ React15.createElement("circle", { cx: "18.7", cy: "16.8", r: ".55" }), /* @__PURE__ */ React15.createElement("circle", { cx: "17.8", cy: "18.5", r: ".55" }))),
+      /* Volleyball: the ball over the net (three seams from one point read as
+         a star at 24px, so the ball carries two curved panel lines and the net
+         says the game) */
+      volleyball: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "8.6", r: "5.6" }), /* @__PURE__ */ React15.createElement("path", { d: "M7.3 5.9c2.9-.3 5.9 1.1 7.6 3.7M6.9 10.6c2.8-1.4 6.3-1.3 8.9.6M10.3 3.3c1.9 1.6 2.9 4.1 2.6 6.6" }), /* @__PURE__ */ React15.createElement("path", { d: "M3.6 16.6h16.8M3.6 20.2h16.8M3.6 16.6v3.6M20.4 16.6v3.6M7.8 16.6v3.6M12 16.6v3.6M16.2 16.6v3.6", strokeWidth: ".9" })),
+      /* Trivia: a card with the question on it */
+      trivia: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("rect", { x: "4.8", y: "3.6", width: "14.4", height: "16.8", rx: "2.4" }), /* @__PURE__ */ React15.createElement("path", { d: "M9.6 9.6a2.4 2.4 0 1 1 3.6 2.1c-.8.5-1.2 1-1.2 1.9v.5" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "16.9", r: "1.2", ...BALL })),
+      /* 8-Ball: the black ball's window and its 8 */
+      "8ball": /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "8.4" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "11.2", r: "3.9", ...BALL }), /* @__PURE__ */ React15.createElement("g", { stroke: "var(--fd-mark-glass)", strokeWidth: "1" }, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "9.9", r: "1" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12.45", r: "1.3" }))),
+      /* Beer Pong: the ball dropping into the cup */
+      pong: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M6.6 10.2h10.8M7.3 10.2l1.4 9a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3l1.4-9" }), /* @__PURE__ */ React15.createElement("path", { d: "M7.9 14h8.2" }), /* @__PURE__ */ React15.createElement("circle", { cx: "14.6", cy: "4.9", r: "2", ...BALL })),
+      /* Rage Cage: a cup stacked on a cup, the ball after it */
+      ragecage: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M4.6 12.4h9.6M5.2 12.4l1.2 7.2a1.3 1.3 0 0 0 1.3 1.1h4.4a1.3 1.3 0 0 0 1.3-1.1l1.2-7.2" }), /* @__PURE__ */ React15.createElement("path", { d: "M6.8 8.2h9.6M7.4 8.2l.6 4.2M15.8 8.2l-1 6.2" }), /* @__PURE__ */ React15.createElement("circle", { cx: "18.2", cy: "4.8", r: "1.8", ...BALL })),
+      /* Beerio Kart: the wheel */
+      beerio: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "8.4" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12.6", r: "2.4", ...BALL }), /* @__PURE__ */ React15.createElement("path", { d: "M3.7 11.6c2.3-.6 4.6-.6 6 .3M20.3 11.6c-2.3-.6-4.6-.6-6 .3M12 15v5.3" })),
+      /* Poker: two cards, the front one showing its pip */
+      poker: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("rect", { x: "4.2", y: "5", width: "9.4", height: "13.4", rx: "1.9", transform: "rotate(-12 8.9 11.7)" }), /* @__PURE__ */ React15.createElement("rect", { x: "10.2", y: "4.6", width: "9.4", height: "13.4", rx: "1.9", transform: "rotate(10 14.9 11.3)", fill: "var(--fd-mark-glass)" }), /* @__PURE__ */ React15.createElement("path", { d: "m14.8 8.3 2.4 3.1-2.4 3.1-2.4-3.1z", ...BALL })),
+      /* earlier slates (kept for their events and the add-event picker) */
+      spikeball: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("ellipse", { cx: "12", cy: "16.2", rx: "8.2", ry: "3.2" }), /* @__PURE__ */ React15.createElement("path", { d: "M6 18.4 4.8 20.6M18 18.4l1.2 2.2M8.4 15.6h7.2" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "6.4", r: "2.6", ...BALL })),
+      pingpong: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "10", cy: "9.6", r: "5.6" }), /* @__PURE__ */ React15.createElement("path", { d: "m6.2 13.8-2.6 4.4", strokeWidth: "2.6" }), /* @__PURE__ */ React15.createElement("circle", { cx: "17.6", cy: "17", r: "2.2", ...BALL })),
+      foosball: /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("path", { d: "M3.6 6.2h16.8" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "9.4", r: "2.1" }), /* @__PURE__ */ React15.createElement("path", { d: "M12 11.5v4.3M9.4 13h5.2M12 15.8l-2.6 3.8M12 15.8l2.6 3.8" }), /* @__PURE__ */ React15.createElement("circle", { cx: "18.4", cy: "18.6", r: "1.8", ...BALL }))
+    };
+    CHIP = /* @__PURE__ */ React15.createElement(React15.Fragment, null, /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "8.4" }), /* @__PURE__ */ React15.createElement("circle", { cx: "12", cy: "12", r: "3", ...BALL }), /* @__PURE__ */ React15.createElement("path", { d: [30, 90, 150, 210, 270, 330].map((deg) => {
+      const a = deg * Math.PI / 180, x = (r) => (12 + Math.cos(a) * r).toFixed(2), y = (r) => (12 + Math.sin(a) * r).toFixed(2);
+      return `M${x(5.2)} ${y(5.2)}L${x(6.6)} ${y(6.6)}`;
+    }).join("") }));
+    GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter((id) => !id.includes(":")));
+  }
+});
+
+// src/features/weekend/drawReveal.js
+function drawRevealGroups(state, reveal) {
+  return reveal.versus ? reveal.versus.map((team, index) => ({
+    title: team.name || `Team ${index + 1}`,
+    lines: [{ avatars: team.players, text: team.players.map((player) => disp(state, player)).join(" & ") }]
+  })) : reveal.groups || [];
+}
+function partnerFaces(group) {
+  const lines = group?.lines || [];
+  const count = (line) => (line.avatars || []).length;
+  if (group?.bye) return lines.map(() => -1);
+  if (group?.vs) return lines.map((line) => partnerDelay(count(line) - 1, count(line)) ? count(line) - 1 : -1);
+  const faces = lines.reduce((n, line) => n + Math.max(1, count(line)), 0);
+  return lines.map((line, j) => faces > 1 && j === lines.length - 1 && count(line) ? count(line) - 1 : -1);
+}
+function drawStepAt(elapsed, total) {
+  const count = Math.max(0, Math.floor(Number(total) || 0));
+  const t = Number(elapsed);
+  if (!count || !Number.isFinite(t)) return 0;
+  let shown = 0;
+  while (shown < count && drawStepDelay(shown, count) <= t) shown++;
+  return shown;
+}
+function revealTimeline(state, evId, { reveal = null, reducedMotion = false } = {}) {
+  const announcedAt = Number(state?.eventOps?.[evId]?.announcedAt) || 0;
+  if (!announcedAt) return null;
+  const handoffAt = announcedAt + (reducedMotion ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS);
+  const item = reveal ? saved(state, reveal) : null;
+  const drewAt = item ? revealTime(state, evId, item) : 0;
+  return { introAt: announcedAt, handoffAt, revealAt: Math.max(handoffAt, drewAt || 0) };
+}
+function startDrawPlayback({
+  total,
+  reducedMotion = false,
+  onStep,
+  schedule = setTimeout,
+  cancel = clearTimeout,
+  startAt = null,
+  now: now2 = null
+}) {
+  let active = true;
+  const timers = [];
+  const stop = () => {
+    active = false;
+    timers.forEach(cancel);
+  };
+  const skip = () => {
+    stop();
+    onStep(total);
+  };
+  const anchored = Number.isFinite(startAt) && typeof now2 === "function";
+  const elapsed = anchored ? now2() - startAt : 0;
+  const joined = reducedMotion || total === 0 ? total : drawStepAt(elapsed, total);
+  if (joined >= total) onStep(total);
+  else {
+    onStep(joined);
+    for (let index = joined; index < total; index++) {
+      const delay = Math.max(0, drawStepDelay(index, total) - elapsed);
+      timers.push(schedule(() => {
+        if (active) onStep(index + 1);
+      }, delay));
+    }
+  }
+  return { stop, skip, joined };
+}
+var REVEAL_FRESH_MS, revealTime, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS, DRAW_FIRST_STEP_MS, DRAW_STEP_MS, DRAW_STEP_MIN_MS, DRAW_SEQUENCE_CAP_MS, DRAW_PARTNER_BEAT_MS, drawStepGap, drawStepDelay, partnerDelay, saved;
+var init_drawReveal = __esm({
+  "src/features/weekend/drawReveal.js"() {
+    init_core();
+    REVEAL_FRESH_MS = 2 * 60 * 1e3;
+    revealTime = (state, evId, item) => Number(item.ts) || Number(state.eventOps?.[evId]?.drawRevealedAt) || parseInt(String(item.id).replace(/^\D+/, ""), 10) || 0;
+    DRAW_INTRO_MS = 3e3;
+    DRAW_INTRO_REDUCED_MS = 650;
+    DRAW_FIRST_STEP_MS = 480;
+    DRAW_STEP_MS = 2e3;
+    DRAW_STEP_MIN_MS = 1300;
+    DRAW_SEQUENCE_CAP_MS = 16e3;
+    DRAW_PARTNER_BEAT_MS = 900;
+    drawStepGap = (total) => total <= 1 ? DRAW_STEP_MS : Math.max(DRAW_STEP_MIN_MS, Math.min(DRAW_STEP_MS, DRAW_SEQUENCE_CAP_MS / (total - 1)));
+    drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
+    partnerDelay = (faceIndex, faces) => faces > 1 && faceIndex === faces - 1 ? DRAW_PARTNER_BEAT_MS : 0;
+    saved = (state, reveal) => {
+      const draw = state?.draws?.[reveal?.evId], stage = state?.stages?.[reveal?.evId];
+      return draw?.id === reveal?.id ? draw : stage?.id === reveal?.id ? stage : null;
+    };
+  }
+});
+
+// src/ui/motion.js
+var init_motion2 = __esm({
+  "src/ui/motion.js"() {
+    init_motion();
+  }
+});
+
+// src/features/identity/chip-coin.css
+var init_chip_coin = __esm({
+  "src/features/identity/chip-coin.css"() {
+  }
+});
+
+// src/features/identity/ChipCoin.jsx
+import React16, { useEffect as useEffect7, useRef as useRef7, useState as useState8 } from "react";
+function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = false, className = "" }) {
+  const identity = usePlayerIdentity(p);
+  const reduced = useReducedMotion();
+  const spinRef = useRef7(null);
+  const drag = useRef7(null);
+  const angle = useRef7(0);
+  const frame2 = useRef7(0);
+  const settle = useRef7(0);
+  const dragged = useRef7(false);
+  const claimed = identity.color !== CHIP_GRAY;
+  const key = `${identity.color}|${identity.skin}`;
+  const seen = useRef7(key);
+  const [mints, setMints] = useState8(() => mintOnMount && claimed ? 1 : 0);
+  useEffect7(() => {
+    if (seen.current === key) return;
+    seen.current = key;
+    if (mint && claimed && !reduced) {
+      angle.current = 0;
+      setMints((count) => count + 1);
+    }
+  }, [key, mint, claimed, reduced]);
+  useEffect7(() => () => {
+    cancelAnimationFrame(frame2.current);
+    clearTimeout(settle.current);
+  }, []);
+  if (reduced) return /* @__PURE__ */ React16.createElement("span", { className: `fd-coin is-static ${className}`, style: { width: size, height: size }, "aria-hidden": "true" }, /* @__PURE__ */ React16.createElement(ChipFace, { p, size, stamp, fallback }));
+  const paint = () => {
+    frame2.current = 0;
+    if (spinRef.current) spinRef.current.style.transform = `rotateY(${angle.current.toFixed(2)}deg)`;
+  };
+  const onPointerDown = (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.stopPropagation();
+    dragged.current = false;
+    const el = spinRef.current;
+    if (!el) return;
+    if (settle.current) {
+      clearTimeout(settle.current);
+      settle.current = 0;
+      angle.current = angleOf(getComputedStyle(el).transform);
+    }
+    el.style.transition = "none";
+    paint();
+    drag.current = { id: event.pointerId, x0: event.clientX, a0: angle.current, at: performance.now(), last: angle.current, v: 0 };
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+    }
+  };
+  const onPointerMove = (event) => {
+    const d = drag.current;
+    if (!d || event.pointerId !== d.id) return;
+    event.stopPropagation();
+    const dx = event.clientX - d.x0;
+    if (Math.abs(dx) >= COIN_TAP_SLOP) dragged.current = true;
+    if (!dragged.current) return;
+    const now2 = performance.now();
+    angle.current = d.a0 + dx * COIN_DEG_PER_PX;
+    const dt = Math.max(1, now2 - d.at);
+    d.v = d.v * 0.6 + (angle.current - d.last) / dt * 0.4;
+    d.last = angle.current;
+    d.at = now2;
+    if (!frame2.current) frame2.current = requestAnimationFrame(paint);
+  };
+  const onPointerEnd = (event) => {
+    const d = drag.current;
+    if (!d || event.pointerId !== d.id) return;
+    drag.current = null;
+    if (!dragged.current) return;
+    event.stopPropagation();
+    cancelAnimationFrame(frame2.current);
+    frame2.current = 0;
+    const el = spinRef.current;
+    if (!el) return;
+    const idle = performance.now() - d.at > 90;
+    const { target, duration } = coinSettle(angle.current, idle ? 0 : d.v);
+    el.style.transition = `transform ${duration}ms cubic-bezier(.2,.8,.2,1)`;
+    el.style.transform = `rotateY(${target}deg)`;
+    settle.current = setTimeout(() => {
+      settle.current = 0;
+      angle.current = 0;
+      el.style.transition = "none";
+      el.style.transform = "rotateY(0deg)";
+    }, duration + 30);
+  };
+  const g = coinGeometry(size);
+  const inserts = edgeInserts(identity.skin);
+  return /* @__PURE__ */ React16.createElement(
+    "span",
+    {
+      className: `fd-coin${identity.isLight ? " is-light" : ""} ${className}`,
+      "aria-hidden": "true",
+      style: {
+        width: size,
+        height: size,
+        perspective: `${size * 6}px`,
+        "--coin-color": identity.color,
+        "--coin-h": `${g.thickness}px`,
+        "--coin-chord": `${g.chord.toFixed(2)}px`,
+        "--coin-apothem": `${g.apothem.toFixed(2)}px`,
+        "--coin-step": `${g.step}deg`
+      },
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: onPointerEnd,
+      onPointerCancel: onPointerEnd,
+      onClickCapture: (event) => {
+        if (!dragged.current) return;
+        dragged.current = false;
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    },
+    /* @__PURE__ */ React16.createElement("span", { key: mints, className: `fd-coin-drop${mints ? " is-minting" : ""}` }, /* @__PURE__ */ React16.createElement("span", { className: "fd-coin-spin", ref: spinRef }, inserts.map((ink, index) => /* @__PURE__ */ React16.createElement(
+      "span",
+      {
+        key: index,
+        className: `fd-coin-facet${ink ? " is-ink" : ""}`,
+        style: { "--i": index }
+      }
+    )), /* @__PURE__ */ React16.createElement("span", { className: "fd-coin-face is-front" }, /* @__PURE__ */ React16.createElement(ChipFace, { p, size, stamp, fallback })), /* @__PURE__ */ React16.createElement("span", { className: "fd-coin-face is-back" }, /* @__PURE__ */ React16.createElement(ChipFace, { p, size, stamp, fallback }))))
+  );
+}
+var angleOf;
+var init_ChipCoin = __esm({
+  "src/features/identity/ChipCoin.jsx"() {
+    init_core();
+    init_motion2();
+    init_PlayerIdentity();
+    init_PlayerIdentityContext();
+    init_chipCoin();
+    init_chip_coin();
+    angleOf = (transform) => {
+      const values = /matrix3d\(([^)]+)\)/.exec(transform || "")?.[1]?.split(",").map(Number);
+      return values ? Math.atan2(-values[2], values[0]) * 180 / Math.PI : 0;
+    };
   }
 });
 
@@ -2605,6 +4370,8 @@ function makeEngine(ctx, { room = "fri", listen = "tv", volume = 0.8, out = null
   E.hush.connect(E.master);
   E.dry = ctx.createGain();
   E.dry.connect(E.hush);
+  E.openDry = ctx.createGain();
+  E.openDry.connect(E.master);
   E.wet = ctx.createGain();
   E.conv = ctx.createConvolver();
   E.wetTone = ctx.createBiquadFilter();
@@ -2636,6 +4403,27 @@ function setListen(E, listen) {
   E.hp.frequency.value = highpassFor(listen);
   E.wetOut.gain.value = wetLevel(E.roomKey, listen);
 }
+function track(E, ...nodes) {
+  if (E.graph) E.graph.nodes.push(...nodes);
+}
+function trackSource(E, src) {
+  const graph = E.graph;
+  if (!graph) return;
+  graph.pending++;
+  src.onended = () => {
+    src.onended = null;
+    if (--graph.pending === 0 && graph.closed) releaseGraph(graph);
+  };
+}
+function releaseGraph(graph) {
+  for (const node of graph.nodes) {
+    try {
+      node.disconnect();
+    } catch {
+    }
+  }
+  graph.nodes.length = 0;
+}
 function voice(E, { pan = 0, send = 0.2, bright = 1, gain = 1 } = {}) {
   const c = E.ctx;
   const g = c.createGain();
@@ -2650,10 +4438,22 @@ function voice(E, { pan = 0, send = 0.2, bright = 1, gain = 1 } = {}) {
   s.gain.value = send;
   g.connect(lp);
   lp.connect(p);
-  p.connect(E.dry);
+  p.connect(E.open && E.openDry ? E.openDry : E.dry);
   p.connect(s);
   s.connect(E.wet);
+  track(E, g, lp, p, s);
   return g;
+}
+function phantomPartials(f, listen = "phone") {
+  if (listen !== "phone" || !(f > 0) || f >= PHANTOM.floor) return [];
+  const out = [];
+  for (let n = Math.max(2, Math.ceil(PHANTOM.floor / f)); n * f <= PHANTOM.ceil && out.length < PHANTOM.partials; n++)
+    out.push({ n, f: n * f, amp: 0.55 / (out.length + 1) });
+  return out;
+}
+function phantom(E, dest, t, f, d, peak, { a = 2e-3 } = {}) {
+  for (const [k, part] of phantomPartials(f, E.listen).entries())
+    mode(E, dest, t, part.f, Math.max(0.02, d * (0.8 - k * 0.14)), peak * part.amp, { a });
 }
 function mode(E, dest, t, f, d, peak, { a = 1e-3, drop = 0, type = "sine" } = {}) {
   const c = E.ctx;
@@ -2667,6 +4467,8 @@ function mode(E, dest, t, f, d, peak, { a = 1e-3, drop = 0, type = "sine" } = {}
   g.gain.exponentialRampToValueAtTime(1e-4, t + a + d);
   o.connect(g);
   g.connect(dest);
+  track(E, o, g);
+  trackSource(E, o);
   o.start(t);
   o.stop(t + a + d + 0.03);
 }
@@ -2685,6 +4487,8 @@ function burst(E, dest, t, { type = "bandpass", f = 2e3, q = 1, d = 0.02, peak =
   s.connect(fl);
   fl.connect(g);
   g.connect(dest);
+  track(E, s, fl, g);
+  trackSource(E, s);
   s.start(t, Math.random() * 1.5, a + d + 0.05);
 }
 function swell(E, dest, t, { d = 0.6, f0 = 500, f1 = 900, q = 0.7, peak = 0.2 } = {}) {
@@ -2703,6 +4507,8 @@ function swell(E, dest, t, { d = 0.6, f0 = 500, f1 = 900, q = 0.7, peak = 0.2 } 
   s.connect(fl);
   fl.connect(g);
   g.connect(dest);
+  track(E, s, fl, g);
+  trackSource(E, s);
   s.start(t, Math.random() * 0.5, d + 0.05);
 }
 function riffle(E, t, n, o = {}) {
@@ -2740,19 +4546,55 @@ function roll(E, t, o = {}) {
     M.drum(E, t + i / 24 + rnd(-6e-3, 6e-3), { f: (o.f || 66) * rnd(0.99, 1.01), dec: 0.16, gain: from + (to - from) * k * k, send: 0.3 });
   }
 }
-function playRecipe(E, id, t, { pan = 0, ...opts } = {}) {
+function chipPitch(height = 0) {
+  return 1 + Math.min(CHIP_WEIGHT.heightCap, Math.max(0, Math.floor(Number(height) || 0))) * CHIP_WEIGHT.heightStep;
+}
+function chipPlaced(E, t, o = {}) {
+  const denom = Number(o.denom) || 100;
+  const p = chipPitch(o.height);
+  if (denom >= 1e3) {
+    M.drum(E, t, { f: NOTE.D2, dec: 0.3, gain: 0.5 });
+    riffle(E, t + 4e-3, 3, { pitch: 0.92 * p, gap: 0.034, gain: 0.75 });
+    return;
+  }
+  if (denom >= 500) {
+    M.clack(E, t, { pitch: 0.86 * p });
+    M.felt(E, t + 0.012, { gain: 0.55 });
+    return;
+  }
+  if (denom >= 200) {
+    M.clack(E, t, { pitch: 0.95 * p });
+    M.clack(E, t + 0.028, { pitch: 0.97 * p, gain: 0.55, double: false });
+    return;
+  }
+  M.clack(E, t, { pitch: p });
+}
+function whoosh(E, t, { d = 0.45, f0 = 320, f1 = 2600, peak = 0.32, pan = 0 } = {}) {
+  const v = voice(E, { pan, send: 0.2, bright: 0.9 });
+  swell(E, v, t, { d, f0, f1, q: 0.9, peak });
+}
+function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   const s = SOUNDS[id];
   if (!s || !E) return false;
-  const was = E.pan;
+  const was = E.pan, outer = E.graph, wasOpen = E.open;
+  const graph = { nodes: [], pending: 0, closed: false };
   E.pan = clampPan(pan);
+  E.open = !!open;
+  E.graph = graph;
+  let played = false;
   try {
     s.play(E, t, opts);
+    played = true;
   } finally {
     E.pan = was;
+    E.open = wasOpen;
+    E.graph = outer;
+    graph.closed = true;
+    if (graph.pending === 0 || !played) releaseGraph(graph);
   }
   return true;
 }
-var NOTE, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, M, KIT, PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
+var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, KIT, CHIP_WEIGHT, PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
 var init_soundKit = __esm({
   "src/lib/soundKit.js"() {
     NOTE = Object.freeze({
@@ -2768,8 +4610,45 @@ var init_soundKit = __esm({
       D5: 587.33,
       E5: 659.25,
       Fs5: 739.99,
-      A5: 880
+      A5: 880,
+      B5: 987.77,
+      D6: 1174.66,
+      E6: 1318.51,
+      Fs6: 1479.98,
+      A6: 1760
     });
+    LADDER = Object.freeze([
+      NOTE.D4,
+      NOTE.E4,
+      NOTE.Fs4,
+      NOTE.A4,
+      NOTE.B4,
+      NOTE.D5,
+      NOTE.E5,
+      NOTE.Fs5,
+      NOTE.A5,
+      NOTE.B5,
+      NOTE.D6,
+      NOTE.E6,
+      NOTE.Fs6,
+      NOTE.A6
+    ]);
+    ladderNote = (step) => LADDER[Math.max(0, Math.min(LADDER.length - 1, Math.floor(Number(step) || 0)))];
+    CROWN_CHORD = Object.freeze([
+      NOTE.D3,
+      NOTE.A3,
+      NOTE.D4,
+      NOTE.Fs4,
+      NOTE.A4,
+      NOTE.B4,
+      NOTE.D5,
+      NOTE.Fs5,
+      NOTE.A5,
+      NOTE.B5,
+      NOTE.D6,
+      NOTE.Fs6,
+      NOTE.A6
+    ]);
     ROOMS = Object.freeze({
       fri: Object.freeze({ len: 1, decay: 3.2, tone: 5200, wet: 0.16 }),
       sam: Object.freeze({ len: 0.8, decay: 3.6, tone: 6e3, wet: 0.12 }),
@@ -2784,6 +4663,7 @@ var init_soundKit = __esm({
     highpassFor = (listen) => listen === "phone" ? 380 : 25;
     rnd = (a, b) => a + Math.random() * (b - a);
     clampPan = (pan) => Math.max(-1, Math.min(1, Number(pan) || 0));
+    PHANTOM = Object.freeze({ floor: 400, ceil: 1500, partials: 4 });
     M = {
       /* clay chip on chip: a bright contact, two short body modes, and usually a second softer contact */
       clack(E, t, o = {}) {
@@ -2805,12 +4685,14 @@ var init_soundKit = __esm({
         const v = voice(E, { pan: o.pan || 0, send: 0.1, bright: 0.6, gain: o.gain ?? 1 });
         burst(E, v, t, { type: "lowpass", f: 520, q: 0.7, d: 0.09, peak: 0.7 });
         mode(E, v, t, 92, 0.13, 0.55, { drop: 0.5 });
+        phantom(E, v, t, 92, 0.1, 0.5);
       },
       /* knuckle on a wooden table */
       knock(E, t, o = {}) {
         const p = (o.pitch || 1) * rnd(0.98, 1.02);
         const v = voice(E, { pan: o.pan || 0, send: 0.18, bright: 0.8, gain: o.gain ?? 1 });
         mode(E, v, t, 185 * p, 0.11, 0.55, { drop: 0.25 });
+        phantom(E, v, t, 185 * p, 0.09, 0.45);
         mode(E, v, t, 530 * p, 0.05, 0.2);
         burst(E, v, t, { f: 1500 * p, q: 1.3, d: 0.014, peak: 0.3 });
       },
@@ -2827,6 +4709,7 @@ var init_soundKit = __esm({
         burst(E, v, t, { f: 1150, q: 0.6, d: 0.055, peak: 0.75 });
         burst(E, v, t, { type: "lowpass", f: 400, q: 0.7, d: 0.08, peak: 0.5 });
         mode(E, v, t, 110, 0.09, 0.35, { drop: 0.4 });
+        phantom(E, v, t, 110, 0.08, 0.35);
       },
       /* the sun-bell: celesta-like, harmonic, warm, short strike */
       bell(E, t, f, o = {}) {
@@ -2834,6 +4717,7 @@ var init_soundKit = __esm({
         const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.38, bright: 1, gain: o.gain ?? 1 });
         [[1, 0.24, dec], [2, 0.07, dec * 0.45], [3, 0.022, dec * 0.3], [4.07, 0.035, dec * 0.14], [6.1, 0.012, dec * 0.07]].forEach(([r, amp, d]) => mode(E, v, t, f * r * (1 + rnd(-8e-4, 8e-4)), d, amp, { a: 3e-3 }));
         mode(E, v, t, f * 1.0025, dec * 0.8, 0.08, { a: 3e-3 });
+        if (f < PHANTOM.floor) phantom(E, v, t, f, dec * 0.5, 0.2, { a: 3e-3 });
         burst(E, v, t, { type: "highpass", f: 4e3, d: 5e-3, peak: 0.04 });
       },
       /* a low singing bowl: inharmonic, slow beating */
@@ -2841,6 +4725,7 @@ var init_soundKit = __esm({
         const dec = o.dec || 4.5;
         const v = voice(E, { pan: o.pan || 0, send: 0.45, bright: 0.9, gain: o.gain ?? 1 });
         [[1, 0.22, dec], [1.004, 0.12, dec], [2.71, 0.08, dec * 0.55], [5.15, 0.03, dec * 0.3]].forEach(([r, amp, d]) => mode(E, v, t, f * r, d, amp, { a: 6e-3 }));
+        phantom(E, v, t, f, dec * 0.4, 0.16, { a: 6e-3 });
         burst(E, v, t, { type: "lowpass", f: 600, d: 0.03, peak: 0.12 });
       },
       /* a low frame drum, felt beater */
@@ -2849,6 +4734,7 @@ var init_soundKit = __esm({
         const v = voice(E, { pan: o.pan || 0, send: o.send ?? 0.2, bright: 0.5, gain: o.gain ?? 1 });
         mode(E, v, t, f, o.dec || 0.55, 0.85, { drop: 1.4, a: 2e-3 });
         mode(E, v, t, f * 1.59, 0.16, 0.18, { drop: 0.3 });
+        phantom(E, v, t, f, Math.min(0.3, (o.dec || 0.55) * 0.5), 0.6);
         burst(E, v, t, { type: "lowpass", f: 900, d: 0.03, peak: 0.25 });
       }
     };
@@ -2899,7 +4785,7 @@ var init_soundKit = __esm({
         name: "Chip placed",
         where: ["phone", "tv"],
         ms: 30,
-        play: (E, t) => M.clack(E, t)
+        play: (E, t, o = {}) => chipPlaced(E, t, o)
       },
       {
         id: "S6",
@@ -3088,17 +4974,21 @@ var init_soundKit = __esm({
           M.bell(E, t + 0.01, NOTE.A5, { gain: 0.18, dec: 0.6, send: 0.1 });
         }
       },
+      /* two notes falling a fourth (B to F#) on a dead wooden knock: it did not happen */
       {
         id: "S26",
         name: "Didn't save",
         where: ["gm", "phone"],
-        ms: 300,
+        ms: 500,
         play: (E, t) => {
-          M.felt(E, t, { gain: 0.7 });
-          M.felt(E, t + 0.15, { gain: 0.55 });
+          M.knock(E, t, { gain: 0.6 });
+          M.bell(E, t + 5e-3, NOTE.B4, { gain: 0.32, dec: 0.5, send: 0.08 });
+          M.knock(E, t + 0.17, { pitch: 0.84, gain: 0.55 });
+          M.bell(E, t + 0.175, NOTE.Fs4, { gain: 0.3, dec: 0.7, send: 0.08 });
         }
       }
     ].map(Object.freeze));
+    CHIP_WEIGHT = Object.freeze({ heightStep: 0.025, heightCap: 10 });
     PARTS = Object.freeze([
       {
         id: "ride",
@@ -3166,6 +5056,246 @@ var init_soundKit = __esm({
         name: "A wheel passes a value",
         ms: 20,
         play: (E, t) => M.tick(E, t, { gain: 0.45, pitch: 1.25 })
+      },
+      /* ── the takeover grammar (Backglass) ── */
+      /* the lean-in: the room dims and a sting turns heads before a peak */
+      {
+        id: "sting",
+        name: "Lean in",
+        ms: 1400,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.25, bright: 0.7 }), t, { d: 0.7, f0: 260, f1: 1500, q: 0.8, peak: 0.16 });
+          M.drum(E, t + 0.7, { f: NOTE.D2, dec: 0.9, gain: 0.75 });
+          M.bell(E, t + 0.7, NOTE.D5, { gain: 0.55, dec: 2.2 });
+          M.bell(E, t + 0.7, NOTE.A5, { gain: 0.3, dec: 1.6 });
+        }
+      },
+      /* a side enters from its own edge (pan -1 left, 1 right) */
+      {
+        id: "whoosh",
+        name: "A side slams in",
+        ms: 500,
+        play: (E, t) => {
+          whoosh(E, t, { d: 0.42, peak: 0.3 });
+          M.slap(E, t + 0.4, { gain: 0.7 });
+        }
+      },
+      /* VS: a drum, a slap and a low bell, held */
+      {
+        id: "vsHit",
+        name: "VS",
+        ms: 2600,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 1.1, gain: 0.95 });
+          M.slap(E, t + 4e-3, { gain: 0.85 });
+          M.bowl(E, t + 0.01, NOTE.D3, { gain: 0.6, dec: 2.6 });
+          M.bell(E, t + 0.01, NOTE.A4, { gain: 0.25, dec: 1.8 });
+        }
+      },
+      /* one letter of the head-to-head typing in */
+      {
+        id: "typeTick",
+        name: "A letter types in",
+        ms: 20,
+        play: (E, t) => M.tick(E, t, { gain: 0.35, pitch: 1.4 })
+      },
+      /* a place stamps on the podium (opts.place: 3, 2, 1) */
+      {
+        id: "podium",
+        name: "A place stamps",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const top = Number(o.place) === 1;
+          M.knock(E, t, { gain: 0.7, pitch: top ? 1.1 : 0.95 });
+          M.clack(E, t + 6e-3, { gain: 0.7 });
+          M.bell(E, t + 0.01, top ? NOTE.D5 : Number(o.place) === 2 ? NOTE.A4 : NOTE.Fs4, { gain: top ? 0.6 : 0.4, dec: top ? 2.4 : 1.4 });
+          if (top) M.drum(E, t, { f: NOTE.D2, dec: 0.6, gain: 0.6 });
+        }
+      },
+      /* ── the walkout ── */
+      /* as the win song fades in: a short chord stab, past the duck */
+      {
+        id: "stinger",
+        name: "Walkout stinger",
+        ms: 1600,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.8, gain: 0.85 });
+          riffle(E, t, 4, { gap: 0.03, gain: 0.5, pitch: 1.05 });
+          M.bell(E, t + 0.02, NOTE.A4, { gain: 0.5, dec: 2 });
+          M.bell(E, t + 0.02, NOTE.D5, { gain: 0.5, dec: 2 });
+          M.bell(E, t + 0.02, NOTE.Fs5, { gain: 0.45, dec: 2.4 });
+        }
+      },
+      /* the name stamps */
+      {
+        id: "stamp",
+        name: "A name stamps",
+        ms: 300,
+        play: (E, t) => {
+          M.slap(E, t, { gain: 0.8 });
+          M.knock(E, t + 0.01, { gain: 0.5, pitch: 0.9 });
+        }
+      },
+      /* ── "You're up" on a competitor's phone: two notes, low then high ── */
+      {
+        id: "youUp",
+        name: "You're up",
+        ms: 1200,
+        play: (E, t) => {
+          M.drum(E, t, { f: 82, dec: 0.28, gain: 0.7 });
+          M.bell(E, t + 5e-3, NOTE.D5, { gain: 0.6, dec: 1.1, send: 0.2 });
+          M.drum(E, t + 0.19, { f: 110, dec: 0.32, gain: 0.65 });
+          M.bell(E, t + 0.195, NOTE.A5, { gain: 0.6, dec: 1.6, send: 0.22 });
+        }
+      },
+      /* your team turns up at the draw: your color floods */
+      {
+        id: "teamUp",
+        name: "Your team",
+        ms: 1600,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.D5, { gain: 0.7, dec: 1.6, send: 0.25 });
+          M.bell(E, t + 0.09, NOTE.Fs5, { gain: 0.55, dec: 1.6, send: 0.25 });
+          M.bell(E, t + 0.18, NOTE.A5, { gain: 0.5, dec: 2, send: 0.25 });
+          M.felt(E, t, { gain: 0.5 });
+        }
+      },
+      /* ── chip rain ── */
+      /* a chip lands on your pile, one step up the ladder (opts.step) */
+      {
+        id: "rain",
+        name: "A chip lands on the pile",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const f = ladderNote(o.step);
+          M.clack(E, t, { pitch: 0.9 + (f / NOTE.D4 - 1) * 0.18, gain: 0.7, double: false });
+          M.bell(E, t + 3e-3, f, { gain: 0.22, dec: 0.45, send: 0.15 });
+        }
+      },
+      /* the pile sweeps into your total */
+      {
+        id: "sweep",
+        name: "The pile sweeps home",
+        ms: 700,
+        play: (E, t, o = {}) => {
+          swell(E, voice(E, { send: 0.1, bright: 0.6 }), t, { d: 0.4, f0: 500, f1: 1300, peak: 0.14 });
+          riffle(E, t + 0.18, Math.max(4, Math.min(10, o.n || 6)), { gap: 0.032, gain: 0.6, pitch: 1.06 });
+        }
+      },
+      /* a loss: your stack slides off to the bank, quietly */
+      {
+        id: "loss",
+        name: "To the bank, yours",
+        ms: 800,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.08, bright: 0.35 }), t, { d: 0.55, f0: 760, f1: 300, peak: 0.13 });
+          riffle(E, t + 0.32, 3, { pitch: 0.74, bright: 0.4, gain: 0.32, gap: 0.06 });
+        }
+      },
+      /* a bigger win rings more chips (opts.n) */
+      {
+        id: "payout",
+        name: "Payout by size",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const n = Math.max(4, Math.min(16, Math.round(o.n || 6)));
+          riffle(E, t, n, { pitch: 1.02, gap: Math.max(0.026, 0.05 - n * 15e-4), gain: 0.85 });
+          if (n >= 10) M.bell(E, t + n * 0.035, NOTE.D5, { gain: 0.4, dec: 1.6 });
+        }
+      },
+      /* a placed chip settles on the felt */
+      {
+        id: "chipLand",
+        name: "A chip settles",
+        ms: 120,
+        play: (E, t) => {
+          M.felt(E, t, { gain: 0.35 });
+          M.clack(E, t + 0.01, { pitch: 0.9, gain: 0.3, bright: 0.6, double: false });
+        }
+      },
+      /* you passed someone on the board: a quiet rising pair as your row lands */
+      {
+        id: "rankUp",
+        name: "You moved up",
+        ms: 900,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.Fs5, { gain: 0.32, dec: 0.9, send: 0.2 });
+          M.bell(E, t + 0.12, NOTE.A5, { gain: 0.34, dec: 1.2, send: 0.2 });
+        }
+      },
+      /* ── the produced crown ── */
+      /* night falls on the art */
+      {
+        id: "nightFall",
+        name: "Night falls",
+        ms: 4e3,
+        play: (E, t) => {
+          M.bowl(E, t, NOTE.D3, { gain: 0.7, dec: 4 });
+          M.bowl(E, t, NOTE.A2, { gain: 0.4, dec: 4.5 });
+          swell(E, voice(E, { send: 0.4, bright: 0.4 }), t, { d: 2.2, f0: 1400, f1: 300, peak: 0.1 });
+        }
+      },
+      /* the towers stand in final order */
+      {
+        id: "towersUp",
+        name: "The towers stand",
+        ms: 1800,
+        play: (E, t) => riffle(E, t, 13, { gap: 0.11, gain: 0.5, pitch: 0.92 })
+      },
+      /* a tower goes dark: the name and final stack stamp (opts.pan) */
+      {
+        id: "towerOut",
+        name: "A tower goes dark",
+        ms: 900,
+        play: (E, t) => {
+          M.knock(E, t, { gain: 0.65, pitch: 0.88 });
+          M.slap(E, t + 8e-3, { gain: 0.45 });
+          M.bowl(E, t + 0.01, NOTE.A2, { gain: 0.25, dec: 1.4 });
+        }
+      },
+      /* the last two hold: a roll that swells (opts.ms) */
+      {
+        id: "holdRoll",
+        name: "The last two hold",
+        ms: 4e3,
+        play: (E, t, o = {}) => roll(E, t, { dur: Math.max(1, (o.ms || 4e3) / 1e3), from: 0.05, to: 0.6, f: NOTE.D2 })
+      },
+      /* the champion's tower rises and cascades */
+      {
+        id: "cascade",
+        name: "The champion's tower",
+        ms: 2400,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.3, bright: 0.8 }), t, { d: 1.4, f0: 300, f1: 2200, peak: 0.16 });
+          for (let i = 0; i < 18; i++) M.clack(E, t + 0.5 + i * 0.05, { pitch: 0.9 + i * 0.02, gain: 0.55, double: false });
+          M.drum(E, t + 1.45, { f: NOTE.D2, dec: 1.2, gain: 0.9 });
+        }
+      },
+      /* one phone's note in the room's chord (opts.f), sustained */
+      {
+        id: "chord",
+        name: "Your note in the chord",
+        ms: 7e3,
+        play: (E, t, o = {}) => {
+          const f = Number(o.f) || NOTE.D5;
+          M.bell(E, t, f, { gain: 0.8, dec: 6.5, send: 0.3 });
+          const v = voice(E, { send: 0.3, bright: 0.8, gain: 0.6 });
+          mode(E, v, t, f, 6, 0.12, { a: 0.35 });
+          mode(E, v, t, f * 2, 3.5, 0.03, { a: 0.4 });
+          phantom(E, v, t, f, 5, 0.1, { a: 0.35 });
+        }
+      },
+      /* ── the finale ── */
+      /* the bust card lands */
+      {
+        id: "bustCard",
+        name: "Out",
+        ms: 1600,
+        play: (E, t) => {
+          M.slap(E, t, { gain: 0.8 });
+          M.bowl(E, t + 0.01, NOTE.D3, { gain: 0.45, dec: 1.8 });
+          M.bell(E, t + 0.02, NOTE.Fs4, { gain: 0.25, dec: 1.2 });
+        }
       }
     ].map(Object.freeze));
     SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map((s) => [s.id, s])));
@@ -3176,21 +5306,21 @@ var init_soundKit = __esm({
 });
 
 // src/lib/sound.js
-import { useEffect as useEffect6, useState as useState7 } from "react";
-function walkoutActive(walkout, now = serverNow()) {
+import { useEffect as useEffect8, useState as useState9 } from "react";
+function walkoutActive(walkout, now2 = serverNow()) {
   if (!walkout || typeof walkout !== "object") return false;
   const until = Number(walkout.until);
-  return Number.isFinite(until) && now < until;
+  return Number.isFinite(until) && now2 < until;
 }
-function hushReason({ walkout = null, quickDraw = false, now = serverNow() } = {}) {
-  if (walkoutActive(walkout, now)) return "walkout";
+function hushReason({ walkout = null, quickDraw = false, now: now2 = serverNow() } = {}) {
   if (quickDraw) return "quickDraw";
+  if (walkoutActive(walkout, now2)) return "walkout";
   return null;
 }
-function scheduleTime({ at, now, currentTime = 0, outputLatency = 0, lateMs = LATE_MS }) {
+function scheduleTime({ at, now: now2, currentTime = 0, outputLatency = 0, lateMs = LATE_MS }) {
   const target = Number(at);
   if (!Number.isFinite(target)) return null;
-  const ahead = target - Number(now);
+  const ahead = target - Number(now2);
   if (ahead < -lateMs) return null;
   const latency = Math.max(0, Number(outputLatency) || 0);
   return Math.max(currentTime + 5e-3, currentTime + ahead / 1e3 - latency);
@@ -3203,14 +5333,18 @@ function notify() {
     }
   }
 }
+function phoneSession() {
+  try {
+    if (engine.surface !== "tv" && globalThis.navigator?.audioSession && globalThis.navigator.audioSession.type !== PHONE_AUDIO_SESSION)
+      globalThis.navigator.audioSession.type = PHONE_AUDIO_SESSION;
+  } catch {
+  }
+}
 function context(create) {
   if (engine.ctx || !create) return engine.ctx;
   const AC = contextClass();
   if (!AC) return null;
-  try {
-    if (engine.surface !== "tv" && globalThis.navigator?.audioSession) globalThis.navigator.audioSession.type = "ambient";
-  } catch {
-  }
+  phoneSession();
   try {
     const ctx = new AC({ latencyHint: "interactive" });
     engine.ctx = ctx;
@@ -3258,27 +5392,33 @@ function unlockSound() {
       const src = ctx.createBufferSource();
       src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
       src.connect(ctx.destination);
+      src.onended = () => {
+        try {
+          src.disconnect();
+        } catch {
+        }
+      };
       src.start(0);
     } catch {
     }
   }
   return true;
 }
-function isHushed(now = serverNow()) {
-  return !!hushReason({ walkout: engine.walkout, quickDraw: engine.quickDraw, now });
+function isMuted(now2 = serverNow()) {
+  return hushLevel(hushReason({ walkout: engine.walkout, quickDraw: engine.quickDraw, now: now2 })) === 0;
 }
 function applyHush(immediate = false) {
-  const hushed = isHushed();
-  engine.hushed = hushed;
+  const level = hushLevel(hushReason({ walkout: engine.walkout, quickDraw: engine.quickDraw }));
+  engine.hushed = level < 1;
   const E = engine.E;
   if (!E) return;
   try {
     const g = E.hush.gain, t = E.ctx.currentTime;
     g.cancelScheduledValues(t);
-    if (immediate) g.setValueAtTime(hushed ? 0 : 1, t);
+    if (immediate) g.setValueAtTime(level, t);
     else {
       g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(hushed ? 0 : 1, t + HUSH_RAMP_S);
+      g.linearRampToValueAtTime(level, t + HUSH_RAMP_S);
     }
   } catch {
   }
@@ -3291,36 +5431,47 @@ function seenKey(key) {
   if (engine.keys.length > KEY_MEMORY) engine.keys.shift();
   return false;
 }
-function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {} } = {}) {
+function playSound(id, {
+  bus = "you",
+  at = null,
+  delayMs = 0,
+  pan = 0,
+  key = null,
+  lateMs = LATE_MS,
+  opts = {},
+  open = false
+} = {}) {
   try {
     if (!isSound(id) || soundOptedOut() || !busAllowed(bus, engine.surface)) return null;
     const ctx = context(false);
     if (!running(ctx) || !engine.E) return null;
-    const now = serverNow();
-    const target = at === null || at === void 0 ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
-    if (!Number.isFinite(target) || target - now < -lateMs) return null;
-    if (isHushed(Math.max(now, target))) return null;
+    const now2 = serverNow();
+    const target = at === null || at === void 0 ? now2 + Math.max(0, Number(delayMs) || 0) : Number(at);
+    if (!Number.isFinite(target) || target - now2 < -lateMs) return null;
+    if (isMuted(Math.max(now2, target))) return null;
     if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
     if (seenKey(key)) return null;
     if (bus === "you") engine.lastYouAt = target;
+    const early = bus === "room" ? soundEarlyMs() : 0;
+    const land = target - early;
     const fire = () => {
-      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
+      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isMuted(target) || !engine.E) return;
       const c = engine.ctx;
       const when = scheduleTime({
-        at: target,
+        at: land,
         now: serverNow(),
         currentTime: c.currentTime,
         outputLatency: c.outputLatency || c.baseLatency || 0,
-        lateMs
+        lateMs: lateMs + early
       });
       if (when === null) return;
-      playRecipe(engine.E, id, when, { pan, ...opts });
+      playRecipe(engine.E, id, when, { pan, ...opts, open });
       try {
         globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at: target, when, currentTime: c.currentTime, pan });
       } catch {
       }
     };
-    const wait = target - now - LOOKAHEAD_MS;
+    const wait = land - now2 - LOOKAHEAD_MS;
     if (wait <= 0) {
       fire();
       return { cancel() {
@@ -3340,9 +5491,10 @@ function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = nul
     return null;
   }
 }
-var SOUND_KEY, MASTER_VOLUME, BUSES, LATE_MS, LOOKAHEAD_MS, HUSH_RAMP_S, storage2, soundOptedOut, busAllowed, GM_YIELD_MS, ackYields, engine, listeners2, contextClass, running, KEY_MEMORY;
+var SOUND_KEY, MASTER_VOLUME, BUSES, LATE_MS, LOOKAHEAD_MS, HUSH_RAMP_S, WALKOUT_DUCK, TV_EARLY_KEY, TV_EARLY_MAX_MS, TV_EARLY_STEP_MS, clampEarlyMs, storage2, soundOptedOut, soundEarlyMs, busAllowed, hushLevel, GM_YIELD_MS, ackYields, engine, listeners2, PHONE_AUDIO_SESSION, contextClass, running, KEY_MEMORY;
 var init_sound = __esm({
   "src/lib/sound.js"() {
+    init_soundKit();
     init_soundKit();
     init_serverClock();
     init_frameGate();
@@ -3352,6 +5504,14 @@ var init_sound = __esm({
     LATE_MS = 300;
     LOOKAHEAD_MS = 250;
     HUSH_RAMP_S = 0.15;
+    WALKOUT_DUCK = 0.25;
+    TV_EARLY_KEY = "si-tv-early";
+    TV_EARLY_MAX_MS = 400;
+    TV_EARLY_STEP_MS = 10;
+    clampEarlyMs = (ms) => {
+      const n = Math.round((Number(ms) || 0) / TV_EARLY_STEP_MS) * TV_EARLY_STEP_MS;
+      return Math.max(0, Math.min(TV_EARLY_MAX_MS, n));
+    };
     storage2 = () => {
       try {
         return globalThis.localStorage || null;
@@ -3366,7 +5526,15 @@ var init_sound = __esm({
         return false;
       }
     };
+    soundEarlyMs = () => {
+      try {
+        return clampEarlyMs(storage2()?.getItem(TV_EARLY_KEY));
+      } catch {
+        return 0;
+      }
+    };
     busAllowed = (bus, surface) => !!BUSES[bus] && BUSES[bus] === (surface === "tv" ? "tv" : "phone");
+    hushLevel = (reason) => reason === "quickDraw" ? 0 : reason === "walkout" ? WALKOUT_DUCK : 1;
     GM_YIELD_MS = 400;
     ackYields = (id, lastYouAt, target) => id === "S25" && Number.isFinite(Number(lastYouAt)) && Number(lastYouAt) > 0 && Math.abs(Number(target) - Number(lastYouAt)) <= GM_YIELD_MS;
     engine = {
@@ -3388,216 +5556,195 @@ var init_sound = __esm({
       installed: false
     };
     listeners2 = /* @__PURE__ */ new Set();
+    PHONE_AUDIO_SESSION = "playback";
     contextClass = () => engine.factory || typeof globalThis !== "undefined" && (globalThis.AudioContext || globalThis.webkitAudioContext) || null;
     running = (ctx) => !!ctx && (ctx.state === "running" || engine.resuming);
     KEY_MEMORY = 200;
   }
 });
 
-// src/features/identity/chipCoin.js
-function edgeInserts(skin, n = COIN_FACETS) {
-  const every = (step, width = 1, offset2 = 0) => Array.from(
-    { length: n },
-    (_, i) => (i - offset2 + n) % n % step < width
-  );
-  switch (skin) {
-    case "plain":
-    case "ring":
-      return Array(n).fill(false);
-    case "dash":
-      return every(4, 2);
-    case "quad":
-      return every(6, 2, 5);
-    case "dots":
-    case "saw":
-      return every(2);
-    case "flame":
-    case "star":
-    case "bolt":
-      return every(4, 1, 2);
-    case "wave":
-      return every(3, 2);
-    case "crown":
-      return Array.from({ length: n }, (_, i) => i === 0 || i === 1 || i === n - 1);
-    default:
-      return every(3);
-  }
+// src/ui/ScoreReel.jsx
+import React17, { useEffect as useEffect9, useLayoutEffect as useLayoutEffect4, useRef as useRef8 } from "react";
+function drumSteps(from, to, direction) {
+  const a = Number(from) || 0, b = Number(to) || 0;
+  if (a === b) return 0;
+  return direction < 0 ? -((a - b + 10) % 10) : (b - a + 10) % 10;
 }
-function coinGeometry(size, n = COIN_FACETS) {
-  const radius = size * (15.4 / 32);
-  const thickness = Math.max(4, Math.round(size * 0.1));
-  const chord = 2 * radius * Math.sin(Math.PI / n) + 0.6;
-  const apothem = radius * Math.cos(Math.PI / n);
-  return { radius, thickness, chord, apothem, step: 360 / n };
-}
-function coinSettle(angle, velocity = 0) {
-  const a = Number.isFinite(angle) ? angle : 0;
-  const v = Number.isFinite(velocity) ? Math.max(-3, Math.min(3, velocity)) : 0;
-  const projected = a + v * 240;
-  const target = Math.round(projected / 360) * 360;
-  const duration = Math.round(Math.max(380, Math.min(1200, Math.abs(target - a) * 1.6)));
-  return { target: target === 0 ? 0 : target, duration };
-}
-var COIN_FACETS, COIN_DEG_PER_PX, COIN_TAP_SLOP;
-var init_chipCoin = __esm({
-  "src/features/identity/chipCoin.js"() {
-    COIN_FACETS = 24;
-    COIN_DEG_PER_PX = 0.9;
-    COIN_TAP_SLOP = 4;
-  }
-});
-
-// src/ui/motion.js
-var init_motion2 = __esm({
-  "src/ui/motion.js"() {
-    init_motion();
-  }
-});
-
-// src/features/identity/chip-coin.css
-var init_chip_coin = __esm({
-  "src/features/identity/chip-coin.css"() {
-  }
-});
-
-// src/features/identity/ChipCoin.jsx
-import React20, { useEffect as useEffect13, useRef as useRef14, useState as useState17 } from "react";
-function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = false, className = "" }) {
-  const identity = usePlayerIdentity(p);
-  const reduced = useReducedMotion();
-  const spinRef = useRef14(null);
-  const drag = useRef14(null);
-  const angle = useRef14(0);
-  const frame2 = useRef14(0);
-  const settle = useRef14(0);
-  const dragged = useRef14(false);
-  const claimed = identity.color !== CHIP_GRAY;
-  const key = `${identity.color}|${identity.skin}`;
-  const seen = useRef14(key);
-  const [mints, setMints] = useState17(() => mintOnMount && claimed ? 1 : 0);
-  useEffect13(() => {
-    if (seen.current === key) return;
-    seen.current = key;
-    if (mint && claimed && !reduced) {
-      angle.current = 0;
-      setMints((count) => count + 1);
-    }
-  }, [key, mint, claimed, reduced]);
-  useEffect13(() => () => {
-    cancelAnimationFrame(frame2.current);
-    clearTimeout(settle.current);
-  }, []);
-  if (reduced) return /* @__PURE__ */ React20.createElement("span", { className: `fd-coin is-static ${className}`, style: { width: size, height: size }, "aria-hidden": "true" }, /* @__PURE__ */ React20.createElement(ChipFace, { p, size, stamp, fallback }));
-  const paint = () => {
-    frame2.current = 0;
-    if (spinRef.current) spinRef.current.style.transform = `rotateY(${angle.current.toFixed(2)}deg)`;
-  };
-  const onPointerDown = (event) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.stopPropagation();
-    dragged.current = false;
-    const el = spinRef.current;
+function DrumDigit({ digit, value, register, index }) {
+  const ref = useRef8(null);
+  const st = useRef8(null);
+  if (!st.current) st.current = { digit, value, angle: Number(digit) * DRUM.faceDeg, timers: [], placed: false };
+  useIsoLayoutEffect(() => {
+    const el = ref.current, s = st.current;
     if (!el) return;
-    if (settle.current) {
-      clearTimeout(settle.current);
-      settle.current = 0;
-      angle.current = angleOf(getComputedStyle(el).transform);
-    }
-    el.style.transition = "none";
-    paint();
-    drag.current = { id: event.pointerId, x0: event.clientX, a0: angle.current, at: performance.now(), last: angle.current, v: 0 };
-    try {
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-    } catch {
-    }
-  };
-  const onPointerMove = (event) => {
-    const d = drag.current;
-    if (!d || event.pointerId !== d.id) return;
-    event.stopPropagation();
-    const dx = event.clientX - d.x0;
-    if (Math.abs(dx) >= COIN_TAP_SLOP) dragged.current = true;
-    if (!dragged.current) return;
-    const now = performance.now();
-    angle.current = d.a0 + dx * COIN_DEG_PER_PX;
-    const dt = Math.max(1, now - d.at);
-    d.v = d.v * 0.6 + (angle.current - d.last) / dt * 0.4;
-    d.last = angle.current;
-    d.at = now;
-    if (!frame2.current) frame2.current = requestAnimationFrame(paint);
-  };
-  const onPointerEnd = (event) => {
-    const d = drag.current;
-    if (!d || event.pointerId !== d.id) return;
-    drag.current = null;
-    if (!dragged.current) return;
-    event.stopPropagation();
-    cancelAnimationFrame(frame2.current);
-    frame2.current = 0;
-    const el = spinRef.current;
-    if (!el) return;
-    const idle = performance.now() - d.at > 90;
-    const { target, duration } = coinSettle(angle.current, idle ? 0 : d.v);
-    el.style.transition = `transform ${duration}ms cubic-bezier(.2,.8,.2,1)`;
-    el.style.transform = `rotateY(${target}deg)`;
-    settle.current = setTimeout(() => {
-      settle.current = 0;
-      angle.current = 0;
+    if (!s.placed) {
+      s.placed = true;
       el.style.transition = "none";
-      el.style.transform = "rotateY(0deg)";
-    }, duration + 30);
-  };
-  const g = coinGeometry(size);
-  const inserts = edgeInserts(identity.skin);
-  return /* @__PURE__ */ React20.createElement(
+      el.style.setProperty("--a", `${s.angle}deg`);
+      void el.offsetWidth;
+      el.style.removeProperty("transition");
+      return;
+    }
+    const direction = value < s.value ? -1 : 1;
+    s.value = value;
+    if (s.digit === digit) return;
+    const steps = drumSteps(s.digit, digit, direction);
+    s.digit = digit;
+    s.angle += steps * DRUM.faceDeg;
+    el.style.setProperty("--drum-ms", `${drumRollMs(steps)}ms`);
+    el.style.setProperty("--a", `${s.angle}deg`);
+  }, [digit, value]);
+  useEffect9(() => {
+    if (!register) return void 0;
+    return register(index, {
+      spin(turns, delay, duration, sign) {
+        const el = ref.current, s = st.current;
+        if (!el) return;
+        s.angle += sign * turns * 360;
+        el.style.setProperty("--drum-ms", `${duration}ms`);
+        el.style.setProperty("--drum-delay", `${delay}ms`);
+        el.style.setProperty("--drum-ease", "var(--ease-drum-spin)");
+        el.style.setProperty("--a", `${s.angle}deg`);
+        s.timers.push(setTimeout(() => playSound("detent", { bus: "you" }), delay + duration * 0.78));
+        s.timers.push(setTimeout(() => {
+          el.style.removeProperty("--drum-delay");
+          el.style.removeProperty("--drum-ease");
+        }, delay + duration + 40));
+      }
+    });
+  }, [register, index]);
+  useEffect9(() => () => st.current?.timers.forEach(clearTimeout), []);
+  const cur = String(digit);
+  return /* @__PURE__ */ React17.createElement("span", { className: "fd-drum", ref }, [...DIGITS].map((d, i) => /* @__PURE__ */ React17.createElement(
     "span",
     {
-      className: `fd-coin${identity.isLight ? " is-light" : ""} ${className}`,
-      "aria-hidden": "true",
-      style: {
-        width: size,
-        height: size,
-        perspective: `${size * 6}px`,
-        "--coin-color": identity.color,
-        "--coin-h": `${g.thickness}px`,
-        "--coin-chord": `${g.chord.toFixed(2)}px`,
-        "--coin-apothem": `${g.apothem.toFixed(2)}px`,
-        "--coin-step": `${g.step}deg`
-      },
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: onPointerEnd,
-      onPointerCancel: onPointerEnd,
-      onClickCapture: (event) => {
-        if (!dragged.current) return;
-        dragged.current = false;
-        event.stopPropagation();
-        event.preventDefault();
-      }
+      key: d,
+      className: `fd-drum-face${d === cur ? " is-current" : ""}`,
+      style: { "--i": i }
     },
-    /* @__PURE__ */ React20.createElement("span", { key: mints, className: `fd-coin-drop${mints ? " is-minting" : ""}` }, /* @__PURE__ */ React20.createElement("span", { className: "fd-coin-spin", ref: spinRef }, inserts.map((ink, index) => /* @__PURE__ */ React20.createElement(
-      "span",
-      {
-        key: index,
-        className: `fd-coin-facet${ink ? " is-ink" : ""}`,
-        style: { "--i": index }
+    d
+  )));
+}
+function ScoreReel({ value, tone = null, label: label2 = null, className = "", clack = false, drum = false, spin = false }) {
+  const n = Number(value) || 0;
+  const last = useRef8({ value: n, at: 0 });
+  useEffect9(() => {
+    const prev = last.current;
+    if (prev.value === n) return;
+    const at = now();
+    if (clack && at - prev.at >= CLACK_GAP_MS) {
+      playSound("detent", { bus: "you" });
+      last.current = { value: n, at };
+    } else last.current = { value: n, at: prev.at };
+  }, [n, clack]);
+  const drums = useRef8(/* @__PURE__ */ new Map());
+  const register = useRef8((index, api) => {
+    drums.current.set(index, api);
+    return () => {
+      if (drums.current.get(index) === api) drums.current.delete(index);
+    };
+  }).current;
+  const flick = useRef8(null);
+  const spinnable = drum && spin;
+  const text = `${n < 0 ? "\u2212" : ""}${Math.abs(n).toLocaleString("en-US")}`;
+  const cells = [...text];
+  const spinAll = (speed, sign) => {
+    const order = [...drums.current.keys()].sort((a, b) => a - b);
+    const turns = flickTurns(speed);
+    order.forEach((index, at) => drums.current.get(index)?.spin(
+      turns + (at > 1 ? 1 : 0),
+      at * DRUM.spinStaggerMs,
+      DRUM.spinMs + at * DRUM.spinStaggerMs,
+      sign
+    ));
+  };
+  const handlers = spinnable ? {
+    onPointerDown: (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      flick.current = { id: event.pointerId, y: event.clientY, t: now(), spun: false };
+    },
+    onPointerMove: (event) => {
+      const f = flick.current;
+      if (!f || f.id !== event.pointerId || f.spun) return;
+      const dy = event.clientY - f.y;
+      if (Math.abs(dy) < DRUM.flickPx) return;
+      f.spun = true;
+      if (prefersReducedMotion()) return;
+      tapTick();
+      spinAll(Math.abs(dy) / Math.max(16, now() - f.t), dy > 0 ? 1 : -1);
+    },
+    onPointerUp: (event) => {
+      if (flick.current?.id === event.pointerId && !flick.current.spun) flick.current = null;
+    },
+    onPointerCancel: () => {
+      flick.current = null;
+    },
+    /* a flick is not a tap on whatever the reel sits in */
+    onClickCapture: (event) => {
+      if (flick.current?.spun) {
+        event.preventDefault();
+        event.stopPropagation();
       }
-    )), /* @__PURE__ */ React20.createElement("span", { className: "fd-coin-face is-front" }, /* @__PURE__ */ React20.createElement(ChipFace, { p, size, stamp, fallback })), /* @__PURE__ */ React20.createElement("span", { className: "fd-coin-face is-back" }, /* @__PURE__ */ React20.createElement(ChipFace, { p, size, stamp, fallback }))))
+      flick.current = null;
+    }
+  } : {};
+  return /* @__PURE__ */ React17.createElement(
+    "span",
+    {
+      className: `fd-reel${drum ? " is-drum" : ""}${spinnable ? " is-spinnable" : ""}${tone ? ` is-${tone}` : ""}${className ? ` ${className}` : ""}`,
+      role: "img",
+      "aria-label": label2 ?? text,
+      ...handlers
+    },
+    cells.map((ch, i) => {
+      const key = cells.length - i;
+      if (!/\d/.test(ch)) return /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-sep", key: `s${key}`, "aria-hidden": "true" }, ch);
+      return /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-cell", key: `d${key}`, "aria-hidden": "true" }, drum ? /* @__PURE__ */ React17.createElement(DrumDigit, { digit: ch, value: n, register: spinnable ? register : null, index: i }) : /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-strip", style: { "--d": ch } }, [...DIGITS].map((d) => /* @__PURE__ */ React17.createElement("span", { key: d }, d))), /* @__PURE__ */ React17.createElement("span", { className: "fd-reel-sizer" }, ch));
+    })
   );
 }
-var angleOf;
-var init_ChipCoin = __esm({
-  "src/features/identity/ChipCoin.jsx"() {
-    init_core();
-    init_motion2();
-    init_PlayerIdentity();
-    init_PlayerIdentityContext();
-    init_chipCoin();
-    init_chip_coin();
-    angleOf = (transform) => {
-      const values = /matrix3d\(([^)]+)\)/.exec(transform || "")?.[1]?.split(",").map(Number);
-      return values ? Math.atan2(-values[2], values[0]) * 180 / Math.PI : 0;
-    };
+function LampChase({ tone = "live", color = null, running: running2 = true, className = "" }) {
+  return /* @__PURE__ */ React17.createElement(
+    "svg",
+    {
+      className: `fd-chase is-${tone}${running2 ? " is-running" : ""}${className ? ` ${className}` : ""}`,
+      style: color ? { "--chase": color } : void 0,
+      "aria-hidden": "true",
+      focusable: "false"
+    },
+    /* @__PURE__ */ React17.createElement("rect", { x: "0", y: "0", width: "100%", height: "100%", pathLength: "400" })
+  );
+}
+var DIGITS, CLACK_GAP_MS, useIsoLayoutEffect, now, DRUM, drumRollMs, flickTurns;
+var init_ScoreReel = __esm({
+  "src/ui/ScoreReel.jsx"() {
+    init_sound();
+    init_haptics();
+    init_motion();
+    init_backglass();
+    DIGITS = "0123456789";
+    CLACK_GAP_MS = 45;
+    useIsoLayoutEffect = typeof window === "undefined" ? useEffect9 : useLayoutEffect4;
+    now = () => typeof performance !== "undefined" ? performance.now() : Date.now();
+    DRUM = Object.freeze({
+      faceDeg: 36,
+      // ten faces round the ring
+      radius: 1.5388,
+      // ring radius per face height: 1 / (2 tan 18deg)
+      rollMs: 260,
+      // one digit
+      perStepMs: 55,
+      // each further digit adds momentum
+      maxRollMs: 900,
+      spinMs: 720,
+      // a flicked drum's spin, plus a stagger per drum
+      spinStaggerMs: 150,
+      maxTurns: 3,
+      flickPx: 14
+      // vertical travel before a press is a flick
+    });
+    drumRollMs = (steps) => Math.min(DRUM.maxRollMs, DRUM.rollMs + Math.max(0, Math.abs(steps) - 1) * DRUM.perStepMs);
+    flickTurns = (speed) => Math.max(1, Math.min(DRUM.maxTurns, Math.round(Math.abs(Number(speed) || 0) * 1.6)));
   }
 });
 
@@ -3669,9 +5816,9 @@ var init_tilt = __esm({
 });
 
 // src/features/profile/useRisoTilt.js
-import { useEffect as useEffect14, useLayoutEffect as useLayoutEffect7, useRef as useRef15 } from "react";
+import { useEffect as useEffect10, useLayoutEffect as useLayoutEffect5, useRef as useRef9 } from "react";
 function useRisoTilt(ref, enabled) {
-  const st = useRef15(null);
+  const st = useRef9(null);
   if (!st.current) st.current = {
     cur: { x: 0, y: 0 },
     target: { x: 0, y: 0 },
@@ -3751,7 +5898,7 @@ function useRisoTilt(ref, enabled) {
       if (!s.pointer && !s.hover) release(TILT.openMs);
     }));
   };
-  useIsoLayoutEffect(() => {
+  useIsoLayoutEffect2(() => {
     if (!enabled) {
       reset();
       return void 0;
@@ -3762,7 +5909,7 @@ function useRisoTilt(ref, enabled) {
     if (rect.width > 0 && rect.bottom > 0 && rect.top < window.innerHeight) openSettle();
     return void 0;
   }, [enabled]);
-  useEffect14(() => {
+  useEffect10(() => {
     if (!enabled) return void 0;
     const el = ref.current;
     if (!el || typeof IntersectionObserver !== "function") return void 0;
@@ -3778,7 +5925,7 @@ function useRisoTilt(ref, enabled) {
     observer.observe(el);
     return () => observer.disconnect();
   }, [enabled]);
-  useEffect14(() => {
+  useEffect10(() => {
     if (!enabled || typeof window === "undefined") return void 0;
     const allowed = canFollowOrientation({
       userAgent: navigator.userAgent,
@@ -3800,7 +5947,7 @@ function useRisoTilt(ref, enabled) {
       s.orient = null;
     };
   }, [enabled]);
-  useEffect14(() => () => {
+  useEffect10(() => () => {
     if (s.raf) cancelAnimationFrame(s.raf);
     clearTimeout(s.timer);
   }, []);
@@ -3860,11 +6007,11 @@ function useRisoTilt(ref, enabled) {
     }
   };
 }
-var useIsoLayoutEffect;
+var useIsoLayoutEffect2;
 var init_useRisoTilt = __esm({
   "src/features/profile/useRisoTilt.js"() {
     init_tilt();
-    useIsoLayoutEffect = typeof window === "undefined" ? useEffect14 : useLayoutEffect7;
+    useIsoLayoutEffect2 = typeof window === "undefined" ? useEffect10 : useLayoutEffect5;
   }
 });
 
@@ -3881,7 +6028,7 @@ function stagePlayers(state, st, key, evId = st.eventId) {
   return stageEntrantView(state, { ...st, eventId: evId }, key).players || [];
 }
 function groupWinner(st, group) {
-  if (decided2(group?.winner)) return group.winner;
+  if (decided(group?.winner)) return group.winner;
   const through = group?.through || [];
   return st.advance === 1 && through.length === 1 ? through[0] : null;
 }
@@ -3893,9 +6040,9 @@ function bracketStanding(state, ev, teamIdx) {
     for (const match of br.rounds[r]) {
       const sides = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
       if (!sides.includes(teamIdx)) continue;
-      if (decided2(match.winner) && match.winner !== teamIdx)
+      if (decided(match.winner) && match.winner !== teamIdx)
         return { out: true, label: roundShort(draw.teams.length, r) };
-      if (!decided2(match.winner) && next === null) next = r;
+      if (!decided(match.winner) && next === null) next = r;
     }
   }
   return { out: false, label: next === null ? "" : roundShort(draw.teams.length, next) };
@@ -3906,11 +6053,11 @@ function stageStanding(state, st, player, evId) {
   if (!group) return null;
   const through = group.through || [];
   const winner = groupWinner(st, group);
-  const qualified = through.some(keyOf) || decided2(winner) && keyOf(winner);
-  const groupDone = through.length >= st.advance || decided2(winner);
+  const qualified = through.some(keyOf) || decided(winner) && keyOf(winner);
+  const groupDone = through.length >= st.advance || decided(winner);
   if (groupDone && !qualified) return { out: true, label: "Heat" };
   if (!groupDone) return { out: false, label: group.name || "Heat" };
-  if (decided2(st.finalWinner) && !keyOf(st.finalWinner)) return { out: true, label: "Final" };
+  if (decided(st.finalWinner) && !keyOf(st.finalWinner)) return { out: true, label: "Final" };
   return { out: false, label: "Final" };
 }
 function eventRow(state, ev, player) {
@@ -4010,7 +6157,7 @@ function eventMeetings(state, a, b, events = allEventsOf(state)) {
     const draw = state.draws?.[ev.id], br = state.brackets?.[ev.id], st = state.stages?.[ev.id];
     if (br?.rounds && draw?.teams) {
       br.rounds.forEach((round, r) => round.forEach((match, m) => {
-        if (!decided2(match.winner)) return;
+        if (!decided(match.winner)) return;
         const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
         if (keys.some((key) => !draw.teams[key])) return;
         meet(
@@ -4025,12 +6172,12 @@ function eventMeetings(state, a, b, events = allEventsOf(state)) {
     if (st?.groups) {
       st.groups.forEach((group) => {
         const winner = groupWinner(st, group);
-        if (!decided2(winner)) return;
+        if (!decided(winner)) return;
         const keys = group.entrants || [];
         meet(ev, group.name || "Heat", keys.map((key) => stagePlayers(state, st, key, ev.id)), keys.indexOf(winner));
       });
       const finalists = stageFinalists(st);
-      if (finalists && decided2(st.finalWinner))
+      if (finalists && decided(st.finalWinner))
         meet(ev, "Final", finalists.map((key) => stagePlayers(state, st, key, ev.id)), finalists.indexOf(st.finalWinner));
       return;
     }
@@ -4088,11 +6235,11 @@ function seasonStats(state, player, { events = allEventsOf(state), standings, vi
     active: rows.length > 0 || bets.won + bets.lost + bets.pending > 0 || duels.won + duels.lost + duels.push > 0 || mvps > 0 || moved
   };
 }
-var decided2, placeLabel, ROUND_SHORT, teamIndexOf, recordText;
+var decided, placeLabel, ROUND_SHORT, teamIndexOf, recordText;
 var init_seasonStats = __esm({
   "src/features/profile/seasonStats.js"() {
     init_core();
-    decided2 = (value) => value !== null && value !== void 0;
+    decided = (value) => value !== null && value !== void 0;
     placeLabel = (place) => ["1st", "2nd", "3rd"][place] || `${place + 1}th`;
     ROUND_SHORT = { Semifinals: "SF", Semifinal: "SF", Quarterfinals: "QF", Quarterfinal: "QF" };
     teamIndexOf = (draw, player) => Array.isArray(draw?.teams) ? draw.teams.findIndex((team) => team?.players?.includes(player)) : -1;
@@ -4107,14 +6254,14 @@ var init_player_pass = __esm({
 });
 
 // src/features/profile/PlayerPass.jsx
-import React21, { useEffect as useEffect15, useMemo as useMemo2, useRef as useRef16, useState as useState18 } from "react";
+import React18, { useEffect as useEffect11, useMemo as useMemo2, useRef as useRef10, useState as useState10 } from "react";
 function cardInk(color) {
   const luminanceOf = (hex) => {
-    const channels = hex.slice(1).match(/.{2}/g).map((value) => parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    const channels2 = hex.slice(1).match(/.{2}/g).map((value) => parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return channels2[0] * 0.2126 + channels2[1] * 0.7152 + channels2[2] * 0.0722;
   };
-  const luminance = luminanceOf(color), darkLuminance = luminanceOf("#070b09");
-  return (luminance + 0.05) / (darkLuminance + 0.05) >= 1.05 / (luminance + 0.05) ? "#070b09" : "#ffffff";
+  const luminance2 = luminanceOf(color), darkLuminance = luminanceOf("#070b09");
+  return (luminance2 + 0.05) / (darkLuminance + 0.05) >= 1.05 / (luminance2 + 0.05) ? "#070b09" : "#ffffff";
 }
 function PlayerPass({
   state,
@@ -4127,18 +6274,20 @@ function PlayerPass({
   viewer = null,
   events,
   standings,
-  onFlip
+  onFlip,
+  own = true
 }) {
   const identity = usePlayerIdentity(p);
-  const [flipped, setFlipped] = useState18(false);
+  const initials = usePlayerInitials(p);
+  const [flipped, setFlipped] = useState10(false);
   const reducedMotion = useReducedMotion();
-  const cardRef = useRef16(null);
+  const cardRef = useRef10(null);
   const tilt = useRisoTilt(cardRef, !reducedMotion && !!p);
   const profile = state.profiles?.[p] || {};
   const name = display?.trim() || profile.display || p;
-  const number = num !== void 0 && num !== null && num !== "" ? Number(num) : identity.num;
+  const number = !own ? null : num !== void 0 && num !== null && num !== "" ? Number(num) : identity.num;
   const saved2 = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
-  const [failed, setFailed] = useState18(null);
+  const [failed, setFailed] = useState10(null);
   const portrait = saved2 && failed !== saved2 ? saved2 : null;
   const rows = useMemo2(() => standings || (state.live ? computeStandings(state) : null), [standings, state]);
   const standing = state.live ? rows?.find((row) => row.player === p) : null;
@@ -4151,9 +6300,9 @@ function PlayerPass({
     [state, p, events, rows, viewer]
   );
   const sheet = !!season && (season.active || !!season.versus);
-  const seasonRef = useRef16(null);
-  const [backHeight, setBackHeight] = useState18(0);
-  useEffect15(() => {
+  const seasonRef = useRef10(null);
+  const [backHeight, setBackHeight] = useState10(0);
+  useEffect11(() => {
     const body = seasonRef.current, face = body?.parentElement;
     if (!body || !face || typeof window === "undefined") {
       setBackHeight(0);
@@ -4172,19 +6321,24 @@ function PlayerPass({
   }, [sheet]);
   if (!p) return null;
   const longest = Math.max(4, ...name.split(/\s+/).map((word) => word.length));
-  const ghost = number == null ? "FD" : String(number).padStart(2, "0");
+  const monogram = (name === (profile.display || p) ? initials : String(name || "").trim().slice(0, 2).toUpperCase()) || "FD";
+  const ghost = number == null ? monogram : String(number).padStart(2, "0");
   const turn = () => {
     const next = !flipped;
     setFlipped(next);
     onFlip?.(next);
   };
-  return /* @__PURE__ */ React21.createElement(
+  return /* @__PURE__ */ React18.createElement(
     "div",
     {
       className: `fd-pass-wrap${compact ? " fd-pass-compact" : ""}`,
-      style: { "--pass-color": identity.color, "--pass-ink": cardInk(identity.color), "--pass-name-chars": longest }
+      style: {
+        "--pass-color": identity.color,
+        "--pass-ink": identity.isLight ? "var(--ink0)" : "var(--bone)",
+        "--pass-name-chars": longest
+      }
     },
-    /* @__PURE__ */ React21.createElement(
+    /* @__PURE__ */ React18.createElement(
       "button",
       {
         type: "button",
@@ -4200,8 +6354,8 @@ function PlayerPass({
         "aria-label": `${name}'s player card. ${flipped ? "Show front" : "Turn over"}`,
         "aria-pressed": flipped
       },
-      /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-shadow", "aria-hidden": "true" }),
-      /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-tilt" }, /* @__PURE__ */ React21.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React21.createElement("span", null, "FIELD DAY"), /* @__PURE__ */ React21.createElement("span", null, EDITION.name.toUpperCase(), " / ", EDITION.year)), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-number" }, ghost), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-number fd-pass-plate", "aria-hidden": "true" }, ghost), portrait && /* @__PURE__ */ React21.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) }), /* @__PURE__ */ React21.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React21.createElement(ChipCoin, { p, size: portrait ? 78 : 112, stamp: number == null ? void 0 : String(number), mint })), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-edition" }, "SCOTTSDALE", /* @__PURE__ */ React21.createElement("br", null), "ARIZONA")), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-name" }, name), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React21.createElement("span", null, EDITION.short), /* @__PURE__ */ React21.createElement("span", null, "PLAYER / ", number ?? "FD"))), /* @__PURE__ */ React21.createElement("span", { className: `fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`, "aria-hidden": !flipped }, sheet ? /* @__PURE__ */ React21.createElement(
+      /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-shadow", "aria-hidden": "true" }),
+      /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-tilt" }, /* @__PURE__ */ React18.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-mark" }, "Field Day"), /* @__PURE__ */ React18.createElement("span", null, EDITION.label)), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-number" }, ghost), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-number fd-pass-plate", "aria-hidden": "true" }, ghost), portrait && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-window" }, /* @__PURE__ */ React18.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) })), /* @__PURE__ */ React18.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React18.createElement(ChipCoin, { p, size: portrait ? 74 : 112, stamp: number == null ? void 0 : String(number), mint }))), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-name" }, name), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement(OneSafe, { text: EDITION.short })), number != null && /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement(OneSafe, { text: `PLAYER / ${number}` })))), /* @__PURE__ */ React18.createElement("span", { className: `fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`, "aria-hidden": !flipped }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), sheet ? /* @__PURE__ */ React18.createElement(
         SeasonBack,
         {
           state,
@@ -4211,9 +6365,9 @@ function PlayerPass({
           walkout: profile.walkoutTrack?.name,
           bodyRef: seasonRef
         }
-      ) : /* @__PURE__ */ React21.createElement(React21.Fragment, null, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React21.createElement("span", null, name), /* @__PURE__ */ React21.createElement("span", null, "FIELD DAY / ", EDITION.year)), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-back-title" }, "PLAYER", /* @__PURE__ */ React21.createElement("br", null), number == null ? "CARD" : String(number).padStart(2, "0")), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-facts" }, /* @__PURE__ */ React21.createElement("span", null, /* @__PURE__ */ React21.createElement("span", null, "Scottsdale, Arizona"), /* @__PURE__ */ React21.createElement("span", null, EDITION.short)), standing && /* @__PURE__ */ React21.createElement("span", null, /* @__PURE__ */ React21.createElement("span", null, "Current chips"), /* @__PURE__ */ React21.createElement("strong", null, standing.pts.toLocaleString("en-US"))), profile.walkoutTrack?.name && /* @__PURE__ */ React21.createElement("span", null, /* @__PURE__ */ React21.createElement("span", null, "Win song"), /* @__PURE__ */ React21.createElement("strong", null, profile.walkoutTrack.name))), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React21.createElement("span", null, name.toUpperCase()), /* @__PURE__ */ React21.createElement("span", null, EDITION.year))))))
+      ) : /* @__PURE__ */ React18.createElement(React18.Fragment, null, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-mark" }, "Field Day"), /* @__PURE__ */ React18.createElement("span", null, EDITION.year)), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-back-title" }, /* @__PURE__ */ React18.createElement("span", null, name), /* @__PURE__ */ React18.createElement("b", null, number == null ? "Player card" : `Player ${String(number).padStart(2, "0")}`)), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-facts" }, /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement("span", null, "Scottsdale, Arizona"), /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement(OneSafe, { text: EDITION.short }))), standing && /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement("span", null, "Current chips"), /* @__PURE__ */ React18.createElement("strong", { className: "fd-pass-chips" }, standing.pts.toLocaleString("en-US"))), profile.walkoutTrack?.name && /* @__PURE__ */ React18.createElement("span", null, /* @__PURE__ */ React18.createElement("span", null, "Win song"), /* @__PURE__ */ React18.createElement("strong", null, profile.walkoutTrack.name)))))))
     ),
-    /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-hint" }, flipped ? "Tap to see the front" : "Tap to turn over")
+    /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-hint" }, flipped ? "Tap to see the front" : "Tap to turn over")
   );
 }
 function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
@@ -4224,15 +6378,16 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
   const order = () => ({ "--i": index++ });
   const totals = [
     season.rank !== null && { key: "rank", value: String(season.rank), label: "Rank" },
-    season.pts !== null && { key: "chips", value: fmt3(season.pts), label: "Chips" },
-    settledBets > 0 && { key: "bets", value: signedChips(bets.net), label: `Bets ${recordText(bets)}` },
+    /* a plain number: digit windows are for hero numbers, not a stat row */
+    season.pts !== null && { key: "chips", value: Number(season.pts).toLocaleString("en-US"), label: "Chips", tone: "chip" },
+    settledBets > 0 && { key: "bets", value: signedChips(bets.net), label: `Bets ${recordText(bets)}`, tone: "chip" },
     settledDuels > 0 && { key: "duels", value: recordText(duels), label: "Quick Draw" },
     season.mvps > 0 && { key: "mvps", value: String(season.mvps), label: season.mvps === 1 ? "Team MVP" : "Team MVPs" }
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
-  return /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-season", ref: bodyRef }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React21.createElement("span", null, name), /* @__PURE__ */ React21.createElement("span", null, "FIELD DAY / ", EDITION.year)), /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-season-head" }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-season-title" }, number == null ? "Player card" : `Player ${number}`), number != null && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-season-ghost" }, String(number).padStart(2, "0"))), versus && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-box fd-pass-row", style: order() }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-box-head" }, /* @__PURE__ */ React21.createElement("span", null, "You vs ", name), /* @__PURE__ */ React21.createElement("strong", null, recordText(versus))), meetings.map((meeting, at) => /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-line", key: `${meeting.eventId}-${at}` }, /* @__PURE__ */ React21.createElement("span", null, meeting.label === meeting.event ? meeting.event : `${meeting.event} \xB7 ${meeting.label}`), /* @__PURE__ */ React21.createElement("strong", null, meeting.won ? "You" : name))), versus.duels.won + versus.duels.lost + versus.duels.push > 0 && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-line" }, /* @__PURE__ */ React21.createElement("span", null, "Quick Draw"), /* @__PURE__ */ React21.createElement("strong", null, recordText(versus.duels))), versus.bets.won + versus.bets.lost > 0 && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-line" }, /* @__PURE__ */ React21.createElement("span", null, "Your bets on ", name), /* @__PURE__ */ React21.createElement("strong", null, signedChips(versus.bets.net)))), events.length > 0 && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-table" }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-table-head fd-pass-row", style: order() }, /* @__PURE__ */ React21.createElement("span", null, "Event"), /* @__PURE__ */ React21.createElement("span", null, "Place"), /* @__PURE__ */ React21.createElement("span", null, "Chips")), events.map((row) => /* @__PURE__ */ React21.createElement("span", { key: row.id, className: `fd-pass-table-row fd-pass-row is-${row.status}`, style: order() }, /* @__PURE__ */ React21.createElement("span", null, row.name), /* @__PURE__ */ React21.createElement("strong", null, row.place), /* @__PURE__ */ React21.createElement("span", null, awardText(row))))), totals.length > 0 && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-totals fd-pass-row", style: order() }, totals.map((item) => /* @__PURE__ */ React21.createElement("span", { key: item.key }, /* @__PURE__ */ React21.createElement("strong", null, item.value), /* @__PURE__ */ React21.createElement("small", null, item.label)))), rivals.length > 0 && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-box fd-pass-row", style: order() }, /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-box-head" }, /* @__PURE__ */ React21.createElement("span", null, "Rivalries")), rivals.map((record) => /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-line", key: record.other }, /* @__PURE__ */ React21.createElement("span", null, "vs ", disp(state, record.other)), /* @__PURE__ */ React21.createElement("strong", null, recordText(record))))), walkout && /* @__PURE__ */ React21.createElement("span", { className: "fd-pass-line fd-pass-walkout fd-pass-row", style: order() }, /* @__PURE__ */ React21.createElement("span", null, "Win song"), /* @__PURE__ */ React21.createElement("strong", null, walkout)));
+  return /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-season", ref: bodyRef }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-mark" }, "Field Day"), /* @__PURE__ */ React18.createElement("span", null, EDITION.year)), /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-season-head" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-season-title" }, name), number != null && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-season-ghost" }, String(number).padStart(2, "0"))), versus && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-box fd-pass-row", style: order() }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-box-head" }, /* @__PURE__ */ React18.createElement("span", null, "You vs ", name), /* @__PURE__ */ React18.createElement("strong", null, recordText(versus))), meetings.map((meeting, at) => /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-line", key: `${meeting.eventId}-${at}` }, /* @__PURE__ */ React18.createElement("span", null, meeting.event), /* @__PURE__ */ React18.createElement("strong", null, meeting.won ? "You" : name))), versus.duels.won + versus.duels.lost + versus.duels.push > 0 && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-line" }, /* @__PURE__ */ React18.createElement("span", null, "Quick Draw"), /* @__PURE__ */ React18.createElement("strong", null, recordText(versus.duels))), versus.bets.won + versus.bets.lost > 0 && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-line" }, /* @__PURE__ */ React18.createElement("span", null, "Your bets on ", name), /* @__PURE__ */ React18.createElement("strong", null, signedChips(versus.bets.net)))), events.length > 0 && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-table" }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-table-head fd-pass-row", style: order() }, /* @__PURE__ */ React18.createElement("span", null, "Event"), /* @__PURE__ */ React18.createElement("span", null, "Place"), /* @__PURE__ */ React18.createElement("span", null, "Chips")), events.map((row) => /* @__PURE__ */ React18.createElement("span", { key: row.id, className: `fd-pass-table-row fd-pass-row is-${row.status}`, style: order() }, /* @__PURE__ */ React18.createElement("span", null, row.name), /* @__PURE__ */ React18.createElement("strong", null, row.place), /* @__PURE__ */ React18.createElement("span", null, awardText(row))))), totals.length > 0 && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-totals fd-pass-row", style: order() }, totals.map((item) => /* @__PURE__ */ React18.createElement("span", { key: item.key }, /* @__PURE__ */ React18.createElement("strong", { className: item.tone ? `is-${item.tone}` : void 0 }, item.value), /* @__PURE__ */ React18.createElement("small", null, item.label)))), rivals.length > 0 && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-box fd-pass-row", style: order() }, /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-box-head" }, /* @__PURE__ */ React18.createElement("span", null, "Rivalries")), rivals.map((record) => /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-line", key: record.other }, /* @__PURE__ */ React18.createElement("span", null, "vs ", disp(state, record.other)), /* @__PURE__ */ React18.createElement("strong", null, recordText(record))))), walkout && /* @__PURE__ */ React18.createElement("span", { className: "fd-pass-line fd-pass-walkout fd-pass-row", style: order() }, /* @__PURE__ */ React18.createElement("span", null, "Win song"), /* @__PURE__ */ React18.createElement("strong", null, walkout)));
 }
-var fmt3, awardText;
+var awardText;
 var init_PlayerPass = __esm({
   "src/features/profile/PlayerPass.jsx"() {
     init_core();
@@ -4240,11 +6395,763 @@ var init_PlayerPass = __esm({
     init_PlayerIdentityContext();
     init_motion2();
     init_motion();
+    init_ScoreReel();
+    init_OneSafe();
     init_useRisoTilt();
     init_seasonStats();
     init_player_pass();
-    fmt3 = (n) => (n ?? 0).toLocaleString("en-US");
     awardText = (row) => row.award === null || row.award === void 0 ? row.status === "playing" ? "Playing" : "\u2013" : row.award > 0 ? signedChips(row.award) : "0";
+  }
+});
+
+// src/lib/motionKit.js
+import { useLayoutEffect as useLayoutEffect6, useRef as useRef12, useState as useState13 } from "react";
+function useFreshHold(value, key = null, ms = MOTION.story, options) {
+  const change = useFreshChange(value, key, options);
+  const [held, setHeld] = useState13(0);
+  useLayoutEffect6(() => {
+    if (!change.animate) return void 0;
+    setHeld(change.changeId);
+    const t = setTimeout(() => setHeld((current) => current === change.changeId ? 0 : current), ms);
+    return () => clearTimeout(t);
+  }, [change.changeId]);
+  return change.animate ? change.changeId : held;
+}
+function childOffsets(container, attr = "data-flip") {
+  const map = /* @__PURE__ */ new Map();
+  if (!container || typeof container.getBoundingClientRect !== "function") return map;
+  const box = container.getBoundingClientRect();
+  const scale = container.offsetWidth ? box.width / container.offsetWidth || 1 : 1;
+  for (const el of container.querySelectorAll(`[${attr}]`)) {
+    const r = el.getBoundingClientRect();
+    map.set(el.getAttribute(attr), {
+      left: (r.left - box.left) / scale,
+      top: (r.top - box.top) / scale,
+      width: r.width / scale,
+      height: r.height / scale
+    });
+  }
+  return map;
+}
+function flipMoves(before, after, { threshold = 0.5 } = {}) {
+  const moves = [], entering = [];
+  for (const [key, to] of after) {
+    const from = before?.get(key);
+    if (!from) {
+      entering.push(key);
+      continue;
+    }
+    const dx = from.left - to.left, dy = from.top - to.top;
+    if (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) moves.push({ key, dx, dy });
+  }
+  return { moves, entering };
+}
+function useFlip(ref, {
+  play = false,
+  attr = "data-flip",
+  duration = MOTION.rowSlide,
+  delay = 0,
+  stagger = 0,
+  easing = EASE.out,
+  enter = true,
+  onPlay = null
+} = {}) {
+  const last = useRef12(null);
+  useLayoutEffect6(() => {
+    const container = ref.current;
+    const before = last.current;
+    const after = childOffsets(container, attr);
+    last.current = after;
+    if (!play || !before || !container || prefersReducedMotion()) return;
+    try {
+      onPlay?.(before, after, container);
+    } catch {
+    }
+    const { moves, entering } = flipMoves(before, after);
+    const find = (key) => container.querySelector(`[${attr}="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(key) : key}"]`);
+    moves.forEach(({ key, dx, dy }, index) => {
+      const el = find(key);
+      if (typeof el?.animate !== "function") return;
+      try {
+        el.animate(
+          [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
+          { duration, delay: delay + index * stagger, easing, fill: "backwards" }
+        );
+      } catch {
+      }
+    });
+    if (enter) entering.forEach((key, index) => {
+      const el = find(key);
+      if (typeof el?.animate !== "function") return;
+      try {
+        el.animate(
+          [{ opacity: 0, transform: "translateX(12px)" }, { opacity: 1, transform: "none" }],
+          { duration: MOTION.base, delay: delay + (moves.length + index) * stagger, easing, fill: "backwards" }
+        );
+      } catch {
+      }
+    });
+  });
+}
+var init_motionKit = __esm({
+  "src/lib/motionKit.js"() {
+    init_motion();
+  }
+});
+
+// src/features/draft/draftModel.js
+function landedPick(draft, change) {
+  if (!draft || !change?.fresh) return null;
+  const { from, to } = change;
+  if (!Number.isInteger(from) || to !== from + 1 || draft.picks.length !== to) return null;
+  const pick = draft.picks[to - 1];
+  return pick ? { player: pick.player, team: pick.team, pick: to } : null;
+}
+var init_draftModel = __esm({
+  "src/features/draft/draftModel.js"() {
+    init_core();
+  }
+});
+
+// src/features/poker/pokerMotion.js
+var init_pokerMotion = __esm({
+  "src/features/poker/pokerMotion.js"() {
+    init_core();
+  }
+});
+
+// src/features/poker/poker-motion.css
+var init_poker_motion = __esm({
+  "src/features/poker/poker-motion.css"() {
+  }
+});
+
+// src/features/poker/PokerMotion.jsx
+import React23, { useEffect as useEffect15, useLayoutEffect as useLayoutEffect7, useRef as useRef14, useState as useState15 } from "react";
+var init_PokerMotion = __esm({
+  "src/features/poker/PokerMotion.jsx"() {
+    init_core();
+    init_PlayerIdentity();
+    init_BetStacks();
+    init_motion();
+    init_motionKit();
+    init_pokerMotion();
+    init_poker_motion();
+  }
+});
+
+// src/features/poker/pokerChips.js
+var POKER_CHIPS, POKER_DENOMINATIONS;
+var init_pokerChips = __esm({
+  "src/features/poker/pokerChips.js"() {
+    init_core();
+    POKER_CHIPS = Object.freeze({
+      25: Object.freeze({ color: "var(--poker-25)", isLight: false, skin: "quad" }),
+      100: Object.freeze({ color: "var(--poker-100)", isLight: false, skin: "quad" }),
+      500: Object.freeze({ color: "var(--poker-500)", isLight: false, skin: "quad" }),
+      1e3: Object.freeze({ color: "var(--poker-1000)", isLight: true, skin: "quad" })
+    });
+    POKER_DENOMINATIONS = POKER_CONFIG.denominations;
+  }
+});
+
+// src/features/poker/poker-chips.css
+var init_poker_chips = __esm({
+  "src/features/poker/poker-chips.css"() {
+  }
+});
+
+// src/features/poker/PokerChips.jsx
+import React24, { useLayoutEffect as useLayoutEffect8, useRef as useRef15 } from "react";
+var init_PokerChips = __esm({
+  "src/features/poker/PokerChips.jsx"() {
+    init_BetStacks();
+    init_motion();
+    init_motionKit();
+    init_pokerChips();
+    init_pokerMotion();
+    init_poker_chips();
+  }
+});
+
+// src/lib/wakeLock.js
+var init_wakeLock = __esm({
+  "src/lib/wakeLock.js"() {
+  }
+});
+
+// src/features/tv/serverClock.js
+var init_serverClock2 = __esm({
+  "src/features/tv/serverClock.js"() {
+    init_serverClock();
+  }
+});
+
+// src/ui/fdMark.js
+var MARK_INKS, MARK_INKS_STAGING, HORIZON, BUTTE, BUTTE_LIT, FAR;
+var init_fdMark = __esm({
+  "src/ui/fdMark.js"() {
+    MARK_INKS = Object.freeze({
+      chip: "#ffa630",
+      ink: "#0a0910",
+      bone: "#f4ecd8",
+      /* sky, top to horizon: violet, violet-rose, rose, tangerine */
+      sky: ["#4a2690", "#953685", "#e0457a", "#ff6f2c"],
+      sun: "#ffca78",
+      far: "#7d295a",
+      mesa: "#cb493f",
+      shade: "#241034",
+      floor: "#331914"
+    });
+    MARK_INKS_STAGING = Object.freeze({
+      chip: "#35c8f5",
+      ink: "#101a33",
+      bone: "#f7fbff",
+      sky: ["#12163b", "#18205e", "#1f3396", "#2c3fa6"],
+      sun: "#ffe7b3",
+      far: "#132c53",
+      mesa: "#2c306b",
+      shade: "#0b1f28",
+      floor: "#0b1c25",
+      badge: "#eb3f78"
+    });
+    HORIZON = 38.8;
+    BUTTE = `M10 ${HORIZON}L15 32.6 15.8 29.2H24.4L25.2 32.4 32.6 ${HORIZON}Z`;
+    BUTTE_LIT = `M22.2 29.2H24.4L25.2 32.4 32.6 ${HORIZON}H25.4L23.3 32.6Z`;
+    FAR = `M13 ${HORIZON}L19 37 23 37.6 29 36.2 34 37.3 40 35.8 46 37 52 ${HORIZON}Z`;
+  }
+});
+
+// src/ui/Brand.jsx
+import React28, { useId as useId3, useMemo as useMemo3 } from "react";
+var init_Brand = __esm({
+  "src/ui/Brand.jsx"() {
+    init_fdMark();
+  }
+});
+
+// src/ui/layout.jsx
+import React31 from "react";
+function PageHeading({ title, children, aside }) {
+  return /* @__PURE__ */ React31.createElement("header", { className: "fd-page-heading" }, /* @__PURE__ */ React31.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React31.createElement("h1", null, title), aside), children);
+}
+var init_layout = __esm({
+  "src/ui/layout.jsx"() {
+  }
+});
+
+// src/ui/phase.js
+var PHASES, isPhase;
+var init_phase = __esm({
+  "src/ui/phase.js"() {
+    init_core();
+    PHASES = Object.freeze(["fri", "sam", "sap", "san", "fin"]);
+    isPhase = (phase) => PHASES.includes(phase);
+  }
+});
+
+// src/features/tv/desertModel.js
+function skyline(points, { width, horizon, amp, x0 = 0, x1 = 1, envelope = () => 1, bottom }) {
+  const at = ([x, h]) => [r1((x0 + x * (x1 - x0)) * width), r1(horizon - h * amp * envelope(x0 + x * (x1 - x0)))];
+  const pts = points.map(at);
+  const first = pts[0], last = pts[pts.length - 1];
+  const lead = x0 > 0 ? [[0, first[1]]] : [];
+  const tail = x1 < 1 ? [[width, last[1]]] : [];
+  const all = [...lead, ...pts, ...tail];
+  return `M${all.map(([x, y]) => `${x} ${y}`).join("L")}V${bottom}H0Z`;
+}
+function glassStars(count = 46, { width = GLASS.width, top = 16, bottom = 640 } = {}) {
+  let seed = 3107741;
+  const next = () => {
+    seed = Math.imul(seed, 1103515245) + 12345 >>> 0;
+    return seed / 4294967295;
+  };
+  return Array.from({ length: count }, () => ({
+    x: Math.round(16 + next() * (width - 32)),
+    y: Math.round(top + next() * (bottom - top)),
+    r: Math.round((1.4 + next() * 1.8) * 10) / 10,
+    dim: next() > 0.6
+  }));
+}
+function discStripes(disc, horizon = GLASS.horizon) {
+  if (!disc?.stripes || !(disc.r > 0)) return [];
+  const out = [];
+  const top = disc.y - disc.r * 0.15;
+  let y = top, gap = 10, k = 0;
+  while (y < Math.min(horizon, disc.y + disc.r)) {
+    const h = 5 + k * 3;
+    const band = GLASS_BANDS.find(([from, to]) => y + h / 2 >= from && y + h / 2 < to)?.[2] || "glow";
+    out.push({ y: Math.round(y), h, band });
+    y += h + gap;
+    gap = Math.max(5, gap - 1);
+    k += 1;
+  }
+  return out;
+}
+function backglassScene({ width = GLASS.width, height = GLASS.height } = {}) {
+  const horizon = GLASS.horizon;
+  const bands = GLASS_BANDS.map(([from, to, layer]) => ({ y: from, h: to - from, layer }));
+  const far = skyline(FAR2, { width, horizon, amp: 190, bottom: horizon + 2 });
+  const hump = skyline(MID, {
+    width,
+    horizon,
+    amp: 120,
+    x0: 0.34,
+    x1: 0.7,
+    envelope: (x) => smooth(0.3, 0.42, x) * (1 - smooth(0.6, 0.74, x)),
+    bottom: horizon + 2
+  });
+  const buttes = BUTTES.map((b) => ({ lit: poly(b.lit), shade: poly(b.shade) }));
+  const cacti = GLASS_CACTI.map(([x, scale, shape]) => ({ x, y: horizon + 18, scale, d: SAGUAROS[shape].d }));
+  return {
+    width,
+    height,
+    horizon,
+    floor: GLASS.floor,
+    bands,
+    far,
+    hump,
+    buttes,
+    cacti,
+    stars: glassStars(),
+    starBox: { left: 140, right: width - 140, top: 120, bottom: 560 }
+  };
+}
+var DESERT_DAY, DESERT_NIGHT, FAR2, MID, SAGUAROS, r1, smooth, GLASS, GLASS_STARRY, GLASS_BANDS, GLASS_DISC, BUTTES, GLASS_CACTI, poly;
+var init_desertModel = __esm({
+  "src/features/tv/desertModel.js"() {
+    init_phase();
+    DESERT_DAY = Object.freeze(["sam", "sap"]);
+    DESERT_NIGHT = Object.freeze(["san", "fin"]);
+    FAR2 = [
+      [0, 0.5],
+      [0.075, 0.625],
+      [0.131, 0.5625],
+      [0.206, 0.78],
+      [0.2625, 0.69],
+      [0.325, 0.84],
+      [0.4, 0.72],
+      [0.475, 0.81],
+      [0.55, 0.67],
+      [0.625, 0.78],
+      [0.706, 0.69],
+      [0.7875, 0.83],
+      [0.8625, 0.7],
+      [0.9375, 0.78],
+      [1, 0.72]
+    ];
+    MID = [
+      [0, 0.25],
+      [0.1125, 0.34],
+      [0.1875, 0.5],
+      [0.2375, 0.69],
+      [0.28125, 0.78],
+      [0.325, 0.69],
+      [0.356, 0.59],
+      [0.4, 0.69],
+      [0.4375, 0.91],
+      [0.475, 1],
+      [0.5125, 0.94],
+      [0.55, 0.78],
+      [0.6, 0.56],
+      [0.6875, 0.41],
+      [0.8125, 0.375],
+      [1, 0.31]
+    ];
+    SAGUAROS = [
+      { d: "M-14 0V-160a14 14 0 0 1 28 0V0ZM-14-80h-30v-40a12 12 0 0 1 24 0v22h6ZM14-110h30v-40a12 12 0 0 0-24 0v22h-6Z" },
+      { d: "M-17 0V-195a17 17 0 0 1 34 0V0ZM-17-105h-38v-56a14 14 0 0 1 28 0v34h10ZM17-75h36v-40a14 14 0 0 0-28 0v18h-8Z" },
+      { d: "M-10 0V-92a10 10 0 0 1 20 0V0ZM10-52h20v-26a9 9 0 0 0-18 0v8h-2Z" }
+    ];
+    r1 = (n) => Math.round(n * 10) / 10;
+    smooth = (a, b, x) => {
+      const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+      return t * t * (3 - 2 * t);
+    };
+    GLASS = Object.freeze({ width: 1920, height: 1080, horizon: 856, floor: 944 });
+    GLASS_STARRY = Object.freeze(["fri", "san", "fin"]);
+    GLASS_BANDS = [[0, 300, "sky"], [300, 500, "sky2"], [500, 650, "sky3"], [650, 760, "sky4"], [760, GLASS.horizon, "glow"]];
+    GLASS_DISC = Object.freeze({
+      fri: { x: 1580, y: 770, r: 76, stripes: false },
+      sam: { x: 430, y: GLASS.horizon, r: 220, stripes: true },
+      sap: { x: 1500, y: 800, r: 104, stripes: false },
+      san: { x: 1480, y: GLASS.horizon, r: 160, stripes: true },
+      fin: { x: 960, y: GLASS.horizon, r: 0, stripes: false }
+    });
+    BUTTES = [
+      {
+        lit: [[40, 856], [150, 716], [176, 700], [430, 700], [452, 716], [520, 856]],
+        shade: [[430, 700], [470, 700], [500, 716], [620, 856], [520, 856], [452, 716]]
+      },
+      {
+        lit: [[1250, 856], [1360, 740], [1384, 728], [1640, 728], [1662, 740], [1760, 856]],
+        shade: [[1640, 728], [1700, 728], [1726, 740], [1900, 856], [1760, 856], [1662, 740]]
+      }
+    ];
+    GLASS_CACTI = [[300, 1.25, 1], [760, 0.8, 0], [1180, 0.95, 2], [1830, 1.35, 0]];
+    poly = (points) => `M${points.map(([x, y]) => `${x} ${y}`).join("L")}Z`;
+  }
+});
+
+// src/ui/glass-art.css
+var init_glass_art = __esm({
+  "src/ui/glass-art.css"() {
+  }
+});
+
+// src/ui/GlassArt.jsx
+import React33, { memo, useId as useId4, useSyncExternalStore as useSyncExternalStore2 } from "react";
+function readPhase() {
+  const phase = typeof document === "undefined" ? null : document.documentElement.getAttribute("data-phase");
+  return isPhase(phase) ? phase : "fri";
+}
+function subscribe(onChange) {
+  if (typeof MutationObserver === "undefined" || typeof document === "undefined") return () => {
+  };
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-phase"] });
+  return () => observer.disconnect();
+}
+function clearZone(clear) {
+  if (!clear) return null;
+  if (clear === true) return { from: 0, to: 1 };
+  return { from: Math.max(0, Number(clear.from) || 0), to: Math.min(1, clear.to ?? 1) };
+}
+function GlassArtView({ phase = null, className = "", depth = false, clear = false }) {
+  const rootPhase = useRootPhase();
+  const session = isPhase(phase) ? phase : rootPhase;
+  const clip = `fd-glass-clip-${useId4().replace(/:/g, "")}`;
+  const span = SPAN, top = 0;
+  const { width, horizon, floor: h } = SCENE;
+  const left = Math.max(0, Math.min(width - span, CENTER[session] - span / 2));
+  const tv2 = GLASS_DISC[session];
+  const disc = tv2?.r > 0 ? { ...tv2, y: tv2.y - (LIFT[session] || 0) } : null;
+  const stripes = disc?.r > 0 ? discStripes(disc) : [];
+  const zone = clearZone(clear);
+  const box = { viewBox: `${left} ${top} ${span} ${h}`, preserveAspectRatio: "xMidYMax slice", "aria-hidden": "true", focusable: "false" };
+  const sky = /* @__PURE__ */ React33.createElement(React33.Fragment, null, SCENE.bands.map((band) => /* @__PURE__ */ React33.createElement("rect", { key: band.layer, className: `fd-glass-${band.layer}`, y: band.y, width, height: band.h })), /* @__PURE__ */ React33.createElement("g", { className: "fd-glass-stars" }, SCENE.stars.filter((star) => star.y > top - 6).map((star, i) => /* @__PURE__ */ React33.createElement("circle", { key: i, cx: star.x, cy: star.y, r: star.r * 2.2, opacity: star.dim ? 0.5 : 1 }))), disc?.r > 0 && /* @__PURE__ */ React33.createElement("g", { className: "fd-glass-disc", clipPath: `url(#${clip})` }, /* @__PURE__ */ React33.createElement("circle", { cx: disc.x, cy: disc.y, r: disc.r }), stripes.map((stripe) => /* @__PURE__ */ React33.createElement(
+    "rect",
+    {
+      key: stripe.y,
+      className: `fd-glass-${stripe.band}`,
+      x: disc.x - disc.r - 2,
+      y: stripe.y,
+      width: disc.r * 2 + 4,
+      height: stripe.h
+    }
+  ))));
+  const range = /* @__PURE__ */ React33.createElement(React33.Fragment, null, /* @__PURE__ */ React33.createElement("path", { className: "fd-glass-far", d: SCENE.far }), /* @__PURE__ */ React33.createElement("path", { className: "fd-glass-mid", d: SCENE.hump }));
+  const buttes = SCENE.buttes.map((butte, i) => /* @__PURE__ */ React33.createElement("g", { key: i }, /* @__PURE__ */ React33.createElement("path", { className: "fd-glass-mesa", d: butte.lit }), /* @__PURE__ */ React33.createElement("path", { className: "fd-glass-shade", d: butte.shade })));
+  const below = depth ? 80 : 0;
+  const floor2 = /* @__PURE__ */ React33.createElement(React33.Fragment, null, /* @__PURE__ */ React33.createElement("rect", { className: "fd-glass-ground", y: horizon, width, height: SCENE.floor - horizon + below }), /* @__PURE__ */ React33.createElement("rect", { className: "fd-glass-rim", y: horizon, width, height: 6 }), /* @__PURE__ */ React33.createElement("g", { className: "fd-glass-cactus" }, SCENE.cacti.filter((c) => standsClear(c, left, zone)).map((c, i) => /* @__PURE__ */ React33.createElement("path", { key: i, d: c.d, transform: `translate(${c.x} ${c.y}) scale(${c.scale})` }))));
+  const clipDef = /* @__PURE__ */ React33.createElement("defs", null, /* @__PURE__ */ React33.createElement("clipPath", { id: clip }, /* @__PURE__ */ React33.createElement("rect", { y: top, width, height: horizon - top })));
+  if (!depth) return /* @__PURE__ */ React33.createElement("svg", { className: `fd-glass-art${className ? ` ${className}` : ""}`, "data-phase": phase ? session : void 0, ...box }, clipDef, sky, range, buttes, floor2);
+  return /* @__PURE__ */ React33.createElement(
+    "span",
+    {
+      className: `fd-glass-art fd-glass-depth${className ? ` ${className}` : ""}`,
+      "data-phase": phase ? session : void 0,
+      "aria-hidden": "true"
+    },
+    /* @__PURE__ */ React33.createElement("svg", { "data-glass-depth": "0", ...box }, clipDef, sky),
+    /* @__PURE__ */ React33.createElement("svg", { "data-glass-depth": "1", ...box }, /* @__PURE__ */ React33.createElement("rect", { className: "fd-glass-far", y: horizon, width, height: SCENE.floor - horizon + 80 }), range),
+    /* @__PURE__ */ React33.createElement("svg", { "data-glass-depth": "2", ...box }, buttes),
+    /* @__PURE__ */ React33.createElement("svg", { "data-glass-depth": "3", ...box }, floor2)
+  );
+}
+var SCENE, CENTER, SPAN, LIFT, useRootPhase, SAGUARO_HALF, standsClear, GlassArt;
+var init_GlassArt = __esm({
+  "src/ui/GlassArt.jsx"() {
+    init_desertModel();
+    init_phase();
+    init_glass_art();
+    SCENE = backglassScene();
+    CENTER = { fri: 1330, sam: 620, sap: 1290, san: 1290, fin: 960 };
+    SPAN = 1100;
+    LIFT = { fri: 50, sam: 40, sap: 50, san: 60 };
+    useRootPhase = () => useSyncExternalStore2(subscribe, readPhase, () => "fri");
+    SAGUARO_HALF = 56;
+    standsClear = (cactus, left, zone) => {
+      if (!zone) return true;
+      const half = SAGUARO_HALF * cactus.scale;
+      const a = (cactus.x - half - left) / SPAN, b = (cactus.x + half - left) / SPAN;
+      return b < zone.from || a > zone.to;
+    };
+    GlassArt = memo(GlassArtView);
+  }
+});
+
+// src/ui/useGlassTilt.js
+import { useEffect as useEffect18 } from "react";
+function leanToward(clientX, clientY, rect, { dragging = false } = {}) {
+  if (!rect?.width || !rect?.height) return { x: 0, y: 0 };
+  const reach = dragging ? 1 : GLASS_TILT.press;
+  return {
+    x: clampUnit2((clientX - rect.left - rect.width / 2) / (rect.width / 2)) * reach,
+    y: clampUnit2((clientY - rect.top - rect.height / 2) / (rect.height / 2)) * reach
+  };
+}
+function springStep(pos, vel, target, dt, { stiffness = GLASS_TILT.stiffness, damping = GLASS_TILT.damping } = {}) {
+  const step = Math.min(Math.max(dt, 0), 1 / 30);
+  const next = vel + (-(pos - target) * stiffness - vel * damping) * step;
+  return { pos: pos + next * step, vel: next };
+}
+function paneTransform({ x, y, z }, { base = "", max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx } = {}) {
+  return `${base ? `${base} ` : ""}perspective(${GLASS_TILT.perspective}px) rotateX(${(-y * max).toFixed(3)}deg) rotateY(${(x * max).toFixed(3)}deg) translateZ(${(-z * sink).toFixed(2)}px)`;
+}
+function supports3d() {
+  if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return true;
+  return CSS.supports("transform-style", "preserve-3d");
+}
+function useGlassTilt(ref, { enabled = true, max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx, glare = true } = {}) {
+  useEffect18(() => {
+    const el = ref?.current;
+    if (!enabled || !el || typeof window === "undefined" || typeof document === "undefined") return void 0;
+    const lean3d = supports3d();
+    const s = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, tz: 0, raf: 0, last: 0, pointer: null, base: "", active: false };
+    let glareEl = null, band = null;
+    if (glare && window.getComputedStyle(el).position !== "static") {
+      glareEl = document.createElement("span");
+      glareEl.className = "fd-tilt-glare";
+      glareEl.setAttribute("aria-hidden", "true");
+      band = document.createElement("span");
+      glareEl.appendChild(band);
+      el.appendChild(glareEl);
+    }
+    el.setAttribute("data-glass-tilt", "rest");
+    let layers = [];
+    const write = () => {
+      if (lean3d) el.style.transform = paneTransform(s, { base: s.base, max, sink });
+      const [far, , , near] = GLASS_TILT.depthPx;
+      layers.forEach((layer) => {
+        const k = GLASS_TILT.depthPx[layer.depth] ?? (layer.depth > 0 ? near : far);
+        layer.el.style.translate = `${(s.x * k).toFixed(2)}px ${(s.y * k * 0.6).toFixed(2)}px`;
+      });
+      if (band) {
+        band.style.translate = `${(-s.x * GLASS_TILT.glareTravel * 100 / 0.28).toFixed(2)}% 0`;
+        glareEl.style.opacity = (0.5 + 0.5 * Math.min(1, Math.hypot(s.x, s.y) * 1.6 + s.z * 0.3)).toFixed(3);
+      }
+    };
+    const rest = () => {
+      s.active = false;
+      el.setAttribute("data-glass-tilt", "rest");
+      el.style.removeProperty("transform");
+      layers.forEach((layer) => layer.el.style.removeProperty("translate"));
+      if (band) {
+        band.style.removeProperty("translate");
+        glareEl.style.removeProperty("opacity");
+      }
+    };
+    const frame2 = (now2) => {
+      const dt = s.last ? (now2 - s.last) / 1e3 : 1 / 60;
+      s.last = now2;
+      const x = springStep(s.x, s.vx, s.tx, dt), y = springStep(s.y, s.vy, s.ty, dt), z = springStep(s.z, s.vz, s.tz, dt);
+      s.x = x.pos;
+      s.vx = x.vel;
+      s.y = y.pos;
+      s.vy = y.vel;
+      s.z = z.pos;
+      s.vz = z.vel;
+      const settled = springSettled(s.x, s.vx, s.tx) && springSettled(s.y, s.vy, s.ty) && springSettled(s.z, s.vz, s.tz);
+      if (settled && !s.pointer && !s.tx && !s.ty && !s.tz) {
+        s.raf = 0;
+        s.last = 0;
+        s.x = s.y = s.z = 0;
+        rest();
+        return;
+      }
+      write();
+      s.raf = requestAnimationFrame(frame2);
+    };
+    const start = () => {
+      if (!s.active) {
+        const own = window.getComputedStyle(el).transform;
+        s.base = own && own !== "none" ? own : "";
+        layers = [...el.querySelectorAll("[data-glass-depth]")].map((node) => ({ el: node, depth: Number(node.getAttribute("data-glass-depth")) || 0 }));
+        s.active = true;
+        el.setAttribute("data-glass-tilt", "on");
+      }
+      if (!s.raf) {
+        s.last = 0;
+        s.raf = requestAnimationFrame(frame2);
+      }
+    };
+    const aim = (target, z) => {
+      s.tx = target.x;
+      s.ty = target.y;
+      s.tz = z;
+      start();
+    };
+    const release = () => {
+      s.pointer = null;
+      s.tx = 0;
+      s.ty = 0;
+      s.tz = 0;
+      if (s.active) start();
+    };
+    const onDown = (event) => {
+      if (prefersReducedMotion() || event.pointerType === "mouse" && event.button !== 0) return;
+      const rect = el.getBoundingClientRect();
+      s.pointer = { id: event.pointerId, x0: event.clientX, y0: event.clientY, rect, dragging: false };
+      aim(leanToward(event.clientX, event.clientY, rect), 1);
+    };
+    const onMove = (event) => {
+      const p = s.pointer;
+      if (!p || event.pointerId !== p.id) return;
+      if (!p.dragging && Math.hypot(event.clientX - p.x0, event.clientY - p.y0) >= GLASS_TILT.dragPx) p.dragging = true;
+      aim(leanToward(event.clientX, event.clientY, p.rect, { dragging: p.dragging }), 1);
+    };
+    const onUp = (event) => {
+      if (s.pointer && event.pointerId === s.pointer.id) release();
+    };
+    const onLeave = (event) => {
+      if (s.pointer && event.pointerId === s.pointer.id && event.pointerType === "mouse") release();
+    };
+    el.addEventListener("pointerdown", onDown, { passive: true });
+    el.addEventListener("pointermove", onMove, { passive: true });
+    el.addEventListener("pointerup", onUp, { passive: true });
+    el.addEventListener("pointercancel", release, { passive: true });
+    el.addEventListener("pointerleave", onLeave, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", release);
+      el.removeEventListener("pointerleave", onLeave);
+      if (s.raf) cancelAnimationFrame(s.raf);
+      rest();
+      el.removeAttribute("data-glass-tilt");
+      glareEl?.remove();
+    };
+  }, [ref, enabled, max, sink, glare]);
+}
+var GLASS_TILT, clampUnit2, springSettled;
+var init_useGlassTilt = __esm({
+  "src/ui/useGlassTilt.js"() {
+    init_motion();
+    GLASS_TILT = Object.freeze({
+      maxDeg: 3,
+      press: 0.45,
+      // a still press leans this much of the way
+      dragPx: 6,
+      // movement before a press becomes a drag
+      sinkPx: 5,
+      perspective: 1100,
+      stiffness: 240,
+      // the spring back: one small overshoot, then level
+      damping: 24,
+      /* the painting's layers slide by depth per unit lean, far to near, so
+         the near floor moves most and the sky least */
+      depthPx: Object.freeze([-1.5, 0, 2.5, 4.5]),
+      /* the band slides this share of its pane per unit lean */
+      glareTravel: 0.22
+    });
+    clampUnit2 = (value) => Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+    springSettled = (pos, vel, target) => Math.abs(pos - target) < 2e-3 && Math.abs(vel) < 0.01;
+  }
+});
+
+// src/features/standings/winImpact.js
+function joinNames(names) {
+  if (names.length <= 1) return names[0] || "";
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+function winSlots(state, ev, contest, sideKey) {
+  if (!ev || !contest || ev.finale || !(awardTable(ev)[0] > 0)) return null;
+  const side = contest.sides?.find((item) => item.key === sideKey);
+  if (!side?.players?.length) return null;
+  const table = awardTable(ev);
+  if (contest.kind === "match") {
+    const br = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
+    if (!br || !draw?.teams || !Array.isArray(contest.match)) return null;
+    const [r] = contest.match;
+    if (r !== br.rounds.length - 1) return null;
+    const runner = contest.sides.find((item) => item.key !== sideKey);
+    const before = br.rounds.length > 1 ? br.rounds[br.rounds.length - 2] : [];
+    const third = before.map((match) => [resolveSlot(br, match.a), resolveSlot(br, match.b)].find((key) => known(key) && known(match.winner) && key !== match.winner)).filter((key) => known(key) && draw.teams[key]);
+    return [
+      [...side.players],
+      table[1] > 0 && runner ? [...runner.players] : [],
+      table[2] > 0 ? third.flatMap((key) => draw.teams[key].players) : []
+    ];
+  }
+  if (contest.kind === "stage-final") return [[...side.players], [], []];
+  if (contest.kind === "ffa") {
+    const other = contest.sides.length === 2 ? contest.sides.find((item) => item.key !== sideKey) : null;
+    return [[...side.players], table[1] > 0 && other ? [...other.players] : [], []];
+  }
+  return null;
+}
+function contestWinLines(state, ev, contest, { events = allEventsOf(state), standings, keys = null } = {}) {
+  if (!state || !ev || !contest?.sides?.length) return [];
+  const settled = (state.wagers || []).filter((w) => resolveWager(state, w, events).status !== "pending");
+  const base = { ...state, wagers: settled };
+  const beforeRows = standings || computeStandings(state);
+  const before = new Map(beforeRows.map((row) => [row.player, row]));
+  return contest.sides.map((side) => {
+    if (keys && !keys.includes(side.key)) return null;
+    const slots = winSlots(state, ev, contest, side.key);
+    if (!slots) return null;
+    const after = computeStandings({ ...base, results: {
+      ...state.results || {},
+      [ev.id]: { slots, ts: 0, revision: 1 }
+    } });
+    const afterBy = new Map(after.map((row) => [row.player, row]));
+    const players = side.players.filter((p) => before.has(p) && afterBy.has(p));
+    if (!players.length) return null;
+    const movers = players.filter((p) => afterBy.get(p).rank < before.get(p).rank);
+    if (movers.length) {
+      const best = Math.min(...movers.map((p) => afterBy.get(p).rank));
+      const group = movers.filter((p) => afterBy.get(p).rank === best);
+      const shared = after.filter((row) => row.rank === best).length > group.length;
+      const whole = group.length === side.players.length && group.length > 2;
+      const names2 = whole ? teamLabel(state, { players: side.players, name: state.draws?.[ev.id]?.teams?.[side.key]?.name }) : joinNames(group.map((p) => disp(state, p)));
+      const plural = group.length > 1 && !whole;
+      const text = shared ? `Win: ${names2} ${plural ? "tie" : "ties"} for ${ordinal(best)}` : `Win: ${names2} to ${ordinal(best)}`;
+      return { key: side.key, kind: "rank", rank: best, tied: shared, players: group, text };
+    }
+    const award = afterBy.get(players[0]).pts - before.get(players[0]).pts;
+    if (!(award > 0)) return null;
+    const names = players.length > 2 ? teamLabel(state, { players, name: state.draws?.[ev.id]?.teams?.[side.key]?.name }) : joinNames(players.map((p) => disp(state, p)));
+    return { key: side.key, kind: "chips", award, players, text: `Win: ${names} +${fmt5(award)}` };
+  });
+}
+var known, ordinal, fmt5, winLineFor;
+var init_winImpact = __esm({
+  "src/features/standings/winImpact.js"() {
+    init_core();
+    known = (key) => key !== null && key !== void 0;
+    ordinal = (n) => {
+      const tail = n % 100;
+      if (tail >= 11 && tail <= 13) return `${n}th`;
+      return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`;
+    };
+    fmt5 = (n) => (n ?? 0).toLocaleString("en-US");
+    winLineFor = (lines, key) => (lines || []).find((line) => line && line.key === key) || null;
+  }
+});
+
+// src/features/standings/win-line.css
+var init_win_line = __esm({
+  "src/features/standings/win-line.css"() {
+  }
+});
+
+// src/features/standings/WinLine.jsx
+import React34 from "react";
+function WinLine({ line, className = "" }) {
+  if (!line?.text) return null;
+  return /* @__PURE__ */ React34.createElement("small", { className: `fd-win-line${line.kind === "rank" ? " is-rank" : ""}${className ? ` ${className}` : ""}` }, line.text);
+}
+var init_WinLine = __esm({
+  "src/features/standings/WinLine.jsx"() {
+    init_win_line();
+  }
+});
+
+// src/lib/client.js
+var init_client = __esm({
+  "src/lib/client.js"() {
   }
 });
 
@@ -4262,6 +7169,309 @@ var init_install = __esm({
   }
 });
 
+// src/features/tv/tvModel.js
+var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
+var init_tvModel = __esm({
+  "src/features/tv/tvModel.js"() {
+    init_core();
+    init_desertModel();
+    init_phase();
+    init_betStacks();
+    RESULT_PODIUM_BEATS_MS = Object.freeze([0, 900, 2400]);
+    RESULT_PODIUM_STEP_MS = RESULT_PODIUM_BEATS_MS[1];
+    TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
+    FACT_ROLES = Object.freeze({ streak: "info", first: "chip", wins: "info", bet: "won" });
+    TICKER_FACT_TAGS = Object.freeze({ first: "Milestone" });
+    CUE_WINDOW_MS = 3 * 60 * 1e3;
+  }
+});
+
+// src/features/tv/tvMotion.js
+import { useEffect as useEffect20, useRef as useRef21, useState as useState22 } from "react";
+var ADVANCE_TIMING, CROWN_TIMING, inOut;
+var init_tvMotion = __esm({
+  "src/features/tv/tvMotion.js"() {
+    init_core();
+    init_motion();
+    init_serverClock();
+    ADVANCE_TIMING = Object.freeze({
+      fill: 0,
+      fillMs: 240,
+      // the winning row fills sun from the left
+      stamp: 120,
+      stampMs: 320,
+      // WON stamps
+      lose: 250,
+      loseMs: 300,
+      // the losing row steps back
+      lift: 700,
+      ride: 760,
+      rideMs: 800,
+      // the winners lift off and ride the connector
+      land: 1540,
+      landMs: 320,
+      // they land in the next slot
+      upNow: 1900,
+      upNowMs: 600,
+      // UP NOW travels to the next open match
+      unfill: 2700,
+      unfillMs: 500,
+      // the fill settles to the bracket's resting style
+      total: 3200
+    });
+    CROWN_TIMING = Object.freeze({
+      night: 0,
+      nightMs: 1800,
+      // lean-in: night falls on the art
+      title: 700,
+      // "Final" lights
+      towers: 1600,
+      towersMs: 1500,
+      towersStagger: 100,
+      // the towers stand, last place first
+      hold: 3300,
+      // the final standings, as they stood
+      stepDown: 3600,
+      stepStagger: 600,
+      stepMs: 500,
+      // a tower goes dark, 13th up to 3rd
+      holdTwo: 10200,
+      holdTwoMs: 2e3,
+      // the last two hold
+      second: 12200,
+      // 2nd goes dark
+      rise: 13e3,
+      riseMs: 1500,
+      // the champion's tower rises and cascades
+      flood: 14500,
+      floodMs: 1e3,
+      // their color floods from their tower
+      chip: 15400,
+      chipMs: 1400,
+      // their chip drops and turns twice
+      tag: 15900,
+      tagMs: 300,
+      // CHAMPION stamps
+      name: 16200,
+      nameStagger: 60,
+      nameMs: 380,
+      stats: 17200,
+      statsMs: 300,
+      count: 17600,
+      countMs: 1800,
+      // the final stack counts in 25s
+      path: 18200,
+      pathStagger: 110,
+      pathMs: 300,
+      lines: 19800,
+      lineStagger: 300,
+      lineMs: 300,
+      // the constellation joins
+      total: 23500
+    });
+    inOut = cubicBezier(0.65, 0, 0.35, 1);
+  }
+});
+
+// src/features/tv/faceOff.js
+import { useEffect as useEffect21, useRef as useRef22, useState as useState23 } from "react";
+var FACEOFF_TIMING;
+var init_faceOff = __esm({
+  "src/features/tv/faceOff.js"() {
+    init_core();
+    init_seasonStats();
+    init_motion();
+    init_serverClock();
+    init_drawReveal();
+    init_tvModel();
+    init_tvMotion();
+    FACEOFF_TIMING = Object.freeze({
+      dim: 0,
+      dimMs: 900,
+      // lean-in: the glass dims, the sting
+      slide: 900,
+      slideMs: 420,
+      // the left side slams in
+      slide2: 1250,
+      // the right side slams in
+      vs: 1900,
+      vsMs: 420,
+      // VS hits, then holds
+      h2h: 2700,
+      typeMs: 42,
+      // the record types in, one tick a letter
+      lines: 3900,
+      linesMs: 300,
+      // X8: what a win does
+      settle: 3 * MOTION.beat + 600,
+      settleMs: 500,
+      // it lifts off the betting board
+      total: 3 * MOTION.beat + 1100
+    });
+  }
+});
+
+// shared/audio.js
+var MAX_TRACK_DURATION_MS, WALKOUT_MAX_MS, WIN_SONG_CLIP_MS;
+var init_audio = __esm({
+  "shared/audio.js"() {
+    MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
+    WALKOUT_MAX_MS = 4 * 60 * 1e3;
+    WIN_SONG_CLIP_MS = 30 * 1e3;
+  }
+});
+
+// src/features/check-in/InstallHint.jsx
+import React41, { useEffect as useEffect24, useState as useState30 } from "react";
+function InstallHint() {
+  const [, bump] = useState30(0);
+  useEffect24(() => onInstallReady(() => bump((x) => x + 1)), []);
+  if (installEvt) return /* @__PURE__ */ React41.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
+  if (isIOS2()) return /* @__PURE__ */ React41.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React41.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React41.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React41.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
+  return /* @__PURE__ */ React41.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
+}
+var init_InstallHint = __esm({
+  "src/features/check-in/InstallHint.jsx"() {
+    init_controls();
+    init_theme();
+    init_install();
+  }
+});
+
+// src/features/weekend/trophy.js
+var init_trophy = __esm({
+  "src/features/weekend/trophy.js"() {
+    init_core();
+  }
+});
+
+// src/features/weekend/trophy.css
+var init_trophy2 = __esm({
+  "src/features/weekend/trophy.css"() {
+  }
+});
+
+// src/features/weekend/Trophy.jsx
+import React42 from "react";
+var init_Trophy = __esm({
+  "src/features/weekend/Trophy.jsx"() {
+    init_core();
+    init_PlayerIdentity();
+    init_tvModel();
+    init_OneSafe();
+    init_trophy();
+    init_trophy2();
+  }
+});
+
+// src/features/results/weekendFacts.js
+var FACT_TAGS;
+var init_weekendFacts = __esm({
+  "src/features/results/weekendFacts.js"() {
+    init_core();
+    init_lastCard();
+    init_resultMoment();
+    init_seasonStats();
+    FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milestone", bet: "Record" });
+  }
+});
+
+// src/features/results/resultMoment.js
+var init_resultMoment = __esm({
+  "src/features/results/resultMoment.js"() {
+    init_core();
+    init_weekendFacts();
+  }
+});
+
+// src/features/results/lastCard.js
+var SESSION_ORDER, SESSION_TICKS;
+var init_lastCard = __esm({
+  "src/features/results/lastCard.js"() {
+    init_core();
+    init_resultMoment();
+    SESSION_ORDER = SESSIONS.map((session) => session.id);
+    SESSION_TICKS = Object.freeze({ fri: "FRI", sam: "SAT AM", sap: "SAT PM", san: "SAT NIGHT", fin: "POKER" });
+  }
+});
+
+// src/features/results/crownTiming.js
+var CROWN_CARD_HOLD_MS, PHONE_CROWN;
+var init_crownTiming = __esm({
+  "src/features/results/crownTiming.js"() {
+    init_tvMotion();
+    CROWN_CARD_HOLD_MS = 1400;
+    PHONE_CROWN = Object.freeze({
+      night: CROWN_TIMING.night,
+      title: CROWN_TIMING.title,
+      // the glass dims; "Final" lights
+      you: CROWN_TIMING.towers,
+      youMs: CROWN_TIMING.towersMs,
+      // your own chip and final stack stand up
+      rise: CROWN_TIMING.rise,
+      riseMs: CROWN_TIMING.riseMs,
+      // the champion's face rises with their tower
+      flood: CROWN_TIMING.flood,
+      floodMs: CROWN_TIMING.floodMs,
+      // the room goes one color; your note sounds
+      chip: CROWN_TIMING.chip,
+      chipMs: CROWN_TIMING.chipMs,
+      // their chip drops and turns twice
+      tag: CROWN_TIMING.tag,
+      name: CROWN_TIMING.name,
+      nameStagger: CROWN_TIMING.nameStagger,
+      stats: CROWN_TIMING.stats,
+      count: CROWN_TIMING.count,
+      countMs: CROWN_TIMING.countMs,
+      turn: CROWN_TIMING.total + CROWN_CARD_HOLD_MS
+      // this phone's own last card
+    });
+  }
+});
+
+// src/features/results/classPhoto.js
+var CLASS_TIMING, FROZEN_TURNS;
+var init_classPhoto = __esm({
+  "src/features/results/classPhoto.js"() {
+    init_core();
+    CLASS_TIMING = Object.freeze({
+      fade: 0,
+      fadeMs: 400,
+      chip: 300,
+      chipStagger: 70,
+      chipMs: 420,
+      title: 1500,
+      titleMs: 400,
+      total: 2600
+    });
+    FROZEN_TURNS = Object.freeze(["champion", "class", "trophy"]);
+  }
+});
+
+// src/features/photos/photoModel.js
+var PHOTO_PREP;
+var init_photoModel = __esm({
+  "src/features/photos/photoModel.js"() {
+    PHOTO_PREP = Object.freeze({
+      side: 1600,
+      quality: 0.8,
+      thumbSide: 480,
+      thumbQuality: 0.72,
+      /* re-encoded bytes the server accepts; the phone steps quality down to fit */
+      maxBytes: 145e4,
+      maxThumbBytes: 15e4,
+      perBatch: 10
+    });
+  }
+});
+
+// src/features/photos/prepareMoment.js
+var init_prepareMoment = __esm({
+  "src/features/photos/prepareMoment.js"() {
+    init_photoModel();
+  }
+});
+
 // shared/guestSetup.js
 var init_guestSetup = __esm({
   "shared/guestSetup.js"() {
@@ -4275,14 +7485,14 @@ var init_travel = __esm({
 });
 
 // src/features/travel/Travel.jsx
-import React30, { useState as useState25 } from "react";
+import React48, { useState as useState36 } from "react";
 function TravelMap() {
   const arc = (c) => {
     const mx = (c.x + TRAVEL_DEST.x) / 2;
     const lift = 9 + Math.abs(c.x - TRAVEL_DEST.x) * 0.3;
     return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
-  return /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React48.createElement(
     "svg",
     {
       viewBox: "-5 -3 110 104",
@@ -4292,8 +7502,8 @@ function TravelMap() {
       "aria-hidden": "true",
       style: { display: "block", overflow: "hidden", maxWidth: "100%", maxHeight: "100%" }
     },
-    /* @__PURE__ */ React30.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React30.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React30.createElement(
+    /* @__PURE__ */ React48.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React48.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React48.createElement(
       "path",
       {
         key: "r" + c.n,
@@ -4307,7 +7517,7 @@ function TravelMap() {
         style: { "--len": 140, animation: `si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }
       }
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React30.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React48.createElement(
       "circle",
       {
         className: "fd-travel-motion",
@@ -4318,10 +7528,10 @@ function TravelMap() {
         strokeWidth: "0.5",
         opacity: "0"
       },
-      /* @__PURE__ */ React30.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
-      /* @__PURE__ */ React30.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
+      /* @__PURE__ */ React48.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
+      /* @__PURE__ */ React48.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React30.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React30.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React30.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React48.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React48.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React48.createElement(
       "text",
       {
         x: c.x + c.dx,
@@ -4335,7 +7545,7 @@ function TravelMap() {
       },
       c.n.toUpperCase()
     ))),
-    /* @__PURE__ */ React30.createElement(
+    /* @__PURE__ */ React48.createElement(
       "circle",
       {
         cx: TRAVEL_DEST.x,
@@ -4347,8 +7557,8 @@ function TravelMap() {
         style: { animation: "si-land 2.2s ease-in-out infinite" }
       }
     ),
-    /* @__PURE__ */ React30.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
-    /* @__PURE__ */ React30.createElement(
+    /* @__PURE__ */ React48.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
+    /* @__PURE__ */ React48.createElement(
       "text",
       {
         x: TRAVEL_DEST.x,
@@ -4365,7 +7575,7 @@ function TravelMap() {
   );
 }
 function HouseArt() {
-  return /* @__PURE__ */ React30.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React48.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React48.createElement(
     "img",
     {
       src: "/airbnb-compound-field-day.webp",
@@ -4385,12 +7595,12 @@ function HouseArt() {
   ));
 }
 function InfoCell({ lb, v, first }) {
-  return /* @__PURE__ */ React30.createElement("div", { style: {
+  return /* @__PURE__ */ React48.createElement("div", { style: {
     flex: 1,
     minWidth: 0,
     padding: "11px 14px",
     borderLeft: first ? "none" : "1px solid var(--line)"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 4 } }, lb), /* @__PURE__ */ React30.createElement("div", { style: {
+  } }, /* @__PURE__ */ React48.createElement("div", { style: { ...label, marginBottom: 4 } }, lb), /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 14,
@@ -4405,20 +7615,20 @@ function VenueCard({ lg, compact = false }) {
     inL && ["Lands", inL.note || legTime(inL.time) && `Fri ${legTime(inL.time)}`],
     outL && ["Leaves", outL.note || legTime(outL.time) && `Sun ${legTime(outL.time)}`]
   ].filter((x) => x && x[1]);
-  return /* @__PURE__ */ React30.createElement("div", null, /* @__PURE__ */ React30.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React30.createElement(HouseArt, null), /* @__PURE__ */ React30.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React30.createElement("div", { style: {
+  return /* @__PURE__ */ React48.createElement("div", null, /* @__PURE__ */ React48.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React48.createElement(HouseArt, null), /* @__PURE__ */ React48.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React48.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15.5,
     lineHeight: 1.45,
     userSelect: "text",
     color: "var(--ink)"
-  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React30.createElement("div", { style: {
+  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13,
     color: "var(--muted2)",
     marginTop: 5,
     lineHeight: 1.5
-  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React30.createElement(
+  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React48.createElement(
     "a",
     {
       href: mapUrl,
@@ -4427,30 +7637,19 @@ function VenueCard({ lg, compact = false }) {
       style: {
         display: "inline-flex",
         alignItems: "center",
+        gap: 4,
         minHeight: 44,
         marginTop: 2,
         fontFamily: SANS,
-        fontWeight: 700,
-        fontSize: 12.5,
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
-        color: "var(--accent2)",
+        fontWeight: 600,
+        fontSize: 15,
+        color: "var(--lamp-info)",
         textDecoration: "none"
       }
     },
-    "Open in maps \u203A"
-  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React30.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React30.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React30.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React30.createElement(
-    "svg",
-    {
-      width: "20",
-      height: "20",
-      viewBox: "0 0 24 24",
-      fill: "var(--accent2)",
-      "aria-hidden": "true",
-      style: { flexShrink: 0 }
-    },
-    /* @__PURE__ */ React30.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
-  ), /* @__PURE__ */ React30.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, fontSize: 10, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React30.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React30.createElement("div", { style: {
+    "Open in Maps",
+    /* @__PURE__ */ React48.createElement(Icon, { name: "open", size: 16 })
+  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React48.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React48.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React48.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React48.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React48.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React48.createElement("span", { style: { display: "flex", flexShrink: 0, color: "var(--accent2)" } }, /* @__PURE__ */ React48.createElement(Icon, { name: "plane", size: 20, lit: true })), /* @__PURE__ */ React48.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React48.createElement("div", { style: { ...label, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React48.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 30,
@@ -4459,7 +7658,7 @@ function VenueCard({ lg, compact = false }) {
     lineHeight: 1
   } }, lg.airport)), hostLegs.length > 0 && /* the flight codes matter to nobody but Brandon; the times are how
      people work out who they are sharing a ride with */
-  /* @__PURE__ */ React30.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, fontSize: 10, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React30.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
+  /* @__PURE__ */ React48.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React48.createElement("div", { style: { ...label, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React48.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React48.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
 }
 function FlightEntry({ leg: raw, dir, setLeg }) {
   const leg = raw || {};
@@ -4485,8 +7684,8 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
     boxSizing: "border-box",
     color: "var(--ink)"
   };
-  const cap = { ...label, fontSize: 9, marginTop: 5, color: "var(--muted)" };
-  return /* @__PURE__ */ React30.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React30.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React30.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: box }, /* @__PURE__ */ React30.createElement(
+  const cap = { ...label, marginTop: 5, color: "var(--muted)" };
+  return /* @__PURE__ */ React48.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React48.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React48.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React48.createElement("div", { style: box }, /* @__PURE__ */ React48.createElement(
     "input",
     {
       value: leg.air || "",
@@ -4497,7 +7696,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16, letterSpacing: "0.1em" }
     }
-  )), /* @__PURE__ */ React30.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React30.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: box }, /* @__PURE__ */ React30.createElement(
+  )), /* @__PURE__ */ React48.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React48.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React48.createElement("div", { style: box }, /* @__PURE__ */ React48.createElement(
     "input",
     {
       value: leg.num || "",
@@ -4507,7 +7706,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16 }
     }
-  )), /* @__PURE__ */ React30.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React30.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React30.createElement("div", { style: box }, /* @__PURE__ */ React30.createElement(
+  )), /* @__PURE__ */ React48.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React48.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React48.createElement("div", { style: box }, /* @__PURE__ */ React48.createElement(
     "input",
     {
       type: "time",
@@ -4522,76 +7721,19 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
         color: leg.time ? "var(--ink)" : "var(--muted)"
       }
     }
-  )), /* @__PURE__ */ React30.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
+  )), /* @__PURE__ */ React48.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
 }
-function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
-  if (edit) return /* @__PURE__ */ React30.createElement(FlightEntry, { leg: raw, dir, setLeg });
+function FlightPass({ leg: raw, dir, small, edit, setLeg, person = null, codeless = false }) {
+  if (edit) return /* @__PURE__ */ React48.createElement(FlightEntry, { leg: raw, dir, setLeg });
   const leg = cleanLeg(raw);
   if (!leg) return null;
-  if (leg.note) return /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: SANS,
-    fontWeight: 600,
-    fontSize: small ? 12.5 : 13.5,
-    color: "var(--ink)",
-    lineHeight: 1.5
-  } }, leg.note);
+  if (leg.note) return /* @__PURE__ */ React48.createElement("div", { className: "fd-flight-pass is-note" }, person, /* @__PURE__ */ React48.createElement("span", { className: "fd-flight-pass-note" }, leg.note));
   const t = legTime(leg.time);
-  const numSize = small ? 19 : 22;
-  return /* @__PURE__ */ React30.createElement("div", { style: {
-    display: "flex",
-    alignItems: "center",
-    gap: small ? 10 : 11,
-    background: "var(--paper2)",
-    border: "1px solid var(--line)",
-    borderRadius: 10,
-    padding: small ? "9px 11px" : "11px 13px"
-  } }, /* @__PURE__ */ React30.createElement(
-    "svg",
-    {
-      width: small ? 14 : 16,
-      height: small ? 14 : 16,
-      viewBox: "0 0 24 24",
-      fill: "var(--muted)",
-      "aria-hidden": "true",
-      style: { flexShrink: 0 }
-    },
-    /* @__PURE__ */ React30.createElement("path", { d: "M2 4 22 12 2 20l4.6-8z" })
-  ), /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 7, flex: 1, minWidth: 0 } }, /* @__PURE__ */ React30.createElement("span", { style: {
-    fontFamily: SANS,
-    fontWeight: 700,
-    fontSize: small ? 11 : 12,
-    letterSpacing: "0.14em",
-    color: "var(--accent2)"
-  } }, leg.air || "\xB7\xB7"), /* @__PURE__ */ React30.createElement("span", { style: {
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontSize: numSize,
-    color: "var(--ink)",
-    lineHeight: 1
-  } }, leg.num || "\u2014")), /* @__PURE__ */ React30.createElement("div", { style: {
-    flexShrink: 0,
-    borderLeft: "1px dashed var(--line)",
-    paddingLeft: small ? 10 : 12,
-    textAlign: "right"
-  } }, /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontSize: small ? 16 : 19,
-    lineHeight: 1.05,
-    color: t ? "var(--signal-text, var(--sun))" : "var(--muted)"
-  } }, t || "\u2014"), /* @__PURE__ */ React30.createElement("div", { style: {
-    fontFamily: SANS,
-    fontWeight: 700,
-    fontSize: small ? 9.5 : 10,
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    color: "var(--muted)",
-    marginTop: 2
-  } }, dir === "out" ? "Leaves Sun" : "Lands Fri")));
+  return /* @__PURE__ */ React48.createElement("div", { className: `fd-flight-pass${small ? " is-small" : ""}` }, /* @__PURE__ */ React48.createElement("span", { className: "fd-flight-pass-who" }, person || /* @__PURE__ */ React48.createElement(Icon, { name: "plane", size: small ? 16 : 18, lit: true })), !codeless && /* @__PURE__ */ React48.createElement("span", { className: "fd-flight-pass-code" }, leg.air && /* @__PURE__ */ React48.createElement("small", null, leg.air), leg.num && /* @__PURE__ */ React48.createElement("b", null, leg.num)), /* @__PURE__ */ React48.createElement("span", { className: "fd-flight-pass-when" }, t && /* @__PURE__ */ React48.createElement("b", null, t), /* @__PURE__ */ React48.createElement("small", null, dir === "out" ? "Leaves Sun" : "Lands Fri")));
 }
 function LegField({ lb, dir, leg, setLeg }) {
   const filled = leg && (leg.air || leg.num || leg.time);
-  return /* @__PURE__ */ React30.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React30.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React30.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React30.createElement("button", { onClick: () => setLeg(null), style: {
+  return /* @__PURE__ */ React48.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React48.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React48.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React48.createElement("button", { onClick: () => setLeg(null), style: {
     marginLeft: "auto",
     background: "none",
     border: "none",
@@ -4601,17 +7743,17 @@ function LegField({ lb, dir, leg, setLeg }) {
     padding: 0,
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: "var(--muted)"
-  } }, "Clear")), /* @__PURE__ */ React30.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
+  } }, "Clear")), /* @__PURE__ */ React48.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
 }
 function TravelLists() {
-  return /* @__PURE__ */ React30.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React30.createElement("option", { key: a, value: a })));
+  return /* @__PURE__ */ React48.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React48.createElement("option", { key: a, value: a })));
 }
 function SizeRow({ lb, value, onPick, allowClear }) {
-  return /* @__PURE__ */ React30.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React30.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React30.createElement(
+  return /* @__PURE__ */ React48.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React48.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React48.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React48.createElement(
     "button",
     {
       key: sz,
@@ -4647,13 +7789,13 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
     color: on ? "var(--ink0)" : "var(--ink)",
     border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
   });
-  return /* @__PURE__ */ React30.createElement("div", null, /* @__PURE__ */ React30.createElement(TravelLists, null), /* @__PURE__ */ React30.createElement("div", { style: {
+  return /* @__PURE__ */ React48.createElement("div", null, /* @__PURE__ */ React48.createElement(TravelLists, null), /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15,
     color: "var(--ink)",
     marginBottom: 8
-  } }, "Booked your flights?"), /* @__PURE__ */ React30.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React30.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React30.createElement(
+  } }, "Booked your flights?"), /* @__PURE__ */ React48.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React48.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React48.createElement(
     "button",
     {
       onClick: () => {
@@ -4665,7 +7807,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
       style: opt(booked === false)
     },
     "Not yet"
-  )), booked === true && /* @__PURE__ */ React30.createElement(React30.Fragment, null, /* @__PURE__ */ React30.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React30.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React30.createElement("div", { style: {
+  )), booked === true && /* @__PURE__ */ React48.createElement(React48.Fragment, null, /* @__PURE__ */ React48.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React48.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React48.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13.5,
     color: "var(--muted2)",
@@ -4676,6 +7818,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
 var geo, US_LL, inUS, US_DOTS, TRAVEL_CITIES, TRAVEL_DEST, CARD;
 var init_Travel = __esm({
   "src/features/travel/Travel.jsx"() {
+    init_Icon();
     init_core();
     init_guestSetup();
     init_theme();
@@ -4767,25 +7910,945 @@ var init_Travel = __esm({
   }
 });
 
-// src/features/check-in/InstallHint.jsx
-import React31, { useEffect as useEffect18, useState as useState26 } from "react";
-function InstallHint() {
-  const [, bump] = useState26(0);
-  useEffect18(() => onInstallReady(() => bump((x) => x + 1)), []);
-  if (installEvt) return /* @__PURE__ */ React31.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to home screen");
-  if (isIOS2()) return /* @__PURE__ */ React31.createElement("div", null, [["1", "Tap the Share button in Safari"], ["2", "Tap Add to Home Screen"]].map(([n, t]) => /* @__PURE__ */ React31.createElement("div", { key: n, style: { display: "flex", gap: 12, alignItems: "center", padding: "7px 0" } }, /* @__PURE__ */ React31.createElement("span", { style: { fontFamily: DISPLAY, fontWeight: 700, fontSize: 19, color: "var(--accent2)" } }, n), /* @__PURE__ */ React31.createElement("span", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, t))));
-  return /* @__PURE__ */ React31.createElement("div", { style: { fontFamily: SANS, fontSize: 16, color: "var(--ink)" } }, "In your browser menu, choose Add to Home Screen.");
+// src/ui/Coin.jsx
+import React51 from "react";
+function Coin({ p = null, color = null, unlit = false, className = "", children }) {
+  const identity = usePlayerIdentity(p);
+  const tone = unlit ? null : color || identity.color;
+  return /* @__PURE__ */ React51.createElement(
+    "span",
+    {
+      className: `fd-coin3d${unlit ? " is-unlit" : ""}${className ? ` ${className}` : ""}`,
+      "aria-hidden": "true",
+      style: tone ? { "--coin-color": tone } : void 0
+    },
+    Array.from({ length: COIN_EDGE_LAYERS2 }, (_, i) => /* @__PURE__ */ React51.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
+    /* @__PURE__ */ React51.createElement("span", { className: "fd-coin3d-face" }, children)
+  );
 }
-var init_InstallHint = __esm({
-  "src/features/check-in/InstallHint.jsx"() {
-    init_controls();
+var COIN_EDGE_LAYERS2;
+var init_Coin = __esm({
+  "src/ui/Coin.jsx"() {
+    init_PlayerIdentityContext();
+    COIN_EDGE_LAYERS2 = 5;
+  }
+});
+
+// src/features/wagers/wagers.css
+var init_wagers = __esm({
+  "src/features/wagers/wagers.css"() {
+  }
+});
+
+// src/features/wagers/Wagers.jsx
+import React52, { useEffect as useEffect29, useLayoutEffect as useLayoutEffect11, useMemo as useMemo9, useRef as useRef33, useState as useState39 } from "react";
+function wagerPickLabel(state, w, events) {
+  const ev = events.find((e) => e.id === w.eventId);
+  const evName = ev?.name || "removed event";
+  const pickName = w.pickTeam || w.pickPlayers?.length > 1 ? teamLabel(state, { players: w.pickPlayers }) : disp(state, w.pickPlayers ? w.pickPlayers[0] : w.pick);
+  if (w.kind === "outright") return { pick: pickName, ctx: `to win ${evName}` };
+  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} in ${evName}` };
+  if (w.kind === "heat") return { pick: pickName, ctx: `to win ${w.groupName || "the heat"} in ${evName}` };
+  if (w.final) return { pick: pickName, ctx: `to win the Final in ${evName}` };
+  return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
+}
+function mergeWagerLines(list) {
+  const key = ({ w, r }) => [
+    w.player,
+    r.status,
+    w.kind,
+    w.eventId,
+    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick) + ":x" + wagerMult(w) : w.kind === "match" ? "m:" + w.drawId + ":" + (w.match || []).join("-") + ":" + w.teamIdx : "s:" + w.stagesId + ":" + (w.final ? "F" : w.group) + ":" + w.pickKey
+  ].join("|");
+  const out = /* @__PURE__ */ new Map();
+  for (const x of list) {
+    const k = key(x), cur = out.get(k);
+    if (!cur) out.set(k, { w: { ...x.w, ids: [x.w.id] }, r: { ...x.r } });
+    else {
+      cur.w.stake += x.w.stake;
+      cur.w.ids.push(x.w.id);
+      if (typeof x.r.delta === "number") cur.r.delta = (cur.r.delta || 0) + x.r.delta;
+    }
+  }
+  return [...out.values()];
+}
+function MarketPick({
+  state,
+  me,
+  players,
+  name,
+  bets,
+  marketOpen,
+  canPick,
+  onPick,
+  onRetract,
+  onPlayer,
+  roleLabel,
+  unavailableReason,
+  unavailableLabel = "Opponent",
+  tapStake,
+  capLabel,
+  capReason,
+  winLine,
+  winSlot = false,
+  lines = 2
+}) {
+  const [pendingAction, setPendingAction] = useState39(null);
+  const [actionError, setActionError] = useState39(null);
+  const [checking, setChecking] = useState39(null);
+  const pendingRef = useRef33(false);
+  const pendingKindRef = useRef33(null), queueRef = useRef33([]);
+  const [queued, setQueued] = useState39(0);
+  const wellRef = useRef33(null), mineRef = useRef33(null), flightRef = useRef33(null);
+  const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
+    const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
+    return latest(a) - latest(b);
+  });
+  const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
+  const chip2 = lines === 1 ? ROW_CHIP : PHONE_CHIP;
+  const live2 = useRef33({ state, mineTotal });
+  live2.current = { state, mineTotal };
+  const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map((chip3) => chip3.stake) : [w.stake]);
+  const otherStacks = orderStacks(bets.filter((x) => x.w.player !== me).map(({ w }) => ({ player: w.player, stake: w.stake })));
+  const sideTotal = mineTotal + stacksTotal(otherStacks);
+  const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
+  const shownTotal = useRef33(mineTotal);
+  useEffect29(() => {
+    if (shownTotal.current === mineTotal) return;
+    shownTotal.current = mineTotal;
+    setActionError(null);
+  }, [mineTotal]);
+  const alive = useRef33(true);
+  useEffect29(() => () => {
+    alive.current = false;
+    flightRef.current?.cancel();
+  }, []);
+  useEffect29(() => {
+    if (!checking || checking.settled || state === checking.state) return;
+    if (!landed(checking.kind, checking.before, mineTotal)) {
+      setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
+      checking.flight?.back();
+    } else checking.flight?.land();
+    pendingRef.current = false;
+    setChecking(null);
+  }, [state, mineTotal, checking]);
+  const mineFace = () => mineRef.current?.querySelector(".fd-stack > svg")?.getBoundingClientRect() || null;
+  const placeFlight = () => {
+    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
+    const source = flightTarget(`bets:rack:${tapStake}`);
+    const face = mineFace();
+    const anchor = face || mineRef.current?.getBoundingClientRect() || wellRef.current?.getBoundingClientRect();
+    if (!source || !anchor) return null;
+    let release = () => {
+    };
+    const hold = new Promise((resolve) => {
+      release = resolve;
+    });
+    try {
+      source.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(.9)" }, { transform: "scale(1)" }],
+        { duration: MOTION.fast * 2, easing: EASE.out }
+      );
+    } catch {
+    }
+    fly(source, hoverRect(anchor, chip2, face ? 10 : 6), {
+      node: /* @__PURE__ */ React52.createElement(BankChip, { p: me, size: 46, val: tapStake }),
+      arc: 64,
+      hold
+    });
+    let settled = false;
+    const finish = (next) => {
+      if (!settled) {
+        settled = true;
+        release(next);
+      }
+    };
+    return {
+      /* the state is already painted when the ack lands; wait one frame so
+         the new stack is measured, then drop onto it */
+      land: () => requestAnimationFrame(() => {
+        const now2 = mineFace();
+        const onLand = () => playSound("chipLand");
+        if (now2) finish({ to: faceRect(now2), duration: MOTION.fast, settle: true, onLand });
+        else if (mineRef.current) finish({ to: mineRef.current, duration: MOTION.fast * 1.5, land: true, onLand });
+        else finish(null);
+      }),
+      back: () => finish({ to: flightTarget(`bets:rack:${tapStake}`) || source, arc: 40, duration: MOTION.flight }),
+      cancel: () => finish(null)
+    };
+  };
+  const retractFlight = () => {
+    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
+    const face = mineFace();
+    const from = face ? faceRect(face) : mineRef.current?.getBoundingClientRect();
+    if (!from) return null;
+    const value = mineChips[mineChips.length - 1];
+    return {
+      land: () => {
+        const to = flightTarget(rackTargetFor(value, RACK_DENOMS, tapStake));
+        if (to) fly(from, to, { node: /* @__PURE__ */ React52.createElement(BankChip, { p: me, size: Math.round(from.width), val: value }), arc: 48, land: true });
+      },
+      back: () => {
+      },
+      cancel: () => {
+      }
+    };
+  };
+  const chipSound = (kind) => {
+    unlockSound();
+    playSound(
+      kind === "place" ? capLabel ? "S7" : "S5" : "S6",
+      { opts: { denom: tapStake, height: Array.isArray(mineChips) ? mineChips.length : 0 } }
+    );
+  };
+  const act = (kind, callback, queuedTap = false) => {
+    if (pendingRef.current) {
+      if (kind === "place" && pendingKindRef.current === "place" && !queuedTap && queueRef.current.length < PLACE_QUEUE) {
+        tapTick();
+        chipSound(kind);
+        queueRef.current.push(callback);
+        setQueued(queueRef.current.length);
+      }
+      return;
+    }
+    if (!queuedTap) tapTick();
+    if (!queuedTap) chipSound(kind);
+    pendingRef.current = true;
+    pendingKindRef.current = kind;
+    const before = live2.current.mineTotal;
+    setPendingAction(kind);
+    setActionError(null);
+    const flight = kind === "place" ? placeFlight() : retractFlight();
+    flightRef.current = flight;
+    let holding = false, saved2 = false;
+    const finish = () => {
+      if (!holding) {
+        pendingRef.current = false;
+        pendingKindRef.current = null;
+      }
+      setPendingAction(null);
+      const next = saved2 && !holding && alive.current ? queueRef.current.shift() : null;
+      if (!next) queueRef.current = [];
+      setQueued(queueRef.current.length);
+      if (next) act("place", next, true);
+    };
+    const check = (result) => {
+      if (isUncertainResult(result)) {
+        if (!landed(kind, before, live2.current.mineTotal)) {
+          holding = true;
+          const settled = typeof result?.settled?.then === "function";
+          setChecking({ kind, before, state: live2.current.state, settled, flight });
+          if (settled) result.settled.then((outcome) => outcome, () => ({ ok: false })).then((outcome) => {
+            if (!alive.current) return;
+            if (outcome?.ok === true) {
+              haptic(kind === "place" ? "place" : "retract");
+              flight?.land();
+            } else if (!landed(kind, before, live2.current.mineTotal)) {
+              setActionError(kind === "place" ? "Not placed" : "Not removed");
+              playSound("S26");
+              flight?.back();
+            } else flight?.land();
+            pendingRef.current = false;
+            setChecking(null);
+          });
+        } else flight?.land();
+        return result;
+      }
+      if (result?.ok === false) {
+        setActionError(result.error || "Bet not saved.");
+        playSound("S26");
+        flight?.back();
+      } else if (result?.ok === true) {
+        saved2 = true;
+        haptic(kind === "place" ? "place" : "retract");
+        flight?.land();
+      } else flight?.cancel();
+      return result;
+    };
+    const fail = (error) => {
+      const message = error?.message || "Bet not saved.";
+      setActionError(message);
+      playSound("S26");
+      flight?.back();
+      return { ok: false, error: message };
+    };
+    try {
+      const result = callback();
+      if (result?.then) return Promise.resolve(result).then(check, fail).finally(finish);
+      const checked = check(result);
+      finish();
+      return checked;
+    } catch (error) {
+      finish();
+      return fail(error);
+    }
+  };
+  const busyKind = pendingAction || checking?.kind || null;
+  const everyone = orderStacks([...otherStacks, ...mineTotal > 0 ? [{ player: me, stake: mineTotal }] : []]);
+  const [listOpen, setListOpen] = useState39(false);
+  const showWell = !unavailableReason && marketOpen && players.length > 0;
+  const shownRows = lines === 1 ? [] : backerRows(everyone, me);
+  const more = everyone.length - shownRows.length;
+  const winInline = lines === 1 && players.length === 1;
+  const namePrefix = `Win: ${name} `;
+  const inlineLine = winInline && winLine?.text?.startsWith(namePrefix) ? { ...winLine, text: `Win ${winLine.text.slice(namePrefix.length)}` } : winLine;
+  const busyPlace = !!busyKind && !(pendingAction === "place" && !checking && queued < PLACE_QUEUE);
+  const placeButton = showWell && /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      ref: wellRef,
+      className: `fd-wagers-place${capLabel ? " is-capped" : ""}`,
+      disabled: !canPick || busyPlace,
+      onClick: () => act("place", onPick),
+      "aria-label": canPick ? `Place a chip on ${name}` : name,
+      "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt6(tapStake)} chips` : void 0)
+    },
+    /* @__PURE__ */ React52.createElement(Icon, { name: "plus", size: lines === 1 ? 18 : 20 }),
+    /* @__PURE__ */ React52.createElement("span", null, capLabel || fmt6(tapStake))
+  );
+  const retract = () => act("remove", () => onRetract(mine[mine.length - 1].w.id));
+  const backerRow = (item) => {
+    const you = item.player === me;
+    const body = /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-backer-name" }, you ? "You" : disp(state, item.player)), /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-backer-amount" }, fmt6(item.stake)), you && marketOpen && /* @__PURE__ */ React52.createElement(Icon, { name: "undo", size: 16, className: "fd-wagers-backer-back" }));
+    if (you) return marketOpen ? /* @__PURE__ */ React52.createElement("li", { key: item.player }, /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-backer is-you",
+        disabled: !!busyKind,
+        onClick: retract,
+        "aria-label": `Retract your last chip on ${name}`,
+        "aria-description": `Remove ${fmt6(mineChips[mineChips.length - 1])} chips; ${fmt6(mineTotal)} total on this pick`
+      },
+      body
+    )) : /* @__PURE__ */ React52.createElement("li", { key: item.player }, /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-backer is-you", role: "img", "aria-label": `${fmt6(mineTotal)} of your chips on ${name}` }, body));
+    return /* @__PURE__ */ React52.createElement("li", { key: item.player }, /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-backer",
+        disabled: !onPlayer,
+        onClick: () => onPlayer?.(item.player),
+        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt6(item.stake)} chips)`
+      },
+      body
+    ));
+  };
+  const potStack = /* @__PURE__ */ React52.createElement(
+    ChipStack,
+    {
+      chip: POT_CHIP,
+      count: stackChipCount(sideTotal),
+      size: lines === 1 ? ROW_CHIP : PHONE_CHIP,
+      cap: STACK_CAP,
+      tag: false,
+      tower: true
+    }
+  );
+  const pot = /* @__PURE__ */ React52.createElement("span", { ref: mineRef, className: `fd-wagers-pot-stack${sideTotal > 0 ? "" : " is-empty"}`, "aria-hidden": "true" }, sideTotal > 0 && potStack);
+  return /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 ? " is-team" : ""}` }, players.length === 1 ? /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      className: "fd-wagers-player",
+      disabled: !onPlayer,
+      onClick: () => onPlayer?.(players[0]),
+      "aria-label": `View ${name}'s player card`
+    },
+    /* @__PURE__ */ React52.createElement(Avatar, { state, p: players[0], size: lines === 1 ? 34 : 26 }),
+    winInline ? /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-player-text" }, /* @__PURE__ */ React52.createElement("span", null, name), /* @__PURE__ */ React52.createElement(WinLine, { line: inlineLine, className: "fd-wagers-win-inline" })) : /* @__PURE__ */ React52.createElement("span", null, name)
+  ) : /* @__PURE__ */ React52.createElement(React52.Fragment, null, players.length > 2 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React52.createElement(
+    "span",
+    {
+      className: `fd-wagers-team-players${players.length > 3 ? " is-many" : ""}`,
+      style: players.length > 3 ? { "--fd-team-n": players.length } : void 0
+    },
+    players.map((player) => /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        key: player,
+        disabled: !onPlayer,
+        onClick: () => onPlayer?.(player),
+        title: disp(state, player),
+        "aria-label": `View ${disp(state, player)}'s player card`
+      },
+      /* @__PURE__ */ React52.createElement(Avatar, { state, p: player, size: 24 }),
+      players.length <= 3 && /* @__PURE__ */ React52.createElement("span", null, disp(state, player))
+    ))
+  ))), winSlot && !winInline && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React52.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), lines === 1 ? /* @__PURE__ */ React52.createElement(
+    "div",
+    {
+      className: "fd-wagers-pot is-row",
+      role: "group",
+      "aria-label": `Bets on ${name}`,
+      "aria-busy": !!busyKind,
+      "aria-description": unavailableReason || void 0
+    },
+    roleLabel && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel),
+    /* @__PURE__ */ React52.createElement("span", { ref: mineRef, className: `fd-wagers-pot-total${sideTotal > 0 ? "" : " is-empty"}` }, fmt6(sideTotal)),
+    /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-who" }, mineTotal > 0 ? marketOpen ? /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-pot-you",
+        disabled: !!busyKind,
+        onClick: retract,
+        "aria-label": `Retract your last chip on ${name}`,
+        "aria-description": `Remove ${fmt6(mineChips[mineChips.length - 1])} chips; ${fmt6(mineTotal)} total on this pick`
+      },
+      /* @__PURE__ */ React52.createElement(Icon, { name: "undo", size: 14 }),
+      fmt6(mineTotal)
+    ) : /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-you", role: "img", "aria-label": `${fmt6(mineTotal)} of your chips on ${name}` }, fmt6(mineTotal)) : everyone.length > 0 && /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-pot-count",
+        onClick: () => setListOpen(true),
+        "aria-label": `${everyone.length} backing ${name}`
+      },
+      /* @__PURE__ */ React52.createElement(Icon, { name: "people", size: 14 }),
+      everyone.length
+    )),
+    placeButton
+  ) : /* @__PURE__ */ React52.createElement(
+    "div",
+    {
+      className: "fd-wagers-pot",
+      role: "group",
+      "aria-label": `Bets on ${name}`,
+      "aria-busy": !!busyKind,
+      "aria-description": unavailableReason || void 0
+    },
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-pot-head" }, pot, /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-total" }, fmt6(sideTotal)), roleLabel && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel)),
+    /* @__PURE__ */ React52.createElement("ol", { className: "fd-wagers-backers" }, shownRows.map(backerRow)),
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-backers-more" }, more > 0 && /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => setListOpen(true),
+        "aria-label": `All ${everyone.length} backing ${name}`
+      },
+      more,
+      " more"
+    )),
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-place-slot" }, placeButton)
+  ), checking && /* @__PURE__ */ React52.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React52.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError), listOpen && /* @__PURE__ */ React52.createElement(Sheet, { title: name, onClose: () => setListOpen(false), className: "fd-wagers-backers-sheet" }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-pot-head is-sheet" }, /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-stack", "aria-hidden": "true" }, sideTotal > 0 && potStack), /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-total" }, fmt6(sideTotal))), /* @__PURE__ */ React52.createElement("ol", { className: "fd-wagers-backers is-all" }, everyone.map(backerRow))));
+}
+function backerRows(everyone = [], me = null, rows = BACKER_ROWS) {
+  if (everyone.length <= rows) return everyone;
+  const top = everyone.slice(0, rows);
+  const mine = me ? everyone.find((item) => item.player === me) : null;
+  return mine && !top.includes(mine) ? [...top.slice(0, rows - 1), mine] : top;
+}
+function SettleStrip({ me, settling }) {
+  const { view, label: label2 } = settling;
+  return /* @__PURE__ */ React52.createElement(
+    "section",
+    {
+      className: "fd-wagers-settle",
+      role: "status",
+      "aria-label": `${label2} settled: ${fmt6(view.paid)} paid, ${fmt6(view.lost)} lost`
+    },
+    /* @__PURE__ */ React52.createElement("h2", null, label2),
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React52.createElement("strong", null, "+", fmt6(view.paid)), /* @__PURE__ */ React52.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React52.createElement("strong", null, "\u2212", fmt6(view.lost)), /* @__PURE__ */ React52.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
+  );
+}
+function RackChip({ value, me, disabled, selected, onClick }) {
+  const target = useFlightTarget(`bets:rack:${value}`);
+  return /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      ref: target,
+      disabled,
+      onClick,
+      "data-fly-coin": "",
+      "aria-pressed": selected,
+      "aria-label": `Bet ${value} a tap`,
+      className: selected ? "is-selected" : disabled ? "is-unlit" : ""
+    },
+    /* @__PURE__ */ React52.createElement(Coin, { p: me, unlit: disabled }, disabled ? /* @__PURE__ */ React52.createElement(UnlitChip, { value }) : /* @__PURE__ */ React52.createElement(BankChip, { p: me, size: 46, val: value }))
+  );
+}
+function UnlitChip({ value }) {
+  const ticks = Array.from({ length: 8 }, (_, i) => i * 45);
+  return /* @__PURE__ */ React52.createElement("svg", { className: "fd-wagers-unlit", viewBox: "0 0 46 46", width: "46", height: "46", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React52.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-wagers-unlit-body" }), ticks.map((angle) => /* @__PURE__ */ React52.createElement(
+    "rect",
+    {
+      key: angle,
+      x: "21",
+      y: "2.5",
+      width: "4",
+      height: "7",
+      rx: "1",
+      className: "fd-wagers-unlit-tick",
+      transform: `rotate(${angle} 23 23)`
+    }
+  )), /* @__PURE__ */ React52.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-wagers-unlit-face" }), /* @__PURE__ */ React52.createElement("text", { x: "23", y: "23", className: "fd-wagers-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
+}
+function HeldBoard({ state, me, held, view, onSkip }) {
+  const mineRef = useRef33(null);
+  useStageHold(`bets:held:${held.id}`, true);
+  const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
+  useEffect29(() => {
+    if (!me || paid <= 0) return void 0;
+    const timer = setTimeout(() => {
+      const svg = mineRef.current?.querySelector(".fd-stack > svg");
+      if (!svg) return;
+      const from = faceRect(svg.getBoundingClientRect());
+      const count = Math.max(1, Math.min(5, Math.round(paid / PT)));
+      for (let i = 0; i < count; i++) fly(from, "tab:home", {
+        node: /* @__PURE__ */ React52.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
+        delay: i * 70,
+        arc: 60,
+        duration: 560,
+        scale: 0.7,
+        fade: true,
+        land: i === count - 1
+      });
+    }, HOME_FLIGHT_AT);
+    return () => clearTimeout(timer);
+  }, []);
+  const { contest, ev, label: label2, winSlot = false } = held;
+  const lines = (contest.sides || []).length > 2 ? 1 : 2;
+  const sides = contest.kind === "ffa" ? view.sides.filter((side) => side.won || side.stacks.length) : view.sides;
+  const nameOf3 = (side) => {
+    const drawn = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
+    return side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawn || { players: side.players });
+  };
+  return /* @__PURE__ */ React52.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React52.createElement("div", null, /* @__PURE__ */ React52.createElement("h2", null, contest.kind === "ffa" ? "Winner" : label2), /* @__PURE__ */ React52.createElement("p", null, contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"))), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-picks" }, sides.map((side) => {
+    const head2 = side.won ? side.paid > 0 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt6(side.paid)) : side.total > 0 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt6(side.total));
+    return /* @__PURE__ */ React52.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-pick-identity${side.players.length > 2 ? " is-team" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React52.createElement(Avatar, { state, p: side.players[0], size: 26 }), /* @__PURE__ */ React52.createElement("span", null, nameOf3(side))) : /* @__PURE__ */ React52.createElement(React52.Fragment, null, side.players.length > 2 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-team-name" }, nameOf3(side)), /* @__PURE__ */ React52.createElement(
+      "span",
+      {
+        className: `fd-wagers-team-players${side.players.length > 3 ? " is-many" : ""}`,
+        style: side.players.length > 3 ? { "--fd-team-n": side.players.length } : void 0
+      },
+      side.players.map((player) => /* @__PURE__ */ React52.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React52.createElement(Avatar, { state, p: player, size: 24 }), side.players.length <= 3 && /* @__PURE__ */ React52.createElement("span", null, disp(state, player))))
+    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-win-slot" }), /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-pot is-held${lines === 1 ? " is-row" : ""}` }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-pot-head" }, /* @__PURE__ */ React52.createElement("span", { ref: mineRef, className: `fd-wagers-pot-stack${side.total > 0 ? "" : " is-empty"}`, "aria-hidden": "true" }, side.total > 0 && /* @__PURE__ */ React52.createElement(
+      ChipStack,
+      {
+        chip: POT_CHIP,
+        count: stackChipCount(side.total + (side.won ? side.paid : 0)),
+        size: lines === 1 ? ROW_CHIP : PHONE_CHIP,
+        cap: STACK_CAP,
+        tag: false,
+        tower: true,
+        settle: side.won ? "won" : null,
+        delay: 500
+      }
+    )), head2 || /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-pot-total is-empty" }, "0"), side.won && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), lines !== 1 && /* @__PURE__ */ React52.createElement("ol", { className: "fd-wagers-backers" }, backerRows(side.stacks, me).map((item, index) => /* @__PURE__ */ React52.createElement("li", { key: item.player }, /* @__PURE__ */ React52.createElement(
+      "span",
+      {
+        className: `fd-wagers-backer${item.player === me ? " is-you" : ""}${side.won ? "" : " is-lost"}`,
+        style: side.won ? void 0 : { animationDelay: `${200 + index * 90}ms` }
+      },
+      /* @__PURE__ */ React52.createElement(Avatar, { state, p: item.player, size: 24 }),
+      /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-backer-name" }, item.player === me ? "You" : disp(state, item.player)),
+      /* @__PURE__ */ React52.createElement("span", { className: `fd-wagers-backer-amount${side.won ? " is-up" : ""}` }, side.won ? `+${fmt6(item.paid)}` : fmt6(item.stake))
+    )))), lines !== 1 && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-backers-more" }, side.stacks.length > BACKER_ROWS && /* @__PURE__ */ React52.createElement("span", null, side.stacks.length - backerRows(side.stacks, me).length, " more"))));
+  })));
+}
+function StackMeter({ pts, cap, bets, duels, room, capBinds = false }) {
+  const exposure = bets + duels;
+  const scale = Math.max(pts, exposure, cap, 1);
+  const at = (value) => Math.max(0, Math.min(100, value / scale * 100));
+  const pct = (value) => `${at(value)}%`;
+  const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
+  const over = Math.max(0, exposure - cap);
+  const capped = room < PT && pts - exposure >= PT;
+  return /* @__PURE__ */ React52.createElement(
+    "div",
+    {
+      className: `fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`,
+      role: "meter",
+      "aria-label": "Chips at risk",
+      "aria-valuemin": 0,
+      "aria-valuemax": Math.max(cap, exposure),
+      "aria-valuenow": exposure,
+      "aria-valuetext": `${fmt6(exposure)} at risk, ${fmt6(cap)} maximum, ${fmt6(pts)} in your stack${duels ? `, ${fmt6(duels)} reserved for duels` : ""}`
+    },
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, capBinds ? /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-meter-room is-max" }, /* @__PURE__ */ React52.createElement("strong", null, "Max ", fmt6(cap))) : /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-meter-room" }, /* @__PURE__ */ React52.createElement("strong", null, fmt6(room)), /* @__PURE__ */ React52.createElement("small", null, "to bet")), exposure > 0 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-meter-down" }, fmt6(exposure), /* @__PURE__ */ React52.createElement("small", null, "in bets"))),
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React52.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React52.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React52.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React52.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
+    /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, /* @__PURE__ */ React52.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt6(cap)), at(cap) <= 72 && /* @__PURE__ */ React52.createElement("span", { className: "is-stack" }, fmt6(pts)))
+  );
+}
+function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
+  const { w, r } = x;
+  const label2 = wagerPickLabel(state, w, events);
+  const win = wagerMult(w) * w.stake;
+  const [confirming, setConfirming] = useState39(false), [voiding, setVoiding] = useState39(false);
+  const voidBusy = useRef33(false);
+  const ids = w.ids || [w.id];
+  const voidable = gm && manage && r.status === "pending" && !!onVoid;
+  return /* @__PURE__ */ React52.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      className: "fd-wagers-ledger-player",
+      disabled: !onPlayer,
+      onClick: () => onPlayer?.(w.player),
+      "aria-label": `View ${disp(state, w.player)}'s player card`
+    },
+    /* @__PURE__ */ React52.createElement(Avatar, { state, p: w.player, size: 32 })
+  ), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      disabled: !onPlayer,
+      onClick: () => onPlayer?.(w.player)
+    },
+    disp(state, w.player)
+  ), " ", /* @__PURE__ */ React52.createElement("span", null, fmt6(w.stake), " chips")), /* @__PURE__ */ React52.createElement("strong", null, label2.pick), /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("small", null, "To win"), /* @__PURE__ */ React52.createElement("strong", null, "+", fmt6(win))), r.status === "won" && /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("small", null, "Won"), /* @__PURE__ */ React52.createElement("strong", null, "+", fmt6(r.delta))), r.status === "lost" && /* @__PURE__ */ React52.createElement(React52.Fragment, null, /* @__PURE__ */ React52.createElement("small", null, "Lost"), /* @__PURE__ */ React52.createElement("strong", null, fmt6(r.delta))), r.status === "void" && /* @__PURE__ */ React52.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React52.createElement(
+    "button",
+    {
+      type: "button",
+      className: "fd-wagers-void",
+      onClick: () => setConfirming(true)
+    },
+    "Void"
+  )), voidable && confirming && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React52.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt6(w.stake), " chips back"), /* @__PURE__ */ React52.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
+    if (voidBusy.current) return void 0;
+    voidBusy.current = true;
+    setVoiding(true);
+    try {
+      const result = await onVoid(ids);
+      if (result?.ok !== false) setConfirming(false);
+      return result;
+    } finally {
+      voidBusy.current = false;
+      setVoiding(false);
+    }
+  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React52.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
+}
+function contestPick(contest, side, event) {
+  const common = {
+    eventId: event.id,
+    evName: event.name,
+    contestId: contest.id,
+    contestRevision: contest.revision,
+    pickPlayers: [...side.players]
+  };
+  if (contest.kind === "ffa") {
+    const pickTeam2 = typeof side.key === "number";
+    return {
+      ...common,
+      kind: "outright",
+      pickTeam: pickTeam2,
+      ...pickTeam2 ? { drawId: contest.drawId } : { pick: side.key }
+    };
+  }
+  if (contest.kind === "match") return {
+    ...common,
+    kind: "match",
+    pickTeam: true,
+    drawId: contest.drawId,
+    match: [...contest.match],
+    teamIdx: side.key,
+    matchName: contest.label
+  };
+  const pickTeam = typeof side.key === "number";
+  const stage = {
+    ...common,
+    stagesId: contest.stagesId,
+    pickKey: side.key,
+    pickTeam,
+    ...pickTeam && contest.drawId ? { drawId: contest.drawId } : {}
+  };
+  return contest.kind === "heat" ? { ...stage, kind: "heat", group: contest.group, groupName: contest.label } : { ...stage, kind: "stage", final: true };
+}
+function samePick(wager, pick) {
+  if (wager.kind !== pick.kind || wager.eventId !== pick.eventId) return false;
+  if (wager.contestId && pick.contestId && wager.contestId !== pick.contestId) return false;
+  if (pick.kind === "outright") return !!wager.pickTeam === !!pick.pickTeam && (pick.pickTeam ? wager.drawId === pick.drawId && (wager.pickPlayers || []).join("|") === pick.pickPlayers.join("|") : wager.pick === pick.pick);
+  if (pick.kind === "match") return wager.drawId === pick.drawId && wager.teamIdx === pick.teamIdx && wager.match?.[0] === pick.match[0] && wager.match?.[1] === pick.match[1];
+  return wager.stagesId === pick.stagesId && wager.pickKey === pick.pickKey && !!wager.final === !!pick.final && (pick.final || wager.group === pick.group);
+}
+function Wagers({
+  state,
+  me,
+  standings,
+  gm,
+  events,
+  wagerEv,
+  onEvents,
+  onEvent,
+  onPick,
+  onVoid,
+  onRetract,
+  onPlayer,
+  GameMark: GameMark2,
+  openSettled = false,
+  onSettledSeen
+}) {
+  const [settledOpen, setSettledOpen] = useState39(() => openSettled && me ? `st:${me}` : null);
+  const [settledShown, setSettledShown] = useState39(!!openSettled);
+  const settledRef = useRef33(null);
+  useEffect29(() => {
+    if (!openSettled) return;
+    setSettledShown(true);
+    if (me) setSettledOpen(`st:${me}`);
+    settledRef.current?.scrollIntoView?.({ block: "start" });
+    onSettledSeen?.();
+  }, [openSettled]);
+  const [denom, setDenom] = useState39(PT);
+  const [manage, setManage] = useState39(false);
+  const resolved = useMemo9(
+    () => (state.wagers || []).map((w) => ({ w, r: resolveWager(state, w, events) })),
+    [state, events]
+  );
+  const pending = resolved.filter((x) => x.r.status === "pending");
+  const pendingLines = mergeWagerLines(pending);
+  const settledLines = mergeWagerLines(resolved.filter((x) => x.r.status !== "pending"));
+  const settledByPlayer = useMemo9(() => {
+    const groups = /* @__PURE__ */ new Map();
+    for (const x of settledLines) {
+      const group = groups.get(x.w.player) || { player: x.w.player, lines: [], net: 0 };
+      group.lines.push(x);
+      group.net += x.r.delta || 0;
+      groups.set(x.w.player, group);
+    }
+    return [...groups.values()].sort((a, b) => b.net - a.net || a.player.localeCompare(b.player));
+  }, [settledLines]);
+  const wagerRisk = me ? atRisk(state, me, events) : 0;
+  const myPts = standings.find((row) => row.player === me)?.pts ?? 0;
+  const myCap = maxRisk(myPts);
+  const duelAntes = me ? duelReserve(state, me) : 0;
+  const myExp = wagerRisk + duelAntes;
+  const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
+  const capBinds = !!me && room < PT && myPts - myExp >= PT;
+  useEffect29(() => {
+    if (denom > PT && room >= PT && denom > room)
+      setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
+  }, [room, denom]);
+  const tapStake = denom <= room ? denom : [...RACK_DENOMS].reverse().find((value) => value <= room) || PT;
+  const ev = wagerEv;
+  const finaleClosed = stacksPosted(state) || !!(state.poker && !state.results?.[state.poker.id]);
+  const contest = ev ? resolveCurrentContest(state, ev) : null;
+  const lifecycle = ev ? resolveEventLifecycle(state, ev) : null;
+  const marketOpen = !!contest && contest.phase === "betting-open" && !!state.live && !state.frozen && !state.results?.[ev?.id] && !stacksPosted(state) && !(state.poker && !state.results?.[state.poker.id]);
+  const ownSide = contest?.sides.find((side) => side.players.includes(me));
+  const evenMoney = contestMult(contest) === 1;
+  const restricted = !!ownSide && evenMoney;
+  const contestNoun = contest?.kind === "match" || contest?.kind === "ffa" ? "match" : contest?.kind === "heat" ? "heat" : "final";
+  const restriction = restricted ? `You can only bet on ${ownSide.players.length > 1 ? "your team" : "yourself"} in this ${contestNoun}.` : null;
+  const heldSide = me && contest ? contestSideOf(state, contest, me, events) : null;
+  const winLines = useMemo9(
+    () => contest && ev ? contestWinLines(state, ev, contest, { events }) : [],
+    [state, ev?.id, contest?.id]
+  );
+  const wide = contest?.kind === "ffa" && (contest?.sides || []).length > 2;
+  const picks = (contest?.sides || []).map((side) => {
+    const own = side.players.includes(me);
+    const drawnTeam = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
+    const name = side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawnTeam || { players: side.players });
+    const pick = contestPick(contest, side, ev);
+    const eligible = !!me && contestBetEligibility(contest, me, side.key);
+    const otherSide = eligible && heldSide !== null && heldSide !== side.key;
+    return {
+      key: side.key,
+      state,
+      me,
+      players: side.players,
+      name,
+      marketOpen,
+      onRetract: (id) => onRetract(id, { contestId: contest.id, contestRevision: contest.revision }),
+      onPlayer,
+      tapStake,
+      bets: pending.filter((x) => samePick(x.w, pick)),
+      winLine: wide && !own ? null : winLineFor(winLines, side.key),
+      roleLabel: own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
+      unavailableReason: restricted && !eligible ? restriction : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
+      unavailableLabel: restricted && !eligible ? "Opponent" : "Other side",
+      canPick: marketOpen && room >= PT && eligible && !otherSide,
+      capLabel: marketOpen && eligible && !otherSide && capBinds ? `Max ${fmt6(myCap)}` : null,
+      capReason: marketOpen && eligible && !otherSide && capBinds ? `At your ${fmt6(myCap)} limit` : null,
+      onPick: () => onPick({ ...pick, stake: tapStake })
+    };
+  });
+  if (contest?.kind === "ffa") picks.sort((a, b) => Number(!!b.roleLabel) - Number(!!a.roleLabel));
+  const winSlot = picks.some((pick) => !!pick.winLine?.text);
+  const lines = picks.length > 2 ? 1 : 2;
+  picks.forEach((pick) => {
+    pick.winSlot = winSlot;
+    pick.lines = lines;
+  });
+  const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result" ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
+  const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
+  const boardChange = useFreshChange(boardKey);
+  const frame2 = useMotionFrame();
+  const watched = useRef33(null);
+  const [settling, setSettling] = useState39(null);
+  const [held, setHeld] = useState39(null);
+  const [dealing, setDealing] = useState39(0);
+  useLayoutEffect11(() => {
+    const prev = watched.current;
+    watched.current = ev && contest ? { ev, contest, winSlot, label: contest.kind === "ffa" ? ev.name || "Winner" : contest.label } : null;
+    if (!boardChange.fresh || !prev || prev.contest.id === contest?.id) return;
+    const decided3 = decidedContest(state, events, prev.ev.id, prev.contest);
+    if (!decided3) return;
+    if (boardChange.animate) {
+      setSettling(null);
+      setHeld({ id: `${prev.contest.id}:${boardChange.changeId}`, ...prev });
+      return;
+    }
+    const view = settledStacks(state, events, prev.contest);
+    if (view.any) setSettling({ id: prev.contest.id, label: prev.label, view });
+  }, [boardKey]);
+  const heldView = held ? decidedContest(state, events, held.ev.id, held.contest) : null;
+  const endHold = () => {
+    setHeld(null);
+    setDealing((value) => value + 1);
+  };
+  useEffect29(() => {
+    if (!held) return void 0;
+    const timer = setTimeout(endHold, MOTION.settleHold);
+    return () => clearTimeout(timer);
+  }, [held?.id]);
+  useEffect29(() => {
+    if (held && (!heldView || frame2.correction)) setHeld(null);
+  }, [held?.id, !!heldView, frame2.seq]);
+  useEffect29(() => {
+    if (!dealing) return void 0;
+    const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
+    return () => clearTimeout(timer);
+  }, [dealing]);
+  useEffect29(() => {
+    if (!settling) return void 0;
+    const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
+    return () => clearTimeout(timer);
+  }, [settling?.id]);
+  const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
+  const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket" : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
+  const holding = !!(held && heldView);
+  const headEv = holding ? held.ev : ev;
+  const liveDot = marketOpen && !holding;
+  const rackShown = !!(me && ev && marketOpen && !holding);
+  const rootRef = useRef33(null), rackRef = useRef33(null);
+  useGlassTilt(rackRef, { enabled: rackShown, max: 2 });
+  return /* @__PURE__ */ React52.createElement(
+    "div",
+    {
+      ref: rootRef,
+      className: `fd-wagers${rackShown ? " has-rack" : ""}`,
+      style: { "--fd-wagers-numerals": DISPLAY, "--fd-wagers-body": SANS }
+    },
+    headEv ? /* @__PURE__ */ React52.createElement("header", { className: `fd-wagers-event-heading fd-lamp${liveDot ? " is-live" : ""}` }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-scene fd-glass-scene" }, /* @__PURE__ */ React52.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React52.createElement("h1", { className: "fd-show is-marquee fd-glass-letter" }, /* @__PURE__ */ React52.createElement(EventName, { name: headEv.name })), GameMark2 && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-event-mark" }, /* @__PURE__ */ React52.createElement(GameMark2, { id: headEv.game, variant: headEv.variant, size: 34 }))), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React52.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React52.createElement("i", { className: liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done", "aria-hidden": "true" }), holding ? "Settled" : status), contest && !holding && /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-payout" }, evenMoney ? "Winner pays 1:1" : "Winner pays 2:1"))) : /* @__PURE__ */ React52.createElement(PageHeading, { title: "Bets" }),
+    settling && /* @__PURE__ */ React52.createElement(SettleStrip, { key: settling.id, me, settling }),
+    holding && /* @__PURE__ */ React52.createElement(HeldBoard, { key: held.id, state, me, held, view: heldView, onSkip: endHold }),
+    !ev && !holding && /* @__PURE__ */ React52.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${state.frozen || finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React52.createElement("h2", null, state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !state.frozen && !finaleClosed && /* @__PURE__ */ React52.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
+    ev && !holding && /* @__PURE__ */ React52.createElement("section", { className: "fd-wagers-event" }, (contest?.kind !== "ffa" || onEvent && !peek) && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React52.createElement("div", null, contest?.kind !== "ffa" && /* @__PURE__ */ React52.createElement("h2", null, /* @__PURE__ */ React52.createElement(OneSafe, { text: contest?.label || "Bets" }))), onEvent && !peek && /* @__PURE__ */ React52.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React52.createElement(Icon, { name: "open", size: 18 }))), contest && picks.length > 0 ? /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-play" }, /* @__PURE__ */ React52.createElement(
+      "section",
+      {
+        className: `fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`,
+        "aria-label": contest.label
+      },
+      /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ""}` }, picks.map((pick) => /* @__PURE__ */ React52.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
+    ), rackShown && /* @__PURE__ */ React52.createElement("section", { ref: rackRef, className: `fd-wagers-rack fd-night${dealing ? " is-dealing" : ""}`, "aria-label": "Choose your betting chip" }, /* @__PURE__ */ React52.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room, capBinds }), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
+      const affordable = value <= room;
+      return /* @__PURE__ */ React52.createElement(
+        RackChip,
+        {
+          key: value,
+          value,
+          me,
+          disabled: !affordable,
+          selected: tapStake === value && affordable,
+          onClick: () => {
+            tapTick();
+            setDenom(value);
+          }
+        }
+      );
+    })))) : /* @__PURE__ */ React52.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React52.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React52.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
+    pendingLines.length > 0 && /* @__PURE__ */ React52.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React52.createElement("summary", null, "Open bets ", /* @__PURE__ */ React52.createElement("span", null, pendingLines.length), /* @__PURE__ */ React52.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })), gm && onVoid && /* @__PURE__ */ React52.createElement(
+      "button",
+      {
+        type: "button",
+        className: "fd-wagers-manage",
+        "aria-pressed": manage,
+        onClick: () => setManage((value) => !value)
+      },
+      manage ? "Done" : "Manage"
+    ), /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React52.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
+    settledLines.length > 0 && /* @__PURE__ */ React52.createElement(
+      "details",
+      {
+        className: "fd-wagers-history",
+        ref: settledRef,
+        open: settledShown,
+        onToggle: (event) => setSettledShown(event.currentTarget.open)
+      },
+      /* @__PURE__ */ React52.createElement("summary", null, "Settled ", /* @__PURE__ */ React52.createElement("span", null, settledLines.length), /* @__PURE__ */ React52.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })),
+      /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
+        const key = `st:${group.player}`, open = settledOpen === key;
+        return /* @__PURE__ */ React52.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React52.createElement(
+          "button",
+          {
+            type: "button",
+            className: "fd-wagers-settled-person",
+            disabled: !onPlayer,
+            onClick: () => onPlayer?.(group.player),
+            "aria-label": `View ${disp(state, group.player)}'s player card`
+          },
+          /* @__PURE__ */ React52.createElement(Avatar, { state, p: group.player, size: 32 }),
+          /* @__PURE__ */ React52.createElement("strong", null, disp(state, group.player))
+        ), /* @__PURE__ */ React52.createElement(
+          "button",
+          {
+            type: "button",
+            className: "fd-wagers-settled-toggle",
+            "aria-expanded": open,
+            "aria-label": `${open ? "Hide" : "View"} settled bets by ${disp(state, group.player)}`,
+            onClick: () => setSettledOpen((current) => current === key ? null : key)
+          },
+          /* @__PURE__ */ React52.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
+          /* @__PURE__ */ React52.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt6(group.net)),
+          /* @__PURE__ */ React52.createElement("span", { className: "fd-wagers-settled-arrow" }, /* @__PURE__ */ React52.createElement(Icon, { name: open ? "minus" : "plus", size: 20 }))
+        )), open && /* @__PURE__ */ React52.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React52.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
+      }))
+    )
+  );
+}
+var PHONE_CHIP, ROW_CHIP, fmt6, RACK_DENOMS, isUncertainResult, PLACE_QUEUE, POT_CHIP, BACKER_ROWS, SETTLE_SHOW_MS, HOME_FLIGHT_AT;
+var init_Wagers = __esm({
+  "src/features/wagers/Wagers.jsx"() {
+    init_core();
     init_theme();
-    init_install();
+    init_controls();
+    init_haptics();
+    init_sound();
+    init_layout();
+    init_PlayerIdentity();
+    init_CompetitionBracket();
+    init_BetStacks();
+    init_betStacks();
+    init_motion();
+    init_winImpact();
+    init_WinLine();
+    init_GlassArt();
+    init_OneSafe();
+    init_Icon();
+    init_Coin();
+    init_useGlassTilt();
+    init_wagers();
+    PHONE_CHIP = 28;
+    ROW_CHIP = 18;
+    fmt6 = (n) => (n ?? 0).toLocaleString("en-US");
+    RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
+    isUncertainResult = (result) => result?.ok !== true && (result?.uncertain === true || result?.status === "uncertain" || /no response/i.test(String(result?.error || "")));
+    PLACE_QUEUE = 4;
+    POT_CHIP = Object.freeze({ color: "var(--sun)", isLight: true, skin: "plain", stamp: "" });
+    BACKER_ROWS = 4;
+    SETTLE_SHOW_MS = 4600;
+    HOME_FLIGHT_AT = 1300;
   }
 });
 
 // src/PhotoCropper.jsx
-import React40, { useCallback as useCallback3, useEffect as useEffect25, useRef as useRef29, useState as useState35 } from "react";
+import React53, { useCallback as useCallback3, useEffect as useEffect30, useRef as useRef34, useState as useState40 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -4808,18 +8871,18 @@ function PhotoCropper({
   outputSize = 384,
   quality = 0.84
 }) {
-  const dialogRef = useRef29(null);
-  const cancelRef = useRef29(null);
-  const stageRef = useRef29(null);
-  const imageRef = useRef29(null);
-  const dragRef = useRef29(null);
-  const [image, setImage] = useState35(null);
-  const [stageSize, setStageSize] = useState35(0);
-  const [view, setView] = useState35({ zoom: 1, x: 0, y: 0 });
-  const [status, setStatus] = useState35("loading");
-  const [error, setError] = useState35("");
+  const dialogRef = useRef34(null);
+  const cancelRef = useRef34(null);
+  const stageRef = useRef34(null);
+  const imageRef = useRef34(null);
+  const dragRef = useRef34(null);
+  const [image, setImage] = useState40(null);
+  const [stageSize, setStageSize] = useState40(0);
+  const [view, setView] = useState40({ zoom: 1, x: 0, y: 0 });
+  const [status, setStatus] = useState40("loading");
+  const [error, setError] = useState40("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect25(() => {
+  useEffect30(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -4832,7 +8895,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect25(() => {
+  useEffect30(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -4868,10 +8931,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect25(() => {
+  useEffect30(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect25(() => {
+  useEffect30(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -4992,7 +9055,7 @@ function PhotoCropper({
   const coverScale = image && diameter ? Math.max(diameter / image.width, diameter / image.height) : 0;
   const renderedWidth = image ? image.width * coverScale * view.zoom : 0;
   const renderedHeight = image ? image.height * coverScale * view.zoom : 0;
-  return /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React40.createElement("style", null, `
+  return /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React53.createElement("style", null, `
         .fd-crop-overlay {
           position: fixed;
           inset: 0;
@@ -5016,7 +9079,7 @@ function PhotoCropper({
           background: var(--paper, #241b12);
           color: var(--ink, #f4ead9);
           box-shadow: var(--shadow-3, 0 14px 40px rgba(10,6,3,0.7));
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: var(--fd-body);
           animation: fd-crop-rise 180ms ease-out both;
         }
         .fd-crop-header {
@@ -5027,7 +9090,7 @@ function PhotoCropper({
         }
         .fd-crop-title {
           margin: 0;
-          font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+          font-family: var(--fd-display);
           font-size: 27px;
           font-weight: 800;
           line-height: 1;
@@ -5144,7 +9207,7 @@ function PhotoCropper({
           min-height: 48px;
           padding: 11px 16px;
           border-radius: 11px;
-          font: 700 15px/1 'Inter', system-ui, sans-serif;
+          font: 700 15px/1 var(--fd-body);
           cursor: pointer;
         }
         .fd-crop-cancel {
@@ -5177,7 +9240,7 @@ function PhotoCropper({
         @media (prefers-reduced-motion: reduce) {
           .fd-crop-overlay, .fd-crop-dialog { animation: none; }
         }
-      `), /* @__PURE__ */ React40.createElement(
+      `), /* @__PURE__ */ React53.createElement(
     "section",
     {
       ref: dialogRef,
@@ -5187,7 +9250,7 @@ function PhotoCropper({
       "aria-labelledby": "fd-crop-title",
       onKeyDown: onDialogKeyDown
     },
-    /* @__PURE__ */ React40.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React40.createElement("div", null, /* @__PURE__ */ React40.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React40.createElement(
+    /* @__PURE__ */ React53.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React53.createElement("div", null, /* @__PURE__ */ React53.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React53.createElement(
       "button",
       {
         ref: cancelRef,
@@ -5196,9 +9259,9 @@ function PhotoCropper({
         "aria-label": "Cancel photo crop",
         onClick: onCancel
       },
-      /* @__PURE__ */ React40.createElement("span", { "aria-hidden": "true" }, "\xD7")
+      /* @__PURE__ */ React53.createElement(Icon, { name: "close", size: 20 })
     )),
-    /* @__PURE__ */ React40.createElement(
+    /* @__PURE__ */ React53.createElement(
       "div",
       {
         ref: stageRef,
@@ -5212,7 +9275,7 @@ function PhotoCropper({
         onPointerUp: endPointer,
         onPointerCancel: endPointer
       },
-      /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React40.createElement(
+      /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React53.createElement(
         "img",
         {
           className: "fd-crop-image",
@@ -5228,9 +9291,9 @@ function PhotoCropper({
           }
         }
       )),
-      status !== "ready" && /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
+      status !== "ready" && /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
     ),
-    /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React40.createElement(
+    /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React53.createElement(
       "button",
       {
         type: "button",
@@ -5239,8 +9302,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom <= MIN_ZOOM,
         onClick: () => updateZoom(view.zoom - ZOOM_STEP)
       },
-      /* @__PURE__ */ React40.createElement("span", { "aria-hidden": "true" }, "\u2212")
-    ), /* @__PURE__ */ React40.createElement(
+      /* @__PURE__ */ React53.createElement("span", { "aria-hidden": "true" }, "\u2212")
+    ), /* @__PURE__ */ React53.createElement(
       "input",
       {
         className: "fd-crop-range",
@@ -5253,7 +9316,7 @@ function PhotoCropper({
         "aria-label": `Photo zoom, ${Math.round(view.zoom * 100)} percent`,
         onChange: (event) => updateZoom(event.target.value)
       }
-    ), /* @__PURE__ */ React40.createElement(
+    ), /* @__PURE__ */ React53.createElement(
       "button",
       {
         type: "button",
@@ -5262,8 +9325,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom >= MAX_ZOOM,
         onClick: () => updateZoom(view.zoom + ZOOM_STEP)
       },
-      /* @__PURE__ */ React40.createElement("span", { "aria-hidden": "true" }, "+")
-    )), error && /* @__PURE__ */ React40.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React40.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React40.createElement(
+      /* @__PURE__ */ React53.createElement("span", { "aria-hidden": "true" }, "+")
+    )), error && /* @__PURE__ */ React53.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React53.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React53.createElement(
       "button",
       {
         type: "button",
@@ -5271,7 +9334,7 @@ function PhotoCropper({
         onClick: onCancel
       },
       "Cancel"
-    ), /* @__PURE__ */ React40.createElement(
+    ), /* @__PURE__ */ React53.createElement(
       "button",
       {
         type: "button",
@@ -5286,6 +9349,7 @@ function PhotoCropper({
 var MAX_ZOOM, MIN_ZOOM, ZOOM_STEP;
 var init_PhotoCropper = __esm({
   "src/PhotoCropper.jsx"() {
+    init_Icon();
     MAX_ZOOM = 4;
     MIN_ZOOM = 1;
     ZOOM_STEP = 0.1;
@@ -5293,7 +9357,7 @@ var init_PhotoCropper = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React41, { useEffect as useEffect26, useId as useId2, useRef as useRef30, useState as useState36 } from "react";
+import React54, { useEffect as useEffect31, useId as useId5, useRef as useRef35, useState as useState41 } from "react";
 function ProfileEditor({
   state,
   me,
@@ -5310,9 +9374,9 @@ function ProfileEditor({
   numLocked = false
 }) {
   const identity = usePlayerIdentity(me);
-  const fileRef = useRef30(null);
-  const numberErrorId = useId2();
-  const [cropSource, setCropSource] = useState36(null);
+  const fileRef = useRef35(null);
+  const numberErrorId = useId5();
+  const [cropSource, setCropSource] = useState41(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
   const takenBy = num !== "" ? Object.entries(state.profiles || {}).find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
@@ -5324,14 +9388,14 @@ function ProfileEditor({
     reader.readAsDataURL(f);
     e.target.value = "";
   };
-  return /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-editor" }, me && (state.live ? /* @__PURE__ */ React41.createElement("details", { className: "fd-profile-preview" }, /* @__PURE__ */ React41.createElement("summary", null, "Player card preview"), /* @__PURE__ */ React41.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true })) : /* @__PURE__ */ React41.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true })), /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React41.createElement(
+  return /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-editor" }, me && (state.live ? /* @__PURE__ */ React54.createElement("details", { className: "fd-profile-preview" }, /* @__PURE__ */ React54.createElement("summary", null, "Player card preview"), /* @__PURE__ */ React54.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true })) : /* @__PURE__ */ React54.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true })), /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React54.createElement(
     "div",
     {
       "aria-hidden": "true",
       className: "fd-profile-color-rail",
       style: { background: me ? identity.color : "var(--accent)" }
     }
-  ), /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React41.createElement(
+  ), /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React54.createElement(
     "button",
     {
       type: "button",
@@ -5339,24 +9403,10 @@ function ProfileEditor({
       className: "fd-profile-photo-button",
       "aria-label": current ? "Change your photo" : "Add your photo"
     },
-    /* @__PURE__ */ React41.createElement(
-      "svg",
-      {
-        width: "18",
-        height: "18",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: "1.5",
-        strokeLinejoin: "round",
-        "aria-hidden": "true"
-      },
-      /* @__PURE__ */ React41.createElement("path", { d: "M3 7h4l2-3h6l2 3h4v13H3z" }),
-      /* @__PURE__ */ React41.createElement("circle", { cx: "12", cy: "13", r: "3.5" })
-    ),
-    /* @__PURE__ */ React41.createElement("span", null, current ? "Change photo" : "Add a photo"),
-    /* @__PURE__ */ React41.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, current ? "\u2197" : "+")
-  ), /* @__PURE__ */ React41.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React41.createElement(
+    /* @__PURE__ */ React54.createElement(Icon, { name: "camera", size: 18 }),
+    /* @__PURE__ */ React54.createElement("span", null, current ? "Change photo" : "Add a photo"),
+    /* @__PURE__ */ React54.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, /* @__PURE__ */ React54.createElement(Icon, { name: current ? "open" : "plus", size: "1em" }))
+  ), /* @__PURE__ */ React54.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React54.createElement(
     PhotoCropper,
     {
       src: cropSource,
@@ -5366,7 +9416,7 @@ function ProfileEditor({
         setCropSource(null);
       }
     }
-  )), /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React41.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React41.createElement("span", null, "Display name"), /* @__PURE__ */ React41.createElement(
+  )), /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React54.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React54.createElement("span", null, "Display name"), /* @__PURE__ */ React54.createElement(
     "input",
     {
       value: display,
@@ -5375,7 +9425,7 @@ function ProfileEditor({
       "aria-label": "Display name",
       autoComplete: "nickname"
     }
-  )), /* @__PURE__ */ React41.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React41.createElement("span", null, "No."), /* @__PURE__ */ React41.createElement(
+  )), /* @__PURE__ */ React54.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React54.createElement("span", null, "No."), /* @__PURE__ */ React54.createElement(
     "input",
     {
       value: num,
@@ -5387,7 +9437,7 @@ function ProfileEditor({
       "aria-describedby": takenBy ? numberErrorId : void 0,
       onChange: (e) => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))
     }
-  ))), takenBy && /* @__PURE__ */ React41.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React41.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React41.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React41.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
+  ))), takenBy && /* @__PURE__ */ React54.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React54.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React54.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React54.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
 }
 function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const mine = state.profiles?.[me] || {};
@@ -5396,9 +9446,9 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const lateClaim = !!state.live && !mine.color;
   const locked = !!state.live && !lateClaim;
   const { skin: savedSkin } = usePlayerIdentity(me);
-  const [draftSkin, setDraftSkin] = useState36(null);
+  const [draftSkin, setDraftSkin] = useState41(null);
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
-  const patterns = /* @__PURE__ */ React41.createElement(
+  const patterns = /* @__PURE__ */ React54.createElement(
     PatternPicker,
     {
       me,
@@ -5408,51 +9458,51 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
       onPick: (sk) => lateClaim ? setDraftSkin(sk) : onChip(void 0, sk)
     }
   );
-  const wasLate = useRef30(lateClaim);
-  const [justClaimed, setJustClaimed] = useState36(false);
-  useEffect26(() => {
+  const wasLate = useRef35(lateClaim);
+  const [justClaimed, setJustClaimed] = useState41(false);
+  useEffect31(() => {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
-  if (locked) return /* @__PURE__ */ React41.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React41.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React41.createElement("div", null, /* @__PURE__ */ React41.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React41.createElement("p", null, "Chips are locked for the weekend.")));
-  return /* @__PURE__ */ React41.createElement("div", { className: "fd-chip-picker", style: {
+  if (locked) return /* @__PURE__ */ React54.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React54.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React54.createElement("div", null, /* @__PURE__ */ React54.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React54.createElement("p", null, "Locked")));
+  return /* @__PURE__ */ React54.createElement("div", { className: "fd-chip-picker", style: {
     background: "var(--paper)",
     border: embedded ? "none" : "1px solid var(--line)",
     borderTop: embedded ? "1px solid var(--line)" : void 0,
     borderRadius: embedded ? 0 : 14,
     padding: embedded ? "14px 12px 13px" : 12
-  } }, !embedded && /* @__PURE__ */ React41.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React41.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React41.createElement("span", { "aria-hidden": "true", style: {
+  } }, !embedded && /* @__PURE__ */ React54.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React54.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React54.createElement("span", { "aria-hidden": "true", style: {
     position: "absolute",
     inset: 4,
     borderRadius: "50%",
     background: "var(--sun-tint)",
     border: "1px solid var(--line)"
-  } }), /* @__PURE__ */ React41.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React41.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React41.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React41.createElement("div", { style: {
+  } }), /* @__PURE__ */ React54.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React54.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React54.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React54.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: "0.16em",
     textTransform: "uppercase",
     color: "var(--accent2)",
     marginBottom: 4
-  } }, "Chip design"), /* @__PURE__ */ React41.createElement("div", { style: {
+  } }, "Chip design"), /* @__PURE__ */ React54.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 26,
     lineHeight: 1,
     textTransform: "uppercase",
     color: "var(--ink)"
-  } }, "Your chip"), mine.color && /* @__PURE__ */ React41.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React41.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React41.createElement("div", { style: {
+  } }, "Your chip"), mine.color && /* @__PURE__ */ React54.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React54.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React54.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React41.createElement("div", { style: { ...label, fontSize: 10 } }, "Color"), !mine.color && /* @__PURE__ */ React41.createElement("div", { style: { fontFamily: SANS, fontSize: 10.5, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React41.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
+  } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label } }, "Color"), !mine.color && /* @__PURE__ */ React54.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React54.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
     const by = owner(c.hex);
     const isMine = by === me;
     const taken = by && !isMine;
-    return /* @__PURE__ */ React41.createElement(
+    return /* @__PURE__ */ React54.createElement(
       "button",
       {
         type: "button",
@@ -5471,12 +9521,13 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           display: "grid",
           placeItems: "center",
           cursor: taken || locked ? "default" : "pointer",
-          background: isMine ? "var(--sun-tint)" : "transparent",
-          border: isMine ? "2px solid var(--sun)" : "1px solid transparent",
+          background: isMine ? "var(--info-tint)" : "transparent",
+          border: isMine ? "2px solid var(--lamp-info)" : "1px solid transparent",
+          boxShadow: isMine ? "0 0 12px color-mix(in srgb, var(--lamp-info) 40%, transparent)" : "none",
           opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1
         }
       },
-      /* @__PURE__ */ React41.createElement("span", { style: {
+      /* @__PURE__ */ React54.createElement("span", { style: {
         position: "relative",
         display: "grid",
         placeItems: "center",
@@ -5486,37 +9537,37 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
         borderRadius: "50%",
         background: c.hex,
         border: "1.5px solid var(--bone-line)"
-      } }, taken && /* @__PURE__ */ React41.createElement("span", { style: {
+      } }, taken && /* @__PURE__ */ React54.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 800,
-        fontSize: 8.5,
-        color: c.light ? "var(--ink0)" : "var(--bone)"
-      } }, (disp(state, by) || "").slice(0, 2).toUpperCase()), isMine && /* @__PURE__ */ React41.createElement(
+        fontSize: 12,
+        color: chipInkIsDark(c.hex) ? "var(--ink0)" : "var(--bone)"
+      } }, initialsOf(state.profiles, by)), isMine && /* @__PURE__ */ React54.createElement(
         "svg",
         {
           width: "14",
           height: "14",
           viewBox: "0 0 16 16",
           fill: "none",
-          stroke: c.light ? "var(--ink0)" : "var(--bone)",
+          stroke: chipInkIsDark(c.hex) ? "var(--ink0)" : "var(--bone)",
           strokeWidth: "2.4",
           strokeLinecap: "round",
           strokeLinejoin: "round",
           "aria-hidden": "true"
         },
-        /* @__PURE__ */ React41.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
+        /* @__PURE__ */ React54.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
       ))
     );
   })), !lateClaim && patterns);
 }
 function PatternPicker({ me, skin, locked, stamp, onPick }) {
-  return /* @__PURE__ */ React41.createElement(React41.Fragment, null, /* @__PURE__ */ React41.createElement("div", { style: {
+  return /* @__PURE__ */ React54.createElement(React54.Fragment, null, /* @__PURE__ */ React54.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React41.createElement("div", { style: { ...label, fontSize: 10 } }, "Pattern")), /* @__PURE__ */ React41.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React41.createElement(
+  } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label } }, "Pattern")), /* @__PURE__ */ React54.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React54.createElement(
     "button",
     {
       type: "button",
@@ -5535,17 +9586,17 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
         padding: "7px 4px 6px",
         borderRadius: 10,
         cursor: locked ? "default" : "pointer",
-        background: skin === sk ? "var(--sun-tint)" : "var(--paper2)",
-        border: skin === sk ? "1.5px solid var(--sun)" : "1px solid var(--line)",
-        boxShadow: skin === sk ? "inset 0 -2px 0 var(--sun)" : "none",
+        background: skin === sk ? "var(--info-tint)" : "var(--bg)",
+        border: skin === sk ? "1.5px solid var(--lamp-info)" : "1px solid var(--line)",
+        boxShadow: skin === sk ? "0 0 12px color-mix(in srgb, var(--lamp-info) 30%, transparent)" : "var(--glass-edge)",
         opacity: locked && skin !== sk ? 0.55 : 1
       }
     },
-    /* @__PURE__ */ React41.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
-    /* @__PURE__ */ React41.createElement("span", { style: {
+    /* @__PURE__ */ React54.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
+    /* @__PURE__ */ React54.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
-      fontSize: 10.5,
+      fontSize: 12,
       color: skin === sk ? "var(--ink)" : "var(--muted2)",
       lineHeight: 1.1
     } }, CHIP_SKIN_META[sk] || sk)
@@ -5562,6 +9613,8 @@ var init_ProfileEditor = __esm({
     init_PlayerIdentityContext();
     init_Travel();
     init_PlayerPass();
+    init_chipInk();
+    init_Icon();
     CHIP_SKIN_META = {
       ticks: "Classic",
       plain: "Clean",
@@ -5579,23 +9632,135 @@ var init_ProfileEditor = __esm({
   }
 });
 
-// src/features/tv/towersModel.js
-var TOWER_GEOMETRY, TOWER_TIMING;
-var init_towersModel = __esm({
-  "src/features/tv/towersModel.js"() {
+// src/features/moments/walkoutTeam.js
+var WALKOUT_WIN_MS;
+var init_walkoutTeam = __esm({
+  "src/features/moments/walkoutTeam.js"() {
     init_core();
-    TOWER_GEOMETRY = Object.freeze({ radius: 1, chip: 0.2, spacing: 2.9, elevationDeg: 20, maxPxPerUnit: 64 });
-    TOWER_TIMING = Object.freeze({
-      hold: 300,
-      drop: 420,
-      stagger: 110,
-      lift: 380,
-      liftStagger: 60,
-      sortDelay: 250,
-      sort: 900,
-      ring: 600,
-      fall: 9
+    WALKOUT_WIN_MS = 30 * 1e3;
+  }
+});
+
+// src/features/moments/walkout.js
+import { useEffect as useEffect35, useRef as useRef39, useState as useState44 } from "react";
+var WALKOUT_TIMING;
+var init_walkout = __esm({
+  "src/features/moments/walkout.js"() {
+    init_audio();
+    init_mvp();
+    init_motion();
+    init_serverClock();
+    init_tvMotion();
+    init_walkoutTeam();
+    init_walkoutTeam();
+    WALKOUT_TIMING = Object.freeze({
+      flood: 0,
+      floodMs: 800,
+      // their color floods out from their chip
+      art: 250,
+      artMs: 520,
+      // the album art and their photo stand up
+      stamp: 700,
+      stampMs: 360,
+      // the name stamps as the song fades in; the stinger
+      sub: 1100,
+      subMs: 400,
+      // the song and artist
+      dock: 8400,
+      dockMs: 700,
+      // it docks into the Now playing strip
+      total: 9100
     });
+  }
+});
+
+// src/features/director/director.css
+var init_director = __esm({
+  "src/features/director/director.css"() {
+  }
+});
+
+// src/features/awards/awardsModel.js
+var AWARD_TIMING;
+var init_awardsModel = __esm({
+  "src/features/awards/awardsModel.js"() {
+    init_core();
+    init_prompts();
+    AWARD_TIMING = Object.freeze({
+      title: 0,
+      nominees: 500,
+      nomineeStagger: 45,
+      chips: 1500,
+      chipMin: 200,
+      chipMax: 420,
+      chipSpread: 3e3,
+      stampAfter: 900,
+      settleAfter: 600
+    });
+  }
+});
+
+// src/features/awards/awards.css
+var init_awards = __esm({
+  "src/features/awards/awards.css"() {
+  }
+});
+
+// src/features/geo/geo.css
+var init_geo2 = __esm({
+  "src/features/geo/geo.css"() {
+  }
+});
+
+// src/features/geo/GeoMap.jsx
+import React69, { useEffect as useEffect46, useRef as useRef48, useState as useState54 } from "react";
+var init_GeoMap = __esm({
+  "src/features/geo/GeoMap.jsx"() {
+    init_geo2();
+  }
+});
+
+// src/features/geo/Wheel.jsx
+import React70, { useEffect as useEffect47, useLayoutEffect as useLayoutEffect15, useRef as useRef49, useState as useState55 } from "react";
+var ROWS, CENTER2;
+var init_Wheel = __esm({
+  "src/features/geo/Wheel.jsx"() {
+    init_haptics();
+    init_sound();
+    ROWS = 5;
+    CENTER2 = (ROWS - 1) / 2;
+  }
+});
+
+// src/features/geo/geoModel.js
+var hourLabel;
+var init_geoModel = __esm({
+  "src/features/geo/geoModel.js"() {
+    init_core();
+    init_geo();
+    hourLabel = (h) => `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
+  }
+});
+
+// src/features/geo/WhenPicker.jsx
+import React71, { useEffect as useEffect48, useMemo as useMemo13 } from "react";
+var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
+var init_WhenPicker = __esm({
+  "src/features/geo/WhenPicker.jsx"() {
+    init_Wheel();
+    init_geoModel();
+    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    MONTH_ITEMS = MONTHS.map((label2, i) => ({ value: i + 1, label: label2 }));
+    YEAR_ITEMS = Array.from({ length: 2026 - 1980 + 1 }, (_, i) => ({ value: 1980 + i, label: String(1980 + i) }));
+    HOUR_ITEMS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: hourLabel(h) }));
+  }
+});
+
+// src/features/geo/PlaceSearch.jsx
+import React72, { useEffect as useEffect49, useRef as useRef50, useState as useState56 } from "react";
+var init_PlaceSearch = __esm({
+  "src/features/geo/PlaceSearch.jsx"() {
+    init_haptics();
   }
 });
 
@@ -5632,13 +9797,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React83, { useEffect as useEffect56, useRef as useRef62, useState as useState66 } from "react";
+import React79, { useEffect as useEffect53, useRef as useRef55, useState as useState60 } from "react";
 function InvitationArt() {
-  return /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-eyebrow" }, /* @__PURE__ */ React83.createElement("span", null, "YOUR INVITATION"), /* @__PURE__ */ React83.createElement("span", null, EDITION.year)), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", null, "FIELD"), /* @__PURE__ */ React83.createElement("span", null, "DAY", /* @__PURE__ */ React83.createElement("span", { className: "fd-invitation-period" }, "."))), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React83.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React83.createElement("span", null, /* @__PURE__ */ React83.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React83.createElement("small", null, "PLAYERS"))), /* @__PURE__ */ React83.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React83.createElement("span", null, "SCOTTSDALE, AZ"), /* @__PURE__ */ React83.createElement("span", null, EDITION.short, /* @__PURE__ */ React83.createElement("br", null), "2026")));
+  return /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React79.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React79.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("span", null, "Field"), /* @__PURE__ */ React79.createElement("span", null, "Day"))), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React79.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React79.createElement("span", null, /* @__PURE__ */ React79.createElement("strong", null, ROSTER.length), /* @__PURE__ */ React79.createElement("small", null, "Players"))), /* @__PURE__ */ React79.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React79.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React79.createElement("span", null, /* @__PURE__ */ React79.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React79.createElement("br", null), EDITION.year)));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React83.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React83.createElement(
+  return /* @__PURE__ */ React79.createElement("div", null, /* @__PURE__ */ React79.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React79.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React79.createElement(
     "button",
     {
       type: "button",
@@ -5646,7 +9811,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React83.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", null), /* @__PURE__ */ React83.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React83.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("strong", null, s.label), /* @__PURE__ */ React83.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React83.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React83.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React79.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React79.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React79.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("span", null), /* @__PURE__ */ React79.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React79.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React79.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React79.createElement("div", null, /* @__PURE__ */ React79.createElement("strong", null, s.label), /* @__PURE__ */ React79.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React79.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React79.createElement(
     "button",
     {
       type: "button",
@@ -5660,21 +9825,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState66(me || null);
-  const [ratings, setRatings] = useState66({});
-  const [display, setDisplay] = useState66("");
-  const [photo, setPhoto] = useState66(null);
-  const [num, setNum] = useState66("");
-  const [size, setSize] = useState66(null);
-  const [flightsBooked, setFlightsBooked] = useState66(null);
-  const [flightIn, setFlightIn] = useState66(null);
-  const [flightOut, setFlightOut] = useState66(null);
-  const [busy, setBusy] = useState66(false);
-  const [error, setError] = useState66("");
-  const submit = useRef62(createCheckInSubmission());
-  const heading = useRef62(null);
-  const hydratedPlayer = useRef62(null);
-  useEffect56(() => {
+  const [selected, setSelected] = useState60(me || null);
+  const [ratings, setRatings] = useState60({});
+  const [display, setDisplay] = useState60("");
+  const [photo, setPhoto] = useState60(null);
+  const [num, setNum] = useState60("");
+  const [size, setSize] = useState60(null);
+  const [flightsBooked, setFlightsBooked] = useState60(null);
+  const [flightIn, setFlightIn] = useState60(null);
+  const [flightOut, setFlightOut] = useState60(null);
+  const [busy, setBusy] = useState60(false);
+  const [error, setError] = useState60("");
+  const submit = useRef55(createCheckInSubmission());
+  const heading = useRef55(null);
+  const hydratedPlayer = useRef55(null);
+  useEffect53(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -5687,7 +9852,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect56(() => {
+  useEffect53(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -5714,7 +9879,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
     "",
     "",
-    "Private. Only used to balance teams."
+    "Private"
   ][step];
   const canContinue = step === 0 ? !!selected : step === 3 ? !!size && (flightsBooked !== null || !!state.live) : step === 4 ? !!display.trim() && !!state.profiles?.[me]?.color : step === 5 ? SPORTS.every((s) => ratings[s.id] !== void 0) : true;
   const continueLabel = step === -1 ? "Skip, stay in the browser" : step === 0 ? selected ? `Continue as ${selected}` : "Pick your name" : step === 5 ? "Finish check-in" : "Continue";
@@ -5729,12 +9894,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React83.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React83.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / SCOTTSDALE"), /* @__PURE__ */ React83.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`), step >= 0 && /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React83.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React83.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React83.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React83.createElement(InvitationArt, null) : /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "FIELD DAY / ", EDITION.year), /* @__PURE__ */ React83.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React83.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React83.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React83.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React83.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React83.createElement("p", null, intro)), /* @__PURE__ */ React83.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React83.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React83.createElement(InstallHint, null), /* @__PURE__ */ React83.createElement("p", null, "Open it from your home screen to check in.")), step === 0 && /* @__PURE__ */ React83.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React83.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React83.createElement("span", { className: "fd-guest-index" }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React83.createElement("span", null, p), /* @__PURE__ */ React83.createElement("span", { className: "fd-guest-check", "aria-hidden": "true" }, selected === p ? "\u2197" : "+")))), step === 1 && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React83.createElement("span", { className: "fd-eyebrow" }, "EVERYONE STARTS AT"), /* @__PURE__ */ React83.createElement("strong", null, "1,000", /* @__PURE__ */ React83.createElement("span", null, "CHIPS"))), /* @__PURE__ */ React83.createElement("div", { className: "fd-weekend-rules" }, [
+  return /* @__PURE__ */ React79.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React79.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React79.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React79.createElement("span", null, EDITION.label)), /* @__PURE__ */ React79.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React79.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React79.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React79.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React79.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React79.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React79.createElement(InvitationArt, null) : /* @__PURE__ */ React79.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React79.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React79.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React79.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React79.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React79.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React79.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React79.createElement("p", null, intro)), /* @__PURE__ */ React79.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React79.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React79.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React79.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, ROSTER.map((p, i) => /* @__PURE__ */ React79.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React79.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React79.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React79.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React79.createElement(React79.Fragment, null, /* @__PURE__ */ React79.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React79.createElement("strong", null, /* @__PURE__ */ React79.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React79.createElement("span", null, "Chips")), /* @__PURE__ */ React79.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React79.createElement("div", { className: "fd-weekend-rules" }, [
     ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
     ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React83.createElement("div", { key: n }, /* @__PURE__ */ React83.createElement("span", null, n), /* @__PURE__ */ React83.createElement("div", null, /* @__PURE__ */ React83.createElement("h2", null, name), /* @__PURE__ */ React83.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React83.createElement(TravelMap, null), /* @__PURE__ */ React83.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React83.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React83.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React83.createElement(React83.Fragment, null, /* @__PURE__ */ React83.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React83.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React83.createElement("h2", null, "Information I need"), /* @__PURE__ */ React83.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React83.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React83.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React79.createElement("div", { key: n }, /* @__PURE__ */ React79.createElement("span", null, n), /* @__PURE__ */ React79.createElement("div", null, /* @__PURE__ */ React79.createElement("h2", null, name), /* @__PURE__ */ React79.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React79.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React79.createElement(TravelMap, null), /* @__PURE__ */ React79.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React79.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React79.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React79.createElement(React79.Fragment, null, /* @__PURE__ */ React79.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React79.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React79.createElement("h2", null, "Information I need"), /* @__PURE__ */ React79.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React79.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React79.createElement(
     ProfileEditor,
     {
       state,
@@ -5748,7 +9913,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React83.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React83.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React83.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React83.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React83.createElement("span", { "aria-hidden": "true" }, "\u2197")), /* @__PURE__ */ React83.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, "\u2190 Back"), step === 0 && onTv && /* @__PURE__ */ React83.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React83.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React79.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React79.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React79.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React79.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React79.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React79.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React79.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React79.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React79.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React79.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React79.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -5757,8 +9922,12 @@ var init_Onboarding = __esm({
     init_Travel();
     init_ProfileEditor();
     init_InstallHint();
+    init_ScoreReel();
+    init_GlassArt();
+    init_OneSafe();
     init_submission();
     init_arrival();
+    init_Icon();
     STAGES = ["Your invitation", "The tournament", "The roster", "The details", "Your card", "Private ratings"];
   }
 });
@@ -5766,393 +9935,513 @@ var init_Onboarding = __esm({
 // src/features/weekend/HowToSheet.jsx
 init_core();
 init_controls();
-import React3, { useState as useState4 } from "react";
-function HowToSheet({ gameId, variant, ev, onClose }) {
-  const game = GAMES[gameId];
-  if (!game) return ev?.desc ? /* @__PURE__ */ React3.createElement(Sheet, { title: ev.name, onClose }, /* @__PURE__ */ React3.createElement("article", { className: "fd-weekend-howto" }, /* @__PURE__ */ React3.createElement("p", { className: "fd-weekend-howto-objective" }, ev.desc))) : null;
-  return /* @__PURE__ */ React3.createElement(Sheet, { title: game.name, onClose }, /* @__PURE__ */ React3.createElement(GameInstructions, { key: `${gameId}:${variant || ""}`, gameId, game, variant }));
-}
-function GameInstructions({ gameId, game, variant }) {
-  const variants = game.variants || [];
-  const [selected, setSelected] = useState4(() => variants.some((item) => item.id === variant) ? variant : variants[0]?.id);
-  const howto = variants.length ? variants.find((item) => item.id === selected)?.howto : game.howto;
-  if (!howto) return null;
-  return /* @__PURE__ */ React3.createElement("article", { className: "fd-weekend-howto" }, !!variants.length && /* @__PURE__ */ React3.createElement("div", { className: "fd-weekend-howto-variants", role: "group", "aria-label": `${game.name} format` }, variants.map((item) => /* @__PURE__ */ React3.createElement(
-    "button",
-    {
-      type: "button",
-      key: item.id,
-      "aria-pressed": selected === item.id,
-      onClick: () => setSelected(item.id)
-    },
-    item.label
-  ))), howto.objective && /* @__PURE__ */ React3.createElement("p", { className: "fd-weekend-howto-objective" }, howto.objective), /* @__PURE__ */ React3.createElement("div", { className: "fd-weekend-howto-equipment" }, howto.players && /* @__PURE__ */ React3.createElement(Tag, { tone: "gold" }, howto.players), (howto.gear || []).map((item) => /* @__PURE__ */ React3.createElement(Tag, { key: item }, item))), /* @__PURE__ */ React3.createElement("section", { className: "fd-weekend-howto-steps", "aria-label": "How to play" }, /* @__PURE__ */ React3.createElement("ol", null, (howto.steps || []).map((step, index) => /* @__PURE__ */ React3.createElement("li", { key: index }, /* @__PURE__ */ React3.createElement("span", { "aria-hidden": "true" }, String(index + 1).padStart(2, "0")), /* @__PURE__ */ React3.createElement("p", null, step))))), howto.win && /* @__PURE__ */ React3.createElement("section", { className: "fd-weekend-howto-win", "aria-labelledby": `fd-howto-win-${gameId}` }, /* @__PURE__ */ React3.createElement("h3", { id: `fd-howto-win-${gameId}` }, "To win"), /* @__PURE__ */ React3.createElement("p", null, howto.win)), howto.house && /* @__PURE__ */ React3.createElement("aside", { className: "fd-weekend-howto-house" }, /* @__PURE__ */ React3.createElement("h3", null, "House rule"), /* @__PURE__ */ React3.createElement("p", null, howto.house)));
-}
+import React8 from "react";
 
-// src/features/weekend/ContestPanel.jsx
-init_core();
-import React6, { useEffect as useEffect5, useRef as useRef4, useState as useState6 } from "react";
+// src/features/rules/GameSteps.jsx
+import React7 from "react";
 
-// shared/show.js
+// src/features/rules/gameSteps.js
 init_core();
 
-// shared/prompts.js
-init_core();
-var PROMPT_KINDS = Object.freeze(["awards"]);
-var PROMPT_SOURCES = Object.freeze(["mvps"]);
-var PROMPT_RESULTS_WINDOW_MS = 12 * 60 * 60 * 1e3;
-
-// shared/mvp.js
-init_core();
-var MVP_HOW = Object.freeze(["votes", "tie", "none"]);
-
-// shared/geo.js
-var GEO_ROUND_MS = 60 * 1e3;
-var GEO_HOURS_SCALE = 120 * 24;
-
-// shared/show.js
-var SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
-var SHOW_SCENE_DEFINITIONS = Object.freeze({
-  opening: Object.freeze({
-    label: "Opening",
-    intensity: "major",
-    steps: Object.freeze(["title", "room"])
-  }),
-  /* one step: the intro says its piece and the next official write (lock
-     and start, the next announcement) retires it, so an announcement never
-     costs the host a Continue. Stored scenes from the two-step era clamp to
-     this step. */
-  "event-intro": Object.freeze({
-    label: "Event intro",
-    intensity: "normal",
-    requiresEvent: true,
-    steps: Object.freeze(["title"])
-  }),
-  winner: Object.freeze({
-    label: "Winner",
-    intensity: "major",
-    requiresEvent: true,
-    requiresResult: true,
-    steps: Object.freeze(["winner", "standings"])
-  }),
-  standings: Object.freeze({
-    label: "Standings",
-    intensity: "routine",
-    steps: Object.freeze(["board"])
-  }),
-  /* the crown, then (D3) the class photo: all thirteen in final order.
-     The second step is the commissioner's to take; the champion holds
-     until then. A one-step record from before reads as the first step. */
-  champion: Object.freeze({
-    label: "Champion",
-    intensity: "major",
-    requiresFrozen: true,
-    steps: Object.freeze(["champion", "class"])
-  })
+// src/features/rules/rulesWords.js
+var RULES_WORDS = Object.freeze({
+  /* Long Putt (putting) */
+  "putting.1": "Three putts",
+  "putting.2": "Closest ball wins",
+  "putting.3": "A make beats all",
+  "putting.tie": "Tie: sudden death",
+  /* Beer Die (die) */
+  "die.1": "Toss above head height",
+  "die.2": "Bounce it first",
+  "die.3": "Dropped catch: you score",
+  "die.4": "Sink it, game over",
+  "die.score": "First to the score",
+  "die.call": "Call your height",
+  "die.plunk": "Plunk: chug",
+  /* Where and When (where) */
+  "where.1": "A photo goes up",
+  "where.2": "Pin where, pick when",
+  "where.3": "Closer scores more",
+  "where.4": "Highest total wins",
+  "where.clock": "60 seconds a photo",
+  "where.max": "5,000 where, 5,000 when",
+  "where.tie": "Tie: pins, then speed",
+  /* Basketball 1v1 */
+  "basketball:1v1.1": "Check it up top",
+  "basketball:1v1.2": "Every bucket counts one",
+  "basketball:1v1.3": "Make it, take it",
+  "basketball:1v1.4": "First to five",
+  "basketball:1v1.fouls": "Call your own fouls",
+  /* Basketball 5v5 */
+  "basketball:5v5.1": "Tip off",
+  "basketball:5v5.2": "Twos and threes",
+  "basketball:5v5.3": "Two halves, running clock",
+  "basketball:5v5.4": "Ahead at the horn",
+  "basketball:5v5.half": "Clear past half",
+  "basketball:5v5.fouls": "Call your own fouls",
+  "basketball:5v5.contact": "No hard contact",
+  /* Pickleball */
+  "pickleball.1": "Serve underhand, crosscourt",
+  "pickleball.2": "One bounce each side",
+  "pickleball.3": "No kitchen volleys",
+  "pickleball.4": "Eleven, win by two",
+  "pickleball.serve": "Only servers score",
+  /* Volleyball */
+  "volleyball.1": "Serve from the line",
+  "volleyball.2": "Three touches a side",
+  "volleyball.3": "Every rally scores",
+  "volleyball.4": "Fifteen, win by two",
+  "volleyball.rotate": "Rotate on side-out",
+  "volleyball.sets": "Best two of three",
+  "volleyball.cap": "Cap at 17",
+  /* 8-Ball */
+  "8ball.1": "Break, claim a group",
+  "8ball.2": "Partners alternate",
+  "8ball.3": "Scratch: ball in hand",
+  "8ball.4": "Call the 8",
+  "8ball.rack": "One rack a match",
+  /* Beer Pong (pong) */
+  "pong.1": "Six cups a side",
+  "pong.2": "Both partners throw",
+  "pong.3": "A bounce counts two",
+  "pong.4": "Clear their cups",
+  "pong.swat": "Bounces can be swatted",
+  "pong.rerack": "One re-rack",
+  "pong.redemption": "Redemption: semis, final",
+  /* Trivia */
+  "trivia.1": "Question on the TV",
+  "trivia.2": "Right answers score",
+  "trivia.3": "Most points wins",
+  "trivia.groom": "The groom",
+  "trivia.family": "The family",
+  "trivia.group": "The group",
+  "trivia.photo": "A photo round",
+  "trivia.sports": "Sports, pop culture",
+  /* Rage Cage */
+  "ragecage.1": "Two balls, one circle",
+  "ragecage.2": "Bounce it in, pass",
+  "ragecage.3": "Stacked, you're out",
+  "ragecage.4": "Last one standing",
+  "ragecage.anywhere": "First try: pass anywhere",
+  "ragecage.second": "Final loser: 2nd",
+  "ragecage.third": "Third-to-last out: 3rd",
+  "ragecage.center": "Loser drinks the center",
+  /* Beerio Kart (beerio) */
+  "beerio.1": "Open at the line",
+  "beerio.2": "Stop to drink",
+  "beerio.3": "Empty before the finish",
+  "beerio.4": "Heat winners to final",
+  "beerio.sip": "No sipping while steering",
+  "beerio.wait": "Not empty? Wait there",
+  /* Championship Poker (poker) */
+  "poker.1": "Saturday's chips, your stack",
+  "poker.2": "Blinds rise each level",
+  "poker.3": "Bust, you're out",
+  "poker.4": "Biggest stack wins",
+  "poker.holdem": "No-limit hold'em",
+  "poker.count": "Count after last level",
+  "poker.busts": "First out, last place",
+  /* earlier slates, kept for their events */
+  "spikeball.1": "Serve to the returner",
+  "spikeball.2": "Three touches",
+  "spikeball.3": "Miss, lose the point",
+  "spikeball.4": "Eleven, win by two",
+  "spikeball.move": "Move anywhere",
+  "spikeball.cap": "Cap at 15",
+  "pingpong.1": "Two serves each",
+  "pingpong.2": "One bounce each side",
+  "pingpong.3": "Eleven, win by two",
+  "pingpong.rally": "Rally for serve",
+  "foosball.1": "Split the rods",
+  "foosball.2": "No spinning",
+  "foosball.3": "First to ten",
+  "foosball.serve": "Serve through the side",
+  "foosball.dead": "Dead ball: serve again",
+  /* the weekend: how Field Day works */
+  "fieldday.1": "Everyone starts with 1,000",
+  "fieldday.2": "Events and bets pay",
+  "fieldday.3": "Chips become your stack",
+  "fieldday.4": "Chip leader is champion",
+  "fieldday.teams": "Teams redrawn every event",
+  /* betting */
+  "betting.1": "Bet the live contest",
+  "betting.2": "Winner pays 1:1",
+  "betting.3": "Winner pays 2:1",
+  "betting.4": "Half your stack, max",
+  "betting.floor": "Never capped under 500",
+  "betting.own": "Playing? Back your side",
+  "betting.side": "One side per contest",
+  "betting.lock": "Locks when play starts",
+  "betting.fix": "Corrections fix payouts",
+  "betting.void": "Brandon voids any bet",
+  /* duels */
+  "duels.1": "Challenge from a card",
+  "duels.2": "Same ante both sides",
+  "duels.3": "Tap on the flash",
+  "duels.4": "Fastest tap takes both",
+  "duels.early": "Early tap: foul",
+  "duels.even": "Same time: chips back",
+  "duels.fouls": "Two fouls: chips back",
+  "duels.daily": "Three a day",
+  "duels.pair": "One duel per pair",
+  "duels.lapse": "Lapses after 10 minutes",
+  "duels.finale": "Void once poker deals",
+  /* draws */
+  "draws.1": "Teams balanced by skill",
+  "draws.2": "Results count more later",
+  "draws.3": "Some events: captains draft",
+  "draws.private": "Ratings stay private",
+  /* house rules (safety) */
+  "safety.optional": "Alcohol optional",
+  "safety.na": "NA counts the same",
+  "safety.forced": "Nobody is forced",
+  "safety.water": "Rack cups hold water",
+  "safety.own": "Your own cup",
+  "safety.contact": "No hard contact",
+  "safety.house": "Respect the house",
+  "safety.camera": "Photos and videos encouraged",
+  "safety.stop": "Brandon can stop anything",
+  /* payouts (the ladders are drawn; these are the exceptions) */
+  "payouts.team": "Every teammate: full amount",
+  "payouts.semis": "Both semifinal losers: 3rd",
+  "payouts.crew": "Crew: 3rd",
+  "payouts.ties": "Ties: settled at once",
+  "payouts.crown": "Tied champions: one putt"
 });
-var REPLAY_WINDOW_MS = 15 * 60 * 1e3;
-function contestName(state, ev, contest) {
-  if (!contest) return ev?.name || "";
-  if (contest.kind === "match" && Array.isArray(contest.match)) {
-    const [r, m] = contest.match;
-    return bracketMatchName(state.brackets?.[ev?.id] || {}, r, m);
-  }
-  if (contest.kind === "ffa") return ev?.name || contest.label || "";
-  if (contest.kind === "stage-final" || contest.kind === "final") return "Final";
-  if (contest.kind === "heat" && Number.isInteger(contest.group))
-    return state.stages?.[ev?.id]?.groups?.[contest.group]?.name || contest.label || "";
-  return contest.label || ev?.name || "";
-}
-function postedFinalUndo(state, ev) {
-  const op = state.eventOps?.[ev?.id];
-  const last = op?.lastContest, result = state.results?.[ev?.id];
-  if (!last || !result || last.postedRevision === void 0 || last.postedRevision === null) return null;
-  if (Number(result.revision || 1) !== Number(last.postedRevision))
-    return {
-      enabled: false,
-      blocker: "The result was corrected",
-      contestId: last.id,
-      contestRevision: Number(op.contestRevision || 0),
-      refunds: [],
-      voidIds: []
-    };
-  const probe = { ...state, results: { ...state.results } };
-  delete probe.results[ev.id];
-  return contestUndoAvailability(probe, ev);
-}
-var SKIPPABLE_PHASES = Object.freeze(["scheduled", "setup", "draw-pending", "draw-revealed", "betting-open"]);
+var RULES_TITLES = Object.freeze({
+  fieldday: "Field Day",
+  betting: "Betting",
+  duels: "Duels",
+  draws: "Draws",
+  safety: "House rules",
+  payouts: "Payouts"
+});
+var ruleWord = (key) => RULES_WORDS[key] ?? key;
 
-// src/features/weekend/ContestPanel.jsx
-init_PlayerIdentity();
-
-// src/features/weekend/CompetitionBracket.jsx
-init_core();
-init_PlayerIdentity();
-import React5, { useEffect as useEffect4, useRef as useRef3 } from "react";
-function bracketLayout(bracket) {
-  const rounds = bracket?.rounds || [];
-  const centers = rounds.map((round) => round.map(() => null));
-  const at = { cursor: 0 };
-  const last = rounds.length - 1;
-  if (last >= 0) rounds[last].forEach((_, m) => placeTree(rounds, centers, last, m, at));
-  rounds.forEach((round, r) => round.forEach((_, m) => {
-    if (centers[r][m] === null) {
-      centers[r][m] = at.cursor + 0.5;
-      at.cursor += 1;
-    }
-  }));
-  return { centers, units: Math.max(at.cursor, 1) };
+// src/features/rules/gameSteps.js
+var STEP_SETS = Object.freeze({
+  putting: { steps: 3, win: 3, notes: [["tie", "tie"]] },
+  die: { steps: 4, win: 4, notes: [["score", "tally"], ["call", "height"], ["plunk", "plunk"]] },
+  where: { steps: 4, win: 4, notes: [["clock", "timer"], ["max", "max"], ["tie", "tie"]] },
+  "basketball:1v1": { steps: 4, win: 4, notes: [["fouls", "whistle"]] },
+  "basketball:5v5": { steps: 4, win: 4, notes: [["half", "half"], ["fouls", "whistle"], ["contact", "contact"]] },
+  pickleball: { steps: 4, win: 4, notes: [["serve", "serve"]] },
+  volleyball: { steps: 4, win: 4, notes: [["rotate", "rotate"], ["sets", "sets"], ["cap", "cap"]] },
+  "8ball": { steps: 4, win: 4, notes: [["rack", "rack"]] },
+  pong: { steps: 4, win: 4, notes: [["swat", "swat"], ["rerack", "rack"], ["redemption", "redemption"]] },
+  trivia: { steps: 3, win: 3, notes: [["groom", "ring"], ["family", "home"], ["group", "group"], ["photo", "photo"], ["sports", "sports"]] },
+  ragecage: { steps: 4, win: 4, notes: [["anywhere", "anywhere"], ["second", "second"], ["third", "third"], ["center", "center"]] },
+  beerio: { steps: 4, win: 4, notes: [["sip", "nosip"], ["wait", "wait"]] },
+  poker: { steps: 4, win: 4, notes: [["holdem", "cards"], ["count", "timer"], ["busts", "order"]] },
+  spikeball: { steps: 4, win: 4, notes: [["move", "move"], ["cap", "cap"]] },
+  pingpong: { steps: 3, win: 3, notes: [["rally", "serve"]] },
+  foosball: { steps: 3, win: 3, notes: [["serve", "serve"], ["dead", "redemption"]] },
+  /* the weekend's rules (Weekend > Rules), drawn the same way */
+  fieldday: { steps: 4, win: 4, notes: [["teams", "shuffle"]] },
+  betting: { steps: 4, notes: [["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["fix", "fix"], ["void", "void"]] },
+  duels: { steps: 4, win: 4, notes: [["early", "early"], ["even", "tie"], ["fouls", "tie"], ["daily", "daily"], ["pair", "pair"], ["lapse", "lapse"], ["finale", "cards"]] },
+  draws: { steps: 3, notes: [["private", "private"]] },
+  safety: { steps: 0, notes: [
+    ["optional", "drink"],
+    ["na", "na"],
+    ["forced", "forced"],
+    ["water", "water"],
+    ["own", "own"],
+    ["contact", "contact"],
+    ["house", "home"],
+    ["camera", "camera"],
+    ["stop", "stop"]
+  ] },
+  payouts: { steps: 0, notes: [["team", "group"], ["semis", "semis"], ["crew", "crew"], ["ties", "tie"], ["crown", "putt"]] }
+});
+var RULE_SET_ORDER = Object.freeze(["fieldday", "betting", "duels", "draws", "safety"]);
+function stepSetId(game, variant) {
+  const id = game && typeof game === "object" ? game.game : game;
+  const v = variant ?? (game && typeof game === "object" ? game.variant : void 0);
+  if (!id) return null;
+  if (v && STEP_SETS[`${id}:${v}`]) return `${id}:${v}`;
+  if (STEP_SETS[id]) return id;
+  const first = GAMES[id]?.variants?.[0]?.id;
+  if (first && STEP_SETS[`${id}:${first}`]) return `${id}:${first}`;
+  return null;
 }
-function placeTree(rounds, centers, r, m, at) {
-  const match = rounds[r]?.[m];
-  if (!match) return at.cursor;
-  const side = (slot) => {
-    if (slot?.w) return placeTree(rounds, centers, slot.w[0], slot.w[1], at);
-    const center2 = at.cursor + 0.25;
-    at.cursor += 0.5;
-    return center2;
+var hasGameSteps = (game, variant) => !!stepSetId(game, variant);
+function gameStepsModel(game, variant) {
+  const id = stepSetId(game, variant);
+  if (!id) return null;
+  const set = STEP_SETS[id];
+  const [base, v] = id.split(":");
+  const title = RULES_TITLES[id] || GAMES[base]?.name || id;
+  return {
+    id,
+    title,
+    variant: v || null,
+    steps: Array.from({ length: set.steps }, (_, index) => {
+      const key = `${id}.${index + 1}`;
+      return { key, words: ruleWord(key), win: set.win === index + 1 };
+    }),
+    notes: set.notes.map(([note, glyph]) => {
+      const key = `${id}.${note}`;
+      return { key, glyph, words: ruleWord(key) };
+    })
   };
-  const leaf = !match.a?.w && !match.b?.w;
-  let center;
-  if (leaf) {
-    center = at.cursor + 0.5;
-    at.cursor += 1;
-  } else center = (side(match.a) + side(match.b)) / 2;
-  centers[r][m] = center;
-  return center;
 }
-var SIZES2 = {
-  full: { head: 22, row: 48, gap: 14, minCol: 210, colGap: 34 },
-  compact: { head: 0, row: 28, gap: 10, minCol: 0, colGap: 18 },
-  /* a field past eight: the same picture at a glance, tighter rows */
-  compactTall: { head: 0, row: 22, gap: 6, minCol: 0, colGap: 14 }
+
+// src/features/rules/RulePictures.jsx
+import React6 from "react";
+var F = { fill: "currentColor", stroke: "none" };
+var ball = (x, y, r = 2.1) => /* @__PURE__ */ React6.createElement("circle", { cx: x, cy: y, r, ...F });
+var Faint = ({ children }) => /* @__PURE__ */ React6.createElement("g", { className: "fd-rp-faint" }, children);
+var Lit = ({ children }) => /* @__PURE__ */ React6.createElement("g", { className: "fd-rp-lit" }, children);
+var Gone = ({ children }) => /* @__PURE__ */ React6.createElement("g", { className: "fd-rp-gone" }, children);
+var trail = (d) => /* @__PURE__ */ React6.createElement("path", { className: "fd-rp-trail", d });
+var Num = ({ x, y, size = 11, anchor = "middle", children }) => /* @__PURE__ */ React6.createElement("text", { className: "fd-rp-num", x, y, fontSize: size, textAnchor: anchor }, children);
+var head = (x, y, deg = 0) => /* @__PURE__ */ React6.createElement("path", { d: "M-2.6 -2.4 0 0-2.6 2.4", transform: `translate(${x} ${y}) rotate(${deg})` });
+var floor = (y = 34) => /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: `M4 ${y}H60` }));
+var bust = (x, y, r = 2.4) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("circle", { cx: x, cy: y, r }), /* @__PURE__ */ React6.createElement("path", { d: `M${x - r * 1.8} ${y + r * 3.5}a${r * 1.8} ${r * 1.8} 0 0 1 ${r * 3.6} 0` }));
+var cup = (x, top, w = 7, h = 8) => /* @__PURE__ */ React6.createElement("path", { d: `M${x - w / 2} ${top}h${w}l-${w * 0.14} ${h}h-${w * 0.72}z` });
+var crown = (x, base, s = 1) => /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { ...F, d: `M${x - 5 * s} ${base}l${-1 * s} ${-7 * s} ${3.5 * s} ${3 * s} ${2.5 * s} ${-5 * s} ${2.5 * s} ${5 * s} ${3.5 * s} ${-3 * s} ${-1 * s} ${7 * s}z` }));
+var die = (x, y, s = 5, deg = -14) => /* @__PURE__ */ React6.createElement("g", { transform: `rotate(${deg} ${x} ${y})` }, /* @__PURE__ */ React6.createElement("rect", { x: x - s / 2, y: y - s / 2, width: s, height: s, rx: s * 0.22, ...F }), /* @__PURE__ */ React6.createElement("g", { className: "fd-rp-glass" }, /* @__PURE__ */ React6.createElement("circle", { cx: x - s * 0.2, cy: y - s * 0.2, r: s * 0.11 }), /* @__PURE__ */ React6.createElement("circle", { cx: x + s * 0.2, cy: y + s * 0.2, r: s * 0.11 })));
+var stack = (x, base, n, w = 14) => /* @__PURE__ */ React6.createElement("g", null, Array.from({ length: n }, (_, i) => /* @__PURE__ */ React6.createElement("rect", { key: i, x: x - w / 2, y: base - (i + 1) * 3.6, width: w, height: 2.9, rx: 1.45, ...F })));
+var hoop = (bx = 54, y = 13) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: `M${bx} ${y - 8}V${y + 6}` }), /* @__PURE__ */ React6.createElement("path", { d: `M${bx - 10} ${y}H${bx}` }), /* @__PURE__ */ React6.createElement("path", { className: "fd-rp-faint", d: `M${bx - 9} ${y}l2 6h4l2-6` }));
+var halfCourt = /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 3.5H60" }), /* @__PURE__ */ React6.createElement("path", { d: "M26 3.5V17H38V3.5" }), /* @__PURE__ */ React6.createElement("path", { d: "M10 3.5V9A22 22 0 0 0 54 9V3.5" }));
+var rimTop = /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M28 5H36" }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "7.6", r: "2.1" }));
+var tv = (x, y, w, h) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x, y, width: w, height: h, rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: `M${x + w / 2} ${y + h}v3.5M${x + w / 2 - 6} ${y + h + 3.5}h12` }));
+var scoreToWin = (big, small = "+2") => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Num, { x: 27, y: 30, size: 24 }, big), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 49, y: 22, size: 13 }, small)));
+var firstTo = (n, mark = "ball") => {
+  const gap = Math.min(10, 50 / (n - 1));
+  const x0 = 32 - gap * (n - 1) / 2;
+  return /* @__PURE__ */ React6.createElement("g", null, Array.from({ length: n }, (_, i) => {
+    const x = x0 + i * gap;
+    const node = mark === "card" ? /* @__PURE__ */ React6.createElement("rect", { x: x - 2.4, y: 25, width: 4.8, height: 6.4, rx: 1, ...F }) : ball(x, 28, 2.6);
+    return /* @__PURE__ */ React6.createElement(React6.Fragment, { key: i }, i === n - 1 ? /* @__PURE__ */ React6.createElement(Lit, null, node) : node);
+  }), crown(x0 + gap * (n - 1), 20, 0.9));
 };
-var COMPACT_ROUNDS = { Quarterfinals: "Quarters", Semifinals: "Semis" };
-var statusOf = (contest, isCurrent) => !isCurrent ? null : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open" : contest.phase === "awaiting-result" ? "Awaiting result" : "Up next";
-function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false, pickable = true }) {
-  const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
-  const scroller = useRef3(null);
-  const compact = size === "compact";
-  const contest = bracket && draw ? resolveCurrentContest(state, ev) : null;
-  const active = contest?.kind === "match" ? contest.match : null;
-  useEffect4(() => {
-    const el = scroller.current;
-    if (!el || compact || !active || el.scrollWidth <= el.clientWidth) return;
-    const card = el.querySelector(".fd-bracket-match.is-current");
-    if (card) el.scrollLeft = Math.max(0, card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2);
-  }, [compact, active?.[0], active?.[1]]);
-  if (!bracket || !draw) return null;
-  const rounds = bracket.rounds;
-  const R = rounds.length;
-  const { centers, units } = bracketLayout(bracket);
-  const dims = SIZES2[!compact ? "full" : R >= 4 ? "compactTall" : "compact"];
-  const cardH = dims.head + dims.row * 2 + 1 + 2;
-  const unit = cardH + dims.gap;
-  const height = Math.ceil(units * unit);
-  const colW = `((100% - ${(R - 1) * dims.colGap}px) / ${R})`;
-  const colLeft = (r) => `calc(${colW} * ${r} + ${r * dims.colGap}px)`;
-  const topOf = (r, m) => centers[r][m] * unit - cardH / 2;
-  const rowY = (r, m, index) => topOf(r, m) + 1 + dims.head + dims.row / 2 + index * (dims.row + 1);
-  const canRecord = pickable && gm && !!onPick && contest?.phase === "in-progress" && !state.frozen && !state.results?.[ev.id] && !state.poker && !state.shelved?.[ev.id];
-  const names = ROUND_NAMES[bracket.size] || [];
-  const connectors = [];
-  rounds.forEach((round, r) => round.forEach((match, m) => [match.a, match.b].forEach((slot, index) => {
-    if (!slot?.w) return;
-    const [fr, fm] = slot.w;
-    const y1 = centers[fr][fm] * unit, y2 = rowY(r, m, index);
-    const top = Math.min(y1, y2) - 1, h = Math.abs(y2 - y1) + 2;
-    const decided3 = rounds[fr][fm].winner !== null && rounds[fr][fm].winner !== void 0;
-    const a = (y1 - top) / h * 100, b = (y2 - top) / h * 100;
-    connectors.push(/* @__PURE__ */ React5.createElement(
-      "svg",
-      {
-        key: `${r}-${m}-${index}`,
-        className: `fd-bracket-line${decided3 ? " is-advanced" : ""}`,
-        "aria-hidden": "true",
-        viewBox: "0 0 100 100",
-        preserveAspectRatio: "none",
-        style: { left: `calc(${colLeft(fr)} + ${colW})`, width: dims.colGap, top, height: h }
-      },
-      /* @__PURE__ */ React5.createElement("path", { d: `M0 ${a} H50 V${b} H100`, vectorEffect: "non-scaling-stroke" })
-    ));
-  })));
-  const stage = /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-stage", style: {
-    height,
-    minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap
-  } }, connectors, rounds.map((round, r) => round.map((match, m) => {
-    const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
-    const isCurrent = active?.[0] === r && active?.[1] === m;
-    const highlighted = isCurrent || hot?.[0] === r && hot?.[1] === m;
-    const decided3 = match.winner !== null && match.winner !== void 0;
-    const status = statusOf(contest, isCurrent);
-    return /* @__PURE__ */ React5.createElement(
-      "div",
-      {
-        key: `${r}-${m}`,
-        className: `fd-bracket-match${highlighted ? " is-current" : ""}${decided3 ? " is-decided" : ""}`,
-        style: { left: colLeft(r), width: `calc(${colW})`, top: topOf(r, m), height: cardH },
-        "aria-label": `${names[r] || `Round ${r + 1}`}, match ${m + 1}${status ? `, ${status.toLowerCase()}` : ""}`
-      },
-      !compact && /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-match-label" }, /* @__PURE__ */ React5.createElement("span", null, bracketMatchName(bracket, r, m)), status && /* @__PURE__ */ React5.createElement("strong", null, status)),
-      sides.map((key, index) => {
-        const team = key === null || key === void 0 ? null : draw.teams[key];
-        const won = decided3 && match.winner === key, lost = decided3 && !!team && !won;
-        const name = team ? teamLabel(state, team) : "TBD";
-        const fullName = team?.players.map((player) => disp(state, player)).join(" & ");
-        const mine = !!team?.players.includes(me);
-        const className = `fd-bracket-team${won ? " is-winner" : ""}${lost ? " is-loser" : ""}${mine ? " is-you" : ""}${team ? "" : " is-empty"}`;
-        if (compact) return /* @__PURE__ */ React5.createElement("div", { key: index, className }, team && /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-faces", "aria-hidden": "true" }, team.players.slice(0, 3).map((player) => /* @__PURE__ */ React5.createElement(Avatar, { key: player, state, p: player, size: 20 }))), /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-name" }, name), won && /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, "\u2713"));
-        const selectable = canRecord && isCurrent && !decided3 && sides.every((side) => side !== null && side !== void 0);
-        return /* @__PURE__ */ React5.createElement("div", { key: index, className }, team && /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-players" }, team.players.map((player) => /* @__PURE__ */ React5.createElement(
-          "button",
-          {
-            key: player,
-            type: "button",
-            "aria-label": `View ${disp(state, player)}'s player card`,
-            disabled: pending || !onPlayer,
-            onClick: () => onPlayer?.(player)
-          },
-          /* @__PURE__ */ React5.createElement(Avatar, { state, p: player, size: 26 })
-        ))), /* @__PURE__ */ React5.createElement(
-          "button",
-          {
-            type: "button",
-            className: "fd-bracket-pick",
-            disabled: !selectable || pending,
-            "aria-label": selectable ? `Winner: ${fullName}` : `${fullName || "To be determined"}${won ? ", winner" : ""}`,
-            onClick: () => selectable && onPick(r, m, key)
-          },
-          /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-name" }, name),
-          won && /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-outcome", "aria-hidden": "true" }, "\u2713"),
-          selectable && /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-pick-hint" }, pending ? "Saving\u2026" : "Win")
-        ));
-      })
-    );
-  })));
-  const heads = /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-heads", style: { minWidth: compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap } }, rounds.map((_, r) => /* @__PURE__ */ React5.createElement("span", { key: r, style: { left: colLeft(r), width: `calc(${colW})` } }, compact && R >= 4 && COMPACT_ROUNDS[names[r]] || names[r] || `Round ${r + 1}`)));
-  if (compact) return /* @__PURE__ */ React5.createElement("div", { className: "fd-competition-bracket is-compact", "aria-hidden": "true" }, /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-scroll" }, heads, stage));
-  return /* @__PURE__ */ React5.createElement("section", { className: "fd-competition-bracket", "aria-label": `${ev.name} bracket`, "aria-busy": pending }, /* @__PURE__ */ React5.createElement("div", { className: "fd-bracket-scroll", ref: scroller }, heads, stage));
-}
-function BracketPeek({ state, ev, me, onOpen, label: label2 = "Bracket", card = false }) {
-  if (!state.brackets?.[ev?.id] || !state.draws?.[ev.id]) return null;
-  return /* @__PURE__ */ React5.createElement(
-    "button",
+var twoBounces = /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 18H60M4 36H60" })), /* @__PURE__ */ React6.createElement("path", { d: "M32 18v-6M32 36v-6" }), trail("M6 11Q26 -2 43 17.4Q47 12 54 11"), trail("M58 29Q38 16 21 35.4Q17 30 10 29"), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M41 16.8l1.6 1.2 1.6-1.2M19 34.8l1.6 1.2 1.6-1.2" })), ball(54, 11, 1.8), ball(10, 29, 1.8));
+var kart = (x = 0, y = 0) => /* @__PURE__ */ React6.createElement("g", { transform: `translate(${x} ${y})` }, /* @__PURE__ */ React6.createElement("path", { d: "M6 27h27l-3-7H21l-3-5h-5l-2 5H6z" }), /* @__PURE__ */ React6.createElement("circle", { cx: "16", cy: "11", r: "2.4" }), /* @__PURE__ */ React6.createElement("circle", { cx: "11.5", cy: "29", r: "3.4", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "27.5", cy: "29", r: "3.4", ...F }));
+var can = (x, y, h = 14, deg = 0) => /* @__PURE__ */ React6.createElement("g", { transform: `rotate(${deg} ${x} ${y + h / 2})` }, /* @__PURE__ */ React6.createElement("rect", { x: x - 4, y, width: "8", height: h, rx: "1.6" }), /* @__PURE__ */ React6.createElement("path", { d: `M${x - 2.4} ${y - 1.4}h4.8` }));
+var stopwatch = (x, y, r = 10) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("circle", { cx: x, cy: y, r }), /* @__PURE__ */ React6.createElement("path", { d: `M${x} ${y - r}v-2.6M${x - 2.6} ${y - r - 2.8}h5.2` }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: `M${x} ${y}l${r * 0.5} ${-r * 0.5}` })));
+var chip = (x, y, r = 5) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("circle", { cx: x, cy: y, r, ...F }), /* @__PURE__ */ React6.createElement("circle", { className: "fd-rp-glass-line", cx: x, cy: y, r: r * 0.5 }));
+var tallestCrowned = /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("g", null, stack(16, 34, 4, 11)), /* @__PURE__ */ React6.createElement(Lit, null, stack(32, 34, 6, 11)), /* @__PURE__ */ React6.createElement("g", null, stack(48, 34, 3, 11)), crown(32, 10, 0.9));
+var checkUp = /* @__PURE__ */ React6.createElement("g", null, halfCourt, rimTop, ball(32, 26, 2.2), /* @__PURE__ */ React6.createElement("circle", { cx: "23", cy: "31", r: "2.6", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "41", cy: "31", r: "2.6", ...F }), trail("M25.5 29Q32 21 38.5 29"), head(38.5, 29, 50));
+var scoreArc = (inside, outside) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 3.5H60" }), /* @__PURE__ */ React6.createElement("path", { d: "M9 3.5V7A23 23 0 0 0 55 7V3.5" })), rimTop, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 24.5, size: 12 }, inside), /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 39.5, size: 11 }, outside));
+var RULE_PICTURES = {
+  /* ── Long Putt ── */
+  "putting.1": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M10 8 17.6 32.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M14 33.2H21.6", strokeWidth: "2.6" }), ball(26, 32), ball(31.5, 32), ball(37, 32), /* @__PURE__ */ React6.createElement("path", { d: "M54 34V12" }), /* @__PURE__ */ React6.createElement("path", { d: "M54 12l7 2.6-7 2.6z", ...F }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "54", cy: "34", rx: "3.4", ry: "1.1" })),
+  "putting.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("ellipse", { cx: "32", cy: "22", rx: "27", ry: "14" })), /* @__PURE__ */ React6.createElement("circle", { cx: "34", cy: "21", r: "1.8", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M34 21V5" }), /* @__PURE__ */ React6.createElement("path", { d: "M34 5l6 2.4-6 2.4z", ...F }), ball(12, 27, 1.9), ball(53, 14, 1.9), trail("M41.6 26.2L36.4 22.4"), /* @__PURE__ */ React6.createElement(Lit, null, ball(44, 28, 2), /* @__PURE__ */ React6.createElement("circle", { cx: "44", cy: "28", r: "4" }))),
+  "putting.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 30H27M37 30H60" })), /* @__PURE__ */ React6.createElement("path", { d: "M27 30V37H37V30" }), /* @__PURE__ */ React6.createElement("path", { d: "M35.6 30V10" }), /* @__PURE__ */ React6.createElement("path", { d: "M35.6 10l6.4 2.6-6.4 2.6z", ...F }), trail("M8 27Q22 16 31 31"), /* @__PURE__ */ React6.createElement(Lit, null, ball(31.6, 34.4, 2.2)), ball(14, 28, 2), crown(17, 15, 0.85)),
+  /* ── Beer Die ── */
+  "die.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M3 11.5H61", strokeDasharray: "1.5 2.5" })), /* @__PURE__ */ React6.createElement("path", { d: "M12 28H52", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M15 28v8M49 28v8" }), cup(15, 22, 5, 6), cup(49, 22, 5, 6), bust(6, 15, 2.3), trail("M9 13Q30 -10 44 26"), die(28.3, 5, 4.6)),
+  "die.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M8 28H56", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M11 28v8M53 28v8" }), cup(11, 22, 5, 6), cup(53, 22, 5, 6), trail("M8 4Q30 2 38 26"), trail("M38 26Q42 12 48 9"), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M35 23.6l1.6 1.6M41 23.6l-1.6 1.6" })), die(49, 8.6, 4.4, 18)),
+  "die.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 37H60" })), /* @__PURE__ */ React6.createElement("path", { d: "M4 22H38", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M8 22v15M34 22v15" }), bust(51, 7, 2.3), trail("M38 20Q48 4 55 33"), /* @__PURE__ */ React6.createElement(Lit, null, die(56, 34.4, 4.4, 10), /* @__PURE__ */ React6.createElement(Num, { x: 20, y: 15, size: 13 }, "+1"))),
+  "die.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M6 32H58", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M24 14h16l-2.4 18H26.4z" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M25 19h14" })), trail("M5 9Q18 -2 29 9"), /* @__PURE__ */ React6.createElement(Lit, null, die(32, 13, 5, 30)), crown(50, 13, 0.9)),
+  /* ── Where and When ── */
+  "where.1": /* @__PURE__ */ React6.createElement("g", null, tv(22, 4, 36, 24), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M25 25l7-9 5 5 4-4 14 8" })), /* @__PURE__ */ React6.createElement("circle", { cx: "49", cy: "10.5", r: "2.2", ...F }), /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "11", width: "12", height: "21", rx: "2.2" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M7 27l3.5-4.5 2 2 1.6-1.6 2 4" })), /* @__PURE__ */ React6.createElement("circle", { cx: "13.2", cy: "15.6", r: "1.1", ...F })),
+  "where.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "7", width: "28", height: "26", rx: "2.2" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 21Q15 15 32 24M15 7v26" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M18 24.5s-5-4.3-5-8.4a5 5 0 0 1 10 0c0 4.1-5 8.4-5 8.4z", ...F })), /* @__PURE__ */ React6.createElement("circle", { className: "fd-rp-glass", cx: "18", cy: "16", r: "1.7" }), /* @__PURE__ */ React6.createElement("rect", { x: "37", y: "9", width: "23", height: "23", rx: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M37 15H60M42 6.5v4.5M55 6.5v4.5" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "42.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "48.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "42.5", cy: "26.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.5", cy: "26.5", r: "1.3" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "48.5", cy: "26.5", r: "2.6" }))),
+  "where.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M8 4V34H60" })), /* @__PURE__ */ React6.createElement("path", { d: "M9 7C20 25 34 31 58 32.5" }), /* @__PURE__ */ React6.createElement(Lit, null, ball(12, 11.6, 2.4)), ball(44, 31, 2)),
+  "where.4": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("rect", { x: "12", y: "20", width: "8", height: "14", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 27h8" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "28", y: "13", width: "8", height: "21", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M28 23.5h8" })), /* @__PURE__ */ React6.createElement("rect", { x: "44", y: "25", width: "8", height: "9", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M44 29.5h8" }), crown(32, 10, 0.85)),
+  /* ── Basketball 1v1 ── */
+  "basketball:1v1.1": checkUp,
+  "basketball:1v1.2": /* @__PURE__ */ React6.createElement("g", null, floor(36), hoop(), trail("M8 32Q26 -4 46 11"), /* @__PURE__ */ React6.createElement(Lit, null, ball(46.5, 11, 2.4), /* @__PURE__ */ React6.createElement(Num, { x: 22, y: 24, size: 14 }, "1"))),
+  "basketball:1v1.3": /* @__PURE__ */ React6.createElement("g", null, floor(36), hoop(), ball(48, 24, 2.4), trail("M46 29Q32 40 17 29"), head(17, 29, 220), bust(11, 17, 2.4)),
+  "basketball:1v1.4": firstTo(5),
+  /* ── Basketball 5v5 ── */
+  "basketball:5v5.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("ellipse", { cx: "32", cy: "34", rx: "13", ry: "3" })), bust(21, 17, 2.4), bust(43, 17, 2.4), trail("M24 13Q28 6 30.5 6"), trail("M40 13Q36 6 33.5 6"), /* @__PURE__ */ React6.createElement(Lit, null, ball(32, 5, 2.6))),
+  "basketball:5v5.2": scoreArc("2", "3"),
+  "basketball:5v5.3": /* @__PURE__ */ React6.createElement("g", null, stopwatch(19, 22, 10.5), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "36", y: "16", width: "10", height: "11", rx: "1.4", ...F })), /* @__PURE__ */ React6.createElement("rect", { x: "48", y: "16", width: "10", height: "11", rx: "1.4" })),
+  "basketball:5v5.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M5 17h4l10-6v18l-10-6H5z" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M23 14a8 8 0 0 1 0 12M27 11a12 12 0 0 1 0 18" })), /* @__PURE__ */ React6.createElement("rect", { x: "34", y: "7", width: "25", height: "25", rx: "2.2" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "38.5", y: "13", width: "6.5", height: "15", rx: "1", ...F })), /* @__PURE__ */ React6.createElement("rect", { x: "48.5", y: "19", width: "6.5", height: "9", rx: "1" })),
+  /* ── Pickleball ── */
+  "pickleball.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "5", width: "56", height: "30", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M24 5v30M40 5v30M4 20h20M40 20h20" })), /* @__PURE__ */ React6.createElement("path", { d: "M32 3v34", strokeWidth: "2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "7.5", cy: "29", r: "2.4", ...F }), trail("M10 27Q30 2 50 12"), head(50, 12, 30), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "41", y: "6", width: "18", height: "13", rx: "1", className: "fd-rp-wash" }))),
+  "pickleball.2": twoBounces,
+  "pickleball.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 5H60V35H4z" }), /* @__PURE__ */ React6.createElement("path", { d: "M42 5v30" })), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M33 12l8-7M33 20l9-8M33 28l9-8M35 35l7-7" })), /* @__PURE__ */ React6.createElement("path", { d: "M32 3v34", strokeWidth: "2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "38", cy: "23", r: "2.4", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "40.4", cy: "14", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "38", cy: "18.5", r: "9" }), /* @__PURE__ */ React6.createElement("path", { d: "M31.6 24.9 44.4 12.1" })),
+  "pickleball.4": scoreToWin("11"),
+  /* ── Volleyball ── */
+  "volleyball.1": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M11 34v-4" }), /* @__PURE__ */ React6.createElement("path", { d: "M37 34V12" }), /* @__PURE__ */ React6.createElement("rect", { x: "36", y: "12", width: "2.4", height: "9", ...F }), bust(6, 17, 2.3), trail("M9 13Q26 -3 49 21"), ball(50, 22, 2)),
+  "volleyball.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M48 34V12" }), /* @__PURE__ */ React6.createElement("rect", { x: "47", y: "12", width: "2.4", height: "9", ...F }), trail("M6 30Q11 12 17 24Q23 9 29 22Q37 0 56 18"), /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "30", r: "2.2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17", cy: "24", r: "2.2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "29", cy: "22", r: "2.2" })),
+  "volleyball.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M30 34V12" }), /* @__PURE__ */ React6.createElement("rect", { x: "29", y: "12", width: "2.4", height: "9", ...F }), trail("M8 12Q30 -6 48 31"), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M43 33l-2-2.4M53 33l2-2.4" })), ball(48, 31.6, 2.2), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 49, y: 18, size: 13 }, "+1"))),
+  "volleyball.4": scoreToWin("15"),
+  /* ── 8-Ball ── */
+  "8ball.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "5", width: "56", height: "30", rx: "3" })), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "7", r: "1.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "6", r: "1.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "58", cy: "7", r: "1.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "33", r: "1.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "34", r: "1.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "58", cy: "33", r: "1.6" }))), /* @__PURE__ */ React6.createElement("path", { d: "M2 21.6 10.6 20.4", strokeWidth: "2.4" }), /* @__PURE__ */ React6.createElement("circle", { cx: "14", cy: "20", r: "2" }), trail("M17 20H40"), ball(44, 20, 1.8), /* @__PURE__ */ React6.createElement("circle", { cx: "47.6", cy: "18", r: "1.8" }), ball(47.6, 22, 1.8), /* @__PURE__ */ React6.createElement("circle", { cx: "51.2", cy: "16", r: "1.8" }), ball(51.2, 20, 1.8), /* @__PURE__ */ React6.createElement("circle", { cx: "51.2", cy: "24", r: "1.8" })),
+  "8ball.2": /* @__PURE__ */ React6.createElement("g", null, bust(20, 15, 2.6), bust(44, 15, 2.6), trail("M25 9Q32 3 39 9"), head(39, 9, 40), trail("M39 31Q32 37 25 31"), head(25, 31, 220)),
+  "8ball.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 22V5h22" })), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "10", r: "3.2", ...F }), trail("M24 26 12 13"), /* @__PURE__ */ React6.createElement("circle", { cx: "25.5", cy: "27.5", r: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M41 36v-9a1.6 1.6 0 0 1 3.2 0v-5a1.6 1.6 0 0 1 3.2 0v4.6-1.4a1.6 1.6 0 0 1 3.2 0v2a1.6 1.6 0 0 1 3.2 0V31a5 5 0 0 1-5 5z" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "47.6", cy: "13", r: "2.8" }))),
+  "8ball.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M38 5h22v17" })), /* @__PURE__ */ React6.createElement("circle", { cx: "55", cy: "10", r: "3.2", ...F }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "55", cy: "10", r: "6.4" })), trail("M27.6 24 50.4 13"), /* @__PURE__ */ React6.createElement("circle", { cx: "23", cy: "27", r: "4.4", ...F }), /* @__PURE__ */ React6.createElement("circle", { className: "fd-rp-glass", cx: "23", cy: "26", r: "1.9" })),
+  /* ── Beer Pong ── */
+  "pong.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "7", width: "56", height: "26", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M32 7v26" })), /* @__PURE__ */ React6.createElement("g", null, [[9, 15], [9, 20], [9, 25], [13.4, 17.5], [13.4, 22.5], [17.8, 20]].map(([x, y]) => /* @__PURE__ */ React6.createElement("circle", { key: `l${y}${x}`, cx: x, cy: y, r: "2" }))), /* @__PURE__ */ React6.createElement("g", null, [[55, 15], [55, 20], [55, 25], [50.6, 17.5], [50.6, 22.5], [46.2, 20]].map(([x, y]) => /* @__PURE__ */ React6.createElement("circle", { key: `r${y}${x}`, cx: x, cy: y, r: "2" })))),
+  "pong.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M30 30H62", strokeWidth: "2.2" }), cup(44, 24, 5, 6), cup(50, 24, 5, 6), cup(56, 24, 5, 6), bust(7, 6, 2.2), bust(7, 22, 2.2), trail("M11 7Q30 -4 43 21"), trail("M11 23Q33 6 50 21"), ball(43.4, 21.4, 1.7), ball(50, 21.4, 1.7)),
+  "pong.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M4 30H60", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M7 30v6M57 30v6" }), trail("M6 6Q18 6 26 29"), trail("M26 29Q36 10 49 23"), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M23 26.6l1.6 1.6M29 26.6l-1.6 1.6" })), cup(43, 24, 5, 6), /* @__PURE__ */ React6.createElement(Lit, null, cup(49, 24, 5, 6), cup(55, 24, 5, 6))),
+  "pong.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "8", width: "56", height: "27", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M32 8v27" })), /* @__PURE__ */ React6.createElement(Faint, null, [[9, 17], [9, 22], [9, 27], [13.4, 19.5], [13.4, 24.5], [17.8, 22]].map(([x, y]) => /* @__PURE__ */ React6.createElement("circle", { key: `l${y}${x}`, cx: x, cy: y, r: "2" }))), /* @__PURE__ */ React6.createElement(Gone, null, [[55, 17], [55, 22], [55, 27], [50.6, 19.5], [50.6, 24.5], [46.2, 22]].map(([x, y]) => /* @__PURE__ */ React6.createElement("circle", { key: `r${y}${x}`, cx: x, cy: y, r: "2" }))), crown(51, 13, 0.85)),
+  /* ── Trivia ── */
+  "trivia.1": /* @__PURE__ */ React6.createElement("g", null, tv(14, 4, 36, 24), /* @__PURE__ */ React6.createElement("path", { d: "M28.4 12a3.6 3.6 0 1 1 5.4 3.1c-1.2.7-1.8 1.4-1.8 2.7v.8", strokeWidth: "1.9" }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "23", r: "1.3", ...F })),
+  "trivia.2": /* @__PURE__ */ React6.createElement("g", null, bust(8, 22, 2), bust(15, 19, 2), bust(22, 22, 2), bust(42, 22, 2), bust(49, 19, 2), bust(56, 22, 2), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "15", cy: "7", r: "2.6", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M15 1.6v-1M9.6 7h-1.4M20.4 7h1.4M11.2 3.2l-1-1M18.8 3.2l1-1" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 14, size: 13 }, "+1"))),
+  "trivia.3": firstTo(7, "card"),
+  /* ── Rage Cage ── */
+  "ragecage.1": /* @__PURE__ */ React6.createElement("g", null, Array.from({ length: 10 }, (_, i) => {
+    const a = i * Math.PI / 5;
+    return /* @__PURE__ */ React6.createElement("circle", { key: i, cx: (32 + Math.cos(a) * 23).toFixed(2), cy: (20 + Math.sin(a) * 13).toFixed(2), r: "2.4" });
+  }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "20", r: "4.4" }), /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "20", r: "2.2" }), ball(55, 20, 1.5), ball(9, 20, 1.5)),
+  "ragecage.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M4 30H60", strokeWidth: "2.2" }), cup(34, 22, 6, 8), trail("M8 8Q16 8 22 29"), trail("M22 29Q28 14 33 21"), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M19 26.6l1.6 1.6M25 26.6l-1.6 1.6" })), cup(52, 22, 6, 8), trail("M38 16Q44 9 49 16"), head(49, 16, 50)),
+  "ragecage.3": /* @__PURE__ */ React6.createElement("g", null, floor(36), /* @__PURE__ */ React6.createElement("path", { d: "M24 18h16l-2.2 18H26.2z" }), /* @__PURE__ */ React6.createElement("path", { d: "M23 11h18l-2.4 16H25.4z" }), /* @__PURE__ */ React6.createElement(Lit, null, ball(44, 5, 2)), trail("M42.4 6.4 37 10")),
+  "ragecage.4": /* @__PURE__ */ React6.createElement("g", null, floor(36), /* @__PURE__ */ React6.createElement(Gone, null, bust(8, 22, 2.2), bust(19, 22, 2.2), bust(45, 22, 2.2), bust(56, 22, 2.2)), /* @__PURE__ */ React6.createElement(Lit, null, bust(32, 20, 2.6)), crown(32, 13, 0.85)),
+  /* ── Beerio Kart ── */
+  "beerio.1": /* @__PURE__ */ React6.createElement("g", null, kart(0, 2), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M40 4v32", strokeDasharray: "3 3" })), can(50, 16, 15), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M48 10l-1.6-4M52 10l1.6-4M50 9.6V5" }))),
+  "beerio.2": /* @__PURE__ */ React6.createElement("g", null, kart(0, 2), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M41 9v12M47 9v12", strokeWidth: "2.6" })), can(56, 12, 14, 32)),
+  "beerio.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M48 36V5" }), /* @__PURE__ */ React6.createElement("rect", { x: "48", y: "5", width: "12", height: "9" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("rect", { x: "48", y: "5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "54", y: "5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "51", y: "8", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "57", y: "8", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "48", y: "11", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "54", y: "11", width: "3", height: "3" })), can(20, 12, 15, 180), trail("M28 22H42"), head(42, 22, 0)),
+  "beerio.4": /* @__PURE__ */ React6.createElement("g", null, [6, 15, 24, 33].map((y, i) => /* @__PURE__ */ React6.createElement("g", { key: y }, /* @__PURE__ */ React6.createElement(Lit, null, ball(6, y, 1.9)), ball(12, y, 1.9), ball(18, y, 1.9), trail(`M23 ${y}L42 ${10 + i * 6.6}`))), /* @__PURE__ */ React6.createElement(Lit, null, ball(46, 10, 2.2)), ball(46, 16.6, 2.2), ball(46, 23.2, 2.2), ball(46, 29.8, 2.2), crown(55, 13, 0.75)),
+  /* ── Championship Poker ── */
+  "poker.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "9", width: "20", height: "5", rx: "1.5" }), /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "25", width: "20", height: "5", rx: "1.5" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "17", width: "20", height: "5", rx: "1.5" })), trail("M29 19.5H37"), head(37.5, 19.5, 0), /* @__PURE__ */ React6.createElement(Lit, null, stack(50, 34, 7, 14))),
+  "poker.2": /* @__PURE__ */ React6.createElement("g", null, stopwatch(15, 22, 9.5), floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(35, 34, 2, 9), stack(46, 34, 4, 9), stack(57, 34, 6, 9))),
+  "poker.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Gone, null, /* @__PURE__ */ React6.createElement("rect", { x: "9", y: "27", width: "16", height: "3", rx: "1.5" }), /* @__PURE__ */ React6.createElement("rect", { x: "9", y: "23", width: "16", height: "3", rx: "1.5" })), bust(42, 17, 2.6), trail("M49 22H58"), head(58.4, 22, 0)),
+  "poker.4": tallestCrowned,
+  /* ── earlier slates ── */
+  "spikeball.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "20", r: "7" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "20", r: "4" })), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "31", r: "2.4", ...F }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "9", r: "2.4", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "55", cy: "31", r: "2.4", ...F })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "55", cy: "9", r: "2.4", ...F })), trail("M11 29Q22 22 28 21.6"), trail("M35 18Q45 11 51.6 10")),
+  "spikeball.2": /* @__PURE__ */ React6.createElement("g", null, floor(36), /* @__PURE__ */ React6.createElement("ellipse", { cx: "50", cy: "30", rx: "9", ry: "2.4" }), /* @__PURE__ */ React6.createElement("path", { d: "M43 31.4 41.6 36M57 31.4l1.4 4.6" }), trail("M6 26Q10 10 16 21Q22 8 28 19Q38 4 49 29"), /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "26", r: "2.2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "16", cy: "21", r: "2.2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "28", cy: "19", r: "2.2" })),
+  "spikeball.3": /* @__PURE__ */ React6.createElement("g", null, floor(36), /* @__PURE__ */ React6.createElement("ellipse", { cx: "38", cy: "28", rx: "9", ry: "2.4" }), /* @__PURE__ */ React6.createElement("path", { d: "M31 29.4 29.6 36M45 29.4l1.4 4.6" }), trail("M8 6Q22 4 28.6 27"), trail("M28.6 27Q24 30 18 34"), /* @__PURE__ */ React6.createElement(Gone, null, /* @__PURE__ */ React6.createElement("circle", { cx: "16", cy: "33.4", r: "2" }))),
+  "spikeball.4": scoreToWin("11"),
+  "pingpong.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M4 28H60", strokeWidth: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M32 28v-6M8 28v8M56 28v8" }), ball(8, 16, 2), ball(14, 16, 2), trail("M18 10Q32 0 46 10"), head(46, 10, 40), /* @__PURE__ */ React6.createElement(Gone, null, /* @__PURE__ */ React6.createElement("circle", { cx: "50", cy: "16", r: "2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "56", cy: "16", r: "2" }))),
+  "pingpong.2": twoBounces,
+  "pingpong.3": scoreToWin("11"),
+  "foosball.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "6", y: "5", width: "52", height: "30", rx: "2" })), [14, 26].map((x) => /* @__PURE__ */ React6.createElement("g", { key: x }, /* @__PURE__ */ React6.createElement("path", { d: `M${x} 2v36` }), /* @__PURE__ */ React6.createElement("rect", { x: x - 2, y: "11", width: "4", height: "5", rx: "1", ...F }), /* @__PURE__ */ React6.createElement("rect", { x: x - 2, y: "24", width: "4", height: "5", rx: "1", ...F }))), /* @__PURE__ */ React6.createElement(Faint, null, [38, 50].map((x) => /* @__PURE__ */ React6.createElement("g", { key: x }, /* @__PURE__ */ React6.createElement("path", { d: `M${x} 2v36` }), /* @__PURE__ */ React6.createElement("rect", { x: x - 2, y: "11", width: "4", height: "5", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: x - 2, y: "24", width: "4", height: "5", rx: "1" })))), ball(32, 20, 1.8)),
+  "foosball.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M6 20H58" }), /* @__PURE__ */ React6.createElement("rect", { x: "29", y: "12", width: "6", height: "16", rx: "2", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M24 9a12 12 0 1 1-2 13" }), head(22, 22, 110), /* @__PURE__ */ React6.createElement("path", { d: "M17 34 47 6", strokeWidth: "2.2" })),
+  "foosball.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M54 9v22M54 9h6M54 31h6" }), trail("M8 26Q24 18 44 20"), /* @__PURE__ */ React6.createElement(Lit, null, ball(47, 20, 2.4)), /* @__PURE__ */ React6.createElement(Num, { x: 18, y: 14, size: 14 }, "10")),
+  /* ── the weekend ── */
+  "fieldday.1": /* @__PURE__ */ React6.createElement("g", null, floor(36), /* @__PURE__ */ React6.createElement(Faint, null, bust(12, 20, 2.2), bust(52, 20, 2.2)), /* @__PURE__ */ React6.createElement(Lit, null, stack(32, 36, 9, 16))),
+  "fieldday.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M5 6h11v4a5.5 5.5 0 0 1-11 0z" }), /* @__PURE__ */ React6.createElement("path", { d: "M10.5 15.5V19M7 20h7" }), chip(55, 11, 5), trail("M12 23Q16 30 23 29"), head(23.4, 29, 0), trail("M52 19Q48 30 41 29"), head(40.6, 29, 180), /* @__PURE__ */ React6.createElement(Lit, null, stack(32, 34, 6, 13))),
+  "fieldday.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(14, 34, 7, 14)), trail("M25 20H34"), head(34.4, 20, 0), /* @__PURE__ */ React6.createElement("rect", { x: "39", y: "9", width: "11", height: "16", rx: "1.8", transform: "rotate(-10 44.5 17)" }), /* @__PURE__ */ React6.createElement("rect", { x: "46", y: "10", width: "11", height: "16", rx: "1.8", transform: "rotate(10 51.5 18)", className: "fd-rp-card" }), /* @__PURE__ */ React6.createElement("path", { d: "m51.5 13.4 2.4 3.4-2.4 3.4-2.4-3.4z", ...F })),
+  "fieldday.4": tallestCrowned,
+  "betting.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "3.5", width: "48", height: "9", rx: "2" }), /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "27.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "15.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, chip(49, 20, 3))),
+  "betting.2": /* @__PURE__ */ React6.createElement("g", null, bust(13, 9, 2.6), bust(51, 9, 2.6), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M32 6v16" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 35, size: 14 }, "1:1"))),
+  "betting.3": /* @__PURE__ */ React6.createElement("g", null, bust(9, 9, 2.2), bust(24, 9, 2.2), bust(40, 9, 2.2), bust(55, 9, 2.2), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 35, size: 14 }, "2:1"))),
+  "betting.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "54", height: "10", rx: "5" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "27", height: "10", rx: "5", ...F })), /* @__PURE__ */ React6.createElement("path", { d: "M32 9v22", strokeWidth: "2" })),
+  "duels.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "4", width: "21", height: "31", rx: "3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17.5", cy: "15", r: "5", ...F }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 25h11M12 29h7" })), trail("M31 19.5H40"), head(40.4, 19.5, 0), bust(51, 13, 3)),
+  "duels.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(14, 34, 3, 14), stack(50, 34, 3, 14)), /* @__PURE__ */ React6.createElement("path", { d: "M27 21h10M27 26h10" })),
+  "duels.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "21", y: "3", width: "22", height: "34", rx: "3.4" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "16", r: "3.4", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M32 8.6V6.4M32 23.4v2.2M24.6 16h-2.2M39.4 16h2.2M26.8 10.8l-1.6-1.6M37.2 10.8l1.6-1.6M26.8 21.2l-1.6 1.6M37.2 21.2l1.6 1.6" })), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "31", r: "2.2" }))),
+  "duels.4": /* @__PURE__ */ React6.createElement("g", null, floor(), stopwatch(15, 22, 9.5), /* @__PURE__ */ React6.createElement(Lit, null, stack(46, 34, 6, 14)), crown(46, 9, 0.85)),
+  "draws.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M32 7v27M24 34h16M12 11h40" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 11 7 22M12 11l5 11M52 11l-5 11M52 11l5 11" }), /* @__PURE__ */ React6.createElement("path", { d: "M6 22a6 3 0 0 0 12 0zM46 22a6 3 0 0 0 12 0z" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "9.6", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "14.4", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "49.6", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.4", cy: "19", r: "1.7" }))),
+  "draws.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "28", width: "7", height: "6", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "18", y: "24", width: "7", height: "10", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "29", y: "19", width: "7", height: "15", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "40", y: "13", width: "7", height: "21", rx: "1" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "51", y: "6", width: "7", height: "28", rx: "1", ...F }))),
+  "draws.3": /* @__PURE__ */ React6.createElement("g", null, bust(11, 12, 2.8), bust(53, 12, 2.8), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "11", cy: "20.6", r: "1.6", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "53", cy: "20.6", r: "1.6", ...F })), ball(26, 30, 2), ball(32, 30, 2), ball(38, 30, 2), trail("M24 26Q19 22 17 18"), head(17, 18, 235))
+};
+var NOTE_GLYPHS = {
+  tie: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "12", r: "2.8", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "18", cy: "12", r: "2.8", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M10.4 10.2h3.2M10.4 13.8h3.2" })),
+  tally: /* @__PURE__ */ React6.createElement("path", { d: "M6 6v12M10 6v12M14 6v12M18 6v12M4 16 20 8" }),
+  height: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M5 4.5h14", strokeDasharray: "1.4 2" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 20V8.5M8.5 12 12 8.5l3.5 3.5" })),
+  plunk: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M5 10h10l-1.5 10h-7z" }), /* @__PURE__ */ React6.createElement("rect", { x: "15", y: "3", width: "5", height: "5", rx: "1.1", transform: "rotate(14 17.5 5.5)", ...F })),
+  timer: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "13.5", r: "7.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 6.3V3.6M9.8 3h4.4M12 13.5l3.4-3.4" })),
+  max: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "6", width: "5.5", height: "14", rx: "1", ...F }), /* @__PURE__ */ React6.createElement("rect", { x: "13.5", y: "6", width: "5.5", height: "14", rx: "1", ...F })),
+  whistle: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "14.5", r: "5" }), /* @__PURE__ */ React6.createElement("path", { d: "M13 10.5h7v4h-5.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "14.5", r: "1.4", ...F })),
+  half: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "3.5", y: "6", width: "17", height: "12", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 6v12" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "2.4" })),
+  contact: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "7", cy: "8", r: "2.3" }), /* @__PURE__ */ React6.createElement("path", { d: "M3 17a4 4 0 0 1 8 0" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17", cy: "8", r: "2.3" }), /* @__PURE__ */ React6.createElement("path", { d: "M13 17a4 4 0 0 1 8 0" }), /* @__PURE__ */ React6.createElement("path", { d: "M4 21 20 3" })),
+  serve: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "16", r: "2.3", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M9 13.5Q14 5 20 9.5" }), /* @__PURE__ */ React6.createElement("path", { d: "M17.2 7.4 20 9.5l-2.8 1.8" })),
+  rotate: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M18.5 9a7 7 0 0 0-12.6.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M5.5 15a7 7 0 0 0 12.6-.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M18.9 4.8 18.5 9l-4.1-.6M5.1 19.2 5.5 15l4.1.6" })),
+  sets: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "5.5", cy: "12", r: "2.8", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "2.8", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "18.5", cy: "12", r: "2.8" })),
+  cap: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 5h16", strokeWidth: "2.4" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 20V9.5M8.5 13 12 9.5l3.5 3.5" })),
+  rack: /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "6", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "11", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "15", cy: "11", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "16", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "16", r: "1.8" }), /* @__PURE__ */ React6.createElement("circle", { cx: "18", cy: "16", r: "1.8" })),
+  swat: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "3.5", y: "10", width: "8", height: "10.5", rx: "3" }), /* @__PURE__ */ React6.createElement("path", { d: "M5.2 10V6.2M7.5 10V5.2M9.8 10V6.2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17", cy: "8.5", r: "2.6", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M14.4 14.4l-1.4 1.4M19.6 13.6l.8 1.8" })),
+  redemption: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M18 6v5a4 4 0 0 1-4 4H6" }), /* @__PURE__ */ React6.createElement("path", { d: "M9 12 6 15l3 3" })),
+  ring: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "14.5", r: "6" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 8.5 9.6 5.6 12 3l2.4 2.6z", ...F })),
+  home: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M4.6 11 12 4.8l7.4 6.2V19.5H4.6z" }), /* @__PURE__ */ React6.createElement("path", { d: "M10.4 19.5v-4.2h3.2v4.2" })),
+  group: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "9", r: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M2.6 16a3.4 3.4 0 0 1 6.8 0" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "7", r: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M8.6 14a3.4 3.4 0 0 1 6.8 0" }), /* @__PURE__ */ React6.createElement("circle", { cx: "18", cy: "9", r: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M14.6 16a3.4 3.4 0 0 1 6.8 0" })),
+  photo: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "3.5", y: "5.5", width: "17", height: "13", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "m5 16.5 4-4 3 3 2-2 4 3.5" }), /* @__PURE__ */ React6.createElement("circle", { cx: "15.6", cy: "9.4", r: "1.4", ...F })),
+  sports: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5" }), /* @__PURE__ */ React6.createElement("path", { d: "M4.5 12h15M12 4.5v15" })),
+  anywhere: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "6", cy: "12", r: "2.4", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M9.5 12H19M9.5 10l8-5M9.5 14l8 5" }), /* @__PURE__ */ React6.createElement("path", { d: "M17 9.8 19 12l-2 2.2" })),
+  second: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M3 20h18M8 20V9h8v11M3 20v-7h5M16 20v-4h5" }), /* @__PURE__ */ React6.createElement("path", { d: "M3.6 13.6h3.8v5.8H3.6z", ...F })),
+  third: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M3 20h18M8 20V9h8v11M3 20v-7h5M16 20v-4h5" }), /* @__PURE__ */ React6.createElement("path", { d: "M16.6 16.6h3.8v2.8h-3.8z", ...F })),
+  center: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "3.6", ...F })),
+  nosip: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "4", width: "8", height: "16", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M4.5 19.5 19.5 4.5" })),
+  wait: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M7 21V3.5" }), /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "3.5", width: "12", height: "9" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "3.5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "13", y: "3.5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "10", y: "6.5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "16", y: "6.5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "9.5", width: "3", height: "3" }), /* @__PURE__ */ React6.createElement("rect", { x: "13", y: "9.5", width: "3", height: "3" }))),
+  total: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "4", width: "8", height: "16", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M8 12h8" }), /* @__PURE__ */ React6.createElement("path", { d: "M8 4h8v8H8z", ...F })),
+  cards: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "5", width: "9", height: "13", rx: "1.6", transform: "rotate(-10 8.5 11.5)" }), /* @__PURE__ */ React6.createElement("rect", { x: "11", y: "6", width: "9", height: "13", rx: "1.6", transform: "rotate(10 15.5 12.5)", className: "fd-rp-card" })),
+  order: /* @__PURE__ */ React6.createElement("path", { d: "M5 7h14M5 12h10M5 17h6" }),
+  move: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 3.5v17M3.5 12h17" }), /* @__PURE__ */ React6.createElement("path", { d: "M9.6 6 12 3.5 14.4 6M9.6 18l2.4 2.5 2.4-2.5M6 9.6 3.5 12 6 14.4M18 9.6l2.5 2.4-2.5 2.4" })),
+  runner: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "7.5", r: "3" }), /* @__PURE__ */ React6.createElement("path", { d: "M6 19.5a6 6 0 0 1 12 0" })),
+  shuffle: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M3.5 7h4c4 0 5 10 9 10h4M3.5 17h4c4 0 5-10 9-10h4" }), /* @__PURE__ */ React6.createElement("path", { d: "M18.4 4.8 20.5 7l-2.1 2.2M18.4 14.8l2.1 2.2-2.1 2.2" })),
+  floor: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "3", y: "9", width: "18", height: "6", rx: "3" }), /* @__PURE__ */ React6.createElement("path", { d: "M3 12a3 3 0 0 1 3-3h4v6H6a3 3 0 0 1-3-3z", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M10 6v12" })),
+  own: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "8", r: "2.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M4.4 17.5a4.6 4.6 0 0 1 9.2 0" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17.5", cy: "15", r: "3.4", ...F })),
+  side: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "3" })),
+  lock: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "6", y: "11", width: "12", height: "9", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M8.5 11V8a3.5 3.5 0 0 1 7 0v3" })),
+  fix: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M7 9h8a4 4 0 0 1 0 8H9" }), /* @__PURE__ */ React6.createElement("path", { d: "M10 5.5 6.5 9l3.5 3.5" })),
+  void: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5" }), /* @__PURE__ */ React6.createElement("path", { d: "M6.7 17.3 17.3 6.7" })),
+  early: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M7 21V4" }), /* @__PURE__ */ React6.createElement("path", { d: "M7 4h10l-2.6 3.5L17 11H7z", ...F })),
+  daily: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "5.5", width: "16", height: "14.5", rx: "2" }), /* @__PURE__ */ React6.createElement("path", { d: "M4 9.5h16M8 3.5v4M16 3.5v4" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "8", cy: "14.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "14.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "16", cy: "14.5", r: "1.3" }))),
+  pair: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "8", cy: "8", r: "2.4" }), /* @__PURE__ */ React6.createElement("path", { d: "M3.8 17a4.2 4.2 0 0 1 8.4 0" }), /* @__PURE__ */ React6.createElement("circle", { cx: "16", cy: "8", r: "2.4" }), /* @__PURE__ */ React6.createElement("path", { d: "M11.8 17a4.2 4.2 0 0 1 8.4 0" })),
+  lapse: /* @__PURE__ */ React6.createElement("path", { d: "M7.5 3.5h9l-4.5 8.5 4.5 8.5h-9l4.5-8.5z" }),
+  private: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M3 12s3.4-5.6 9-5.6 9 5.6 9 5.6-3.4 5.6-9 5.6S3 12 3 12z" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "2.3" }), /* @__PURE__ */ React6.createElement("path", { d: "M5 19 19 5" })),
+  drink: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M6.5 5h11l-1.6 14.5H8.1z" }), /* @__PURE__ */ React6.createElement("path", { d: "M7.2 10h9.6" })),
+  na: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M3.5 7h7l-1 11h-5z" }), /* @__PURE__ */ React6.createElement("path", { d: "M13.5 7h7l-1 11h-5z", ...F })),
+  forced: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "8", r: "2.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M4.4 17.5a4.6 4.6 0 0 1 9.2 0" }), /* @__PURE__ */ React6.createElement("path", { d: "m14.6 12.6 2.2 2.2 4-4.4" })),
+  water: /* @__PURE__ */ React6.createElement("path", { d: "M12 3.5S5.6 10.8 5.6 14.4a6.4 6.4 0 0 0 12.8 0C18.4 10.8 12 3.5 12 3.5z" }),
+  camera: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "4" }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "12", cy: "12", rx: "9", ry: "3.6", transform: "rotate(-18 12 12)" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "1.4", ...F })),
+  stop: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M8.6 3.5h6.8l5 5v6.8l-5 5H8.6l-5-5V8.5z" }), /* @__PURE__ */ React6.createElement("path", { d: "M8 12h8" })),
+  semis: /* @__PURE__ */ React6.createElement("path", { d: "M3.5 5h5v6h-5M8.5 8h4M3.5 13h5v6h-5M8.5 16h4M12.5 8v8M12.5 12h8" }),
+  crew: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5", strokeDasharray: "2 2.4" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "3" })),
+  putt: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 20V4" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 4l7 2.6-7 2.6z", ...F }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "12", cy: "20", rx: "5", ry: "1.6" }))
+};
+var PICTURE_KEYS = Object.freeze(Object.keys(RULE_PICTURES));
+
+// src/features/rules/GameSteps.jsx
+var STROKE = { sheet: 1.3, card: 1.6, tv: 0.9 };
+function StepPicture({ id, size = "sheet" }) {
+  const art = RULE_PICTURES[id];
+  return /* @__PURE__ */ React7.createElement(
+    "svg",
     {
-      type: "button",
-      className: `fd-bracket-peek${card ? " is-card" : ""}`,
-      onClick: () => onOpen(ev),
-      "aria-label": `Open the full ${ev.name} bracket`
+      className: "fd-rules-pic",
+      viewBox: "0 0 64 40",
+      "aria-hidden": "true",
+      focusable: "false",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: STROKE[size] || STROKE.sheet,
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
     },
-    /* @__PURE__ */ React5.createElement("span", { className: "fd-bracket-peek-head" }, /* @__PURE__ */ React5.createElement("span", null, label2), /* @__PURE__ */ React5.createElement("span", null, "Full bracket ", /* @__PURE__ */ React5.createElement("span", { "aria-hidden": "true" }, "\u2197"))),
-    /* @__PURE__ */ React5.createElement(CompetitionBracket, { state, ev, me, size: "compact" })
+    art || /* @__PURE__ */ React7.createElement("circle", { cx: "32", cy: "20", r: "6" })
   );
 }
+function NoteGlyph({ id, size = 20 }) {
+  return /* @__PURE__ */ React7.createElement(
+    "svg",
+    {
+      className: "fd-rules-glyph",
+      width: size,
+      height: size,
+      viewBox: "0 0 24 24",
+      "aria-hidden": "true",
+      focusable: "false",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: size <= 20 ? 1.9 : 1.6,
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    },
+    NOTE_GLYPHS[id] || /* @__PURE__ */ React7.createElement("circle", { cx: "12", cy: "12", r: "3", fill: "currentColor", stroke: "none" })
+  );
+}
+function GameSteps({ game, variant, size = "sheet", notes = true, max = 0, className = "" }) {
+  const model = gameStepsModel(game, variant);
+  if (!model) return null;
+  const steps = max > 0 ? model.steps.slice(0, max) : model.steps;
+  const tile = size === "card" ? ` is-${steps.length}-up` : "";
+  return /* @__PURE__ */ React7.createElement("div", { className: `fd-rules is-${size}${tile}${className ? ` ${className}` : ""}`, "data-rules": model.id }, steps.length > 0 && /* @__PURE__ */ React7.createElement("ol", { className: "fd-rules-steps" }, steps.map((step) => /* @__PURE__ */ React7.createElement("li", { key: step.key, className: `fd-rules-step${step.win ? " is-win" : ""}`, "data-rule-key": step.key }, /* @__PURE__ */ React7.createElement("span", { className: "fd-rules-window" }, /* @__PURE__ */ React7.createElement(StepPicture, { id: step.key, size })), /* @__PURE__ */ React7.createElement("span", { className: "fd-rules-words" }, step.words)))), notes && model.notes.length > 0 && /* @__PURE__ */ React7.createElement("ul", { className: "fd-rules-notes" }, model.notes.map((note) => /* @__PURE__ */ React7.createElement("li", { key: note.key, "data-rule-key": note.key }, /* @__PURE__ */ React7.createElement(NoteGlyph, { id: note.glyph, size: size === "tv" ? 32 : 20 }), /* @__PURE__ */ React7.createElement("span", null, note.words)))));
+}
 
-// src/features/director/directorPill.js
-init_core();
-function contestIsFinal(state, ev, contest) {
-  if (!contest) return false;
-  if (contest.kind === "stage-final") return true;
-  if (contest.kind !== "match") return false;
-  const rounds = state.brackets?.[ev.id]?.rounds || [];
-  return contest.match?.[0] === rounds.length - 1;
-}
-function lastWinnerUndo(state, ev) {
-  if (!ev) return { enabled: false };
-  return postedFinalUndo(state, ev) || contestUndoAvailability(state, ev);
-}
-
-// src/lib/haptics.js
-var VIBRATION_KEY = "si-vibration";
-var HAPTIC_PATTERNS = Object.freeze({
-  place: 8,
-  retract: 5,
-  pick: [20, 40, 20],
-  settle: 15,
-  lead: [15, 50, 15]
-});
-var storage = () => {
-  try {
-    return globalThis.localStorage || null;
-  } catch {
-    return null;
-  }
-};
-var vibrationOptedOut = () => {
-  try {
-    return storage()?.getItem(VIBRATION_KEY) === "off";
-  } catch {
-    return false;
-  }
-};
-function isIOS({ userAgent = "", platform = "", maxTouchPoints = 0 } = {}) {
-  if (/iPhone|iPad|iPod/i.test(userAgent)) return true;
-  return /Macintosh/i.test(userAgent) && Number(maxTouchPoints) > 1 && !/Android/i.test(platform);
-}
-function isAndroid({ userAgent = "", platform = "" } = {}) {
-  if (/iPhone|iPad|iPod/i.test(userAgent)) return false;
-  return /Android/i.test(platform) || /Android/i.test(userAgent);
-}
-var isTvLocation = ({ pathname = "", search = "" } = {}) => pathname === "/tv" || new URLSearchParams(search).has("tv");
-function hapticsAllowed({ userAgent, platform, canVibrate, reducedMotion, optedOut, tv }) {
-  return !!canVibrate && isAndroid({ userAgent, platform }) && !reducedMotion && !optedOut && !tv;
-}
-function tickAllowed({ userAgent, platform, maxTouchPoints, optedOut, tv }) {
-  return isIOS({ userAgent, platform, maxTouchPoints }) && !optedOut && !tv;
-}
-var tvSurface = false;
-function hapticEnvironment() {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return null;
-  return {
-    userAgent: navigator.userAgent || "",
-    platform: navigator.userAgentData?.platform || "",
-    canVibrate: typeof navigator.vibrate === "function",
-    maxTouchPoints: Number(navigator.maxTouchPoints) || 0,
-    reducedMotion: !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
-    tv: tvSurface || isTvLocation(window.location || {})
-  };
-}
-function haptic(kind) {
-  const pattern = HAPTIC_PATTERNS[kind];
-  const env = hapticEnvironment();
-  if (!pattern || !env || !hapticsAllowed({ ...env, optedOut: vibrationOptedOut() })) return false;
-  try {
-    return navigator.vibrate(pattern) !== false;
-  } catch {
-    return false;
-  }
-}
-function tickSwitch(doc) {
-  const label2 = doc.createElement("label");
-  label2.setAttribute("aria-hidden", "true");
-  label2.style.display = "none";
-  const input = doc.createElement("input");
-  input.type = "checkbox";
-  input.setAttribute("switch", "");
-  input.tabIndex = -1;
-  label2.appendChild(input);
-  label2.addEventListener("click", (event) => event.stopPropagation());
-  return label2;
-}
-function tapTick() {
-  const env = hapticEnvironment();
-  if (!env || !tickAllowed({ ...env, optedOut: vibrationOptedOut() })) return false;
-  try {
-    const doc = globalThis.document;
-    const host = doc?.head || doc?.body;
-    if (!host) return false;
-    const label2 = tickSwitch(doc);
-    host.appendChild(label2);
-    label2.click();
-    label2.remove();
-    return true;
-  } catch {
-    return false;
-  }
+// src/features/weekend/HowToSheet.jsx
+function HowToSheet({ gameId, variant, ev, onClose }) {
+  const game = GAMES[gameId];
+  const title = ev?.name || game?.name;
+  if (!hasGameSteps(gameId, variant)) return ev?.desc ? /* @__PURE__ */ React8.createElement(Sheet, { title: ev.name, onClose, show: true }, /* @__PURE__ */ React8.createElement("article", { className: "fd-weekend-howto" }, /* @__PURE__ */ React8.createElement("p", { className: "fd-weekend-howto-objective" }, ev.desc))) : null;
+  return /* @__PURE__ */ React8.createElement(Sheet, { title, onClose, show: true }, /* @__PURE__ */ React8.createElement("article", { className: "fd-weekend-howto" }, /* @__PURE__ */ React8.createElement(GameSteps, { game: gameId, variant, size: "sheet" })));
 }
 
 // src/features/weekend/ContestPanel.jsx
-var nameOf = (state, side) => side.name || side.players.map((player) => disp(state, player)).join(" & ");
+init_core();
+init_show();
+init_PlayerIdentity();
+init_CompetitionBracket();
+init_directorPill();
+init_haptics();
+import React11, { useEffect as useEffect5, useRef as useRef5, useState as useState6 } from "react";
+init_Icon();
+var nameOf2 = (state, side) => side.name || side.players.map((player) => disp(state, player)).join(" & ");
 var UNDO_WINDOW_MS = 5e3;
 var ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
 var placesPaid = (ev) => awardTable(ev).filter((pts) => pts > 0).length;
@@ -6160,7 +10449,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const [winner, setWinner] = useState6(null), [qualifiers, setQualifiers] = useState6([]);
   const [order, setOrder] = useState6([]);
   const [pending, setPending] = useState6(false), [error, setError] = useState6("");
-  const busy = useRef4(false), retry = useRef4(null);
+  const busy = useRef5(false), retry = useRef5(null);
   const open = contest.phase === "betting-open", locked = contest.phase === "betting-locked";
   const running2 = contest.phase === "in-progress" || contest.phase === "awaiting-result";
   const isFfa = contest.kind === "ffa", isBracket = contest.kind === "match";
@@ -6192,7 +10481,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   };
   const sideName = (key) => {
     const side = contest.sides.find((item) => item.key === key);
-    return side ? nameOf(state, side) : "";
+    return side ? nameOf2(state, side) : "";
   };
   const submit = (payload) => async () => {
     tapTick();
@@ -6209,8 +10498,11 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const alternatives = gm && open && bracket && onPlayNext ? bracketOrder(bracket).filter(([r, m]) => bracketMatchOpen(bracket, r, m) && (r !== contest.match[0] || m !== contest.match[1])) : [];
   const canChoose = gm && running2 && !!onWinner;
   const showEntrants = !isFfa && (!isBracket || canChoose);
-  const instruction = ordering ? `Tap ${ORD.slice(0, needed).join(needed > 2 ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ")}.` : selectingQualifiers ? `Choose ${advance - 1} more to advance.` : "";
-  return /* @__PURE__ */ React6.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React6.createElement("div", null, /* @__PURE__ */ React6.createElement("strong", null, isBracket ? contestName(state, ev, contest) : contest.label || ev.name), /* @__PURE__ */ React6.createElement("span", null, (open || running2) && /* @__PURE__ */ React6.createElement("i", { className: "fd-beat-dot", "aria-hidden": "true" }), open ? "Betting open" : locked ? "Betting locked" : running2 ? "In progress" : "Next contest")), gm && (open || locked) && /* @__PURE__ */ React6.createElement(
+  const owed = selectingQualifiers ? advance - 1 - qualifiers.length : 0;
+  const heading = isBracket ? contestName(state, ev, contest) : contest.label && contest.label !== ev.name ? contest.label : null;
+  const playing = !!me && !!contest.players?.includes(me);
+  const yourBet = me ? (state.wagers || []).filter((wager) => wager.player === me && wagerMatchesContest(wager, contest) && resolveWager(state, wager, allEventsOf(state)).status === "pending").reduce((sum, wager) => sum + (wager.stake || 0), 0) : 0;
+  return /* @__PURE__ */ React11.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React11.createElement("div", null, heading && /* @__PURE__ */ React11.createElement("strong", null, heading), /* @__PURE__ */ React11.createElement("span", null, (open || running2) && /* @__PURE__ */ React11.createElement("i", { className: "fd-beat-dot", "aria-hidden": "true" }), open ? "Betting open" : locked ? "Betting locked" : running2 ? "In progress" : "Next contest"), !gm && (playing || yourBet > 0) && /* @__PURE__ */ React11.createElement("span", { className: "fd-contest-you" }, playing && /* @__PURE__ */ React11.createElement("span", null, "You\u2019re playing"), yourBet > 0 && /* @__PURE__ */ React11.createElement("b", { "aria-label": `Your bet ${yourBet.toLocaleString("en-US")}` }, /* @__PURE__ */ React11.createElement("i", { className: "fd-contest-chip", "aria-hidden": "true" }), yourBet.toLocaleString("en-US")))), gm && (open || locked) && /* @__PURE__ */ React11.createElement(
     "button",
     {
       type: "button",
@@ -6219,7 +10511,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       onClick: () => act(() => onLock(reference2))
     },
     pending ? "Starting\u2026" : "Lock bets and start"
-  ), !gm && onBets && /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-primary", disabled: pending || blocked, onClick: onBets }, open ? "Place chips" : "View bets"), gm && running2 && isFfa && /* @__PURE__ */ React6.createElement(
+  ), !gm && onBets && /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-primary", disabled: pending || blocked, onClick: onBets }, open ? playing ? "Back yourself" : "Place chips" : "View bets"), gm && running2 && isFfa && /* @__PURE__ */ React11.createElement(
     "button",
     {
       type: "button",
@@ -6231,12 +10523,12 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       })
     },
     "Enter result"
-  )), gm && running2 && !isFfa && instruction && /* @__PURE__ */ React6.createElement("p", { className: "fd-contest-instruction" }, instruction), showEntrants && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-entrants", "aria-label": contest.label }, contest.sides.map((side) => {
-    const name = nameOf(state, side), selected = winner === side.key;
+  )), showEntrants && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-entrants", "aria-label": contest.label }, contest.sides.map((side) => {
+    const name = nameOf2(state, side), selected = winner === side.key;
     const qualifier = selectingQualifiers && !selected;
     const place = order.indexOf(side.key);
     const label2 = !canChoose ? name : ordering ? place >= 0 ? `Remove ${name} from ${ORD[place]}` : `${ORD[order.length]}: ${name}` : `${qualifier ? "Also advances" : "Winner"}: ${name}`;
-    return /* @__PURE__ */ React6.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected || place === 0 ? "is-winner" : ""}` }, /* @__PURE__ */ React6.createElement(
+    return /* @__PURE__ */ React11.createElement("div", { key: String(side.key), className: `fd-contest-entrant ${side.players.includes(me) ? "is-you" : ""} ${selected || place === 0 ? "is-winner" : ""}` }, /* @__PURE__ */ React11.createElement(
       "button",
       {
         type: "button",
@@ -6261,9 +10553,9 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
           setQualifiers((current) => current.includes(side.key) ? current.filter((key) => key !== side.key) : current.length < advance - 1 ? [...current, side.key] : current);
         }
       },
-      /* @__PURE__ */ React6.createElement("span", null, name),
-      canChoose && /* @__PURE__ */ React6.createElement("small", null, ordering ? place >= 0 ? ORD[place] : order.length < needed ? "+" : "" : selected ? "Winner" : qualifier ? qualifiers.includes(side.key) ? "\u2713" : "+" : "Win")
-    ), /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-entrant-players" }, side.players.map((player) => /* @__PURE__ */ React6.createElement(
+      /* @__PURE__ */ React11.createElement("span", null, name),
+      canChoose && /* @__PURE__ */ React11.createElement("small", null, ordering ? place >= 0 ? ORD[place] : order.length < needed ? ORD[order.length] : "" : selected ? "Winner" : qualifier ? /* @__PURE__ */ React11.createElement(Icon, { name: qualifiers.includes(side.key) ? "check" : "plus", size: "1em" }) : "Win")
+    ), /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-entrant-players" }, side.players.map((player) => /* @__PURE__ */ React11.createElement(
       "button",
       {
         key: player,
@@ -6272,12 +10564,12 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         disabled: pending || blocked || !onPlayer,
         "aria-label": `View ${disp(state, player)}'s player card`
       },
-      /* @__PURE__ */ React6.createElement(Avatar, { state, p: player, size: 28 })
+      /* @__PURE__ */ React11.createElement(Avatar, { state, p: player, size: 28 })
     ))));
-  }), canChoose && advance > 1 && selectingQualifiers && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => {
+  }), canChoose && advance > 1 && selectingQualifiers && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => {
     setWinner(null);
     setQualifiers([]);
-  } }, "Change winner"), /* @__PURE__ */ React6.createElement(
+  } }, "Change winner"), /* @__PURE__ */ React11.createElement(
     "button",
     {
       type: "button",
@@ -6285,8 +10577,8 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       disabled: pending || qualifiers.length !== advance - 1 || !onWinner,
       onClick: () => act(submit({ winner, qualifiers: [winner, ...qualifiers] }))
     },
-    pending ? "Saving\u2026" : "Record winner"
-  )), canChoose && ordering && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending || !order.length, onClick: () => setOrder([]) }, "Start over"), /* @__PURE__ */ React6.createElement(
+    pending ? "Saving\u2026" : owed > 0 ? `Pick ${owed} more` : "Record winner"
+  )), canChoose && ordering && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-qualifier-actions" }, /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending || !order.length, onClick: () => setOrder([]) }, "Start over"), /* @__PURE__ */ React11.createElement(
     "button",
     {
       type: "button",
@@ -6294,8 +10586,8 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       disabled: pending || !fullOrder,
       onClick: () => act(submit({ winner: fullOrder[0], qualifiers: [fullOrder[0]], order: fullOrder }))
     },
-    pending ? "Saving\u2026" : "Record order"
-  ))), isBracket && /* @__PURE__ */ React6.createElement(
+    pending ? "Saving\u2026" : fullOrder ? "Record order" : `Pick ${ORD[order.length]}`
+  ))), isBracket && /* @__PURE__ */ React11.createElement(
     CompetitionBracket,
     {
       state,
@@ -6306,9 +10598,9 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       onPlayer,
       pickable: false
     }
-  ), !!alternatives.length && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-reorder" }, alternatives.map(([r, m]) => {
+  ), !!alternatives.length && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-reorder" }, alternatives.map(([r, m]) => {
     const label2 = contestName(state, ev, { kind: "match", match: [r, m] });
-    return /* @__PURE__ */ React6.createElement(
+    return /* @__PURE__ */ React11.createElement(
       "button",
       {
         key: `${r}:${m}`,
@@ -6321,27 +10613,33 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       label2,
       " next"
     );
-  }), chipsIn && /* @__PURE__ */ React6.createElement("p", null, "Reorder once the chips on this match come off.")), error && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React6.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => act(retry.current) }, "Retry")), pending && running2 && !isFfa && /* @__PURE__ */ React6.createElement("p", { className: "fd-contest-saving", role: "status" }, "Saving result\u2026"));
+  }), chipsIn && /* @__PURE__ */ React11.createElement("p", null, "Chips are on this match.")), error && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React11.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: pending, onClick: () => act(retry.current) }, "Retry")), pending && running2 && !isFfa && /* @__PURE__ */ React11.createElement("p", { className: "fd-contest-saving", role: "status" }, "Saving result\u2026"));
 }
-function ContestPanel(props) {
-  const { state, ev, gm, onResult, onUndo } = props;
-  const operationBusy = useRef4(false), [blocked, onBusy] = useState6(false);
+function useContestOperations() {
+  const operationBusy = useRef5(false), [blocked, onBusy] = useState6(false);
   const [recent, setRecent] = useState6(null);
   useEffect5(() => {
     if (!recent) return;
     const timer = setTimeout(() => setRecent(null), Math.max(0, recent.at + UNDO_WINDOW_MS - Date.now()));
     return () => clearTimeout(timer);
   }, [recent]);
+  return { operationBusy, blocked, onBusy, recent, setRecent };
+}
+function ContestPanel(props) {
+  const { state, ev, gm, onResult, onUndo, part = null } = props;
+  const own = useContestOperations();
+  const { operationBusy, blocked, onBusy, recent, setRecent } = props.operations || own;
   const operations = { operationBusy, blocked, onBusy };
+  const showContest = part !== "commissioner", showDesk = part !== "contest";
   const onRecorded = gm && onUndo ? (name, posted) => setRecent({ name, posted, at: Date.now() }) : null;
-  const undoRecent = recent && gm && onUndo ? /* @__PURE__ */ React6.createElement(RecentWinner, { ...props, ...operations, name: recent.name, posted: recent.posted, onDone: () => setRecent(null) }) : null;
+  const undoRecent = showContest && recent && gm && onUndo ? /* @__PURE__ */ React11.createElement(RecentWinner, { ...props, ...operations, name: recent.name, posted: recent.posted, onDone: () => setRecent(null) }) : null;
   if (state.results?.[ev.id] || state.shelved?.[ev.id] || state.frozen || ev.finale) return undoRecent;
-  const correction = undoRecent ? null : /* @__PURE__ */ React6.createElement(ContestCorrection, { ...props, ...operations });
+  const correction = recent || !showDesk ? null : /* @__PURE__ */ React11.createElement(ContestCorrection, { ...props, ...operations });
   const lifecycle = resolveEventLifecycle(state, ev), contest = resolveCurrentContest(state, ev);
   if (!contest || !["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase)) {
-    return gm && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type) ? /* @__PURE__ */ React6.createElement(React6.Fragment, null, undoRecent, /* @__PURE__ */ React6.createElement(ContestFinish, { key: ev.id, onResult, ...operations }), correction) : undoRecent;
+    return gm && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type) ? /* @__PURE__ */ React11.createElement(React11.Fragment, null, undoRecent, showDesk && /* @__PURE__ */ React11.createElement(ContestFinish, { key: ev.id, onResult, ...operations }), correction) : undoRecent;
   }
-  return /* @__PURE__ */ React6.createElement(React6.Fragment, null, undoRecent, /* @__PURE__ */ React6.createElement(
+  return /* @__PURE__ */ React11.createElement(React11.Fragment, null, undoRecent, showContest && /* @__PURE__ */ React11.createElement(
     CurrentContest,
     {
       key: `${ev.id}:${contest.id}:${contest.revision}:${contest.phase}`,
@@ -6354,7 +10652,7 @@ function ContestPanel(props) {
 }
 function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   const [pending, setPending] = useState6(false), [error, setError] = useState6("");
-  const busy = useRef4(false);
+  const busy = useRef5(false);
   const run = async (contestId = null) => {
     if (busy.current || operationBusy.current) return;
     const undo = contestId ? contestCorrectionAvailability(state, ev, contestId) : lastWinnerUndo(state, ev);
@@ -6384,7 +10682,7 @@ function RecentWinner(props) {
   const correction = useCorrection(props, onDone);
   if (!undo.enabled) return null;
   const moved = correctionText(state, undo);
-  return /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-recent", role: "status" }, /* @__PURE__ */ React6.createElement("span", null, "Winner recorded: ", name, posted ? ". Result posted" : "", moved ? `. ${moved}` : ""), /* @__PURE__ */ React6.createElement("button", { type: "button", disabled: correction.pending || blocked, onClick: () => correction.run() }, correction.pending ? "Undoing\u2026" : "Undo"), correction.error && /* @__PURE__ */ React6.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
+  return /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-recent", role: "status" }, /* @__PURE__ */ React11.createElement("span", null, "Winner recorded: ", name, posted ? ". Result posted" : "", moved ? `. ${moved}` : ""), /* @__PURE__ */ React11.createElement("button", { type: "button", disabled: correction.pending || blocked, onClick: () => correction.run() }, correction.pending ? "Undoing\u2026" : "Undo"), correction.error && /* @__PURE__ */ React11.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
 }
 function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
   const [pending, setPending] = useState6(false), [error, setError] = useState6("");
@@ -6406,7 +10704,7 @@ function ContestFinish({ onResult, operationBusy, blocked, onBusy }) {
       setPending(false);
     }
   };
-  return /* @__PURE__ */ React6.createElement("section", { className: "fd-contest", "aria-busy": pending }, /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React6.createElement("strong", null, "Competition complete"), /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-primary", disabled: blocked || pending || !onResult, onClick: post }, pending ? "Opening result\u2026" : "Post event result")), error && /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React6.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React6.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: blocked || pending, onClick: post }, "Retry")));
+  return /* @__PURE__ */ React11.createElement("section", { className: "fd-contest", "aria-busy": pending }, /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React11.createElement("strong", null, "Competition complete"), /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-primary", disabled: blocked || pending || !onResult, onClick: post }, pending ? "Opening result\u2026" : "Post event result")), error && /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-failure" }, /* @__PURE__ */ React11.createElement("p", { role: "alert", className: "fd-contest-error" }, error), /* @__PURE__ */ React11.createElement("button", { type: "button", className: "fd-contest-secondary", disabled: blocked || pending, onClick: post }, "Retry")));
 }
 function lastContestView(state, ev, last) {
   if (!last) return null;
@@ -6433,12 +10731,12 @@ function ContestCorrection(props) {
   const correction = useCorrection(props, () => setConfirming(null));
   const options = contestCorrections(state, ev);
   if (!gm || !onUndo || !options.length) return null;
-  const stack = contestStackOf(state, ev.id);
-  return /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-correction" }, options.map((option) => {
-    const view = lastContestView(state, ev, stack.find((entry) => entry.id === option.contestId));
+  const stack2 = contestStackOf(state, ev.id);
+  return /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-correction" }, options.map((option) => {
+    const view = lastContestView(state, ev, stack2.find((entry) => entry.id === option.contestId));
     const name = view?.name || option.contest;
     const moved = correctionText(state, option);
-    return /* @__PURE__ */ React6.createElement(React6.Fragment, { key: option.contestId }, confirming === option.contestId ? /* @__PURE__ */ React6.createElement("div", { className: "fd-contest-confirm" }, /* @__PURE__ */ React6.createElement("p", null, "Reopens ", name, view?.matchup ? `: ${view.matchup}` : "", ".", view?.winner ? ` ${view.winner} loses the win.` : "", moved ? ` ${moved}` : ""), /* @__PURE__ */ React6.createElement(
+    return /* @__PURE__ */ React11.createElement(React11.Fragment, { key: option.contestId }, confirming === option.contestId ? /* @__PURE__ */ React11.createElement("div", { className: "fd-contest-confirm" }, /* @__PURE__ */ React11.createElement("p", null, "Reopens ", name, view?.matchup ? `: ${view.matchup}` : "", ".", view?.winner ? ` ${view.winner} loses the win.` : "", moved ? ` ${moved}` : ""), /* @__PURE__ */ React11.createElement(
       "button",
       {
         type: "button",
@@ -6446,7 +10744,7 @@ function ContestCorrection(props) {
         onClick: () => correction.run(option.contestId)
       },
       correction.pending ? "Undoing\u2026" : `Reopen ${name}`
-    ), /* @__PURE__ */ React6.createElement("button", { type: "button", disabled: correction.pending, onClick: () => setConfirming(null) }, "Keep it")) : /* @__PURE__ */ React6.createElement(
+    ), /* @__PURE__ */ React11.createElement("button", { type: "button", disabled: correction.pending, onClick: () => setConfirming(null) }, "Keep it")) : /* @__PURE__ */ React11.createElement(
       "button",
       {
         type: "button",
@@ -6456,162 +10754,189 @@ function ContestCorrection(props) {
       "Fix ",
       name
     ));
-  }), !options[0].enabled && /* @__PURE__ */ React6.createElement("p", null, options[0].blocker), correction.error && /* @__PURE__ */ React6.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
+  }), !options[0].enabled && /* @__PURE__ */ React11.createElement("p", null, options[0].blocker), correction.error && /* @__PURE__ */ React11.createElement("p", { role: "alert", className: "fd-contest-error" }, correction.error));
 }
+
+// src/features/weekend/EventSheetParts.jsx
+init_core();
+init_PlayerIdentity();
+init_PayoutLadder();
+import React14 from "react";
+var BEFORE = /* @__PURE__ */ new Set(["scheduled", "setup", "draw-pending", "draw-revealed"]);
+function eventStage(state, ev) {
+  if (state.results?.[ev.id]) return "after";
+  if (state.shelved?.[ev.id] || BEFORE.has(resolveEventLifecycle(state, ev).phase)) return "before";
+  return "live";
+}
+var fmt3 = (n) => (Number(n) || 0).toLocaleString("en-US");
+var signed = (n) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${fmt3(Math.abs(n))}`;
+function Person({ state, p, me, size = 30, onPlayer }) {
+  return /* @__PURE__ */ React14.createElement(
+    "button",
+    {
+      type: "button",
+      className: `fd-es-person${p === me ? " is-you" : ""}`,
+      disabled: !onPlayer,
+      onClick: () => onPlayer?.(p),
+      "aria-label": `View ${disp(state, p)}'s player card`
+    },
+    /* @__PURE__ */ React14.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React14.createElement("span", null, disp(state, p))
+  );
+}
+function EventTeams({ state, ev, draw, me, onPlayer }) {
+  if (!draw?.teams?.length) return null;
+  const two = draw.teams.length === 2;
+  return /* @__PURE__ */ React14.createElement("section", { className: `fd-es-pane fd-es-teams${two ? " is-versus" : ""}`, "aria-label": "Teams" }, draw.teams.map((team, i) => {
+    const mine = !!me && team.players.includes(me);
+    return /* @__PURE__ */ React14.createElement(React14.Fragment, { key: i }, two && i === 1 && /* @__PURE__ */ React14.createElement("span", { className: "fd-es-vs", "aria-hidden": "true" }, "vs"), /* @__PURE__ */ React14.createElement("div", { className: `fd-es-team${mine ? " is-you" : ""}` }, team.players.length > 1 && /* @__PURE__ */ React14.createElement("h3", { className: "fd-show" }, teamLabel(state, team)), /* @__PURE__ */ React14.createElement("div", { className: "fd-es-people" }, team.players.map((p) => /* @__PURE__ */ React14.createElement(Person, { key: p, state, p, me, onPlayer })))));
+  }));
+}
+function EventField({ state, ev, me, onPlayer }) {
+  const roles = new Set((state.draws?.[ev.id]?.roles || []).map((item) => item.player));
+  const field = presentPlayers(state).filter((p) => !roles.has(p));
+  if (!field.length) return null;
+  return /* @__PURE__ */ React14.createElement("section", { className: "fd-es-pane fd-es-field", "aria-label": "Playing" }, /* @__PURE__ */ React14.createElement("div", { className: "fd-es-people" }, field.map((p) => /* @__PURE__ */ React14.createElement(Person, { key: p, state, p, me, onPlayer }))));
+}
+function EventCrew({ state, roles, me, onPlayer }) {
+  const crew = (roles || []).filter((item) => item?.player);
+  if (!crew.length) return null;
+  return /* @__PURE__ */ React14.createElement("section", { className: "fd-es-crew", "aria-label": "Crew" }, /* @__PURE__ */ React14.createElement("span", { className: "fd-es-crew-medal", "aria-hidden": "true" }), /* @__PURE__ */ React14.createElement("div", { className: "fd-es-people" }, crew.map(({ player, role }) => /* @__PURE__ */ React14.createElement("span", { key: player, className: "fd-es-crew-person" }, /* @__PURE__ */ React14.createElement(Person, { state, p: player, me, size: 26, onPlayer }), /* @__PURE__ */ React14.createElement("small", null, overflowRoleMeta(role).short)))));
+}
+function EventRiding({ state, ev }) {
+  const events = allEventsOf(state);
+  const open = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, events).status === "pending");
+  const total = open.reduce((sum, w) => sum + (w.stake || 0), 0);
+  if (!total) return null;
+  const bettors = [...new Set(open.map((w) => w.player))];
+  return /* @__PURE__ */ React14.createElement("section", { className: "fd-es-riding", "aria-label": `${fmt3(total)} in play` }, /* @__PURE__ */ React14.createElement("i", { className: "fd-es-chip", "aria-hidden": "true" }), /* @__PURE__ */ React14.createElement("b", null, fmt3(total)), /* @__PURE__ */ React14.createElement("span", { className: "fd-es-riding-label" }, "In play"), /* @__PURE__ */ React14.createElement(AvatarStack, { state, players: bettors, size: 24, max: 6 }));
+}
+function yourTake(state, ev, me) {
+  if (!me) return null;
+  const res = state.results?.[ev.id];
+  if (!res) return null;
+  const events = allEventsOf(state);
+  const award = res.stacks ? 0 : resultAwards(state, ev, res).filter((item) => item.player === me).reduce((sum, item) => sum + item.pts, 0);
+  const mvp = state.mvp?.[ev.id]?.closedAt && state.mvp[ev.id].winner === me && mvpStands(state, ev.id) ? MVP_PTS : 0;
+  const bets = (state.wagers || []).filter((w) => w.player === me && w.eventId === ev.id).map((w) => resolveWager(state, w, events)).filter((r) => r.status === "won" || r.status === "lost").reduce((sum, r) => sum + (r.delta || 0), 0);
+  const had = award || mvp || (state.wagers || []).some((w) => w.player === me && w.eventId === ev.id);
+  return had ? { total: award + mvp + bets, award, mvp, bets } : null;
+}
+var PLACES = ["1st", "2nd", "3rd"];
+function EventResult({ state, ev, me, onPlayer }) {
+  const res = state.results?.[ev.id];
+  if (!res?.slots) return null;
+  const awards = resultAwards(state, ev, res);
+  const crew = awards.filter((award) => award.place === "crew");
+  const take = yourTake(state, ev, me);
+  const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
+  const reason = res.correctedAt || correction ? res.correctionReason || correction?.reason : null;
+  const rows = res.slots.map((players, i) => ({ i, players: players || [] })).filter((row) => row.players.length);
+  const draw = state.draws?.[ev.id];
+  const labelOf = (players) => {
+    const teams = (draw?.teams || []).filter((team) => team.players.some((p) => players.includes(p)));
+    return teams.length ? teams.map((team) => teamLabel(state, team)).join(", ") : null;
+  };
+  const podium = !res.stacks && /* @__PURE__ */ React14.createElement("div", { className: "fd-es-pane fd-es-podium-pane" }, /* @__PURE__ */ React14.createElement(
+    PayoutLadder,
+    {
+      ev,
+      size: "phone",
+      state,
+      me,
+      onPlayer,
+      crew: crew.length ? crew[0].pts : null,
+      winners: Object.assign(res.slots.map((players) => players || []), { crew: crew.map((award) => award.player) }),
+      labels: Object.assign(res.slots.map((players) => labelOf(players || [])), { crew: null })
+    }
+  ));
+  return /* @__PURE__ */ React14.createElement("section", { className: "fd-es-result", "aria-label": "Result" }, podium, res.stacks && /* @__PURE__ */ React14.createElement("ol", { className: "fd-es-pane fd-es-podium" }, rows.map(({ i, players }) => {
+    const pts = res.stacks ? null : awards.find((award) => award.place === i)?.pts ?? 0;
+    return /* @__PURE__ */ React14.createElement("li", { key: i, className: `fd-es-place${i === 0 ? " is-first" : ""}` }, /* @__PURE__ */ React14.createElement("span", { className: "fd-es-medal", "aria-label": PLACES[i] || `${i + 1}th` }, i + 1), /* @__PURE__ */ React14.createElement("div", { className: "fd-es-people" }, players.map((p) => /* @__PURE__ */ React14.createElement(Person, { key: p, state, p, me, size: i === 0 ? 36 : 30, onPlayer }))), res.stacks ? /* @__PURE__ */ React14.createElement("b", { className: "fd-es-amount" }, fmt3(res.stacks[players[0]] ?? 0)) : pts > 0 && /* @__PURE__ */ React14.createElement("b", { className: "fd-es-amount" }, "+", fmt3(pts)));
+  }), crew.length > 0 && /* @__PURE__ */ React14.createElement("li", { className: "fd-es-place is-crew" }, /* @__PURE__ */ React14.createElement("span", { className: "fd-es-medal is-crew", "aria-label": "Crew" }), /* @__PURE__ */ React14.createElement("div", { className: "fd-es-people" }, crew.map(({ player }) => /* @__PURE__ */ React14.createElement(Person, { key: player, state, p: player, me, size: 26, onPlayer }))), /* @__PURE__ */ React14.createElement("b", { className: "fd-es-amount" }, "+", fmt3(crew[0].pts)))), take && /* @__PURE__ */ React14.createElement(
+    "div",
+    {
+      className: `fd-es-take${take.total > 0 ? " is-won" : take.total < 0 ? " is-lost" : ""}`,
+      "aria-label": `Your chips from ${ev.name}: ${signed(take.total)}`
+    },
+    /* @__PURE__ */ React14.createElement(Avatar, { state, p: me, size: 28 }),
+    /* @__PURE__ */ React14.createElement("span", null, "You"),
+    /* @__PURE__ */ React14.createElement("b", null, signed(take.total))
+  ), reason && /* @__PURE__ */ React14.createElement("p", { className: "fd-es-corrected" }, "Corrected: ", reason));
+}
+function EventPays({ ev, crew = null }) {
+  return /* @__PURE__ */ React14.createElement("section", { className: "fd-es-pays", "aria-label": "Pays" }, /* @__PURE__ */ React14.createElement(PayoutLadder, { ev, size: "phone", crew }));
+}
+
+// src/App.jsx
+init_CompetitionBracket();
 
 // src/features/weekend/EventAnnouncement.jsx
 init_core();
+init_show();
 init_controls();
-import React9, { useEffect as useEffect7, useRef as useRef5, useState as useState8 } from "react";
-
-// src/ui/GameMark.jsx
-import React7 from "react";
-function EventGlyph({ id }) {
-  const bone = "var(--ink)", accent = "var(--accent2)", sun = "var(--sun)";
-  const common = {
-    fill: "none",
-    stroke: bone,
-    strokeWidth: 2.4,
-    strokeLinecap: "round",
-    strokeLinejoin: "round"
-  };
-  switch (id) {
-    case "putting":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M15 37V11l16 5-16 5" }), /* @__PURE__ */ React7.createElement("path", { d: "M9 37c4-3 10-3 14 0-4 3-10 3-14 0Z" }), /* @__PURE__ */ React7.createElement("circle", { cx: "32", cy: "35", r: "2.6", fill: accent, stroke: "none" }));
-    case "8ball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "24", r: "13" }), /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "21", r: "3.2" }), /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "28", r: "3.2" }), /* @__PURE__ */ React7.createElement("path", { d: "M14 12l-3-3M34 36l3 3", stroke: accent }));
-    case "pong":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M15 20h18l-2.4 17H17.4L15 20Z" }), /* @__PURE__ */ React7.createElement("path", { d: "M16 20c4-2 12-2 16 0" }), /* @__PURE__ */ React7.createElement("circle", { cx: "25", cy: "11", r: "3.2", fill: sun, stroke: bone }), /* @__PURE__ */ React7.createElement("path", { d: "M17 13l4 2", stroke: accent }));
-    case "die":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("rect", { x: "11", y: "11", width: "26", height: "26", rx: "7" }), [[17, 17], [31, 17], [24, 24], [17, 31], [31, 31]].map(([x, y]) => /* @__PURE__ */ React7.createElement("circle", { key: `${x}-${y}`, cx: x, cy: y, r: "1.9", fill: x === 24 ? accent : bone, stroke: "none" })));
-    case "basketball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "24", r: "13" }), /* @__PURE__ */ React7.createElement("path", { d: "M11 24h26M24 11v26M15 14c5 5 5 15 0 20M33 14c-5 5-5 15 0 20" }), /* @__PURE__ */ React7.createElement("path", { d: "M34 12l4-4", stroke: accent }));
-    case "spikeball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("ellipse", { cx: "24", cy: "32", rx: "14", ry: "5.5" }), /* @__PURE__ */ React7.createElement("path", { d: "M14 32h20M24 26.5v11M15 35l-3 4M33 35l3 4" }), /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "15", r: "4", fill: sun, stroke: bone }), /* @__PURE__ */ React7.createElement("path", { d: "M18 11l-3-3", stroke: accent }));
-    case "pingpong":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "20", cy: "20", r: "9" }), /* @__PURE__ */ React7.createElement("path", { d: "M14 27l-6 8" }), /* @__PURE__ */ React7.createElement("circle", { cx: "35", cy: "32", r: "3.2", fill: accent, stroke: bone }), /* @__PURE__ */ React7.createElement("path", { d: "M29 17l5-3" }));
-    case "foosball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M8 15h32M8 31h32" }), /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "14", r: "3.5" }), /* @__PURE__ */ React7.createElement("path", { d: "M24 18v10M18 22h12M24 28l-5 7M24 28l5 7" }), /* @__PURE__ */ React7.createElement("circle", { cx: "35", cy: "37", r: "2.8", fill: accent, stroke: "none" }));
-    case "volleyball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M30 12v27M30 19h10v20M30 24h10M30 29h10M30 34h10" }), /* @__PURE__ */ React7.createElement("circle", { cx: "17", cy: "22", r: "9" }), /* @__PURE__ */ React7.createElement("path", { d: "M17 13c4 5 4 13 0 18M9 20c6 1 12-1 16-5" }), /* @__PURE__ */ React7.createElement("path", { d: "M9 35l4-3", stroke: accent }));
-    case "pickleball":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "19", cy: "19", r: "9.5" }), /* @__PURE__ */ React7.createElement("path", { d: "M13 26l-5 9" }), /* @__PURE__ */ React7.createElement("circle", { cx: "35", cy: "31", r: "5", fill: sun }), [[33, 29], [37, 29], [35, 33]].map(([x, y]) => /* @__PURE__ */ React7.createElement("circle", { key: `${x}-${y}`, cx: x, cy: y, r: ".8", fill: bone, stroke: "none" })), /* @__PURE__ */ React7.createElement("path", { d: "M29 15l4-3", stroke: accent }));
-    case "flipcup":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M15 15h15l-2 17H17l-2-17Z", transform: "rotate(-28 22.5 23.5)" }), /* @__PURE__ */ React7.createElement("path", { d: "M10 34c6 5 19 5 27-1" }), /* @__PURE__ */ React7.createElement("path", { d: "M10 29c-3-7 0-13 6-17", stroke: accent }), /* @__PURE__ */ React7.createElement("path", { d: "M13 11l3 1-1 3", stroke: accent }));
-    case "beerio":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "19", cy: "24", r: "11" }), /* @__PURE__ */ React7.createElement("circle", { cx: "19", cy: "24", r: "3" }), /* @__PURE__ */ React7.createElement("path", { d: "M19 13v8M10 29l6-3M28 29l-6-3" }), /* @__PURE__ */ React7.createElement("path", { d: "M33 18h8l-1 17h-6l-1-17Z" }), /* @__PURE__ */ React7.createElement("path", { d: "M34 18c2-1 4-1 6 0" }), /* @__PURE__ */ React7.createElement("path", { d: "M32 12l4 2", stroke: accent }));
-    case "ragecage":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, [15, 24, 33].map((x) => /* @__PURE__ */ React7.createElement("path", { key: x, d: `M${x - 4} 26h8l-1 11h-6l-1-11Z` })), /* @__PURE__ */ React7.createElement("path", { d: "M20 14h8l-1 10h-6l-1-10Z" }), /* @__PURE__ */ React7.createElement("circle", { cx: "12", cy: "15", r: "3", fill: sun, stroke: bone }), /* @__PURE__ */ React7.createElement("path", { d: "M8 20l-2 4", stroke: accent }));
-    case "poker":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("rect", { x: "10", y: "11", width: "15", height: "21", rx: "3", transform: "rotate(-9 17.5 21.5)" }), /* @__PURE__ */ React7.createElement("rect", { x: "23", y: "10", width: "15", height: "21", rx: "3", transform: "rotate(8 30.5 20.5)" }), /* @__PURE__ */ React7.createElement("path", { d: "M30 16l3 3-3 3-3-3 3-3Z", fill: accent, stroke: "none" }), /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "36", r: "6", fill: "var(--paper2)" }), /* @__PURE__ */ React7.createElement("path", { d: "M20 36h8M24 32v8", stroke: sun }));
-    case "gauntlet":
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("path", { d: "M9 34c0-12 8-19 18-18 6 1 9 5 9 11" }), [[9, 34], [12, 23], [21, 17], [31, 19]].map(([x, y], i) => /* @__PURE__ */ React7.createElement("circle", { key: i, cx: x, cy: y, r: "2.8", fill: i === 0 ? accent : "var(--paper2)" })), /* @__PURE__ */ React7.createElement("path", { d: "M36 27V11M36 11l7 3-7 3" }));
-    default:
-      return /* @__PURE__ */ React7.createElement("g", { ...common }, /* @__PURE__ */ React7.createElement("circle", { cx: "24", cy: "24", r: "12" }), /* @__PURE__ */ React7.createElement("path", { d: "M24 15v18M15 24h18", stroke: accent }));
-  }
-}
-function GameMark({ id, size = 54, hero = false }) {
-  return /* @__PURE__ */ React7.createElement(
-    "svg",
-    {
-      className: hero ? "fd-night" : void 0,
-      width: size,
-      height: size,
-      viewBox: "0 0 48 48",
-      "aria-hidden": "true",
-      style: { flexShrink: 0, display: "block", filter: hero ? "drop-shadow(0 14px 26px rgba(10,6,3,.32))" : "none" }
-    },
-    /* @__PURE__ */ React7.createElement(
-      "rect",
-      {
-        x: "1.5",
-        y: "1.5",
-        width: "45",
-        height: "45",
-        rx: "14",
-        fill: hero ? "var(--night2)" : "var(--paper2)",
-        stroke: "var(--bone-line)",
-        strokeWidth: "1.5"
-      }
-    ),
-    /* @__PURE__ */ React7.createElement(EventGlyph, { id }),
-    /* @__PURE__ */ React7.createElement("circle", { cx: "39.5", cy: "8.5", r: "2.4", fill: "var(--accent2)" })
-  );
-}
-
-// src/features/weekend/EventAnnouncement.jsx
+init_GameMark();
+init_PayoutLadder();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_serverClock();
+init_drawReveal();
+import React21, { useEffect as useEffect13, useRef as useRef11, useState as useState12 } from "react";
 
-// src/features/weekend/drawReveal.js
+// src/features/moments/TeamSort.jsx
 init_core();
-var REVEAL_FRESH_MS = 2 * 60 * 1e3;
-var revealTime = (state, evId, item) => Number(item.ts) || Number(state.eventOps?.[evId]?.drawRevealedAt) || parseInt(String(item.id).replace(/^\D+/, ""), 10) || 0;
-function drawRevealGroups(state, reveal) {
-  return reveal.versus ? reveal.versus.map((team, index) => ({
-    title: team.name || `Team ${index + 1}`,
-    lines: [{ avatars: team.players, text: team.players.map((player) => disp(state, player)).join(" & ") }]
-  })) : reveal.groups || [];
-}
-var DRAW_INTRO_MS = 3e3;
-var DRAW_INTRO_REDUCED_MS = 650;
-var DRAW_FIRST_STEP_MS = 480;
-var drawStepGap = (total) => Math.min(680, 2900 / Math.max(1, total - 1));
-var drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
-function drawStepAt(elapsed, total) {
-  const count = Math.max(0, Math.floor(Number(total) || 0));
-  const t = Number(elapsed);
-  if (!count || !Number.isFinite(t)) return 0;
-  let shown = 0;
-  while (shown < count && drawStepDelay(shown, count) <= t) shown++;
-  return shown;
-}
-var saved = (state, reveal) => {
-  const draw = state?.draws?.[reveal?.evId], stage = state?.stages?.[reveal?.evId];
-  return draw?.id === reveal?.id ? draw : stage?.id === reveal?.id ? stage : null;
-};
-function revealTimeline(state, evId, { reveal = null, reducedMotion = false } = {}) {
-  const announcedAt = Number(state?.eventOps?.[evId]?.announcedAt) || 0;
-  if (!announcedAt) return null;
-  const handoffAt = announcedAt + (reducedMotion ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS);
-  const item = reveal ? saved(state, reveal) : null;
-  const drewAt = item ? revealTime(state, evId, item) : 0;
-  return { introAt: announcedAt, handoffAt, revealAt: Math.max(handoffAt, drewAt || 0) };
-}
-function startDrawPlayback({
-  total,
-  reducedMotion = false,
-  onStep,
-  schedule = setTimeout,
-  cancel = clearTimeout,
-  startAt = null,
-  now = null
-}) {
-  let active = true;
-  const timers = [];
-  const stop = () => {
-    active = false;
-    timers.forEach(cancel);
-  };
-  const skip = () => {
-    stop();
-    onStep(total);
-  };
-  const anchored = Number.isFinite(startAt) && typeof now === "function";
-  const elapsed = anchored ? now() - startAt : 0;
-  const joined = reducedMotion || total === 0 ? total : drawStepAt(elapsed, total);
-  if (joined >= total) onStep(total);
-  else {
-    onStep(joined);
-    for (let index = joined; index < total; index++) {
-      const delay = Math.max(0, drawStepDelay(index, total) - elapsed);
-      timers.push(schedule(() => {
-        if (active) onStep(index + 1);
-      }, delay));
-    }
+init_PlayerIdentity();
+init_PlayerIdentityContext();
+init_PlayerPass();
+init_serverClock();
+import React19, { useEffect as useEffect12, useState as useState11 } from "react";
+var TEAM_SORT_MS = 4200;
+function teamOf(reveal, groups, me) {
+  if (!me || !Array.isArray(groups)) return null;
+  for (let index = 0; index < groups.length; index++) {
+    const group = groups[index];
+    if (group.bye) continue;
+    const line = group.lines.find((item) => (item.avatars || []).includes(me));
+    if (!line) continue;
+    const singles = group.lines.every((item) => (item.avatars || []).length <= 1);
+    const players = singles && !group.vs && reveal?.title === "The draw" ? group.lines.flatMap((item) => item.avatars || []) : [...line.avatars || []];
+    if (players.length < 2) return null;
+    const name = group.vs ? line.text : group.title || line.text;
+    return { index, players, name };
   }
-  return { stop, skip, joined };
+  return null;
+}
+function TeamSort({ state, team, at }) {
+  const identity = usePlayerIdentity(team?.players?.[0]);
+  const ink = cardInk(identity.color);
+  const [show, setShow] = useState11(() => serverNow() >= at && serverNow() < at + TEAM_SORT_MS);
+  useEffect12(() => {
+    const now2 = serverNow();
+    const timers = [];
+    if (now2 < at) timers.push(setTimeout(() => setShow(true), at - now2));
+    timers.push(setTimeout(() => setShow(false), Math.max(0, at + TEAM_SORT_MS - now2)));
+    return () => timers.forEach(clearTimeout);
+  }, [at]);
+  if (!show || !team) return null;
+  const elapsed = Math.max(0, serverNow() - at);
+  const size = team.players.length > 4 ? 72 : team.players.length > 2 ? 88 : 112;
+  return /* @__PURE__ */ React19.createElement(
+    "div",
+    {
+      className: "fd-moment fd-moment-team",
+      role: "status",
+      "aria-label": `Your team: ${team.players.map((p) => disp(state, p)).join(", ")}`,
+      style: {
+        "--tl": `${-Math.round(elapsed)}ms`,
+        "--moment-color": identity.color,
+        "--moment-ink": ink,
+        "--moment-hold": `${TEAM_SORT_MS}ms`
+      },
+      onClick: () => setShow(false)
+    },
+    /* @__PURE__ */ React19.createElement("div", { className: "fd-moment-flood", "aria-hidden": "true" }, /* @__PURE__ */ React19.createElement("i", { style: { background: identity.color } })),
+    /* @__PURE__ */ React19.createElement("div", { className: "fd-moment-body", "aria-hidden": "true" }, /* @__PURE__ */ React19.createElement("h2", { className: "fd-show is-marquee fd-moment-team-name" }, team.name), /* @__PURE__ */ React19.createElement("p", { className: "fd-moment-sub" }, /* @__PURE__ */ React19.createElement("span", null, "Your team")), /* @__PURE__ */ React19.createElement("div", { className: "fd-moment-team-faces" }, team.players.map((p, i) => /* @__PURE__ */ React19.createElement("span", { key: p, style: { "--face": i } }, /* @__PURE__ */ React19.createElement(ChipFace, { p, size, flat: true })))), /* @__PURE__ */ React19.createElement("p", { className: "fd-moment-hold" }, "Hold it up"))
+  );
 }
 
 // src/features/weekend/EventAnnouncement.jsx
@@ -6619,7 +10944,7 @@ init_sound();
 
 // src/features/weekend/drawPath.js
 init_core();
-var decided = (value) => value !== null && value !== void 0;
+var decided2 = (value) => value !== null && value !== void 0;
 var teamPlayers = (draw, index) => [...draw?.teams?.[index]?.players || []];
 function feedsInto(bracket, r, m) {
   const rounds = bracket.rounds || [];
@@ -6635,7 +10960,7 @@ function feedsInto(bracket, r, m) {
 }
 function opponentStop(bracket, draw, slot) {
   const seated = resolveSlot(bracket, slot);
-  if (decided(seated)) return { opponents: teamPlayers(draw, seated), from: null, candidates: [] };
+  if (decided2(seated)) return { opponents: teamPlayers(draw, seated), from: null, candidates: [] };
   if (!slot?.w) return { opponents: null, from: null, candidates: [] };
   const [r, m] = slot.w;
   const feeder = bracket.rounds?.[r]?.[m];
@@ -6643,7 +10968,7 @@ function opponentStop(bracket, draw, slot) {
   return {
     opponents: null,
     from: bracketMatchName(bracket, r, m),
-    candidates: decided(a) && decided(b) ? [teamPlayers(draw, a), teamPlayers(draw, b)] : []
+    candidates: decided2(a) && decided2(b) ? [teamPlayers(draw, a), teamPlayers(draw, b)] : []
   };
 }
 function bracketDrawPath(state, evId, me) {
@@ -6664,8 +10989,8 @@ function bracketDrawPath(state, evId, me) {
     const mine = at.side;
     const final = at.r === bracket.rounds.length - 1;
     const stop = opponentStop(bracket, draw, match[mine === "a" ? "b" : "a"]);
-    const won = decided(match.winner) && match.winner === team;
-    const lost = decided(match.winner) && match.winner !== team;
+    const won = decided2(match.winner) && match.winner === team;
+    const lost = decided2(match.winner) && match.winner !== team;
     steps.push({
       id: `${at.r}:${at.m}`,
       label: bracketMatchName(bracket, at.r, at.m),
@@ -6728,10 +11053,10 @@ function drawPath(state, reveal, me) {
   if (stage && (!stage.drawId || stage.drawId === draw.id)) return stageDrawPath(state, evId, me);
   return null;
 }
-function drawPathText(path, nameOf2 = (player) => player) {
+function drawPathText(path, nameOf3 = (player) => player) {
   if (!path?.steps?.length) return "";
   return path.steps.map((step) => {
-    const who = step.opponents?.length ? ` vs ${step.opponents.map(nameOf2).join(" & ")}` : step.from ? ` vs ${step.from}${path.kind === "bracket" ? " winner" : ""}` : "";
+    const who = step.opponents?.length ? ` vs ${step.opponents.map(nameOf3).join(" & ")}` : step.from ? ` vs ${step.from}${path.kind === "bracket" ? " winner" : ""}` : "";
     return `${step.label}${who}${step.note ? ` (${step.note})` : ""}`;
   }).join(", then ");
 }
@@ -6739,13 +11064,13 @@ function drawPathText(path, nameOf2 = (player) => player) {
 // src/features/weekend/DrawPath.jsx
 init_core();
 init_PlayerIdentity();
-import React8 from "react";
-var Faces = ({ players, size, cls = "" }) => /* @__PURE__ */ React8.createElement("span", { className: `fd-draw-path-faces${cls}` }, players.map((player) => /* @__PURE__ */ React8.createElement(ChipFace, { key: player, p: player, size, flat: true })));
+import React20 from "react";
+var Faces = ({ players, size, cls = "" }) => /* @__PURE__ */ React20.createElement("span", { className: `fd-draw-path-faces${cls}` }, players.map((player) => /* @__PURE__ */ React20.createElement(ChipFace, { key: player, p: player, size, flat: true })));
 function DrawPathLine({ state, path, me, animate = false }) {
   if (!path?.steps?.length || !me) return null;
   const stops = [{ id: "you", you: true }, ...path.steps];
   const text = drawPathText(path, (player) => disp(state, player));
-  return /* @__PURE__ */ React8.createElement(
+  return /* @__PURE__ */ React20.createElement(
     "div",
     {
       className: `fd-draw-path${animate ? " is-drawing" : ""}`,
@@ -6753,47 +11078,61 @@ function DrawPathLine({ state, path, me, animate = false }) {
       "aria-label": `Your path: ${text}`,
       style: { "--path-stops": stops.length, "--path-steps": path.steps.length }
     },
-    /* @__PURE__ */ React8.createElement("i", { className: "fd-draw-path-line", "aria-hidden": "true" }),
-    /* @__PURE__ */ React8.createElement("ol", { "aria-hidden": "true" }, stops.map((stop, index) => /* @__PURE__ */ React8.createElement(
+    /* @__PURE__ */ React20.createElement("i", { className: "fd-draw-path-line", "aria-hidden": "true" }),
+    /* @__PURE__ */ React20.createElement("ol", { "aria-hidden": "true" }, stops.map((stop, index) => /* @__PURE__ */ React20.createElement(
       "li",
       {
         key: stop.id,
         style: { "--i": index },
         className: `${stop.you ? "is-you" : ""}${stop.final ? " is-final" : ""}${stop.won ? " is-won" : ""}${stop.lost ? " is-lost" : ""}`
       },
-      /* @__PURE__ */ React8.createElement("span", { className: "fd-draw-path-node" }, stop.you ? /* @__PURE__ */ React8.createElement(ChipFace, { p: me, size: 30, flat: true }) : /* @__PURE__ */ React8.createElement("i", { className: "fd-draw-path-dot" })),
-      /* @__PURE__ */ React8.createElement("b", null, stop.you ? "You" : stop.label),
-      !stop.you && (stop.opponents?.length ? /* @__PURE__ */ React8.createElement(Faces, { players: stop.opponents, size: 26 }) : stop.candidates?.length ? /* @__PURE__ */ React8.createElement("span", { className: "fd-draw-path-either" }, stop.candidates.map((team, i) => /* @__PURE__ */ React8.createElement(React8.Fragment, { key: i }, i > 0 && /* @__PURE__ */ React8.createElement("small", null, "or"), /* @__PURE__ */ React8.createElement(Faces, { players: team, size: 24, cls: " is-candidate" })))) : stop.from ? /* @__PURE__ */ React8.createElement("small", null, path.kind === "bracket" ? `${stop.from} winner` : stop.from) : null),
-      stop.note && /* @__PURE__ */ React8.createElement("small", { className: "fd-draw-path-note" }, stop.note)
+      /* @__PURE__ */ React20.createElement("span", { className: "fd-draw-path-node" }, stop.you ? /* @__PURE__ */ React20.createElement(ChipFace, { p: me, size: 30, flat: true }) : /* @__PURE__ */ React20.createElement("i", { className: "fd-draw-path-dot" })),
+      /* @__PURE__ */ React20.createElement("b", null, stop.you ? "You" : stop.label),
+      !stop.you && (stop.opponents?.length ? /* @__PURE__ */ React20.createElement(Faces, { players: stop.opponents, size: 26 }) : stop.candidates?.length ? /* @__PURE__ */ React20.createElement("span", { className: "fd-draw-path-either" }, stop.candidates.map((team, i) => /* @__PURE__ */ React20.createElement(React20.Fragment, { key: i }, i > 0 && /* @__PURE__ */ React20.createElement("small", null, "or"), /* @__PURE__ */ React20.createElement(Faces, { players: team, size: 24, cls: " is-candidate" })))) : stop.from ? /* @__PURE__ */ React20.createElement("small", null, path.kind === "bracket" ? `${stop.from} winner` : stop.from) : null),
+      stop.note && /* @__PURE__ */ React20.createElement("small", { className: "fd-draw-path-note" }, stop.note)
     )))
   );
 }
 
 // src/features/weekend/EventAnnouncement.jsx
 init_frameGate();
+init_OneSafe();
+function AnnouncementHero({ ev, visual = null, lamp = null, size = "hero" }) {
+  return /* @__PURE__ */ React21.createElement("header", { className: `fd-announcement-hero is-${size}` }, visual ? /* @__PURE__ */ React21.createElement("div", { className: "fd-announcement-game" }, visual) : /* @__PURE__ */ React21.createElement("div", { className: "fd-announcement-mark" }, /* @__PURE__ */ React21.createElement(GameMark, { id: ev.game, variant: ev.variant, size: size === "hero" ? 64 : 44 })), /* @__PURE__ */ React21.createElement("h2", { className: `fd-show${size === "hero" ? " is-marquee" : ""} fd-announcement-name` }, /* @__PURE__ */ React21.createElement(EventName, { name: ev.name })), lamp && /* @__PURE__ */ React21.createElement("span", { className: "fd-announcement-state" }, /* @__PURE__ */ React21.createElement(
+    "i",
+    {
+      className: `fd-insert is-live${lamp.state === "pending" ? " is-pending" : lamp.state === "done" ? " is-done" : ""}`,
+      "aria-hidden": "true"
+    }
+  ), lamp.label));
+}
 function EventAnnouncement({ state, ev, handoff, onClose, onBets, holdMs = 3e3, visual, now: clockNow = serverNow }) {
   const contest = resolveCurrentContest(state, ev);
-  const detail = [
-    !handoff && (contest?.kind !== "ffa" ? contest?.label : "One winner"),
-    awardTable(ev)[0] ? `${awardTable(ev)[0].toLocaleString("en-US")} chips to win` : null
-  ].filter(Boolean).join(" \xB7 ");
-  const [elapsed] = useState8(() => {
+  const detail = !handoff && contest?.kind !== "ffa" ? contestName(state, ev, contest) : null;
+  const [elapsed] = useState12(() => {
     const introAt = handoff ? revealTimeline(state, ev.id)?.introAt : null;
     return introAt ? Math.min(holdMs, Math.max(0, clockNow() - introAt)) : 0;
   });
-  return /* @__PURE__ */ React9.createElement(Sheet, { title: ev.name, subtitle: handoff ? "On deck" : "Betting open", onClose, layer: 290, className: "fd-announcement" }, visual && /* @__PURE__ */ React9.createElement("div", { className: "fd-announcement-game" }, visual), /* @__PURE__ */ React9.createElement("div", { className: `fd-announcement-summary${handoff ? " is-handoff" : ""}` }, !visual && /* @__PURE__ */ React9.createElement("div", { className: "fd-announcement-mark" }, /* @__PURE__ */ React9.createElement(GameMark, { id: ev.game, size: 64 })), /* @__PURE__ */ React9.createElement("div", null, ev.desc && /* @__PURE__ */ React9.createElement("p", null, ev.desc), /* @__PURE__ */ React9.createElement("small", null, detail))), handoff && /* @__PURE__ */ React9.createElement(
+  return /* @__PURE__ */ React21.createElement(Sheet, { title: ev.name, heading: false, onClose, layer: 290, className: "fd-announcement" }, /* @__PURE__ */ React21.createElement(
+    AnnouncementHero,
+    {
+      ev,
+      visual,
+      lamp: handoff ? { label: "On deck", state: "done" } : { label: "Betting open", state: "pending" }
+    }
+  ), detail && /* @__PURE__ */ React21.createElement("p", { className: "fd-announcement-detail" }, detail), /* @__PURE__ */ React21.createElement("div", { className: `fd-announcement-pays${handoff ? " is-handoff" : ""}` }, /* @__PURE__ */ React21.createElement(PayoutLadder, { ev, size: "phone" })), !handoff && hasGameSteps(ev) && /* @__PURE__ */ React21.createElement(GameSteps, { game: ev, size: "card", notes: false, className: "fd-announcement-steps" }), handoff && /* @__PURE__ */ React21.createElement(
     "div",
     {
       className: "fd-announcement-handoff",
       "aria-hidden": "true",
       style: { "--intro-hold": `${holdMs}ms`, "--intro-elapsed": `${-Math.round(elapsed)}ms` }
     },
-    /* @__PURE__ */ React9.createElement("span", null)
-  ), /* @__PURE__ */ React9.createElement("div", { className: "fd-announcement-actions" }, onBets && /* @__PURE__ */ React9.createElement(ActionButton, { onClick: onBets }, "Place chips"), /* @__PURE__ */ React9.createElement(ActionButton, { variant: onBets ? "secondary" : "primary", onClick: onClose }, handoff ? "View draw" : "Done")));
+    /* @__PURE__ */ React21.createElement("span", null)
+  ), /* @__PURE__ */ React21.createElement("div", { className: "fd-announcement-actions" }, onBets && /* @__PURE__ */ React21.createElement(ActionButton, { onClick: onBets }, "Place chips"), /* @__PURE__ */ React21.createElement(ActionButton, { variant: onBets ? "secondary" : "primary", onClick: onClose }, handoff ? "View draw" : "Done")));
 }
 function useReducedMotion2(override) {
-  const [reduced, setReduced] = useState8(() => typeof window === "undefined" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-  useEffect7(() => {
+  const [reduced, setReduced] = useState12(() => typeof window === "undefined" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  useEffect13(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) return;
     const update = () => setReduced(media.matches);
@@ -6820,12 +11159,12 @@ function DrawAnnouncement({
   const total = groups.length + (reveal.crew?.length ? 1 : 0);
   const reducedMotion = useReducedMotion2(motionOverride);
   const startAt = synced && !initialComplete ? revealTimeline(state, reveal.evId, { reveal, reducedMotion })?.revealAt ?? null : null;
-  const [joined] = useState8(() => reducedMotion || initialComplete ? total : startAt !== null ? drawStepAt(clockNow() - startAt, total) : 0);
-  const [shown, setShown] = useState8(joined);
-  const [run, setRun] = useState8(0);
+  const [joined] = useState12(() => reducedMotion || initialComplete ? total : startAt !== null ? drawStepAt(clockNow() - startAt, total) : 0);
+  const [shown, setShown] = useState12(joined);
+  const [run, setRun] = useState12(0);
   const animate = !reducedMotion && !(run === 0 && (initialComplete || joined >= total));
-  const playback = useRef5(null);
-  useEffect7(() => {
+  const playback = useRef11(null);
+  useEffect13(() => {
     const next = startDrawPlayback({
       total,
       reducedMotion: !animate,
@@ -6836,23 +11175,26 @@ function DrawAnnouncement({
     return () => next.stop();
   }, [reveal.id, total, animate, run, startAt]);
   const mineIndex = me ? groups.findIndex((group) => group.lines.some((line) => (line.avatars || []).includes(me))) : -1;
-  useEffect7(() => {
+  const [liveAtOpen] = useState12(() => !!currentFrame().fresh);
+  const team = synced && startAt !== null ? teamOf(reveal, groups, me) : null;
+  const teamAt = team && liveAtOpen && !reducedMotion && team.index >= joined && run === 0 ? startAt + drawStepDelay(team.index, total) : null;
+  useEffect13(() => {
     if (startAt === null || mineIndex < 0 || !reducedMotion && mineIndex < joined) return;
     if (!currentFrame().fresh) return;
-    playSound("S4", { at: reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key: `card:${reveal.id}` });
+    playSound(team ? "teamUp" : "S4", { at: reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key: `card:${reveal.id}` });
   }, [reveal.id]);
   const you = usePlayerIdentity(me);
   const youStyle = { "--fd-you": you.color, "--fd-you-ink": you.isLight ? "var(--ink0)" : "var(--bone)" };
   const complete = shown >= total;
   const path = synced && mineIndex >= 0 ? drawPath(state, reveal, me) : null;
-  const actions = /* @__PURE__ */ React9.createElement("div", { className: "fd-announcement-actions" }, onBets && /* @__PURE__ */ React9.createElement(ActionButton, { onClick: onBets }, "Place chips"), /* @__PURE__ */ React9.createElement(ActionButton, { variant: onBets ? "secondary" : "primary", onClick: onClose }, "Done"));
+  const actions = /* @__PURE__ */ React21.createElement("div", { className: "fd-announcement-actions" }, onBets && /* @__PURE__ */ React21.createElement(ActionButton, { onClick: onBets }, "Place chips"), /* @__PURE__ */ React21.createElement(ActionButton, { variant: onBets ? "secondary" : "primary", onClick: onClose }, "Done"));
   const skip = () => playback.current?.skip();
   const replay = () => {
     playback.current?.stop();
     setShown(reducedMotion ? total : 0);
     setRun((value) => value + 1);
   };
-  const playerButton = (player, visible, index = 0) => /* @__PURE__ */ React9.createElement(
+  const playerButton = (player, visible, index = 0, partner = false) => /* @__PURE__ */ React21.createElement(
     "button",
     {
       type: "button",
@@ -6862,44 +11204,69 @@ function DrawAnnouncement({
       onClick: () => {
         if (visible) onPlayer?.(player);
       },
-      style: { "--deal-index": index },
+      className: partner ? "is-partner" : void 0,
+      style: { "--deal-index": index, ...partner ? { "--partner-beat": `${DRAW_PARTNER_BEAT_MS}ms` } : null },
       "aria-label": `View ${disp(state, player)}'s player card`
     },
-    /* @__PURE__ */ React9.createElement(Avatar, { state, p: player, size: 30 }),
-    /* @__PURE__ */ React9.createElement("span", null, disp(state, player))
+    /* @__PURE__ */ React21.createElement(Avatar, { state, p: player, size: 30 }),
+    /* @__PURE__ */ React21.createElement("span", null, disp(state, player))
   );
-  return /* @__PURE__ */ React9.createElement(Sheet, { title: reveal.subtitle || reveal.title, subtitle: reveal.subtitle ? reveal.title : "The draw", onClose, onBack, layer: 300, className: "fd-announcement" }, /* @__PURE__ */ React9.createElement("div", { className: "fd-draw-playback" }, /* @__PURE__ */ React9.createElement("div", { className: `fd-draw-deck${complete ? " is-complete" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React9.createElement("i", null), /* @__PURE__ */ React9.createElement("i", null), /* @__PURE__ */ React9.createElement("i", null, "FD")), /* @__PURE__ */ React9.createElement("span", { role: "status", "aria-live": "polite" }, complete ? "Draw complete" : "Revealing the draw"), /* @__PURE__ */ React9.createElement("button", { type: "button", className: "fd-draw-playback-action", onClick: complete ? replay : skip }, complete ? "Replay draw" : "Skip animation")), /* @__PURE__ */ React9.createElement("div", { className: `fd-draw-announcement${!animate ? " is-reduced" : ""}`, key: run }, groups.map((group, index) => {
-    const visible = index < shown;
-    const settled = run === 0 && index < joined;
-    const mine = !!me && group.lines.some((line) => (line.avatars || []).includes(me));
-    const ring = mine && visible && animate && !settled;
-    const lines = group.lines.map((line, j) => {
-      const people = line.avatars || [];
-      const namedTeam = line.text && people.length > 1 && line.text !== people.map((player) => disp(state, player)).join(" & ") && line.text !== group.title;
-      const body = /* @__PURE__ */ React9.createElement(React9.Fragment, null, namedTeam && /* @__PURE__ */ React9.createElement("strong", { className: "fd-draw-team-name" }, line.text), /* @__PURE__ */ React9.createElement("div", { className: "fd-draw-people" }, people.length ? people.map((player, playerIndex) => playerButton(player, visible, playerIndex)) : /* @__PURE__ */ React9.createElement("span", null, line.text)));
-      if (group.bye) return /* @__PURE__ */ React9.createElement(
-        "div",
+  const revealEv = allEventsOf(state).find((item) => item.id === reveal.evId) || null;
+  return /* @__PURE__ */ React21.createElement(
+    Sheet,
+    {
+      title: reveal.subtitle || reveal.title,
+      heading: !revealEv,
+      subtitle: reveal.subtitle ? reveal.title : "The draw",
+      onClose,
+      onBack,
+      layer: 300,
+      className: "fd-announcement"
+    },
+    revealEv && /* @__PURE__ */ React21.createElement(AnnouncementHero, { ev: revealEv, size: "compact" }),
+    /* @__PURE__ */ React21.createElement("div", { className: "fd-draw-playback" }, /* @__PURE__ */ React21.createElement("div", { className: `fd-draw-deck${complete ? " is-complete" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React21.createElement("i", null), /* @__PURE__ */ React21.createElement("i", null), /* @__PURE__ */ React21.createElement("i", null, "FD")), /* @__PURE__ */ React21.createElement("span", { role: "status", "aria-live": "polite" }, complete ? "Draw complete" : "Revealing the draw"), /* @__PURE__ */ React21.createElement("button", { type: "button", className: "fd-draw-playback-action", onClick: complete ? replay : skip }, complete ? "Replay draw" : "Skip animation")),
+    /* @__PURE__ */ React21.createElement("div", { className: `fd-draw-announcement${!animate ? " is-reduced" : ""}`, key: run }, groups.map((group, index) => {
+      const visible = index < shown;
+      const settled = run === 0 && index < joined;
+      const mine = !!me && group.lines.some((line) => (line.avatars || []).includes(me));
+      const ring = mine && visible && animate && !settled;
+      const held = partnerFaces(group);
+      const lines = group.lines.map((line, j) => {
+        const people = line.avatars || [];
+        const namedTeam = line.text && people.length > 1 && line.text !== people.map((player) => disp(state, player)).join(" & ") && line.text !== group.title;
+        const body = /* @__PURE__ */ React21.createElement(React21.Fragment, null, namedTeam && /* @__PURE__ */ React21.createElement("strong", { className: "fd-draw-team-name" }, line.text), /* @__PURE__ */ React21.createElement("div", { className: "fd-draw-people" }, people.length ? people.map((player, playerIndex) => playerButton(
+          player,
+          visible,
+          playerIndex,
+          playerIndex === held[j]
+        )) : /* @__PURE__ */ React21.createElement("span", null, line.text)));
+        if (group.bye) return /* @__PURE__ */ React21.createElement(
+          "div",
+          {
+            key: j,
+            style: { "--deal-index": j },
+            className: `fd-draw-bye${me && people.includes(me) ? " is-mine" : ""}`
+          },
+          body
+        );
+        return /* @__PURE__ */ React21.createElement(React21.Fragment, { key: j }, group.vs && j > 0 && /* @__PURE__ */ React21.createElement("small", { className: "fd-draw-versus" }, "vs"), body);
+      });
+      return /* @__PURE__ */ React21.createElement(
+        "section",
         {
-          key: j,
-          style: { "--deal-index": j },
-          className: `fd-draw-bye${me && people.includes(me) ? " is-mine" : ""}`
+          key: index,
+          style: mine ? youStyle : void 0,
+          className: `fd-draw-card ${visible ? "is-revealed" : "is-covered"}${group.bye ? " is-byes" : ""}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`
         },
-        body
+        /* @__PURE__ */ React21.createElement("div", { className: "fd-draw-card-back", "aria-hidden": "true" }, /* @__PURE__ */ React21.createElement("span", null, String(index + 1).padStart(2, "0"))),
+        ring && /* @__PURE__ */ React21.createElement("i", { className: "fd-draw-ring", "aria-hidden": "true" }),
+        /* @__PURE__ */ React21.createElement("div", { className: "fd-draw-card-front", "aria-hidden": !visible }, /* @__PURE__ */ React21.createElement("h3", null, group.title, mine && visible && /* @__PURE__ */ React21.createElement("span", { className: "fd-draw-you" }, "You")), group.bye ? /* @__PURE__ */ React21.createElement("div", { className: "fd-draw-byes" }, lines) : lines)
       );
-      return /* @__PURE__ */ React9.createElement(React9.Fragment, { key: j }, group.vs && j > 0 && /* @__PURE__ */ React9.createElement("small", { className: "fd-draw-versus" }, "vs"), body);
-    });
-    return /* @__PURE__ */ React9.createElement(
-      "section",
-      {
-        key: index,
-        style: mine ? youStyle : void 0,
-        className: `fd-draw-card ${visible ? "is-revealed" : "is-covered"}${group.bye ? " is-byes" : ""}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`
-      },
-      /* @__PURE__ */ React9.createElement("div", { className: "fd-draw-card-back", "aria-hidden": "true" }, /* @__PURE__ */ React9.createElement("span", null, String(index + 1).padStart(2, "0"))),
-      ring && /* @__PURE__ */ React9.createElement("i", { className: "fd-draw-ring", "aria-hidden": "true" }),
-      /* @__PURE__ */ React9.createElement("div", { className: "fd-draw-card-front", "aria-hidden": !visible }, /* @__PURE__ */ React9.createElement("h3", null, group.title, mine && visible && /* @__PURE__ */ React9.createElement("span", { className: "fd-draw-you" }, "You")), group.bye ? /* @__PURE__ */ React9.createElement("div", { className: "fd-draw-byes" }, lines) : lines)
-    );
-  })), !!reveal.crew?.length && /* @__PURE__ */ React9.createElement("div", { className: `fd-draw-crew ${complete ? "is-revealed" : "is-covered"}`, "aria-hidden": !complete }, reveal.crew.map((role) => /* @__PURE__ */ React9.createElement("div", { key: role.player }, playerButton(role.player, complete), /* @__PURE__ */ React9.createElement("span", null, overflowRoleMeta(role.role).label)))), path && complete ? /* @__PURE__ */ React9.createElement("div", { className: `fd-draw-footer${animate ? " is-drawing" : ""}`, style: youStyle, key: `path-${run}` }, /* @__PURE__ */ React9.createElement(DrawPathLine, { state, path, me, animate }), actions) : actions);
+    })),
+    !!reveal.crew?.length && /* @__PURE__ */ React21.createElement("div", { className: `fd-draw-crew ${complete ? "is-revealed" : "is-covered"}`, "aria-hidden": !complete }, reveal.crew.map((role) => /* @__PURE__ */ React21.createElement("div", { key: role.player }, playerButton(role.player, complete), /* @__PURE__ */ React21.createElement("span", null, overflowRoleMeta(role.role).label)))),
+    teamAt !== null && /* @__PURE__ */ React21.createElement(TeamSort, { state, team, at: teamAt }),
+    path && complete ? /* @__PURE__ */ React21.createElement("div", { className: `fd-draw-footer${animate ? " is-drawing" : ""}`, style: youStyle, key: `path-${run}` }, /* @__PURE__ */ React21.createElement(DrawPathLine, { state, path, me, animate }), actions) : actions
+  );
 }
 
 // src/features/draft/DraftSheet.jsx
@@ -6907,116 +11274,18 @@ init_core();
 init_controls();
 init_PlayerIdentity();
 init_playerIdentity();
-import React10, { useEffect as useEffect8, useRef as useRef7, useState as useState10 } from "react";
+init_haptics();
 init_motion();
 init_sound();
-
-// src/lib/motionKit.js
-init_motion();
-import { useLayoutEffect as useLayoutEffect3, useRef as useRef6, useState as useState9 } from "react";
-function useFreshHold(value, key = null, ms = MOTION.story, options) {
-  const change = useFreshChange(value, key, options);
-  const [held, setHeld] = useState9(0);
-  useLayoutEffect3(() => {
-    if (!change.animate) return void 0;
-    setHeld(change.changeId);
-    const t = setTimeout(() => setHeld((current) => current === change.changeId ? 0 : current), ms);
-    return () => clearTimeout(t);
-  }, [change.changeId]);
-  return change.animate ? change.changeId : held;
-}
-function childOffsets(container, attr = "data-flip") {
-  const map = /* @__PURE__ */ new Map();
-  if (!container || typeof container.getBoundingClientRect !== "function") return map;
-  const box = container.getBoundingClientRect();
-  const scale = container.offsetWidth ? box.width / container.offsetWidth || 1 : 1;
-  for (const el of container.querySelectorAll(`[${attr}]`)) {
-    const r = el.getBoundingClientRect();
-    map.set(el.getAttribute(attr), {
-      left: (r.left - box.left) / scale,
-      top: (r.top - box.top) / scale,
-      width: r.width / scale,
-      height: r.height / scale
-    });
-  }
-  return map;
-}
-function flipMoves(before, after, { threshold = 0.5 } = {}) {
-  const moves = [], entering = [];
-  for (const [key, to] of after) {
-    const from = before?.get(key);
-    if (!from) {
-      entering.push(key);
-      continue;
-    }
-    const dx = from.left - to.left, dy = from.top - to.top;
-    if (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) moves.push({ key, dx, dy });
-  }
-  return { moves, entering };
-}
-function useFlip(ref, {
-  play = false,
-  attr = "data-flip",
-  duration = MOTION.rowSlide,
-  delay = 0,
-  stagger = 0,
-  easing = EASE.out,
-  enter = true,
-  onPlay = null
-} = {}) {
-  const last = useRef6(null);
-  useLayoutEffect3(() => {
-    const container = ref.current;
-    const before = last.current;
-    const after = childOffsets(container, attr);
-    last.current = after;
-    if (!play || !before || !container || prefersReducedMotion()) return;
-    try {
-      onPlay?.(before, after, container);
-    } catch {
-    }
-    const { moves, entering } = flipMoves(before, after);
-    const find = (key) => container.querySelector(`[${attr}="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(key) : key}"]`);
-    moves.forEach(({ key, dx, dy }, index) => {
-      const el = find(key);
-      if (typeof el?.animate !== "function") return;
-      try {
-        el.animate(
-          [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
-          { duration, delay: delay + index * stagger, easing, fill: "backwards" }
-        );
-      } catch {
-      }
-    });
-    if (enter) entering.forEach((key, index) => {
-      const el = find(key);
-      if (typeof el?.animate !== "function") return;
-      try {
-        el.animate(
-          [{ opacity: 0, transform: "translateX(12px)" }, { opacity: 1, transform: "none" }],
-          { duration: MOTION.base, delay: delay + (moves.length + index) * stagger, easing, fill: "backwards" }
-        );
-      } catch {
-      }
-    });
-  });
-}
-
-// src/features/draft/draftModel.js
-init_core();
-function landedPick(draft, change) {
-  if (!draft || !change?.fresh) return null;
-  const { from, to } = change;
-  if (!Number.isInteger(from) || to !== from + 1 || draft.picks.length !== to) return null;
-  const pick = draft.picks[to - 1];
-  return pick ? { player: pick.player, team: pick.team, pick: to } : null;
-}
-
-// src/features/draft/DraftSheet.jsx
+init_motionKit();
+init_draftModel();
+init_OneSafe();
+import React22, { useEffect as useEffect14, useRef as useRef13, useState as useState14 } from "react";
+init_Icon();
 var identityStyle = (state, player) => ({ "--draft-color": resolvePlayerIdentity(state.profiles, player).color });
 var reference = (turn) => ({ draftId: turn.draftId, pickIndex: turn.pickIndex, draftRevision: turn.draftRevision });
 function PlayerLink({ state, player, onPlayer, children, disabled }) {
-  return /* @__PURE__ */ React10.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -7025,25 +11294,25 @@ function PlayerLink({ state, player, onPlayer, children, disabled }) {
       onClick: () => onPlayer?.(player),
       "aria-label": `View ${disp(state, player)}'s player card`
     },
-    /* @__PURE__ */ React10.createElement(Avatar, { state, p: player, size: 30 }),
-    /* @__PURE__ */ React10.createElement("span", null, children || disp(state, player))
+    /* @__PURE__ */ React22.createElement(Avatar, { state, p: player, size: 30 }),
+    /* @__PURE__ */ React22.createElement("span", null, children || disp(state, player))
   );
 }
 function DraftEntry({ state, ev, me, onOpen }) {
   const draft = state.drafts?.[ev?.id];
   if (!draft || state.draws?.[ev.id]) return null;
   const turn = draftTurn(draft), mine = turn.captain === me;
-  return /* @__PURE__ */ React10.createElement(
+  return /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
-      className: `fd-draft-entry${mine ? " is-mine" : ""}`,
+      className: `fd-draft-entry${turn.complete ? " is-done" : mine ? " is-mine" : ""}`,
       onClick: onOpen,
       "aria-label": `Open ${ev.name} draft`
     },
-    /* @__PURE__ */ React10.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 44 }),
-    /* @__PURE__ */ React10.createElement("span", null, /* @__PURE__ */ React10.createElement("small", null, turn.complete ? "Teams picked" : mine ? "Your pick" : "Draft in progress"), /* @__PURE__ */ React10.createElement("strong", null, ev.name), /* @__PURE__ */ React10.createElement("span", null, turn.complete ? "Waiting for teams to be confirmed" : `Pick ${turn.pickIndex + 1} \xB7 ${disp(state, turn.captain)}`)),
-    /* @__PURE__ */ React10.createElement("b", { "aria-hidden": "true" }, "\u2197")
+    /* @__PURE__ */ React22.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 44 }),
+    /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement("strong", null, /* @__PURE__ */ React22.createElement("i", { className: `fd-insert ${turn.complete ? "is-done" : mine ? "is-pending" : "fd-beat-dot"}`, "aria-hidden": "true" }), mine && !turn.complete ? "Your pick" : /* @__PURE__ */ React22.createElement(EventName, { name: ev.name })), /* @__PURE__ */ React22.createElement("span", null, turn.complete ? "Teams picked" : mine ? /* @__PURE__ */ React22.createElement(EventName, { name: ev.name }) : `${disp(state, turn.captain)}'s pick`)),
+    /* @__PURE__ */ React22.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React22.createElement(Icon, { name: "open", size: "1em" }))
   );
 }
 function DraftSheet({
@@ -7063,13 +11332,13 @@ function DraftSheet({
   onCancel
 }) {
   const draft = state.drafts?.[ev.id];
-  const [captains, setCaptains] = useState10([]), [method, setMethod] = useState10("pick");
-  const [pending, setPending] = useState10(""), [error, setError] = useState10("");
-  const [confirmCancel, setConfirmCancel] = useState10(false);
-  const saving = useRef7(false), board = useRef7(null), focusAfterPick = useRef7(false);
+  const [captains, setCaptains] = useState14([]), [method, setMethod] = useState14("pick");
+  const [pending, setPending] = useState14(""), [error, setError] = useState14("");
+  const [confirmCancel, setConfirmCancel] = useState14(false);
+  const saving = useRef13(false), board = useRef13(null), focusAfterPick = useRef13(false);
   const turn = draft ? draftTurn(draft) : null;
-  const poolBox = useRef7(null), queueBox = useRef7(null);
-  const [arriving, setArriving] = useState10(null), [landed, setLanded] = useState10(null);
+  const poolBox = useRef13(null), queueBox = useRef13(null);
+  const [arriving, setArriving] = useState14(null), [landed, setLanded] = useState14(null);
   const pickChange = useFreshChange(draft?.picks?.length ?? null, draft?.id || null);
   const landing = pickChange.animate ? landedPick(draft, pickChange) : null;
   const passing = useFreshHold(draft?.picks?.length ?? null, draft?.id || null, MOTION.story * 2);
@@ -7089,7 +11358,7 @@ function DraftSheet({
     } : seat;
     setArriving(landing.player);
     fly({ left: box.left + from.left, top: box.top + from.top, width: from.width, height: from.height }, to, {
-      node: /* @__PURE__ */ React10.createElement(PickFlyer, { state, player: landing.player }),
+      node: /* @__PURE__ */ React22.createElement(PickFlyer, { state, player: landing.player }),
       duration: MOTION.cardFlight,
       arc: offscreen ? 0 : 36,
       fade: offscreen
@@ -7098,7 +11367,7 @@ function DraftSheet({
       setLanded(landing.player);
     });
   } });
-  useEffect8(() => {
+  useEffect14(() => {
     if (!landed) return void 0;
     const t = setTimeout(() => setLanded(null), MOTION.story);
     return () => clearTimeout(t);
@@ -7128,7 +11397,7 @@ function DraftSheet({
       setPending("");
     }
   };
-  useEffect8(() => {
+  useEffect14(() => {
     if (!pending && focusAfterPick.current) {
       board.current?.focus({ preventScroll: true });
       focusAfterPick.current = false;
@@ -7149,11 +11418,12 @@ function DraftSheet({
     setCaptains((previous) => previous.includes(player) ? previous.filter((p) => p !== player) : previous.length < n ? [...previous, player] : previous);
   };
   const crew = draft?.roles || roles;
-  const shell = (children) => /* @__PURE__ */ React10.createElement(
+  const shell = (children) => /* @__PURE__ */ React22.createElement(
     Sheet,
     {
       title: ev.name,
       subtitle: "Captains draft",
+      show: true,
       onClose,
       busy: !!pending,
       wide: true,
@@ -7162,7 +11432,7 @@ function DraftSheet({
     children
   );
   const confirmed = state.draws?.[ev.id];
-  if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(/* @__PURE__ */ React10.createElement(
+  if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(/* @__PURE__ */ React22.createElement(
     ConfirmedTeams,
     {
       state,
@@ -7172,8 +11442,8 @@ function DraftSheet({
       onPlayer
     }
   ));
-  if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React10.createElement("p", null, "Draft closed."));
-  if (!draft) return shell(/* @__PURE__ */ React10.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React10.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React10.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-note" }, "Pick order reverses each round."), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React10.createElement(
+  if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React22.createElement("p", null, "Draft closed."));
+  if (!draft) return shell(/* @__PURE__ */ React22.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React22.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React22.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -7183,7 +11453,7 @@ function DraftSheet({
       onClick: () => chooseMethod(id)
     },
     text
-  ))), /* @__PURE__ */ React10.createElement("ol", { className: "fd-draft-captain-order", "aria-label": "Captain pick order" }, Array.from({ length: n }, (_, index) => /* @__PURE__ */ React10.createElement("li", { key: `${index}:${captains[index] || "empty"}`, className: captains[index] ? "is-filled" : "" }, /* @__PURE__ */ React10.createElement("small", null, index + 1), captains[index] ? /* @__PURE__ */ React10.createElement(
+  ))), /* @__PURE__ */ React22.createElement("ol", { className: "fd-draft-captain-order", "aria-label": "Captain pick order" }, Array.from({ length: n }, (_, index) => /* @__PURE__ */ React22.createElement("li", { key: `${index}:${captains[index] || "empty"}`, className: captains[index] ? "is-filled" : "" }, /* @__PURE__ */ React22.createElement("small", null, index + 1), captains[index] ? /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -7191,10 +11461,10 @@ function DraftSheet({
       onClick: () => toggleCaptain(captains[index]),
       "aria-label": `Remove ${disp(state, captains[index])} as captain`
     },
-    /* @__PURE__ */ React10.createElement(BankChip, { p: captains[index], size: 36 }),
-    /* @__PURE__ */ React10.createElement("span", null, disp(state, captains[index])),
-    /* @__PURE__ */ React10.createElement("b", { "aria-hidden": "true" }, "\xD7")
-  ) : /* @__PURE__ */ React10.createElement("span", null, "Captain ", index + 1)))), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-pool", "aria-label": "Players" }, (pool || []).map((player) => /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-candidate", key: player }, /* @__PURE__ */ React10.createElement(
+    /* @__PURE__ */ React22.createElement(BankChip, { p: captains[index], size: 36 }),
+    /* @__PURE__ */ React22.createElement("span", null, disp(state, captains[index])),
+    /* @__PURE__ */ React22.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React22.createElement(Icon, { name: "close", size: "1em" }))
+  ) : /* @__PURE__ */ React22.createElement("span", null, "Captain ", index + 1)))), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-pool", "aria-label": "Players" }, (pool || []).map((player) => /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-candidate", key: player }, /* @__PURE__ */ React22.createElement(
     "button",
     {
       type: "button",
@@ -7204,10 +11474,10 @@ function DraftSheet({
       disabled: !!pending || !captains.includes(player) && captains.length === n,
       onClick: () => toggleCaptain(player)
     },
-    /* @__PURE__ */ React10.createElement(Avatar, { state, p: player, size: 36 }),
-    /* @__PURE__ */ React10.createElement("span", null, disp(state, player)),
-    /* @__PURE__ */ React10.createElement("b", { "aria-hidden": "true" }, captains.includes(player) ? captains.indexOf(player) + 1 : "+")
-  )))), !!crew.length && /* @__PURE__ */ React10.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), error && /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-footer" }, /* @__PURE__ */ React10.createElement(
+    /* @__PURE__ */ React22.createElement(Avatar, { state, p: player, size: 36 }),
+    /* @__PURE__ */ React22.createElement("span", null, disp(state, player)),
+    /* @__PURE__ */ React22.createElement("b", { "aria-hidden": "true" }, captains.includes(player) ? captains.indexOf(player) + 1 : "+")
+  )))), !!crew.length && /* @__PURE__ */ React22.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), error && /* @__PURE__ */ React22.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-footer" }, /* @__PURE__ */ React22.createElement(
     ActionButton,
     {
       disabled: captains.length !== n || blocked,
@@ -7232,16 +11502,16 @@ function DraftSheet({
       () => playSound("S18", { bus: "you", delayMs: prefersReducedMotion() ? 0 : MOTION.cardFlight })
     );
   };
-  return shell(/* @__PURE__ */ React10.createElement("div", { className: `fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`, ref: board, tabIndex: -1 }, /* @__PURE__ */ React10.createElement(
+  return shell(/* @__PURE__ */ React22.createElement("div", { className: `fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`, ref: board, tabIndex: -1 }, /* @__PURE__ */ React22.createElement(
     "section",
     {
       className: `fd-draft-turn${myTurn ? " is-mine" : ""}${turn.complete ? " is-complete" : ""}`,
       "aria-label": "Current pick",
       style: identityStyle(state, turn.captain || draft.teams[0].captain)
     },
-    /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React10.createElement("small", null, turn.complete ? `${draft.teams.length} teams \xB7 ${size} players each` : `Round ${turn.round} \xB7 Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`), /* @__PURE__ */ React10.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), (turn.complete || canPick && gm && !myTurn) && /* @__PURE__ */ React10.createElement("p", null, turn.complete ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm." : `Picking for ${disp(state, turn.captain)}`)),
-    /* @__PURE__ */ React10.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React10.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
-    /* @__PURE__ */ React10.createElement(
+    /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React22.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React22.createElement("small", null, turn.complete ? /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("span", null, draft.teams.length, " teams"), /* @__PURE__ */ React22.createElement("span", null, size, " players each")) : /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement(OneSafe, { text: `Round ${turn.round}` })), /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement(OneSafe, { text: `Pick ${turn.pickIndex + 1} of ${turn.totalPicks}` })))), !turn.complete && canPick && gm && !myTurn && /* @__PURE__ */ React22.createElement("p", null, `Picking for ${disp(state, turn.captain)}`)),
+    /* @__PURE__ */ React22.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React22.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
+    /* @__PURE__ */ React22.createElement(
       "div",
       {
         className: "fd-draft-progress",
@@ -7251,9 +11521,9 @@ function DraftSheet({
         "aria-valuemin": 0,
         "aria-valuemax": turn.totalPicks
       },
-      /* @__PURE__ */ React10.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
+      /* @__PURE__ */ React22.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
     )
-  ), /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React10.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order", ref: queueBox }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React10.createElement("li", { key: pickIndex, "data-flip": pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React10.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React10.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React10.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React10.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React10.createElement("span", null, "\u2192 ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React10.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React10.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React10.createElement("h3", null, "Available"), /* @__PURE__ */ React10.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-pool", ref: poolBox }, draft.pool.map((player) => /* @__PURE__ */ React10.createElement(
+  ), /* @__PURE__ */ React22.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React22.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order", ref: queueBox }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React22.createElement("li", { key: pickIndex, "data-flip": pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React22.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React22.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-latest", key: `${draft.id}:${draft.picks.length}:${last.player}` }, /* @__PURE__ */ React22.createElement("span", { className: "fd-draft-pick-stamp" }, String(draft.picks.length).padStart(2, "0")), /* @__PURE__ */ React22.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }), /* @__PURE__ */ React22.createElement("span", null, /* @__PURE__ */ React22.createElement(Icon, { name: "then", size: "1em" }), " ", disp(state, draft.teams[last.team].captain))), blocked && /* @__PURE__ */ React22.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React22.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React22.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React22.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React22.createElement("h3", null, "Available"), /* @__PURE__ */ React22.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-pool", ref: poolBox }, draft.pool.map((player) => /* @__PURE__ */ React22.createElement(
     "div",
     {
       className: `fd-draft-candidate${pending === `pick:${player}` ? " is-lifting" : ""}`,
@@ -7261,7 +11531,7 @@ function DraftSheet({
       "data-flip": player,
       style: identityStyle(state, player)
     },
-    /* @__PURE__ */ React10.createElement(
+    /* @__PURE__ */ React22.createElement(
       "button",
       {
         type: "button",
@@ -7270,9 +11540,9 @@ function DraftSheet({
         onClick: () => onPlayer?.(player),
         "aria-label": `View ${disp(state, player)}'s player card`
       },
-      /* @__PURE__ */ React10.createElement(Avatar, { state, p: player, size: 36 })
+      /* @__PURE__ */ React22.createElement(Avatar, { state, p: player, size: 36 })
     ),
-    /* @__PURE__ */ React10.createElement(
+    /* @__PURE__ */ React22.createElement(
       "button",
       {
         type: "button",
@@ -7281,10 +11551,10 @@ function DraftSheet({
         "aria-label": `Draft ${disp(state, player)}`,
         onClick: () => pick(player)
       },
-      /* @__PURE__ */ React10.createElement("span", null, disp(state, player)),
-      /* @__PURE__ */ React10.createElement("small", null, pending === `pick:${player}` ? "Picking\u2026" : canPick ? "Pick +" : "Available")
+      /* @__PURE__ */ React22.createElement("span", null, disp(state, player)),
+      /* @__PURE__ */ React22.createElement("small", null, pending === `pick:${player}` ? "Picking\u2026" : canPick ? "Pick +" : "Available")
     )
-  )))), /* @__PURE__ */ React10.createElement("section", { "aria-label": "Draft teams" }, /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React10.createElement("h3", null, "Teams"), /* @__PURE__ */ React10.createElement("span", null, turn.pickIndex, "/", turn.totalPicks, " picks")), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(n, 3) } }, draft.teams.map((team, index) => /* @__PURE__ */ React10.createElement(
+  )))), /* @__PURE__ */ React22.createElement("section", { "aria-label": "Draft teams" }, /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React22.createElement("h3", null, "Teams"), /* @__PURE__ */ React22.createElement("span", null, turn.pickIndex, "/", turn.totalPicks, " picks")), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(n, 3) } }, draft.teams.map((team, index) => /* @__PURE__ */ React22.createElement(
     "section",
     {
       key: team.captain,
@@ -7292,15 +11562,15 @@ function DraftSheet({
       style: identityStyle(state, team.captain),
       "aria-label": `${disp(state, team.captain)}'s team`
     },
-    /* @__PURE__ */ React10.createElement("header", null, /* @__PURE__ */ React10.createElement("small", null, team.players.includes(me) ? "Your team" : `Team ${index + 1}`), /* @__PURE__ */ React10.createElement("span", null, team.players.length, "/", size)),
-    /* @__PURE__ */ React10.createElement(PlayerLink, { state, player: team.captain, onPlayer, disabled: !!pending }),
-    /* @__PURE__ */ React10.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
-    /* @__PURE__ */ React10.createElement("ol", null, Array.from({ length: size - 1 }, (_, slot) => {
+    /* @__PURE__ */ React22.createElement("header", null, /* @__PURE__ */ React22.createElement("small", null, team.players.includes(me) ? "Your team" : `Team ${index + 1}`), /* @__PURE__ */ React22.createElement("span", null, team.players.length, "/", size)),
+    /* @__PURE__ */ React22.createElement(PlayerLink, { state, player: team.captain, onPlayer, disabled: !!pending }),
+    /* @__PURE__ */ React22.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
+    /* @__PURE__ */ React22.createElement("ol", null, Array.from({ length: size - 1 }, (_, slot) => {
       const player = team.players[slot + 1];
       const seatClass = !player ? "is-empty" : `is-seated${player === last?.player ? " is-latest" : ""}${player === arriving ? " is-arriving" : ""}${player === landed ? " is-landed" : ""}`;
-      return /* @__PURE__ */ React10.createElement("li", { key: player || `empty:${slot}`, "data-seat": player || void 0, className: seatClass }, player ? /* @__PURE__ */ React10.createElement(PlayerLink, { state, player, onPlayer, disabled: !!pending }) : /* @__PURE__ */ React10.createElement(React10.Fragment, null, /* @__PURE__ */ React10.createElement("span", { className: "fd-draft-empty-chip", "aria-hidden": "true" }), /* @__PURE__ */ React10.createElement("span", null, "Pick ", Array.from({ length: turn.totalPicks }, (_2, k) => k).filter((k) => snakeTeam(k, n) === index)[slot] + 1)));
+      return /* @__PURE__ */ React22.createElement("li", { key: player || `empty:${slot}`, "data-seat": player || void 0, className: seatClass }, player ? /* @__PURE__ */ React22.createElement(PlayerLink, { state, player, onPlayer, disabled: !!pending }) : /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("span", { className: "fd-draft-empty-chip", "aria-hidden": "true" }), /* @__PURE__ */ React22.createElement("span", null, "Pick ", Array.from({ length: turn.totalPicks }, (_2, k) => k).filter((k) => snakeTeam(k, n) === index)[slot] + 1)));
     }))
-  ))))), !!crew.length && /* @__PURE__ */ React10.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), gm && /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-footer" }, turn.complete && /* @__PURE__ */ React10.createElement(
+  ))))), !!crew.length && /* @__PURE__ */ React22.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), gm && /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-footer" }, turn.complete && /* @__PURE__ */ React22.createElement(
     ActionButton,
     {
       disabled: blocked,
@@ -7308,7 +11578,7 @@ function DraftSheet({
       onClick: () => submit("finish", () => onFinalize(ref), onClose)
     },
     "Confirm teams"
-  ), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-secondary-actions" }, /* @__PURE__ */ React10.createElement(
+  ), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-secondary-actions" }, /* @__PURE__ */ React22.createElement(
     ActionButton,
     {
       compact: true,
@@ -7317,7 +11587,7 @@ function DraftSheet({
       onClick: () => submit("undo", () => onUndo(ref))
     },
     "Undo last pick"
-  ), /* @__PURE__ */ React10.createElement(ActionButton, { compact: true, variant: "tertiary", disabled: blocked || !!pending, onClick: () => setConfirmCancel((value) => !value) }, "Cancel draft")), confirmCancel && /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-cancel" }, /* @__PURE__ */ React10.createElement("p", null, "Discard this draft and its picks?"), /* @__PURE__ */ React10.createElement(
+  ), /* @__PURE__ */ React22.createElement(ActionButton, { compact: true, variant: "tertiary", disabled: blocked || !!pending, onClick: () => setConfirmCancel((value) => !value) }, "Cancel draft")), confirmCancel && /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-cancel" }, /* @__PURE__ */ React22.createElement("p", null, "Discard this draft and its picks?"), /* @__PURE__ */ React22.createElement(
     ActionButton,
     {
       compact: true,
@@ -7326,15 +11596,15 @@ function DraftSheet({
       onClick: () => submit("cancel", () => onCancel(ref), onClose)
     },
     "Discard draft"
-  ), /* @__PURE__ */ React10.createElement(ActionButton, { compact: true, variant: "secondary", disabled: !!pending, onClick: () => setConfirmCancel(false) }, "Keep drafting")))));
+  ), /* @__PURE__ */ React22.createElement(ActionButton, { compact: true, variant: "secondary", disabled: !!pending, onClick: () => setConfirmCancel(false) }, "Keep drafting")))));
 }
 function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
   const order = draw.teams.map((team, index) => ({ team, index })).sort((a, b) => Number(b.team.players.includes(me)) - Number(a.team.players.includes(me)));
   const role = (draw.roles || []).find((item) => item.player === me);
-  return /* @__PURE__ */ React10.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React10.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React10.createElement("span", null, draw.teams.length, " teams of ", size)), role && /* @__PURE__ */ React10.createElement("p", { className: "fd-draft-note" }, "Your role \xB7 ", overflowRoleMeta(role.role).label), /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
+  return /* @__PURE__ */ React22.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React22.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React22.createElement("span", null, draw.teams.length, " teams of ", size)), role && /* @__PURE__ */ React22.createElement("p", { className: "fd-draft-note fd-draft-role" }, /* @__PURE__ */ React22.createElement("small", null, "Your role"), /* @__PURE__ */ React22.createElement("strong", null, overflowRoleMeta(role.role).label)), /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
     const captain = team.captain || team.players[0];
     const yours = team.players.includes(me);
-    return /* @__PURE__ */ React10.createElement(
+    return /* @__PURE__ */ React22.createElement(
       "section",
       {
         key: captain,
@@ -7342,479 +11612,64 @@ function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
         style: identityStyle(state, captain),
         "aria-label": yours ? "Your team" : `${disp(state, captain)}'s team`
       },
-      /* @__PURE__ */ React10.createElement("header", null, /* @__PURE__ */ React10.createElement("small", null, yours ? "Your team" : team.name || `Team ${index + 1}`), /* @__PURE__ */ React10.createElement("span", null, team.players.length, "/", size)),
-      yours && team.name && /* @__PURE__ */ React10.createElement("strong", { className: "fd-draft-team-name" }, team.name),
-      /* @__PURE__ */ React10.createElement(PlayerLink, { state, player: captain, onPlayer }),
-      /* @__PURE__ */ React10.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
-      /* @__PURE__ */ React10.createElement("ol", null, team.players.filter((player) => player !== captain).map((player) => /* @__PURE__ */ React10.createElement("li", { key: player, className: "is-seated" }, /* @__PURE__ */ React10.createElement(PlayerLink, { state, player, onPlayer }))))
+      /* @__PURE__ */ React22.createElement("header", null, /* @__PURE__ */ React22.createElement("small", null, yours ? "Your team" : team.name || `Team ${index + 1}`), /* @__PURE__ */ React22.createElement("span", null, team.players.length, "/", size)),
+      yours && team.name && /* @__PURE__ */ React22.createElement("strong", { className: "fd-draft-team-name" }, team.name),
+      /* @__PURE__ */ React22.createElement(PlayerLink, { state, player: captain, onPlayer }),
+      /* @__PURE__ */ React22.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
+      /* @__PURE__ */ React22.createElement("ol", null, team.players.filter((player) => player !== captain).map((player) => /* @__PURE__ */ React22.createElement("li", { key: player, className: "is-seated" }, /* @__PURE__ */ React22.createElement(PlayerLink, { state, player, onPlayer }))))
     );
-  })), !!draw.roles?.length && /* @__PURE__ */ React10.createElement(DraftCrew, { state, roles: draw.roles, onPlayer }));
+  })), !!draw.roles?.length && /* @__PURE__ */ React22.createElement(DraftCrew, { state, roles: draw.roles, onPlayer }));
 }
 function PickFlyer({ state, player }) {
-  return /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-flyer", style: identityStyle(state, player) }, /* @__PURE__ */ React10.createElement(Avatar, { state, p: player, size: 36 }), /* @__PURE__ */ React10.createElement("span", null, disp(state, player)));
+  return /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-flyer", style: identityStyle(state, player) }, /* @__PURE__ */ React22.createElement(Avatar, { state, p: player, size: 36 }), /* @__PURE__ */ React22.createElement("span", null, disp(state, player)));
 }
 function DraftCrew({ state, roles, onPlayer, disabled }) {
-  return /* @__PURE__ */ React10.createElement("div", { className: "fd-draft-crew" }, /* @__PURE__ */ React10.createElement("small", null, "Crew"), roles.map(({ player, role }) => /* @__PURE__ */ React10.createElement("div", { key: player }, /* @__PURE__ */ React10.createElement(PlayerLink, { state, player, onPlayer, disabled }), /* @__PURE__ */ React10.createElement("span", null, overflowRoleMeta(role).label))));
+  return /* @__PURE__ */ React22.createElement("div", { className: "fd-draft-crew" }, /* @__PURE__ */ React22.createElement("small", null, "Crew"), roles.map(({ player, role }) => /* @__PURE__ */ React22.createElement("div", { key: player }, /* @__PURE__ */ React22.createElement(PlayerLink, { state, player, onPlayer, disabled }), /* @__PURE__ */ React22.createElement("span", null, overflowRoleMeta(role).label))));
 }
 
-// src/features/poker/PokerMotion.jsx
-init_core();
-init_PlayerIdentity();
-import React12, { useEffect as useEffect10, useLayoutEffect as useLayoutEffect5, useRef as useRef9, useState as useState12 } from "react";
-
-// src/features/wagers/BetStacks.jsx
-init_theme();
-init_PlayerIdentity();
-init_PlayerIdentityContext();
-init_chipCoin();
-import React11, { useEffect as useEffect9, useLayoutEffect as useLayoutEffect4, useMemo, useRef as useRef8, useState as useState11 } from "react";
-
-// src/features/wagers/betStacks.js
-init_core();
-var STACK_CAP = 10;
-var STACK_TILT = 0.6;
-function stackGeometry(size, shown, ring = false) {
-  const D = Math.max(8, Number(size) || 0);
-  const pad = Math.max(1.5, D * 0.04);
-  const rx = D * 15.4 / 32, ry = rx * STACK_TILT, t = Math.max(2.4, D * 0.115);
-  const yFace = pad + D * STACK_TILT / 2;
-  return {
-    D,
-    pad,
-    rx,
-    ry,
-    t,
-    cx: pad + D / 2,
-    yFace,
-    width: D + pad * 2,
-    height: yFace + Math.max(1, shown) * t + ry + pad + (ring ? 3 : 0)
-  };
-}
-var STACK_TOWER = 2;
-var towerTiers = (chips, cap = STACK_CAP) => chips <= cap ? 0 : chips <= 2 * cap ? 1 : STACK_TOWER;
-var towerGap = (size) => Math.max(4, Math.round(Math.max(8, Number(size) || 0) * 0.14));
-var stackMaxHeight = (size, cap = STACK_CAP) => stackGeometry(size, cap + STACK_TOWER).height + towerGap(size);
-var stackChipCount = (stake) => {
-  const value = Math.max(0, Number(stake) || 0);
-  return value > 0 ? Math.max(1, Math.floor(value / PT)) : 0;
-};
-function stackView(stake, cap = STACK_CAP) {
-  const chips = stackChipCount(stake);
-  return { chips, shown: Math.min(chips, cap), capped: chips > cap };
-}
-function orderStacks(entries = []) {
-  const byPlayer = /* @__PURE__ */ new Map();
-  for (const entry of entries) {
-    if (!entry?.player) continue;
-    byPlayer.set(entry.player, (byPlayer.get(entry.player) || 0) + (Number(entry.stake) || 0));
-  }
-  return [...byPlayer].filter(([, stake]) => stake > 0).map(([player, stake]) => ({ player, stake, ...stackView(stake) })).sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
-}
-var stacksTotal = (stacks) => stacks.reduce((sum, item) => sum + item.stake, 0);
-function sideKeyOf(state, contest, wager) {
-  if (contest.kind === "ffa" && wager.pickTeam) {
-    const side = contest.sides?.find((item) => item.players.length === wager.pickPlayers?.length && item.players.every((p) => wager.pickPlayers.includes(p)));
-    if (side) return side.key;
-  }
-  return wagerSide(state, wager);
-}
-function settledStacks(state, events, contest, matches = (wager) => wagerMatchesContest(wager, contest)) {
-  const won = /* @__PURE__ */ new Map(), lost = /* @__PURE__ */ new Map();
-  (state.wagers || []).forEach((wager) => {
-    if (!contest || !matches(wager)) return;
-    const result = resolveWager(state, wager, events);
-    if (result.status !== "won" && result.status !== "lost") return;
-    const into = result.status === "won" ? won : lost;
-    const cur = into.get(wager.player) || { player: wager.player, stake: 0, paid: 0 };
-    cur.stake += Number(wager.stake) || 0;
-    if (result.status === "won") cur.paid += Math.max(0, result.delta);
-    into.set(wager.player, cur);
-  });
-  const shape = (map, status) => [...map.values()].map((item) => ({
-    ...item,
-    ...stackView(item.stake),
-    status,
-    after: status === "won" ? item.stake + item.paid : 0
-  })).sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
-  const winners = shape(won, "won"), losers = shape(lost, "lost");
-  return {
-    winners,
-    losers,
-    paid: winners.reduce((sum, item) => sum + item.paid, 0),
-    lost: losers.reduce((sum, item) => sum + item.stake, 0),
-    any: winners.length + losers.length > 0
-  };
-}
-function groupStacks(stacks = [], slots = Infinity, keep = null) {
-  const list = stacks || [];
-  const room = Math.max(1, Math.floor(Number(slots) || 0) || 1);
-  if (!Number.isFinite(Number(slots)) || list.length <= room) return { shown: list, rest: null };
-  const size = Math.max(1, room - 1);
-  let shown = list.slice(0, size);
-  const kept = keep ? list.find((item) => item.player === keep) : null;
-  if (kept && !shown.includes(kept)) shown = [...list.slice(0, size - 1), kept];
-  const tail = list.filter((item) => !shown.includes(item));
-  return { shown, rest: {
-    players: tail.map((item) => item.player),
-    count: tail.length,
-    total: stacksTotal(tail),
-    stacks: tail
-  } };
-}
-function contestWinnerKey(state, evId, contest) {
-  if (!contest) return null;
-  if (contest.kind === "ffa") {
-    const first = state.results?.[evId]?.slots?.[0];
-    const top = Array.isArray(first) ? first : first != null ? [first] : [];
-    if (!top.length) return null;
-    const side = (contest.sides || []).find((item) => item.players.some((p) => top.includes(p)));
-    return side ? side.key : null;
-  }
-  const stack = state.eventOps?.[evId]?.contestStack;
-  const list = Array.isArray(stack) ? stack : state.eventOps?.[evId]?.lastContest ? [state.eventOps[evId].lastContest] : [];
-  for (let i = list.length - 1; i >= 0; i--) if (list[i]?.id === contest.id) return list[i].winner ?? null;
-  return null;
-}
-function decidedContest(state, events, evId, contest) {
-  const winner = contestWinnerKey(state, evId, contest);
-  if (!contest || winner === null || winner === void 0) return null;
-  const bySide = new Map((contest.sides || []).map((side) => [side.key, /* @__PURE__ */ new Map()]));
-  (state.wagers || []).forEach((wager) => {
-    if (!wagerMatchesContest(wager, contest)) return;
-    const result = resolveWager(state, wager, events);
-    if (result.status !== "won" && result.status !== "lost") return;
-    const side = bySide.get(sideKeyOf(state, contest, wager));
-    if (!side) return;
-    const cur = side.get(wager.player) || { player: wager.player, stake: 0, paid: 0, status: result.status };
-    cur.stake += Number(wager.stake) || 0;
-    if (result.status === "won") cur.paid += Math.max(0, result.delta);
-    side.set(wager.player, cur);
-  });
-  const sides = (contest.sides || []).map((side) => {
-    const stacks = [...bySide.get(side.key).values()].sort((a, b) => b.stake - a.stake || a.player.localeCompare(b.player));
-    const won = side.key === winner;
-    return {
-      key: side.key,
-      players: side.players,
-      won,
-      stacks,
-      total: stacksTotal(stacks),
-      paid: stacks.reduce((sum, item) => sum + item.paid, 0)
-    };
-  });
-  return {
-    winner,
-    sides,
-    paid: sides.reduce((sum, side) => sum + side.paid, 0),
-    lost: sides.filter((side) => !side.won).reduce((sum, side) => sum + side.total, 0),
-    any: sides.some((side) => side.stacks.length > 0)
-  };
-}
-var hoverRect = (anchor, size, lift = 8) => anchor ? {
-  left: anchor.left + anchor.width / 2 - size / 2,
-  top: anchor.top - size - lift,
-  width: size,
-  height: size
-} : null;
-var faceRect = (svgRect) => svgRect ? {
-  left: svgRect.left,
-  top: svgRect.top - svgRect.width * 0.2,
-  width: svgRect.width,
-  height: svgRect.width
-} : null;
-var rackTargetFor = (value, denoms, fallback) => `bets:rack:${denoms.includes(value) ? value : fallback}`;
-
-// src/features/wagers/BetStacks.jsx
-var fmt = (n) => (Number(n) || 0).toLocaleString("en-US");
-var r2 = (n) => Math.round(n * 100) / 100;
-var FACET = 360 / COIN_FACETS;
-var TURNS = [0, 0, 1, 0, 2, 0, 1];
-function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
-  const yb = yt + t;
-  const band = `M${r2(cx - rx)} ${r2(yt)}L${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}L${r2(cx + rx)} ${r2(yt)}A${r2(rx)} ${r2(ry)} 0 0 1 ${r2(cx - rx)} ${r2(yt)}Z`;
-  const marks = [];
-  inserts.forEach((ink, index) => {
-    if (!ink) return;
-    const mid = (index + turn) % COIN_FACETS * FACET + FACET / 2;
-    const a = Math.max(0, mid - FACET / 2), b = Math.min(180, mid + FACET / 2);
-    if (b <= a) return;
-    const pt = (deg, y) => `${r2(cx + rx * Math.cos(deg * Math.PI / 180))},${r2(y + ry * Math.sin(deg * Math.PI / 180))}`;
-    marks.push(/* @__PURE__ */ React11.createElement(
-      "polygon",
-      {
-        key: index,
-        className: "fd-stack-insert",
-        points: `${pt(a, yt)} ${pt(b, yt)} ${pt(b, yb)} ${pt(a, yb)}`
-      }
-    ));
-  });
-  return /* @__PURE__ */ React11.createElement(React11.Fragment, null, /* @__PURE__ */ React11.createElement("path", { className: "fd-stack-rim", d: band }), marks, /* @__PURE__ */ React11.createElement(
-    "path",
-    {
-      className: "fd-stack-seam",
-      d: `M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`,
-      strokeWidth: stroke
-    }
-  ));
-}
-function ChipStack({
-  p,
-  stake,
-  paid = 0,
-  size = 40,
-  cap = STACK_CAP,
-  mine = false,
-  settle = null,
-  delay = 0,
-  tag = true,
-  tagSize = null,
-  groups = null,
-  chip = null,
-  count = null,
-  tower = false
-}) {
-  const player = usePlayerIdentity(p);
-  const identity = chip ? { color: chip.color, isLight: !!chip.isLight, skin: chip.skin || "quad", num: chip.stamp } : player;
-  const chips = count ?? stackChipCount(stake);
-  const paidChips = count == null ? stackChipCount(paid) : 0;
-  const tiers = tower ? towerTiers(chips + paidChips, cap) : 0;
-  const gap = tiers ? towerGap(size) : 0;
-  const shown = Math.max(1, Math.min(chips + paidChips, cap)) + tiers;
-  const base = settle === "won" && chips + paidChips > cap ? Math.max(1, Math.min(cap - 1, Math.round(cap * chips / (chips + paidChips)))) : Math.min(chips, shown);
-  const paying = settle === "won" && shown > base;
-  const seen = useRef8(null);
-  if (!seen.current) seen.current = { shown, from: shown };
-  else if (seen.current.shown !== shown)
-    seen.current = { shown, from: shown > seen.current.shown ? seen.current.shown : shown };
-  const dropped = settle ? 0 : Math.max(0, shown - seen.current.from);
-  const { D, pad, rx, ry, t, cx, width, yFace, height: body } = stackGeometry(size, shown);
-  const height = body + gap;
-  const inserts = edgeInserts(identity.skin);
-  const stroke = Math.max(0.8, D / 44);
-  const light = identity.isLight;
-  const value = stake + (settle === "won" ? paid : 0);
-  const capped = chips + paidChips > cap;
-  const breakAt = shown - tiers;
-  const chipAt = (i) => {
-    const yt = yFace + (shown - 1 - i) * t + (i < breakAt ? gap : 0);
-    const isPaid = paying && i >= base;
-    const isNew = !isPaid && i >= shown - dropped;
-    return /* @__PURE__ */ React11.createElement(
-      "g",
-      {
-        key: i,
-        className: `fd-stack-chip${isPaid ? " is-paid" : ""}${isNew ? " is-drop" : ""}`,
-        style: isPaid ? { animationDelay: `${delay + (i - base) * 70}ms` } : void 0
-      },
-      /* @__PURE__ */ React11.createElement(Rim, { cx, rx, ry, yt, t, inserts, turn: TURNS[i % TURNS.length] + 1, stroke })
-    );
-  };
-  const rims = [];
-  if (groups?.length) {
-    let start = 0;
-    groups.forEach((value2, index) => {
-      const end = index === groups.length - 1 ? shown : Math.min(shown, start + stackChipCount(value2));
-      if (end <= start) return;
-      rims.push(/* @__PURE__ */ React11.createElement("g", { key: `tap-${index}`, className: "fd-stack-tap", "data-chip-stake": value2 }, Array.from({ length: end - start }, (_, k) => chipAt(start + k))));
-      start = end;
-    });
-  } else for (let i = 0; i < shown; i++) rims.push(chipAt(i));
-  if (tiers) {
-    const yb = yFace + (shown - breakAt) * t + gap / 2;
-    rims.push(/* @__PURE__ */ React11.createElement(
-      "path",
-      {
-        key: "break",
-        className: "fd-stack-break",
-        strokeWidth: Math.max(1.2, D / 22),
-        d: `M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`
-      }
-    ));
-  }
-  const rise = paying ? (shown - base) * t : 0;
-  const stamp = identity.num;
-  return /* @__PURE__ */ React11.createElement(
-    "span",
-    {
-      className: `fd-stack${light ? " is-light" : ""}${mine ? " is-mine" : ""}${settle ? ` is-${settle}` : ""}`,
-      style: { "--stack-color": identity.color, width, animationDelay: settle === "lost" ? `${delay}ms` : void 0 },
-      "data-stack-player": chip ? void 0 : p,
-      "data-chip-value": chip ? chip.stamp : void 0,
-      "data-stack-chips": shown,
-      "data-stack-tower": tiers || void 0
-    },
-    capped && tag && /* @__PURE__ */ React11.createElement("span", { className: "fd-stack-tag", style: tagSize ? { fontSize: tagSize } : void 0 }, fmt(value)),
-    /* @__PURE__ */ React11.createElement("svg", { width: r2(width), height: r2(height), viewBox: `0 0 ${r2(width)} ${r2(height)}`, "aria-hidden": "true" }, mine && /* @__PURE__ */ React11.createElement(
-      "ellipse",
-      {
-        className: "fd-stack-ring",
-        cx: r2(cx),
-        cy: r2(yFace + shown * t + gap + 1.5),
-        rx: r2(rx + 2.5),
-        ry: r2(ry + 2),
-        strokeWidth: Math.max(1.6, D / 18)
-      }
-    ), rims, /* @__PURE__ */ React11.createElement(
-      "g",
-      {
-        key: `face-${shown}`,
-        className: `fd-stack-face${dropped ? " is-drop" : ""}${paying ? " is-rising" : ""}`,
-        style: paying ? {
-          "--stack-rise": `${r2(rise)}px`,
-          animationDelay: `${delay}ms`,
-          animationDuration: `${(shown - base) * 70 + 120}ms`
-        } : void 0
-      },
-      /* @__PURE__ */ React11.createElement("g", { transform: `translate(${r2(pad)} ${r2(yFace - D * STACK_TILT / 2)}) scale(1 ${STACK_TILT})` }, /* @__PURE__ */ React11.createElement(
-        ChipFace,
-        {
-          p,
-          size: D,
-          stamp: "",
-          flat: true,
-          ...chip ? { color: identity.color, isLight: identity.isLight, skin: identity.skin } : {}
-        }
-      )),
-      D >= 20 && stamp != null && /* @__PURE__ */ React11.createElement(
-        "text",
-        {
-          x: r2(cx),
-          y: r2(yFace + D * 0.02),
-          textAnchor: "middle",
-          dominantBaseline: "central",
-          fontFamily: DISPLAY,
-          fontWeight: "700",
-          className: "fd-stack-num",
-          fontSize: r2(D * (String(stamp).length > 3 ? 0.25 : String(stamp).length > 2 ? 0.3 : 0.36)),
-          transform: `translate(0 ${r2(yFace)}) scale(1 .86) translate(0 ${r2(-yFace)})`
-        },
-        stamp
-      )
-    ))
-  );
-}
-var groupChip = (count) => ({ color: "var(--silver)", isLight: true, skin: "plain", stamp: `+${count}` });
-function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, label: label2 = true, valueAt = "below" }) {
-  const players = rest.players;
-  const value = /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-value" }, fmt(rest.total));
-  return /* @__PURE__ */ React11.createElement(
-    "div",
-    {
-      className: "fd-stacks-slot fd-stacks-group",
-      role: "img",
-      "aria-label": `${players.length} more: ${fmt(rest.total)} chips`
-    },
-    /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-body" }, /* @__PURE__ */ React11.createElement(
-      ChipStack,
-      {
-        chip: groupChip(players.length),
-        count: stackChipCount(rest.total),
-        size,
-        cap,
-        tag: false,
-        tower: true
-      }
-    ), valueAt === "side" && value),
-    valueAt !== "side" && value,
-    names && label2 && /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-name" }, "+", players.length)
-  );
-}
-function BetStacks({
-  stacks,
-  size = 40,
-  names = null,
-  cap = STACK_CAP,
-  settle = null,
-  delay = 0,
-  className = "",
-  mine = null,
-  slots = Infinity,
-  valueAt = "below"
-}) {
-  if (!stacks?.length) return null;
-  const { shown, rest } = groupStacks(stacks, slots, mine);
-  return /* @__PURE__ */ React11.createElement("div", { className: `fd-stacks${valueAt === "side" ? " is-value-side" : ""}${className ? ` ${className}` : ""}` }, shown.map((item, index) => {
-    const result = settle || item.status || null;
-    const at = delay + index * 90;
-    const value = /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-value" }, fmt(item.stake + (result === "won" ? item.paid || 0 : 0)));
-    return /* @__PURE__ */ React11.createElement(
-      "div",
-      {
-        key: item.player,
-        className: `fd-stacks-slot${result === "lost" ? " is-lost" : ""}`,
-        style: result === "lost" ? { animationDelay: `${at}ms` } : void 0
-      },
-      /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-body" }, /* @__PURE__ */ React11.createElement(
-        ChipStack,
-        {
-          p: item.player,
-          stake: item.stake,
-          paid: item.paid || 0,
-          size,
-          cap,
-          tag: false,
-          tower: true,
-          settle: result === "won" ? "won" : null,
-          delay: at,
-          mine: !!mine && item.player === mine
-        }
-      ), valueAt === "side" && value),
-      valueAt !== "side" && value,
-      names && /* @__PURE__ */ React11.createElement("span", { className: "fd-stacks-name" }, names(item.player))
-    );
-  }), rest && /* @__PURE__ */ React11.createElement(StackGroup, { key: "group", rest, size, cap, names: !!names, valueAt }));
-}
-
-// src/features/poker/PokerMotion.jsx
-init_motion();
-
-// src/features/poker/pokerMotion.js
-init_core();
+// src/App.jsx
+init_PokerMotion();
 
 // src/features/poker/TableView.jsx
 init_serverClock();
-import React14, { useEffect as useEffect11, useRef as useRef11, useState as useState13 } from "react";
+init_haptics();
+init_PokerChips();
+init_PokerMotion();
+init_pokerMotion();
+import React25, { useEffect as useEffect16, useRef as useRef16, useState as useState16 } from "react";
 import { createPortal as createPortal2 } from "react-dom";
-
-// src/features/poker/PokerChips.jsx
-import React13, { useLayoutEffect as useLayoutEffect6, useRef as useRef10 } from "react";
-init_motion();
-
-// src/features/poker/pokerChips.js
-init_core();
-var POKER_CHIPS = Object.freeze({
-  25: Object.freeze({ color: "var(--poker-25)", isLight: false, skin: "quad" }),
-  100: Object.freeze({ color: "var(--poker-100)", isLight: false, skin: "quad" }),
-  500: Object.freeze({ color: "var(--poker-500)", isLight: false, skin: "quad" }),
-  1e3: Object.freeze({ color: "var(--poker-1000)", isLight: true, skin: "quad" })
-});
-var POKER_DENOMINATIONS = POKER_CONFIG.denominations;
 
 // src/features/poker/tableView.js
 init_core();
+init_wakeLock();
+
+// src/features/poker/TableView.jsx
+init_ScoreReel();
+init_OneSafe();
+init_Icon();
+var DIGITS2 = [..."0123456789"];
+
+// src/App.jsx
+init_drawReveal();
 
 // src/features/home/HomeDuels.jsx
-import React16, { useRef as useRef13, useState as useState16 } from "react";
+import React27, { useRef as useRef18, useState as useState19 } from "react";
 
 // src/features/duels/DuelCard.jsx
 init_PlayerIdentity();
-import React15, { useRef as useRef12, useState as useState14 } from "react";
+import React26, { useRef as useRef17, useState as useState17 } from "react";
 
 // src/features/duels/duelView.js
 init_core();
-
-// src/features/tv/serverClock.js
-init_serverClock();
-
-// src/features/duels/duelView.js
-var fmt2 = (n) => (n ?? 0).toLocaleString("en-US");
+init_serverClock2();
+var fmt4 = (n) => (n ?? 0).toLocaleString("en-US");
 var duelsOpen = (state) => !!(state?.live && !state.frozen && !(state.poker && !state.results?.[state.poker.id]) && !pokerLive(state) && !stacksPosted(state));
-var minutesLeft = (duel, now = serverNow()) => {
+var minutesLeft = (duel, now2 = serverNow()) => {
   const at = duelLapsesAt(duel);
-  return at === null ? null : Math.max(1, Math.ceil((at - now) / 6e4));
+  return at === null ? null : Math.max(1, Math.ceil((at - now2) / 6e4));
 };
-function duelView(state, duel, me, now = serverNow()) {
-  const phase = duelPhase(duel, now);
+function duelView(state, duel, me, now2 = serverNow()) {
+  const phase = duelPhase(duel, now2);
   const sender = !!me && duel.from === me;
   const recipient = !!me && !!duel.to && duel.to === me;
   const other = sender ? duel.to || null : duel.from;
@@ -7822,16 +11677,16 @@ function duelView(state, duel, me, now = serverNow()) {
   const myRun = me ? duel.runs?.[me] || null : null;
   const otherDrew = !!(other && duel.runs?.[other]);
   const offer = phase === "offered";
-  const live = phase === "live";
-  const takeable = offer && !!duel.open && !!me && !sender && !duelBetween(state, duel.from, me, now);
+  const live2 = phase === "live";
+  const takeable = offer && !!duel.open && !!me && !sender && !duelBetween(state, duel.from, me, now2);
   const canAccept = offer && (recipient || takeable);
-  const canDecline = offer && recipient || live && recipient && !myRun;
+  const canDecline = offer && recipient || live2 && recipient && !myRun;
   const canWithdraw = offer && sender;
-  const canPlay = live && (sender || recipient) && !myRun;
-  const left = offer ? minutesLeft(duel, now) : null;
+  const canPlay = live2 && (sender || recipient) && !myRun;
+  const left = offer ? minutesLeft(duel, now2) : null;
   let status = "";
-  if (offer) status = sender ? duel.open ? `Open to anyone \xB7 ${left} min` : `Waiting for ${name} to accept \xB7 ${left} min` : duel.open ? `Open challenge \xB7 ${left} min` : "Challenged you";
-  else if (live) status = myRun ? `Waiting for ${name} to draw` : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you" : otherDrew ? `${name} has drawn` : "Your turn";
+  if (offer) status = sender ? duel.open ? "Open to anyone" : `Waiting for ${name} to accept` : duel.open ? "Open challenge" : "Challenged you";
+  else if (live2) status = myRun ? `Waiting for ${name} to draw` : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you" : otherDrew ? `${name} has drawn` : "Your turn";
   return {
     phase,
     sender,
@@ -7870,10 +11725,11 @@ function duelRecord(state, viewer, other) {
   const net = lines.reduce((sum, line) => sum + line.delta, 0);
   return { lines, won, lost, net };
 }
-var signedChips2 = (n) => `${n > 0 ? "+" : n < 0 ? "-" : ""}${fmt2(Math.abs(n))}`;
+var signedChips2 = (n) => `${n > 0 ? "+" : n < 0 ? "-" : ""}${fmt4(Math.abs(n))}`;
 var ANTES = [PT, 2 * PT, 5 * PT, 10 * PT];
 
 // src/features/duels/DuelCard.jsx
+init_haptics();
 var actionStyle = {
   minWidth: 0,
   minHeight: 44,
@@ -7889,13 +11745,13 @@ var actionStyle = {
 };
 var DONE = { decline: "Declined", withdraw: "Withdrawn", void: "Voided" };
 var PENDING = { accept: "Accepting\u2026", decline: "Declining\u2026", withdraw: "Withdrawing\u2026", void: "Voiding\u2026" };
-function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWithdraw, onVoid, onPlayer, bare = false }) {
-  const [pendingAction, setPendingAction] = useState14(null);
-  const [error, setError] = useState14("");
-  const [acknowledged, setAcknowledged] = useState14(null);
-  const pending = useRef12(null);
-  const finished = useRef12(false);
-  const view = duelView(state, duel, me, now);
+function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline, onWithdraw, onVoid, onPlayer, bare = false }) {
+  const [pendingAction, setPendingAction] = useState17(null);
+  const [error, setError] = useState17("");
+  const [acknowledged, setAcknowledged] = useState17(null);
+  const pending = useRef17(null);
+  const finished = useRef17(false);
+  const view = duelView(state, duel, me, now2);
   const { other, name } = view;
   const busy = !!pendingAction;
   const submit = (action, handler) => {
@@ -7970,21 +11826,15 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
     }
   ].filter(Boolean);
   const highlight = view.canPlay || view.canAccept;
-  return /* @__PURE__ */ React15.createElement(
+  return /* @__PURE__ */ React26.createElement(
     "article",
     {
       "aria-label": `Quick Draw with ${name}`,
       "aria-busy": busy,
-      style: bare ? { minWidth: 0 } : {
-        padding: 12,
-        border: "1px solid var(--line)",
-        borderRadius: 14,
-        marginBottom: 8,
-        background: highlight ? "var(--sun-tint)" : "var(--paper)",
-        minWidth: 0
-      }
+      className: bare ? void 0 : `fd-glass-field fd-field-chip fd-lamp is-chip${highlight ? " is-live" : ""}`,
+      style: bare ? { minWidth: 0 } : { padding: "12px 12px 12px", marginBottom: 8, minWidth: 0 }
     },
-    /* @__PURE__ */ React15.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } }, other && onPlayer ? /* @__PURE__ */ React15.createElement(
+    /* @__PURE__ */ React26.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } }, other && onPlayer ? /* @__PURE__ */ React26.createElement(
       "button",
       {
         type: "button",
@@ -8007,9 +11857,9 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
           fontFamily: "var(--fd-body)"
         }
       },
-      /* @__PURE__ */ React15.createElement(Avatar, { state, p: other, size: 36 }),
-      /* @__PURE__ */ React15.createElement("span", { style: { flex: 1, minWidth: 0, overflowWrap: "anywhere" } }, /* @__PURE__ */ React15.createElement("strong", { style: { display: "block", fontSize: 14, fontWeight: 600, lineHeight: 1.3 } }, name), /* @__PURE__ */ React15.createElement("span", { style: { display: "block", marginTop: 3, fontSize: 11, lineHeight: 1.4, color: "var(--muted2)" } }, view.status))
-    ) : /* @__PURE__ */ React15.createElement("div", { style: {
+      /* @__PURE__ */ React26.createElement(Avatar, { state, p: other, size: 36 }),
+      /* @__PURE__ */ React26.createElement("span", { style: { flex: 1, minWidth: 0, overflowWrap: "anywhere" } }, /* @__PURE__ */ React26.createElement("strong", { style: { display: "block", fontSize: 14, fontWeight: 600, lineHeight: 1.3 } }, name), /* @__PURE__ */ React26.createElement("span", { style: { display: "block", marginTop: 3, fontSize: 12, lineHeight: 1.4, color: "var(--muted2)" } }, view.status))
+    ) : /* @__PURE__ */ React26.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 10,
@@ -8018,8 +11868,8 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
       minHeight: 44,
       fontFamily: "var(--fd-body)",
       color: "var(--ink)"
-    } }, other && /* @__PURE__ */ React15.createElement(Avatar, { state, p: other, size: 36 }), /* @__PURE__ */ React15.createElement("span", { style: { flex: 1, minWidth: 0, overflowWrap: "anywhere" } }, /* @__PURE__ */ React15.createElement("strong", { style: { display: "block", fontSize: 14, fontWeight: 600, lineHeight: 1.3 } }, name), /* @__PURE__ */ React15.createElement("span", { style: { display: "block", marginTop: 3, fontSize: 11, lineHeight: 1.4, color: "var(--muted2)" } }, view.status))), /* @__PURE__ */ React15.createElement("span", { style: { flexShrink: 0, textAlign: "right", color: "var(--ink)", fontFamily: "var(--fd-body)" } }, /* @__PURE__ */ React15.createElement("strong", { style: { fontFamily: "var(--fd-display)", fontSize: 22, fontWeight: 600 } }, (duel.stake || 0).toLocaleString("en-US")), /* @__PURE__ */ React15.createElement("small", { style: { display: "block", color: "var(--muted)", fontSize: 9, marginTop: 2 } }, "each"))),
-    acknowledged ? /* @__PURE__ */ React15.createElement("p", { role: "status", style: { margin: "10px 0 0", color: "var(--muted2)", fontSize: 12 } }, acknowledged) : !!actions.length && /* @__PURE__ */ React15.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))`, gap: 8, marginTop: 10 } }, actions.map((action) => /* @__PURE__ */ React15.createElement(
+    } }, other && /* @__PURE__ */ React26.createElement(Avatar, { state, p: other, size: 36 }), /* @__PURE__ */ React26.createElement("span", { style: { flex: 1, minWidth: 0, overflowWrap: "anywhere" } }, /* @__PURE__ */ React26.createElement("strong", { style: { display: "block", fontSize: 14, fontWeight: 600, lineHeight: 1.3 } }, name), /* @__PURE__ */ React26.createElement("span", { style: { display: "block", marginTop: 3, fontSize: 12, lineHeight: 1.4, color: "var(--muted2)" } }, view.status))), /* @__PURE__ */ React26.createElement("span", { style: { flexShrink: 0, textAlign: "right", color: "var(--ink)", fontFamily: "var(--fd-body)" } }, /* @__PURE__ */ React26.createElement("strong", { style: { fontFamily: "var(--fd-display)", fontSize: 24, fontWeight: 800, color: "var(--sun)" } }, (duel.stake || 0).toLocaleString("en-US")), /* @__PURE__ */ React26.createElement("small", { style: { display: "block", color: "var(--muted2)", fontSize: 12, marginTop: 2 } }, "each"))),
+    acknowledged ? /* @__PURE__ */ React26.createElement("p", { role: "status", style: { margin: "10px 0 0", color: "var(--muted2)", fontSize: 12 } }, acknowledged) : !!actions.length && /* @__PURE__ */ React26.createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))`, gap: 8, marginTop: 10 } }, actions.map((action) => /* @__PURE__ */ React26.createElement(
       "button",
       {
         type: "button",
@@ -8037,7 +11887,7 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
       },
       action.label
     ))),
-    error && /* @__PURE__ */ React15.createElement("p", { role: "alert", style: {
+    error && /* @__PURE__ */ React26.createElement("p", { role: "alert", style: {
       margin: "10px 0 0",
       fontFamily: "var(--fd-body)",
       fontSize: 12,
@@ -8050,45 +11900,47 @@ function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWit
 
 // src/features/duels/useDuelClock.js
 init_core();
-import { useEffect as useEffect12, useState as useState15 } from "react";
+init_serverClock2();
+import { useEffect as useEffect17, useState as useState18 } from "react";
+
+// src/App.jsx
+init_GameMark();
+init_PayoutLadder();
 
 // src/ui/AppChrome.jsx
 init_PlayerIdentity();
 init_core();
-import React19 from "react";
-
-// src/ui/Brand.jsx
-import React17 from "react";
-
-// src/ui/AppChrome.jsx
+init_Brand();
 init_controls();
+import React30 from "react";
 
 // src/ui/UpdateReady.jsx
-import React18 from "react";
+import React29 from "react";
 
 // src/ui/AppChrome.jsx
+init_ScoreReel();
+init_Icon();
+init_OneSafe();
 init_motion();
 var TAB_TARGETS = Object.freeze({ board: "tab:home", sched: "tab:events", bets: "tab:bets", guide: "tab:weekend" });
+
+// src/App.jsx
+init_Brand();
 
 // src/features/home/GuestHome.jsx
 init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
-import React26, { useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef19, useState as useState21 } from "react";
-
-// src/ui/layout.jsx
-import React22 from "react";
-function PageHeading({ kicker, title, children, aside }) {
-  return /* @__PURE__ */ React22.createElement("header", { className: "fd-page-heading" }, kicker && /* @__PURE__ */ React22.createElement("div", { className: "fd-kicker" }, kicker), /* @__PURE__ */ React22.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React22.createElement("h1", null, title), aside), children);
-}
+init_layout();
+import React36, { useLayoutEffect as useLayoutEffect10, useMemo as useMemo6, useRef as useRef24, useState as useState25 } from "react";
 
 // src/features/standings/Standings.jsx
 init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_motion();
-import React23, { useCallback as useCallback2, useLayoutEffect as useLayoutEffect8, useMemo as useMemo3, useRef as useRef17, useState as useState19 } from "react";
+import React32, { useCallback as useCallback2, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef19, useState as useState20 } from "react";
 
 // src/features/standings/boardModel.js
 var BOARD_BEATS = Object.freeze({
@@ -8109,100 +11961,69 @@ var BOARD_BEATS = Object.freeze({
 
 // src/features/standings/Standings.jsx
 init_controls();
+init_ScoreReel();
+init_OneSafe();
+init_layout();
+init_Icon();
 
 // src/features/home/homeModel.js
 init_core();
-
-// src/features/standings/winImpact.js
-init_core();
-var known = (key) => key !== null && key !== void 0;
-var ordinal = (n) => {
-  const tail = n % 100;
-  if (tail >= 11 && tail <= 13) return `${n}th`;
-  return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`;
-};
-var fmt4 = (n) => (n ?? 0).toLocaleString("en-US");
-function joinNames(names) {
-  if (names.length <= 1) return names[0] || "";
-  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-}
-function winSlots(state, ev, contest, sideKey) {
-  if (!ev || !contest || ev.finale || !(awardTable(ev)[0] > 0)) return null;
-  const side = contest.sides?.find((item) => item.key === sideKey);
-  if (!side?.players?.length) return null;
-  const table = awardTable(ev);
-  if (contest.kind === "match") {
-    const br = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
-    if (!br || !draw?.teams || !Array.isArray(contest.match)) return null;
-    const [r] = contest.match;
-    if (r !== br.rounds.length - 1) return null;
-    const runner = contest.sides.find((item) => item.key !== sideKey);
-    const before = br.rounds.length > 1 ? br.rounds[br.rounds.length - 2] : [];
-    const third = before.map((match) => [resolveSlot(br, match.a), resolveSlot(br, match.b)].find((key) => known(key) && known(match.winner) && key !== match.winner)).filter((key) => known(key) && draw.teams[key]);
-    return [
-      [...side.players],
-      table[1] > 0 && runner ? [...runner.players] : [],
-      table[2] > 0 ? third.flatMap((key) => draw.teams[key].players) : []
-    ];
-  }
-  if (contest.kind === "stage-final") return [[...side.players], [], []];
-  if (contest.kind === "ffa") {
-    const other = contest.sides.length === 2 ? contest.sides.find((item) => item.key !== sideKey) : null;
-    return [[...side.players], table[1] > 0 && other ? [...other.players] : [], []];
-  }
-  return null;
-}
-function contestWinLines(state, ev, contest, { events = allEventsOf(state), standings, keys = null } = {}) {
-  if (!state || !ev || !contest?.sides?.length) return [];
-  const settled = (state.wagers || []).filter((w) => resolveWager(state, w, events).status !== "pending");
-  const base = { ...state, wagers: settled };
-  const beforeRows = standings || computeStandings(state);
-  const before = new Map(beforeRows.map((row) => [row.player, row]));
-  return contest.sides.map((side) => {
-    if (keys && !keys.includes(side.key)) return null;
-    const slots = winSlots(state, ev, contest, side.key);
-    if (!slots) return null;
-    const after = computeStandings({ ...base, results: {
-      ...state.results || {},
-      [ev.id]: { slots, ts: 0, revision: 1 }
-    } });
-    const afterBy = new Map(after.map((row) => [row.player, row]));
-    const players = side.players.filter((p) => before.has(p) && afterBy.has(p));
-    if (!players.length) return null;
-    const movers = players.filter((p) => afterBy.get(p).rank < before.get(p).rank);
-    if (movers.length) {
-      const best = Math.min(...movers.map((p) => afterBy.get(p).rank));
-      const group = movers.filter((p) => afterBy.get(p).rank === best);
-      const shared = after.filter((row) => row.rank === best).length > group.length;
-      const whole = group.length === side.players.length && group.length > 2;
-      const names2 = whole ? teamLabel(state, { players: side.players, name: state.draws?.[ev.id]?.teams?.[side.key]?.name }) : joinNames(group.map((p) => disp(state, p)));
-      const plural = group.length > 1 && !whole;
-      const text = shared ? `Win: ${names2} ${plural ? "tie" : "ties"} for ${ordinal(best)}` : `Win: ${names2} to ${ordinal(best)}`;
-      return { key: side.key, kind: "rank", rank: best, tied: shared, players: group, text };
+var unresolved = (match) => match.winner === null || match.winner === void 0;
+function bracketPath(state, event, me) {
+  const bracket = state.brackets?.[event?.id], draw = state.draws?.[event?.id];
+  if (!bracket || !draw || state.results?.[event.id]) return null;
+  const names = ROUND_NAMES[bracket.size] || [];
+  const round = (r) => (names[r] || "Match").replace(/s$/, "");
+  const matchName = (r, m) => bracketMatchName(bracket, r, m);
+  const contest = resolveCurrentContest(state, event);
+  const current = contest?.kind === "match" ? contest.match : null;
+  const isCurrent = (r, m) => !!current && current[0] === r && current[1] === m;
+  const team = draw.teams.findIndex((item) => item.players.includes(me));
+  if (team >= 0) {
+    const steps = [];
+    let next = null, lost = false;
+    bracket.rounds.forEach((matches, r) => matches.forEach((match, m) => {
+      const a = resolveSlot(bracket, match.a), b = resolveSlot(bracket, match.b);
+      if (a !== team && b !== team) return;
+      if (!unresolved(match)) {
+        if (match.winner === team) steps.push(`${round(r)} \u2713`);
+        else lost = true;
+      } else if (!next) next = { r, m, opponent: a === team ? b : a, slot: match[a === team ? "b" : "a"] };
+    }));
+    if (!lost) {
+      if (next && isCurrent(next.r, next.m)) steps.push(`${round(next.r)} now`);
+      else if (next) {
+        const opponent = next.opponent !== null && next.opponent !== void 0 ? teamLabel(state, draw.teams[next.opponent]) : next.slot?.w ? `winner of ${matchName(next.slot.w[0], next.slot.w[1])}` : null;
+        steps.push(opponent ? `${round(next.r)} vs ${opponent}` : round(next.r));
+      }
+      const won = steps.filter((step) => step.endsWith("\u2713")).length;
+      if (steps.length) return { mine: true, text: steps.slice(Math.max(0, won - 1)).join(" \u2192 ") };
     }
-    const award = afterBy.get(players[0]).pts - before.get(players[0]).pts;
-    if (!(award > 0)) return null;
-    const names = players.length > 2 ? teamLabel(state, { players, name: state.draws?.[ev.id]?.teams?.[side.key]?.name }) : joinNames(players.map((p) => disp(state, p)));
-    return { key: side.key, kind: "chips", award, players, text: `Win: ${names} +${fmt4(award)}` };
-  });
-}
-var winLineFor = (lines, key) => (lines || []).find((line) => line && line.key === key) || null;
-
-// src/features/standings/WinLine.jsx
-import React24 from "react";
-function WinLine({ line, className = "" }) {
-  if (!line?.text) return null;
-  return /* @__PURE__ */ React24.createElement("small", { className: `fd-win-line${line.kind === "rank" ? " is-rank" : ""}${className ? ` ${className}` : ""}` }, line.text);
+  }
+  const open = bracketOrder(bracket).filter(([r, m]) => unresolved(bracket.rounds[r][m]) && !isCurrent(r, m));
+  const pick = open.find(([r, m]) => bracketMatchOpen(bracket, r, m)) || open[0];
+  return pick ? { mine: false, text: `${matchName(pick[0], pick[1])} next` } : null;
 }
 
 // src/features/home/GuestHome.jsx
+init_Icon();
+init_ScoreReel();
+init_GlassArt();
+init_useGlassTilt();
+init_OneSafe();
+init_motion();
+init_betStacks();
+init_winImpact();
+init_WinLine();
 init_motion();
 
 // src/features/alerts/Alerts.jsx
-import React25, { useEffect as useEffect16, useRef as useRef18, useState as useState20, useSyncExternalStore as useSyncExternalStore2 } from "react";
+init_client();
 init_install();
+import React35, { useEffect as useEffect19, useRef as useRef20, useState as useState21, useSyncExternalStore as useSyncExternalStore3 } from "react";
 
 // src/features/alerts/pocketAlerts.js
+init_client();
 var ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "mvp"]);
 var store = { checked: false, permission: "default", subscribed: false, busy: false, error: "", asked: false };
 var cached = { ...store };
@@ -8213,12 +12034,36 @@ init_player_pass();
 // src/features/home/GuestHome.jsx
 init_sound();
 
-// shared/audio.js
-var MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
-var WALKOUT_MAX_MS = 4 * 60 * 1e3;
-var WIN_SONG_CLIP_MS = 30 * 1e3;
+// src/features/moments/youreUp.js
+init_core();
+init_motion();
+init_serverClock();
+init_sound();
+init_faceOff();
+init_tvMotion();
+import { useEffect as useEffect22, useMemo as useMemo5, useRef as useRef23, useState as useState24 } from "react";
+var UP_TIMING = Object.freeze({
+  flood: 0,
+  floodMs: 700,
+  // your color floods up from your chip
+  word: 250,
+  wordMs: 380,
+  // YOU'RE UP stamps
+  sting: FACEOFF_TIMING.vs - FACEOFF_TIMING.slide,
+  // the two-note sting, on the TV's VS
+  vs: FACEOFF_TIMING.vs - FACEOFF_TIMING.slide + 80,
+  // their chip lands opposite yours
+  total: 7e3,
+  // it leaves on its own
+  banner: 5e3
+  // a spectator's banner
+});
+
+// src/features/music/winSongModel.js
+init_audio();
 
 // src/features/home/GuestHome.jsx
+init_PayoutLadder();
 var hasGameRules = (event) => {
   const game = GAMES[event?.game];
   return !!(game?.howto || game?.variants?.some((variant) => variant.howto));
@@ -8228,171 +12073,59 @@ var hasGameRules = (event) => {
 init_core();
 var SINCE_ABSENCE = 2 * 60 * 1e3;
 
+// src/App.jsx
+init_haptics();
+
 // src/features/profile/VibrationToggle.jsx
-import React27, { useState as useState22 } from "react";
+init_haptics();
 init_player_pass();
+import React37, { useState as useState26 } from "react";
 
 // src/features/profile/SoundToggle.jsx
 init_sound();
-import React28, { useState as useState23 } from "react";
+init_haptics();
 init_player_pass();
+import React38, { useState as useState27 } from "react";
 
 // src/App.jsx
 init_sound();
 
+// src/lib/lazyPart.js
+import React39, { lazy, useState as useState28 } from "react";
+
 // src/features/home/phoneSound.js
 init_core();
 init_sound();
-import { useEffect as useEffect17, useRef as useRef20 } from "react";
+import { useEffect as useEffect23, useRef as useRef25 } from "react";
+
+// src/App.jsx
+init_drawReveal();
 
 // src/features/weekend/Schedule.jsx
 init_core();
 init_PlayerIdentity();
-import React29, { useRef as useRef21, useState as useState24 } from "react";
+init_layout();
+init_PayoutLadder();
+import React40, { useRef as useRef26, useState as useState29 } from "react";
 
 // src/features/weekend/scheduleModel.js
 init_core();
 
+// src/features/weekend/Schedule.jsx
+init_Icon();
+init_OneSafe();
+
 // src/features/weekend/Guide.jsx
 init_core();
-import React38, { useState as useState33 } from "react";
-init_Travel();
+init_GlassArt();
+init_useGlassTilt();
+init_Icon();
+init_OneSafe();
+init_controls();
 init_InstallHint();
 init_install();
-
-// src/features/weekend/Trophy.jsx
-init_core();
-init_PlayerIdentityContext();
-import React32 from "react";
-
-// src/features/tv/tvModel.js
-init_core();
-
-// src/ui/phase.js
-init_core();
-var PHASES = Object.freeze(["fri", "sam", "sap", "san", "fin"]);
-
-// src/features/tv/desertModel.js
-var DESERT_DAY = Object.freeze(["sam", "sap"]);
-var DESERT_NIGHT = Object.freeze(["san", "fin"]);
-var isNightSky = (phase) => DESERT_NIGHT.includes(phase);
-function starPoints(r) {
-  const k = r * 0.3;
-  return [[0, -r], [k, -k], [r, 0], [k, k], [0, r], [-k, k], [-r, 0], [-k, -k]];
-}
-var starPath = (r) => `M${starPoints(r).map(([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`).join("L")}Z`;
-var FAR = [
-  [0, 0.5],
-  [0.075, 0.625],
-  [0.131, 0.5625],
-  [0.206, 0.78],
-  [0.2625, 0.69],
-  [0.325, 0.84],
-  [0.4, 0.72],
-  [0.475, 0.81],
-  [0.55, 0.67],
-  [0.625, 0.78],
-  [0.706, 0.69],
-  [0.7875, 0.83],
-  [0.8625, 0.7],
-  [0.9375, 0.78],
-  [1, 0.72]
-];
-var MID = [
-  [0, 0.25],
-  [0.1125, 0.34],
-  [0.1875, 0.5],
-  [0.2375, 0.69],
-  [0.28125, 0.78],
-  [0.325, 0.69],
-  [0.356, 0.59],
-  [0.4, 0.69],
-  [0.4375, 0.91],
-  [0.475, 1],
-  [0.5125, 0.94],
-  [0.55, 0.78],
-  [0.6, 0.56],
-  [0.6875, 0.41],
-  [0.8125, 0.375],
-  [1, 0.31]
-];
-var SAGUAROS = [
-  { d: "M-14 0V-160a14 14 0 0 1 28 0V0ZM-14-80h-30v-40a12 12 0 0 1 24 0v22h6ZM14-110h30v-40a12 12 0 0 0-24 0v22h-6Z" },
-  { d: "M-17 0V-195a17 17 0 0 1 34 0V0ZM-17-105h-38v-56a14 14 0 0 1 28 0v34h10ZM17-75h36v-40a14 14 0 0 0-28 0v18h-8Z" },
-  { d: "M-10 0V-92a10 10 0 0 1 20 0V0ZM10-52h20v-26a9 9 0 0 0-18 0v8h-2Z" }
-];
-var DISC = {
-  fri: { x: 0.7375, y: 0.42 },
-  sam: { x: 0.225, y: 0.35 },
-  sap: { x: 0.5125, y: 0.25 },
-  san: { x: 0.825, y: 1 },
-  fin: { x: 0.1, y: 0.3 }
-};
-var FIXED_STARS = [[0.11, 0.13], [0.26, 0.08], [0.475, 0.17], [0.63, 0.07], [0.81, 0.14], [0.925, 0.23], [0.375, 0.27], [0.725, 0.28]];
-function skyBoxClearOfDisc(box, disc, r, gap = 14) {
-  if (!disc || !(r > 0)) return box;
-  if (disc.y + r < box.top || disc.y - r > box.bottom || disc.x + r < box.left || disc.x - r > box.right) return box;
-  const leftRoom = disc.x - r - gap - box.left, rightRoom = box.right - (disc.x + r + gap);
-  return rightRoom >= leftRoom ? { ...box, left: Math.round(disc.x + r + gap) } : { ...box, right: Math.round(disc.x - r - gap) };
-}
-function skyStarLayout(box) {
-  const small = box.bottom - box.top < 80;
-  const spread = small ? 7 : 11;
-  return {
-    small,
-    /* a four-point star's reach, not a dot's radius */
-    starR: small ? 5 : 8,
-    fixedR: small ? 1.6 : 2,
-    at: (star) => [
-      Math.round(box.left + star.x * (box.right - box.left) + star.dx * spread),
-      Math.round(box.top + star.y * (box.bottom - box.top) + star.dy * spread)
-    ],
-    fixed: ([x, y]) => [Math.round(box.left + x * (box.right - box.left)), Math.round(box.top + y * 3 * (box.bottom - box.top))]
-  };
-}
-var r1 = (n) => Math.round(n * 10) / 10;
-function skyline(points, { width, horizon, amp, x0 = 0, x1 = 1, envelope = () => 1, bottom }) {
-  const at = ([x, h]) => [r1((x0 + x * (x1 - x0)) * width), r1(horizon - h * amp * envelope(x0 + x * (x1 - x0)))];
-  const pts = points.map(at);
-  const first = pts[0], last = pts[pts.length - 1];
-  const lead = x0 > 0 ? [[0, first[1]]] : [];
-  const tail = x1 < 1 ? [[width, last[1]]] : [];
-  const all = [...lead, ...pts, ...tail];
-  return `M${all.map(([x, y]) => `${x} ${y}`).join("L")}V${bottom}H0Z`;
-}
-var smooth = (a, b, x) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-function desertScene({ width = 1920, height = 118, variant = "strip" } = {}) {
-  const strip = variant === "strip";
-  const horizon = strip ? height - 4 : Math.round(height * 0.84);
-  const amp = strip ? Math.min(74, height * 0.62) : Math.round(Math.min(height * 0.42, width * 0.2));
-  const envelope = strip ? (x) => 0.22 + 0.78 * smooth(0.36, 0.62, x) : () => 1;
-  const far = skyline(FAR, { width, horizon, amp: amp * 0.92, envelope, bottom: height });
-  const mid = skyline(MID, { width, horizon, amp, x0: strip ? 0.46 : 0, x1: strip ? 1.08 : 1, envelope, bottom: height });
-  const swell2 = strip ? 0 : Math.max(3, height * 0.012);
-  const ground = `M0 ${horizon}Q${width * 0.25} ${horizon - swell2} ${width * 0.5} ${horizon}T${width} ${horizon}V${height}H0Z`;
-  const nearTop = strip ? height : Math.round(horizon + (height - horizon) * 0.5);
-  const scale = strip ? amp / 250 : amp / 330;
-  const cacti = (strip ? [[0.62, 0.9, 1], [0.795, 0.62, 2], [0.93, 1, 0]] : [[0.14, 1, 0], [0.675, 0.62, 2], [0.825, 1.05, 1]]).map(([x, size, shape]) => ({ x: r1(x * width), y: horizon + (strip ? 0 : 2), scale: r1(scale * size * 100) / 100, d: SAGUAROS[shape].d }));
-  const skyTop = strip ? 4 : Math.round(height * 0.04);
-  const skyBottom = Math.round(horizon - amp * (strip ? 0.9 : 1.02));
-  const discR = strip ? Math.round(Math.min(26, height * 0.22)) : Math.round(Math.min(74, amp * 0.34));
-  const disc = Object.fromEntries(Object.entries(DISC).map(([phase, at]) => {
-    const x = strip ? width * (0.52 + at.x * 0.42) : width * at.x;
-    const y = strip ? skyTop + discR + (height * 0.45 - discR) * Math.min(1, at.y) : skyTop + (horizon - skyTop) * at.y * 0.9;
-    return [phase, { x: r1(x), y: r1(y) }];
-  }));
-  return { width, height, horizon, amp, far, mid, ground, nearTop, cacti, disc, discR, sky: { top: skyTop, bottom: skyBottom } };
-}
-
-// src/features/tv/tvModel.js
-var FACT_TONES = Object.freeze({ streak: "var(--sun)", first: "var(--pool)", wins: "var(--accent)", bet: "var(--green)" });
-var CUE_WINDOW_MS = 3 * 60 * 1e3;
-
-// src/features/weekend/trophy.js
-init_core();
+init_Trophy();
+import React50, { useRef as useRef32, useState as useState38 } from "react";
 
 // src/features/results/Keepsake.jsx
 init_core();
@@ -8401,7 +12134,9 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_playerIdentity();
 init_PlayerPass();
-import React35, { useEffect as useEffect22, useMemo as useMemo6, useRef as useRef25, useState as useState30 } from "react";
+init_CompetitionBracket();
+init_Trophy();
+import React45, { useEffect as useEffect27, useMemo as useMemo8, useRef as useRef29, useState as useState33 } from "react";
 
 // src/features/results/LastCard.jsx
 init_core();
@@ -8410,140 +12145,41 @@ init_PlayerIdentityContext();
 init_PlayerPass();
 init_motion();
 init_serverClock();
-import React34, { useEffect as useEffect21, useMemo as useMemo5, useRef as useRef24, useState as useState29 } from "react";
-
-// src/features/results/lastCard.js
-init_core();
-
-// src/features/results/resultMoment.js
-init_core();
-
-// src/features/results/weekendFacts.js
-init_core();
-init_seasonStats();
-var FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milestone", bet: "Record" });
-
-// src/features/results/lastCard.js
-var SESSION_ORDER = SESSIONS.map((session) => session.id);
-var SESSION_TICKS = Object.freeze({ fri: "FRI", sam: "SAT AM", sap: "SAT PM", san: "SAT NIGHT", fin: "POKER" });
+init_lastCard();
+import React44, { useEffect as useEffect26, useMemo as useMemo7, useRef as useRef28, useState as useState32 } from "react";
 
 // src/features/results/cardImage.js
+init_lastCard();
 var IMAGE_W = 1080;
 var IMAGE_H = 1350;
 var U = 3;
 var W = IMAGE_W / U;
 var H = IMAGE_H / U;
 
-// src/features/tv/tvMotion.js
-init_core();
-init_motion();
-init_serverClock();
-import { useEffect as useEffect19, useRef as useRef22, useState as useState27 } from "react";
-var ADVANCE_TIMING = Object.freeze({
-  fill: 0,
-  fillMs: 240,
-  // the winning row fills sun from the left
-  stamp: 120,
-  stampMs: 320,
-  // WON stamps
-  lose: 250,
-  loseMs: 300,
-  // the losing row steps back
-  lift: 700,
-  ride: 760,
-  rideMs: 800,
-  // the winners lift off and ride the connector
-  land: 1540,
-  landMs: 320,
-  // they land in the next slot
-  upNow: 1900,
-  upNowMs: 600,
-  // UP NOW travels to the next open match
-  unfill: 2700,
-  unfillMs: 500,
-  // the fill settles to the bracket's resting style
-  total: 3200
-});
-var CROWN_TIMING = Object.freeze({
-  hold: 400,
-  // the final standings, as they stood
-  stepDown: 400,
-  stepStagger: 35,
-  stepMs: 320,
-  rise: 850,
-  riseMs: 600,
-  // the champion's row rises to the middle
-  flood: 1450,
-  floodMs: 700,
-  // their color floods from their own face
-  chip: 2e3,
-  chipMs: 1200,
-  // their chip drops and turns twice
-  tag: 2300,
-  tagMs: 300,
-  // CHAMPION stamps
-  name: 2400,
-  nameStagger: 60,
-  nameMs: 340,
-  stats: 2700,
-  statsMs: 200,
-  count: 2800,
-  countMs: 1200,
-  // the final stack counts in 25s
-  path: 3400,
-  pathStagger: 90,
-  pathMs: 300,
-  lines: 3700,
-  lineStagger: 300,
-  lineMs: 300,
-  total: 4800
-});
-var inOut = cubicBezier(0.65, 0, 0.35, 1);
-
-// src/features/results/crownTiming.js
-var CROWN_CARD_HOLD_MS = 1400;
-var PHONE_CROWN = Object.freeze({
-  rise: CROWN_TIMING.rise,
-  riseMs: CROWN_TIMING.riseMs,
-  // the champion's face appears where the flood will start
-  flood: CROWN_TIMING.flood,
-  floodMs: CROWN_TIMING.floodMs,
-  // the room goes one color
-  chip: CROWN_TIMING.chip,
-  chipMs: CROWN_TIMING.chipMs,
-  // their chip drops and turns twice
-  tag: CROWN_TIMING.tag,
-  name: CROWN_TIMING.name,
-  nameStagger: CROWN_TIMING.nameStagger,
-  stats: CROWN_TIMING.stats,
-  count: CROWN_TIMING.count,
-  countMs: CROWN_TIMING.countMs,
-  turn: CROWN_TIMING.total + CROWN_CARD_HOLD_MS
-  // this phone's own last card
-});
+// src/features/results/LastCard.jsx
+init_crownTiming();
+init_sound();
 
 // src/features/results/SavePoster.jsx
-import React33, { useEffect as useEffect20, useRef as useRef23, useState as useState28 } from "react";
-
-// src/features/results/classPhoto.js
-init_core();
-var CLASS_TIMING = Object.freeze({
-  fade: 0,
-  fadeMs: 400,
-  chip: 300,
-  chipStagger: 70,
-  chipMs: 420,
-  title: 1500,
-  titleMs: 400,
-  total: 2600
-});
+import React43, { useEffect as useEffect25, useRef as useRef27, useState as useState31 } from "react";
+init_classPhoto();
 
 // src/features/results/posterImage.js
 init_PlayerIdentity();
 init_playerIdentity();
+init_desertModel();
+init_classPhoto();
+
+// src/features/results/LastCard.jsx
+init_Icon();
+
+// src/features/results/Keepsake.jsx
+init_lastCard();
 
 // src/features/results/keepsake.js
 init_core();
+init_prompts();
+init_lastCard();
 var SESSION_NAMES = Object.freeze({
   fri: "Friday",
   sam: "Saturday morning",
@@ -8552,858 +12188,70 @@ var SESSION_NAMES = Object.freeze({
   fin: "Finale"
 });
 
-// src/features/photos/PhotoDesk.jsx
-import React37, { useRef as useRef27, useState as useState32 } from "react";
+// src/features/results/Keepsake.jsx
+init_OneSafe();
+init_GlassArt();
 
-// src/features/photos/photoModel.js
-var PHOTO_PREP = Object.freeze({
-  side: 1600,
-  quality: 0.8,
-  thumbSide: 480,
-  thumbQuality: 0.72,
-  /* re-encoded bytes the server accepts; the phone steps quality down to fit */
-  maxBytes: 145e4,
-  maxThumbBytes: 15e4,
-  perBatch: 10
-});
+// src/features/photos/PhotoDesk.jsx
+init_client();
+init_photoModel();
+init_prepareMoment();
+import React47, { useRef as useRef31, useState as useState35 } from "react";
 
 // src/features/photos/PhotoGrid.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React36, { useEffect as useEffect23, useRef as useRef26, useState as useState31 } from "react";
+init_client();
+init_photoModel();
+import React46, { useEffect as useEffect28, useRef as useRef30, useState as useState34 } from "react";
+init_Icon();
 
-// src/features/wagers/Wagers.jsx
+// src/features/photos/PhotoDesk.jsx
+init_Icon();
+
+// src/features/weekend/Guide.jsx
+init_photoModel();
+
+// src/features/weekend/programModel.js
 init_core();
-init_theme();
+init_prompts();
+
+// src/features/weekend/ProgramSheets.jsx
+init_core();
 init_controls();
-import React39, { useEffect as useEffect24, useLayoutEffect as useLayoutEffect10, useMemo as useMemo7, useRef as useRef28, useState as useState34 } from "react";
-init_sound();
+init_Icon();
+init_OneSafe();
+init_PayoutLadder();
 init_PlayerIdentity();
-init_motion();
-var PHONE_CHIP = 28;
-var PHONE_SLOTS = 6;
-var feltSlots = (lines) => lines === 1 ? 3 : PHONE_SLOTS;
-var PHONE_STACK_H = Math.ceil(stackMaxHeight(PHONE_CHIP));
-var fmt5 = (n) => (n ?? 0).toLocaleString("en-US");
-function wagerPickLabel(state, w, events) {
-  const ev = events.find((e) => e.id === w.eventId);
-  const evName = ev?.name || "removed event";
-  const pickName = w.pickTeam || w.pickPlayers?.length > 1 ? teamLabel(state, { players: w.pickPlayers }) : disp(state, w.pickPlayers ? w.pickPlayers[0] : w.pick);
-  if (w.kind === "outright") return { pick: pickName, ctx: `to win ${evName}` };
-  if (w.kind === "match") return { pick: pickName, ctx: `to win the ${w.matchName || "matchup"} in ${evName}` };
-  if (w.kind === "heat") return { pick: pickName, ctx: `to win ${w.groupName || "the heat"} in ${evName}` };
-  if (w.final) return { pick: pickName, ctx: `to win the Final in ${evName}` };
-  return { pick: pickName, ctx: `to advance from ${w.groupName} in ${evName}` };
-}
-var RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
-function mergeWagerLines(list) {
-  const key = ({ w, r }) => [
-    w.player,
-    r.status,
-    w.kind,
-    w.eventId,
-    w.kind === "outright" ? (w.pickTeam ? "t:" + w.drawId + ":" + (w.pickPlayers || []).join("+") : "p:" + w.pick) + ":x" + wagerMult(w) : w.kind === "match" ? "m:" + w.drawId + ":" + (w.match || []).join("-") + ":" + w.teamIdx : "s:" + w.stagesId + ":" + (w.final ? "F" : w.group) + ":" + w.pickKey
-  ].join("|");
-  const out = /* @__PURE__ */ new Map();
-  for (const x of list) {
-    const k = key(x), cur = out.get(k);
-    if (!cur) out.set(k, { w: { ...x.w, ids: [x.w.id] }, r: { ...x.r } });
-    else {
-      cur.w.stake += x.w.stake;
-      cur.w.ids.push(x.w.id);
-      if (typeof x.r.delta === "number") cur.r.delta = (cur.r.delta || 0) + x.r.delta;
-    }
-  }
-  return [...out.values()];
-}
-var isUncertainResult = (result) => result?.ok !== true && (result?.uncertain === true || result?.status === "uncertain" || /no response/i.test(String(result?.error || "")));
-var PLACE_QUEUE = 4;
-function MarketPick({
-  state,
-  me,
-  players,
-  name,
-  bets,
-  marketOpen,
-  canPick,
-  onPick,
-  onRetract,
-  onPlayer,
-  roleLabel,
-  unavailableReason,
-  unavailableLabel = "Opponent",
-  tapStake,
-  capLabel,
-  capReason,
-  winLine,
-  winSlot = false,
-  lines = 2
-}) {
-  const [pendingAction, setPendingAction] = useState34(null);
-  const [actionError, setActionError] = useState34(null);
-  const [checking, setChecking] = useState34(null);
-  const pendingRef = useRef28(false);
-  const pendingKindRef = useRef28(null), queueRef = useRef28([]);
-  const [queued, setQueued] = useState34(0);
-  const wellRef = useRef28(null), mineRef = useRef28(null), flightRef = useRef28(null);
-  const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
-    const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
-    return latest(a) - latest(b);
-  });
-  const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
-  const live = useRef28({ state, mineTotal });
-  live.current = { state, mineTotal };
-  const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map((chip) => chip.stake) : [w.stake]);
-  const otherStacks = orderStacks(bets.filter((x) => x.w.player !== me).map(({ w }) => ({ player: w.player, stake: w.stake })));
-  const sideTotal = mineTotal + stacksTotal(otherStacks);
-  const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  const shownTotal = useRef28(mineTotal);
-  useEffect24(() => {
-    if (shownTotal.current === mineTotal) return;
-    shownTotal.current = mineTotal;
-    setActionError(null);
-  }, [mineTotal]);
-  const alive = useRef28(true);
-  useEffect24(() => () => {
-    alive.current = false;
-    flightRef.current?.cancel();
-  }, []);
-  useEffect24(() => {
-    if (!checking || checking.settled || state === checking.state) return;
-    if (!landed(checking.kind, checking.before, mineTotal)) {
-      setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
-      checking.flight?.back();
-    } else checking.flight?.land();
-    pendingRef.current = false;
-    setChecking(null);
-  }, [state, mineTotal, checking]);
-  const mineFace = () => mineRef.current?.querySelector(".fd-stack > svg")?.getBoundingClientRect() || null;
-  const placeFlight = () => {
-    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
-    const source = flightTarget(`bets:rack:${tapStake}`);
-    const face = mineFace();
-    const anchor = face || wellRef.current?.querySelector(".fd-wagers-chip-well")?.getBoundingClientRect();
-    if (!source || !anchor) return null;
-    let release = () => {
-    };
-    const hold = new Promise((resolve) => {
-      release = resolve;
-    });
-    try {
-      source.animate(
-        [{ transform: "scale(1)" }, { transform: "scale(.9)" }, { transform: "scale(1)" }],
-        { duration: MOTION.fast * 2, easing: EASE.out }
-      );
-    } catch {
-    }
-    fly(source, hoverRect(anchor, PHONE_CHIP, face ? 10 : 6), {
-      node: /* @__PURE__ */ React39.createElement(BankChip, { p: me, size: 46, val: tapStake }),
-      arc: 64,
-      hold
-    });
-    let settled = false;
-    const finish = (next) => {
-      if (!settled) {
-        settled = true;
-        release(next);
-      }
-    };
-    return {
-      /* the state is already painted when the ack lands; wait one frame so
-         the new stack is measured, then drop onto it */
-      land: () => requestAnimationFrame(() => {
-        const now = mineFace();
-        if (!now) {
-          finish(null);
-          return;
-        }
-        finish(face ? { to: faceRect(now), duration: MOTION.fast, fade: true } : { to: mineRef.current, duration: MOTION.fast * 1.5, land: true });
-      }),
-      back: () => finish({ to: flightTarget(`bets:rack:${tapStake}`) || source, arc: 40, duration: MOTION.flight }),
-      cancel: () => finish(null)
-    };
-  };
-  const retractFlight = () => {
-    if (!me || typeof document === "undefined" || prefersReducedMotion()) return null;
-    const face = mineFace();
-    if (!face) return null;
-    const value = mineChips[mineChips.length - 1];
-    const from = faceRect(face);
-    return {
-      land: () => {
-        const to = flightTarget(rackTargetFor(value, RACK_DENOMS, tapStake));
-        if (to) fly(from, to, { node: /* @__PURE__ */ React39.createElement(BankChip, { p: me, size: Math.round(from.width), val: value }), arc: 48, land: true });
-      },
-      back: () => {
-      },
-      cancel: () => {
-      }
-    };
-  };
-  const chipSound = (kind) => {
-    unlockSound();
-    playSound(kind === "place" ? capLabel ? "S7" : "S5" : "S6");
-  };
-  const act = (kind, callback, queuedTap = false) => {
-    if (pendingRef.current) {
-      if (kind === "place" && pendingKindRef.current === "place" && !queuedTap && queueRef.current.length < PLACE_QUEUE) {
-        tapTick();
-        chipSound(kind);
-        queueRef.current.push(callback);
-        setQueued(queueRef.current.length);
-      }
-      return;
-    }
-    if (!queuedTap) tapTick();
-    if (!queuedTap) chipSound(kind);
-    pendingRef.current = true;
-    pendingKindRef.current = kind;
-    const before = live.current.mineTotal;
-    setPendingAction(kind);
-    setActionError(null);
-    const flight = kind === "place" ? placeFlight() : retractFlight();
-    flightRef.current = flight;
-    let holding = false, saved2 = false;
-    const finish = () => {
-      if (!holding) {
-        pendingRef.current = false;
-        pendingKindRef.current = null;
-      }
-      setPendingAction(null);
-      const next = saved2 && !holding && alive.current ? queueRef.current.shift() : null;
-      if (!next) queueRef.current = [];
-      setQueued(queueRef.current.length);
-      if (next) act("place", next, true);
-    };
-    const check = (result) => {
-      if (isUncertainResult(result)) {
-        if (!landed(kind, before, live.current.mineTotal)) {
-          holding = true;
-          const settled = typeof result?.settled?.then === "function";
-          setChecking({ kind, before, state: live.current.state, settled, flight });
-          if (settled) result.settled.then((outcome) => outcome, () => ({ ok: false })).then((outcome) => {
-            if (!alive.current) return;
-            if (outcome?.ok === true) {
-              haptic(kind === "place" ? "place" : "retract");
-              flight?.land();
-            } else if (!landed(kind, before, live.current.mineTotal)) {
-              setActionError(kind === "place" ? "Not placed" : "Not removed");
-              playSound("S26");
-              flight?.back();
-            } else flight?.land();
-            pendingRef.current = false;
-            setChecking(null);
-          });
-        } else flight?.land();
-        return result;
-      }
-      if (result?.ok === false) {
-        setActionError(result.error || "Bet not saved.");
-        playSound("S26");
-        flight?.back();
-      } else if (result?.ok === true) {
-        saved2 = true;
-        haptic(kind === "place" ? "place" : "retract");
-        flight?.land();
-      } else flight?.cancel();
-      return result;
-    };
-    const fail = (error) => {
-      const message = error?.message || "Bet not saved.";
-      setActionError(message);
-      playSound("S26");
-      flight?.back();
-      return { ok: false, error: message };
-    };
-    try {
-      const result = callback();
-      if (result?.then) return Promise.resolve(result).then(check, fail).finally(finish);
-      const checked = check(result);
-      finish();
-      return checked;
-    } catch (error) {
-      finish();
-      return fail(error);
-    }
-  };
-  const busyKind = pendingAction || checking?.kind || null;
-  const everyone = orderStacks([...otherStacks, ...mineTotal > 0 ? [{ player: me, stake: mineTotal }] : []]);
-  const { shown, rest } = groupStacks(everyone, feltSlots(lines) - 1, mineTotal > 0 ? me : null);
-  const winInline = lines === 1 && players.length === 1;
-  const valueLine = (amount) => /* @__PURE__ */ React39.createElement("span", { className: "fd-stacks-value" }, fmt5(amount));
-  const wellCaption = unavailableReason ? unavailableLabel : marketOpen && players.length > 0 ? capLabel || fmt5(tapStake) : players.length ? "Locked" : "Pending";
-  const placeable = !unavailableReason && marketOpen && players.length > 0;
-  return /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${roleLabel ? " is-your-side" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 ? " is-team" : ""}` }, players.length === 1 ? /* @__PURE__ */ React39.createElement(
-    "button",
-    {
-      type: "button",
-      className: "fd-wagers-player",
-      disabled: !onPlayer,
-      onClick: () => onPlayer?.(players[0]),
-      "aria-label": `View ${name}'s player card`
-    },
-    /* @__PURE__ */ React39.createElement(Avatar, { state, p: players[0], size: 26 }),
-    winInline ? /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-player-text" }, /* @__PURE__ */ React39.createElement("span", null, name), /* @__PURE__ */ React39.createElement(WinLine, { line: winLine, className: "fd-wagers-win-inline" })) : /* @__PURE__ */ React39.createElement("span", null, name)
-  ) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, name), /* @__PURE__ */ React39.createElement(
-    "span",
-    {
-      className: `fd-wagers-team-players${players.length > 3 ? " is-many" : ""}`,
-      style: players.length > 3 ? { "--fd-team-n": players.length } : void 0
-    },
-    players.map((player) => /* @__PURE__ */ React39.createElement(
-      "button",
-      {
-        type: "button",
-        key: player,
-        disabled: !onPlayer,
-        onClick: () => onPlayer?.(player),
-        title: disp(state, player),
-        "aria-label": `View ${disp(state, player)}'s player card`
-      },
-      /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }),
-      players.length <= 3 && /* @__PURE__ */ React39.createElement("span", null, disp(state, player))
-    ))
-  ))), winSlot && !winInline && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React39.createElement(WinLine, { line: winLine, className: "fd-wagers-win" })), /* @__PURE__ */ React39.createElement(
-    "div",
-    {
-      className: "fd-wagers-felt",
-      role: "group",
-      "aria-label": `Bets on ${name}`,
-      "aria-busy": !!busyKind,
-      style: { "--fd-stack-h": `${PHONE_STACK_H}px`, "--fd-felt-lines": lines }
-    },
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-head" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-pick-role" }, roleLabel), sideTotal > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-felt-total" }, fmt5(sideTotal))),
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React39.createElement(
-      "button",
-      {
-        type: "button",
-        ref: wellRef,
-        className: `fd-wagers-pick-main${capLabel ? " is-capped" : ""}${placeable ? "" : " is-closed"}`,
-        disabled: !canPick || !!busyKind && !(pendingAction === "place" && !checking && queued < PLACE_QUEUE),
-        onClick: () => act("place", onPick),
-        "aria-label": canPick ? `Place a chip on ${name}` : name,
-        "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt5(tapStake)} chips` : void 0)
-      },
-      /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-chip-well", "aria-hidden": "true" }, placeable ? "+" : ""),
-      /* @__PURE__ */ React39.createElement("span", { className: placeable ? "fd-wagers-pick-add" : "fd-wagers-pick-closed" }, wellCaption)
-    ), shown.map((item) => item.player === me ? marketOpen ? /* @__PURE__ */ React39.createElement(
-      "button",
-      {
-        type: "button",
-        key: item.player,
-        ref: mineRef,
-        className: "fd-wagers-retract",
-        disabled: !!busyKind,
-        onClick: () => act("remove", () => onRetract(mine[mine.length - 1].w.id)),
-        "aria-label": `Retract your last chip on ${name}`,
-        "aria-description": `Remove ${fmt5(mineChips[mineChips.length - 1])} chips; ${fmt5(mineTotal)} total on this pick`
-      },
-      /* @__PURE__ */ React39.createElement(ChipStack, { p: me, stake: mineTotal, size: PHONE_CHIP, mine: true, groups: mineChips, tag: false, tower: true }),
-      valueLine(mineTotal)
-    ) : /* @__PURE__ */ React39.createElement(
-      "div",
-      {
-        key: item.player,
-        ref: mineRef,
-        className: "fd-wagers-owned-stack",
-        role: "img",
-        "aria-label": `${fmt5(mineTotal)} of your chips on ${name}`
-      },
-      /* @__PURE__ */ React39.createElement(ChipStack, { p: me, stake: mineTotal, size: PHONE_CHIP, mine: true, groups: mineChips, tag: false, tower: true }),
-      valueLine(mineTotal)
-    ) : /* @__PURE__ */ React39.createElement(
-      "button",
-      {
-        type: "button",
-        key: item.player,
-        className: "fd-wagers-other",
-        disabled: !onPlayer,
-        onClick: () => onPlayer?.(item.player),
-        title: disp(state, item.player),
-        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt5(item.stake)} chips)`
-      },
-      /* @__PURE__ */ React39.createElement(ChipStack, { p: item.player, stake: item.stake, size: PHONE_CHIP, tag: false, tower: true }),
-      valueLine(item.stake)
-    )), rest && /* @__PURE__ */ React39.createElement(StackGroup, { rest, size: PHONE_CHIP }))
-  ), checking && /* @__PURE__ */ React39.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React39.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError));
-}
-var SETTLE_SHOW_MS = 4600;
-function SettleStrip({ me, settling }) {
-  const { view, label: label2 } = settling;
-  return /* @__PURE__ */ React39.createElement(
-    "section",
-    {
-      className: "fd-wagers-settle",
-      role: "status",
-      "aria-label": `${label2} settled: ${fmt5(view.paid)} paid, ${fmt5(view.lost)} lost`
-    },
-    /* @__PURE__ */ React39.createElement("h2", null, label2),
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React39.createElement("strong", null, "+", fmt5(view.paid)), /* @__PURE__ */ React39.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React39.createElement("strong", null, "\u2212", fmt5(view.lost)), /* @__PURE__ */ React39.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
-  );
-}
-function RackChip({ value, me, disabled, selected, onClick }) {
-  const target = useFlightTarget(`bets:rack:${value}`);
-  return /* @__PURE__ */ React39.createElement(
-    "button",
-    {
-      type: "button",
-      ref: target,
-      disabled,
-      onClick,
-      "aria-pressed": selected,
-      "aria-label": `Bet ${value} a tap`,
-      className: selected ? "is-selected" : ""
-    },
-    /* @__PURE__ */ React39.createElement(BankChip, { p: me, size: 46, val: value })
-  );
-}
-var HOME_FLIGHT_AT = 1300;
-function HeldBoard({ state, me, held, view, onSkip }) {
-  const mineRef = useRef28(null);
-  useStageHold(`bets:held:${held.id}`, true);
-  const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
-  useEffect24(() => {
-    if (!me || paid <= 0) return void 0;
-    const timer = setTimeout(() => {
-      const svg = mineRef.current?.querySelector(".fd-stack > svg");
-      if (!svg) return;
-      const from = faceRect(svg.getBoundingClientRect());
-      const count = Math.max(1, Math.min(5, Math.round(paid / PT)));
-      for (let i = 0; i < count; i++) fly(from, "tab:home", {
-        node: /* @__PURE__ */ React39.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
-        delay: i * 70,
-        arc: 60,
-        duration: 560,
-        scale: 0.7,
-        fade: true,
-        land: i === count - 1
-      });
-    }, HOME_FLIGHT_AT);
-    return () => clearTimeout(timer);
-  }, []);
-  const { contest, ev, label: label2, winSlot = false } = held;
-  const lines = (contest.sides || []).length > 2 ? 1 : 2;
-  const sides = contest.kind === "ffa" ? view.sides.filter((side) => side.won || side.stacks.length) : view.sides;
-  const nameOf2 = (side) => {
-    const drawn = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
-    return side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawn || { players: side.players });
-  };
-  return /* @__PURE__ */ React39.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React39.createElement("div", null, /* @__PURE__ */ React39.createElement("h2", null, contest.kind === "ffa" ? "Winner" : label2), /* @__PURE__ */ React39.createElement("p", null, contestMult(contest) === 1 ? "Winner pays 1:1" : "Winner pays 2:1"))), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-picks" }, sides.map((side) => {
-    const { shown, rest } = groupStacks(side.stacks, feltSlots(lines) - 1, side.stacks.some((item) => item.player === me) ? me : null);
-    const head = side.won ? side.paid > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt5(side.paid)) : side.total > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt5(side.total));
-    return /* @__PURE__ */ React39.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-pick-identity${side.players.length > 2 ? " is-team" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: side.players[0], size: 26 }), /* @__PURE__ */ React39.createElement("span", null, nameOf2(side))) : /* @__PURE__ */ React39.createElement(React39.Fragment, null, side.players.length > 2 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-team-name" }, nameOf2(side)), /* @__PURE__ */ React39.createElement(
-      "span",
-      {
-        className: `fd-wagers-team-players${side.players.length > 3 ? " is-many" : ""}`,
-        style: side.players.length > 3 ? { "--fd-team-n": side.players.length } : void 0
-      },
-      side.players.map((player) => /* @__PURE__ */ React39.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: player, size: 24 }), side.players.length <= 3 && /* @__PURE__ */ React39.createElement("span", null, disp(state, player))))
-    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-win-slot" }), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt", style: { "--fd-stack-h": `${PHONE_STACK_H}px`, "--fd-felt-lines": lines } }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-head" }, head || /* @__PURE__ */ React39.createElement("span", null), side.won && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-held-well", "aria-hidden": "true" }), shown.map((item, index) => side.won ? /* @__PURE__ */ React39.createElement("span", { key: item.player, className: "fd-wagers-held-stack", ref: item.player === me ? mineRef : void 0 }, /* @__PURE__ */ React39.createElement(
-      ChipStack,
-      {
-        p: item.player,
-        stake: item.stake,
-        paid: item.paid,
-        size: PHONE_CHIP,
-        settle: "won",
-        delay: 500 + index * 90,
-        mine: item.player === me,
-        tag: false,
-        tower: true
-      }
-    ), /* @__PURE__ */ React39.createElement("span", { className: "fd-stacks-value" }, fmt5(item.stake + item.paid))) : /* @__PURE__ */ React39.createElement(
-      "span",
-      {
-        key: item.player,
-        className: "fd-wagers-held-stack fd-stacks-slot is-lost",
-        style: { animationDelay: `${200 + index * 90}ms` }
-      },
-      /* @__PURE__ */ React39.createElement(ChipStack, { p: item.player, stake: item.stake, size: PHONE_CHIP, mine: item.player === me, tag: false, tower: true }),
-      /* @__PURE__ */ React39.createElement("span", { className: "fd-stacks-value" }, fmt5(item.stake))
-    )), rest && /* @__PURE__ */ React39.createElement(StackGroup, { rest, size: PHONE_CHIP }))));
-  })));
-}
-function StackMeter({ pts, cap, bets, duels, room }) {
-  const exposure = bets + duels;
-  const scale = Math.max(pts, exposure, cap, 1);
-  const at = (value) => Math.max(0, Math.min(100, value / scale * 100));
-  const pct = (value) => `${at(value)}%`;
-  const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
-  const over = Math.max(0, exposure - cap);
-  const capped = room < PT && pts - exposure >= PT;
-  return /* @__PURE__ */ React39.createElement(
-    "div",
-    {
-      className: `fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`,
-      role: "meter",
-      "aria-label": "Chips at risk",
-      "aria-valuemin": 0,
-      "aria-valuemax": Math.max(cap, exposure),
-      "aria-valuenow": exposure,
-      "aria-valuetext": `${fmt5(exposure)} at risk, ${fmt5(cap)} maximum, ${fmt5(pts)} in your stack${duels ? `, ${fmt5(duels)} reserved for duels` : ""}`
-    },
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-meter-top", "aria-hidden": "true" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-meter-room" }, /* @__PURE__ */ React39.createElement("strong", null, fmt5(room)), /* @__PURE__ */ React39.createElement("small", null, "to bet")), exposure > 0 && /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-meter-down" }, fmt5(exposure), /* @__PURE__ */ React39.createElement("small", null, "in bets"))),
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React39.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React39.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React39.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React39.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } })),
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-meter-scale", "aria-hidden": "true" }, /* @__PURE__ */ React39.createElement("span", { className: "is-cap", style: { left: `${Math.min(92, Math.max(8, at(cap)))}%` } }, fmt5(cap)), at(cap) <= 72 && /* @__PURE__ */ React39.createElement("span", { className: "is-stack" }, fmt5(pts)))
-  );
-}
-function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
-  const { w, r } = x;
-  const label2 = wagerPickLabel(state, w, events);
-  const win = wagerMult(w) * w.stake;
-  const [confirming, setConfirming] = useState34(false), [voiding, setVoiding] = useState34(false);
-  const voidBusy = useRef28(false);
-  const ids = w.ids || [w.id];
-  const voidable = gm && manage && r.status === "pending" && !!onVoid;
-  return /* @__PURE__ */ React39.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React39.createElement(
-    "button",
-    {
-      type: "button",
-      className: "fd-wagers-ledger-player",
-      disabled: !onPlayer,
-      onClick: () => onPlayer?.(w.player),
-      "aria-label": `View ${disp(state, w.player)}'s player card`
-    },
-    /* @__PURE__ */ React39.createElement(Avatar, { state, p: w.player, size: 32 })
-  ), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React39.createElement(
-    "button",
-    {
-      type: "button",
-      disabled: !onPlayer,
-      onClick: () => onPlayer?.(w.player)
-    },
-    disp(state, w.player)
-  ), " ", /* @__PURE__ */ React39.createElement("span", null, "\xB7 ", fmt5(w.stake), " chips")), /* @__PURE__ */ React39.createElement("strong", null, label2.pick), /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React39.createElement(React39.Fragment, null, /* @__PURE__ */ React39.createElement("small", null, "TO WIN"), /* @__PURE__ */ React39.createElement("strong", null, "+", fmt5(win))), r.status === "won" && /* @__PURE__ */ React39.createElement(React39.Fragment, null, /* @__PURE__ */ React39.createElement("small", null, "WON"), /* @__PURE__ */ React39.createElement("strong", null, "+", fmt5(r.delta))), r.status === "lost" && /* @__PURE__ */ React39.createElement(React39.Fragment, null, /* @__PURE__ */ React39.createElement("small", null, "LOST"), /* @__PURE__ */ React39.createElement("strong", null, fmt5(r.delta))), r.status === "void" && /* @__PURE__ */ React39.createElement("small", null, "VOID"), voidable && !confirming && /* @__PURE__ */ React39.createElement(
-    "button",
-    {
-      type: "button",
-      className: "fd-wagers-void",
-      onClick: () => setConfirming(true)
-    },
-    "Void"
-  )), voidable && confirming && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React39.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt5(w.stake), " chips back"), /* @__PURE__ */ React39.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
-    if (voidBusy.current) return void 0;
-    voidBusy.current = true;
-    setVoiding(true);
-    try {
-      const result = await onVoid(ids);
-      if (result?.ok !== false) setConfirming(false);
-      return result;
-    } finally {
-      voidBusy.current = false;
-      setVoiding(false);
-    }
-  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React39.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
-}
-function contestPick(contest, side, event) {
-  const common = {
-    eventId: event.id,
-    evName: event.name,
-    contestId: contest.id,
-    contestRevision: contest.revision,
-    pickPlayers: [...side.players]
-  };
-  if (contest.kind === "ffa") {
-    const pickTeam2 = typeof side.key === "number";
-    return {
-      ...common,
-      kind: "outright",
-      pickTeam: pickTeam2,
-      ...pickTeam2 ? { drawId: contest.drawId } : { pick: side.key }
-    };
-  }
-  if (contest.kind === "match") return {
-    ...common,
-    kind: "match",
-    pickTeam: true,
-    drawId: contest.drawId,
-    match: [...contest.match],
-    teamIdx: side.key,
-    matchName: contest.label
-  };
-  const pickTeam = typeof side.key === "number";
-  const stage = {
-    ...common,
-    stagesId: contest.stagesId,
-    pickKey: side.key,
-    pickTeam,
-    ...pickTeam && contest.drawId ? { drawId: contest.drawId } : {}
-  };
-  return contest.kind === "heat" ? { ...stage, kind: "heat", group: contest.group, groupName: contest.label } : { ...stage, kind: "stage", final: true };
-}
-function samePick(wager, pick) {
-  if (wager.kind !== pick.kind || wager.eventId !== pick.eventId) return false;
-  if (wager.contestId && pick.contestId && wager.contestId !== pick.contestId) return false;
-  if (pick.kind === "outright") return !!wager.pickTeam === !!pick.pickTeam && (pick.pickTeam ? wager.drawId === pick.drawId && (wager.pickPlayers || []).join("|") === pick.pickPlayers.join("|") : wager.pick === pick.pick);
-  if (pick.kind === "match") return wager.drawId === pick.drawId && wager.teamIdx === pick.teamIdx && wager.match?.[0] === pick.match[0] && wager.match?.[1] === pick.match[1];
-  return wager.stagesId === pick.stagesId && wager.pickKey === pick.pickKey && !!wager.final === !!pick.final && (pick.final || wager.group === pick.group);
-}
-function Wagers({
-  state,
-  me,
-  standings,
-  gm,
-  events,
-  wagerEv,
-  onEvents,
-  onEvent,
-  onPick,
-  onVoid,
-  onRetract,
-  onPlayer,
-  GameMark: GameMark2,
-  openSettled = false,
-  onSettledSeen
-}) {
-  const [settledOpen, setSettledOpen] = useState34(() => openSettled && me ? `st:${me}` : null);
-  const [settledShown, setSettledShown] = useState34(!!openSettled);
-  const settledRef = useRef28(null);
-  useEffect24(() => {
-    if (!openSettled) return;
-    setSettledShown(true);
-    if (me) setSettledOpen(`st:${me}`);
-    settledRef.current?.scrollIntoView?.({ block: "start" });
-    onSettledSeen?.();
-  }, [openSettled]);
-  const [denom, setDenom] = useState34(PT);
-  const [manage, setManage] = useState34(false);
-  const resolved = useMemo7(
-    () => (state.wagers || []).map((w) => ({ w, r: resolveWager(state, w, events) })),
-    [state, events]
-  );
-  const pending = resolved.filter((x) => x.r.status === "pending");
-  const pendingLines = mergeWagerLines(pending);
-  const settledLines = mergeWagerLines(resolved.filter((x) => x.r.status !== "pending"));
-  const settledByPlayer = useMemo7(() => {
-    const groups = /* @__PURE__ */ new Map();
-    for (const x of settledLines) {
-      const group = groups.get(x.w.player) || { player: x.w.player, lines: [], net: 0 };
-      group.lines.push(x);
-      group.net += x.r.delta || 0;
-      groups.set(x.w.player, group);
-    }
-    return [...groups.values()].sort((a, b) => b.net - a.net || a.player.localeCompare(b.player));
-  }, [settledLines]);
-  const wagerRisk = me ? atRisk(state, me, events) : 0;
-  const myPts = standings.find((row) => row.player === me)?.pts ?? 0;
-  const myCap = maxRisk(myPts);
-  const duelAntes = me ? duelReserve(state, me) : 0;
-  const myExp = wagerRisk + duelAntes;
-  const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
-  const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect24(() => {
-    if (denom > PT && room >= PT && denom > room)
-      setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
-  }, [room, denom]);
-  const tapStake = denom <= room ? denom : [...RACK_DENOMS].reverse().find((value) => value <= room) || PT;
-  const ev = wagerEv;
-  const finaleClosed = stacksPosted(state) || !!(state.poker && !state.results?.[state.poker.id]);
-  const contest = ev ? resolveCurrentContest(state, ev) : null;
-  const lifecycle = ev ? resolveEventLifecycle(state, ev) : null;
-  const marketOpen = !!contest && contest.phase === "betting-open" && !!state.live && !state.frozen && !state.results?.[ev?.id] && !stacksPosted(state) && !(state.poker && !state.results?.[state.poker.id]);
-  const ownSide = contest?.sides.find((side) => side.players.includes(me));
-  const evenMoney = contestMult(contest) === 1;
-  const restricted = !!ownSide && evenMoney;
-  const contestNoun = contest?.kind === "match" || contest?.kind === "ffa" ? "match" : contest?.kind === "heat" ? "heat" : "final";
-  const restriction = restricted ? `You can only bet on ${ownSide.players.length > 1 ? "your team" : "yourself"} in this ${contestNoun}.` : null;
-  const heldSide = me && contest ? contestSideOf(state, contest, me, events) : null;
-  const winLines = useMemo7(
-    () => contest && ev ? contestWinLines(state, ev, contest, { events }) : [],
-    [state, ev?.id, contest?.id]
-  );
-  const picks = (contest?.sides || []).map((side) => {
-    const own = side.players.includes(me);
-    const drawnTeam = typeof side.key === "number" ? state.draws?.[ev.id]?.teams?.[side.key] : null;
-    const name = side.players.length === 1 ? disp(state, side.players[0]) : teamLabel(state, drawnTeam || { players: side.players });
-    const pick = contestPick(contest, side, ev);
-    const eligible = !!me && contestBetEligibility(contest, me, side.key);
-    const otherSide = eligible && heldSide !== null && heldSide !== side.key;
-    return {
-      key: side.key,
-      state,
-      me,
-      players: side.players,
-      name,
-      marketOpen,
-      onRetract: (id) => onRetract(id, { contestId: contest.id, contestRevision: contest.revision }),
-      onPlayer,
-      tapStake,
-      bets: pending.filter((x) => samePick(x.w, pick)),
-      winLine: winLineFor(winLines, side.key),
-      roleLabel: own ? side.players.length > 1 ? "Your team" : "Back yourself" : null,
-      unavailableReason: restricted && !eligible ? restriction : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
-      unavailableLabel: restricted && !eligible ? "Opponent" : "Other side",
-      canPick: marketOpen && room >= PT && eligible && !otherSide,
-      capLabel: marketOpen && eligible && !otherSide && capBinds ? `Max ${fmt5(myCap)}` : null,
-      capReason: marketOpen && eligible && !otherSide && capBinds ? `At your ${fmt5(myCap)} limit` : null,
-      onPick: () => onPick({ ...pick, stake: tapStake })
-    };
-  });
-  if (contest?.kind === "ffa") picks.sort((a, b) => Number(!!b.roleLabel) - Number(!!a.roleLabel));
-  const winSlot = picks.some((pick) => !!pick.winLine?.text);
-  const lines = picks.length > 2 ? 1 : 2;
-  picks.forEach((pick) => {
-    pick.winSlot = winSlot;
-    pick.lines = lines;
-  });
-  const status = marketOpen ? "Betting open" : contest?.phase === "awaiting-result" ? "Awaiting result" : !contest ? lifecycle?.label || "Betting locked" : "Betting locked";
-  const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
-  const boardChange = useFreshChange(boardKey);
-  const frame2 = useMotionFrame();
-  const watched = useRef28(null);
-  const [settling, setSettling] = useState34(null);
-  const [held, setHeld] = useState34(null);
-  const [dealing, setDealing] = useState34(0);
-  useLayoutEffect10(() => {
-    const prev = watched.current;
-    watched.current = ev && contest ? { ev, contest, winSlot, label: contest.kind === "ffa" ? ev.name || "Winner" : contest.label } : null;
-    if (!boardChange.fresh || !prev || prev.contest.id === contest?.id) return;
-    const decided3 = decidedContest(state, events, prev.ev.id, prev.contest);
-    if (!decided3) return;
-    if (boardChange.animate) {
-      setSettling(null);
-      setHeld({ id: `${prev.contest.id}:${boardChange.changeId}`, ...prev });
-      return;
-    }
-    const view = settledStacks(state, events, prev.contest);
-    if (view.any) setSettling({ id: prev.contest.id, label: prev.label, view });
-  }, [boardKey]);
-  const heldView = held ? decidedContest(state, events, held.ev.id, held.contest) : null;
-  const endHold = () => {
-    setHeld(null);
-    setDealing((value) => value + 1);
-  };
-  useEffect24(() => {
-    if (!held) return void 0;
-    const timer = setTimeout(endHold, MOTION.settleHold);
-    return () => clearTimeout(timer);
-  }, [held?.id]);
-  useEffect24(() => {
-    if (held && (!heldView || frame2.correction)) setHeld(null);
-  }, [held?.id, !!heldView, frame2.seq]);
-  useEffect24(() => {
-    if (!dealing) return void 0;
-    const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
-    return () => clearTimeout(timer);
-  }, [dealing]);
-  useEffect24(() => {
-    if (!settling) return void 0;
-    const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
-    return () => clearTimeout(timer);
-  }, [settling?.id]);
-  const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
-  const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket" : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
-  const holding = !!(held && heldView);
-  const headEv = holding ? held.ev : ev;
-  const liveDot = marketOpen && !holding;
-  return /* @__PURE__ */ React39.createElement(
-    "div",
-    {
-      className: `fd-wagers${me && marketOpen ? " has-rack" : ""}`,
-      style: { "--fd-wagers-numerals": DISPLAY, "--fd-wagers-body": SANS }
-    },
-    headEv ? /* @__PURE__ */ React39.createElement("header", { className: "fd-wagers-event-heading" }, /* @__PURE__ */ React39.createElement("div", null, /* @__PURE__ */ React39.createElement("h1", null, headEv.name), GameMark2 && /* @__PURE__ */ React39.createElement(GameMark2, { id: headEv.game, size: 34 })), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React39.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React39.createElement("i", { className: liveDot ? "fd-beat-dot" : void 0, "aria-hidden": "true" }), holding ? "Settled" : status))) : /* @__PURE__ */ React39.createElement(PageHeading, { title: "Bets" }),
-    settling && /* @__PURE__ */ React39.createElement(SettleStrip, { key: settling.id, me, settling }),
-    holding && /* @__PURE__ */ React39.createElement(HeldBoard, { key: held.id, state, me, held, view: heldView, onSkip: endHold }),
-    !ev && !holding && /* @__PURE__ */ React39.createElement("section", { className: `fd-wagers-waiting${state.frozen || finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React39.createElement("h2", null, state.frozen ? "The board is frozen." : finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !state.frozen && !finaleClosed && /* @__PURE__ */ React39.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && !holding && /* @__PURE__ */ React39.createElement("section", { className: "fd-wagers-event" }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React39.createElement("div", null, /* @__PURE__ */ React39.createElement("h2", null, contest?.kind === "ffa" ? "Winner" : contest?.label || "Bets"), contest && /* @__PURE__ */ React39.createElement("p", null, evenMoney ? "Winner pays 1:1" : "Winner pays 2:1")), onEvent && !peek && /* @__PURE__ */ React39.createElement("button", { type: "button", className: "fd-wagers-context", onClick: () => onEvent(ev) }, contextLabel, /* @__PURE__ */ React39.createElement("span", { "aria-hidden": "true" }, "\u2197"))), contest && picks.length > 0 ? /* @__PURE__ */ React39.createElement(
-      "section",
-      {
-        className: `fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`,
-        "aria-label": contest.label
-      },
-      /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-picks" }, picks.map((pick) => /* @__PURE__ */ React39.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
-    ) : /* @__PURE__ */ React39.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React39.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React39.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
-    pendingLines.length > 0 && /* @__PURE__ */ React39.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React39.createElement("summary", null, "Open bets ", /* @__PURE__ */ React39.createElement("span", null, pendingLines.length)), gm && onVoid && /* @__PURE__ */ React39.createElement(
-      "button",
-      {
-        type: "button",
-        className: "fd-wagers-manage",
-        "aria-pressed": manage,
-        onClick: () => setManage((value) => !value)
-      },
-      manage ? "Done" : "Manage"
-    ), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React39.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
-    settledLines.length > 0 && /* @__PURE__ */ React39.createElement(
-      "details",
-      {
-        className: "fd-wagers-history",
-        ref: settledRef,
-        open: settledShown,
-        onToggle: (event) => setSettledShown(event.currentTarget.open)
-      },
-      /* @__PURE__ */ React39.createElement("summary", null, "Settled ", /* @__PURE__ */ React39.createElement("span", null, settledLines.length)),
-      /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
-        const key = `st:${group.player}`, open = settledOpen === key;
-        return /* @__PURE__ */ React39.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React39.createElement(
-          "button",
-          {
-            type: "button",
-            className: "fd-wagers-settled-person",
-            disabled: !onPlayer,
-            onClick: () => onPlayer?.(group.player),
-            "aria-label": `View ${disp(state, group.player)}'s player card`
-          },
-          /* @__PURE__ */ React39.createElement(Avatar, { state, p: group.player, size: 32 }),
-          /* @__PURE__ */ React39.createElement("strong", null, disp(state, group.player))
-        ), /* @__PURE__ */ React39.createElement(
-          "button",
-          {
-            type: "button",
-            className: "fd-wagers-settled-toggle",
-            "aria-expanded": open,
-            "aria-label": `${open ? "Hide" : "View"} settled bets by ${disp(state, group.player)}`,
-            onClick: () => setSettledOpen((current) => current === key ? null : key)
-          },
-          /* @__PURE__ */ React39.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
-          /* @__PURE__ */ React39.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt5(group.net)),
-          /* @__PURE__ */ React39.createElement("span", { className: "fd-wagers-settled-arrow", "aria-hidden": "true" }, open ? "\u2212" : "+")
-        )), open && /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React39.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
-      }))
-    ),
-    me && ev && marketOpen && !holding && /* @__PURE__ */ React39.createElement("section", { className: `fd-wagers-rack fd-night${dealing ? " is-dealing" : ""}`, "aria-label": "Choose your betting chip" }, /* @__PURE__ */ React39.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room }), /* @__PURE__ */ React39.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
-      const affordable = value <= room;
-      return /* @__PURE__ */ React39.createElement(
-        RackChip,
-        {
-          key: value,
-          value,
-          me,
-          disabled: !affordable,
-          selected: tapStake === value && affordable,
-          onClick: () => {
-            tapTick();
-            setDenom(value);
-          }
-        }
-      );
-    })))
-  );
-}
+init_Travel();
+import React49, { useState as useState37 } from "react";
+var HOST = ROSTER.includes("Brandon") ? "Brandon" : null;
 
 // src/App.jsx
+init_Wagers();
+init_PokerChips();
 init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React84, { useState as useState67, useEffect as useEffect57, useLayoutEffect as useLayoutEffect17, useRef as useRef63, useMemo as useMemo17, useCallback as useCallback7, useId as useId6, lazy, Suspense } from "react";
+import React80, { useState as useState61, useEffect as useEffect54, useLayoutEffect as useLayoutEffect17, useRef as useRef56, useMemo as useMemo15, useCallback as useCallback6, useId as useId8, lazy as lazy2, Suspense } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_PlayerIdentity();
 init_controls();
-import React42, { useEffect as useEffect27, useMemo as useMemo8, useRef as useRef31, useState as useState37 } from "react";
+import React55, { useEffect as useEffect32, useMemo as useMemo10, useRef as useRef36, useState as useState42 } from "react";
 init_PlayerPass();
 init_seasonStats();
 init_motion2();
 init_serverClock();
-var fmt6 = (n) => (n ?? 0).toLocaleString("en-US");
-var signed = (n) => `${n > 0 ? "+" : ""}${fmt6(n)}`;
+init_haptics();
+var fmt7 = (n) => (n ?? 0).toLocaleString("en-US");
 var OUTCOME = { won: "Won", lost: "Lost", push: "Push", void: "Void" };
-function rematchAvailable(state, me, p, { events = [], now = serverNow() } = {}) {
+function rematchAvailable(state, me, p, { events = [], now: now2 = serverNow() } = {}) {
   if (!me || !p || me === p || !duelsOpen(state)) return false;
-  if (state.away?.[me] || state.away?.[p] || duelBetween(state, me, p, now)) return false;
+  if (state.away?.[me] || state.away?.[p] || duelBetween(state, me, p, now2)) return false;
   return headToHead(state, me, p, events.length ? events : void 0).count > 0;
 }
 function PlayerSheet({
@@ -9422,11 +12270,11 @@ function PlayerSheet({
   onDecline,
   onWithdraw
 }) {
-  const [ante, setAnte] = useState37(PT);
-  const [pending, setPending] = useState37(false);
-  const [error, setError] = useState37("");
-  const sending = useRef31(false);
-  const now = serverNow();
+  const [ante, setAnte] = useState42(PT);
+  const [pending, setPending] = useState42(false);
+  const [error, setError] = useState42("");
+  const sending = useRef36(false);
+  const now2 = serverNow();
   const row = standings.find((item) => item.player === p);
   const duels = state.duels || [];
   const settled = duels.map((d) => resolveDuel(d)).filter((result) => result.settled && !result.push);
@@ -9436,20 +12284,20 @@ function PlayerSheet({
   const own = !!me && me === p;
   const away = !!(state.away?.[p] || me && state.away?.[me]);
   const canDuel = !!(onDuel && me && duelsOpen(state));
-  const current = !me ? null : own ? duels.find((d) => d.open && d.from === me && duelPhase(d, now) === "offered") || null : duelBetween(state, me, p, now) || duels.find((d) => d.from === p && d.open && duelView(state, d, me, now).takeable) || null;
+  const current = !me ? null : own ? duels.find((d) => d.open && d.from === me && duelPhase(d, now2) === "offered") || null : duelBetween(state, me, p, now2) || duels.find((d) => d.from === p && d.open && duelView(state, d, me, now2).takeable) || null;
   const record = me && !own ? duelRecord(state, me, p) : null;
   const history = own ? duels.map((d) => duelResult(state, d, me)).filter(Boolean).sort((a, b) => (b.ts || 0) - (a.ts || 0)) : record?.lines || [];
   const last = !own ? history[0] : null;
-  const room = (player) => duelRoom(state, player, { events, rows: standings, now }).room;
+  const room = (player) => duelRoom(state, player, { events, rows: standings, now: now2 }).room;
   const anteMax = canDuel && !away && !current ? Math.min(room(me), own ? Infinity : room(p)) : 0;
-  const dailyLimit = !!me && duelsSentToday(state, me, now) >= DUEL_DAILY_LIMIT;
+  const dailyLimit = !!me && duelsSentToday(state, me, now2) >= DUEL_DAILY_LIMIT;
   const unavailable = dailyLimit ? "Daily limit of 3 challenges reached." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
-  const [turned, setTurned] = useState37(false);
-  const duelRef = useRef31(null);
+  const [turned, setTurned] = useState42(false);
+  const duelRef = useRef36(null);
   const reducedMotion = useReducedMotion();
-  const canRematch = useMemo8(
-    () => !!onDuel && rematchAvailable(state, me, p, { events, now }),
+  const canRematch = useMemo10(
+    () => !!onDuel && rematchAvailable(state, me, p, { events, now: now2 }),
     [state, me, p, events, onDuel]
   );
   const openRematch = () => {
@@ -9458,10 +12306,10 @@ function PlayerSheet({
     section?.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll: true });
   };
-  useEffect27(() => {
+  useEffect32(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect27(() => {
+  useEffect32(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
   }, [p]);
@@ -9482,7 +12330,7 @@ function PlayerSheet({
       setPending(false);
     }
   };
-  return /* @__PURE__ */ React42.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending }, /* @__PURE__ */ React42.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React42.createElement(
+  return /* @__PURE__ */ React55.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending, show: true }, /* @__PURE__ */ React55.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React55.createElement(
     PlayerPass,
     {
       key: p,
@@ -9490,11 +12338,12 @@ function PlayerSheet({
       p,
       compact: true,
       viewer: me || null,
+      own: !!me && me === p,
       events: events.length ? events : void 0,
       standings,
       onFlip: setTurned
     }
-  ), turned && canRematch && /* @__PURE__ */ React42.createElement(
+  ), turned && canRematch && /* @__PURE__ */ React55.createElement(
     ActionButton,
     {
       type: "button",
@@ -9502,7 +12351,7 @@ function PlayerSheet({
       onClick: openRematch
     },
     "Rematch"
-  ), state.live && row && /* @__PURE__ */ React42.createElement("dl", { className: "fd-player-stats", "aria-label": "Tournament stats" }, /* @__PURE__ */ React42.createElement("div", null, /* @__PURE__ */ React42.createElement("dt", null, "Position"), /* @__PURE__ */ React42.createElement("dd", null, row.rank)), /* @__PURE__ */ React42.createElement("div", null, /* @__PURE__ */ React42.createElement("dt", null, "Chips"), /* @__PURE__ */ React42.createElement("dd", null, fmt6(row.pts))), /* @__PURE__ */ React42.createElement("div", null, /* @__PURE__ */ React42.createElement("dt", null, "Wins"), /* @__PURE__ */ React42.createElement("dd", null, row.wins))), state.live && row && (row.betNet !== 0 || duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React42.createElement("dl", { className: "fd-player-record" }, row.betNet !== 0 && /* @__PURE__ */ React42.createElement("div", null, /* @__PURE__ */ React42.createElement("dt", null, "Wagers"), /* @__PURE__ */ React42.createElement("dd", null, signed(row.betNet))), (duelWins > 0 || duelLosses > 0) && /* @__PURE__ */ React42.createElement("div", null, /* @__PURE__ */ React42.createElement("dt", null, "Duels"), /* @__PURE__ */ React42.createElement("dd", null, duelWins, " won \xB7 ", duelLosses, " lost", /* @__PURE__ */ React42.createElement("span", null, signed(row.duelNet), " chips")))), wins.length > 0 && /* @__PURE__ */ React42.createElement("section", { className: "fd-player-wins", "aria-label": "Event wins" }, /* @__PURE__ */ React42.createElement("h2", null, "Event wins"), /* @__PURE__ */ React42.createElement("ul", null, wins.map((event) => /* @__PURE__ */ React42.createElement("li", { key: event.id }, event.name)))), own && onEdit && /* @__PURE__ */ React42.createElement(
+  ), own && onEdit && /* @__PURE__ */ React55.createElement(
     ActionButton,
     {
       type: "button",
@@ -9511,31 +12360,31 @@ function PlayerSheet({
       style: { width: "100%" }
     },
     "Edit your profile"
-  ), canDuel && (current || !away) && /* @__PURE__ */ React42.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, /* @__PURE__ */ React42.createElement("details", { className: "fd-player-duel-rules" }, /* @__PURE__ */ React42.createElement("summary", null, /* @__PURE__ */ React42.createElement("h2", null, "Quick Draw"), /* @__PURE__ */ React42.createElement("span", null, "How to play +")), /* @__PURE__ */ React42.createElement("p", null, "Once accepted, each of you plays on your own phone. Tap when the screen flashes. Fastest tap wins both antes. Tapping early is a foul. An unanswered challenge lapses after ", DUEL_LAPSE_MS / 6e4, " minutes.")), current ? /* @__PURE__ */ React42.createElement(
+  ), canDuel && (current || !away) && /* @__PURE__ */ React55.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, /* @__PURE__ */ React55.createElement("details", { className: "fd-player-duel-rules" }, /* @__PURE__ */ React55.createElement("summary", null, /* @__PURE__ */ React55.createElement("h2", null, "Quick Draw"), /* @__PURE__ */ React55.createElement("span", null, "How to play +")), /* @__PURE__ */ React55.createElement("p", null, "Tap when the screen flashes. Fastest tap wins both antes. Tapping early is a foul. An unanswered challenge lapses after ", DUEL_LAPSE_MS / 6e4, " minutes.")), current ? /* @__PURE__ */ React55.createElement(
     DuelCard,
     {
       bare: true,
       state,
       duel: current,
       me,
-      now,
+      now: now2,
       onPlay,
       onAccept,
       onDecline,
       onWithdraw
     }
-  ) : unavailable ? /* @__PURE__ */ React42.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : /* @__PURE__ */ React42.createElement(React42.Fragment, null, /* @__PURE__ */ React42.createElement("fieldset", { className: "fd-player-antes", disabled: pending }, /* @__PURE__ */ React42.createElement("legend", null, "Ante, each"), ANTES.map((value) => /* @__PURE__ */ React42.createElement(
+  ) : unavailable ? /* @__PURE__ */ React55.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : /* @__PURE__ */ React55.createElement(React55.Fragment, null, /* @__PURE__ */ React55.createElement("fieldset", { className: "fd-player-antes", disabled: pending }, /* @__PURE__ */ React55.createElement("legend", null, "Ante, each"), ANTES.map((value) => /* @__PURE__ */ React55.createElement(
     "button",
     {
       type: "button",
       key: value,
       disabled: value > anteMax || pending,
       "aria-pressed": ante === value,
-      "aria-label": `Ante ${fmt6(value)} chips each`,
+      "aria-label": `Ante ${fmt7(value)} chips each`,
       onClick: () => setAnte(value)
     },
-    /* @__PURE__ */ React42.createElement(BankChip, { p: me, size: 44, val: value })
-  ))), error && /* @__PURE__ */ React42.createElement("p", { className: "fd-player-error", role: "alert" }, error), /* @__PURE__ */ React42.createElement(
+    /* @__PURE__ */ React55.createElement(BankChip, { p: me, size: 44, val: value })
+  ))), error && /* @__PURE__ */ React55.createElement("p", { className: "fd-player-error", role: "alert" }, error), /* @__PURE__ */ React55.createElement(
     ActionButton,
     {
       type: "button",
@@ -9545,1900 +12394,65 @@ function PlayerSheet({
       pending,
       style: { width: "100%" }
     },
-    pending ? "Sending\u2026" : own ? `Challenge anyone for ${fmt6(ante)}` : rematch ? `Rematch for ${fmt6(ante)}` : `Challenge ${disp(state, p)} for ${fmt6(ante)}`
-  ))), !!me && history.length > 0 && /* @__PURE__ */ React42.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React42.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React42.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React42.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React42.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React42.createElement("ul", null, history.map((line) => /* @__PURE__ */ React42.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React42.createElement("span", null, own ? `vs ${line.name}` : `${fmt6(line.stake)} each`, line.times && /* @__PURE__ */ React42.createElement("small", null, line.times)), /* @__PURE__ */ React42.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
+    pending ? "Sending\u2026" : own ? `Challenge anyone for ${fmt7(ante)}` : rematch ? `Rematch for ${fmt7(ante)}` : `Challenge ${disp(state, p)} for ${fmt7(ante)}`
+  ))), !!me && history.length > 0 && /* @__PURE__ */ React55.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React55.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React55.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React55.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React55.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React55.createElement("ul", null, history.map((line) => /* @__PURE__ */ React55.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React55.createElement("span", null, own ? `vs ${line.name}` : `${fmt7(line.stake)} each`, line.times && /* @__PURE__ */ React55.createElement("small", null, line.times)), /* @__PURE__ */ React55.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
 }
 
 // src/App.jsx
 init_InstallHint();
-
-// src/features/tv/TVMode.jsx
-import React59, { useEffect as useEffect36, useMemo as useMemo11, useRef as useRef43, useState as useState47 } from "react";
-
-// node_modules/qrcode-generator/dist/qrcode.mjs
-var qrcode = function(typeNumber, errorCorrectionLevel) {
-  const PAD0 = 236;
-  const PAD1 = 17;
-  let _typeNumber = typeNumber;
-  const _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
-  let _modules = null;
-  let _moduleCount = 0;
-  let _dataCache = null;
-  const _dataList = [];
-  const _this = {};
-  const makeImpl = function(test, maskPattern) {
-    _moduleCount = _typeNumber * 4 + 17;
-    _modules = (function(moduleCount) {
-      const modules = new Array(moduleCount);
-      for (let row = 0; row < moduleCount; row += 1) {
-        modules[row] = new Array(moduleCount);
-        for (let col = 0; col < moduleCount; col += 1) {
-          modules[row][col] = null;
-        }
-      }
-      return modules;
-    })(_moduleCount);
-    setupPositionProbePattern(0, 0);
-    setupPositionProbePattern(_moduleCount - 7, 0);
-    setupPositionProbePattern(0, _moduleCount - 7);
-    setupPositionAdjustPattern();
-    setupTimingPattern();
-    setupTypeInfo(test, maskPattern);
-    if (_typeNumber >= 7) {
-      setupTypeNumber(test);
-    }
-    if (_dataCache == null) {
-      _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
-    }
-    mapData(_dataCache, maskPattern);
-  };
-  const setupPositionProbePattern = function(row, col) {
-    for (let r = -1; r <= 7; r += 1) {
-      if (row + r <= -1 || _moduleCount <= row + r) continue;
-      for (let c = -1; c <= 7; c += 1) {
-        if (col + c <= -1 || _moduleCount <= col + c) continue;
-        if (0 <= r && r <= 6 && (c == 0 || c == 6) || 0 <= c && c <= 6 && (r == 0 || r == 6) || 2 <= r && r <= 4 && 2 <= c && c <= 4) {
-          _modules[row + r][col + c] = true;
-        } else {
-          _modules[row + r][col + c] = false;
-        }
-      }
-    }
-  };
-  const getBestMaskPattern = function() {
-    let minLostPoint = 0;
-    let pattern = 0;
-    for (let i = 0; i < 8; i += 1) {
-      makeImpl(true, i);
-      const lostPoint = QRUtil.getLostPoint(_this);
-      if (i == 0 || minLostPoint > lostPoint) {
-        minLostPoint = lostPoint;
-        pattern = i;
-      }
-    }
-    return pattern;
-  };
-  const setupTimingPattern = function() {
-    for (let r = 8; r < _moduleCount - 8; r += 1) {
-      if (_modules[r][6] != null) {
-        continue;
-      }
-      _modules[r][6] = r % 2 == 0;
-    }
-    for (let c = 8; c < _moduleCount - 8; c += 1) {
-      if (_modules[6][c] != null) {
-        continue;
-      }
-      _modules[6][c] = c % 2 == 0;
-    }
-  };
-  const setupPositionAdjustPattern = function() {
-    const pos = QRUtil.getPatternPosition(_typeNumber);
-    for (let i = 0; i < pos.length; i += 1) {
-      for (let j = 0; j < pos.length; j += 1) {
-        const row = pos[i];
-        const col = pos[j];
-        if (_modules[row][col] != null) {
-          continue;
-        }
-        for (let r = -2; r <= 2; r += 1) {
-          for (let c = -2; c <= 2; c += 1) {
-            if (r == -2 || r == 2 || c == -2 || c == 2 || r == 0 && c == 0) {
-              _modules[row + r][col + c] = true;
-            } else {
-              _modules[row + r][col + c] = false;
-            }
-          }
-        }
-      }
-    }
-  };
-  const setupTypeNumber = function(test) {
-    const bits = QRUtil.getBCHTypeNumber(_typeNumber);
-    for (let i = 0; i < 18; i += 1) {
-      const mod = !test && (bits >> i & 1) == 1;
-      _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
-    }
-    for (let i = 0; i < 18; i += 1) {
-      const mod = !test && (bits >> i & 1) == 1;
-      _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
-    }
-  };
-  const setupTypeInfo = function(test, maskPattern) {
-    const data = _errorCorrectionLevel << 3 | maskPattern;
-    const bits = QRUtil.getBCHTypeInfo(data);
-    for (let i = 0; i < 15; i += 1) {
-      const mod = !test && (bits >> i & 1) == 1;
-      if (i < 6) {
-        _modules[i][8] = mod;
-      } else if (i < 8) {
-        _modules[i + 1][8] = mod;
-      } else {
-        _modules[_moduleCount - 15 + i][8] = mod;
-      }
-    }
-    for (let i = 0; i < 15; i += 1) {
-      const mod = !test && (bits >> i & 1) == 1;
-      if (i < 8) {
-        _modules[8][_moduleCount - i - 1] = mod;
-      } else if (i < 9) {
-        _modules[8][15 - i - 1 + 1] = mod;
-      } else {
-        _modules[8][15 - i - 1] = mod;
-      }
-    }
-    _modules[_moduleCount - 8][8] = !test;
-  };
-  const mapData = function(data, maskPattern) {
-    let inc = -1;
-    let row = _moduleCount - 1;
-    let bitIndex = 7;
-    let byteIndex = 0;
-    const maskFunc = QRUtil.getMaskFunction(maskPattern);
-    for (let col = _moduleCount - 1; col > 0; col -= 2) {
-      if (col == 6) col -= 1;
-      while (true) {
-        for (let c = 0; c < 2; c += 1) {
-          if (_modules[row][col - c] == null) {
-            let dark = false;
-            if (byteIndex < data.length) {
-              dark = (data[byteIndex] >>> bitIndex & 1) == 1;
-            }
-            const mask = maskFunc(row, col - c);
-            if (mask) {
-              dark = !dark;
-            }
-            _modules[row][col - c] = dark;
-            bitIndex -= 1;
-            if (bitIndex == -1) {
-              byteIndex += 1;
-              bitIndex = 7;
-            }
-          }
-        }
-        row += inc;
-        if (row < 0 || _moduleCount <= row) {
-          row -= inc;
-          inc = -inc;
-          break;
-        }
-      }
-    }
-  };
-  const createBytes = function(buffer, rsBlocks) {
-    let offset2 = 0;
-    let maxDcCount = 0;
-    let maxEcCount = 0;
-    const dcdata = new Array(rsBlocks.length);
-    const ecdata = new Array(rsBlocks.length);
-    for (let r = 0; r < rsBlocks.length; r += 1) {
-      const dcCount = rsBlocks[r].dataCount;
-      const ecCount = rsBlocks[r].totalCount - dcCount;
-      maxDcCount = Math.max(maxDcCount, dcCount);
-      maxEcCount = Math.max(maxEcCount, ecCount);
-      dcdata[r] = new Array(dcCount);
-      for (let i = 0; i < dcdata[r].length; i += 1) {
-        dcdata[r][i] = 255 & buffer.getBuffer()[i + offset2];
-      }
-      offset2 += dcCount;
-      const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
-      const rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
-      const modPoly = rawPoly.mod(rsPoly);
-      ecdata[r] = new Array(rsPoly.getLength() - 1);
-      for (let i = 0; i < ecdata[r].length; i += 1) {
-        const modIndex = i + modPoly.getLength() - ecdata[r].length;
-        ecdata[r][i] = modIndex >= 0 ? modPoly.getAt(modIndex) : 0;
-      }
-    }
-    let totalCodeCount = 0;
-    for (let i = 0; i < rsBlocks.length; i += 1) {
-      totalCodeCount += rsBlocks[i].totalCount;
-    }
-    const data = new Array(totalCodeCount);
-    let index = 0;
-    for (let i = 0; i < maxDcCount; i += 1) {
-      for (let r = 0; r < rsBlocks.length; r += 1) {
-        if (i < dcdata[r].length) {
-          data[index] = dcdata[r][i];
-          index += 1;
-        }
-      }
-    }
-    for (let i = 0; i < maxEcCount; i += 1) {
-      for (let r = 0; r < rsBlocks.length; r += 1) {
-        if (i < ecdata[r].length) {
-          data[index] = ecdata[r][i];
-          index += 1;
-        }
-      }
-    }
-    return data;
-  };
-  const createData = function(typeNumber2, errorCorrectionLevel2, dataList) {
-    const rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, errorCorrectionLevel2);
-    const buffer = qrBitBuffer();
-    for (let i = 0; i < dataList.length; i += 1) {
-      const data = dataList[i];
-      buffer.put(data.getMode(), 4);
-      buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
-      data.write(buffer);
-    }
-    let totalDataCount = 0;
-    for (let i = 0; i < rsBlocks.length; i += 1) {
-      totalDataCount += rsBlocks[i].dataCount;
-    }
-    if (buffer.getLengthInBits() > totalDataCount * 8) {
-      throw "code length overflow. (" + buffer.getLengthInBits() + ">" + totalDataCount * 8 + ")";
-    }
-    if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
-      buffer.put(0, 4);
-    }
-    while (buffer.getLengthInBits() % 8 != 0) {
-      buffer.putBit(false);
-    }
-    while (true) {
-      if (buffer.getLengthInBits() >= totalDataCount * 8) {
-        break;
-      }
-      buffer.put(PAD0, 8);
-      if (buffer.getLengthInBits() >= totalDataCount * 8) {
-        break;
-      }
-      buffer.put(PAD1, 8);
-    }
-    return createBytes(buffer, rsBlocks);
-  };
-  _this.addData = function(data, mode2) {
-    mode2 = mode2 || "Byte";
-    let newData = null;
-    switch (mode2) {
-      case "Numeric":
-        newData = qrNumber(data);
-        break;
-      case "Alphanumeric":
-        newData = qrAlphaNum(data);
-        break;
-      case "Byte":
-        newData = qr8BitByte(data);
-        break;
-      case "Kanji":
-        newData = qrKanji(data);
-        break;
-      default:
-        throw "mode:" + mode2;
-    }
-    _dataList.push(newData);
-    _dataCache = null;
-  };
-  _this.isDark = function(row, col) {
-    if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
-      throw row + "," + col;
-    }
-    return _modules[row][col];
-  };
-  _this.getModuleCount = function() {
-    return _moduleCount;
-  };
-  _this.make = function() {
-    if (_typeNumber < 1) {
-      let typeNumber2 = 1;
-      for (; typeNumber2 < 40; typeNumber2++) {
-        const rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, _errorCorrectionLevel);
-        const buffer = qrBitBuffer();
-        for (let i = 0; i < _dataList.length; i++) {
-          const data = _dataList[i];
-          buffer.put(data.getMode(), 4);
-          buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
-          data.write(buffer);
-        }
-        let totalDataCount = 0;
-        for (let i = 0; i < rsBlocks.length; i++) {
-          totalDataCount += rsBlocks[i].dataCount;
-        }
-        if (buffer.getLengthInBits() <= totalDataCount * 8) {
-          break;
-        }
-      }
-      _typeNumber = typeNumber2;
-    }
-    makeImpl(false, getBestMaskPattern());
-  };
-  _this.createTableTag = function(cellSize, margin) {
-    cellSize = cellSize || 2;
-    margin = typeof margin == "undefined" ? cellSize * 4 : margin;
-    let qrHtml = "";
-    qrHtml += '<table style="';
-    qrHtml += " border-width: 0px; border-style: none;";
-    qrHtml += " border-collapse: collapse;";
-    qrHtml += " padding: 0px; margin: " + margin + "px;";
-    qrHtml += '">';
-    qrHtml += "<tbody>";
-    for (let r = 0; r < _this.getModuleCount(); r += 1) {
-      qrHtml += "<tr>";
-      for (let c = 0; c < _this.getModuleCount(); c += 1) {
-        qrHtml += '<td style="';
-        qrHtml += " border-width: 0px; border-style: none;";
-        qrHtml += " border-collapse: collapse;";
-        qrHtml += " padding: 0px; margin: 0px;";
-        qrHtml += " width: " + cellSize + "px;";
-        qrHtml += " height: " + cellSize + "px;";
-        qrHtml += " background-color: ";
-        qrHtml += _this.isDark(r, c) ? "#000000" : "#ffffff";
-        qrHtml += ";";
-        qrHtml += '"/>';
-      }
-      qrHtml += "</tr>";
-    }
-    qrHtml += "</tbody>";
-    qrHtml += "</table>";
-    return qrHtml;
-  };
-  _this.createSvgTag = function(cellSize, margin, alt, title) {
-    let opts = {};
-    if (typeof arguments[0] == "object") {
-      opts = arguments[0];
-      cellSize = opts.cellSize;
-      margin = opts.margin;
-      alt = opts.alt;
-      title = opts.title;
-    }
-    cellSize = cellSize || 2;
-    margin = typeof margin == "undefined" ? cellSize * 4 : margin;
-    alt = typeof alt === "string" ? { text: alt } : alt || {};
-    alt.text = alt.text || null;
-    alt.id = alt.text ? alt.id || "qrcode-description" : null;
-    title = typeof title === "string" ? { text: title } : title || {};
-    title.text = title.text || null;
-    title.id = title.text ? title.id || "qrcode-title" : null;
-    const size = _this.getModuleCount() * cellSize + margin * 2;
-    let c, mc, r, mr, qrSvg = "", rect;
-    rect = "l" + cellSize + ",0 0," + cellSize + " -" + cellSize + ",0 0,-" + cellSize + "z ";
-    qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
-    qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : "";
-    qrSvg += ' viewBox="0 0 ' + size + " " + size + '" ';
-    qrSvg += ' preserveAspectRatio="xMinYMin meet"';
-    qrSvg += title.text || alt.text ? ' role="img" aria-labelledby="' + escapeXml([title.id, alt.id].join(" ").trim()) + '"' : "";
-    qrSvg += ">";
-    qrSvg += title.text ? '<title id="' + escapeXml(title.id) + '">' + escapeXml(title.text) + "</title>" : "";
-    qrSvg += alt.text ? '<description id="' + escapeXml(alt.id) + '">' + escapeXml(alt.text) + "</description>" : "";
-    qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
-    qrSvg += '<path d="';
-    for (r = 0; r < _this.getModuleCount(); r += 1) {
-      mr = r * cellSize + margin;
-      for (c = 0; c < _this.getModuleCount(); c += 1) {
-        if (_this.isDark(r, c)) {
-          mc = c * cellSize + margin;
-          qrSvg += "M" + mc + "," + mr + rect;
-        }
-      }
-    }
-    qrSvg += '" stroke="transparent" fill="black"/>';
-    qrSvg += "</svg>";
-    return qrSvg;
-  };
-  _this.createDataURL = function(cellSize, margin) {
-    cellSize = cellSize || 2;
-    margin = typeof margin == "undefined" ? cellSize * 4 : margin;
-    const size = _this.getModuleCount() * cellSize + margin * 2;
-    const min = margin;
-    const max = size - margin;
-    return createDataURL(size, size, function(x, y) {
-      if (min <= x && x < max && min <= y && y < max) {
-        const c = Math.floor((x - min) / cellSize);
-        const r = Math.floor((y - min) / cellSize);
-        return _this.isDark(r, c) ? 0 : 1;
-      } else {
-        return 1;
-      }
-    });
-  };
-  _this.createImgTag = function(cellSize, margin, alt) {
-    cellSize = cellSize || 2;
-    margin = typeof margin == "undefined" ? cellSize * 4 : margin;
-    const size = _this.getModuleCount() * cellSize + margin * 2;
-    let img = "";
-    img += "<img";
-    img += ' src="';
-    img += _this.createDataURL(cellSize, margin);
-    img += '"';
-    img += ' width="';
-    img += size;
-    img += '"';
-    img += ' height="';
-    img += size;
-    img += '"';
-    if (alt) {
-      img += ' alt="';
-      img += escapeXml(alt);
-      img += '"';
-    }
-    img += "/>";
-    return img;
-  };
-  const escapeXml = function(s) {
-    let escaped = "";
-    for (let i = 0; i < s.length; i += 1) {
-      const c = s.charAt(i);
-      switch (c) {
-        case "<":
-          escaped += "&lt;";
-          break;
-        case ">":
-          escaped += "&gt;";
-          break;
-        case "&":
-          escaped += "&amp;";
-          break;
-        case '"':
-          escaped += "&quot;";
-          break;
-        default:
-          escaped += c;
-          break;
-      }
-    }
-    return escaped;
-  };
-  const _createHalfASCII = function(margin) {
-    const cellSize = 1;
-    margin = typeof margin == "undefined" ? cellSize * 2 : margin;
-    const size = _this.getModuleCount() * cellSize + margin * 2;
-    const min = margin;
-    const max = size - margin;
-    let y, x, r12, r22, p;
-    const blocks = {
-      "\u2588\u2588": "\u2588",
-      "\u2588 ": "\u2580",
-      " \u2588": "\u2584",
-      "  ": " "
-    };
-    const blocksLastLineNoMargin = {
-      "\u2588\u2588": "\u2580",
-      "\u2588 ": "\u2580",
-      " \u2588": " ",
-      "  ": " "
-    };
-    let ascii = "";
-    for (y = 0; y < size; y += 2) {
-      r12 = Math.floor((y - min) / cellSize);
-      r22 = Math.floor((y + 1 - min) / cellSize);
-      for (x = 0; x < size; x += 1) {
-        p = "\u2588";
-        if (min <= x && x < max && min <= y && y < max && _this.isDark(r12, Math.floor((x - min) / cellSize))) {
-          p = " ";
-        }
-        if (min <= x && x < max && min <= y + 1 && y + 1 < max && _this.isDark(r22, Math.floor((x - min) / cellSize))) {
-          p += " ";
-        } else {
-          p += "\u2588";
-        }
-        ascii += margin < 1 && y + 1 >= max ? blocksLastLineNoMargin[p] : blocks[p];
-      }
-      ascii += "\n";
-    }
-    if (size % 2 && margin > 0) {
-      return ascii.substring(0, ascii.length - size - 1) + Array(size + 1).join("\u2580");
-    }
-    return ascii.substring(0, ascii.length - 1);
-  };
-  _this.createASCII = function(cellSize, margin) {
-    cellSize = cellSize || 1;
-    if (cellSize < 2) {
-      return _createHalfASCII(margin);
-    }
-    cellSize -= 1;
-    margin = typeof margin == "undefined" ? cellSize * 2 : margin;
-    const size = _this.getModuleCount() * cellSize + margin * 2;
-    const min = margin;
-    const max = size - margin;
-    let y, x, r, p;
-    const white = Array(cellSize + 1).join("\u2588\u2588");
-    const black = Array(cellSize + 1).join("  ");
-    let ascii = "";
-    let line = "";
-    for (y = 0; y < size; y += 1) {
-      r = Math.floor((y - min) / cellSize);
-      line = "";
-      for (x = 0; x < size; x += 1) {
-        p = 1;
-        if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
-          p = 0;
-        }
-        line += p ? white : black;
-      }
-      for (r = 0; r < cellSize; r += 1) {
-        ascii += line + "\n";
-      }
-    }
-    return ascii.substring(0, ascii.length - 1);
-  };
-  _this.renderTo2dContext = function(context2, cellSize) {
-    cellSize = cellSize || 2;
-    const length = _this.getModuleCount();
-    for (let row = 0; row < length; row++) {
-      for (let col = 0; col < length; col++) {
-        context2.fillStyle = _this.isDark(row, col) ? "black" : "white";
-        context2.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-      }
-    }
-  };
-  return _this;
-};
-qrcode.stringToBytes = function(s) {
-  const bytes = [];
-  for (let i = 0; i < s.length; i += 1) {
-    const c = s.charCodeAt(i);
-    bytes.push(c & 255);
-  }
-  return bytes;
-};
-qrcode.createStringToBytes = function(unicodeData, numChars) {
-  const unicodeMap = (function() {
-    const bin = base64DecodeInputStream(unicodeData);
-    const read = function() {
-      const b = bin.read();
-      if (b == -1) throw "eof";
-      return b;
-    };
-    let count = 0;
-    const unicodeMap2 = {};
-    while (true) {
-      const b0 = bin.read();
-      if (b0 == -1) break;
-      const b1 = read();
-      const b2 = read();
-      const b3 = read();
-      const k = String.fromCharCode(b0 << 8 | b1);
-      const v = b2 << 8 | b3;
-      unicodeMap2[k] = v;
-      count += 1;
-    }
-    if (count != numChars) {
-      throw count + " != " + numChars;
-    }
-    return unicodeMap2;
-  })();
-  const unknownChar = "?".charCodeAt(0);
-  return function(s) {
-    const bytes = [];
-    for (let i = 0; i < s.length; i += 1) {
-      const c = s.charCodeAt(i);
-      if (c < 128) {
-        bytes.push(c);
-      } else {
-        const b = unicodeMap[s.charAt(i)];
-        if (typeof b == "number") {
-          if ((b & 255) == b) {
-            bytes.push(b);
-          } else {
-            bytes.push(b >>> 8);
-            bytes.push(b & 255);
-          }
-        } else {
-          bytes.push(unknownChar);
-        }
-      }
-    }
-    return bytes;
-  };
-};
-var QRMode = {
-  MODE_NUMBER: 1 << 0,
-  MODE_ALPHA_NUM: 1 << 1,
-  MODE_8BIT_BYTE: 1 << 2,
-  MODE_KANJI: 1 << 3
-};
-var QRErrorCorrectionLevel = {
-  L: 1,
-  M: 0,
-  Q: 3,
-  H: 2
-};
-var QRMaskPattern = {
-  PATTERN000: 0,
-  PATTERN001: 1,
-  PATTERN010: 2,
-  PATTERN011: 3,
-  PATTERN100: 4,
-  PATTERN101: 5,
-  PATTERN110: 6,
-  PATTERN111: 7
-};
-var QRUtil = (function() {
-  const PATTERN_POSITION_TABLE = [
-    [],
-    [6, 18],
-    [6, 22],
-    [6, 26],
-    [6, 30],
-    [6, 34],
-    [6, 22, 38],
-    [6, 24, 42],
-    [6, 26, 46],
-    [6, 28, 50],
-    [6, 30, 54],
-    [6, 32, 58],
-    [6, 34, 62],
-    [6, 26, 46, 66],
-    [6, 26, 48, 70],
-    [6, 26, 50, 74],
-    [6, 30, 54, 78],
-    [6, 30, 56, 82],
-    [6, 30, 58, 86],
-    [6, 34, 62, 90],
-    [6, 28, 50, 72, 94],
-    [6, 26, 50, 74, 98],
-    [6, 30, 54, 78, 102],
-    [6, 28, 54, 80, 106],
-    [6, 32, 58, 84, 110],
-    [6, 30, 58, 86, 114],
-    [6, 34, 62, 90, 118],
-    [6, 26, 50, 74, 98, 122],
-    [6, 30, 54, 78, 102, 126],
-    [6, 26, 52, 78, 104, 130],
-    [6, 30, 56, 82, 108, 134],
-    [6, 34, 60, 86, 112, 138],
-    [6, 30, 58, 86, 114, 142],
-    [6, 34, 62, 90, 118, 146],
-    [6, 30, 54, 78, 102, 126, 150],
-    [6, 24, 50, 76, 102, 128, 154],
-    [6, 28, 54, 80, 106, 132, 158],
-    [6, 32, 58, 84, 110, 136, 162],
-    [6, 26, 54, 82, 110, 138, 166],
-    [6, 30, 58, 86, 114, 142, 170]
-  ];
-  const G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
-  const G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
-  const G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
-  const _this = {};
-  const getBCHDigit = function(data) {
-    let digit = 0;
-    while (data != 0) {
-      digit += 1;
-      data >>>= 1;
-    }
-    return digit;
-  };
-  _this.getBCHTypeInfo = function(data) {
-    let d = data << 10;
-    while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
-      d ^= G15 << getBCHDigit(d) - getBCHDigit(G15);
-    }
-    return (data << 10 | d) ^ G15_MASK;
-  };
-  _this.getBCHTypeNumber = function(data) {
-    let d = data << 12;
-    while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
-      d ^= G18 << getBCHDigit(d) - getBCHDigit(G18);
-    }
-    return data << 12 | d;
-  };
-  _this.getPatternPosition = function(typeNumber) {
-    return PATTERN_POSITION_TABLE[typeNumber - 1];
-  };
-  _this.getMaskFunction = function(maskPattern) {
-    switch (maskPattern) {
-      case QRMaskPattern.PATTERN000:
-        return function(i, j) {
-          return (i + j) % 2 == 0;
-        };
-      case QRMaskPattern.PATTERN001:
-        return function(i, j) {
-          return i % 2 == 0;
-        };
-      case QRMaskPattern.PATTERN010:
-        return function(i, j) {
-          return j % 3 == 0;
-        };
-      case QRMaskPattern.PATTERN011:
-        return function(i, j) {
-          return (i + j) % 3 == 0;
-        };
-      case QRMaskPattern.PATTERN100:
-        return function(i, j) {
-          return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0;
-        };
-      case QRMaskPattern.PATTERN101:
-        return function(i, j) {
-          return i * j % 2 + i * j % 3 == 0;
-        };
-      case QRMaskPattern.PATTERN110:
-        return function(i, j) {
-          return (i * j % 2 + i * j % 3) % 2 == 0;
-        };
-      case QRMaskPattern.PATTERN111:
-        return function(i, j) {
-          return (i * j % 3 + (i + j) % 2) % 2 == 0;
-        };
-      default:
-        throw "bad maskPattern:" + maskPattern;
-    }
-  };
-  _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
-    let a = qrPolynomial([1], 0);
-    for (let i = 0; i < errorCorrectLength; i += 1) {
-      a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0));
-    }
-    return a;
-  };
-  _this.getLengthInBits = function(mode2, type) {
-    if (1 <= type && type < 10) {
-      switch (mode2) {
-        case QRMode.MODE_NUMBER:
-          return 10;
-        case QRMode.MODE_ALPHA_NUM:
-          return 9;
-        case QRMode.MODE_8BIT_BYTE:
-          return 8;
-        case QRMode.MODE_KANJI:
-          return 8;
-        default:
-          throw "mode:" + mode2;
-      }
-    } else if (type < 27) {
-      switch (mode2) {
-        case QRMode.MODE_NUMBER:
-          return 12;
-        case QRMode.MODE_ALPHA_NUM:
-          return 11;
-        case QRMode.MODE_8BIT_BYTE:
-          return 16;
-        case QRMode.MODE_KANJI:
-          return 10;
-        default:
-          throw "mode:" + mode2;
-      }
-    } else if (type < 41) {
-      switch (mode2) {
-        case QRMode.MODE_NUMBER:
-          return 14;
-        case QRMode.MODE_ALPHA_NUM:
-          return 13;
-        case QRMode.MODE_8BIT_BYTE:
-          return 16;
-        case QRMode.MODE_KANJI:
-          return 12;
-        default:
-          throw "mode:" + mode2;
-      }
-    } else {
-      throw "type:" + type;
-    }
-  };
-  _this.getLostPoint = function(qrcode2) {
-    const moduleCount = qrcode2.getModuleCount();
-    let lostPoint = 0;
-    for (let row = 0; row < moduleCount; row += 1) {
-      for (let col = 0; col < moduleCount; col += 1) {
-        let sameCount = 0;
-        const dark = qrcode2.isDark(row, col);
-        for (let r = -1; r <= 1; r += 1) {
-          if (row + r < 0 || moduleCount <= row + r) {
-            continue;
-          }
-          for (let c = -1; c <= 1; c += 1) {
-            if (col + c < 0 || moduleCount <= col + c) {
-              continue;
-            }
-            if (r == 0 && c == 0) {
-              continue;
-            }
-            if (dark == qrcode2.isDark(row + r, col + c)) {
-              sameCount += 1;
-            }
-          }
-        }
-        if (sameCount > 5) {
-          lostPoint += 3 + sameCount - 5;
-        }
-      }
-    }
-    ;
-    for (let row = 0; row < moduleCount - 1; row += 1) {
-      for (let col = 0; col < moduleCount - 1; col += 1) {
-        let count = 0;
-        if (qrcode2.isDark(row, col)) count += 1;
-        if (qrcode2.isDark(row + 1, col)) count += 1;
-        if (qrcode2.isDark(row, col + 1)) count += 1;
-        if (qrcode2.isDark(row + 1, col + 1)) count += 1;
-        if (count == 0 || count == 4) {
-          lostPoint += 3;
-        }
-      }
-    }
-    for (let row = 0; row < moduleCount; row += 1) {
-      for (let col = 0; col < moduleCount - 6; col += 1) {
-        if (qrcode2.isDark(row, col) && !qrcode2.isDark(row, col + 1) && qrcode2.isDark(row, col + 2) && qrcode2.isDark(row, col + 3) && qrcode2.isDark(row, col + 4) && !qrcode2.isDark(row, col + 5) && qrcode2.isDark(row, col + 6)) {
-          lostPoint += 40;
-        }
-      }
-    }
-    for (let col = 0; col < moduleCount; col += 1) {
-      for (let row = 0; row < moduleCount - 6; row += 1) {
-        if (qrcode2.isDark(row, col) && !qrcode2.isDark(row + 1, col) && qrcode2.isDark(row + 2, col) && qrcode2.isDark(row + 3, col) && qrcode2.isDark(row + 4, col) && !qrcode2.isDark(row + 5, col) && qrcode2.isDark(row + 6, col)) {
-          lostPoint += 40;
-        }
-      }
-    }
-    let darkCount = 0;
-    for (let col = 0; col < moduleCount; col += 1) {
-      for (let row = 0; row < moduleCount; row += 1) {
-        if (qrcode2.isDark(row, col)) {
-          darkCount += 1;
-        }
-      }
-    }
-    const ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
-    lostPoint += ratio * 10;
-    return lostPoint;
-  };
-  return _this;
-})();
-var QRMath = (function() {
-  const EXP_TABLE = new Array(256);
-  const LOG_TABLE = new Array(256);
-  for (let i = 0; i < 8; i += 1) {
-    EXP_TABLE[i] = 1 << i;
-  }
-  for (let i = 8; i < 256; i += 1) {
-    EXP_TABLE[i] = EXP_TABLE[i - 4] ^ EXP_TABLE[i - 5] ^ EXP_TABLE[i - 6] ^ EXP_TABLE[i - 8];
-  }
-  for (let i = 0; i < 255; i += 1) {
-    LOG_TABLE[EXP_TABLE[i]] = i;
-  }
-  const _this = {};
-  _this.glog = function(n) {
-    if (n < 1) {
-      throw "glog(" + n + ")";
-    }
-    return LOG_TABLE[n];
-  };
-  _this.gexp = function(n) {
-    while (n < 0) {
-      n += 255;
-    }
-    while (n >= 256) {
-      n -= 255;
-    }
-    return EXP_TABLE[n];
-  };
-  return _this;
-})();
-var qrPolynomial = function(num, shift) {
-  if (typeof num.length == "undefined") {
-    throw num.length + "/" + shift;
-  }
-  const _num = (function() {
-    let offset2 = 0;
-    while (offset2 < num.length && num[offset2] == 0) {
-      offset2 += 1;
-    }
-    const _num2 = new Array(num.length - offset2 + shift);
-    for (let i = 0; i < num.length - offset2; i += 1) {
-      _num2[i] = num[i + offset2];
-    }
-    return _num2;
-  })();
-  const _this = {};
-  _this.getAt = function(index) {
-    return _num[index];
-  };
-  _this.getLength = function() {
-    return _num.length;
-  };
-  _this.multiply = function(e) {
-    const num2 = new Array(_this.getLength() + e.getLength() - 1);
-    for (let i = 0; i < _this.getLength(); i += 1) {
-      for (let j = 0; j < e.getLength(); j += 1) {
-        num2[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i)) + QRMath.glog(e.getAt(j)));
-      }
-    }
-    return qrPolynomial(num2, 0);
-  };
-  _this.mod = function(e) {
-    if (_this.getLength() - e.getLength() < 0) {
-      return _this;
-    }
-    const ratio = QRMath.glog(_this.getAt(0)) - QRMath.glog(e.getAt(0));
-    const num2 = new Array(_this.getLength());
-    for (let i = 0; i < _this.getLength(); i += 1) {
-      num2[i] = _this.getAt(i);
-    }
-    for (let i = 0; i < e.getLength(); i += 1) {
-      num2[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i)) + ratio);
-    }
-    return qrPolynomial(num2, 0).mod(e);
-  };
-  return _this;
-};
-var QRRSBlock = (function() {
-  const RS_BLOCK_TABLE = [
-    // L
-    // M
-    // Q
-    // H
-    // 1
-    [1, 26, 19],
-    [1, 26, 16],
-    [1, 26, 13],
-    [1, 26, 9],
-    // 2
-    [1, 44, 34],
-    [1, 44, 28],
-    [1, 44, 22],
-    [1, 44, 16],
-    // 3
-    [1, 70, 55],
-    [1, 70, 44],
-    [2, 35, 17],
-    [2, 35, 13],
-    // 4
-    [1, 100, 80],
-    [2, 50, 32],
-    [2, 50, 24],
-    [4, 25, 9],
-    // 5
-    [1, 134, 108],
-    [2, 67, 43],
-    [2, 33, 15, 2, 34, 16],
-    [2, 33, 11, 2, 34, 12],
-    // 6
-    [2, 86, 68],
-    [4, 43, 27],
-    [4, 43, 19],
-    [4, 43, 15],
-    // 7
-    [2, 98, 78],
-    [4, 49, 31],
-    [2, 32, 14, 4, 33, 15],
-    [4, 39, 13, 1, 40, 14],
-    // 8
-    [2, 121, 97],
-    [2, 60, 38, 2, 61, 39],
-    [4, 40, 18, 2, 41, 19],
-    [4, 40, 14, 2, 41, 15],
-    // 9
-    [2, 146, 116],
-    [3, 58, 36, 2, 59, 37],
-    [4, 36, 16, 4, 37, 17],
-    [4, 36, 12, 4, 37, 13],
-    // 10
-    [2, 86, 68, 2, 87, 69],
-    [4, 69, 43, 1, 70, 44],
-    [6, 43, 19, 2, 44, 20],
-    [6, 43, 15, 2, 44, 16],
-    // 11
-    [4, 101, 81],
-    [1, 80, 50, 4, 81, 51],
-    [4, 50, 22, 4, 51, 23],
-    [3, 36, 12, 8, 37, 13],
-    // 12
-    [2, 116, 92, 2, 117, 93],
-    [6, 58, 36, 2, 59, 37],
-    [4, 46, 20, 6, 47, 21],
-    [7, 42, 14, 4, 43, 15],
-    // 13
-    [4, 133, 107],
-    [8, 59, 37, 1, 60, 38],
-    [8, 44, 20, 4, 45, 21],
-    [12, 33, 11, 4, 34, 12],
-    // 14
-    [3, 145, 115, 1, 146, 116],
-    [4, 64, 40, 5, 65, 41],
-    [11, 36, 16, 5, 37, 17],
-    [11, 36, 12, 5, 37, 13],
-    // 15
-    [5, 109, 87, 1, 110, 88],
-    [5, 65, 41, 5, 66, 42],
-    [5, 54, 24, 7, 55, 25],
-    [11, 36, 12, 7, 37, 13],
-    // 16
-    [5, 122, 98, 1, 123, 99],
-    [7, 73, 45, 3, 74, 46],
-    [15, 43, 19, 2, 44, 20],
-    [3, 45, 15, 13, 46, 16],
-    // 17
-    [1, 135, 107, 5, 136, 108],
-    [10, 74, 46, 1, 75, 47],
-    [1, 50, 22, 15, 51, 23],
-    [2, 42, 14, 17, 43, 15],
-    // 18
-    [5, 150, 120, 1, 151, 121],
-    [9, 69, 43, 4, 70, 44],
-    [17, 50, 22, 1, 51, 23],
-    [2, 42, 14, 19, 43, 15],
-    // 19
-    [3, 141, 113, 4, 142, 114],
-    [3, 70, 44, 11, 71, 45],
-    [17, 47, 21, 4, 48, 22],
-    [9, 39, 13, 16, 40, 14],
-    // 20
-    [3, 135, 107, 5, 136, 108],
-    [3, 67, 41, 13, 68, 42],
-    [15, 54, 24, 5, 55, 25],
-    [15, 43, 15, 10, 44, 16],
-    // 21
-    [4, 144, 116, 4, 145, 117],
-    [17, 68, 42],
-    [17, 50, 22, 6, 51, 23],
-    [19, 46, 16, 6, 47, 17],
-    // 22
-    [2, 139, 111, 7, 140, 112],
-    [17, 74, 46],
-    [7, 54, 24, 16, 55, 25],
-    [34, 37, 13],
-    // 23
-    [4, 151, 121, 5, 152, 122],
-    [4, 75, 47, 14, 76, 48],
-    [11, 54, 24, 14, 55, 25],
-    [16, 45, 15, 14, 46, 16],
-    // 24
-    [6, 147, 117, 4, 148, 118],
-    [6, 73, 45, 14, 74, 46],
-    [11, 54, 24, 16, 55, 25],
-    [30, 46, 16, 2, 47, 17],
-    // 25
-    [8, 132, 106, 4, 133, 107],
-    [8, 75, 47, 13, 76, 48],
-    [7, 54, 24, 22, 55, 25],
-    [22, 45, 15, 13, 46, 16],
-    // 26
-    [10, 142, 114, 2, 143, 115],
-    [19, 74, 46, 4, 75, 47],
-    [28, 50, 22, 6, 51, 23],
-    [33, 46, 16, 4, 47, 17],
-    // 27
-    [8, 152, 122, 4, 153, 123],
-    [22, 73, 45, 3, 74, 46],
-    [8, 53, 23, 26, 54, 24],
-    [12, 45, 15, 28, 46, 16],
-    // 28
-    [3, 147, 117, 10, 148, 118],
-    [3, 73, 45, 23, 74, 46],
-    [4, 54, 24, 31, 55, 25],
-    [11, 45, 15, 31, 46, 16],
-    // 29
-    [7, 146, 116, 7, 147, 117],
-    [21, 73, 45, 7, 74, 46],
-    [1, 53, 23, 37, 54, 24],
-    [19, 45, 15, 26, 46, 16],
-    // 30
-    [5, 145, 115, 10, 146, 116],
-    [19, 75, 47, 10, 76, 48],
-    [15, 54, 24, 25, 55, 25],
-    [23, 45, 15, 25, 46, 16],
-    // 31
-    [13, 145, 115, 3, 146, 116],
-    [2, 74, 46, 29, 75, 47],
-    [42, 54, 24, 1, 55, 25],
-    [23, 45, 15, 28, 46, 16],
-    // 32
-    [17, 145, 115],
-    [10, 74, 46, 23, 75, 47],
-    [10, 54, 24, 35, 55, 25],
-    [19, 45, 15, 35, 46, 16],
-    // 33
-    [17, 145, 115, 1, 146, 116],
-    [14, 74, 46, 21, 75, 47],
-    [29, 54, 24, 19, 55, 25],
-    [11, 45, 15, 46, 46, 16],
-    // 34
-    [13, 145, 115, 6, 146, 116],
-    [14, 74, 46, 23, 75, 47],
-    [44, 54, 24, 7, 55, 25],
-    [59, 46, 16, 1, 47, 17],
-    // 35
-    [12, 151, 121, 7, 152, 122],
-    [12, 75, 47, 26, 76, 48],
-    [39, 54, 24, 14, 55, 25],
-    [22, 45, 15, 41, 46, 16],
-    // 36
-    [6, 151, 121, 14, 152, 122],
-    [6, 75, 47, 34, 76, 48],
-    [46, 54, 24, 10, 55, 25],
-    [2, 45, 15, 64, 46, 16],
-    // 37
-    [17, 152, 122, 4, 153, 123],
-    [29, 74, 46, 14, 75, 47],
-    [49, 54, 24, 10, 55, 25],
-    [24, 45, 15, 46, 46, 16],
-    // 38
-    [4, 152, 122, 18, 153, 123],
-    [13, 74, 46, 32, 75, 47],
-    [48, 54, 24, 14, 55, 25],
-    [42, 45, 15, 32, 46, 16],
-    // 39
-    [20, 147, 117, 4, 148, 118],
-    [40, 75, 47, 7, 76, 48],
-    [43, 54, 24, 22, 55, 25],
-    [10, 45, 15, 67, 46, 16],
-    // 40
-    [19, 148, 118, 6, 149, 119],
-    [18, 75, 47, 31, 76, 48],
-    [34, 54, 24, 34, 55, 25],
-    [20, 45, 15, 61, 46, 16]
-  ];
-  const qrRSBlock = function(totalCount, dataCount) {
-    const _this2 = {};
-    _this2.totalCount = totalCount;
-    _this2.dataCount = dataCount;
-    return _this2;
-  };
-  const _this = {};
-  const getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
-    switch (errorCorrectionLevel) {
-      case QRErrorCorrectionLevel.L:
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
-      case QRErrorCorrectionLevel.M:
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
-      case QRErrorCorrectionLevel.Q:
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
-      case QRErrorCorrectionLevel.H:
-        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
-      default:
-        return void 0;
-    }
-  };
-  _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
-    const rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
-    if (typeof rsBlock == "undefined") {
-      throw "bad rs block @ typeNumber:" + typeNumber + "/errorCorrectionLevel:" + errorCorrectionLevel;
-    }
-    const length = rsBlock.length / 3;
-    const list = [];
-    for (let i = 0; i < length; i += 1) {
-      const count = rsBlock[i * 3 + 0];
-      const totalCount = rsBlock[i * 3 + 1];
-      const dataCount = rsBlock[i * 3 + 2];
-      for (let j = 0; j < count; j += 1) {
-        list.push(qrRSBlock(totalCount, dataCount));
-      }
-    }
-    return list;
-  };
-  return _this;
-})();
-var qrBitBuffer = function() {
-  const _buffer = [];
-  let _length = 0;
-  const _this = {};
-  _this.getBuffer = function() {
-    return _buffer;
-  };
-  _this.getAt = function(index) {
-    const bufIndex = Math.floor(index / 8);
-    return (_buffer[bufIndex] >>> 7 - index % 8 & 1) == 1;
-  };
-  _this.put = function(num, length) {
-    for (let i = 0; i < length; i += 1) {
-      _this.putBit((num >>> length - i - 1 & 1) == 1);
-    }
-  };
-  _this.getLengthInBits = function() {
-    return _length;
-  };
-  _this.putBit = function(bit) {
-    const bufIndex = Math.floor(_length / 8);
-    if (_buffer.length <= bufIndex) {
-      _buffer.push(0);
-    }
-    if (bit) {
-      _buffer[bufIndex] |= 128 >>> _length % 8;
-    }
-    _length += 1;
-  };
-  return _this;
-};
-var qrNumber = function(data) {
-  const _mode = QRMode.MODE_NUMBER;
-  const _data = data;
-  const _this = {};
-  _this.getMode = function() {
-    return _mode;
-  };
-  _this.getLength = function(buffer) {
-    return _data.length;
-  };
-  _this.write = function(buffer) {
-    const data2 = _data;
-    let i = 0;
-    while (i + 2 < data2.length) {
-      buffer.put(strToNum(data2.substring(i, i + 3)), 10);
-      i += 3;
-    }
-    if (i < data2.length) {
-      if (data2.length - i == 1) {
-        buffer.put(strToNum(data2.substring(i, i + 1)), 4);
-      } else if (data2.length - i == 2) {
-        buffer.put(strToNum(data2.substring(i, i + 2)), 7);
-      }
-    }
-  };
-  const strToNum = function(s) {
-    let num = 0;
-    for (let i = 0; i < s.length; i += 1) {
-      num = num * 10 + chatToNum(s.charAt(i));
-    }
-    return num;
-  };
-  const chatToNum = function(c) {
-    if ("0" <= c && c <= "9") {
-      return c.charCodeAt(0) - "0".charCodeAt(0);
-    }
-    throw "illegal char :" + c;
-  };
-  return _this;
-};
-var qrAlphaNum = function(data) {
-  const _mode = QRMode.MODE_ALPHA_NUM;
-  const _data = data;
-  const _this = {};
-  _this.getMode = function() {
-    return _mode;
-  };
-  _this.getLength = function(buffer) {
-    return _data.length;
-  };
-  _this.write = function(buffer) {
-    const s = _data;
-    let i = 0;
-    while (i + 1 < s.length) {
-      buffer.put(
-        getCode(s.charAt(i)) * 45 + getCode(s.charAt(i + 1)),
-        11
-      );
-      i += 2;
-    }
-    if (i < s.length) {
-      buffer.put(getCode(s.charAt(i)), 6);
-    }
-  };
-  const getCode = function(c) {
-    if ("0" <= c && c <= "9") {
-      return c.charCodeAt(0) - "0".charCodeAt(0);
-    } else if ("A" <= c && c <= "Z") {
-      return c.charCodeAt(0) - "A".charCodeAt(0) + 10;
-    } else {
-      switch (c) {
-        case " ":
-          return 36;
-        case "$":
-          return 37;
-        case "%":
-          return 38;
-        case "*":
-          return 39;
-        case "+":
-          return 40;
-        case "-":
-          return 41;
-        case ".":
-          return 42;
-        case "/":
-          return 43;
-        case ":":
-          return 44;
-        default:
-          throw "illegal char :" + c;
-      }
-    }
-  };
-  return _this;
-};
-var qr8BitByte = function(data) {
-  const _mode = QRMode.MODE_8BIT_BYTE;
-  const _data = data;
-  const _bytes = qrcode.stringToBytes(data);
-  const _this = {};
-  _this.getMode = function() {
-    return _mode;
-  };
-  _this.getLength = function(buffer) {
-    return _bytes.length;
-  };
-  _this.write = function(buffer) {
-    for (let i = 0; i < _bytes.length; i += 1) {
-      buffer.put(_bytes[i], 8);
-    }
-  };
-  return _this;
-};
-var qrKanji = function(data) {
-  const _mode = QRMode.MODE_KANJI;
-  const _data = data;
-  const stringToBytes2 = qrcode.stringToBytes;
-  !(function(c, code) {
-    const test = stringToBytes2(c);
-    if (test.length != 2 || (test[0] << 8 | test[1]) != code) {
-      throw "sjis not supported.";
-    }
-  })("\u53CB", 38726);
-  const _bytes = stringToBytes2(data);
-  const _this = {};
-  _this.getMode = function() {
-    return _mode;
-  };
-  _this.getLength = function(buffer) {
-    return ~~(_bytes.length / 2);
-  };
-  _this.write = function(buffer) {
-    const data2 = _bytes;
-    let i = 0;
-    while (i + 1 < data2.length) {
-      let c = (255 & data2[i]) << 8 | 255 & data2[i + 1];
-      if (33088 <= c && c <= 40956) {
-        c -= 33088;
-      } else if (57408 <= c && c <= 60351) {
-        c -= 49472;
-      } else {
-        throw "illegal char at " + (i + 1) + "/" + c;
-      }
-      c = (c >>> 8 & 255) * 192 + (c & 255);
-      buffer.put(c, 13);
-      i += 2;
-    }
-    if (i < data2.length) {
-      throw "illegal char at " + (i + 1);
-    }
-  };
-  return _this;
-};
-var byteArrayOutputStream = function() {
-  const _bytes = [];
-  const _this = {};
-  _this.writeByte = function(b) {
-    _bytes.push(b & 255);
-  };
-  _this.writeShort = function(i) {
-    _this.writeByte(i);
-    _this.writeByte(i >>> 8);
-  };
-  _this.writeBytes = function(b, off, len) {
-    off = off || 0;
-    len = len || b.length;
-    for (let i = 0; i < len; i += 1) {
-      _this.writeByte(b[i + off]);
-    }
-  };
-  _this.writeString = function(s) {
-    for (let i = 0; i < s.length; i += 1) {
-      _this.writeByte(s.charCodeAt(i));
-    }
-  };
-  _this.toByteArray = function() {
-    return _bytes;
-  };
-  _this.toString = function() {
-    let s = "";
-    s += "[";
-    for (let i = 0; i < _bytes.length; i += 1) {
-      if (i > 0) {
-        s += ",";
-      }
-      s += _bytes[i];
-    }
-    s += "]";
-    return s;
-  };
-  return _this;
-};
-var base64EncodeOutputStream = function() {
-  let _buffer = 0;
-  let _buflen = 0;
-  let _length = 0;
-  let _base64 = "";
-  const _this = {};
-  const writeEncoded = function(b) {
-    _base64 += String.fromCharCode(encode(b & 63));
-  };
-  const encode = function(n) {
-    if (n < 0) {
-      throw "n:" + n;
-    } else if (n < 26) {
-      return 65 + n;
-    } else if (n < 52) {
-      return 97 + (n - 26);
-    } else if (n < 62) {
-      return 48 + (n - 52);
-    } else if (n == 62) {
-      return 43;
-    } else if (n == 63) {
-      return 47;
-    } else {
-      throw "n:" + n;
-    }
-  };
-  _this.writeByte = function(n) {
-    _buffer = _buffer << 8 | n & 255;
-    _buflen += 8;
-    _length += 1;
-    while (_buflen >= 6) {
-      writeEncoded(_buffer >>> _buflen - 6);
-      _buflen -= 6;
-    }
-  };
-  _this.flush = function() {
-    if (_buflen > 0) {
-      writeEncoded(_buffer << 6 - _buflen);
-      _buffer = 0;
-      _buflen = 0;
-    }
-    if (_length % 3 != 0) {
-      const padlen = 3 - _length % 3;
-      for (let i = 0; i < padlen; i += 1) {
-        _base64 += "=";
-      }
-    }
-  };
-  _this.toString = function() {
-    return _base64;
-  };
-  return _this;
-};
-var base64DecodeInputStream = function(str) {
-  const _str = str;
-  let _pos = 0;
-  let _buffer = 0;
-  let _buflen = 0;
-  const _this = {};
-  _this.read = function() {
-    while (_buflen < 8) {
-      if (_pos >= _str.length) {
-        if (_buflen == 0) {
-          return -1;
-        }
-        throw "unexpected end of file./" + _buflen;
-      }
-      const c = _str.charAt(_pos);
-      _pos += 1;
-      if (c == "=") {
-        _buflen = 0;
-        return -1;
-      } else if (c.match(/^\s$/)) {
-        continue;
-      }
-      _buffer = _buffer << 6 | decode(c.charCodeAt(0));
-      _buflen += 6;
-    }
-    const n = _buffer >>> _buflen - 8 & 255;
-    _buflen -= 8;
-    return n;
-  };
-  const decode = function(c) {
-    if (65 <= c && c <= 90) {
-      return c - 65;
-    } else if (97 <= c && c <= 122) {
-      return c - 97 + 26;
-    } else if (48 <= c && c <= 57) {
-      return c - 48 + 52;
-    } else if (c == 43) {
-      return 62;
-    } else if (c == 47) {
-      return 63;
-    } else {
-      throw "c:" + c;
-    }
-  };
-  return _this;
-};
-var gifImage = function(width, height) {
-  const _width = width;
-  const _height = height;
-  const _data = new Array(width * height);
-  const _this = {};
-  _this.setPixel = function(x, y, pixel) {
-    _data[y * _width + x] = pixel;
-  };
-  _this.write = function(out) {
-    out.writeString("GIF87a");
-    out.writeShort(_width);
-    out.writeShort(_height);
-    out.writeByte(128);
-    out.writeByte(0);
-    out.writeByte(0);
-    out.writeByte(0);
-    out.writeByte(0);
-    out.writeByte(0);
-    out.writeByte(255);
-    out.writeByte(255);
-    out.writeByte(255);
-    out.writeString(",");
-    out.writeShort(0);
-    out.writeShort(0);
-    out.writeShort(_width);
-    out.writeShort(_height);
-    out.writeByte(0);
-    const lzwMinCodeSize = 2;
-    const raster = getLZWRaster(lzwMinCodeSize);
-    out.writeByte(lzwMinCodeSize);
-    let offset2 = 0;
-    while (raster.length - offset2 > 255) {
-      out.writeByte(255);
-      out.writeBytes(raster, offset2, 255);
-      offset2 += 255;
-    }
-    out.writeByte(raster.length - offset2);
-    out.writeBytes(raster, offset2, raster.length - offset2);
-    out.writeByte(0);
-    out.writeString(";");
-  };
-  const bitOutputStream = function(out) {
-    const _out = out;
-    let _bitLength = 0;
-    let _bitBuffer = 0;
-    const _this2 = {};
-    _this2.write = function(data, length) {
-      if (data >>> length != 0) {
-        throw "length over";
-      }
-      while (_bitLength + length >= 8) {
-        _out.writeByte(255 & (data << _bitLength | _bitBuffer));
-        length -= 8 - _bitLength;
-        data >>>= 8 - _bitLength;
-        _bitBuffer = 0;
-        _bitLength = 0;
-      }
-      _bitBuffer = data << _bitLength | _bitBuffer;
-      _bitLength = _bitLength + length;
-    };
-    _this2.flush = function() {
-      if (_bitLength > 0) {
-        _out.writeByte(_bitBuffer);
-      }
-    };
-    return _this2;
-  };
-  const getLZWRaster = function(lzwMinCodeSize) {
-    const clearCode = 1 << lzwMinCodeSize;
-    const endCode = (1 << lzwMinCodeSize) + 1;
-    let bitLength = lzwMinCodeSize + 1;
-    const table = lzwTable();
-    for (let i = 0; i < clearCode; i += 1) {
-      table.add(String.fromCharCode(i));
-    }
-    table.add(String.fromCharCode(clearCode));
-    table.add(String.fromCharCode(endCode));
-    const byteOut = byteArrayOutputStream();
-    const bitOut = bitOutputStream(byteOut);
-    bitOut.write(clearCode, bitLength);
-    let dataIndex = 0;
-    let s = String.fromCharCode(_data[dataIndex]);
-    dataIndex += 1;
-    while (dataIndex < _data.length) {
-      const c = String.fromCharCode(_data[dataIndex]);
-      dataIndex += 1;
-      if (table.contains(s + c)) {
-        s = s + c;
-      } else {
-        bitOut.write(table.indexOf(s), bitLength);
-        if (table.size() < 4095) {
-          if (table.size() == 1 << bitLength) {
-            bitLength += 1;
-          }
-          table.add(s + c);
-        }
-        s = c;
-      }
-    }
-    bitOut.write(table.indexOf(s), bitLength);
-    bitOut.write(endCode, bitLength);
-    bitOut.flush();
-    return byteOut.toByteArray();
-  };
-  const lzwTable = function() {
-    const _map = {};
-    let _size = 0;
-    const _this2 = {};
-    _this2.add = function(key) {
-      if (_this2.contains(key)) {
-        throw "dup key:" + key;
-      }
-      _map[key] = _size;
-      _size += 1;
-    };
-    _this2.size = function() {
-      return _size;
-    };
-    _this2.indexOf = function(key) {
-      return _map[key];
-    };
-    _this2.contains = function(key) {
-      return typeof _map[key] != "undefined";
-    };
-    return _this2;
-  };
-  return _this;
-};
-var createDataURL = function(width, height, getPixel) {
-  const gif = gifImage(width, height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      gif.setPixel(x, y, getPixel(x, y));
-    }
-  }
-  const b = byteArrayOutputStream();
-  gif.write(b);
-  const base64 = base64EncodeOutputStream();
-  const bytes = b.toByteArray();
-  for (let i = 0; i < bytes.length; i += 1) {
-    base64.writeByte(bytes[i]);
-  }
-  base64.flush();
-  return "data:image/gif;base64," + base64;
-};
-var stringToBytes = qrcode.stringToBytes;
-
-// src/features/tv/TVMode.jsx
-init_core();
-init_PlayerIdentity();
-
-// src/features/tv/TVCeremony.jsx
-init_core();
-init_PlayerIdentity();
-import React43, { useEffect as useEffect28, useRef as useRef32, useState as useState38 } from "react";
-init_serverClock();
-
-// src/features/tv/TVDraft.jsx
-init_core();
-init_PlayerIdentity();
-init_motion();
-import React44, { useLayoutEffect as useLayoutEffect11, useRef as useRef33, useState as useState39 } from "react";
-
-// src/features/tv/TVPoker.jsx
-init_core();
-init_PlayerIdentity();
-import React45, { useRef as useRef34 } from "react";
-init_motion();
-
-// src/features/tv/TVCards.jsx
-init_core();
-init_PlayerIdentity();
-init_PlayerIdentityContext();
-import React49 from "react";
-
-// src/features/tv/TVChampion.jsx
-init_core();
-init_PlayerIdentity();
-init_PlayerIdentityContext();
-import React47, { useEffect as useEffect29, useState as useState40 } from "react";
-
-// src/features/tv/DesertBand.jsx
-init_PlayerIdentityContext();
-import React46, { memo, useId as useId3, useMemo as useMemo9, useRef as useRef35 } from "react";
-function WinnerStar({ star, x, y, r, fresh }) {
-  const identity = usePlayerIdentity(star.player);
-  return /* @__PURE__ */ React46.createElement("g", { transform: `translate(${x} ${y})` }, /* @__PURE__ */ React46.createElement(
-    "path",
-    {
-      className: `tv-desert-star is-winner${fresh ? " is-new" : ""}`,
-      d: starPath(r),
-      style: { fill: identity.color }
-    }
-  ));
-}
-function DesertBandView({
-  phase = "fri",
-  width = 1920,
-  height = 118,
-  variant = "strip",
-  stars = [],
-  lines = [],
-  showStars = null,
-  starBox = null,
-  className = ""
-}) {
-  const grainId = `tv-grain-${useId3().replace(/:/g, "")}`;
-  const scene = useMemo9(() => desertScene({ width, height, variant }), [width, height, variant]);
-  const night = showStars ?? isNightSky(phase);
-  const disc = scene.disc[phase] || scene.disc.fri;
-  const box = skyBoxClearOfDisc(
-    starBox || { left: 0, right: width, top: scene.sky.top, bottom: scene.sky.bottom },
-    disc,
-    scene.discR
-  );
-  const { at, starR, fixed, fixedR } = skyStarLayout(box);
-  const seen = useRef35(null);
-  if (seen.current === null) seen.current = new Set(stars.map((star) => star.id));
-  const fresh = stars.filter((star) => !seen.current.has(star.id)).map((star) => star.id);
-  fresh.forEach((id) => seen.current.add(id));
-  const freshSet = new Set(fresh);
-  return /* @__PURE__ */ React46.createElement(
-    "svg",
-    {
-      className: `tv-desert is-${variant}${className ? ` ${className}` : ""}`,
-      "data-phase": phase,
-      width,
-      height,
-      viewBox: `0 0 ${width} ${height}`,
-      "aria-hidden": "true"
-    },
-    /* @__PURE__ */ React46.createElement("defs", null, /* @__PURE__ */ React46.createElement("filter", { id: grainId }, /* @__PURE__ */ React46.createElement("feTurbulence", { type: "fractalNoise", baseFrequency: ".8", numOctaves: "2", seed: "4" }), /* @__PURE__ */ React46.createElement("feColorMatrix", { values: "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .5 0" }))),
-    /* @__PURE__ */ React46.createElement("rect", { className: "tv-desert-sky", width, height }),
-    /* @__PURE__ */ React46.createElement("g", { className: `tv-desert-stars${night ? " is-on" : ""}` }, FIXED_STARS.map((point, i) => {
-      const [cx, cy] = fixed(point);
-      return /* @__PURE__ */ React46.createElement("circle", { key: i, className: "tv-desert-star", cx, cy, r: fixedR, style: { opacity: 0.35 + i % 3 * 0.2 } });
-    })),
-    /* @__PURE__ */ React46.createElement("g", { className: "tv-desert-disc", style: { transform: `translate(${disc.x}px, ${disc.y}px)` } }, /* @__PURE__ */ React46.createElement("circle", { r: scene.discR })),
-    night && stars.length > 0 && /* @__PURE__ */ React46.createElement("g", { className: "tv-desert-constellation" }, lines.map((line) => line.points.slice(1).map((point, i) => {
-      const [x1, y1] = at(line.points[i]), [x2, y2] = at(point);
-      return /* @__PURE__ */ React46.createElement(
-        "line",
-        {
-          key: `${line.player}-${i}`,
-          className: "tv-desert-line",
-          x1,
-          y1,
-          x2,
-          y2,
-          pathLength: "1",
-          style: { animationDelay: `${i * 180}ms` }
-        }
-      );
-    })), stars.map((star) => {
-      const [x, y] = at(star);
-      return /* @__PURE__ */ React46.createElement(WinnerStar, { key: star.id, star, x, y, r: starR, fresh: freshSet.has(star.id) });
-    })),
-    /* @__PURE__ */ React46.createElement("path", { className: "tv-desert-far", d: scene.far }),
-    /* @__PURE__ */ React46.createElement("path", { className: "tv-desert-mid", d: scene.mid }),
-    /* @__PURE__ */ React46.createElement("path", { className: "tv-desert-ground", d: scene.ground }),
-    /* @__PURE__ */ React46.createElement("g", { className: "tv-desert-cactus" }, scene.cacti.map((c, i) => /* @__PURE__ */ React46.createElement("path", { key: i, d: c.d, transform: `translate(${c.x} ${c.y}) scale(${c.scale})` }))),
-    scene.nearTop < height && /* @__PURE__ */ React46.createElement("rect", { className: "tv-desert-near", y: scene.nearTop, width, height: height - scene.nearTop }),
-    /* @__PURE__ */ React46.createElement("rect", { width, height, filter: `url(#${grainId})`, opacity: ".05", style: { mixBlendMode: "screen" } })
-  );
-}
-var DesertBand = memo(DesertBandView);
-
-// src/features/tv/TVChampion.jsx
-var AVATAR_X = 22 + 40 + 18 + 20;
-
-// src/features/tv/TVBracket.jsx
-init_core();
-init_PlayerIdentity();
-import React48, { useLayoutEffect as useLayoutEffect12, useRef as useRef36, useState as useState41 } from "react";
-init_motion();
-
-// src/features/tv/TVClassPhoto.jsx
-init_PlayerIdentity();
-init_motion();
-import React50, { useMemo as useMemo10, useRef as useRef37 } from "react";
-
-// src/features/tv/TVFaceOff.jsx
-init_PlayerIdentity();
-import React51 from "react";
-
-// src/features/tv/faceOff.js
-init_core();
-init_seasonStats();
-init_motion();
-init_serverClock();
-import { useEffect as useEffect30, useRef as useRef38, useState as useState42 } from "react";
-var FACEOFF_TIMING = Object.freeze({
-  slide: 0,
-  slideMs: 560,
-  // each side slides in from its own edge
-  vs: 420,
-  vsMs: 320,
-  // VS stamps between them (the room's one beat)
-  h2h: 760,
-  h2hMs: 300,
-  // their record, when they have met
-  lines: 900,
-  linesMs: 300,
-  // X8: what a win does
-  settle: MOTION.beat,
-  settleMs: 400,
-  // it lifts off the betting board
-  total: MOTION.beat + 400
-});
-
-// src/features/tv/TowersBoard.jsx
-init_towersModel();
-import React52, { Component, useEffect as useEffect31, useState as useState43 } from "react";
-
-// src/features/tv/TVMode.jsx
-init_towersModel();
-
-// src/features/tv/roomSound.js
-init_core();
-init_motion();
-init_sound();
-init_serverClock();
-import { useEffect as useEffect32, useRef as useRef39 } from "react";
-
-// src/features/awards/awardsModel.js
-init_core();
-var AWARD_TIMING = Object.freeze({
-  title: 0,
-  nominees: 500,
-  nomineeStagger: 45,
-  chips: 1500,
-  chipMin: 200,
-  chipMax: 420,
-  chipSpread: 3e3,
-  stampAfter: 900,
-  settleAfter: 600
-});
-
-// src/features/tv/roomSound.js
-var SETTLE_SOUND = Object.freeze({ lose: 700, pay: 1300 });
-
-// src/features/tv/SoundUnlockChip.jsx
-init_sound();
-import React53 from "react";
-
-// src/features/tv/NowPlaying.jsx
-init_core();
-init_PlayerIdentity();
-init_serverClock();
-import React54, { useEffect as useEffect33, useState as useState44 } from "react";
-
-// src/features/tv/nowPlaying.js
-var MVP_CARD_MS = 12 * 1e3;
-
-// src/features/awards/TVAwards.jsx
-init_core();
-init_PlayerIdentity();
-init_PlayerIdentityContext();
-import React55, { useRef as useRef40 } from "react";
-init_serverClock();
-var BALLOT_CHIP = Object.freeze({ color: "var(--sun)", isLight: true, skin: "ticks", stamp: "" });
-
-// src/features/tv/TVGeo.jsx
-init_core();
-init_PlayerIdentity();
-import React57 from "react";
-
-// src/features/geo/GeoMap.jsx
-import React56, { useEffect as useEffect34, useRef as useRef41, useState as useState45 } from "react";
-
-// src/features/geo/geoModel.js
-init_core();
-var hourLabel = (h) => `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
-
-// src/features/photos/TVPhotoCard.jsx
-init_core();
-init_PlayerIdentity();
-import React58, { useEffect as useEffect35, useRef as useRef42, useState as useState46 } from "react";
-
-// src/App.jsx
+init_tvModel();
 init_serverClock();
 init_motion();
 init_frameGate();
+init_resultMoment();
 
 // src/features/results/ChipReceipt.jsx
+init_Icon();
 init_PlayerIdentity();
-import React60, { useEffect as useEffect37, useLayoutEffect as useLayoutEffect13, useRef as useRef44 } from "react";
+init_BetStacks();
 init_motion();
 init_sound();
+init_resultMoment();
+import React57, { useEffect as useEffect34, useLayoutEffect as useLayoutEffect12, useRef as useRef38 } from "react";
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
-import React61, { useEffect as useEffect38, useMemo as useMemo12, useState as useState48 } from "react";
+init_sound();
+import React56, { useEffect as useEffect33, useMemo as useMemo11, useRef as useRef37, useState as useState43 } from "react";
+var SHOWER_CHIPS = 16;
+var RAIN = Object.freeze({ min: 4, max: SHOWER_CHIPS, first: 420, gap: 110, fall: 620, bounce: 280, hold: 650, sweep: 520 });
+
+// src/features/moments/PhoneMoments.jsx
+init_Icon();
+init_core();
+init_PlayerIdentity();
+init_PlayerIdentityContext();
+init_PlayerPass();
+init_sound();
+init_haptics();
+init_walkout();
+init_walkoutTeam();
+import React58, { useEffect as useEffect36, useRef as useRef40 } from "react";
+init_OneSafe();
+init_ScoreReel();
+
+// src/features/moments/SkyStrip.jsx
+init_core();
+init_motion();
+init_phase();
+init_GameMark();
+init_OneSafe();
+init_PlayerIdentity();
+init_PlayerIdentityContext();
+init_desertModel();
+init_walkoutTeam();
+import React59, { useEffect as useEffect37, useMemo as useMemo12, useState as useState45 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
-import { useCallback as useCallback4, useEffect as useEffect39, useState as useState49 } from "react";
+init_lastCard();
+import { useCallback as useCallback4, useEffect as useEffect38, useState as useState46 } from "react";
 
 // src/App.jsx
 init_install();
@@ -11448,152 +12462,159 @@ init_core();
 init_core();
 init_PlayerIdentity();
 init_controls();
-init_theme();
-import React62, { useCallback as useCallback5, useEffect as useEffect40, useLayoutEffect as useLayoutEffect14, useRef as useRef45, useState as useState50 } from "react";
+import React60, { useCallback as useCallback5, useEffect as useEffect39, useLayoutEffect as useLayoutEffect13, useRef as useRef41, useState as useState47 } from "react";
+init_haptics();
 init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
 
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React63, { useRef as useRef46, useState as useState51 } from "react";
+import React61, { useRef as useRef42, useState as useState48 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
-import React65, { useEffect as useEffect42, useRef as useRef48, useState as useState52 } from "react";
+init_directorPill();
+init_haptics();
+import React63, { useEffect as useEffect41, useRef as useRef44, useState as useState49 } from "react";
 
 // src/features/director/RunOfShow.jsx
+init_Icon();
 init_serverClock();
-import React64, { useEffect as useEffect41, useRef as useRef47 } from "react";
+init_haptics();
+import React62, { useEffect as useEffect40, useRef as useRef43 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
+init_show();
+init_directorPill();
 var RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
 
 // src/features/director/DirectorPill.jsx
 init_sound();
+init_director();
+init_Icon();
 
 // src/features/director/CueRack.jsx
 init_core();
-init_theme();
-import React66, { useEffect as useEffect43, useState as useState53, useSyncExternalStore as useSyncExternalStore3 } from "react";
+init_client();
 init_serverClock();
+init_haptics();
+import React64, { useEffect as useEffect42, useState as useState50, useSyncExternalStore as useSyncExternalStore4 } from "react";
+
+// src/features/director/walkout.js
+init_audio();
+
+// src/features/director/CueRack.jsx
+init_Icon();
+init_PlayerIdentity();
 var MISS_SHOWN_MS = 10 * 60 * 1e3;
 
-// src/features/qa/QABar.jsx
-init_controls();
-import React67 from "react";
+// src/features/director/TvHealth.jsx
+import React65, { useEffect as useEffect43, useState as useState51 } from "react";
 
-// src/features/qa/useQaFast.js
-init_core();
-import { useCallback as useCallback6, useEffect as useEffect44, useRef as useRef49, useState as useState54 } from "react";
+// src/features/director/tvHealth.js
+var TV_STALE_MS = 60 * 1e3;
 
-// src/features/qa/QASheet.jsx
-init_core();
-import React68, { useEffect as useEffect45, useMemo as useMemo13, useRef as useRef50, useState as useState55 } from "react";
+// src/features/director/TvHealth.jsx
+init_Icon();
 
-// shared/qa.js
-init_core();
-var QA_EVENT_PHASES = Object.freeze(["open", "mid", "done"]);
-var QA_POKER_PHASES = Object.freeze(["set", "live", "counted"]);
-var QA_EVENT_PHASE_LABELS = Object.freeze({ open: "Open", mid: "Mid", done: "Done" });
-var QA_POKER_PHASE_LABELS = Object.freeze({ set: "Table set", live: "Cards live", counted: "Counts posted" });
-var QA_PROGRESS_KEYS = Object.freeze(Object.keys(EMPTY_STATE).filter((key) => !RESET_PROGRESS_PRESERVED_KEYS.includes(key) && !["v", "updatedAt", "wagerOps"].includes(key)));
-
-// src/features/qa/QASheet.jsx
-init_controls();
+// src/features/director/CommissionerDock.jsx
+import React66, { useLayoutEffect as useLayoutEffect14, useRef as useRef45 } from "react";
 
 // src/features/awards/AwardsHome.jsx
 init_core();
 init_PlayerIdentity();
-import React69, { useEffect as useEffect46, useRef as useRef51, useState as useState56 } from "react";
+init_client();
+init_haptics();
 init_serverClock();
+init_prompts();
+init_awardsModel();
+init_awards();
+init_Icon();
+import React67, { useEffect as useEffect44, useRef as useRef46, useState as useState52 } from "react";
 
 // src/features/mvp/MvpHome.jsx
 init_core();
 init_PlayerIdentity();
-import React70, { useEffect as useEffect47, useRef as useRef52, useState as useState57 } from "react";
+init_client();
+init_haptics();
 init_serverClock();
 init_controls();
+import React68, { useEffect as useEffect45, useRef as useRef47, useState as useState53 } from "react";
 
 // src/features/mvp/mvpHome.js
+init_mvp();
 var MVP_RESULT_MS = 2 * 60 * 1e3;
 
+// src/features/mvp/MvpHome.jsx
+init_awards();
+
 // src/features/geo/GeoPlay.jsx
-import React74, { useEffect as useEffect51, useRef as useRef55, useState as useState60 } from "react";
+init_client();
 init_serverClock();
+init_haptics();
 init_motion();
+init_geo();
 init_PlayerIdentityContext();
-
-// src/features/geo/WhenPicker.jsx
-import React72, { useEffect as useEffect49, useMemo as useMemo14 } from "react";
-
-// src/features/geo/Wheel.jsx
-import React71, { useEffect as useEffect48, useLayoutEffect as useLayoutEffect15, useRef as useRef53, useState as useState58 } from "react";
-init_sound();
-var ROWS = 5;
-var CENTER = (ROWS - 1) / 2;
-
-// src/features/geo/WhenPicker.jsx
-var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-var MONTH_ITEMS = MONTHS.map((label2, i) => ({ value: i + 1, label: label2 }));
-var YEAR_ITEMS = Array.from({ length: 2026 - 1980 + 1 }, (_, i) => ({ value: 1980 + i, label: String(1980 + i) }));
-var HOUR_ITEMS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: hourLabel(h) }));
-
-// src/features/geo/PlaceSearch.jsx
-import React73, { useEffect as useEffect50, useRef as useRef54, useState as useState59 } from "react";
-
-// src/features/geo/GeoDesk.jsx
-import React75, { useEffect as useEffect52, useRef as useRef56, useState as useState61 } from "react";
+init_GeoMap();
+init_WhenPicker();
+init_PlaceSearch();
+init_geoModel();
+init_geo2();
+init_Icon();
+import React73, { useEffect as useEffect50, useRef as useRef51, useState as useState57 } from "react";
 
 // src/features/jersey/Jersey.jsx
 init_core();
 init_guestSetup();
 init_Travel();
-import React76, { useId as useId4 } from "react";
+import React74, { useId as useId6 } from "react";
+init_Icon();
 
 // src/features/profile/TripDetails.jsx
 init_guestSetup();
-import React77, { useId as useId5 } from "react";
+import React75, { useId as useId7 } from "react";
 
 // src/App.jsx
 init_guestSetup();
 
 // src/features/music/WinSongPicker.jsx
-import React79, { useEffect as useEffect54, useRef as useRef58, useState as useState63 } from "react";
+init_client();
+import React77, { useEffect as useEffect52, useRef as useRef53, useState as useState59 } from "react";
 
 // src/features/music/previewPlayer.js
-import { useSyncExternalStore as useSyncExternalStore4 } from "react";
+init_client();
 init_sound();
+import { useSyncExternalStore as useSyncExternalStore5 } from "react";
 var KNOWN_MS = 8 * 60 * 1e3;
 
 // src/features/music/SnippetPreview.jsx
-import React78, { useEffect as useEffect53, useRef as useRef57, useState as useState62 } from "react";
+init_client();
 init_sound();
+import React76, { useEffect as useEffect51, useRef as useRef52, useState as useState58 } from "react";
 
-// src/features/awards/AwardsDesk.jsx
-init_core();
-import React80, { useEffect as useEffect55, useMemo as useMemo15, useRef as useRef59, useState as useState64 } from "react";
-init_serverClock();
-init_PlayerIdentity();
-init_controls();
+// src/features/music/WinSongPicker.jsx
+init_Icon();
 
-// src/features/director/FinaleSheets.jsx
-init_core();
-init_controls();
-init_PlayerIdentity();
-import React81, { useRef as useRef60, useState as useState65 } from "react";
+// src/App.jsx
+init_awardsModel();
+init_directorPill();
+init_show();
+init_client();
 
 // src/ui/Shell.jsx
-import React82 from "react";
-function Shell({ children, tv, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React82.createElement("div", { className: `fd-shell${tv ? " fd-night" : ""}` }, /* @__PURE__ */ React82.createElement("div", { className: `fd-shell-inner${tv ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React82.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+import React78 from "react";
+init_backglass();
+function Shell({ children, tv: tv2, arrival, environment = "production" }) {
+  return /* @__PURE__ */ React78.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React78.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React78.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/ui/usePhaseTheme.js
-import { useLayoutEffect as useLayoutEffect16, useMemo as useMemo16, useRef as useRef61 } from "react";
+init_phase();
 init_motion2();
+import { useLayoutEffect as useLayoutEffect16, useMemo as useMemo14, useRef as useRef54 } from "react";
 var STAGING = (() => {
   try {
     return import.meta.env?.MODE === "staging";
@@ -11605,7 +12626,9 @@ var STAGING = (() => {
 // src/App.jsx
 init_theme();
 init_controls();
-var Onboarding2 = lazy(() => Promise.resolve().then(() => (init_Onboarding(), Onboarding_exports)).then((module) => ({ default: module.Onboarding })));
+init_Menu();
+init_Icon();
+var Onboarding2 = lazy2(() => Promise.resolve().then(() => (init_Onboarding(), Onboarding_exports)).then((module) => ({ default: module.Onboarding })));
 var prefersReducedMotion2 = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 var fmt8 = (n) => (n ?? 0).toLocaleString("en-US");
 var SINCE_HOLD_MS = 5 * 60 * 1e3;
@@ -11616,7 +12639,7 @@ var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React84.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React80.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -11635,66 +12658,8 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
     ...style
   } }, name);
 }
-var SIDE_COLORS = ["var(--pool)", "var(--accent)"];
-function VersusDraw({ state, teams, size = "md", onPlayer }) {
-  const av = size === "lg" ? 34 : 26;
-  const f = size === "lg" ? 19 : 14;
-  const tf = size === "lg" ? 26 : 17;
-  return /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: size === "lg" ? 18 : 10, alignItems: "stretch" } }, [teams[0], null, teams[1]].map((t, i) => i === 1 ? /* @__PURE__ */ React84.createElement("div", { key: "vs", style: {
-    alignSelf: "center",
-    width: size === "lg" ? 54 : 36,
-    height: size === "lg" ? 54 : 36,
-    borderRadius: "50%",
-    background: "var(--sun)",
-    color: "var(--ink0)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontStyle: "italic",
-    fontSize: size === "lg" ? 24 : 16,
-    border: "2px solid var(--ink)",
-    zIndex: 2
-  } }, "VS") : /* @__PURE__ */ React84.createElement("div", { key: i, style: {
-    background: "var(--paper)",
-    border: "1.5px solid var(--ink)",
-    borderRadius: 10,
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column"
-  } }, /* @__PURE__ */ React84.createElement("div", { style: {
-    background: SIDE_COLORS[i === 0 ? 0 : 1],
-    color: BONE,
-    fontFamily: DISPLAY,
-    fontWeight: 700,
-    fontSize: tf,
-    letterSpacing: "0.02em",
-    textTransform: "uppercase",
-    padding: size === "lg" ? "8px 14px" : "5px 11px",
-    textAlign: i === 0 ? "left" : "right",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap"
-  } }, teamLabel(state, t)), /* @__PURE__ */ React84.createElement("div", { style: { padding: size === "lg" ? "10px 14px" : "8px 11px" } }, t.players.map(
-    (p) => React84.createElement(onPlayer ? "button" : "div", {
-      key: p,
-      type: onPlayer ? "button" : void 0,
-      onClick: onPlayer ? () => onPlayer(p) : void 0,
-      className: onPlayer ? "fd-player-link" : void 0,
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "3px 0",
-        width: "100%",
-        flexDirection: i === 0 ? "row" : "row-reverse"
-      }
-    }, /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: av }), /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontWeight: 600, fontSize: f, color: "var(--ink)" } }, disp(state, p))))
-  )))));
-}
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
-  return /* @__PURE__ */ React84.createElement(
+  return /* @__PURE__ */ React80.createElement(
     EventAnnouncement,
     {
       state,
@@ -11703,14 +12668,14 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
       onClose,
       onBets,
       holdMs: prefersReducedMotion2() ? DRAW_INTRO_REDUCED_MS : DRAW_INTRO_MS,
-      visual: /* @__PURE__ */ React84.createElement(GameMoment, { gameId: ev.game })
+      visual: /* @__PURE__ */ React80.createElement(GameMoment, { gameId: ev.game })
     }
   );
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId6(), saving = useRef63(false);
-  const [counts, setCounts] = useState67(() => {
+  const countId = useId8(), saving = useRef56(false);
+  const [counts, setCounts] = useState61(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -11718,12 +12683,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
+  const [pending, setPending] = useState61(false), [error, setError] = useState61("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React84.createElement("label", { htmlFor: countId + value }, fmt8(value), " chips"), /* @__PURE__ */ React84.createElement(
+  return /* @__PURE__ */ React80.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React80.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React80.createElement("label", { htmlFor: countId + value }, fmt8(value), " chips"), /* @__PURE__ */ React80.createElement(
     "button",
     {
       type: "button",
@@ -11731,8 +12696,8 @@ function ChipCounter({ start, onDone }) {
       "aria-label": "Remove one " + value + " chip",
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
-    "\u2212"
-  ), /* @__PURE__ */ React84.createElement(
+    /* @__PURE__ */ React80.createElement(Icon, { name: "minus", size: 16 })
+  ), /* @__PURE__ */ React80.createElement(
     "input",
     {
       id: countId + value,
@@ -11745,7 +12710,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, "+"))), /* @__PURE__ */ React84.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React84.createElement("span", null, "Total"), /* @__PURE__ */ React84.createElement("strong", null, fmt8(total))), error && /* @__PURE__ */ React84.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React84.createElement(ActionButton, { disabled: pending, onClick: async () => {
+  ), /* @__PURE__ */ React80.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React80.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React80.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React80.createElement("span", null, "Total"), /* @__PURE__ */ React80.createElement("strong", null, fmt8(total))), error && /* @__PURE__ */ React80.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React80.createElement(ActionButton, { disabled: pending, onClick: async () => {
     if (saving.current) return;
     saving.current = true;
     setPending(true);
@@ -11763,9 +12728,9 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState67(null);
-  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
-  const saving = useRef63(false);
+  const [fixing, setFixing] = useState61(null);
+  const [pending, setPending] = useState61(false), [error, setError] = useState61("");
+  const saving = useRef56(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -11791,10 +12756,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React84.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
+  return /* @__PURE__ */ React80.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c = pk.counts?.[p];
-    return /* @__PURE__ */ React84.createElement("div", { key: p }, /* @__PURE__ */ React84.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React84.createElement(
+    return /* @__PURE__ */ React80.createElement("div", { key: p }, /* @__PURE__ */ React80.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React80.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -11805,10 +12770,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React84.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React84.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React84.createElement("strong", null, fmt8(c)) : /* @__PURE__ */ React84.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React84.createElement(
+      /* @__PURE__ */ React80.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React80.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React80.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React80.createElement("strong", null, fmt8(c)) : /* @__PURE__ */ React80.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React80.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -11821,27 +12786,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React84.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React80.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React84.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React80.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React84.createElement("span", { style: {
+  }), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React80.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React80.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt8(sum)), /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt8(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt8(sum - pk.total)} over` : `${fmt8(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React84.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt8(sum)), /* @__PURE__ */ React80.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt8(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React80.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt8(sum - pk.total)} over` : `${fmt8(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React80.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React80.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React84.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React84.createElement(
+  return /* @__PURE__ */ React80.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React80.createElement(
     "button",
     {
       type: "button",
@@ -11850,16 +12815,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React84.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React84.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React80.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React80.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React84.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React84.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React84.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React84.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React84.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React80.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React80.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React80.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React80.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React80.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React80.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React80.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -11867,33 +12832,33 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React84.createElement("span", { style: {
+    } }, /* @__PURE__ */ React80.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React80.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React80.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
-      fontSize: 11.5,
+      fontSize: 12,
       color: "var(--ink)",
       minWidth: 0,
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React84.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React80.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
-      fontSize: 10.5,
+      fontSize: 12,
       color: "var(--muted2)",
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React84.createElement("div", { style: {
+  return /* @__PURE__ */ React80.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
-    border: "1px solid rgba(194,88,50,0.38)"
-  } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
+    border: "1px solid var(--bone-line)"
+  } }, /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React80.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React84.createElement(
+    if (onPlayer) return /* @__PURE__ */ React80.createElement(
       "button",
       {
         type: "button",
@@ -11902,18 +12867,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React84.createElement("span", null, /* @__PURE__ */ React84.createElement("strong", null, disp(state, item.player))),
-      /* @__PURE__ */ React84.createElement("small", null, meta.label)
+      /* @__PURE__ */ React80.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React80.createElement("span", null, /* @__PURE__ */ React80.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React80.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React84.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React80.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React84.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: {
+    } }, /* @__PURE__ */ React80.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React80.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React80.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -11921,10 +12886,10 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player))), /* @__PURE__ */ React84.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React80.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
-      fontSize: 10.5,
+      fontSize: 12,
       color: "var(--accent2)",
       background: "var(--accent-tint)",
       borderRadius: 7,
@@ -11941,14 +12906,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React84.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React80.createElement("div", { style: {
     background: "var(--paper2)",
-    border: "1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
+    border: "1px solid " + (isFinal ? "var(--ghost-line)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React84.createElement("div", { style: {
+  } }, /* @__PURE__ */ React80.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 10.5,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -11959,12 +12924,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided3 = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided3 && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React84.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React80.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React84.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React84.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React84.createElement(
+    } }, /* @__PURE__ */ React80.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React80.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React80.createElement(
       "button",
       {
         key: String(key),
@@ -11984,8 +12949,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React84.createElement("span", { style: {
+      /* @__PURE__ */ React80.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React80.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -11995,10 +12960,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React84.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, isFinal ? "\u{1F3C6}" : "\u2713")
+      isThrough && /* @__PURE__ */ React80.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React80.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
     );
   }));
-  return /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React84.createElement(
+  return /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React80.createElement(
     GroupCard,
     {
       key: i,
@@ -12007,7 +12972,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React84.createElement(
+  )), finalists && /* @__PURE__ */ React80.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -12052,27 +13017,28 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState67(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState61(false);
+  const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState67(false);
-  const [confirmRemove, setConfirmRemove] = useState67(false);
-  const [confirmClear, setConfirmClear] = useState67(false);
-  const [clearReason, setClearReason] = useState67("");
-  const [confirmScrap, setConfirmScrap] = useState67(false);
-  const [confirmShelve, setConfirmShelve] = useState67(false);
+  const [confirmRedraw, setConfirmRedraw] = useState61(false);
+  const [confirmRemove, setConfirmRemove] = useState61(false);
+  const [confirmClear, setConfirmClear] = useState61(false);
+  const [clearReason, setClearReason] = useState61("");
+  const [confirmScrap, setConfirmScrap] = useState61(false);
+  const [confirmShelve, setConfirmShelve] = useState61(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState67(false);
-  const [howTo, setHowTo] = useState67(false);
-  const [more, setMore] = useState67(false);
-  const [eName, setEName] = useState67("");
-  const [eDesc, setEDesc] = useState67("");
-  const [eValue, setEValue] = useState67(400);
-  const [eSession, setESession] = useState67(null);
+  const [editOpen, setEditOpen] = useState61(false);
+  const [howTo, setHowTo] = useState61(false);
+  const [more, setMore] = useState61(false);
+  const [eName, setEName] = useState61("");
+  const [eDesc, setEDesc] = useState61("");
+  const [eValue, setEValue] = useState61(400);
+  const [eSession, setESession] = useState61(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -12080,16 +13046,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState67(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState67(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState67(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState67(""), [swapIn, setSwapIn] = useState67("");
-  const [showOuts, setShowOuts] = useState67(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState67(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState67(null);
-  const [advance, setAdvance] = useState67(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState67(false);
-  const [contestPending, setContestPending] = useState67(false);
+  const [suggested] = useState61(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState61(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState61(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState61(""), [swapIn, setSwapIn] = useState61("");
+  const [showOuts, setShowOuts] = useState61(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState61(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState61(null);
+  const [advance, setAdvance] = useState61(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState61(false);
+  const [contestPending, setContestPending] = useState61(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -12098,8 +13064,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState67("");
-  const setupBusy = useRef63(false);
+  const [setupError, setSetupError] = useState61("");
+  const setupBusy = useRef56(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -12134,77 +13100,61 @@ function EventSheet({
   const suggestedGroups = Math.min(4, Math.max(2, Math.round(stageEntrantCount / (canHeats ? 4 : 3))));
   const groupsChoice = nGroups ?? ev.stageCfg?.nGroups ?? suggestedGroups;
   const heatsFit = inPlayers.length >= groupsChoice * 2;
-  return /* @__PURE__ */ React84.createElement(
+  const stage = eventStage(state, ev);
+  const crewAward = awardPlan(ev, draw).find((row) => row.place === "crew")?.pts || null;
+  const roles = draw?.roles || st?.roles || draftLive?.roles || null;
+  const path = stage === "live" && me && !contest?.players?.includes(me) ? bracketPath(state, ev, me) : null;
+  const contestShowsSides = contestActive && contest?.kind !== "ffa";
+  const contestProps = {
+    state,
+    ev,
+    me,
+    gm,
+    onPlayer,
+    onBets,
+    operations: contestOps,
+    onLock: (reference2) => waitForContest(() => onLock(reference2)),
+    onWinner: (result) => waitForContest(() => onWinner(result)),
+    onUndo: (reference2) => waitForContest(() => onUndo(reference2)),
+    onResult: () => waitForContest(enterResult),
+    onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
+  };
+  const who = /* @__PURE__ */ React80.createElement(React80.Fragment, null, draftLive && !draw && /* @__PURE__ */ React80.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React80.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React80.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React80.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React80.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React80.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React80.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React80.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React80.createElement(EventCrew, { state, roles, me, onPlayer }));
+  return /* @__PURE__ */ React80.createElement(
     Sheet,
     {
       title: ev.name,
+      show: true,
       onClose,
       onBack,
       wide: !!br,
       busy: setupPending || contestPending,
-      subtitle: [SESSIONS.find((s) => s.id === ev.session)?.label, ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" \xB7 "),
-      headerActions: /* @__PURE__ */ React84.createElement(React84.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React84.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React80.createElement(React80.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React80.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && /* @__PURE__ */ React80.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    /* @__PURE__ */ React84.createElement(
-      ContestPanel,
-      {
-        state,
-        ev,
-        me,
-        gm,
-        onPlayer,
-        onBets,
-        onLock: (reference2) => waitForContest(() => onLock(reference2)),
-        onWinner: (result) => waitForContest(() => onWinner(result)),
-        onUndo: (reference2) => waitForContest(() => onUndo(reference2)),
-        onResult: () => waitForContest(enterResult),
-        onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
-      }
-    ),
-    br && !contestActive && /* @__PURE__ */ React84.createElement(CompetitionBracket, { state, ev, me, onPlayer }),
-    /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info", open: !draw && !st && !contestActive || void 0 }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "Event info"), table?.[0] > 0 && /* @__PURE__ */ React84.createElement("small", null, fmt8(table[0]), " chips to win")), ev.desc && /* @__PURE__ */ React84.createElement("p", null, ev.desc), table && /* @__PURE__ */ React84.createElement("div", { className: "fd-event-awards" }, awardPlan(ev, draw).map((row) => /* @__PURE__ */ React84.createElement("span", { key: row.place }, /* @__PURE__ */ React84.createElement("small", null, row.place === "crew" ? "Crew" : SLOT_META[row.place].label), /* @__PURE__ */ React84.createElement("strong", null, "+", fmt8(row.pts)))))),
-    !contestActive && onBets && /* @__PURE__ */ React84.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    howTo && /* @__PURE__ */ React84.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, onClose: () => setHowTo(false) }),
-    draftLive && !draw && /* @__PURE__ */ React84.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() }),
-    draw && !br && !st && /* @__PURE__ */ React84.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 8 } }, "The draw"), draw.teams.length === 2 ? /* @__PURE__ */ React84.createElement(VersusDraw, { state, teams: draw.teams, onPlayer }) : /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap: 8 } }, draw.teams.map((t, i) => /* @__PURE__ */ React84.createElement("div", { key: i, style: {
-      background: "var(--paper2)",
-      border: "1px solid var(--line)",
-      borderRadius: 14,
-      padding: "10px 12px",
-      ...draw.teams.length > 3 && draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 12.5, color: "var(--accent2)", marginBottom: 5 } }, teamLabel(state, t)), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, t.players.map((p) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: p, className: "fd-player-link", "aria-label": `View ${disp(state, p)}'s player card`, onClick: () => onPlayer?.(p) }, /* @__PURE__ */ React84.createElement(Avatar, { state, p, size: 30 }))))))), /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw.roles, onPlayer })),
-    st && /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info", open: !contestActive || void 0 }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "All ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React84.createElement("small", null, st.advance, " through from each")), /* @__PURE__ */ React84.createElement(StageGrid, { state, ev, gm: false, onPlayer })),
-    (br || st) && /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw?.roles || st?.roles, compact: true, onPlayer }),
-    res && res.slots && (() => {
-      const awards = resultAwards(state, ev, res);
-      const crew = awards.filter((award) => award.place === "crew");
-      return /* @__PURE__ */ React84.createElement("div", { style: { marginBottom: 14 } }, res.slots.map((players, i) => players?.length > 0 && /* @__PURE__ */ React84.createElement("div", { key: i, style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("span", { style: { color: SLOT_META[i].color, fontWeight: 700 } }, SLOT_META[i].label, ":"), " ", players.map((p) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: p, className: "fd-player-link", onClick: () => onPlayer?.(p) }, disp(state, p))), " ", /* @__PURE__ */ React84.createElement("span", { style: { color: "var(--muted)" } }, res.stacks ? `${fmt8(res.stacks[players[0]] ?? 0)} chips` : `+${fmt8(awards.find((award) => award.place === i)?.pts ?? 0)} each`))), crew.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 14, color: "var(--ink)", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("span", { style: { fontWeight: 700 } }, "Crew:"), " ", crew.map(({ player }) => /* @__PURE__ */ React84.createElement("button", { type: "button", key: player, className: "fd-player-link", onClick: () => onPlayer?.(player) }, disp(state, player))), " ", /* @__PURE__ */ React84.createElement("span", { style: { color: "var(--muted)" } }, "+", fmt8(crew[0].pts), " each")), (() => {
-        const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
-        const reason = res.correctionReason || correction?.reason;
-        const voided = Array.isArray(correction?.voided) ? correction.voided.length : 0;
-        return reason && (res.correctedAt || correction) ? /* @__PURE__ */ React84.createElement("p", { className: "fd-event-correction" }, "Corrected \xB7 ", reason, voided ? ` \xB7 ${voided} ${voided === 1 ? "bet" : "bets"} voided` : "") : null;
-      })());
-    })(),
-    gm && !state.frozen && /* @__PURE__ */ React84.createElement("div", { style: { borderTop: "1px solid var(--line)", paddingTop: 14 } }, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    howTo && /* @__PURE__ */ React80.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
+    /* @__PURE__ */ React80.createElement(ContestPanel, { ...contestProps, part: "contest" }),
+    stage === "before" && /* @__PURE__ */ React80.createElement(React80.Fragment, null, who, /* @__PURE__ */ React80.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React80.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React80.createElement(EventPays, { ev, crew: crewAward })),
+    stage === "live" && /* @__PURE__ */ React80.createElement(React80.Fragment, null, path?.mine && /* @__PURE__ */ React80.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React80.createElement(EventRiding, { state, ev })),
+    stage === "after" && /* @__PURE__ */ React80.createElement(React80.Fragment, null, /* @__PURE__ */ React80.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React80.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React80.createElement("summary", null, /* @__PURE__ */ React80.createElement("span", null, "Bracket")), /* @__PURE__ */ React80.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React80.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React80.createElement("summary", null, /* @__PURE__ */ React80.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React80.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
+    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React80.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    gm && /* @__PURE__ */ React80.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React80.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React80.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), !state.frozen && /* @__PURE__ */ React80.createElement(React80.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, flex: 1 } }, shape.size === 1 ? "Draw the bracket" : "Draw teams"), /* @__PURE__ */ React84.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
-        cursor: "pointer",
-        fontFamily: SANS,
-        fontWeight: 700,
-        fontSize: 12.5,
-        padding: "7px 12px",
-        borderRadius: 10,
-        background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
-        border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-        color: diff !== 0 ? "var(--clay-text)" : "var(--ink)"
-      } }, inPlayers.length, " competitors ", showOuts ? "\u25B4" : "\u25BE")), /* @__PURE__ */ React84.createElement("div", { style: {
-        fontFamily: SANS,
-        fontSize: 12.5,
-        marginBottom: 8,
-        color: diff !== 0 ? "var(--clay-text)" : "var(--muted)"
-      } }, "Format: ", shapeLabel(shape), shape.size === 1 ? "" : `, fits ${fit2}`, ".", diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."), showOuts && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React84.createElement(
+      return /* @__PURE__ */ React80.createElement(React80.Fragment, null, /* @__PURE__ */ React80.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React80.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React80.createElement(
+        "button",
+        {
+          type: "button",
+          className: `fd-es-gm-count${diff !== 0 ? " is-off" : ""}`,
+          "aria-expanded": showOuts,
+          "aria-label": `${inPlayers.length} competitors${shape.size === 1 ? "" : ` of ${fit2}`}. Choose who plays`,
+          onClick: () => setShowOuts((v) => !v)
+        },
+        inPlayers.length,
+        shape.size === 1 ? "" : ` / ${fit2}`,
+        " ",
+        /* @__PURE__ */ React80.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
+      )), showOuts && /* @__PURE__ */ React80.createElement(React80.Fragment, null, /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React80.createElement(
         PlayerChip,
         {
           key: p,
@@ -12214,28 +13164,22 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React80.createElement("div", { style: {
         background: "var(--paper2)",
-        border: "1px solid rgba(194,88,50,0.38)",
+        border: "1px solid var(--bone-line)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label, color: "var(--accent2)", flex: 1 } }, "Event crew")), /* @__PURE__ */ React84.createElement("div", { style: {
-        fontFamily: SANS,
-        fontSize: 11.5,
-        lineHeight: 1.4,
-        color: "var(--muted2)",
-        marginBottom: 9
-      } }, table?.[2] > 0 ? `Crew do not compete and earn the 3rd-place award, +${fmt8(table[2])}.` : "Crew do not compete or score."), overflowAssignments.map(({ player }, index) => {
+      } }, /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React80.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React80.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt8(table[2]))), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        return /* @__PURE__ */ React84.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React80.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React84.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React84.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: {
+        } }, /* @__PURE__ */ React80.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React80.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React80.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
           fontSize: 12.5,
@@ -12243,7 +13187,7 @@ function EventSheet({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap"
-        } }, disp(state, player))), /* @__PURE__ */ React84.createElement(
+        } }, disp(state, player))), /* @__PURE__ */ React80.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
@@ -12259,12 +13203,12 @@ function EventSheet({
               border: "1px solid var(--line)",
               fontFamily: SANS,
               fontWeight: 700,
-              fontSize: 11.5
+              fontSize: 12
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React84.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React80.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), (!participantFit.ok || !announceNext) && /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 10 } }, participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(
+      }))), !participantFit.ok && /* @__PURE__ */ React80.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React80.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -12272,7 +13216,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React84.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React80.createElement(
         Btn,
         {
           kind: "dark",
@@ -12282,10 +13226,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React80.createElement(Btn, { kind: "danger", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -12302,7 +13246,7 @@ function EventSheet({
         fontWeight: 700,
         fontSize: 12.5
       };
-      return /* @__PURE__ */ React84.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React84.createElement("summary", null, /* @__PURE__ */ React84.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React84.createElement(
+      return /* @__PURE__ */ React80.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React80.createElement("summary", null, /* @__PURE__ */ React80.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React80.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -12311,9 +13255,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React84.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React84.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React84.createElement(
+        /* @__PURE__ */ React80.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React80.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React80.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -12322,9 +13266,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React84.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React84.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React84.createElement(
+        /* @__PURE__ */ React80.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React80.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React80.createElement(
         ActionButton,
         {
           compact: true,
@@ -12339,14 +13283,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React84.createElement("p", null, "Bets on the team stay. Outright bets on the player leaving are voided."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React84.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React84.createElement("div", { style: {
+      )), /* @__PURE__ */ React80.createElement("p", null, "Voids bets on the player leaving."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React80.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React80.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React84.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React80.createElement(React80.Fragment, null, /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React80.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React80.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -12356,7 +13300,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", showOuts ? "\u25B4" : "\u25BE")), showOuts && /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React84.createElement(
+    } }, inPlayers.length, " playing ", /* @__PURE__ */ React80.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React80.createElement(
       PlayerChip,
       {
         key: p,
@@ -12366,7 +13310,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React84.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React84.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React80.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React80.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React80.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -12377,7 +13321,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React84.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React84.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React84.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React80.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React80.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React80.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -12388,7 +13332,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
+    } }, n))), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -12406,17 +13350,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React84.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React84.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React80.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React80.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React80.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React84.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React84.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React80.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React80.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React84.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -12424,7 +13368,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React84.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -12432,14 +13376,14 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React84.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React84.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && onTakeBack && announcementTakeBack(state, ev).enabled && (confirmTakeBack ? /* @__PURE__ */ React84.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 13, marginBottom: 8 } }, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
+    ), res && !confirmClear && /* @__PURE__ */ React80.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && onTakeBack && announcementTakeBack(state, ev).enabled && (confirmTakeBack ? /* @__PURE__ */ React80.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React80.createElement("p", { style: { ...pStyle, fontSize: 13, marginBottom: 8 } }, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -12452,7 +13396,7 @@ function EventSheet({
         })
       },
       setupPending ? "Taking back\u2026" : "Take it back"
-    ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it"))) : /* @__PURE__ */ React84.createElement(
+    ), /* @__PURE__ */ React80.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it"))) : /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "destructive",
@@ -12460,13 +13404,13 @@ function EventSheet({
         style: { width: "100%", marginTop: 10 }
       },
       "Take back the announcement"
-    )), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React84.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, "Next: ", lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React84.createElement("div", { style: {
+    )), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React80.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React80.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React84.createElement(
+    } }, /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React80.createElement(
       "input",
       {
         value: clearReason,
@@ -12487,7 +13431,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
+    ), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -12496,7 +13440,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React84.createElement(
+    ), /* @__PURE__ */ React80.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -12507,13 +13451,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React84.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React80.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React84.createElement(
+    } }, /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React80.createElement(
       "input",
       {
         value: eName,
@@ -12534,7 +13478,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "How it works"), /* @__PURE__ */ React84.createElement(
+    ), /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React80.createElement(
       "textarea",
       {
         value: eDesc,
@@ -12557,7 +13501,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth", res ? ". Clear the result to change it" : ""), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React84.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React80.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -12568,7 +13512,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "When"), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React84.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React80.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -12578,7 +13522,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
+    } }, lb))), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React80.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -12589,7 +13533,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React84.createElement("button", { onClick: () => setMore(true), style: {
+    ), /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : !more ? /* @__PURE__ */ React80.createElement("button", { onClick: () => setMore(true), style: {
       background: "none",
       border: "none",
       cursor: "pointer",
@@ -12601,14 +13545,14 @@ function EventSheet({
       padding: "8px 0",
       display: "block",
       marginLeft: "auto"
-    } }, "More options \u25BE") : /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React84.createElement(React84.Fragment, null, /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => {
+    } }, "More ", /* @__PURE__ */ React80.createElement(Icon, { name: "expand", size: "1em" })) : /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React80.createElement(React80.Fragment, null, /* @__PURE__ */ React80.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt8(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React84.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React84.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove")))
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt8(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React80.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React80.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React80.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"))))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState67(false);
+  const [pending, setPending] = useState61(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -12621,7 +13565,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React84.createElement(Sheet, { title: ev.name, subtitle: "Bracket", onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React84.createElement(
+  return /* @__PURE__ */ React80.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React80.createElement(
     ContestPanel,
     {
       state,
@@ -12636,7 +13580,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React84.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React84.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React80.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React80.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
@@ -12647,7 +13591,7 @@ function ResultSheet({ ev, state, onClose, save }) {
   const winnerKnown = sequenced && (bracket && bracketChampion(bracket) !== null || stage && stage.finalWinner !== null && stage.finalWinner !== void 0);
   const editableSlots = slotIdxs.filter((index) => !winnerKnown || index !== 0);
   const paysEach = (index) => resultAwards(state, ev, { slots }).find((award) => award.place === index)?.pts ?? table[index];
-  const initial = useMemo17(() => {
+  const initial = useMemo15(() => {
     if (existing?.slots) return existing.slots.map((s) => [...s || []]);
     const br = state.brackets[ev.id], draw2 = state.draws[ev.id], st = state.stages[ev.id];
     if (br && draw2) {
@@ -12677,14 +13621,14 @@ function ResultSheet({ ev, state, onClose, save }) {
     }
     return [[], [], []];
   }, []);
-  const [slots, setSlots] = useState67(initial);
-  const [active, setActive] = useState67(editableSlots[0] ?? 0);
-  const [byPlayer, setByPlayer] = useState67(false);
-  const [confirmCorrection, setConfirmCorrection] = useState67(false);
-  const [correctionReason, setCorrectionReason] = useState67("");
-  const [pending, setPending] = useState67(false), [error, setError] = useState67("");
-  const [emptyCheck, setEmptyCheck] = useState67(null);
-  const saving = useRef63(false);
+  const [slots, setSlots] = useState61(initial);
+  const [active, setActive] = useState61(editableSlots[0] ?? 0);
+  const [byPlayer, setByPlayer] = useState61(false);
+  const [confirmCorrection, setConfirmCorrection] = useState61(false);
+  const [correctionReason, setCorrectionReason] = useState61("");
+  const [pending, setPending] = useState61(false), [error, setError] = useState61("");
+  const [emptyCheck, setEmptyCheck] = useState61(null);
+  const saving = useRef56(false);
   const post = async (options, allowEmpty = false) => {
     if (saving.current) return;
     if (!allowEmpty && emptyPaid.length) {
@@ -12742,9 +13686,9 @@ function ResultSheet({ ev, state, onClose, save }) {
     if (was !== active) nx[active] = [...nx[active], ...t.players];
     return nx;
   });
-  return /* @__PURE__ */ React84.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React84.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React84.createElement("small", null, "Winner"), /* @__PURE__ */ React84.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React84.createElement("span", null, "+", fmt8(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), twoTeams && /* @__PURE__ */ React84.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 8 } }, "Winner"), /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.map((team, i) => {
+  return /* @__PURE__ */ React80.createElement(Sheet, { title: ev.name, subtitle: "Official result", onClose, busy: pending }, winnerKnown && /* @__PURE__ */ React80.createElement("div", { className: "fd-result-winner" }, /* @__PURE__ */ React80.createElement("small", null, "Winner"), /* @__PURE__ */ React80.createElement("strong", null, slots[0].map((player) => disp(state, player)).join(" & ")), /* @__PURE__ */ React80.createElement("span", null, "+", fmt8(table[0]), slots[0].length > 1 ? " each" : " chips")), winnerKnown && /* @__PURE__ */ React80.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)" } }, existing ? "To change the winner, clear the result and correct the final." : "To change the winner, correct the final from the event sheet."), twoTeams && /* @__PURE__ */ React80.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 8 } }, "Winner"), /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.map((team, i) => {
     const won = team.players.length > 0 && team.players.every((p) => slots[0].includes(p));
-    return /* @__PURE__ */ React84.createElement(
+    return /* @__PURE__ */ React80.createElement(
       "button",
       {
         key: i,
@@ -12765,8 +13709,8 @@ function ResultSheet({ ev, state, onClose, save }) {
           border: won ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
         }
       },
-      /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: team.players, size: 26, max: 5 }),
-      /* @__PURE__ */ React84.createElement("span", { style: {
+      /* @__PURE__ */ React80.createElement(AvatarStack, { state, players: team.players, size: 26, max: 5 }),
+      /* @__PURE__ */ React80.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: 14,
@@ -12777,16 +13721,16 @@ function ResultSheet({ ev, state, onClose, save }) {
         maxWidth: "100%"
       } }, teamLabel(state, team))
     );
-  })), slots[0].length > 0 && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)", margin: "0 0 12px" } }, "+", fmt8(paysEach(0)), " each to the winners", table[1] > 0 ? `, +${fmt8(paysEach(1))} each to the other team` : "", table[2] > 0 && draw.roles?.length ? `, +${fmt8(table[2])} each to the crew` : "", ".")), !twoTeams && !!editableSlots.length && /* @__PURE__ */ React84.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React84.createElement("button", { key: i, onClick: () => setActive(i), style: {
+  })), slots[0].length > 0 && /* @__PURE__ */ React80.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted2)", margin: "0 0 12px" } }, "+", fmt8(paysEach(0)), " each to the winners", table[1] > 0 ? `, +${fmt8(paysEach(1))} each to the other team` : "", table[2] > 0 && draw.roles?.length ? `, +${fmt8(table[2])} each to the crew` : "", ".")), !twoTeams && !!editableSlots.length && /* @__PURE__ */ React80.createElement("fieldset", { disabled: pending, style: { border: 0, padding: 0, margin: 0, minWidth: 0 } }, /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, editableSlots.map((i) => /* @__PURE__ */ React80.createElement("button", { key: i, onClick: () => setActive(i), style: {
     flex: 1,
     padding: "10px 6px",
     cursor: "pointer",
     borderRadius: 14,
     border: "1px solid " + (active === i ? "var(--accent)" : "var(--line)"),
-    background: active === i ? "rgba(194,88,50,0.1)" : "var(--paper2)"
-  } }, /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React84.createElement("div", { style: { fontFamily: SANS, fontSize: 11, color: "var(--muted)" } }, "+", fmt8(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React84.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt8(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
+    background: active === i ? "var(--ink-tint)" : "var(--paper2)"
+  } }, /* @__PURE__ */ React80.createElement("div", { style: { fontFamily: SANS, fontWeight: 700, fontSize: 14, color: SLOT_META[i].color } }, ev.kind === "solo" ? SLOT_META[i].label : SLOT_META[i].team), /* @__PURE__ */ React80.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "+", fmt8(paysEach(i)), " each, ", slots[i].length, " in")))), table[2] > 0 && !!draw?.roles?.length && /* @__PURE__ */ React80.createElement("p", { style: { ...pStyle, fontSize: 12.5, color: "var(--muted)", margin: "-6px 0 12px" } }, "Event crew +", fmt8(table[2]), " each: ", draw.roles.map((role) => disp(state, role.player)).join(", ")), teamMode ? /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 } }, draw.teams.filter((t) => !winnerKnown || !t.players.some((p) => slots[0].includes(p))).map((t, i) => {
     const w = teamSlot(t);
-    return /* @__PURE__ */ React84.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
+    return /* @__PURE__ */ React80.createElement("button", { key: i, onClick: () => toggleTeam(t), style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -12797,7 +13741,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       background: w === active ? GOLD_GRAD : "var(--paper)",
       border: w === active ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
       ...draw.teams.length % 2 === 1 && i === draw.teams.length - 1 ? { gridColumn: "1 / -1" } : {}
-    } }, /* @__PURE__ */ React84.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React84.createElement("span", { style: {
+    } }, /* @__PURE__ */ React80.createElement(AvatarStack, { state, players: t.players, size: 22, max: 3 }), /* @__PURE__ */ React80.createElement("span", { style: {
       flex: 1,
       fontFamily: SANS,
       fontWeight: 600,
@@ -12807,16 +13751,16 @@ function ResultSheet({ ev, state, onClose, save }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       color: w === active ? "var(--ink0)" : "var(--ink)"
-    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React84.createElement("span", { style: {
+    } }, teamLabel(state, t)), w >= 0 && w !== active && /* @__PURE__ */ React80.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
-      fontSize: 11,
+      fontSize: 12,
       color: SLOT_META[w].color,
       flexShrink: 0
     } }, SLOT_META[w].label));
-  })) : /* @__PURE__ */ React84.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
+  })) : /* @__PURE__ */ React80.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 10 } }, ROSTER.filter((p) => !winnerKnown || !slots[0].includes(p)).map((p, i) => {
     const w = taken(p);
-    return /* @__PURE__ */ React84.createElement(
+    return /* @__PURE__ */ React80.createElement(
       PlayerChip,
       {
         key: p,
@@ -12827,7 +13771,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         style: centeredGridCell(i, ROSTER.length)
       }
     );
-  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React84.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
+  })), !!draw?.teams?.length && ev.kind !== "solo" && !(sequenced && active === 0) && /* @__PURE__ */ React80.createElement("button", { onClick: () => setByPlayer((v) => !v), style: {
     background: "none",
     border: "none",
     cursor: "pointer",
@@ -12838,13 +13782,13 @@ function ResultSheet({ ev, state, onClose, save }) {
     minHeight: 44,
     padding: "6px 0",
     display: "block"
-  } }, byPlayer ? "Back to teams" : "Pick by player")), error && /* @__PURE__ */ React84.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React84.createElement("div", { role: "alert", style: {
+  } }, byPlayer ? "Back to teams" : "Pick by player")), error && /* @__PURE__ */ React80.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React80.createElement("div", { role: "alert", style: {
     marginBottom: 10,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, emptyPaid.map((i) => /* @__PURE__ */ React84.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt8(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React84.createElement(
+  } }, emptyPaid.map((i) => /* @__PURE__ */ React80.createElement("p", { key: i, style: { ...pStyle, margin: "0 0 6px" } }, SLOT_META[i].label, " place pays ", fmt8(paysEach(i)), ". Nobody selected.")), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React80.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -12853,7 +13797,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Leave empty"
-  ), /* @__PURE__ */ React84.createElement(
+  ), /* @__PURE__ */ React80.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -12865,7 +13809,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React84.createElement(
+  ))), !existing ? /* @__PURE__ */ React80.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || pending,
@@ -12873,21 +13817,21 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
     "Post official result"
-  ) : !confirmCorrection ? /* @__PURE__ */ React84.createElement(
+  ) : !confirmCorrection ? /* @__PURE__ */ React80.createElement(
     ActionButton,
     {
       disabled: slots[0].length === 0 || unchanged || pending,
       onClick: () => setConfirmCorrection(true),
       style: { width: "100%", fontSize: 16, padding: "14px", marginTop: 4 }
     },
-    unchanged ? `Official result \xB7 revision ${existing.revision || 1}` : "Review result correction"
-  ) : /* @__PURE__ */ React84.createElement("div", { style: {
+    unchanged ? "Official result" : "Review result correction"
+  ) : /* @__PURE__ */ React80.createElement("div", { style: {
     marginTop: 4,
     padding: "12px 13px",
     background: "var(--paper2)",
     border: "1px solid var(--line)",
     borderRadius: 14
-  } }, /* @__PURE__ */ React84.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for the correction"), /* @__PURE__ */ React84.createElement(
+  } }, /* @__PURE__ */ React80.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for the correction"), /* @__PURE__ */ React80.createElement(
     "input",
     {
       value: correctionReason,
@@ -12909,7 +13853,7 @@ function ResultSheet({ ev, state, onClose, save }) {
         outline: "none"
       }
     }
-  ), /* @__PURE__ */ React84.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React84.createElement(
+  ), /* @__PURE__ */ React80.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React80.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -12921,77 +13865,57 @@ function ResultSheet({ ev, state, onClose, save }) {
       style: { flex: 1 }
     },
     "Replace official result"
-  ), /* @__PURE__ */ React84.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
+  ), /* @__PURE__ */ React80.createElement(ActionButton, { variant: "tertiary", disabled: pending, onClick: () => {
     setConfirmCorrection(false);
     setCorrectionReason("");
   }, style: { flex: 1 } }, "Keep current"))));
 }
 function GameMoment({ gameId }) {
   const Hero = GAME_HEROES[gameId];
-  return /* @__PURE__ */ React84.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion2() ? /* @__PURE__ */ React84.createElement(Hero, null) : /* @__PURE__ */ React84.createElement(GameMark, { id: gameId, size: 72 }));
+  return /* @__PURE__ */ React80.createElement("div", { className: "fd-game-moment", "aria-hidden": "true" }, Hero && !prefersReducedMotion2() ? /* @__PURE__ */ React80.createElement(Hero, null) : /* @__PURE__ */ React80.createElement(GameMark, { id: gameId, size: 72 }));
 }
 function DieHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React84.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "66", x2: "172", y2: "66", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinecap: "round", opacity: "0.4" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-die-arc 2.6s linear 1 both" } }, /* @__PURE__ */ React80.createElement("rect", { x: "0", y: "0", width: "20", height: "20", rx: "4.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React80.createElement("circle", { cx: "5.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React80.createElement("circle", { cx: "14.5", cy: "5.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React80.createElement("circle", { cx: "10", cy: "10", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React80.createElement("circle", { cx: "5.5", cy: "14.5", r: "1.7", fill: "var(--ink)" }), /* @__PURE__ */ React80.createElement("circle", { cx: "14.5", cy: "14.5", r: "1.7", fill: "var(--ink)" })));
 }
 function PongHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
-}
-function FlipHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-flip-cup 2.2s ease-in-out 1 both", transformOrigin: "90px 46px" } }, /* @__PURE__ */ React84.createElement("path", { d: "M78 32h24l-3 28H81z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "90", cy: "32", rx: "12", ry: "3.4", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("path", { d: "M112 30h20l-2.5 28h-15z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinejoin: "round" }), /* @__PURE__ */ React80.createElement("ellipse", { cx: "122", cy: "30", rx: "10", ry: "3", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.4" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-pong-arc 2s linear 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "8", cy: "0", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function PuttHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "132", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "146", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "139", y1: "60", x2: "139", y2: "26", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React80.createElement("path", { d: "M139 26h16l-5 5.5 5 5.5h-16z", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-putt 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "12", cy: "54", r: "5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function EightHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React84.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-cue 2.4s ease-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "26", cy: "52", r: "7", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-eight 2.4s ease-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "96", cy: "52", r: "7", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("circle", { cx: "96", cy: "52", r: "3.2", fill: "var(--paper)" }), /* @__PURE__ */ React80.createElement("text", { x: "96", y: "54.6", textAnchor: "middle", fontSize: "5", fontWeight: "700", fontFamily: SANS, fill: "var(--ink0)" }, "8")));
 }
 function BballHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React84.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "158", y1: "12", x2: "158", y2: "34", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React80.createElement("line", { x1: "142", y1: "32", x2: "158", y2: "32", stroke: "var(--accent)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "144", y1: "32", x2: "147", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React80.createElement("line", { x1: "155", y1: "32", x2: "153", y2: "43", stroke: "var(--ink)", strokeWidth: "1.2", opacity: "0.6" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-bball 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "16", cy: "50", r: "7", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("path", { d: "M9 50h14M16 43v14", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function SpikeHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React84.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("ellipse", { cx: "90", cy: "52", rx: "22", ry: "6", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.8" }), /* @__PURE__ */ React80.createElement("path", { d: "M74 56l-5 4M106 56l5 4", stroke: "var(--ink)", strokeWidth: "1.8", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-spike 2.2s ease-in 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "14", cy: "8", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
 }
 function PingpongHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React84.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React84.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React84.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "46", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React80.createElement("g", { transform: "rotate(-30 22 48)" }, /* @__PURE__ */ React80.createElement("ellipse", { cx: "22", cy: "44", rx: "8", ry: "10", fill: "var(--accent)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("rect", { x: "20", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React80.createElement("g", { transform: "rotate(30 158 48)" }, /* @__PURE__ */ React80.createElement("ellipse", { cx: "158", cy: "44", rx: "8", ry: "10", fill: "var(--pool)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("rect", { x: "156", y: "54", width: "4", height: "9", rx: "2", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.2" })), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-pingpong 2.4s linear 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "34", cy: "40", r: "4", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4" })));
 }
 function FoosHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React84.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("path", { d: "M160 38v22M172 38v22M160 38h12", fill: "none", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-foosman 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("line", { x1: "96", y1: "10", x2: "96", y2: "50", stroke: "var(--ink)", strokeWidth: "2.4" }), /* @__PURE__ */ React80.createElement("path", { d: "M91 32h10l-1.6 14h-6.8z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" })), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-foos 2.4s ease-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "24", cy: "54", r: "5.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })));
 }
 function VolleyHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React84.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "18", stroke: "var(--ink)", strokeWidth: "2.2" }), /* @__PURE__ */ React80.createElement("line", { x1: "82", y1: "18", x2: "98", y2: "18", stroke: "var(--ink)", strokeWidth: "2.6", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("path", { d: "M84 24h12M84 30h12", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.55" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-volley 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "18", cy: "46", r: "6.5", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("path", { d: "M11.5 46c4-3.4 9-3.4 13 0M18 39.5v13", stroke: "var(--ink)", strokeWidth: "1.1", opacity: "0.7" })));
 }
 function PickleHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React84.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "90", y1: "60", x2: "90", y2: "40", stroke: "var(--ink)", strokeWidth: "2" }), /* @__PURE__ */ React80.createElement("line", { x1: "83", y1: "40", x2: "97", y2: "40", stroke: "var(--ink)", strokeWidth: "2.4", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("line", { x1: "64", y1: "60", x2: "64", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React80.createElement("line", { x1: "116", y1: "60", x2: "116", y2: "56", stroke: "var(--ink)", strokeWidth: "1.6", opacity: "0.6" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-pickle 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "18", cy: "50", r: "5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.5" })));
 }
 function KartHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React84.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("path", { d: "M150 60v-22M150 38h6v4h-6M150 46h6v4h-6", stroke: "var(--ink)", strokeWidth: "1.8", fill: "none" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-kart 2.6s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("path", { d: "M10 46h30l-4 8H16z", fill: "var(--clay)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React80.createElement("path", { d: "M20 40h12l2 6H18z", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.4", strokeLinejoin: "round" }), /* @__PURE__ */ React80.createElement("circle", { cx: "17", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" }), /* @__PURE__ */ React80.createElement("circle", { cx: "35", cy: "56", r: "4.4", fill: "var(--ink0)", stroke: "var(--bone)", strokeWidth: "1.4" })));
 }
 function RageHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React84.createElement("g", { key: x }, /* @__PURE__ */ React84.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React84.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
-}
-function GauntletHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [36, 68, 100, 132, 164].map((x, i) => /* @__PURE__ */ React84.createElement(
-    "rect",
-    {
-      key: x,
-      x: x - 7,
-      y: "50",
-      width: "14",
-      height: "10",
-      rx: "2",
-      fill: i === 4 ? "var(--accent)" : "var(--paper2)",
-      stroke: "var(--ink)",
-      strokeWidth: "1.4"
-    }
-  )), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-gauntlet 2.8s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "12", cy: "44", r: "5.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), [64, 90, 116].map((x) => /* @__PURE__ */ React80.createElement("g", { key: x }, /* @__PURE__ */ React80.createElement("path", { d: `M${x - 9} 36h18l-2.4 24h-13.2z`, fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6", strokeLinejoin: "round" }), /* @__PURE__ */ React80.createElement("ellipse", { cx: x, cy: "36", rx: "9", ry: "2.8", fill: "var(--paper2)", stroke: "var(--ink)", strokeWidth: "1.2" }))), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-rage 2.2s ease-in 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "16", cy: "10", r: "4.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.4" })));
 }
 function PokerHero() {
-  return /* @__PURE__ */ React84.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React84.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React84.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React84.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React84.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
+  return /* @__PURE__ */ React80.createElement("svg", { width: "180", height: "82", viewBox: "0 0 180 82", "aria-hidden": "true", style: { display: "block", overflow: "visible" } }, /* @__PURE__ */ React80.createElement("line", { x1: "8", y1: "60", x2: "172", y2: "60", stroke: "var(--sun)", strokeWidth: "3", strokeLinecap: "round" }), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-deal1 2.4s ease-out 1 both" } }, /* @__PURE__ */ React80.createElement("rect", { x: "70", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" })), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-deal2 2.4s ease-out 1 both" } }, /* @__PURE__ */ React80.createElement("rect", { x: "92", y: "26", width: "18", height: "26", rx: "3", fill: "var(--paper)", stroke: "var(--ink)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("circle", { cx: "101", cy: "39", r: "3.4", fill: "var(--accent)" })), /* @__PURE__ */ React80.createElement("g", { style: { animation: "si-chip-in 2.4s ease-in-out 1 both" } }, /* @__PURE__ */ React80.createElement("circle", { cx: "16", cy: "52", r: "7.5", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "1.6" }), /* @__PURE__ */ React80.createElement("circle", { cx: "16", cy: "52", r: "4.2", fill: "none", stroke: "var(--chip-mark)", strokeWidth: "1.6" })));
 }
 var GAME_HEROES = {
   die: DieHero,
   pong: PongHero,
-  flipcup: FlipHero,
   putting: PuttHero,
   "8ball": EightHero,
   basketball: BballHero,
@@ -13002,15 +13926,16 @@ var GAME_HEROES = {
   pickleball: PickleHero,
   beerio: KartHero,
   ragecage: RageHero,
-  gauntlet: GauntletHero,
   poker: PokerHero
 };
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
-  return /* @__PURE__ */ React84.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
+  return /* @__PURE__ */ React80.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
 }
 
 // <stdin>
 init_PlayerIdentityContext();
+init_Wagers();
+init_GameMark();
 init_controls();
 export {
   ActionButton,

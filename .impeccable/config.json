@@ -1,0 +1,135 @@
+{
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  },
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.3, 1.35, .5, 1)",
+        "createdAt": "2026-10-02T17:33:27.178Z",
+        "reason": "Agent: literal score-reel drum overshoot in the Backglass direction contract (signature move: digit drums roll and settle)"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.2, .9, .3, 1.25)",
+        "createdAt": "2026-10-02T18:03:29.412Z",
+        "reason": "Agent: Where and When map pin drop; a pin landing with a small overshoot is the physical event the reveal shows (Backglass direction asks moments for overshoot)"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.2, .9, .3, 1.4)",
+        "createdAt": "2026-10-02T18:03:29.542Z",
+        "reason": "Agent: Where and When answer pin landing and Locked-in stamp; the stamp overshoot is the authored moment (critique asked for overshoot and squash on peaks)"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.3, .7, .35, 1.25)",
+        "createdAt": "2026-10-02T18:19:52.185Z",
+        "reason": "Agent: the --ease-land token is the landing of a physical thing (a stamp hitting the glass, a chip settling on a stack, a reel drum overshooting its digit); its single 25% overshoot is the impact the Backglass direction calls for, not a decorative bounce"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": ".1em",
+        "createdAt": "2026-10-02T22:02:47.610Z",
+        "reason": "Agent: score-reel window corner, documented in DESIGN.md Shapes ('Score reel windows are cut at .1em radius'); em so one window reads at 16px and 40px+"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "72px",
+        "createdAt": "2026-10-02T22:20:30.916Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "80px",
+        "createdAt": "2026-10-02T22:20:31.070Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "84px",
+        "createdAt": "2026-10-02T22:20:31.218Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "88px",
+        "createdAt": "2026-10-02T22:20:31.384Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "96px",
+        "createdAt": "2026-10-02T22:20:31.517Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "128px",
+        "createdAt": "2026-10-02T22:20:31.666Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "144px",
+        "createdAt": "2026-10-02T22:20:31.822Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "150px",
+        "createdAt": "2026-10-02T22:20:31.985Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "168px",
+        "createdAt": "2026-10-02T22:20:32.145Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "220px",
+        "createdAt": "2026-10-02T22:20:32.286Z",
+        "reason": "Agent: TV-only canvas lettering on the 1920x1080 stage read at ten feet; DESIGN.md Typography 'TV scale' documents hero 120px and up and primary 56 to 72px (moments up to 220px), which the token ramp (tv-hero 120, tv-primary 56) only samples"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "46px",
+        "createdAt": "2026-10-02T22:20:32.444Z",
+        "reason": "Agent: the crown hall's chips seen edge-on: a 92x12 chip drawn with an elliptical 46px / 6px radius (TVChampion CrownTower), a shape, not a panel corner"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "52px",
+        "createdAt": "2026-10-02T22:50:08.766Z",
+        "reason": "Agent: DESIGN.md TV type ramp names the masthead event at 52px; the TV masthead plates are 64px inside the 54px title-safe inset"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "createdAt": "2026-10-02T23:50:51.450Z",
+        "reason": "Agent: Icon.jsx lit variants cut detail through an SVG <mask>; #000/#fff are mask luminance values (remove/keep), never rendered colors"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "bs fallback condensed",
+        "createdAt": "2026-10-03T04:41:10.936Z",
+        "reason": "Agent: metric-matched local fallback alias for Big Shoulders (size-adjust), added per the wave-3 review so a slow font load never shows the wide system face; not a brand font"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "bs fallback narrow",
+        "createdAt": "2026-10-03T04:41:11.058Z",
+        "reason": "Agent: metric-matched local fallback alias for Big Shoulders (size-adjust), added per the wave-3 review; not a brand font"
+      }
+    ]
+  }
+}

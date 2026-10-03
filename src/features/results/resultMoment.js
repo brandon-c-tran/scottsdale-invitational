@@ -249,10 +249,10 @@ function momentHeading({ lines, eventIds, prevState, state, events }) {
     const posted = result && !prevState?.results?.[evId];
     let subtitle = null, chip = null;
     if (posted && result.slots?.[0]?.length && !result.stacks) {
-      subtitle = [`${winnersName(state, evId, result.slots[0])} won`, decided?.label].filter(Boolean).join(" · ");
+      subtitle = [`${winnersName(state, evId, result.slots[0])} won`, decided?.label].filter(Boolean).join(" ");
       chip = result.slots[0][0];
     } else if (decided?.winner) {
-      subtitle = [`${decided.winner} won`, decided.label].filter(Boolean).join(" · ");
+      subtitle = [`${decided.winner} won`, decided.label].filter(Boolean).join(" ");
       const draw = state.draws?.[evId];
       chip = draw?.teams?.find(team => teamLabel(state, team) === decided.winner)?.players?.[0] || null;
     }

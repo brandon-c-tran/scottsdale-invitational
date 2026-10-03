@@ -8,8 +8,8 @@ import { chartModel } from "./lastCard.js";
 export const IMAGE_W = 1080, IMAGE_H = 1350;
 /* the card is laid out in 360x450 units and scaled 3x */
 const U = 3, W = IMAGE_W / U, H = IMAGE_H / U, PAD = 22;
-const DISPLAY = "'Barlow Condensed', 'Arial Narrow', sans-serif";
-const BODY = "Inter, system-ui, sans-serif";
+const DISPLAY = "'Big Shoulders Display', 'Arial Narrow', sans-serif";
+const BODY = "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
 
 export const cardFileName = model => `field-day-${String(model?.name || "card").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "card"}.png`;

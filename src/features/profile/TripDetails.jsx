@@ -26,7 +26,7 @@ function TripDetails({ venmo, setVenmo, drinking, setDrinking, needs, setNeeds }
         <button type="button" aria-pressed={drinking === false} onClick={() => setDrinking(false)}>Not drinking</button>
       </div>
       <label className="fd-profile-field">
-        <span>Food or drink needs · optional</span>
+        <span>Food or drink needs</span>
         <input value={needs} onChange={e => setNeeds(e.target.value)} maxLength={NEEDS_MAX}
           placeholder="Allergies, gluten-free" aria-label="Food or drink needs" />
       </label>

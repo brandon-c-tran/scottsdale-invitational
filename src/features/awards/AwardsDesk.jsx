@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ROSTER, allEventsOf, disp } from "../../../shared/core.js";
 import {
-  PROMPT_QUESTIONS_MAX, PROMPT_TITLE_MAX, awardResults, awardsRevealBlocker, ballotStatusLine, ballotsOf, revealedCount,
+  PROMPT_QUESTIONS_MAX, PROMPT_TITLE_MAX, awardResults, awardsRevealBlocker, ballotStatusLine, revealedCount,
 } from "../../../shared/prompts.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { stampTime } from "./awardsModel.js";
+import { deskBallot, stampTime } from "./awardsModel.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { dispatch } from "../../lib/client.js";
@@ -17,23 +17,9 @@ const blankDraft = () => ({ id:`b${Date.now().toString(36)}${token().slice(0, 4)
   questions:[newQuestion(), newQuestion(), newQuestion()] });
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/* the ballot the commissioner is working on: voting, a reveal, a closed
-   ballot waiting for the TV, a draft, else the last finished one */
-export function deskBallot(state) {
-  const ballots = ballotsOf(state);
-  const newest = list => [...list].sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))[0] || null;
-  return ballots.find(ballot => ballot.status === "open")
-    || newest(ballots.filter(ballot => ballot.status === "closed" && ballot.reveal && !ballot.reveal.done))
-    || newest(ballots.filter(ballot => ballot.status === "closed" && !ballot.reveal))
-    || newest(ballots.filter(ballot => ballot.status === "draft"))
-    || newest(ballots) || null;
-}
-
-/* the menu row's live fact */
-export const deskNote = state => {
-  const ballot = deskBallot(state);
-  return ballot ? ballotStatusLine(ballot) : "Superlatives, voted on every phone";
-};
+/* the desk's pure half lives in awardsModel.js, so the commissioner menu
+   can read it without loading this sheet */
+export { deskBallot, deskNote } from "./awardsModel.js";
 
 /* what a draft sends: whole awards only */
 export function draftPayload(draft) {
@@ -69,7 +55,7 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
         {count > 1 && <ActionButton variant="tertiary" compact onClick={onRemove}
           aria-label={`Remove award ${index + 1}`}>Remove</ActionButton>}
       </div>
-      {question.source === "mvps" ? <p className="fd-awards-note">Counted from team MVPs when voting closes.</p> : <>
+      {question.source === "mvps" ? <p className="fd-awards-note">Counted from team MVPs</p> : <>
       <div className="fd-awards-toggle" role="group" aria-label="Nominees">
         <button type="button" aria-pressed={everyone} onClick={() => onChange({ nominees:null })}>Everyone</button>
         <button type="button" aria-pressed={!everyone} onClick={() => { if (everyone) onChange({ nominees:[] }); }}>
@@ -188,7 +174,7 @@ export function AwardsDesk({ state, events = allEventsOf(state), onClose, onBack
     body = <>
       <div className="fd-awards-count" role="status">
         {shown ? <><strong>{shown}</strong><span>of {n} shown on the TV</span></>
-          : <><strong>{ballot.voted || 0}</strong><span>of {ballot.of || ROSTER.length} voted · voting closed</span></>}
+          : <><strong>{ballot.voted || 0}</strong><span>of {ballot.of || ROSTER.length} voted</span></>}
       </div>
       <AwardList state={state} ballot={ballot} shown={shown} />
       {next ? <ActionButton disabled={!!blocker} pending={pending === "reveal"}
@@ -244,7 +230,7 @@ function AwardList({ state, ballot, shown = 0 }) {
         const result = index < shown && question.id !== held ? ballot.results?.[question.id] : null;
         const winners = result?.winners || [];
         return <li key={question.id}><span>{question.title}</span>
-          <small>{result ? winners.length ? `${winners.map(player => disp(state, player)).join(" & ")} · ${result.counts[winners[0]]}`
+          <small>{result ? winners.length ? <>{winners.map(player => disp(state, player)).join(" & ")} <b>{result.counts[winners[0]]}</b></>
             : "No votes" : question.nominees ? `${question.nominees.length} nominees` : "Everyone"}</small></li>;
       })}
     </ul>

@@ -1,9 +1,11 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { ROUND_NAMES, resolveSlot, teamLabel } from "../../../shared/core.js";
-import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { bracketLayout, mirroredLayout } from "../weekend/CompetitionBracket.jsx";
 import { EASE } from "../../lib/motion.js";
 import { ADVANCE_TIMING as T, bracketGeometry, railPoints, railPath, tokenKeyframes, useTimeline } from "./tvMotion.js";
+import { sideNameFit } from "./tvModel.js";
+import { Icon } from "../../ui/Icon.jsx";
 
 /* ── the bracket, drawn, at TV scale ──
    The same layout the phones draw (bracketLayout), rounds as columns and
@@ -24,13 +26,42 @@ const MIRRORED_SIZES = {
   full:{ row:52, gap:16, colGap:34, faces:0, token:36, tab:true },
 };
 const TALL_FULL = { row:52, gap:16, colGap:56, faces:36, token:36, tab:true };
+/* Beside the live board the rows grow to fill the panel's glass (`fit`, in
+   canvas pixels), and a pair's name takes two lines before it would shrink
+   or be cut. */
+const SIDE_SIZES = {
+  plain:{ gap:18, colGap:30, faces:0, token:30, tab:false },
+  mirror:{ gap:12, colGap:24, faces:0, token:30, tab:false },
+};
+/* A big bracket (seven entrants up) gets the stage's full width as a band
+   under the current match (`band`): rows sized to the band's height, every
+   name at 24px or more on one line, the round heads shortened only when
+   their column is too narrow to letter them whole. */
+const BAND_SIZES = {
+  plain:{ gap:12, colGap:56, faces:0, token:30, tab:true },
+  mirror:{ gap:10, colGap:34, faces:0, token:30, tab:true },
+};
+export function sideBracketDims({ units, cols, fit, mirror = false, band = false }) {
+  const base = band ? (mirror ? BAND_SIZES.mirror : BAND_SIZES.plain) : mirror ? SIDE_SIZES.mirror : SIDE_SIZES.plain;
+  const row = Math.floor(((fit.height + base.gap) / Math.max(1, units) - base.gap - 3) / 2);
+  const rowH = Math.max(band ? 28 : 36, Math.min(band ? 60 : 80, row));
+  const colW = Math.floor((fit.width - (cols - 1) * base.colGap) / Math.max(1, cols));
+  /* the card's padding and the won tick come off the name's width; a row
+     too short for two lines of 24px keeps its name on one */
+  const twoLines = rowH >= 56;
+  return { ...base, row:rowH, colW, nameW:Math.max(40, colW - 28 - 34), twoLines,
+    nameMax:twoLines ? Math.max(24, Math.min(34, Math.floor((rowH - 8) / 2))) : Math.max(24, Math.min(34, Math.floor((rowH - 4) / 1.18))) };
+}
+/* a round's head: whole where its column letters it, else short */
+const ROUND_SHORT = { "Round 1":"R1", Quarterfinals:"QF", Semifinals:"SF", Semifinal:"SF", "Play-in":"Play-in" };
+export const roundHead = (name, colW) => String(name).length * 0.62 * 28 + 4 <= colW ? name : ROUND_SHORT[name] || name;
 const MIRROR_FROM_ROUNDS = 4;
 const SHORT_ROUNDS = { Quarterfinals:"Quarters", Semifinals:"Semis" };
 const OUTLINE = 6;
 const keyOf = (r, m) => `${r}-${m}`;
 const sameMatch = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
 
-export function TVBracket({ state, ev, hot = null, size = "strip", motion = null }) {
+export function TVBracket({ state, ev, hot = null, size = "strip", motion = null, fit = null }) {
   const bracket = state.brackets?.[ev?.id], draw = state.draws?.[ev?.id];
   const mirror = (bracket?.rounds?.length || 0) >= MIRROR_FROM_ROUNDS ? mirroredLayout(bracket) : null;
   const layout = mirror || (bracket ? bracketLayout(bracket) : null);
@@ -38,7 +69,11 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
   /* a full eight-team bracket (four first-round rows) steps its rows down to
      stay under a winner banner */
   const tall = !mirror && size === "full" && layout?.units > 3.5;
-  const dims = tall ? TALL_FULL : sizes[size] || sizes.strip;
+  const side = (size === "side" || size === "band") && !!fit && !!layout;
+  const dims = side
+    ? sideBracketDims({ units:layout.units, cols:mirror ? mirror.colCount : bracket.rounds.length, fit, mirror:!!mirror,
+      band:size === "band" })
+    : tall ? TALL_FULL : sizes[size] || sizes.strip;
   const timeline = useTimeline(bracket && draw && motion ? motion.id : null, motion?.anchor, T.total);
   const stage = useRef(null);
   const [width, setWidth] = useState(0);
@@ -61,6 +96,7 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
   const heads = Array.from({ length:C }, (_, c) => {
     const r = c < R ? c : C - 1 - c;
     const name = names[r] || `Round ${r + 1}`;
+    if (side) return roundHead(name, dims.colW);
     return mirror ? SHORT_ROUNDS[name] || name : name;
   });
 
@@ -119,14 +155,14 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
                 const arrive = !!landing && landing.index === index && !!team;
                 const content = <>
                   {dims.faces > 0 && team && <span className="tv-bracket-faces">
-                    {team.players.slice(0, 3).map(p => <Avatar key={p} state={state} p={p} size={dims.faces} />)}</span>}
-                  <span className="tv-bracket-name">{team ? teamLabel(state, team) : "TBD"}</span>
+                    {team.players.slice(0, 3).map(p => <ChipFace key={p} p={p} size={dims.faces} />)}</span>}
+                  <BracketName text={team ? teamLabel(state, team) : "TBD"} dims={side ? dims : null} />
                 </>;
                 return (
                   <div key={index} className={`tv-bracket-team${won ? " is-won" : ""}${lost ? " is-lost" : ""}${team ? "" : " is-empty"}${loseMoment ? " is-lose-moment" : ""}${arrive ? " is-arriving" : ""}`}
                     style={{ height:dims.row }}>
                     {content}
-                    {won && <span className="tv-bracket-won" aria-label="won">✓</span>}
+                    {won && <span className="tv-bracket-won" role="img" aria-label="won"><Icon name="check" size="1em" /></span>}
                     {arrive && <span className="tv-br-was" aria-hidden="true"><span className="tv-bracket-name">TBD</span></span>}
                     {winMoment && <span className="tv-br-win" aria-hidden="true">
                       {content}<span className="tv-br-stamp">Won</span></span>}
@@ -147,6 +183,19 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
         })}
       </div>
     </div>
+  );
+}
+
+/* A pair's name: one line where it fits; beside the live board, two lines
+   broken at the "&" before it would shrink or be cut. */
+function BracketName({ text, dims = null }) {
+  if (!dims) return <span className="tv-bracket-name">{text}</span>;
+  const fit = dims.twoLines === false
+    ? { size:Math.max(24, Math.min(dims.nameMax, Math.floor(dims.nameW / Math.max(1, String(text).length * 0.52)))), lines:[text] }
+    : sideNameFit(text, dims.nameW, { max:dims.nameMax, min:Math.min(dims.nameMax, 28), caps:true });
+  return (
+    <span className={`tv-bracket-name${fit.lines.length > 1 ? " is-two" : ""}`} style={{ fontSize:fit.size }}>
+      {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : text}</span>
   );
 }
 
@@ -201,7 +250,7 @@ function Ride({ state, item, team, geo, dims, elapsed }) {
       <path d={railPath(pts)} pathLength="1" />
     </svg>
     <div ref={token} className="tv-br-token" aria-hidden="true" style={{ width:w, height:h }}>
-      {faces.map(p => <Avatar key={p} state={state} p={p} size={dims.token} />)}
+      {faces.map(p => <ChipFace key={p} p={p} size={dims.token} />)}
     </div>
   </>;
 }

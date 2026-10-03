@@ -58,6 +58,7 @@ class FakeNode {
       this[name] = new FakeParam(name === "gain" ? 1 : 0);
   }
   connect(node) { return node; }
+  disconnect() { this.disconnected = (this.disconnected || 0) + 1; }
   start(t = 0) { this.ctx.starts.push({ kind:this.kind, t }); }
   stop() {}
 }
@@ -68,13 +69,14 @@ function fakeContext({ autoplay = true } = {}) {
       this.options = options; this.state = "suspended"; this.currentTime = 10; this.sampleRate = 8000;
       this.outputLatency = 0.05; this.destination = {}; this.starts = []; this.resumes = 0; made.push(this);
     }
-    createGain() { return new FakeNode(this, "gain"); }
-    createBiquadFilter() { return new FakeNode(this, "filter"); }
-    createDynamicsCompressor() { return new FakeNode(this, "comp"); }
-    createConvolver() { return new FakeNode(this, "conv"); }
-    createStereoPanner() { return new FakeNode(this, "pan"); }
-    createOscillator() { return new FakeNode(this, "osc"); }
-    createBufferSource() { return new FakeNode(this, "src"); }
+    node(kind) { const n = new FakeNode(this, kind); (this.nodes ||= []).push(n); return n; }
+    createGain() { return this.node("gain"); }
+    createBiquadFilter() { return this.node("filter"); }
+    createDynamicsCompressor() { return this.node("comp"); }
+    createConvolver() { return this.node("conv"); }
+    createStereoPanner() { return this.node("pan"); }
+    createOscillator() { return this.node("osc"); }
+    createBufferSource() { return this.node("src"); }
     createBuffer(channels, length) { return { length, numberOfChannels:channels, getChannelData:() => new Float32Array(length) }; }
     resume() {
       this.resumes++;
@@ -98,7 +100,7 @@ const earliest = ctx => Math.min(...ctx.starts.map(item => item.t));
 
 /* ── pure gates ── */
 
-test("A6 hush: a walkout silences until its `until`, Quick Draw while armed", () => {
+test("A6 hush: a walkout ducks until its `until`, Quick Draw mutes while armed", () => {
   const now = 5_000;
   assert.equal(sound.walkoutActive({ player:"Evan", trackId:"t", startedAt:1_000, until:6_000 }, now), true);
   assert.equal(sound.walkoutActive({ player:"Evan", until:5_000 }, now), false, "until is exclusive");
@@ -198,14 +200,17 @@ test("the Sound toggle: on by default, stored as si-sound=off, silences everythi
 
 /* ── the live engine ── */
 
-test("A1: one lazy context, ambient on a phone, created and resumed in the user's tap", () => {
+test("A1: one lazy context, playback on a phone (through the silent switch), created and resumed in the user's tap", () => {
   const fake = engineFor("phone");
   navigator.audioSession.type = "auto";
   assert.equal(sound.playSound("S5"), null, "nothing plays before the first tap");
   assert.equal(fake.made.length, 0, "and nothing is created by a remote moment");
   sound.unlockSound();
   assert.equal(fake.made.length, 1);
-  assert.equal(navigator.audioSession.type, "ambient", "set before the context existed");
+  assert.equal(navigator.audioSession.type, "playback", "set before the context existed");
+  sound.setPreviewSession(true);
+  sound.setPreviewSession(false);
+  assert.equal(navigator.audioSession.type, "playback", "a song preview stopping never flips the phone to ambient");
   assert.equal(fake.made[0].state, "running");
   sound.unlockSound();
   assert.equal(fake.made.length, 1, "one context for the whole app");
@@ -222,9 +227,12 @@ test("A1: a tap sound lands now; a room cue lands on the server's time minus out
   assert.equal(sound.cueAt("S2", Date.now() + 1000), null, "the room never sounds on a phone");
 
   const tv = engineFor("tv");
+  navigator.audioSession.type = "auto";
   sound.primeSound();
   const tctx = tv.made[0];
-  assert.equal(navigator.audioSession.type, "ambient", "untouched on the TV");
+  assert.equal(navigator.audioSession.type, "auto", "untouched on the TV");
+  sound.setPreviewSession(true);
+  assert.equal(navigator.audioSession.type, "auto", "the TV keeps the default session");
   assert.equal(sound.playSound("S5", { bus:"you" }), null, "a phone's own sound never plays on the TV");
   clock.resetServerClock();
   clock.noteServerTime(Date.now() + 5_000, Date.now());
@@ -238,6 +246,57 @@ test("A1: a tap sound lands now; a room cue lands on the server's time minus out
   clock.resetServerClock();
 });
 
+test("the TV's Sound early by: the room bus lands that much sooner; phones and late cues unaffected", () => {
+  assert.equal(sound.clampEarlyMs(123), 120);
+  assert.equal(sound.clampEarlyMs(999), sound.TV_EARLY_MAX_MS);
+  assert.equal(sound.clampEarlyMs(-40), 0);
+  assert.equal(sound.clampEarlyMs("x"), 0);
+  assert.equal(sound.soundEarlyMs(), 0, "off by default");
+  assert.equal(sound.setSoundEarlyMs(130), 130);
+  assert.equal(localStorage.getItem(sound.TV_EARLY_KEY), "130");
+  assert.equal(sound.soundEarlyMs(), 130);
+
+  const tv = engineFor("tv");
+  sound.primeSound();
+  const ctx = tv.made[0];
+  ctx.starts.length = 0;
+  assert.ok(sound.cueAt("S2", Date.now() + 1_000));
+  mock.timers.tick(1_000 - 250 - 130 - 1);
+  assert.equal(ctx.starts.length, 0, "still waiting");
+  mock.timers.tick(2);
+  assert.ok(ctx.starts.length > 0, "scheduled 130 ms sooner than the cue's own time");
+  ctx.starts.length = 0;
+  assert.ok(Math.abs(earliest((sound.cueAt("S3", Date.now() + 200), ctx)) - (10 + 0.2 - 0.13 - 0.05)) < 1e-6,
+    "lands early by the setting on the audio clock");
+  sound.setSoundEarlyMs(400);
+  assert.ok(sound.cueAt("S3", Date.now()), "a cue due now is not dropped as late at the largest setting");
+  assert.equal(sound.cueAt("S3", Date.now() - 400), null, "a cue already late still drops");
+
+  const phone = engineFor("phone");
+  sound.unlockSound();
+  const pctx = phone.made[0];
+  pctx.starts.length = 0;
+  assert.ok(sound.playSound("S5", { bus:"you", delayMs:500 }));
+  mock.timers.tick(249);
+  assert.equal(pctx.starts.length, 0, "the phone's own sounds never move");
+  mock.timers.tick(2);
+  assert.ok(pctx.starts.length > 0);
+  sound.setSoundEarlyMs(0);
+  assert.equal(localStorage.getItem(sound.TV_EARLY_KEY), null);
+});
+
+test("the commissioner's TV check: a TV reports on only while its context runs", () => {
+  const tv = engineFor("tv", { autoplay:false });
+  assert.equal(sound.tvSoundStatus(), "blocked", "no context yet");
+  sound.primeSound();
+  assert.equal(sound.tvSoundStatus(), "blocked", "waiting for a click");
+  tv.made[0].state = "running";
+  assert.equal(sound.tvSoundStatus(), "on");
+  sound.setSoundOptOut(true);
+  assert.equal(sound.tvSoundStatus(), "blocked", "Sound off reads as off");
+  sound.setSoundOptOut(false);
+});
+
 test("A1: several screens noticing the same moment play it once (key)", () => {
   const fake = engineFor("phone");
   sound.unlockSound();
@@ -247,7 +306,7 @@ test("A1: several screens noticing the same moment play it once (key)", () => {
   assert.ok(fake.made[0].starts.length > 0);
 });
 
-test("A6: the walkout contract closes the gate, fades what is ringing, and reopens at until", () => {
+test("A6: the walkout contract ducks the room to 25% under the song, and opens again at until", () => {
   const fake = engineFor("tv");
   sound.primeSound();
   const ctx = fake.made[0];
@@ -257,12 +316,14 @@ test("A6: the walkout contract closes the gate, fades what is ringing, and reope
   assert.ok(later, "scheduled before the walkout starts");
   sound.setWalkout(walkout);
   assert.equal(sound.isHushed(), true);
+  assert.equal(sound.isMuted(), false, "a win song ducks, it never mutes");
   const ramp = engine.E.hush.gain.events.filter(e => e[0] === "ramp").at(-1);
-  assert.deepEqual([ramp[1], Math.round((ramp[2] - ctx.currentTime) * 1000)], [0, 150], "fades out over 150 ms");
-  assert.equal(sound.cueAt("S2", Date.now()), null);
+  assert.deepEqual([ramp[1], Math.round((ramp[2] - ctx.currentTime) * 1000)], [sound.WALKOUT_DUCK, 150], "ducks over 150 ms");
+  assert.equal(sound.WALKOUT_DUCK, 0.25);
+  assert.ok(sound.cueAt("S2", Date.now()), "the room still sounds under the song");
   ctx.starts.length = 0;
   mock.timers.tick(2_000);
-  assert.equal(ctx.starts.length, 0, "a cue that comes due during the walkout stays silent");
+  assert.ok(ctx.starts.length > 0, "a cue that comes due during the walkout plays, ducked");
   mock.timers.tick(3_100);
   assert.equal(sound.isHushed(), false, "until passed: open again without another write");
   assert.equal(engine.E.hush.gain.events.filter(e => e[0] === "ramp").at(-1)[1], 1);
@@ -272,11 +333,40 @@ test("A6: the walkout contract closes the gate, fades what is ringing, and reope
   assert.equal(sound.isHushed(), false, "a stop clears it at once");
 });
 
+test("A2: a voice's nodes are disconnected once its last source ends; the engine's own stay", () => {
+  const fake = fakeContext();
+  const ctx = new fake.Ctx({});
+  const E = kit.makeEngine(ctx, { room:"san", listen:"tv" });
+  const engineNodes = ctx.nodes.length;
+  for (const id of kit.SOUND_IDS) {
+    ctx.nodes.length = engineNodes;
+    assert.ok(kit.playRecipe(E, id, 10));
+    const made = ctx.nodes.slice(engineNodes);
+    const sources = made.filter(n => n.kind === "osc" || n.kind === "src");
+    assert.ok(sources.length > 0, id);
+    assert.ok(sources.every(n => typeof n.onended === "function"), `${id}: every source reports its end`);
+    assert.ok(made.every(n => !n.disconnected), `${id}: nothing is cut while it rings`);
+    sources.slice(0, -1).forEach(n => n.onended());
+    assert.ok(made.every(n => !n.disconnected), `${id}: held until the last source ends`);
+    sources.at(-1).onended();
+    assert.ok(made.every(n => n.disconnected === 1), `${id}: every voice node released once`);
+    assert.ok(ctx.nodes.slice(0, engineNodes).every(n => !n.disconnected), `${id}: the master, hush and reverb stay`);
+  }
+  assert.equal(E.graph, undefined, "no graph left open between recipes");
+});
+
 test("A4: Quick Draw is silent from armed until the reaction is captured", () => {
   engineFor("phone");
   sound.unlockSound();
   sound.setQuickDrawHush(true);
   assert.equal(sound.playSound("S16"), null);
+  assert.equal(sound.__soundEngine().E.hush.gain.events.filter(e => e[0] === "ramp").at(-1)[1], 0, "a full mute");
+  /* a win song starting during Quick Draw never lifts the mute to a duck */
+  sound.setWalkout({ player:"Evan", until:Date.now() + 5_000 });
+  assert.equal(sound.hushReason({ walkout:{ until:Date.now() + 5_000 }, quickDraw:true }), "quickDraw");
+  assert.equal(sound.isMuted(), true);
+  assert.equal(sound.playSound("S16"), null);
+  sound.setWalkout(null);
   sound.setQuickDrawHush(false);
   assert.ok(sound.playSound("S16"));
 });
@@ -396,7 +486,10 @@ test("A3: lead change, draft pick, deal, bust, opening scene", () => {
   assert.deepEqual(ids({ drafts:{ d1:4 } }), [["S18", 100 + 520]], "the card slaps as it lands");
   assert.deepEqual(ids({ poker:{ id:"p", ts:5, started:false, outs:0, posted:false } }), [["S20", 100]]);
   const table = { ...base, poker:{ id:"p", ts:5, started:true, outs:1, posted:false } };
-  assert.deepEqual(room.roomCues(table, { ...table, poker:{ ...table.poker, outs:2 } }, { now:1 }).map(c => c.id), ["S22"]);
+  assert.deepEqual(room.roomCues(table, { ...table, poker:{ ...table.poker, outs:2 } }, { now:1 }).map(c => [c.id, c.at]),
+    [["S22", 1], ["bustCard", 1 + room.BUST_CARD_LAND_MS]], "the chip spins flat, then the bust card lands");
+  assert.deepEqual(room.roomCues(table, { ...table, poker:{ ...table.poker, outs:2 } }, { now:1, reduced:true }).map(c => c.id),
+    ["S22"], "reduced motion: the bust alone");
   assert.deepEqual(ids({ scene:{ id:"sc1", kind:"opening", startedAt:90 } }), [["S1", 90]]);
   assert.deepEqual(ids({ frozen:true }), []);
   assert.deepEqual(room.roomCues(base, { ...base, frozen:true }, { now:1, reduced:true }).map(c => c.id), ["S1"],
@@ -423,9 +516,23 @@ test("A3: a decided match on ADVANCE_TIMING; the crown on CROWN_TIMING; reduced 
     ["ride", ADVANCE_TIMING.ride - 60], ["land", ADVANCE_TIMING.land], ["upNow", ADVANCE_TIMING.upNow]]);
   assert.deepEqual(room.advanceCues({ ...advance, settle:null }).map(cue => cue.id), ["S10"], "a heat: WON only");
   assert.deepEqual(room.advanceCues(advance, motion, { reduced:true }).map(cue => cue.id), ["S10"]);
-  const crown = room.crownCues({ id:"scene:x", anchor:50_000 });
-  assert.deepEqual(crown.map(cue => [cue.id, cue.at - 50_000]), [["stepDown", CROWN_TIMING.stepDown], ["S23", CROWN_TIMING.rise],
-    ["S24", CROWN_TIMING.chip], ["S10", CROWN_TIMING.tag], ["crownCount", CROWN_TIMING.count], ["crownCall", CROWN_TIMING.lines]]);
+  /* the produced crown (Backglass, Oct 2): night, the towers, one tower out
+     per place from last up to 3rd, the hold, 2nd, the rise, the flood */
+  const crown = room.crownCues({ id:"scene:x", anchor:50_000 }, { count:13 });
+  const C = CROWN_TIMING;
+  const beats = crown.map(cue => [cue.id, cue.at - 50_000]);
+  assert.deepEqual(beats.slice(0, 2), [["nightFall", C.night], ["towersUp", C.towers]]);
+  const outs = crown.filter(cue => cue.id === "towerOut");
+  assert.equal(outs.length, 12, "every tower but the champion's goes dark");
+  assert.equal(outs[0].at - 50_000, C.stepDown, "last place first");
+  assert.ok(outs.every((cue, i) => i === 0 || cue.at > outs[i - 1].at), "in order, up the board");
+  assert.ok(outs[0].pan > outs.at(-1).pan, "panned to each tower across the canvas");
+  assert.equal(outs.at(-1).at - 50_000, C.second, "2nd goes dark after the hold");
+  assert.ok(outs.at(-2).at - 50_000 < C.holdTwo, "3rd goes before the last two hold");
+  assert.deepEqual(beats.slice(-6), [["cascade", C.rise], ["S23", C.flood - 600], ["S24", C.chip], ["S10", C.tag],
+    ["crownCount", C.count], ["crownCall", C.lines]]);
+  assert.ok(crown.every(cue => cue.open), "over the champion's song: never ducked");
+  assert.ok(C.total >= 20_000 && C.total <= 30_000, "a produced crown of about twenty seconds, never a minute of waiting");
   assert.deepEqual(room.crownCues({ id:"x", anchor:1 }, { reduced:true }).map(cue => cue.id), ["S1"]);
   assert.deepEqual(room.sidePans({ sides:[{}, {}] }), [-0.55, 0.55]);
   assert.deepEqual(room.revealPans({ versus:[{}, {}] }), [-0.5, 0.5]);

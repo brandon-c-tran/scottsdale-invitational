@@ -88,7 +88,7 @@ test("commissioner lock carries the exact active contest reference and guest ide
   for (const player of contest.players) guest.click(`View ${player}'s player card`);
   assert.deepEqual(guest.viewed, contest.players);
   assert.match(guest.html, /is-you/);
-  guest.click("Place chips");
+  guest.click("Back yourself"); // a competitor backs their own side
   assert.deepEqual(guest.bets, [true]);
   assert.ok(!guest.buttons.some(button => button.name === "Lock bets and start"));
 });
@@ -130,8 +130,9 @@ test("two-through heats require a separate additional qualifier, then submit bot
   const { state, ev } = fixture("heats", true);
   const contest = resolveCurrentContest(state, ev), [winner, other] = contest.sides;
   const winnerOnly = controls(state, ev, {}, [`Winner: ${names(winner)}`]);
-  assert.equal(winnerOnly.named("Record winner").disabled, true);
-  assert.match(winnerOnly.html, /Choose 1 more to advance/);
+  /* no instruction line: the record button counts what is still owed */
+  assert.equal(winnerOnly.named("Pick 1 more").disabled, true);
+  assert.doesNotMatch(winnerOnly.html, /Choose 1 more to advance/);
   const complete = controls(state, ev, {}, [`Winner: ${names(winner)}`,
     button => button.role === "checkbox" && button.name === `Also advances: ${names(other)}`]);
   await complete.click("Record winner");

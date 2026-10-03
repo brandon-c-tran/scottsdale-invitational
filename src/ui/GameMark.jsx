@@ -1,117 +1,150 @@
 import React from "react";
 
-function EventGlyph({ id }) {
-  const bone = "var(--ink)", accent = "var(--accent2)", sun = "var(--sun)";
-  const common = { fill:"none", stroke:bone, strokeWidth:2.4,
-    strokeLinecap:"round", strokeLinejoin:"round" };
-  switch (id) {
-    case "putting": return <g {...common}>
-      <path d="M15 37V11l16 5-16 5" />
-      <path d="M9 37c4-3 10-3 14 0-4 3-10 3-14 0Z" />
-      <circle cx="32" cy="35" r="2.6" fill={accent} stroke="none" />
-    </g>;
-    case "8ball": return <g {...common}>
-      <circle cx="24" cy="24" r="13" />
-      <circle cx="24" cy="21" r="3.2" />
-      <circle cx="24" cy="28" r="3.2" />
-      <path d="M14 12l-3-3M34 36l3 3" stroke={accent} />
-    </g>;
-    case "pong": return <g {...common}>
-      <path d="M15 20h18l-2.4 17H17.4L15 20Z" />
-      <path d="M16 20c4-2 12-2 16 0" />
-      <circle cx="25" cy="11" r="3.2" fill={sun} stroke={bone} />
-      <path d="M17 13l4 2" stroke={accent} />
-    </g>;
-    case "die": return <g {...common}>
-      <rect x="11" y="11" width="26" height="26" rx="7" />
-      {[[17,17],[31,17],[24,24],[17,31],[31,31]].map(([x,y]) =>
-        <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" fill={x === 24 ? accent : bone} stroke="none" />)}
-    </g>;
-    case "basketball": return <g {...common}>
-      <circle cx="24" cy="24" r="13" />
-      <path d="M11 24h26M24 11v26M15 14c5 5 5 15 0 20M33 14c-5 5-5 15 0 20" />
-      <path d="M34 12l4-4" stroke={accent} />
-    </g>;
-    case "spikeball": return <g {...common}>
-      <ellipse cx="24" cy="32" rx="14" ry="5.5" />
-      <path d="M14 32h20M24 26.5v11M15 35l-3 4M33 35l3 4" />
-      <circle cx="24" cy="15" r="4" fill={sun} stroke={bone} />
-      <path d="M18 11l-3-3" stroke={accent} />
-    </g>;
-    case "pingpong": return <g {...common}>
-      <circle cx="20" cy="20" r="9" />
-      <path d="M14 27l-6 8" />
-      <circle cx="35" cy="32" r="3.2" fill={accent} stroke={bone} />
-      <path d="M29 17l5-3" />
-    </g>;
-    case "foosball": return <g {...common}>
-      <path d="M8 15h32M8 31h32" />
-      <circle cx="24" cy="14" r="3.5" />
-      <path d="M24 18v10M18 22h12M24 28l-5 7M24 28l5 7" />
-      <circle cx="35" cy="37" r="2.8" fill={accent} stroke="none" />
-    </g>;
-    case "volleyball": return <g {...common}>
-      <path d="M30 12v27M30 19h10v20M30 24h10M30 29h10M30 34h10" />
-      <circle cx="17" cy="22" r="9" />
-      <path d="M17 13c4 5 4 13 0 18M9 20c6 1 12-1 16-5" />
-      <path d="M9 35l4-3" stroke={accent} />
-    </g>;
-    case "pickleball": return <g {...common}>
-      <circle cx="19" cy="19" r="9.5" />
-      <path d="M13 26l-5 9" />
-      <circle cx="35" cy="31" r="5" fill={sun} />
-      {[[33,29],[37,29],[35,33]].map(([x,y]) =>
-        <circle key={`${x}-${y}`} cx={x} cy={y} r=".8" fill={bone} stroke="none" />)}
-      <path d="M29 15l4-3" stroke={accent} />
-    </g>;
-    case "flipcup": return <g {...common}>
-      <path d="M15 15h15l-2 17H17l-2-17Z" transform="rotate(-28 22.5 23.5)" />
-      <path d="M10 34c6 5 19 5 27-1" />
-      <path d="M10 29c-3-7 0-13 6-17" stroke={accent} />
-      <path d="M13 11l3 1-1 3" stroke={accent} />
-    </g>;
-    case "beerio": return <g {...common}>
-      <circle cx="19" cy="24" r="11" />
-      <circle cx="19" cy="24" r="3" />
-      <path d="M19 13v8M10 29l6-3M28 29l-6-3" />
-      <path d="M33 18h8l-1 17h-6l-1-17Z" />
-      <path d="M34 18c2-1 4-1 6 0" />
-      <path d="M32 12l4 2" stroke={accent} />
-    </g>;
-    case "ragecage": return <g {...common}>
-      {[15,24,33].map(x => <path key={x} d={`M${x-4} 26h8l-1 11h-6l-1-11Z`} />)}
-      <path d="M20 14h8l-1 10h-6l-1-10Z" />
-      <circle cx="12" cy="15" r="3" fill={sun} stroke={bone} />
-      <path d="M8 20l-2 4" stroke={accent} />
-    </g>;
-    case "poker": return <g {...common}>
-      <rect x="10" y="11" width="15" height="21" rx="3" transform="rotate(-9 17.5 21.5)" />
-      <rect x="23" y="10" width="15" height="21" rx="3" transform="rotate(8 30.5 20.5)" />
-      <path d="M30 16l3 3-3 3-3-3 3-3Z" fill={accent} stroke="none" />
-      <circle cx="24" cy="36" r="6" fill="var(--paper2)" />
-      <path d="M20 36h8M24 32v8" stroke={sun} />
-    </g>;
-    case "gauntlet": return <g {...common}>
-      <path d="M9 34c0-12 8-19 18-18 6 1 9 5 9 11" />
-      {[[9,34],[12,23],[21,17],[31,19]].map(([x,y], i) =>
-        <circle key={i} cx={x} cy={y} r="2.8" fill={i === 0 ? accent : "var(--paper2)"} />)}
-      <path d="M36 27V11M36 11l7 3-7 3" />
-    </g>;
-    default: return <g {...common}>
-      <circle cx="24" cy="24" r="12" />
-      <path d="M24 15v18M15 24h18" stroke={accent} />
-    </g>;
-  }
-}
+/* One mark per game, drawn as a Backglass insert: a round window of dark
+   glass in a seat, with the game's pictogram on the icon set's grid (24
+   units, round caps and joins, Icon.jsx) and its one object (the ball, the
+   die, the chip) filled solid. The pictogram is currentColor, set from
+   --fd-mark-ink (bone by default) so a context may tint it. Legible at
+   24px (the pictogram grows inside a thinner seat), handsome from 88 to 200px on the TV (the
+   stroke lightens as the mark grows). Unknown ids fall back to the chip. */
 
-function GameMark({ id, size=54, hero=false }) {
+const BALL = { fill:"currentColor", stroke:"none" };
+
+const MARKS = {
+  /* Long Putt: the flag, the cup, and a ball a long way out */
+  putting:<>
+    <path d="M14 18.6V4.2" />
+    <path d="M14 4.2 19.6 6.6 14 9z" fill="currentColor" />
+    <ellipse cx="14" cy="18.8" rx="3.4" ry="1.15" />
+    <circle cx="5.2" cy="18.6" r="1.75" {...BALL} />
+  </>,
+  /* Beer Die: the die mid-toss */
+  die:<>
+    <rect x="5.4" y="5.4" width="13.2" height="13.2" rx="3" transform="rotate(-12 12 12)" />
+    <g {...BALL}><circle cx="8.8" cy="9.4" r="1.35" /><circle cx="12" cy="12" r="1.35" /><circle cx="15.2" cy="14.6" r="1.35" /></g>
+  </>,
+  /* Where and When: a pin dropped on the map, its ring on the ground */
+  where:<>
+    <path d="M12 16.6s-5-4.3-5-8.4a5 5 0 0 1 10 0c0 4.1-5 8.4-5 8.4z" />
+    <circle cx="12" cy="8.2" r="1.9" {...BALL} />
+    <path d="M7.4 16.9c-2 .5-3.2 1.2-3.2 2 0 1.4 3.5 2.4 7.8 2.4s7.8-1 7.8-2.4c0-.8-1.2-1.5-3.2-2" />
+  </>,
+  /* basketball: a ball with its seams (5v5); 1v1 is the hoop, side on, the
+     shot coming in */
+  basketball:<>
+    <circle cx="12" cy="12" r="8.4" />
+    <path d="M3.6 12h16.8M12 3.6v16.8M6.1 6c2.4 1.6 3.4 3.6 3.4 6s-1 4.4-3.4 6M17.9 6c-2.4 1.6-3.4 3.6-3.4 6s1 4.4 3.4 6" />
+  </>,
+  "basketball:1v1":<>
+    <path d="M17.2 3.4v9M17.2 8h2.6v12.6" />
+    <path d="M8.6 10.2h8.6M9.4 10.2l1.6 5.6h3.4l1.6-5.6" />
+    <circle cx="6.2" cy="5.2" r="2.4" {...BALL} />
+  </>,
+  /* Pickleball: the paddle and the holed ball */
+  pickleball:<>
+    <g transform="rotate(-32 10.4 10.4)">
+      <rect x="5.4" y="2.8" width="10" height="11.6" rx="3.2" />
+      <path d="M10.4 14.4v5.6" strokeWidth="2.8" />
+    </g>
+    <circle cx="17.8" cy="17.6" r="2.9" {...BALL} />
+    <g fill="var(--fd-mark-glass)" stroke="none"><circle cx="16.9" cy="16.8" r=".55" /><circle cx="18.7" cy="16.8" r=".55" /><circle cx="17.8" cy="18.5" r=".55" /></g>
+  </>,
+  /* Volleyball: the ball over the net (three seams from one point read as
+     a star at 24px, so the ball carries two curved panel lines and the net
+     says the game) */
+  volleyball:<>
+    <circle cx="12" cy="8.6" r="5.6" />
+    <path d="M7.3 5.9c2.9-.3 5.9 1.1 7.6 3.7M6.9 10.6c2.8-1.4 6.3-1.3 8.9.6M10.3 3.3c1.9 1.6 2.9 4.1 2.6 6.6" />
+    <path d="M3.6 16.6h16.8M3.6 20.2h16.8M3.6 16.6v3.6M20.4 16.6v3.6M7.8 16.6v3.6M12 16.6v3.6M16.2 16.6v3.6" strokeWidth=".9" />
+  </>,
+  /* Trivia: a card with the question on it */
+  trivia:<>
+    <rect x="4.8" y="3.6" width="14.4" height="16.8" rx="2.4" />
+    <path d="M9.6 9.6a2.4 2.4 0 1 1 3.6 2.1c-.8.5-1.2 1-1.2 1.9v.5" />
+    <circle cx="12" cy="16.9" r="1.2" {...BALL} />
+  </>,
+  /* 8-Ball: the black ball's window and its 8 */
+  "8ball":<>
+    <circle cx="12" cy="12" r="8.4" />
+    <circle cx="12" cy="11.2" r="3.9" {...BALL} />
+    <g stroke="var(--fd-mark-glass)" strokeWidth="1"><circle cx="12" cy="9.9" r="1" /><circle cx="12" cy="12.45" r="1.3" /></g>
+  </>,
+  /* Beer Pong: the ball dropping into the cup */
+  pong:<>
+    <path d="M6.6 10.2h10.8M7.3 10.2l1.4 9a1.5 1.5 0 0 0 1.5 1.3h3.6a1.5 1.5 0 0 0 1.5-1.3l1.4-9" />
+    <path d="M7.9 14h8.2" />
+    <circle cx="14.6" cy="4.9" r="2" {...BALL} />
+  </>,
+  /* Rage Cage: a cup stacked on a cup, the ball after it */
+  ragecage:<>
+    <path d="M4.6 12.4h9.6M5.2 12.4l1.2 7.2a1.3 1.3 0 0 0 1.3 1.1h4.4a1.3 1.3 0 0 0 1.3-1.1l1.2-7.2" />
+    <path d="M6.8 8.2h9.6M7.4 8.2l.6 4.2M15.8 8.2l-1 6.2" />
+    <circle cx="18.2" cy="4.8" r="1.8" {...BALL} />
+  </>,
+  /* Beerio Kart: the wheel */
+  beerio:<>
+    <circle cx="12" cy="12" r="8.4" />
+    <circle cx="12" cy="12.6" r="2.4" {...BALL} />
+    <path d="M3.7 11.6c2.3-.6 4.6-.6 6 .3M20.3 11.6c-2.3-.6-4.6-.6-6 .3M12 15v5.3" />
+  </>,
+  /* Poker: two cards, the front one showing its pip */
+  poker:<>
+    <rect x="4.2" y="5" width="9.4" height="13.4" rx="1.9" transform="rotate(-12 8.9 11.7)" />
+    <rect x="10.2" y="4.6" width="9.4" height="13.4" rx="1.9" transform="rotate(10 14.9 11.3)" fill="var(--fd-mark-glass)" />
+    <path d="m14.8 8.3 2.4 3.1-2.4 3.1-2.4-3.1z" {...BALL} />
+  </>,
+
+  /* earlier slates (kept for their events and the add-event picker) */
+  spikeball:<>
+    <ellipse cx="12" cy="16.2" rx="8.2" ry="3.2" />
+    <path d="M6 18.4 4.8 20.6M18 18.4l1.2 2.2M8.4 15.6h7.2" />
+    <circle cx="12" cy="6.4" r="2.6" {...BALL} />
+  </>,
+  pingpong:<>
+    <circle cx="10" cy="9.6" r="5.6" />
+    <path d="m6.2 13.8-2.6 4.4" strokeWidth="2.6" />
+    <circle cx="17.6" cy="17" r="2.2" {...BALL} />
+  </>,
+  foosball:<>
+    <path d="M3.6 6.2h16.8" />
+    <circle cx="12" cy="9.4" r="2.1" />
+    <path d="M12 11.5v4.3M9.4 13h5.2M12 15.8l-2.6 3.8M12 15.8l2.6 3.8" />
+    <circle cx="18.4" cy="18.6" r="1.8" {...BALL} />
+  </>,
+};
+
+/* the fallback: the chip */
+const CHIP = <>
+  <circle cx="12" cy="12" r="8.4" />
+  <circle cx="12" cy="12" r="3" {...BALL} />
+  <path d={[30, 90, 150, 210, 270, 330].map(deg => {
+    const a = deg * Math.PI / 180, x = r => (12 + Math.cos(a) * r).toFixed(2), y = r => (12 + Math.sin(a) * r).toFixed(2);
+    return `M${x(5.2)} ${y(5.2)}L${x(6.6)} ${y(6.6)}`;
+  }).join("")} />
+</>;
+
+/* every game id with its own mark, for pickers ("Looks like") */
+export const GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter(id => !id.includes(":")));
+
+function GameMark({ id, size=54, hero=false, variant }) {
+  const glyph = MARKS[variant ? `${id}:${variant}` : id] || MARKS[id] || CHIP;
+  /* small marks: a thinner seat and a bigger pictogram; big marks: a
+     lighter stroke */
+  const small = size <= 34;
+  const scale = small ? 0.9 : 0.76;
+  const stroke = size <= 28 ? 2.05 : size <= 48 ? 1.85 : size <= 96 ? 1.65 : 1.45;
+  const at = 12 - 12 * scale;
+  const glass = hero ? "var(--paper)" : "var(--paper2)";
   return (
-    <svg className={hero ? "fd-night" : undefined} width={size} height={size} viewBox="0 0 48 48" aria-hidden="true"
-      style={{ flexShrink:0, display:"block", filter:hero ? "drop-shadow(0 14px 26px rgba(10,6,3,.32))" : "none" }}>
-      <rect x="1.5" y="1.5" width="45" height="45" rx="14"
-        fill={hero ? "var(--night2)" : "var(--paper2)"} stroke="var(--bone-line)" strokeWidth="1.5" />
-      <EventGlyph id={id} />
-      <circle cx="39.5" cy="8.5" r="2.4" fill="var(--accent2)" />
+    <svg className={`fd-game-mark${hero ? " is-hero" : ""}`} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
+      focusable="false" style={{ flexShrink:0, display:"block", color:"var(--fd-mark-ink, var(--ink))", "--fd-mark-glass":glass }}>
+      {/* the seat, the glass, and its bezel's lit lower lip */}
+      <circle cx="12" cy="12" r="11.9" fill="var(--ink0)" />
+      <circle cx="12" cy="12" r={small ? 11.1 : 10.9} fill={glass} />
+      <path d={small ? "M2.2 13.6a9.9 9.9 0 0 0 19.6 0" : "M2.4 13.6a9.7 9.7 0 0 0 19.2 0"} fill="none"
+        stroke="var(--bone)" strokeOpacity=".16" strokeWidth=".5" strokeLinecap="round" />
+      <g transform={`translate(${at} ${at}) scale(${scale})`} fill="none" stroke="currentColor"
+        strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">{glyph}</g>
     </svg>
   );
 }

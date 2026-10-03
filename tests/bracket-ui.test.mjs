@@ -105,14 +105,14 @@ test("the compact bracket is one target and a picture inside it", () => {
   assert.equal(count(html, /<button/g), 1, "nothing inside the glance is separately tappable");
 });
 
-test("the live bracket game shows its bracket on Home, and stops once the result posts", () => {
+test("Home's live pane has one way into the event (its name); the bracket lives in the event sheet", () => {
   const s = liveBracket(), events = allEventsOf(s);
   const props = { state:s, me:ROSTER[1], events, standings:computeStandings(s), GameMark:() => null,
     onOpen:noop, onRules:noop, onBets:noop, onBracket:noop, onPlayer:noop, onStandings:noop, onEvents:noop,
     onGuide:noop, onHouse:noop, onProfile:noop, onDraft:noop };
-  assert.match(render(React.createElement(GuestHome, props)), /Open the full 8-Ball Doubles bracket/);
-  s.results["8ball"] = { slots:[[ROSTER[0]], [], []], ts:1 };
-  assert.doesNotMatch(render(React.createElement(GuestHome, { ...props, state:s })), /Open the full 8-Ball Doubles bracket/);
+  const html = render(React.createElement(GuestHome, props));
+  assert.doesNotMatch(html, /Open the full 8-Ball Doubles bracket/);
+  assert.match(html, /aria-label="Open 8-Ball Doubles"/);
 });
 
 test("Events gives a bracket game its own way in", () => {

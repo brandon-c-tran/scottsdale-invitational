@@ -7,6 +7,7 @@ import { serverNow } from "../../lib/serverClock.js";
 import { awardResults } from "../../../shared/prompts.js";
 import { ballotModel, homeResults, nextStampAt, nextUnanswered, stampTime } from "./awardsModel.js";
 import "./awards.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const BALLOT_MARK = { color:"var(--sun)", isLight:true, skin:"ticks" };
 const sendVote = payload => dispatch("promptRespond", payload, { retry:true });
@@ -52,11 +53,11 @@ export function AwardsBallot({ state, me, onVote = sendVote, initiallyOpen = fal
   const status = done ? "Voted" : model.picked ? `${model.picked} of ${model.count} picked`
     : `${model.count} award${model.count === 1 ? "" : "s"}`;
   return (
-    <section className="fd-awards" aria-label="Awards ballot">
+    <section className={`fd-awards fd-lamp${done ? " is-done" : " is-live"}`} aria-label="Awards ballot">
       <button type="button" className="fd-awards-entry" aria-expanded={open} onClick={() => setOpen(value => !value)}>
         <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...BALLOT_MARK} /></span>
-        <span><small><i className="fd-beat-dot" aria-hidden="true" />Awards ballot</small><strong>{status}</strong></span>
-        <span className="fd-awards-entry-go">{open ? "Hide" : done ? "Change ↗" : "Vote ↗"}</span>
+        <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Awards ballot</small><strong>{status}</strong></span>
+        <span className="fd-awards-entry-go">{open ? "Hide" : <>{done ? "Change " : "Vote "}<Icon name="open" size="1em" /></>}</span>
       </button>
       {open && <div className="fd-awards-body">
         {model.count > 1 && <div className="fd-awards-steps" role="group" aria-label="Awards">
@@ -84,8 +85,7 @@ export function AwardsBallot({ state, me, onVote = sendVote, initiallyOpen = fal
             </button>;
           })}
         </div>
-        {error ? <p className="fd-awards-error" role="alert">{error}</p>
-          : <p className="fd-awards-note">Votes can change until voting closes.</p>}
+        {error && <p className="fd-awards-error" role="alert">{error}</p>}
       </div>}
     </section>
   );
@@ -98,7 +98,7 @@ const JUST_STAMPED_MS = 2000;
 export function AwardsResults({ state, rows, onPlayer, now = 0 }) {
   if (!rows.length) return null;
   return (
-    <section className="fd-awards" aria-label="Awards">
+    <section className="fd-awards is-results" aria-label="Awards">
       <div className="fd-awards-entry" role="heading" aria-level={2}>
         <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...BALLOT_MARK} /></span>
         <span><small>Awards</small><strong>{rows.length} of {rows[0].count} revealed</strong></span>
@@ -106,7 +106,7 @@ export function AwardsResults({ state, rows, onPlayer, now = 0 }) {
       <ul className="fd-awards-results">
         {rows.map((row, i) => <li key={row.questionId}
           className={`fd-awards-result${stampTime(row) && now - stampTime(row) < JUST_STAMPED_MS ? " is-new" : ""}`}>
-          <span><small>{row.title}{row.winners.length > 1 ? " · Tie" : ""}</small>
+          <span><small>{row.title}</small>
             <strong>{row.winners.length ? row.winners.map(player => disp(state, player)).join(" & ") : "No votes"}</strong></span>
           <span className="fd-awards-result-who">{row.winners.slice(0, 3).map(player =>
             <button type="button" key={player} onClick={() => onPlayer?.(player)}

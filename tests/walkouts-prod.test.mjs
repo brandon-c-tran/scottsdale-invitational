@@ -434,7 +434,7 @@ test("an open sheet docks the Stop chip in its header (G3)", () => {
     "between the title and Close, inside the header");
   const stop = buttons.find(button => button.name === "Stop Evan's song");
   assert.ok(stop);
-  assert.equal(stop.text.trim().replace(/\s+/g, " "), "■Stop Evan");
+  assert.equal(stop.text.trim().replace(/\s+/g, " "), "Stop Evan", "the stop glyph is drawn, not typed");
 
   const plain = renderButtons(React.createElement(Sheet, { title:"Putting", onClose:() => {} }, "Body")).html;
   assert.equal(plain.includes("fd-sheet-dock"), false, "nothing docked by default");

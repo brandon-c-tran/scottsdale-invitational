@@ -1,12 +1,15 @@
 import React from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { LampChase } from "../../ui/ScoreReel.jsx";
 import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { FACEOFF_TIMING as F, faceOffChipSize } from "./faceOff.js";
+import { Takeover } from "./TVTakeover.jsx";
+import { EventName } from "../../ui/OneSafe.jsx";
 
 /* a display size that keeps a side's name on one line in its half, so both
-   halves stand at the same height */
+   halves stand at the same height: Big Shoulders 900 runs about 0.5em a letter */
 export const faceOffNameSize = text =>
-  Math.max(48, Math.min(96, Math.floor(600 / (Math.max(4, String(text || "").length) * 0.5))));
+  Math.max(48, Math.min(120, Math.floor(740 / (Math.max(4, String(text || "").length) * 0.5))));
 
 function FaceOffSide({ side, from, lines }) {
   const size = faceOffChipSize(side.players.length);
@@ -15,30 +18,39 @@ function FaceOffSide({ side, from, lines }) {
       <div className={`tv-faceoff-chips${side.players.length > 4 ? " is-wrap" : ""}`}>
         {side.players.map(p => <ChipFace key={p} p={p} size={size} flat />)}
       </div>
-      <div className="tv-display tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
+      <div className="fd-show tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
       <div className="tv-faceoff-line"><TVWinLine lines={lines} sideKey={side.key} /></div>
     </div>
   );
 }
 
-/* D2: both sides, face to face, over the live pane until it settles into
-   the betting board underneath. Every delay is "this long after the
-   face-off's start" (--tl, as the crown and the bracket advance use it). */
+/* D2, the broadcast sting (Backglass takeover grammar): the chrome leaves
+   and the glass dims, both sides slam in from their own edges, VS hits and
+   holds inside a lamp chase, their record types in a letter at a time, then
+   the whole thing lifts off the betting board underneath. Every delay is
+   "this long after the face-off's start" (--tl), on the server clock. */
 export function FaceOff({ state, events, ev, contest, view, moment }) {
   const lines = useContestWinLines(state, ev, contest, events);
+  const record = view.record || "";
   return (
-    <div className="tv-faceoff" role="status" style={{ "--tl":`${-Math.round(moment.elapsed)}ms`,
-      "--faceoff-settle":`${F.settle}ms` }}>
+    <Takeover kind="faceoff" className="tv-faceoff" label={`${view.event}${view.label ? `, ${view.label}` : ""}: ${
+      view.sides.map(side => side.name).join(" vs ")}`}
+      style={{ "--tl":`${-Math.round(moment.elapsed)}ms`, "--faceoff-settle":`${F.settle}ms` }}>
+      <div className="tv-faceoff-glass" aria-hidden="true" />
+      <LampChase tone="live" className="tv-faceoff-chase" />
       <div className="tv-faceoff-head">
-        <span className="tv-label">{view.event}</span>
-        {view.label && <span className="tv-display tv-faceoff-round">{view.label}</span>}
+        <span className="fd-show tv-faceoff-round"><EventName name={view.label || view.event} /></span>
+        {view.label && <span className="tv-faceoff-event">{view.event}</span>}
       </div>
       <div className="tv-faceoff-sides">
         <FaceOffSide side={view.sides[0]} from="left" lines={lines} />
-        <div className="tv-faceoff-vs">VS</div>
+        <div className="fd-show tv-faceoff-vs">VS</div>
         <FaceOffSide side={view.sides[1]} from="right" lines={lines} />
       </div>
-      <div className="tv-display tv-faceoff-record">{view.record || ""}</div>
-    </div>
+      <div className="tv-display tv-faceoff-record" aria-label={record || undefined}>
+        {[...record].map((ch, i) => <span key={i} aria-hidden="true"
+          style={{ animationDelay:`calc(var(--tl) + ${F.h2h + i * F.typeMs}ms)` }}>{ch}</span>)}
+      </div>
+    </Takeover>
   );
 }

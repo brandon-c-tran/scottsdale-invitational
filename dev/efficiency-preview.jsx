@@ -13,6 +13,7 @@ import {
   PlayerIdentityProvider, PlayerSheet, Wagers, Shell, GameMark, Sheet, ActionButton, DraftSheet,
 } from "./efficiency-components.js";
 import { buildEventReveal } from "../src/features/weekend/drawReveal.js";
+import { weekendPhase } from "../src/ui/phase.js";
 import "./efficiency-components.css";
 
 export const scenarios = [
@@ -141,6 +142,8 @@ function Preview() {
   const stateRef = useRef(sample.state), epoch = useRef(0), current = useRef({ gm, me, failure });
   current.current = { gm, me, failure };
   const state = sample.state, events = allEventsOf(state), standings = computeStandings(state);
+  /* the session's glass, as the app sets it (TH1): the painted panels follow it */
+  React.useLayoutEffect(() => { document.documentElement.setAttribute("data-phase", weekendPhase(state, events)); }, [state, events]);
   const ev = events.find(event => event.id === sample.scenario.evId), wagerEv = wagerBoardEvent(state, events);
   const close = () => { setSurface(null); setHistory([]); };
   const push = next => { setHistory(previous => [...previous, surface]); setSurface(next); };

@@ -7,11 +7,17 @@ import { useCountBetween, useReducedMotion } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { chartModel, lastCardModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage } from "./cardImage.js";
-import { PHONE_CROWN as P, crownAnchor, crownPhonePlan } from "./crownTiming.js";
+import { PHONE_CROWN as P, crownAnchor, crownPhonePlan, phonePlaceAt } from "./crownTiming.js";
+import { chordNote, playSound } from "../../lib/sound.js";
 import { SavePoster } from "./SavePoster.jsx";
+import { Icon } from "../../ui/Icon.jsx";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
+const ordinal = n => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
 
 /* The card's chip: one ink, edge ticks, the jersey number. The saved image
    draws the same chip (cardImage.js drawCardChip). */
@@ -73,27 +79,39 @@ export function LastCardFace({ model, turn = false }) {
   </article>;
 }
 
-/* D1: the phone half of the crown, on the TV's own server instant. The
-   champion's face appears where the TV's row rises to, their color floods
-   the whole screen on the same beat as the TV, their chip drops and turns,
-   and the stack counts in 25s. --tl is minus the ms already gone when this
-   phone joined, so every delay reads "this long after the crown". A tie
-   stays on night. */
-function ChampionMoment({ leaders, elapsed, flood, floodColor, floodInk, onSkip }) {
+/* D1: the phone half of the crown, on the TV's own server instant (the
+   produced crown, Backglass). The phone opens on its own player: their
+   chip and final stack stand up with the TV's towers, and their place
+   stamps the instant the TV's tower for them goes dark. Then the
+   champion's face rises with the TV's tower, their color floods the whole
+   screen on the same beat as the TV (a circle scaled up from their face),
+   this phone sounds its note of the room's chord, the chip drops and
+   turns, and the stack counts in 25s. --tl is minus the ms already gone
+   when this phone joined, so every delay reads "this long after the
+   crown". A tie stays on night. */
+function ChampionMoment({ leaders, you, elapsed, flood, floodColor, floodInk, onSkip }) {
   const pts = leaders[0]?.pts || 0;
   const count = useCountBetween(0, pts, { play:true, step:CHIP_MIN, delay:P.count - elapsed, duration:P.countMs });
+  const yours = useCountBetween(0, you?.pts || 0, { play:!!you, step:CHIP_MIN, delay:P.you + 300 - elapsed, duration:1400 });
   const name = leaders.map(leader => leader.name).join(" & ");
   return <div className={`fd-crown-moment${flood ? " is-flood" : ""}`}
-    style={{ "--tl":`${-Math.round(elapsed)}ms`, ...(flood ? { "--crown-color":floodColor, "--crown-ink":floodInk } : null) }}
+    style={{ "--tl":`${-Math.round(elapsed)}ms`, ...(flood ? { "--crown-color":floodColor, "--crown-ink":floodInk } : null),
+      ...(you?.outAt ? { "--you-out":`${you.outAt}ms` } : null) }}
     onClick={onSkip} role="presentation">
-    <p className="fd-crown-kicker">Final standings</p>
-    {flood && <span className="fd-crown-origin" aria-hidden="true"><ChipFace p={leaders[0].player} size={72} flat /></span>}
-    {flood && <div className="fd-crown-flood" aria-hidden="true" />}
+    <p className="fd-crown-kicker fd-show">Final</p>
+    {you && <div className={`fd-crown-you${you.outAt ? " is-out" : " is-holding"}`} aria-hidden="true">
+      <span className="fd-crown-you-chip"><ChipFace p={you.player} size={132} flat /></span>
+      <b className="fd-crown-you-name">{you.name}</b>
+      <span className="fd-crown-you-pts">{fmt(yours)}</span>
+      {you.outAt && <span className="fd-crown-you-place fd-show">{you.place}</span>}
+    </div>}
+    <span className="fd-crown-origin" aria-hidden="true"><ChipFace p={leaders[0].player} size={96} flat /></span>
+    {flood && <div className="fd-crown-flood" aria-hidden="true"><i /></div>}
     <div className="fd-crown-stage">
       <div className="fd-crown-coins">{leaders.map(leader => <span key={leader.player} className="fd-crown-coin">
         <ChipFace p={leader.player} size={leaders.length > 1 ? 118 : 164} flat /></span>)}</div>
       <p className="fd-crown-tag">{leaders.length > 1 ? "Tied for the championship" : "Champion"}</p>
-      <h1 className="fd-crown-name" aria-label={name}>{[...name.toUpperCase()].map((letter, index) =>
+      <h1 className="fd-crown-name fd-show" aria-label={name}>{[...name].map((letter, index) =>
         <span key={index} aria-hidden="true" style={{ "--fd-letter":index }}>{letter === " " ? " " : letter}</span>)}</h1>
       <p className="fd-crown-stack"><b>{fmt(count)}</b> chips</p>
     </div>
@@ -122,6 +140,30 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", gm 
     fresh:mode === "moment", reduced, tied:leaders.length > 1 });
   const [phase, setPhase] = useState(plan.current.mode);
   const turned = useRef(phase === "moment");
+  /* this phone's own player in the hall: final position, and when the TV's
+     tower for them goes dark (null for a champion) */
+  const you = useMemo(() => {
+    const index = standings.findIndex(row => row.player === subject);
+    if (index < 0) return null;
+    const row = standings[index];
+    const champ = leaders.some(leader => leader.player === subject);
+    return { player:subject, index, pts:row.pts, rank:row.rank, name:state.profiles?.[subject]?.display || subject,
+      outAt:champ ? null : phonePlaceAt(Math.max(index, leaders.length), standings.length), place:ordinal(index + 1) };
+  }, [standings, subject, leaders, state.profiles]);
+  /* the crown's sounds on this phone, on the room's clock: your place
+     stamps with your tower, your note of the chord sounds with the flood
+     (over the champion's song, so never ducked), and the champion's own
+     phone hears their chip land */
+  useEffect(() => {
+    if (plan.current.mode !== "moment") return;
+    const anchor = Number(crownAnchor(state)) || serverNow() - plan.current.elapsed;
+    const key = `crown:${anchor}`;
+    if (you?.outAt) playSound("stamp", { at:anchor + you.outAt, key:`${key}:place`, open:true });
+    if (plan.current.flood && you)
+      playSound("chord", { at:anchor + P.flood, key:`${key}:chord`, open:true,
+        opts:{ f:chordNote(you.index + 1, standings.length) } });
+    if (plan.current.flood && you && !you.outAt) playSound("S24", { at:anchor + P.chip, key:`${key}:chip`, open:true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (phase !== "moment") return undefined;
     const timer = setTimeout(() => setPhase("card"), plan.current.turnIn);
@@ -154,27 +196,27 @@ export function LastCardLayer({ state, me, events, standings, mode = "card", gm 
   if (!model || !leaders.length) return null;
   const champion = leaders[0];
   return <div className="fd-crown fd-night" role="dialog" aria-modal="true" aria-label="Final standings">
-    {phase === "moment" ? <ChampionMoment leaders={leaders} elapsed={plan.current.elapsed} flood={plan.current.flood}
+    {phase === "moment" ? <ChampionMoment leaders={leaders} you={you} elapsed={plan.current.elapsed} flood={plan.current.flood}
       floodColor={floodIdentity.color} floodInk={cardInk(floodIdentity.color)} onSkip={() => setPhase("card")} />
       : <div className={`fd-crown-card${turned.current ? " is-arriving" : ""}`}>
         <div className="fd-crown-bar"><span className="fd-kicker">Final standings</span>
-          <button type="button" className="fd-crown-close" aria-label="Close" onClick={onClose}>✕</button></div>
+          <button type="button" className="fd-crown-close" aria-label="Close" onClick={onClose}><Icon name="close" size={20} /></button></div>
         <div className="fd-crown-champ">
           <ChipFace p={champion.player} size={36} />
-          <span><small>{leaders.length > 1 ? "Tied for the championship" : "Champion"}</small>
-            <b>{leaders.map(leader => leader.name).join(" & ")}</b></span>
+          <span><b>{leaders.map(leader => leader.name).join(" & ")}</b>
+            <small>{leaders.length > 1 ? "Tied for the championship" : "Champion"}</small></span>
           <strong>{fmt(champion.pts)}</strong>
         </div>
         <LastCardFace model={model} turn={turned.current && !reduced} />
         <div className="fd-crown-actions">
           <button type="button" className="fd-crown-save" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save card"}</button>
-          <button type="button" className="fd-crown-board" onClick={onStandings}>Leaderboard <span aria-hidden="true">↗</span></button>
+          <button type="button" className="fd-crown-board" onClick={onStandings}>Leaderboard <Icon name="open" size="1em" /></button>
         </div>
         {gm && <SavePoster state={state} events={events} standings={standings} />}
       </div>}
     {preview && <div className="fd-crown-preview" role="dialog" aria-label="Saved card">
       <img src={preview} alt={`${model.name}'s last card`} />
-      <p>Press and hold the image to save it.</p>
+      <p>Press and hold to save</p>
       <button type="button" onClick={() => setPreview(null)}>Done</button>
     </div>}
   </div>;

@@ -56,7 +56,7 @@ const app = await load("fix-guest-app.cjs", `export { ProfileSheet, PokerCard, a
     const refuse=()=>{ throw new Error("transport must not run"); };
     export const dispatch=refuse, uploadPhoto=refuse, downloadSnapshot=refuse, spotifyStatus=refuse,
       spotifyPlayer=refuse, spotifySearch=refuse, spotifyAuthorize=refuse, spotifyDisconnect=refuse,
-      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse, spotifyRetry=refuse, geoUploadPhoto=refuse, geoDeleteRound=refuse, geoPhotoUrl=refuse;` }));
+      spotifyPlay=refuse, spotifyPause=refuse, spotifyDevice=refuse, spotifyAutoWinSongs=refuse, songPreview=refuse, songSnippet=refuse, spotifyRetry=refuse, geoUploadPhoto=refuse, geoDeleteRound=refuse, geoPhotoUrl=refuse, reportTvSound=refuse, setTvView=refuse;` }));
 } }]);
 
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");
@@ -115,8 +115,8 @@ const line = (state, me) => {
 test("home keeps the room's matchup and adds the viewer's own bracket position, partner, and crew role", () => {
   const state = bracketState();
   state.onDeck = pairs.id;
-  assert.equal(line(state, ROSTER[2]), `Next: Semifinal vs ${ROSTER[4]} & ${ROSTER[5]} · with ${ROSTER[3]}`);
-  assert.equal(line(state, ROSTER[12]), "Your role · Scorekeeper");
+  assert.equal(line(state, ROSTER[2]), `Next: Semifinal vs ${ROSTER[4]} & ${ROSTER[5]} with ${ROSTER[3]}`);
+  assert.equal(line(state, ROSTER[12]), "Scorekeeper");
 
   /* G17: a spectator reads the match after the one on screen */
   assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[12]), { mine:false, text:"Semifinal 2 next" });
@@ -126,7 +126,7 @@ test("home keeps the room's matchup and adds the viewer's own bracket position, 
   openCurrent(state, pairs);
   /* G16: out is out, whatever the market is doing */
   assert.equal(line(state, ROSTER[6]), "You’re out");
-  assert.equal(line(state, ROSTER[0]), `Next: Final vs winner of Semifinal 2 · with ${ROSTER[1]}`);
+  assert.equal(line(state, ROSTER[0]), `Next: Final vs winner of Semifinal 2 with ${ROSTER[1]}`);
   assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[0]), { mine:true, text:"Semifinal ✓ → Final vs winner of Semifinal 2" });
   assert.deepEqual(ui.bracketPath(state, pairs, ROSTER[6]), { mine:false, text:"Final next" });
 
@@ -138,16 +138,20 @@ test("home keeps the room's matchup and adds the viewer's own bracket position, 
   assert.doesNotMatch(view.html, /fd-home-personal">Next:/);
   assert.doesNotMatch(view.html, /fd-bracket-peek|fd-bracket-scroll/);
   assert.match(view.html, /Semifinal ✓ → Final vs winner of Semifinal 2/);
-  view.click(`Semifinal ✓ → Final vs winner of Semifinal 2. Open the full ${pairs.name} bracket`);
-  assert.deepEqual(opened, [pairs.id]);
+  /* the path is read on Home; the bracket is in the event sheet, opened from the name */
+  assert.ok(!view.buttons.some(button => /Open the full/.test(button.name)), "one way into the event: its name");
+  assert.deepEqual(opened, []);
   for (const player of [ROSTER[2], ROSTER[3], ROSTER[4], ROSTER[5]])
     assert.ok(view.buttons.some(button => button.name === `View ${player}'s player card`), "The room's matchup still renders");
 
-  /* crew read their role and what it means */
+  /* crew read their role; what it means is not narrated */
   const crew = render(ui.GuestHome, { state, me:ROSTER[12], events:[pairs], standings:computeStandings(state),
     GameMark:StubMark, onOpen:noop, onPlayer:noop, onBets:noop, onStandings:noop, onEvents:noop, onBracket:noop });
-  assert.match(crew.html, /Your role · Scorekeeper<small>Tracks the score and reports the finish\.<\/small>/);
-  assert.match(crew.html, /Final next/);
+  assert.match(crew.html, /fd-home-personal">Scorekeeper<\/p>/);
+  assert.doesNotMatch(crew.html, /Tracks the score/);
+  /* a spectator's "Final next" band is cut: the match on screen says it, the
+     bracket is in the event sheet */
+  assert.doesNotMatch(crew.html, /fd-home-path/);
 });
 
 test("an added event without a game has no dead rules target and opens its own description", () => {
@@ -161,7 +165,8 @@ test("an added event without a game has no dead rules target and opens its own d
     GameMark:StubMark, onOpen:event => opened.push(event.id), onRules:event => rules.push(event.id),
     onPlayer:noop, onBets:noop, onStandings:noop, onProfile:noop, onEvents:noop, onGuide:noop, onHouse:noop });
   assert.ok(!view.buttons.some(button => button.name === "How to play"));
-  view.click("Open event");
+  assert.ok(!view.buttons.some(button => button.name === "Cornhole rules"));
+  view.click("Open Cornhole"); // the event opens from its name
   assert.deepEqual(opened, [custom.id]);
   assert.deepEqual(rules, []);
   const sheet = render(ui.HowToSheet, { gameId:undefined, ev:custom, onClose:noop }, state);
@@ -227,10 +232,9 @@ test("since you looked summarizes an absence from this device's own memory", () 
   state.wagers = [{ id:"mine", player:me, kind:"outright", eventId:pairs.id, pickTeam:true, drawId:"d1",
     pickPlayers:[ROSTER[3], ROSTER[4]], stake:100 }];
   const text = ui.sinceLine(saved, state, me, events, computeStandings(state), saved.at + 10 * 60_000);
-  assert.match(text, /^Since \d{1,2}:\d{2} (AM|PM) · /);
-  assert.match(text, new RegExp(`· ${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won · \\d+ more$`),
-    "the result it opens leads; the rest is a count");
+  assert.equal(text, `${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won`, "the result it opens leads, no clock");
   const summary = ui.sinceSummary(saved, state, me, events, computeStandings(state), saved.at + 10 * 60_000);
+  assert.ok(summary.more > 0, "the rest is a count");
   assert.ok(summary.detail.includes("your bet +200"), "the accessible name spells out the rest");
   assert.equal(ui.sinceLine({ ...saved, me:ROSTER[1] }, state, me, events, computeStandings(state), saved.at + 10 * 60_000), null);
 });
@@ -344,7 +348,7 @@ test("a confirmed draft lands every player on their own team and names crew jobs
   const firstTeam = view.html.indexOf('aria-label="Your team"');
   assert.ok(firstTeam > 0 && firstTeam < view.html.indexOf(`${ROSTER[0]}&#x27;s team`), "the viewer's team leads");
   const crew = render(ui.DraftSheet, { ev:event, state, gm:false, me:ROSTER[12], onClose:noop, onPlayer:noop });
-  assert.match(crew.html, /Your role · Photographer/);
+  assert.match(crew.html, /Your role<\/small><strong>Photographer/);
 
   const reveal = { id:"r", evId:pairs.id, title:"The draw", subtitle:pairs.name, versus:null,
     groups:[{ title:"Team", lines:[{ avatars:[ROSTER[0]], text:ROSTER[0] }] }], crew:[{ player:ROSTER[12], role:"sit-out" }] };
@@ -353,11 +357,10 @@ test("a confirmed draft lands every player on their own team and names crew jobs
   assert.doesNotMatch(announced.html, /sit out/);
 });
 
-test("avatars and player cards fall back to initials and fit long names without gradients", () => {
+test("avatars and player cards fall back to initials and fit long names", () => {
   const state = fresh();
   state.profiles[ROSTER[0]] = { display:"Supercalifragil", photoV:3, color:CHIP_COLORS[0].hex };
   const avatar = render(ui.Avatar, { state, p:ROSTER[0] });
-  assert.doesNotMatch(avatar.html, /gradient/);
   assert.equal(typeof avatar.images[0]?.onError, "function");
   const pass = render(ui.PlayerPass, { state, p:ROSTER[0] });
   assert.match(pass.html, /--pass-name-chars:15/);
@@ -390,7 +393,7 @@ test("a late uncolored guest can make one chip claim while established chips sta
   view.click(`Claim chip color ${free}`);
   assert.deepEqual(claims, [[free, "ticks"]]);
   late.profiles[ROSTER[4]] = { color:free, skin:"ticks" };
-  assert.match(render(ui.ChipPicker, { state:late, me:ROSTER[4], num:"", onChip:noop }).html, /Chips are locked for the weekend/);
+  assert.match(render(ui.ChipPicker, { state:late, me:ROSTER[4], num:"", onChip:noop }).html, /fd-profile-chip-locked/);
 });
 
 test("the profile sheet saves only what changed and hides an unconfigured walkout search", async () => {
@@ -458,7 +461,7 @@ test("G1: a phone back from the background builds the since line from the first 
   const next = structuredClone(stale);
   next.results[pairs.id] = { slots:[[ROSTER[3], ROSTER[4]], [], []], ts:clock - minutes(5) };
   const summary = tracker.observe(live(next));
-  assert.match(summary.text, new RegExp(`^Since .* · ${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won`));
+  assert.equal(summary.text, `${pairs.name}: ${ROSTER[3]} & ${ROSTER[4]} won`);
   assert.deepEqual(summary.route, { type:"event", evId:pairs.id });
   assert.equal(tracker.waiting, false);
   assert.ok(stored.results[pairs.id], "the fresh board becomes the memory");
@@ -480,7 +483,7 @@ test("G9 G21: the since line names duels, rulings, corrections and places, and r
   const corrected = structuredClone(state);
   corrected.results[putt.id] = { slots:[[ROSTER[2]], [], []], ts:1, revision:2, correctedAt:5 };
   const correction = ui.sinceSummary(saved, corrected, me, events, computeStandings(corrected), later);
-  assert.match(correction.text, new RegExp(`· Correction · ${putt.name}`));
+  assert.equal(correction.text, `${putt.name} corrected`);
   assert.deepEqual(correction.route, { type:"event", evId:putt.id });
 
   const moved = structuredClone(state);
@@ -488,7 +491,8 @@ test("G9 G21: the since line names duels, rulings, corrections and places, and r
   moved.adjustments.push({ id:"r1", player:me, delta:1000, ts:2, reason:"Style" });
   const text = ui.sinceSummary(saved, moved, me, events, computeStandings(moved), later);
   assert.match(text.detail, /· duel \+300 · ruling \+1,000 · up 1 place, now 2nd$/);
-  assert.match(text.text, /^Since .* · up 1 place, now 2nd · 2 more$/, "one line: the place it opens, then a count");
+  assert.equal(text.text, "up 1 place, now 2nd", "one line: the place it opens");
+  assert.equal(text.more, 2, "then a count");
   assert.doesNotMatch(text.text, /↑|↓/);
   assert.deepEqual(text.route, { type:"standings" });
 
@@ -513,10 +517,10 @@ test("G7 G18: Home drops the title, says a result once, and collapses your own w
   assert.match(plain.html, /aria-label="Latest result"/);
   assert.equal((plain.html.match(/<article /g) || []).length, 1, "only the duel waiting on you is a card");
   assert.ok(plain.html.indexOf(`Accept duel with ${ROSTER[10]}`) < plain.html.indexOf("Withdraw challenge to"), "act-on-it duels lead");
-  assert.match(plain.html, new RegExp(`Waiting for ${ROSTER[9]} to accept<small>100 · 10 min</small>`));
+  assert.match(plain.html, new RegExp(`Waiting for ${ROSTER[9]} to accept<small>100</small>`));
   assert.doesNotMatch(plain.html, /Edit your profile|Trip details/);
   const withSince = render(ui.GuestHome, homeProps(state, me, { duelContent,
-    since:{ text:`Since 8:00 PM · ${putt.name}: ${ROSTER[1]} won`, route:{ type:"event", evId:putt.id } } }));
+    since:{ text:`${putt.name}: ${ROSTER[1]} won`, route:{ type:"event", evId:putt.id } } }));
   assert.doesNotMatch(withSince.html, /aria-label="Latest result"/, "the since line already names it");
 });
 
@@ -578,7 +582,7 @@ test("G6: an unseated guest reads their carried chips with no seat controls; sea
   const props = { state, standings:computeStandings(state), gm:false, onBuyin:noop, onStart:noop, onCancel:noop,
     onLevel:noop, onPause:noop, onBust:noop, onUnbust:noop, onCount:noop, onReview:noop };
   const away = render(app.PokerCard, { ...props, me:ROSTER[0] }, state, app.PlayerIdentityProvider);
-  assert.match(away.html, /Not seated · your 1,400 chips carry/);
+  assert.match(away.html, /Not seated<[/]span><b>1,400<[/]b>/);
   assert.ok(!away.buttons.some(button => ["Count", "I busted", "Recount"].includes(button.name)));
   const seated = render(app.PokerCard, { ...props, me:ROSTER[1] }, state, app.PlayerIdentityProvider);
   assert.ok(seated.buttons.some(button => button.name === "Count"));
@@ -588,7 +592,7 @@ test("G6: an unseated guest reads their carried chips with no seat controls; sea
   const setup = render(app.PokerCard, { ...props, me:ROSTER[0] }, state, app.PlayerIdentityProvider);
   assert.ok(setup.buttons.some(button => button.name === "All stacks"));
   assert.ok(!setup.buttons.some(button => button.name === "Everyone"));
-  assert.match(setup.html, /Not seated · your 1,400 chips carry/);
+  assert.match(setup.html, /Not seated<[/]span><b>1,400<[/]b>/);
 });
 
 test("G13 G15: a settled duel joins the update line instead of replacing it", () => {
@@ -611,7 +615,7 @@ test("G20: an away guest sits out on Home and nobody can challenge an away playe
   state.onDeck = pairs.id;
   state.away = { [me]:true };
   const view = render(ui.GuestHome, homeProps(state, me));
-  assert.match(view.html, /You are marked away/);
+  assert.match(view.html, /Marked away/);
   const live = fresh();
   live.away = { [ROSTER[3]]:true };
   const card = p => render(ui.PlayerSheet, { state:live, me, p, standings:computeStandings(live), events:BUILTIN_EVENTS,

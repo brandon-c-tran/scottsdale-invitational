@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { BONE, DISPLAY, SANS, label } from "./theme.js";
+import { BONE, DISPLAY, SANS } from "./theme.js";
 import { useSheetPresence } from "./sheetMotion.js";
+import { Icon } from "./Icon.jsx";
+import { EventName, OneSafe } from "./OneSafe.jsx";
+import { MenuRow, MenuGroup } from "./Menu.jsx";
 
 function Tag({ children, tone="dim", style }) {
   const tones = {
@@ -9,7 +12,7 @@ function Tag({ children, tone="dim", style }) {
     flame: { color:"var(--live2)", background:"rgba(192,71,58,0.14)" },
     green: { color:"var(--green)", background:"var(--green-tint)" },
   };
-  return <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+  return <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:13, letterSpacing:"0.05em",
     padding:"3px 8px", borderRadius:6, textTransform:"uppercase", ...tones[tone], ...style }}>{children}</span>;
 }
 /* Variant is hierarchy, not appearance: primary is the one next thing,
@@ -53,8 +56,8 @@ function ActionButton({ children, onClick, variant="primary", pending, disabled,
   return (
     <button onClick={handle} disabled={off} aria-busy={waiting || undefined} {...props}
       style={{ fontFamily:SANS, fontWeight:600, letterSpacing:"0",
-      fontSize: compact ? 12 : 13, padding: compact ? "8px 11px" : "12px 16px",
-      borderRadius:6, minHeight: compact ? 44 : 48,
+      fontSize: compact ? 13 : 15, padding: compact ? "8px 12px" : "12px 16px",
+      borderRadius:8, minHeight: compact ? 44 : 48, boxShadow:"var(--glass-edge)",
       cursor: off ? "default" : "pointer", opacity: disabled ? 0.35 : waiting ? 0.6 : 1,
       transition:"transform .1s, opacity .15s", ...ACTION_VARIANTS[variant], ...style }}>{children}</button>
   );
@@ -65,9 +68,9 @@ function IconButton({ label, onClick, size=38, selected, disabled, style, childr
     <button onClick={onClick} disabled={disabled} aria-label={label} title={label} {...props}
       style={{ width:size, height:size, borderRadius:5, flexShrink:0,
       cursor: disabled ? "default" : "pointer",
-      background: selected ? "var(--sun)" : "transparent",
-      border:"1px solid " + (selected ? "var(--sun)" : "var(--line)"),
-      color: selected ? "var(--ink0)" : "var(--ink)",
+      background: selected ? "var(--info-tint)" : "transparent",
+      border:"1px solid " + (selected ? "var(--lamp-info)" : "var(--line)"),
+      color: selected ? "var(--lamp-info)" : "var(--ink)",
       display:"flex", alignItems:"center", justifyContent:"center",
       opacity: disabled ? 0.35 : 1, ...style }}>{children}</button>
   );
@@ -79,58 +82,7 @@ const BTN_KIND_VARIANT = { primary:"primary", dark:"secondary", ghost:"tertiary"
 function Btn({ kind="primary", ...props }) {
   return <ActionButton variant={BTN_KIND_VARIANT[kind]} {...props} />;
 }
-/* A menu is not a button rack. Hierarchy in a menu comes from grouping and
-   order, so every row shares one quiet shape, the note carries the live fact,
-   and only a destructive row changes ink. */
-function MenuRow({ name, note, tone, onClick, disabled, last }) {
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
-  const handle = () => {
-    if (busy || disabled || busyRef.current || !onClick) return;
-    busyRef.current = true;
-    const finish = () => { busyRef.current = false; setBusy(false); };
-    try {
-      const result = onClick();
-      if (result && typeof result.then === "function") {
-        setBusy(true);
-        return Promise.resolve(result).then(value => { finish(); return value; }, finish);
-      }
-      busyRef.current = false;
-      return result;
-    } catch (error) { busyRef.current = false; throw error; }
-  };
-  return (
-    <button onClick={handle} disabled={disabled || busy} aria-busy={busy || undefined}
-      style={{ display:"flex", alignItems:"center", gap:10, width:"100%", textAlign:"left",
-      minHeight:48, padding:"12px 14px", background:"transparent", border:"none",
-      borderBottom: last ? "none" : "1px solid var(--line)",
-      cursor: disabled || busy ? "default" : "pointer",
-      opacity: disabled ? 0.35 : busy ? 0.6 : 1 }}>
-      <span style={{ flex:1, minWidth:0 }}>
-        <span style={{ display:"block", fontFamily:SANS, fontWeight:700, fontSize:13.5,
-          letterSpacing:"0.04em", textTransform:"uppercase",
-          color: tone === "destructive" ? "var(--clay-text)" : "var(--ink)" }}>{name}</span>
-        {note && <span style={{ display:"block", fontFamily:SANS, fontSize:12, color:"var(--muted)",
-          marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{note}</span>}
-      </span>
-      <span aria-hidden="true" style={{ fontFamily:SANS, fontWeight:700, fontSize:15,
-        color:"var(--muted)" }}>›</span>
-    </button>
-  );
-}
-function MenuGroup({ title, children }) {
-  const rows = React.Children.toArray(children).filter(Boolean);
-  if (!rows.length) return null;
-  return (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ ...label, marginBottom:7 }}>{title}</div>
-      <div style={{ border:"1px solid var(--line)", borderRadius:14, background:"var(--paper2)",
-        overflow:"hidden" }}>
-        {rows.map((row, i) => React.cloneElement(row, { last: i === rows.length - 1 }))}
-      </div>
-    </div>
-  );
-}
+/* Menus (MenuRow, MenuGroup) live in Menu.jsx, the one menu system. */
 
 /* Something the app keeps reachable in every sheet header (the
    commissioner's walkout Stop). Nothing is docked by default. */
@@ -138,7 +90,12 @@ const SheetDock = createContext(null);
 
 let openSheets = 0;
 let pageOverflow = "";
-function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100 }) {
+/* `show`: the title names an event or a person, so it is lettered in the
+   backglass face rather than set as a label. */
+/* `heading={false}`: the body letters its own hero (an announcement), so the
+   header carries only its controls; the title still names the dialog */
+function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100, show = false,
+  heading = true }) {
   const dialog = useRef(null);
   const overlay = useRef(null);
   useSheetPresence(overlay, dialog);
@@ -184,11 +141,13 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
         {/* Shared sheet header stays in the surrounding surface palette. */}
         <div className="fd-sheet-header">
           {onBack && <IconButton label="Back" onClick={onBack} size={44} disabled={busy}
-            style={{ fontSize:18, marginLeft:-6 }}>‹</IconButton>}
-          <div className="fd-sheet-heading"><div>{title}</div>{subtitle && <small>{subtitle}</small>}</div>
+            style={{ marginLeft:-6, border:0 }}><span style={{ display:"flex", transform:"scaleX(-1)" }}><Icon name="next" size={20} /></span></IconButton>}
+          {heading ? <div className={`fd-sheet-heading${show ? " is-show" : ""}`}><div>{typeof title === "string" ? <EventName name={title} /> : title}</div>
+            {subtitle && <small>{typeof subtitle === "string" ? <OneSafe text={subtitle} /> : subtitle}</small>}</div>
+            : <div className="fd-sheet-heading is-bare" aria-hidden="true" />}
           {headerActions && <div className="fd-sheet-header-actions">{headerActions}</div>}
           {dock && <div className="fd-sheet-dock">{dock}</div>}
-          <IconButton label="Close" onClick={onClose} size={44} disabled={busy} style={{ fontSize:14 }}>✕</IconButton>
+          <IconButton label="Close" onClick={onClose} size={44} disabled={busy} style={{ border:0 }}><Icon name="close" size={20} /></IconButton>
         </div>
         <div className="fd-sheet-body">
           {children}

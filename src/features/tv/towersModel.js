@@ -116,16 +116,22 @@ export const easeOutCubic = t => 1 - (1 - t) ** 3;
 
 /* Pixels per world unit so thirteen towers fit across and the tallest tower
    (one chip per PT, plus its top face) clears the space above the table. */
-export function towerFit({ width, baseY, count = 13, tallest = 10, top = 40, pad = 64 } = {}) {
+export function towerFit({ width, baseY, count = 13, tallest = 10, top = 40, pad = 64, slotPx = 0 } = {}) {
   const g = TOWER_GEOMETRY;
   const el = g.elevationDeg * Math.PI / 180;
   const span = Math.max(1, count - 1) * g.spacing + 2 * g.radius;
-  const across = (width - 2 * pad) / span;
+  /* fixed slots (the horizon): a chip is at most TOWER_SLOT_FILL of its slot */
+  const across = slotPx > 0 ? slotPx * TOWER_SLOT_FILL / (2 * g.radius) : (width - 2 * pad) / span;
   const rise = Math.max(1, tallest) * g.chip * Math.cos(el) + 2 * g.radius * Math.sin(el);
   const up = (baseY - top) / rise;
   return Math.max(4, Math.min(g.maxPxPerUnit, across, up));
 }
 export const towerSlotX = (slot, count, spacing = TOWER_GEOMETRY.spacing) => (slot - (count - 1) / 2) * spacing;
+/* The horizon keeps every tower in its own fixed slot of the canvas, so
+   names and reels never collide however tall the tallest tower grows: the
+   slot is in canvas pixels, and the chip shrinks inside it instead. */
+export const TOWER_SLOT_FILL = 0.56;
+export const towerSlotPx = (slot, count, slotPx) => (slot - (count - 1) / 2) * slotPx;
 
 /* A running count of slow frames. Idle frames never reach it: the scene
    renders on demand and only times frames while something moves. A TV so

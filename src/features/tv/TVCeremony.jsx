@@ -2,18 +2,20 @@ import React, { useEffect, useRef, useState } from "react";
 import { disp, teamLabel, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
-import { drawStepAt, drawSequenceMs, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
+import { EventName } from "../../ui/OneSafe.jsx";
+import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
+import { DRAW_PARTNER_BEAT_MS, drawStepAt, drawSequenceMs, partnerFaces, revealTimeline, startDrawPlayback } from "../weekend/drawReveal.js";
+import "./tv-moments.css";
 import { serverNow } from "../../lib/serverClock.js";
 import {
-  TV_INTRO_AUTO_MS, TV_INTRO_AUTO_REDUCED_MS, TV_REVEAL_HOLD_MS, payoutLine, oddsLine, phaseBand, sessionLabel,
+  TV_INTRO_AUTO_MS, TV_INTRO_AUTO_REDUCED_MS, TV_REVEAL_HOLD_MS, oddsLine, phaseBand,
 } from "./tvModel.js";
 
 /* The TV's own ceremonies. They render INSIDE the scaled canvas, so a 1080p
    set and a 4K set show the same layout; the phone versions stay sheets. */
 
-const formatOf = ev => ev.finale ? "Finale" : ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Team event";
-
-/* The announcement: the game's own moment, its name, what it pays. With
+/* The announcement: the game's own moment, its name, and what it pays as
+   a ladder of medallions on chips (no rules, no meta line). With
    Show Control the event-intro scene drives it; without, the legacy chain
    does, and it closes on its own (or hands over to the draw). */
 export function IntroOverlay({ state, ev, EventSpotlight, handoff = false, reducedMotion = false, onDone = null }) {
@@ -23,20 +25,16 @@ export function IntroOverlay({ state, ev, EventSpotlight, handoff = false, reduc
     const t = setTimeout(() => doneRef.current?.(), reducedMotion ? TV_INTRO_AUTO_REDUCED_MS : TV_INTRO_AUTO_MS);
     return () => clearTimeout(t);
   }, [ev.id, reducedMotion]);
-  const contest = state ? resolveCurrentContest(state, ev) : null;
-  const session = sessionLabel(ev);
-  const facts = [payoutLine(ev), !handoff && state?.onDeck === ev.id ? oddsLine(contest) : null].filter(Boolean);
   return (
     <div className="tv-intro fd-night" role="status" aria-label={`Up next: ${ev.name}`}>
       <div className="tv-intro-band" style={{ background:phaseBand(ev) }} />
-      <div className="tv-label tv-intro-kicker">Up next{session ? ` · ${session}` : ""}</div>
       <div className="tv-intro-moment">
         <div className="tv-intro-moment-scale">
-          {EventSpotlight ? <EventSpotlight gameId={ev.game} big /> : <GameMark id={ev.game} size={200} />}
+          {EventSpotlight ? <EventSpotlight gameId={ev.game} big /> : <GameMark id={ev.game} variant={ev.variant} size={200} />}
         </div>
       </div>
-      <div className="tv-display tv-intro-name">{ev.name}</div>
-      <div className="tv-intro-facts">{formatOf(ev)} · {facts.join(" · ")}</div>
+      <div className="fd-show is-marquee tv-intro-name"><EventName name={ev.name} /></div>
+      <PayoutLadder ev={ev} size="tv" className="tv-intro-ladder" />
       {handoff && <div className="tv-label tv-intro-handoff">Drawing teams</div>}
     </div>
   );
@@ -44,17 +42,21 @@ export function IntroOverlay({ state, ev, EventSpotlight, handoff = false, reduc
 
 /* A draw item as the room reads it: the team name past two players, then
    every face and name, large enough to read from the couch. */
-function DrawLine({ state, avatars, text, size = 64 }) {
+function DrawLine({ state, avatars, text, size = 64, partner = false }) {
   const people = avatars || [];
   const named = people.length > 2;
   return (
     <div className="tv-draw-line">
       <div className="tv-draw-faces">
-        {people.map(p => <Avatar key={p} state={state} p={p} size={size} />)}
+        {people.map((p, i) => partner && i === people.length - 1
+          /* the held beat: this side's last partner lands after the rest */
+          ? <span key={p} className="tv-partner" style={{ "--partner-beat":`${DRAW_PARTNER_BEAT_MS}ms` }}>
+              <Avatar state={state} p={p} size={size} /></span>
+          : <Avatar key={p} state={state} p={p} size={size} />)}
       </div>
       <div className="tv-draw-text">
         <div className="tv-draw-name">{text}</div>
-        {named && <div className="tv-draw-crew">{people.map(p => disp(state, p)).join(" · ")}</div>}
+        {named && <div className="tv-draw-crew">{people.map(p => disp(state, p)).join(", ")}</div>}
       </div>
     </div>
   );
@@ -100,8 +102,8 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
     <div className="tv-reveal fd-night" role="status" aria-live="polite"
       aria-label={`${reveal.title}: ${reveal.subtitle}`}>
       <div className="tv-reveal-head">
-        <div className="tv-label" style={{ color:"var(--sun)" }}>{reveal.title}</div>
-        <div className="tv-display tv-reveal-name">{reveal.subtitle}</div>
+        <div className="fd-show tv-reveal-name"><EventName name={reveal.subtitle} /></div>
+        <div className="tv-label">{reveal.title}</div>
       </div>
       {versus ? (
         <div className="tv-reveal-versus">
@@ -111,7 +113,7 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
               <section className={`tv-reveal-card${index < shown ? " is-shown" : ""}`} aria-hidden={index >= shown}
                 style={settledStyle(index)}>
                 <DrawLine state={state} avatars={team.players} text={teamLabel(state, team)}
-                  size={team.players.length > 3 ? 72 : 96} />
+                  size={team.players.length > 3 ? 72 : 96} partner={team.players.length > 1} />
               </section>
             </React.Fragment>
           ))}
@@ -130,7 +132,8 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
               ) : (
                 <React.Fragment key={j}>
                   {group.vs && j > 0 && <div className="tv-reveal-versus-mark">vs</div>}
-                  <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize} />
+                  <DrawLine state={state} avatars={line.avatars} text={line.text} size={faceSize}
+                    partner={partnerFaces(group)[j] >= 0} />
                 </React.Fragment>
               ))}
             </section>
@@ -150,7 +153,7 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
             ))}
           </div>
         )}
-        {complete && contest && <div className="tv-reveal-odds">Betting open · {oddsLine(contest)}</div>}
+        {complete && contest && <div className="tv-reveal-odds"><b>Betting open</b><span>{oddsLine(contest)}</span></div>}
       </div>
     </div>
   );

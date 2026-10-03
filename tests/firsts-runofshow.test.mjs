@@ -37,11 +37,11 @@ const ui = await load("firsts-runofshow.cjs", `
   export * from "./src/features/results/weekendFacts.js";
   export { chipSnapshot, resultMoment, mergeMoments } from "./src/features/results/resultMoment.js";
   export { ChipReceipt } from "./src/features/results/ChipReceipt.jsx";
-  export { tickerItems, TICKER_TONES, FACT_TONES } from "./src/features/tv/tvModel.js";
+  export { tickerItems, TICKER_ROLES, FACT_ROLES } from "./src/features/tv/tvModel.js";
   export * from "./src/features/director/runOfShow.js";
   export { directorPill, namesOf } from "./src/features/director/directorPill.js";
   export { DirectorPill } from "./src/features/director/DirectorPill.jsx";
-  export { RunOfShowPanel, RunOfShowToggle, useHold, HOLD_MS } from "./src/features/director/RunOfShow.jsx";
+  export { RunOfShowPanel, useHold, HOLD_MS } from "./src/features/director/RunOfShow.jsx";
   export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
 `);
 
@@ -194,9 +194,8 @@ test("team wins name the team; the ticker shows the newest facts beside the late
   /* newest first: the win, then the leader's milestone */
   assert.deepEqual(factItems.map(item => item.text), ["Second win for Sun", `First to 7,000: ${ROSTER[12]}`]);
   assert.equal(factItems[0].players.length, 4);
-  /* every fact tone is one the ticker's contrast check already covers */
-  for (const tone of Object.values(ui.FACT_TONES))
-    assert.ok(ui.TICKER_TONES.includes(tone.replace(/^var\((--[a-z0-9]+)\)$/, "$1")), tone);
+  /* every fact's role is one the ticker draws */
+  for (const role of Object.values(ui.FACT_ROLES)) assert.ok(ui.TICKER_ROLES.includes(role), role);
   /* at most two, newest first */
   const many = [1, 2, 3].map(n => ({ id:`f${n}`, kind:"wins", tag:"Milestone", at:n, players:[evan], text:`fact ${n}` }));
   const shown = ui.tickerItems({ state, events, standings:computeStandings(state), allTied:false, facts:many, now:0 })
@@ -422,14 +421,21 @@ test("run of show: a replay the TV owes shows while another winner is still on s
   assert.equal(ui.runOfShow(state, eventsNow, null, { showControl:false }).replay, null);
 });
 
-test("the pill keeps a 44px run-of-show button, and the panel is read-only", () => {
+test("the pill keeps one primary action; a 44px more button holds the run of show and the edge cases", () => {
   const state = structuredClone(EMPTY_STATE);
   const director = resolveDirector(state, events, { showControl:false });
   const model = ui.directorPill(state, events, director, {});
   const pill = inProvider(React.createElement(ui.DirectorPill, { model, state, events, director,
     onWrite:async () => ({ ok:true }), onOpen:() => {} }));
-  assert.match(pill, /class="fd-runshow-toggle"[^>]*aria-expanded="false"[^>]*aria-label="Run of show"/);
-  assert.doesNotMatch(pill, /class="fd-runshow"/);
+  assert.match(pill, /class="fd-pill-more has-actions"[^>]*aria-expanded="false"[^>]*aria-label="More"/);
+  assert.doesNotMatch(pill, /class="fd-runshow/, "the tray opens on demand");
+  assert.ok(model.extras.some(extra => extra.label === "Skip" && extra.kind === "skip"), "Skip is an edge case");
+  assert.doesNotMatch(pill.replace(/<[^>]+>/g, " "), /\bSkip\b/, "Skip is never promoted beside the pill");
+  /* in the tray the run of show is embedded: the tray owns its close */
+  const embedded = inProvider(React.createElement(ui.RunOfShowPanel, { state, events, director, now:0, embedded:true }));
+  assert.equal((embedded.match(/<button/g) || []).length, 0);
+  assert.doesNotMatch(embedded, /fd-runshow-slot">Now</, "the pill is Now: the tray never repeats it");
+  assert.match(embedded, /fd-runshow-slot">Next</);
   const panel = inProvider(React.createElement(ui.RunOfShowPanel, { state, events, director, now:0 }));
   for (const slot of ["Now", "Next", "Then"]) assert.match(panel, new RegExp(`fd-runshow-slot">${slot}<`));
   assert.match(panel, /Announce<\/b><small>Long Putt/);
@@ -437,7 +443,8 @@ test("the pill keeps a 44px run-of-show button, and the panel is read-only", () 
   assert.equal((panel.match(/<button/g) || []).length, 1);
   assert.match(panel, /aria-label="Close run of show"/);
   const css = readFileSync(new URL("../src/features/director/run-of-show.css", import.meta.url), "utf8");
-  assert.match(css, /\.fd-runshow-toggle \{[^}]*width:44px; height:44px;/);
+  const dock = readFileSync(new URL("../src/features/director/director.css", import.meta.url), "utf8");
+  assert.match(dock, /\.fd-pill-more \{[^}]*width:48px; min-height:44px;/);
   assert.match(css, /\.fd-runshow-x \{[^}]*width:44px; height:44px;/);
   assert.match(css, /-webkit-touch-callout:none/);
   assert.doesNotMatch(css, /#[0-9a-f]{3,6}\b/i);

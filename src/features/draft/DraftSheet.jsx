@@ -8,7 +8,9 @@ import { MOTION, fly, prefersReducedMotion, rectVisible, useFreshChange } from "
 import { playSound, unlockSound } from "../../lib/sound.js";
 import { useFlip, useFreshHold } from "../../lib/motionKit.js";
 import { landedPick } from "./draftModel.js";
+import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import "./draft.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const identityStyle = (state, player) => ({ "--draft-color":resolvePlayerIdentity(state.profiles, player).color });
 const reference = turn => ({ draftId:turn.draftId, pickIndex:turn.pickIndex, draftRevision:turn.draftRevision });
@@ -24,13 +26,16 @@ export function DraftEntry({ state, ev, me, onOpen }) {
   const draft = state.drafts?.[ev?.id];
   if (!draft || state.draws?.[ev.id]) return null;
   const turn = draftTurn(draft), mine = turn.captain === me;
-  return <button type="button" className={`fd-draft-entry${mine ? " is-mine" : ""}`} onClick={onOpen}
+  return <button type="button" className={`fd-draft-entry${turn.complete ? " is-done" : mine ? " is-mine" : ""}`} onClick={onOpen}
     aria-label={`Open ${ev.name} draft`}>
     <BankChip p={turn.captain || draft.teams[0].captain} size={44}/>
-    <span><small>{turn.complete ? "Teams picked" : mine ? "Your pick" : "Draft in progress"}</small>
-      <strong>{ev.name}</strong><span>{turn.complete ? "Waiting for teams to be confirmed"
-        : `Pick ${turn.pickIndex + 1} · ${disp(state, turn.captain)}`}</span></span>
-    <b aria-hidden="true">↗</b>
+    {/* the state is a lamp and the heading, never a label over it: your
+        pick flashes and is the heading itself, a running draft is a steady
+        lamp on the event's name, a finished one is unlit */}
+    <span><strong><i className={`fd-insert ${turn.complete ? "is-done" : mine ? "is-pending" : "fd-beat-dot"}`} aria-hidden="true" />
+        {mine && !turn.complete ? "Your pick" : <EventName name={ev.name} />}</strong>
+      <span>{turn.complete ? "Teams picked" : mine ? <EventName name={ev.name} /> : `${disp(state, turn.captain)}'s pick`}</span></span>
+    <b aria-hidden="true"><Icon name="open" size="1em" /></b>
   </button>;
 }
 
@@ -118,7 +123,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       : previous.length < n ? [...previous, player] : previous);
   };
   const crew = draft?.roles || roles;
-  const shell = children => <Sheet title={ev.name} subtitle="Captains draft" onClose={onClose}
+  const shell = children => <Sheet title={ev.name} subtitle="Captains draft" show onClose={onClose}
     busy={!!pending} wide className="fd-draft-sheet">{children}</Sheet>;
   const confirmed = state.draws?.[ev.id];
   if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(<ConfirmedTeams state={state}
@@ -127,7 +132,6 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
 
   if (!draft) return shell(<div className="fd-draft">
     <div className="fd-draft-section-title"><h2>Choose {n} captains</h2><span>{n} teams of {size}</span></div>
-    <p className="fd-draft-note">Pick order reverses each round.</p>
     <div className="fd-draft-methods" aria-label="Choose captains">
       {[["pick","Choose"],["seed","Balanced"],["random","Random"]].map(([id,text]) =>
         <button type="button" key={id} aria-pressed={method === id} disabled={!!pending}
@@ -137,7 +141,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
       {Array.from({ length:n }, (_, index) => <li key={`${index}:${captains[index] || "empty"}`} className={captains[index] ? "is-filled" : ""}>
         <small>{index + 1}</small>{captains[index] ? <button type="button" disabled={!!pending}
           onClick={() => toggleCaptain(captains[index])} aria-label={`Remove ${disp(state, captains[index])} as captain`}>
-          <BankChip p={captains[index]} size={36}/><span>{disp(state, captains[index])}</span><b aria-hidden="true">×</b>
+          <BankChip p={captains[index]} size={36}/><span>{disp(state, captains[index])}</span><b aria-hidden="true"><Icon name="close" size="1em" /></b>
         </button> : <span>Captain {index + 1}</span>}
       </li>)}
     </ol>
@@ -175,11 +179,11 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     <section className={`fd-draft-turn${myTurn ? " is-mine" : ""}${turn.complete ? " is-complete" : ""}`}
       aria-label="Current pick" style={identityStyle(state, turn.captain || draft.teams[0].captain)}>
       <div className="fd-draft-turn-copy" key={`${draft.id}:${turn.draftRevision}`}>
-        <small>{turn.complete ? `${draft.teams.length} teams · ${size} players each` : `Round ${turn.round} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`}</small>
         <h2>{turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`}</h2>
-        {(turn.complete || canPick && gm && !myTurn) && <p>{turn.complete
-          ? gm ? "Confirm the teams to reveal the draw." : "Waiting for the commissioner to confirm."
-          : `Picking for ${disp(state, turn.captain)}`}</p>}
+        {/* where the draft is, under the headline it qualifies */}
+        <small>{turn.complete ? <><span>{draft.teams.length} teams</span><span>{size} players each</span></>
+          : <><span><OneSafe text={`Round ${turn.round}`} /></span><span><OneSafe text={`Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`} /></span></>}</small>
+        {!turn.complete && canPick && gm && !myTurn && <p>{`Picking for ${disp(state, turn.captain)}`}</p>}
       </div>
       <span className="fd-draft-turn-chip" key={`${draft.id}:${turn.captain || "done"}`} aria-hidden="true">
         <BankChip p={turn.captain || draft.teams[0].captain} size={64}/>
@@ -201,7 +205,7 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
     {last && <div className="fd-draft-latest" key={`${draft.id}:${draft.picks.length}:${last.player}`}>
       <span className="fd-draft-pick-stamp">{String(draft.picks.length).padStart(2,"0")}</span>
       <PlayerLink state={state} player={last.player} onPlayer={onPlayer} disabled={!!pending}/>
-      <span>→ {disp(state,draft.teams[last.team].captain)}</span>
+      <span><Icon name="then" size="1em" /> {disp(state,draft.teams[last.team].captain)}</span>
     </div>}
     {blocked && <p className="fd-draft-error" role="status">Draft paused.</p>}
     {error && <p className="fd-draft-error" role="alert">{error}</p>}
@@ -270,7 +274,7 @@ function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
   const role = (draw.roles || []).find(item => item.player === me);
   return <div className="fd-draft">
     <div className="fd-draft-section-title"><h2>Teams confirmed</h2><span>{draw.teams.length} teams of {size}</span></div>
-    {role && <p className="fd-draft-note">Your role · {overflowRoleMeta(role.role).label}</p>}
+    {role && <p className="fd-draft-note fd-draft-role"><small>Your role</small><strong>{overflowRoleMeta(role.role).label}</strong></p>}
     <div className="fd-draft-teams" style={{ "--draft-columns":Math.min(draw.teams.length, 3) }}>
       {order.map(({ team, index }) => {
         const captain = team.captain || team.players[0];

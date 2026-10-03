@@ -21,9 +21,10 @@ import { Guide } from "../src/features/weekend/Guide.jsx";
 import { HowToSheet } from "../src/features/weekend/HowToSheet.jsx";
 import { VenueCard } from "../src/features/travel/Travel.jsx";
 import { Shell } from "../src/ui/Shell.jsx";
-import { AppHeader, AppNavigation } from "../src/ui/AppChrome.jsx";
+import { AppHeader, AppNavigation, headerStanding } from "../src/ui/AppChrome.jsx";
 import { ActionButton, MenuGroup, MenuRow, Sheet } from "../src/ui/controls.jsx";
 import { GameMark } from "../src/ui/GameMark.jsx";
+import { usePhaseTheme } from "../src/ui/usePhaseTheme.js";
 
 const me = ROSTER[0];
 const events = BUILTIN_EVENTS;
@@ -111,9 +112,12 @@ function ProfilePreview({ state, close, back, save }) {
 }
 
 function Preview() {
-  const [kind, setKind] = useState("before");
-  const [state, setState] = useState(() => fixture("before"));
-  const [tab, setTab] = useState("board");
+  /* ?scenario=<id>&tab=<board|sched|bets|guide> opens a state directly (headless screenshots) */
+  const query = new URLSearchParams(window.location.search);
+  const initialKind = scenarios.some(([id]) => id === query.get("scenario")) ? query.get("scenario") : "before";
+  const [kind, setKind] = useState(initialKind);
+  const [state, setState] = useState(() => fixture(initialKind));
+  const [tab, setTab] = useState(() => query.get("tab") || "board");
   const [section, setSection] = useState("trip");
   const [stack, setStack] = useState([]);
   const [failure, setFailure] = useState(false);
@@ -149,6 +153,8 @@ function Preview() {
   };
   const standings = computeStandings(state);
   const home = deriveHomeModel({ state, me, events, standings });
+  /* the session's glass, as the app sets it (TH1): the painting follows it */
+  usePhaseTheme({ state, events, settled:true });
   const bets = () => navigate("bets");
   const ownProfile = () => open({ type:"profile" });
   const crewCard = ({ roles }) => <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
@@ -172,6 +178,7 @@ function Preview() {
       </div>
     </div>
     <AppHeader state={state} me={me} connected loaded gm={false} GameMark={GameMark}
+      standing={tab === "board" ? null : headerStanding(state, standings, me)} onStandings={() => open({ type:"standings" })}
       onHome={() => navigate("board")} onProfile={ownProfile} onMenu={() => open({ type:"menu" })}
       wagerEv={tab === "board" || tab === "bets" ? null : home.betting?.event} wagerMarketOpen={home.betting?.open} onBets={bets} />
     {notice && <div role="status" style={{ padding:"10px 18px", color:"var(--clay)", fontSize:12 }}>

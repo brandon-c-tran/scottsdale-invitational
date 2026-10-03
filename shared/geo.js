@@ -143,7 +143,7 @@ export function geoBeat(state, ev) {
   const rounds = state?.geoRounds || [];
   if (ev?.game !== "where" || !rounds.length || state?.results?.[ev.id]) return null;
   const geo = state.geo?.eventId === ev.id && state.geo.order ? state.geo : null;
-  if (!geo) return { type:"geo-start", label:"Start game", subject:`${ev.name} · ${rounds.length} photos` };
+  if (!geo) return { type:"geo-start", label:"Start game", subject:ev.name };
   const roundId = geoCurrentId(geo);
   const photo = `Photo ${geo.index + 1} of ${geo.order.length}`;
   if (geo.phase === "guess") return { type:"geo-reveal", label:"Reveal", subject:photo, roundId };

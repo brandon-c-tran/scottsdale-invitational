@@ -11,6 +11,8 @@ import { LastCardFace } from "./LastCard.jsx";
 import { chartModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage, shareCardImages } from "./cardImage.js";
 import { keepsakeModel } from "./keepsake.js";
+import { OneSafe } from "../../ui/OneSafe.jsx";
+import { GlassArt } from "../../ui/GlassArt.jsx";
 import "./keepsake.css";
 
 /* D7 "The weekend, kept": Weekend's edition section once the board is
@@ -36,7 +38,8 @@ function PlayerChip({ state, p, size, onPlayer, named = false }) {
   </button>;
 }
 
-/* one card in the rack: the last card at a glance, in its owner's color */
+/* one card in the rack: the last card at a glance, in its owner's color;
+   their place and name, never their number */
 function MiniCard({ model, onOpen }) {
   const identity = usePlayerIdentity(model.player);
   const chart = useMemo(() => chartModel(model.history, { width:140, height:40, top:6, bottom:4, left:2, right:4 }),
@@ -44,8 +47,7 @@ function MiniCard({ model, onOpen }) {
   return <button type="button" className="fd-kept-card" onClick={() => onOpen(model.player)}
     style={{ "--card-color":identity.color, "--card-ink":cardInk(identity.color) }}
     aria-label={`${model.name}, ${model.place}, ${fmt(model.pts)} chips. Last card`}>
-    <span className="fd-kept-card-top" aria-hidden="true"><b>{model.place}</b>
-      {model.num != null && <span>{String(model.num).padStart(2, "0")}</span>}</span>
+    <span className="fd-kept-card-top" aria-hidden="true"><b>{model.place}</b></span>
     <strong aria-hidden="true">{model.name}</strong>
     <svg viewBox={`0 0 ${chart.width} ${chart.height}`} aria-hidden="true" preserveAspectRatio="none">
       <line x1="2" x2={chart.width - 4} y1={chart.baseY} y2={chart.baseY} stroke="currentColor" strokeOpacity=".35" strokeDasharray="2 3" />
@@ -106,7 +108,7 @@ function Plate({ state, plate, ev, me, onPlayer, onBracket }) {
     </div>
     {plate.posted ? <ol className="fd-kept-places">
       {plate.places.map(place => <li key={place.place} className={place.place === 0 ? "is-first" : undefined}>
-        <span className="fd-kept-place">{place.label}</span>
+        <span className="fd-kept-place"><OneSafe text={place.label} /></span>
         <span className="fd-kept-people">{place.players.map(p => <PlayerChip key={p} state={state} p={p}
           size={place.place === 0 ? 34 : 26} onPlayer={onPlayer} named={place.players.length === 1} />)}</span>
         {place.players.length > 1 && <span className="fd-kept-team">{place.team
@@ -220,11 +222,13 @@ export function Keepsake({ state, events, standings, me, gm = false, onPlayer, o
   const openCard = model.cards.find(card => card.player === open) || null;
   const lead = model.lead;
   return <div className="fd-kept">
-    {champs.length > 0 && <header className="fd-kept-champ">
+    {champs.length > 0 && <header className="fd-kept-champ fd-glass-scene">
+      <GlassArt phase="san" clear />
+      <span className="fd-kept-edition fd-glass-window">{model.title}</span>
       <span className="fd-kept-champ-chips">{champs.map(champ => <PlayerChip key={champ.player} state={state} p={champ.player}
         size={champs.length > 1 ? 48 : 64} onPlayer={onPlayer} />)}</span>
       <span className="fd-kept-champ-name"><small>{champs.length > 1 ? "Tied for the championship" : "Champion"}</small>
-        <b>{names(champs)}</b><strong>{fmt(champs[0].pts)}</strong></span>
+        <b className="fd-glass-letter">{names(champs)}</b><strong>{fmt(champs[0].pts)}</strong></span>
       <TrophyHero size={84} plate="" />
     </header>}
 

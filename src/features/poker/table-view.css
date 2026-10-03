@@ -1,43 +1,58 @@
 /* D8 Table view: the phone flat on the felt. One column, read from a seat:
    level, blinds as large as the width allows, the clock, then the stack
-   this player was dealt. Night surfaces and tokens only. */
+   this player was dealt. It is a backglass score panel: the blinds sit in a
+   black reel window, the clock runs on drums in the live magenta, the level
+   chip sits in an amber ring that runs out with the level, and the dealt
+   stack is an amber reel. Tokens only. */
 .fd-table-view { position:fixed; inset:0; z-index:380; display:flex; flex-direction:column; overflow-y:auto;
   background:var(--night-deep); color:var(--bone); font-family:var(--fd-body);
   padding:calc(env(safe-area-inset-top, 0px) + 10px) 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
   animation:fd-table-view-in var(--motion-stamp, 320ms) var(--ease-out, ease-out) both; }
 @keyframes fd-table-view-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
 
-.fd-table-view-bar { display:flex; align-items:center; gap:12px; min-height:48px; }
-.fd-table-view-level { flex:1; min-width:0; font:700 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; color:var(--night-text); }
+.fd-table-view-bar { display:flex; align-items:center; gap:12px; min-height:60px; }
+.fd-table-view-level { flex:1; min-width:0; font:800 16px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--night-text); }
 .fd-table-view-exit { min-width:64px; min-height:44px; padding:0 16px; border-radius:10px; cursor:pointer;
-  background:transparent; color:var(--bone); border:1.5px solid var(--ghost-line); font:700 13px var(--fd-body); letter-spacing:.04em; }
-.fd-table-view-exit:focus-visible, .fd-table-view-entry button:focus-visible { outline:2px solid var(--accent2); outline-offset:3px; }
+  background:var(--paper); color:var(--bone); border:1px solid var(--ghost-line); font:700 14px var(--fd-body); box-shadow:var(--glass-edge); }
+.fd-table-view-exit:focus-visible, .fd-table-view-entry button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+/* the level ring: amber, because blinds are chips */
+.fd-table-view-ring { position:relative; width:56px; height:56px; flex-shrink:0; display:grid; place-items:center; }
+.fd-table-view-ring svg { position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); overflow:visible; }
+.fd-table-view-ring circle { fill:none; stroke-width:3.5; }
+.fd-table-view-ring .track { stroke:var(--paper2); }
+.fd-table-view-ring .run { stroke:var(--sun); stroke-linecap:round; filter:drop-shadow(0 0 3px var(--sun));
+  transition:stroke-dashoffset 1s linear; }
+.fd-table-view-ring.is-paused .run { stroke:var(--muted); filter:none; }
 
-.fd-table-view-label { display:block; font:700 11px/1.2 var(--fd-body); letter-spacing:.12em; text-transform:uppercase; color:var(--night-text); }
+.fd-table-view-label { display:block; color:var(--night-text); font:800 14px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
 .fd-table-view-blinds { margin-top:auto; padding-top:18px; }
-.fd-table-view-blinds-fit { line-height:.9; margin-top:4px; }
-.fd-table-view-blinds-num { font-family:var(--fd-display); font-weight:700; font-size:inherit; line-height:.92; color:var(--bone);
-  font-variant-numeric:tabular-nums; letter-spacing:-.01em; white-space:nowrap; }
+/* the reel window: black glass set into the panel */
+.fd-table-view-blinds-fit { line-height:.9; margin-top:8px; padding:10px 12px 8px; border-radius:14px; background:var(--ink0);
+  box-shadow:inset 0 3px 10px color-mix(in srgb, var(--ink0) 80%, transparent), 0 0 0 1px var(--line), var(--glass-edge); overflow:hidden; }
+.fd-table-view-blinds-num { font-family:var(--fd-display); font-weight:800; font-size:inherit; line-height:.92; color:var(--bone);
+  font-variant-numeric:tabular-nums; letter-spacing:0; white-space:nowrap; }
 
-.fd-table-view-clock { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-top:14px; }
-.fd-table-view-clock b { font:700 64px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
-.fd-table-view-clock b.is-late { color:var(--live2); }
-.fd-table-view-clock b.is-paused { color:var(--night-text); }
+.fd-table-view-clock { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:16px; }
+.fd-table-view-clock b { font:800 68px/1 var(--fd-display); color:var(--lamp-live-text); font-variant-numeric:tabular-nums;
+  text-shadow:0 0 22px color-mix(in srgb, var(--lamp-live) 45%, transparent); }
+.fd-table-view-clock b.is-late { color:var(--clay-text); text-shadow:0 0 22px color-mix(in srgb, var(--clay) 45%, transparent); }
+.fd-table-view-clock b.is-paused { color:var(--night-text); text-shadow:none; }
 .fd-table-view:focus { outline:none; }
-.fd-table-view-clock span { font:600 15px/1.3 var(--fd-body); color:var(--night-text); font-variant-numeric:tabular-nums; }
+.fd-table-view-clock > span { font:600 16px/1.3 var(--fd-body); color:var(--night-text); font-variant-numeric:tabular-nums; }
 
 .fd-table-view-seat { margin-top:auto; padding-top:22px; border-top:1px solid var(--night-line); display:flex; flex-direction:column; gap:14px; }
-.fd-table-view-stack b { display:block; margin-top:4px; font:700 48px/1 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; }
+.fd-table-view-stack b { display:block; margin-top:6px; font:800 52px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
 .fd-table-view-denoms { gap:12px; }
 .fd-table-view-denoms .fd-poker-count { font-size:13px; }
-.fd-table-view-out { margin:0; font:700 40px/1 var(--fd-display); color:var(--clay-text); text-transform:uppercase; }
+.fd-table-view-out { margin:0; font:900 46px/1.05 var(--fd-show); color:var(--clay-text); }
 .fd-table-view-in { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.fd-table-view-in span { font:600 13px/1.2 var(--fd-body); color:var(--night-text); }
+.fd-table-view-in span { font:600 14px/1.2 var(--fd-body); color:var(--night-text); }
 
 /* the entry on the table card */
 .fd-table-view-entry { border-top:1px solid var(--night-line); }
-.fd-table-view-entry button { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:44px;
-  padding:0 14px; background:transparent; border:0; cursor:pointer; color:var(--sun);
-  font:700 12px var(--fd-body); letter-spacing:.06em; text-transform:uppercase; }
+/* the one link treatment: cyan, sentence case, the open arrow beside it */
+.fd-table-view-entry button { display:inline-flex; align-items:center; gap:6px; min-height:48px;
+  padding:0 14px; background:transparent; border:0; cursor:pointer; color:var(--lamp-info);
+  font:600 14px/1.2 var(--fd-body); letter-spacing:0; text-transform:none; }
 
 @media (prefers-reduced-motion: reduce) { .fd-table-view { animation:none; } }

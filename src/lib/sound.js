@@ -13,22 +13,26 @@
       user's own. A server-anchored cue that is already late is dropped, so a
       TV that joins mid-sequence is silent.
    3. Hush: while a walkout plays (state.showControl.audio.walkout, until its
-      `until`) and while Quick Draw is armed (armed until the reaction is
-      captured), nothing plays, and anything already ringing fades out over
-      150 ms. A sound can never pass for GO.
+      `until`) everything ducks to 25% over 150 ms, under the win song. While
+      Quick Draw is armed (armed until the reaction is captured) nothing
+      plays and anything already ringing fades out over 150 ms: a sound can
+      never pass for GO.
    4. Never block input or a write on audio. Every call is synchronous,
       cheap, and swallows its own failures.
    5. Unlock and resume inside the user's own taps (unlockSound(), called
       beside tapTick(), plus one global first-touch listener), and again on
-      visibilitychange. iOS: the session is "ambient" (mixes with the guest's
-      own music, obeys the silent switch), set before the context exists.
-      An "interrupted" or suspended context just waits for the next tap.
+      visibilitychange. iOS: the session is "playback" (plays through the
+      silent switch), set before the context exists and kept for every
+      phone sound, song previews included. An "interrupted" or suspended
+      context just waits for the next tap.
    6. The device toggle "Sound" (localStorage si-sound, on by default) is the
       only opt-out. Reduced motion does not mute; the caller plays the
       sequence's one summary sound instead.
 
    API
      playSound(id, { bus, at, delayMs, pan, key, lateMs, opts })  -> handle|null
+     soundEarlyMs(), setSoundEarlyMs(ms)   the TV's "Sound early by" (room bus)
+     tvSoundStatus()                       "on" | "blocked", for the commissioner
      cueAt(id, serverTime, options)        a sound on the room's clock
      roomChipsLanded(landings)             TV board chips, through the density rule
      unlockSound(), installSoundUnlock(), primeSound()
@@ -41,6 +45,9 @@
 
 import { useEffect, useState } from "react";
 import { makeEngine, setRoom, setListen, playRecipe, isSound, limitChips, roomKeyFor } from "./soundKit.js";
+/* the kit's pure pitch rules, for callers that pick a note (the crown's chord,
+   the chip rain's ladder, a chip's weight) without touching the kit */
+export { chordNote, chipPitch, ladderNote, LADDER, CROWN_CHORD } from "./soundKit.js";
 import { serverNow } from "./serverClock.js";
 import { currentFrame } from "./frameGate.js";
 
@@ -54,6 +61,8 @@ export const LATE_MS = 300;
    checked again right before they are scheduled on the audio clock */
 export const LOOKAHEAD_MS = 250;
 export const HUSH_RAMP_S = 0.15;
+/* a win song ducks the app's sounds to this level; Quick Draw mutes */
+export const WALKOUT_DUCK = 0.25;
 /* a remote moment counts as fresh this long after its frame (motion.js
    FRESH_WINDOW_MS; kept literal here so this module never imports React code) */
 export const SOUND_FRESH_MS = 1500;
@@ -64,9 +73,27 @@ export const TV_KIOSK_COMMAND = "chrome --kiosk --autoplay-policy=no-user-gestur
 export const tvKioskCommand = (origin = "https://fielddayseries.com") =>
   `chrome --kiosk --autoplay-policy=no-user-gesture-required ${String(origin).replace(/\/+$/, "")}/tv`;
 
+/* The TV's "Sound early by" (device-local, si-tv-early): a TV or soundbar
+   that delays its audio (HDMI, ARC, Bluetooth) lands room cues late against
+   the picture, so the room bus is scheduled this many ms earlier. */
+export const TV_EARLY_KEY = "si-tv-early";
+export const TV_EARLY_MAX_MS = 400;
+export const TV_EARLY_STEP_MS = 10;
+export const clampEarlyMs = ms => {
+  const n = Math.round((Number(ms) || 0) / TV_EARLY_STEP_MS) * TV_EARLY_STEP_MS;
+  return Math.max(0, Math.min(TV_EARLY_MAX_MS, n));
+};
+
 /* ── pure rules ── */
 const storage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 export const soundOptedOut = () => { try { return storage()?.getItem(SOUND_KEY) === "off"; } catch { return false; } };
+export const soundEarlyMs = () => { try { return clampEarlyMs(storage()?.getItem(TV_EARLY_KEY)); } catch { return 0; } };
+export const setSoundEarlyMs = ms => {
+  const next = clampEarlyMs(ms);
+  try { next ? storage()?.setItem(TV_EARLY_KEY, String(next)) : storage()?.removeItem(TV_EARLY_KEY); } catch {}
+  notify();
+  return next;
+};
 export const setSoundOptOut = off => {
   try { off ? storage()?.setItem(SOUND_KEY, "off") : storage()?.removeItem(SOUND_KEY); } catch {}
   if (off) hushAll();
@@ -76,18 +103,21 @@ export const setSoundOptOut = off => {
 /* which surface a bus speaks on */
 export const busAllowed = (bus, surface) => !!BUSES[bus] && BUSES[bus] === (surface === "tv" ? "tv" : "phone");
 
-/* The walkout contract (A6, written only by the Worker): silent while
+/* The walkout contract (A6, written only by the Worker): ducked while
    `walkout && serverNow() < walkout.until`. */
 export function walkoutActive(walkout, now = serverNow()) {
   if (!walkout || typeof walkout !== "object") return false;
   const until = Number(walkout.until);
   return Number.isFinite(until) && now < until;
 }
+/* Quick Draw's mute outranks a walkout's duck */
 export function hushReason({ walkout = null, quickDraw = false, now = serverNow() } = {}) {
-  if (walkoutActive(walkout, now)) return "walkout";
   if (quickDraw) return "quickDraw";
+  if (walkoutActive(walkout, now)) return "walkout";
   return null;
 }
+/* the hush gain for a reason: 1 open, WALKOUT_DUCK under a win song, 0 muted */
+export const hushLevel = reason => reason === "quickDraw" ? 0 : reason === "walkout" ? WALKOUT_DUCK : 1;
 
 /* Where a server-anchored cue lands on the audio clock: `at` is server ms,
    `now` the server clock, `currentTime` and `outputLatency` the context's
@@ -125,6 +155,18 @@ const listeners = new Set();
 function notify() { for (const fn of [...listeners]) { try { fn(); } catch {} } }
 export const subscribeSound = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 
+/* iOS audio session for a phone (owner decision Oct 2): "playback" plays
+   through the silent switch; the Sound toggle is the guest's off switch.
+   The TV is a laptop and keeps the default. */
+export const PHONE_AUDIO_SESSION = "playback";
+function phoneSession() {
+  try {
+    if (engine.surface !== "tv" && globalThis.navigator?.audioSession
+        && globalThis.navigator.audioSession.type !== PHONE_AUDIO_SESSION)
+      globalThis.navigator.audioSession.type = PHONE_AUDIO_SESSION;
+  } catch {}
+}
+
 const contextClass = () => engine.factory
   || (typeof globalThis !== "undefined" && (globalThis.AudioContext || globalThis.webkitAudioContext)) || null;
 export const soundAvailable = () => !!contextClass();
@@ -133,11 +175,8 @@ function context(create) {
   if (engine.ctx || !create) return engine.ctx;
   const AC = contextClass();
   if (!AC) return null;
-  try {
-    /* iOS: mix with other audio and obey the ring/silent switch; must be set
-       before the context exists. The TV is a laptop and keeps the default. */
-    if (engine.surface !== "tv" && globalThis.navigator?.audioSession) globalThis.navigator.audioSession.type = "ambient";
-  } catch {}
+  /* iOS: must be set before the context exists */
+  phoneSession();
   try {
     const ctx = new AC({ latencyHint:"interactive" });
     engine.ctx = ctx;
@@ -174,6 +213,7 @@ export function unlockSound() {
       const src = ctx.createBufferSource();
       src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
       src.connect(ctx.destination);
+      src.onended = () => { try { src.disconnect(); } catch {} };
       src.start(0);
     } catch {}
   }
@@ -221,19 +261,23 @@ export function setSoundRoom(phase) {
 }
 
 /* ── the hush gate ── */
+/* hushed: ducked or muted; muted: nothing may play at all */
 export function isHushed(now = serverNow()) {
   return !!hushReason({ walkout:engine.walkout, quickDraw:engine.quickDraw, now });
 }
+export function isMuted(now = serverNow()) {
+  return hushLevel(hushReason({ walkout:engine.walkout, quickDraw:engine.quickDraw, now })) === 0;
+}
 function applyHush(immediate = false) {
-  const hushed = isHushed();
-  engine.hushed = hushed;
+  const level = hushLevel(hushReason({ walkout:engine.walkout, quickDraw:engine.quickDraw }));
+  engine.hushed = level < 1;
   const E = engine.E;
   if (!E) return;
   try {
     const g = E.hush.gain, t = E.ctx.currentTime;
     g.cancelScheduledValues(t);
-    if (immediate) g.setValueAtTime(hushed ? 0 : 1, t);
-    else { g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(hushed ? 0 : 1, t + HUSH_RAMP_S); }
+    if (immediate) g.setValueAtTime(level, t);
+    else { g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(level, t + HUSH_RAMP_S); }
   } catch {}
 }
 function hushAll() {
@@ -257,19 +301,16 @@ export function setWalkout(walkout) {
 /* Quick Draw: closed from armed until the reaction is captured */
 /* ── song previews (features/music/previewPlayer.js) ──
    The Win song picker's one media element lives here with every other
-   sound source. A preview is a sound the guest asked for, so while it plays
-   the iOS session is "playback" (the silent switch does not mute it) and
-   it goes back to "ambient" when the preview stops. */
+   sound source. The phone's session is already "playback"; a preview
+   re-asserts it inside the tap (before play, or iOS mutes the start) and
+   leaves it there when it stops. */
 let previewAudio = null;
 export function previewAudioElement() {
   if (!previewAudio && typeof Audio !== "undefined") previewAudio = new Audio();
   return previewAudio;
 }
 export function setPreviewSession(playing) {
-  try {
-    if (engine.surface !== "tv" && globalThis.navigator?.audioSession)
-      globalThis.navigator.audioSession.type = playing ? "playback" : "ambient";
-  } catch {}
+  if (playing) phoneSession();
 }
 
 export function setQuickDrawHush(on) {
@@ -297,8 +338,11 @@ function seenKey(key) {
               same moment)
      lateMs   drop the cue when it is this late
      opts     recipe options (a part's length, a crowd's size)
+     open     not ducked under a win song (the walkout's stinger, the crown,
+              the room's chord); Quick Draw still stops it starting
    Returns { cancel } or null when nothing will play. Never throws. */
-export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {} } = {}) {
+export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {},
+  open = false } = {}) {
   try {
     if (!isSound(id) || soundOptedOut() || !busAllowed(bus, engine.surface)) return null;
     const ctx = context(false);
@@ -306,21 +350,25 @@ export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, ke
     const now = serverNow();
     const target = at === null || at === undefined ? now + Math.max(0, Number(delayMs) || 0) : Number(at);
     if (!Number.isFinite(target) || target - now < -lateMs) return null;
-    if (isHushed(Math.max(now, target))) return null;
+    if (isMuted(Math.max(now, target))) return null;
     if (bus === "gm" && ackYields(id, engine.lastYouAt, target)) return null;
     if (seenKey(key)) return null;
     if (bus === "you") engine.lastYouAt = target;
+    /* the TV's "Sound early by": the room lands that much sooner, and a cue
+       due now is not counted late for it */
+    const early = bus === "room" ? soundEarlyMs() : 0;
+    const land = target - early;
     const fire = () => {
-      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isHushed(target) || !engine.E) return;
+      if (soundOptedOut() || !busAllowed(bus, engine.surface) || isMuted(target) || !engine.E) return;
       const c = engine.ctx;
-      const when = scheduleTime({ at:target, now:serverNow(), currentTime:c.currentTime,
-        outputLatency:c.outputLatency || c.baseLatency || 0, lateMs });
+      const when = scheduleTime({ at:land, now:serverNow(), currentTime:c.currentTime,
+        outputLatency:c.outputLatency || c.baseLatency || 0, lateMs:lateMs + early });
       if (when === null) return;
-      playRecipe(engine.E, id, when, { pan, ...opts });
+      playRecipe(engine.E, id, when, { pan, ...opts, open });
       /* rehearsal instrumentation: a page that defines the array gets a log */
       try { globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at:target, when, currentTime:c.currentTime, pan }); } catch {}
     };
-    const wait = target - now - LOOKAHEAD_MS;
+    const wait = land - now - LOOKAHEAD_MS;
     if (wait <= 0) { fire(); return { cancel() {} }; }
     let timer = null;
     timer = setTimeout(() => { engine.timers.delete(timer); fire(); }, wait);
@@ -347,7 +395,7 @@ export function roomChipsLanded(landings) {
 /* ── React ── */
 
 /* App-level wiring, once: the surface, the weekend's room, the walkout
-   hush, the global unlock, and the TV's context. */
+   duck, the global unlock, and the TV's context. */
 export function useSoundSystem({ state, tv = false, phase = "fri" } = {}) {
   const walkout = state?.showControl?.audio?.walkout || null;
   useEffect(() => { setSoundSurface(tv ? "tv" : "phone"); if (tv) primeSound(); }, [tv]);
@@ -368,6 +416,24 @@ export function useSoundUnlockNeeded() {
     return subscribeSound(update);
   }, []);
   return needed;
+}
+/* What a TV reports to the commissioner (client.js presence): "on" while
+   its context runs with Sound on, otherwise "blocked" (waiting for a click,
+   never created, or Sound off). */
+export const tvSoundStatus = () => !soundOptedOut() && !!engine.ctx && engine.ctx.state === "running" ? "on" : "blocked";
+export function useTvSoundStatus() {
+  const [status, setStatus] = useState(tvSoundStatus);
+  useEffect(() => {
+    const update = () => setStatus(tvSoundStatus());
+    update();
+    return subscribeSound(update);
+  }, []);
+  return status;
+}
+export function useSoundEarlyMs() {
+  const [ms, setMs] = useState(soundEarlyMs);
+  useEffect(() => subscribeSound(() => setMs(soundEarlyMs())), []);
+  return ms;
 }
 export function useSoundEnabled() {
   const [on, setOn] = useState(() => !soundOptedOut());

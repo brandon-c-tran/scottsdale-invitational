@@ -1,0 +1,129 @@
+/* Weekend, the program (Guide.jsx). The cover is the viewport's one
+   painting; everything under it sits on the clear glass: the trophy, the
+   photos as windows, and the back page's tiles as panes of glass. */
+.fd-program { padding-top:12px; }
+.fd-program-cover, .fd-program-section, .fd-program-index { max-width:100%; min-width:0; }
+
+/* ── the cover ── */
+.fd-program-cover { display:flex; flex-direction:column; justify-content:space-between; gap:18px; min-height:236px; margin:0 0 30px;
+  padding:14px 14px 16px; border-radius:14px; border:1px solid var(--bone-line); box-shadow:var(--glass-edge), var(--shadow-1); }
+.fd-program-lead { display:flex; flex-direction:column; align-items:flex-start; gap:10px; width:100%; padding:0; border:0;
+  background:none; color:inherit; text-align:left; font:inherit; cursor:pointer; }
+.fd-program-lead:disabled { cursor:default; }
+.fd-program-lead.is-edition { margin-top:auto; }
+/* the lead's state is its lamp: lit beside a live event's name, none before */
+.fd-program-lamp { flex-shrink:0; align-self:center; }
+.fd-program-mark { position:relative; }
+.fd-program-mark > .fd-program-lamp { position:absolute; right:-3px; top:-3px; width:14px; height:14px; }
+.fd-program-title { display:flex; align-items:center; gap:12px; min-width:0; max-width:100%; }
+.fd-program-title > .is-marquee { flex:1; min-width:0; }
+.fd-program-mark { flex-shrink:0; display:flex; border-radius:50%; box-shadow:0 2px 0 var(--ink0); }
+.fd-program-title .is-marquee, .fd-program-lead.is-edition .is-marquee { font-size:clamp(40px, 11.5vw, 56px); line-height:1.08;
+  overflow-wrap:normal; text-wrap:balance; }
+.fd-program-then { display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:8px 12px; border:0;
+  color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
+.fd-program-then:disabled { cursor:default; }
+.fd-program-then-label { flex-shrink:0; font:800 13px/1.15 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; color:var(--muted2); }
+.fd-program-then b { flex:1; min-width:0; font-size:22px; line-height:1.15; }
+.fd-program-then .fd-icon { flex-shrink:0; color:var(--muted2); }
+
+/* ── sections on the clear glass ── */
+.fd-program-section { margin:0 0 30px; }
+.fd-program-head { display:flex; align-items:center; gap:12px; min-height:44px; margin-bottom:12px; }
+.fd-program-head h2 { flex:1; margin:0; font:800 24px/1.1 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; color:var(--ink); }
+.fd-program-count { font:800 16px/1.15 var(--fd-display); letter-spacing:.06em; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.fd-program-link { display:inline-flex; align-items:center; gap:4px; min-height:44px; padding:0 4px; border:0; background:none;
+  color:var(--lamp-info); font:600 15px/1.2 var(--fd-body); cursor:pointer; }
+.fd-program-head .fd-photo-add { margin-left:0; }
+.fd-program-trophy .fd-trophy { --plate-h:60px; }
+
+/* no photos yet: one window to put the first in */
+.fd-program-first-photo { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; width:100%;
+  min-height:132px; border-radius:14px; border:1px dashed var(--ghost-line); cursor:pointer;
+  background:color-mix(in srgb, var(--ink0) 60%, transparent); color:var(--ink); font:700 15px/1.2 var(--fd-body); }
+.fd-program-first-photo .fd-icon { color:var(--sun); }
+.fd-program-first-photo:disabled { cursor:default; opacity:.7; }
+
+/* ── the back page: panes of glass, one per reference ── */
+/* the back page: one pane of painted glass with a row of lamp inserts cut
+   into it, one per sheet, each a lens with its glyph and its name under it
+   (not a grid of same-size cards) */
+.fd-program-index { display:grid; grid-template-columns:repeat(var(--tiles, 4), minmax(0, 1fr)); gap:4px; margin:0 0 24px; padding:14px 8px 12px;
+  border-radius:14px; border:1px solid var(--line);
+  background:linear-gradient(112deg, transparent 0 64%, color-mix(in srgb, var(--bone) 3%, transparent) 64% 71%, transparent 71%),
+    linear-gradient(180deg, color-mix(in srgb, var(--lamp-info) 7%, var(--paper)), var(--paper) 70%);
+  box-shadow:var(--glass-edge), inset 0 0 0 4px var(--paper), inset 0 0 0 5px color-mix(in srgb, var(--lamp-info) 14%, transparent); }
+.fd-program-index.is-odd { --tiles:5; }
+.fd-program-tile { display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; min-height:96px; padding:4px 2px;
+  border:0; border-radius:10px; background:none; cursor:pointer; color:var(--ink); transition:transform .12s ease; }
+.fd-program-tile .fd-icon { box-sizing:content-box; width:30px; height:30px; padding:13px; border-radius:50%; color:var(--lamp-info);
+  background:radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--lamp-info) 16%, var(--ink0)), var(--ink0) 72%);
+  box-shadow:inset 0 2px 5px color-mix(in srgb, var(--ink0) 90%, transparent), 0 0 0 1.5px var(--ink0),
+    0 0 0 3px color-mix(in srgb, var(--bone) 22%, transparent), 0 1px 0 3px color-mix(in srgb, var(--bone) 8%, transparent); }
+.fd-program-tile:active { transform:translateY(1px) scale(.97); }
+.fd-program-tile span { font:800 15px/1.15 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; text-align:center; }
+.fd-program button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+
+/* ── the sheets ── */
+.fd-program-sub { margin:0 0 14px; font:800 22px/1.15 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; color:var(--ink); }
+.fd-program-rule + .fd-program-rule { margin-top:30px; padding-top:22px; border-top:1px solid var(--line); }
+.fd-program-desc { margin:0; font:600 16px/1.5 var(--fd-body); color:var(--ink); }
+.fd-program-games { list-style:none; margin:0; padding:0; }
+.fd-program-games li + li { border-top:1px solid var(--line); }
+.fd-program-games button { display:flex; align-items:center; gap:14px; width:100%; min-height:64px; padding:10px 0; border:0;
+  background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-program-games strong { flex:1; min-width:0; font-size:24px; line-height:1.15; }
+.fd-program-games .fd-icon { color:var(--muted2); }
+.fd-program-payouts { list-style:none; margin:0 0 26px; padding:0; display:grid; gap:12px; }
+.fd-program-payouts > li { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; padding:14px; border-radius:14px;
+  background:color-mix(in srgb, var(--ink0) 60%, transparent); box-shadow:var(--glass-edge); }
+.fd-program-payout-head { display:flex; flex-direction:column; gap:10px; min-width:0; }
+.fd-program-payout-head h3 { margin:0; font:800 20px/1.15 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; }
+.fd-program-payout-marks { display:flex; flex-wrap:wrap; gap:6px; }
+.fd-program-awards { list-style:none; margin:0; padding:0; }
+.fd-program-awards li { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-top:1px solid var(--line); }
+.fd-program-awards strong { font:800 20px/1.2 var(--fd-display); }
+.fd-program-award-winners { display:flex; flex-wrap:wrap; gap:6px 14px; }
+.fd-program-award-winners button { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0; border:0; background:none;
+  color:var(--ink); font:700 15px/1.2 var(--fd-body); cursor:pointer; }
+
+/* the house */
+.fd-house-photo { margin:0 0 16px; border-radius:14px; overflow:hidden; box-shadow:0 0 0 1px var(--line); }
+.fd-house-address { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.fd-house-address p { flex:1; margin:0; font:700 18px/1.35 var(--fd-body); color:var(--ink); user-select:text; }
+.fd-house-map { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 14px; border-radius:8px;
+  border:1px solid var(--line); color:var(--lamp-info); font:600 15px/1 var(--fd-body); text-decoration:none; box-shadow:var(--glass-edge); }
+.fd-house-note { margin:0 0 14px; font:500 14px/1.5 var(--fd-body); color:var(--muted2); }
+.fd-house-times { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 26px; }
+.fd-house-times > div { padding:10px 12px; border-radius:10px; background:color-mix(in srgb, var(--ink0) 60%, transparent); box-shadow:var(--glass-edge); }
+.fd-house-times dt { font:800 13px/1.15 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); margin-bottom:4px; }
+.fd-house-times dd { margin:0; font:700 15px/1.35 var(--fd-body); color:var(--ink); }
+.fd-house-airport { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+.fd-house-airport .fd-icon { align-self:center; color:var(--muted2); }
+.fd-house-airport b { font:800 34px/1.1 var(--fd-display); letter-spacing:.06em; color:var(--sun); }
+.fd-house-airport span { font:600 14px/1.3 var(--fd-body); color:var(--muted2); }
+.fd-house-flights { flex:none; }
+/* the flights board: arrivals, then departures, each under its plane and
+   day; one compact row a leg, never a card */
+.fd-house-legs + .fd-house-legs { margin-top:14px; }
+.fd-house-legs-head { display:flex; align-items:center; gap:8px; margin:0 0 6px; font:800 15px/1.15 var(--fd-display); letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted2); }
+.fd-house-legs-plane { color:var(--muted2); }
+.fd-house-legs-plane.is-in { transform:rotate(135deg); }
+.fd-house-legs-plane.is-out { transform:rotate(45deg); }
+.fd-house-board { list-style:none; margin:0; padding:0; display:grid; gap:0; align-content:start; border-radius:12px;
+  background:color-mix(in srgb, var(--ink0) 70%, var(--bg)); box-shadow:var(--glass-edge); }
+.fd-house-leg { display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; }
+.fd-house-leg + .fd-house-leg { border-top:1px solid var(--line); }
+.fd-house-leg-who { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+.fd-house-leg-who b { font:600 15px/1.3 var(--fd-body); color:var(--ink); overflow-wrap:anywhere; }
+.fd-house-leg-who small { font:700 13px/1.2 var(--fd-body); letter-spacing:.08em; color:var(--muted2); }
+.fd-house-leg.is-you .fd-house-leg-who b { color:var(--you); }
+.fd-house-leg-time { flex-shrink:0; font:800 24px/1.15 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+@media (max-width:359px) {
+  .fd-program-cover { padding:12px; }
+  .fd-program-tile { min-height:90px; }
+  .fd-house-address { flex-direction:column; align-items:flex-start; }
+}
+@media (prefers-reduced-motion:reduce) { .fd-program-tile { transition:none; } }

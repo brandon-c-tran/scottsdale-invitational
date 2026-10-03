@@ -285,7 +285,7 @@ test("the locked chip row is a coin and keeps its copy", () => {
   const row = render(React.createElement(ui.ChipPicker, { state, me:player, num:"7", onChip:noop }), state.profiles);
   assert.match(row.html, /fd-profile-chip-locked/);
   assert.match(row.html, /fd-coin-spin/);
-  assert.match(row.html, /Chips are locked for the weekend\./);
+  assert.match(row.html, /<p>Locked<\/p>/);
   assert.equal(row.buttons.length, 0, "the spin adds no control");
   const minted = render(React.createElement(ui.ChipCoin, { p:player, size:48, mintOnMount:true }), state.profiles);
   assert.match(minted.html, /fd-coin-drop is-minting/);

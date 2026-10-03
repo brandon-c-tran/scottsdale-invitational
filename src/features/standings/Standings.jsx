@@ -1,11 +1,14 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { awardTable, SESSIONS, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
+import { awardTable, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { EASE, MOTION, signedChips, useCountUp, useFreshChange } from "../../lib/motion.js";
 import { BOARD_BEATS, barScale, chipBar, rowMoves, soleLeader } from "./boardModel.js";
 import { ActionButton } from "../../ui/controls.jsx";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
+import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
+import { Icon } from "../../ui/Icon.jsx";
 import "./standings.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
@@ -62,9 +65,9 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
     return <section className="fd-now-card fd-now-live" aria-label={`${liveEv.name}: ${status}`}>
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(liveEv)}>
       <span className="fd-now-topline"><span className="fd-now-status"><i className="fd-beat-dot" aria-hidden="true" />{status}</span>
-        <span className="fd-now-open" aria-hidden="true">›</span></span>
-      <span className="fd-now-title-row"><GameMark id={liveEv.game} size={46} />
-        <span className="fd-now-event">{liveEv.name}</span></span>
+        <span className="fd-now-open"><Icon name="next" size={20} /></span></span>
+      <span className="fd-now-title-row"><GameMark id={liveEv.game} variant={liveEv.variant} size={46} />
+        <span className="fd-now-event fd-show"><EventName name={liveEv.name} /></span></span>
       </button>
       {first && second && <span className="fd-now-matchup">
         <span className="fd-now-round">{round.roundName || "Up now"}</span>
@@ -73,7 +76,7 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
         <PlayerNames state={state} players={second.players} onPlayer={onPlayer} />
       </span>}
       <span className="fd-now-progress"><span>{progressLabel}</span>
-        <button type="button" onClick={() => onOpen(liveEv)}>Open event ›</button>
+        <button type="button" onClick={() => onOpen(liveEv)}>Open event<Icon name="next" size={16} /></button>
         {total > 0 && <progress value={decided} max={total} aria-label={progressLabel} />}</span>
     </section>;
   }
@@ -86,9 +89,9 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
     return <section className="fd-now-card fd-now-result" aria-label="Latest result">
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(latest.ev)}>
       <span className="fd-now-topline"><span className="fd-now-status">Result posted</span>
-        <span className="fd-now-open" aria-hidden="true">›</span></span>
-      <span className="fd-now-title-row"><GameMark id={latest.ev.game} size={40} />
-        <span className="fd-now-event">{latest.ev.name}</span></span>
+        <span className="fd-now-open"><Icon name="next" size={20} /></span></span>
+      <span className="fd-now-title-row"><GameMark id={latest.ev.game} variant={latest.ev.variant} size={40} />
+        <span className="fd-now-event fd-show"><EventName name={latest.ev.name} /></span></span>
       </button>
       <span className="fd-now-result-body"><PlayerNames state={state} players={winners} onPlayer={onPlayer} />
         <span className="fd-now-award"><strong>{stacks ? "" : "+"}{fmt(award)}</strong>
@@ -99,14 +102,12 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
 
   const next = events.find(openEv);
   if (!next) return null;
-  const session = SESSIONS.find(item => item.id === next.session);
   return <button type="button" className="fd-now-card fd-now-next" onClick={() => onOpen(next)}>
     <span className="fd-now-topline"><span className="fd-now-status">Next event</span>
-      <span className="fd-now-open" aria-hidden="true">›</span></span>
-    <span className="fd-now-title-row"><GameMark id={next.game} size={40} />
-      <span className="fd-now-event">{next.name}</span></span>
-    <span className="fd-now-next-detail"><span>{session?.label || "The weekend"}</span>
-      <span>{next.value ? `${fmt(next.value)} chips` : "Poker finale"}</span></span>
+      <span className="fd-now-open"><Icon name="next" size={20} /></span></span>
+    <span className="fd-now-title-row"><GameMark id={next.game} variant={next.variant} size={40} />
+      <span className="fd-now-event fd-show"><EventName name={next.name} /></span></span>
+    <span className="fd-now-next-detail"><span>{next.value ? `${fmt(next.value)} chips` : "Poker finale"}</span></span>
   </button>;
 }
 
@@ -114,25 +115,26 @@ function ChampionPanel({ state, champion, coChamps, onPlayer }) {
   const leaders = coChamps.length ? coChamps : [champion];
   const tied = leaders.length > 1;
   return <section className="fd-leader-panel is-champion" aria-label={tied ? "Tied for the championship" : "Champion"}>
-    <div className="fd-leader-topline"><span>{tied ? "Tied for the championship" : "Champion"}</span><span>FIELD DAY</span></div>
+    <h2 className="fd-leader-topline">{tied ? "Tied for the championship" : "Champion"}</h2>
     {leaders.map(row => <button type="button" key={row.player} className="fd-leader-identity"
       onClick={() => onPlayer(row.player)} aria-label={`View ${disp(state, row.player)}'s player card`}>
-      <span>{disp(state, row.player)}</span><Avatar state={state} p={row.player} size={52} />
+      <span className="fd-show">{disp(state, row.player)}</span><Avatar state={state} p={row.player} size={52} />
     </button>)}
     <div className="fd-leader-score">
-      <strong>{fmt(leaders[0].pts)}</strong><span>tournament<br />chips</span>
+      <strong><ScoreReel value={leaders[0].pts} tone="chip" /></strong><span>chips</span>
     </div>
   </section>;
 }
 
-/* X1: one solid bar in the player's identity color, to scale against the
-   leader over a faint track. Your own chips riding on bets are the gold
-   outlined end of your bar, duel antes the muted one: what is at risk is
-   what would leave it. */
+/* X1: a run of chips in the player's identity color, to scale against the
+   leader over a faint track, notched every 100 so each notch is one
+   physical chip. Your own chips riding on bets are the gold outlined end of
+   your bar, duel antes the muted one: what is at risk is what would leave
+   it. Before play every stack is the same 1,000, so no bar draws. */
 export function ChipBar({ p, pts, scale, bets = 0, duels = 0 }) {
   const identity = usePlayerIdentity(p);
   const bar = chipBar({ pts, scale, bets, duels });
-  return <span className="fd-chip-bar" aria-hidden="true">
+  return <span className="fd-chip-bar" aria-hidden="true" style={{ "--fd-chip-unit":`${(10000 / Math.max(100, scale)).toFixed(3)}%` }}>
     {bar.held > 0 && <span className="fd-chip-bar-held" style={{ width:`${bar.held}%`, background:identity.color }} />}
     {bar.bets > 0 && <span className="fd-chip-bar-risk is-bets" style={{ width:`${bar.bets}%` }} />}
     {bar.duels > 0 && <span className="fd-chip-bar-risk is-duels" style={{ width:`${bar.duels}%` }} />}
@@ -141,29 +143,40 @@ export function ChipBar({ p, pts, scale, bets = 0, duels = 0 }) {
 
 /* M2: a fresh rank change rolls the old digits out and the new ones in,
    once the rows have landed */
+const rankNumber = text => Number(String(text || "").replace(/\D/g, "")) || Infinity;
 function RankCell({ label, text, roll, index }) {
   return <span className="fd-standing-position" aria-label={label}>
     {roll ? <span className={`fd-rank-roll${roll.up ? " is-up" : " is-down"}`} key={roll.id} aria-hidden="true"
       style={{ "--roll-delay":`${BOARD_BEATS.roll + index * BOARD_BEATS.rollStagger}ms` }}>
-      <span className="fd-rank-old">{roll.from}</span><span className="fd-rank-new">{text}</span>
-    </span> : text}
+      <span className="fd-rank-old"><OneSafe text={roll.from} /></span><span className="fd-rank-new"><OneSafe text={text} /></span>
+    </span> : <OneSafe text={text} />}
   </span>;
 }
 
-const rankText = (row, starting, tied) => starting || tied ? "·" : String(row.rank).padStart(2, "0");
+/* One rank cell per row: a tie reads "T4" once, on its first row, and the
+   rows under it stay blank; before play there is no rank at all. */
+export function rankLabels(standings = [], { starting = false, tied = false } = {}) {
+  return standings.map((row, index) => {
+    if (starting) return "";
+    if (tied) return index === 0 ? `T${row.rank}` : "";
+    const shared = standings.filter(other => other.rank === row.rank).length > 1;
+    if (!shared) return String(row.rank);
+    return standings.findIndex(other => other.rank === row.rank) === index ? `T${row.rank}` : "";
+  });
+}
 
-function BoardRow({ state, row, index, me, starting, tied, deltas, out, adjustment, scoreLabel, scale,
+function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas, out, adjustment, scoreLabel, scale,
   onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef }) {
   const isMe = row.player === me;
   const leading = !starting && row.rank === 1 && !tied;
+  const shared = !starting && !tied && !/^\d+$/.test(text);
   /* M2: the total counts in 100s and the change rises off it */
   const count = useCountUp(row.pts, { key:row.player, delay:BOARD_BEATS.count });
-  const text = rankText(row, starting, tied);
   const rankChange = useFreshChange(text, row.player);
   const [roll, setRoll] = useState(null);
   useLayoutEffect(() => {
-    if (!rankChange.animate || rankChange.from === rankChange.to) return undefined;
-    const up = rankChange.from === "·" || Number(rankChange.to) < Number(rankChange.from);
+    if (!rankChange.animate || rankChange.from === rankChange.to || !rankChange.to) return undefined;
+    const up = !rankChange.from || rankNumber(rankChange.to) < rankNumber(rankChange.from);
     setRoll({ id:rankChange.changeId, from:rankChange.from, up });
     const timer = setTimeout(() => setRoll(current => current?.id === rankChange.changeId ? null : current),
       BOARD_BEATS.settle);
@@ -177,25 +190,28 @@ function BoardRow({ state, row, index, me, starting, tied, deltas, out, adjustme
     <button type="button" onClick={() => onPlayer(row.player)} className="fd-standings-row"
       data-new-leader={newLeader ? "" : undefined}
       aria-label={`View ${disp(state, row.player)}'s player card, ${fmt(row.pts)} ${chipDescription}`}>
-      <RankCell label={starting ? "Not started" : tied ? "Tied" : `Position ${row.rank}`} text={text} roll={roll} index={index} />
-      <Avatar state={state} p={row.player} size={28} />
+      <RankCell label={starting ? "Not started" : tied ? "Tied" : shared ? `Tied for position ${row.rank}` : `Position ${row.rank}`}
+        text={text} roll={roll} index={index} />
+      <Avatar state={state} p={row.player} size={32} />
       <span className="fd-standing-player">
         <span className="fd-standing-line"><span className="fd-standing-name">{disp(state, row.player)}</span>
           {(isMe || out) && <span className="fd-standing-flags">
-            {isMe && <span className="fd-standing-you">YOU</span>}
-            {out && <span className="fd-standing-out">OUT</span>}
+            {isMe && <span className="fd-standing-you">You</span>}
+            {out && <span className="fd-standing-out">Out</span>}
           </span>}
-          {!starting && StatPills && <span className="fd-standing-stats"><StatPills row={row} atRisk={isMe ? myAtRisk : 0} /></span>}
         </span>
-        <ChipBar p={row.player} pts={count.value} scale={scale}
-          bets={isMe ? myAtRisk : 0} duels={isMe ? myDuels : 0} />
+        {!starting && <ChipBar p={row.player} pts={count.value} scale={scale}
+          bets={isMe ? myAtRisk : 0} duels={isMe ? myDuels : 0} />}
       </span>
-      <span className="fd-standing-score"><strong>{fmt(count.value)}</strong>
+      {/* one plain number per row: the reel belongs to the hero count (your
+          own, in the You strip and the header). A rank move shows only while
+          the rank rolls, then leaves; the row's place already says it. */}
+      <span className="fd-standing-score"><strong className="fd-standing-chips">{fmt(count.value)}</strong>
         {rise && <span key={rise.id} aria-hidden="true"
           className={`fd-motion-delta fd-standing-rise ${rise.amount > 0 ? "is-up" : "is-down"}`}>{signedChips(rise.amount)}</span>}
-        {!!delta && <span className={`fd-standing-delta${delta < 0 ? " is-down" : ""}${roll ? " is-popping" : ""}`}
+        {!!delta && roll && <span className={`fd-standing-delta${delta < 0 ? " is-down" : ""} is-popping`}
           aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} positions`}>
-          <span aria-hidden="true">{delta > 0 ? "↑" : "↓"}</span>{Math.abs(delta)}
+          <Icon name={delta > 0 ? "up" : "down"} size={12} strokeWidth={2.4} />{Math.abs(delta)}
         </span>}
       </span>
     </button>
@@ -276,12 +292,13 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
   const order = standings.map(row => row.player).join("|");
   const refFor = useRowSlide(order, starting ? "starting" : "board");
   const leader = useNewLeader(soleLeader(standings, starting || tied));
-  return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}`}>
-    <div className="fd-standings-column-head" aria-hidden="true"><span>POS.</span><span>PLAYER</span>
-      <span>{scoreLabel || (starting ? "STARTING CHIPS" : "CHIPS")}</span></div>
+  const ranks = rankLabels(standings, { starting, tied });
+  return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}${starting ? " is-starting" : ""}`}>
+    <div className="fd-standings-column-head" aria-hidden="true"><span>{starting ? "" : "Rank"}</span><span>Player</span>
+      <span>{scoreLabel || (starting ? "STARTING CHIPS" : "Chips")}</span></div>
     <ol className="fd-standings-list" aria-label={ariaLabel || (starting ? "Starting chips" : "Tournament standings")}>
       {standings.map((row, index) => <BoardRow key={row.player} rowRef={refFor(row.player)} state={state} row={row}
-        index={index} me={me} starting={starting} tied={tied} deltas={deltas} adjustment={adjustment}
+        index={index} me={me} starting={starting} tied={tied} rankText={ranks[index]} deltas={deltas} adjustment={adjustment}
         scoreLabel={scoreLabel} scale={scale} onPlayer={onPlayer} onAdjust={onAdjust} StatPills={StatPills}
         myAtRisk={bets} myDuels={myDuels} newLeader={leader?.player === row.player ? leader.id : null}
         out={!!(state.poker?.startedAt && !state.results?.[state.poker.id]
@@ -304,7 +321,7 @@ export function Board({ state, standings, me, deltas, allTied, champion, coChamp
   return <div className={`fd-standings-page${gm ? " is-gm" : ""}${embedded ? " is-embedded" : ""}`}>
     {!embedded && <PageHeading title={champion ? "Final standings" : "The board"}
       aside={<span className={`fd-board-state${champion ? " is-final" : ""}`}>
-        {!champion && <i className={state.live ? "fd-beat-dot" : undefined} aria-hidden="true" />}{champion ? "Final" : "Live"}</span>} />}
+        {!champion && <i className={`fd-insert${state.live ? "" : " is-done"}`} aria-hidden="true" />}{champion ? "Final" : "Live"}</span>} />}
     {champion && <ChampionPanel state={state} champion={champion} coChamps={coChamps || []} onPlayer={onPlayer} />}
     {!embedded && !champion && <NowCard state={state} standings={standings} events={events} onOpen={onOpen} onPlayer={onPlayer}
       GameMark={GameMark} resultImpact={resultImpact} nextOpenMatch={nextOpenMatch} />}
@@ -314,7 +331,6 @@ export function Board({ state, standings, me, deltas, allTied, champion, coChamp
       onPlayer={onPlayer} onAdjust={adjustable ? onAdjust : undefined} StatPills={StatPills} myAtRisk={myAtRisk}
       starting={!state.live && !champion} />
     {commissioner && <div className="fd-board-commissioner">
-      <span>Commissioner</span>
       <ActionButton type="button" variant={champion ? "destructive" : finaleDone ? "primary" : "secondary"}
         onClick={champion ? onUnfreeze : onFreeze}>{champion ? "Unfreeze board" : "Crown the champion"}</ActionButton>
     </div>}

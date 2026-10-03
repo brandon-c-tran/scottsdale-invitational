@@ -1,0 +1,207 @@
+/* Backglass primitives: score reels, lamp states, the lamp chase and the
+   backglass lettering. Colors and blooms come from experience.css; timings
+   from motion.css. Every surface (phone and TV) uses these. */
+
+/* ── the score reel ──
+   Each digit sits in its own window cut into the glass: a dark recess, a
+   thin seat with a lit lower lip, and the drum's curvature shading its top
+   and bottom. Every measure is in em, so the same window reads at 16px on
+   a phone row and at 40px and up on the TV. The window is roomy, never
+   tight on the figure (1.4em tall, .2em either side, .1em between windows),
+   and calm: soft curvature, no hard rims. The tone tints the recess and
+   lights the digit. Hero numbers take the drum cut below. */
+.fd-reel { display:inline-flex; align-items:flex-end; gap:.1em; font-variant-numeric:tabular-nums; line-height:1;
+  white-space:nowrap; --reel-h:1.4em; --reel-pad:.2em; --reel-tint:var(--bone); --reel-mix:4%; }
+.fd-reel-cell { position:relative; display:inline-block; height:var(--reel-h); overflow:hidden; padding:0 var(--reel-pad);
+  border-radius:.1em; background:color-mix(in srgb, var(--reel-tint) var(--reel-mix), var(--ink0));
+  box-shadow:inset 0 0 0 .04em color-mix(in srgb, var(--ink0) 80%, transparent), 0 .04em 0 color-mix(in srgb, var(--bone) 10%, transparent); }
+/* the drum's curvature and the window's edge, laid over the digits */
+.fd-reel-cell::after { content:""; position:absolute; inset:0; z-index:1; pointer-events:none; border-radius:inherit;
+  border-top:max(1px, .03em) solid color-mix(in srgb, var(--bone) 12%, transparent);
+  box-shadow:inset 0 .28em .2em -.18em color-mix(in srgb, var(--ink0) 72%, transparent), inset 0 -.28em .2em -.18em color-mix(in srgb, var(--ink0) 72%, transparent); }
+.fd-reel-sizer { display:block; height:var(--reel-h); line-height:var(--reel-h); visibility:hidden; }
+.fd-reel-strip { position:absolute; left:var(--reel-pad); right:var(--reel-pad); top:0; display:flex; flex-direction:column; align-items:center;
+  transform:translateY(calc(var(--d) * var(--reel-h) * -1));
+  transition:transform var(--motion-reel, 240ms) var(--ease-drum, cubic-bezier(.3,1.35,.5,1)); }
+.fd-reel-strip>span { display:block; height:var(--reel-h); line-height:var(--reel-h); }
+.fd-reel-sep { display:inline-block; height:var(--reel-h); line-height:var(--reel-h); margin:0 .01em; }
+.fd-reel.is-you { color:var(--you); text-shadow:0 0 12px rgba(255,224,74,.45); --reel-tint:var(--you); --reel-mix:9%; }
+.fd-reel.is-chip { color:var(--sun); --reel-tint:var(--sun); --reel-mix:8%; }
+.fd-reel.is-live { color:var(--lamp-live-text); --reel-tint:var(--lamp-live); --reel-mix:9%; }
+
+/* the drum cut, for hero numbers (ScoreReel drum): ten faces set round a
+   ring behind each window. ScoreReel writes --a, the ring's angle; the ring
+   sits back by its radius so the front face reads at true size, and the
+   window's perspective curves the faces rolling in above and below it. A
+   roll takes --drum-ms (longer for a longer roll: momentum) on the drum's
+   settle; a flick spins on --ease-drum-spin, staggered by --drum-delay. */
+.fd-reel.is-drum .fd-reel-cell { perspective:4.6em; }
+.fd-reel.is-drum .fd-reel-cell::after {
+  box-shadow:inset 0 .36em .24em -.18em color-mix(in srgb, var(--ink0) 84%, transparent), inset 0 -.36em .24em -.18em color-mix(in srgb, var(--ink0) 84%, transparent); }
+.fd-drum { position:absolute; left:var(--reel-pad); right:var(--reel-pad); top:0; height:var(--reel-h);
+  transform-style:preserve-3d; --r:calc(var(--reel-h) * 1.5388);
+  transform:translateZ(calc(var(--r) * -1)) rotateX(var(--a, 0deg));
+  transition:transform var(--drum-ms, var(--motion-reel, 240ms)) var(--drum-ease, var(--ease-drum)) var(--drum-delay, 0ms); }
+.fd-drum-face { position:absolute; left:0; right:0; top:0; height:var(--reel-h); line-height:var(--reel-h); text-align:center;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden;
+  transform:rotateX(calc(var(--i) * -36deg)) translateZ(var(--r)); }
+/* your own reel takes a flick (vertical); sideways still scrolls nothing */
+.fd-reel.is-spinnable { touch-action:pan-x pinch-zoom; cursor:grab; -webkit-user-select:none; user-select:none; }
+/* no 3D: the current face alone, flat */
+@supports not (transform-style:preserve-3d) {
+  .fd-drum { transform:none; transition:none; }
+  .fd-drum-face { transform:none; visibility:hidden; }
+  .fd-drum-face.is-current { visibility:visible; }
+}
+@media(prefers-reduced-motion:reduce) { .fd-reel-strip, .fd-drum { transition:none; } }
+
+/* ── lamps: one vocabulary for state, independent of hue ──
+   steady = live, flashing = pending, unlit = done, struck = void. A lamp's
+   color is its job: --lamp defaults to the live magenta. */
+.fd-lamp { --lamp:var(--lamp-live); }
+.fd-lamp.is-chip { --lamp:var(--sun); }
+.fd-lamp.is-info { --lamp:var(--lamp-info); }
+.fd-lamp.is-you { --lamp:var(--you); }
+.fd-lamp.is-live, .fd-lamp.is-pending { border-color:var(--lamp);
+  box-shadow:0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge); }
+.fd-lamp.is-pending { animation:fd-lamp-flash 1.2s steps(1, end) infinite; }
+.fd-lamp.is-done { box-shadow:var(--glass-edge); border-color:var(--line); }
+.fd-lamp.is-void { box-shadow:none; border-color:var(--line); opacity:.55;
+  background-image:linear-gradient(to top right, transparent calc(50% - 1px), var(--muted) calc(50% - 1px), var(--muted) calc(50% + 1px), transparent calc(50% + 1px)); }
+@keyframes fd-lamp-flash { 0% { box-shadow:0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge); }
+  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp) 30%, transparent), var(--glass-edge); } }
+/* a lamp insert: a lensed lamp set in the glass. A dark seat and a chrome
+   rim hold a domed lens; lit, the lens glows from its center and blooms,
+   with a specular glint up and to the left. Unlit (done) is the same lens
+   with the lamp off; struck (void) is the unlit lens with a bar across it. */
+.fd-insert { position:relative; display:inline-block; width:12px; height:12px; border-radius:50%; flex-shrink:0;
+  --lamp-on:var(--lamp, var(--lamp-live));
+  --lens-lit:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 45%, var(--bone)) 0 18%, var(--lamp-on) 48%, color-mix(in srgb, var(--lamp-on) 55%, var(--ink0)) 100%);
+  --lens-off:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--lamp-on) 26%, var(--ink0)) 0 40%, color-mix(in srgb, var(--lamp-on) 10%, var(--ink0)) 100%);
+  /* a spent lamp is clear glass: no hue left in it, so done never reads as
+     a dim live */
+  --lens-spent:radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--muted) 34%, var(--ink0)) 0 40%, color-mix(in srgb, var(--muted) 14%, var(--ink0)) 100%);
+  --lens-rim:0 0 0 1.5px rgba(0,0,0,.85), 0 0 0 2.5px color-mix(in srgb, var(--bone) 34%, transparent);
+  background:var(--lens-lit);
+  box-shadow:var(--lens-rim), 0 0 9px 1px color-mix(in srgb, var(--lamp-on) 60%, transparent); }
+.fd-insert::after { content:""; position:absolute; left:20%; top:13%; width:36%; height:27%; border-radius:50%;
+  background:rgba(255,255,255,.78); transform:rotate(-24deg); pointer-events:none; }
+.fd-insert.is-pending { animation:fd-insert-flash 1.2s steps(1, end) infinite; }
+.fd-insert.is-done, .fd-insert.is-void { background:var(--lens-spent); box-shadow:var(--lens-rim); }
+.fd-insert.is-done::after, .fd-insert.is-void::after { opacity:.38; }
+.fd-insert.is-void::before { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px; z-index:1;
+  border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
+@keyframes fd-insert-flash { 50% { background:var(--lens-off); box-shadow:var(--lens-rim); } }
+/* you: the filament. Reserved; nothing else uses --you. */
+.fd-you-lit { box-shadow:var(--you-bloom); border-color:var(--you) !important; }
+@media(prefers-reduced-motion:reduce) { .fd-lamp.is-pending, .fd-insert.is-pending { animation:none; } }
+
+/* ── the lamp chase: bulbs running around a frame ── */
+.fd-chase { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:1; --chase:var(--lamp-live); }
+.fd-chase.is-chip { --chase:var(--sun); }
+.fd-chase.is-you { --chase:var(--you); }
+.fd-chase rect { x:4px; y:4px; width:calc(100% - 8px); height:calc(100% - 8px); rx:14px; ry:14px;
+  fill:none; stroke:var(--chase); stroke-width:5; stroke-linecap:round; stroke-dasharray:0 9;
+  filter:drop-shadow(0 0 4px var(--chase)); }
+.fd-chase.is-running rect { animation:fd-chase 0.9s linear infinite; }
+@keyframes fd-chase { to { stroke-dashoffset:-9; } }
+@media(prefers-reduced-motion:reduce) { .fd-chase.is-running rect { animation:none; } }
+
+/* ── backglass lettering: moments, event names, the big words ── */
+.fd-show { font-family:var(--fd-show); font-weight:900; letter-spacing:.01em; line-height:.95; text-transform:none; }
+/* the marquee cut, for hero lettering only (it gets busy small) */
+.fd-show.is-marquee { font-family:var(--fd-marquee); font-weight:900; }
+/* the lit word: lettering that glows as if lamps sit behind the glass */
+.fd-show.is-lit { color:var(--ink); text-shadow:0 0 1px var(--lamp, var(--lamp-live)), 0 0 22px color-mix(in srgb, var(--lamp, var(--lamp-live)) 55%, transparent); }
+/* a lit insert that keeps the room's one heartbeat (motion.css .fd-beat-dot):
+   the lamp's size and color, the beat's timing. Steady: the lens stays lit
+   and only its bloom breathes (fd-beat-lamp), so live never dips to look
+   like a flashing pending lamp or an unlit done one. */
+.fd-insert.fd-beat-dot { width:12px; height:12px; background:var(--lens-lit); animation-name:fd-beat-lamp; }
+
+/* a lone 1 in a Big Shoulders label (OneSafe.jsx): the family's own 1 (same
+   face, weight, case and cap height) with a drawn flag, so "T1", "1ST" and
+   "SEMIFINAL 1" never read as I. The flag is the face's own hyphen, cut short
+   and turned down off the stem's top, so it carries the stroke weight, the
+   ink and any keyline or inline cut the lettering has (text-shadow, Big
+   Shoulders Inline). It sits behind the stem (isolation keeps it inside this
+   1); the small left margin keeps it off the letter before. Every measure is
+   in em, so it reads the same at 12px and at 160px. */
+.fd-one { position:relative; isolation:isolate; margin-left:.07em; }
+.fd-one::before { content:"-"; position:absolute; z-index:-1; left:-.12em; top:-.285em; width:.23em; height:1em;
+  overflow:hidden; line-height:1; letter-spacing:0; white-space:nowrap; text-transform:none; pointer-events:none;
+  transform:rotate(-35deg); transform-origin:100% .525em; }
+.fd-keep-case { text-transform:none; }
+
+/* ── a painted glass field: a panel of the backglass with no painting on it ──
+   One viewport carries one painting (GlassArt in a .fd-glass-scene); every
+   other panel is this: the glass reverse-painted flat in its job's ink at low
+   intensity. --field is the job (magenta live, amber chips, cyan info). The
+   glass shows in its bevel, one hard reflection across the pane, a keyline
+   painted inside the edge, and a halftone of the same ink shading the lower
+   corner the way a screen-printed backglass shades a field. The lamp state
+   (.fd-lamp) stays on the frame. */
+.fd-glass-field { --field:var(--lamp-info); position:relative; isolation:isolate;
+  border:1px solid color-mix(in srgb, var(--field) 30%, transparent); border-radius:14px;
+  background:linear-gradient(112deg, transparent 0 64%, rgba(255,255,255,.03) 64% 71%, transparent 71%),
+    color-mix(in srgb, var(--field) 8%, var(--bg));
+  box-shadow:var(--glass-edge), 0 6px 16px -10px rgba(2,3,10,.9); }
+.fd-glass-field.fd-field-live { --field:var(--lamp-live); }
+.fd-glass-field.fd-field-chip { --field:var(--sun); }
+.fd-glass-field.fd-field-info { --field:var(--lamp-info); }
+.fd-glass-field::before { content:""; position:absolute; right:0; bottom:0; width:62%; height:78%; z-index:-1; pointer-events:none;
+  border-bottom-right-radius:inherit;
+  background:radial-gradient(circle, color-mix(in srgb, var(--field) 34%, transparent) 0 1px, transparent 1.6px) 0 0 / 6px 6px;
+  -webkit-mask-image:linear-gradient(to top left, #000, transparent 72%); mask-image:linear-gradient(to top left, #000, transparent 72%); }
+.fd-glass-field::after { content:""; position:absolute; inset:4px; z-index:-1; pointer-events:none; border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--field) 22%, transparent); }
+/* a done panel's paint is still there, its lamp off */
+.fd-glass-field.fd-lamp.is-done { border-color:color-mix(in srgb, var(--field) 18%, transparent); }
+
+/* ── glass you can feel (useGlassTilt.js) ──
+   A pane with the hook leans toward a finger and springs back; sideways
+   drags lead it, vertical drags still scroll. The transform is written
+   inline per frame; will-change lives only while it moves. */
+[data-glass-tilt] { touch-action:pan-y pinch-zoom; }
+[data-glass-tilt="on"] { will-change:transform; }
+[data-glass-tilt="on"] [data-glass-depth] { will-change:translate; }
+/* the one hard reflection on the pane: a clean band of light across the
+   glass (no blur, no glow). It slides as the pane leans (inline translate)
+   and, where scroll-driven animation runs, across the pane as the pane
+   travels the viewport, so a scrolled pane reads as glass. */
+.fd-tilt-glare { position:absolute; inset:0; z-index:5; overflow:hidden; overflow:clip; border-radius:inherit; pointer-events:none;
+  opacity:.5; transition:opacity .36s var(--ease-out); }
+.fd-tilt-glare > span { position:absolute; top:-15%; bottom:-15%; left:0; width:28%;
+  background:color-mix(in srgb, var(--bone) 7%, transparent); box-shadow:inset 1px 0 0 color-mix(in srgb, var(--bone) 5%, transparent);
+  transform:translateX(165%) skewX(-16deg); }
+@supports (animation-timeline:view()) {
+  .fd-tilt-glare > span { animation:fd-glare-pass linear both; animation-timeline:view(); }
+}
+@keyframes fd-glare-pass {
+  from { transform:translateX(330%) skewX(-16deg); }
+  to { transform:translateX(-70%) skewX(-16deg); }
+}
+@media(prefers-reduced-motion:reduce) { .fd-tilt-glare > span { animation:none; transform:translateX(165%) skewX(-16deg); } }
+
+/* ── the coin (Coin.jsx; fly's coin flights) ──
+   A chip with a body: discs stacked behind the face, each .9px further
+   back, in the owner's color darkened (the edge); the last is the back,
+   in the owner's color. Turned, the edge shows as a solid rim. */
+.fd-coin3d { position:relative; display:block; line-height:0; transform-style:preserve-3d;
+  --coin-color:var(--paper2); --coin-edge:color-mix(in srgb, var(--coin-color) 50%, var(--ink0)); }
+.fd-coin3d.is-unlit { --coin-color:var(--ink0); --coin-edge:color-mix(in srgb, var(--muted) 28%, var(--ink0)); }
+.fd-coin3d-face { position:relative; display:block; }
+/* each disc is painted round by a radial gradient with a 1px soft lip, not
+   cut round by border-radius: a 3D-transformed layer's rounded clip is
+   rasterized without antialiasing, so a clipped disc's rim stair-steps
+   (worst on a coin leaning in the rack at 3x). The transparent outline
+   keeps the quad's own edges smooth when it turns. */
+.fd-coin3d-edge { position:absolute; inset:2.5%; outline:1px solid transparent;
+  background:radial-gradient(circle closest-side, var(--coin-edge) calc(100% - 1px), transparent);
+  transform:translateZ(calc(var(--z) * -.9px)); }
+.fd-coin3d-edge:nth-child(5) { background:radial-gradient(circle closest-side, var(--coin-color) calc(100% - 3px),
+  var(--coin-edge) calc(100% - 2px), var(--coin-edge) calc(100% - 1px), transparent); }
+/* a coin in flight centres on its shell; translate leaves transform free
+   for the spin and the hover */
+.fd-coin3d-fly { position:absolute; left:50%; top:50%; translate:-50% -50%; }
+@supports not (transform-style:preserve-3d) { .fd-coin3d-edge { display:none; } }

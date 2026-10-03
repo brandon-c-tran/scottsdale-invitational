@@ -67,10 +67,11 @@ export function PokerBlinds({ pk, clk, now, alive }) {
   const blinds = `${clk.sb.toLocaleString("en-US")} / ${clk.bb.toLocaleString("en-US")}`;
   const roll = useLevelRoll(pk, clk.idx, blinds, now);
   return <>
-    <LevelChip level={clk.idx} roll={roll} size={30} />
+    <LevelChip level={clk.idx} roll={roll} size={34} />
     <div className="fd-poker-blinds">
       <RollNumber className="fd-poker-blinds-num" text={blinds} roll={roll} />
-      <span>Blinds, level {clk.idx + 1} of {pk.levels.length}. {alive} still in.</span>
+      {/* labels and numbers, no sentence: the level and who is still in */}
+      <span className="fd-poker-blinds-meta"><span>Level {clk.idx + 1} of {pk.levels.length}</span><span>{alive} in</span></span>
     </div>
   </>;
 }
@@ -93,7 +94,7 @@ export function useBustTip(pk) {
 
 /* Phone: the whole table in one row of chips, still in first, then the
    busted ones flat in finishing order. */
-export function PokerSeatChips({ state, pk, size = 20 }) {
+export function PokerSeatChips({ state, pk, size = 24 }) {
   const box = useRef(null);
   const { alive } = seatOrder(pk);
   const { out, tipping, moved } = useBustTip(pk);

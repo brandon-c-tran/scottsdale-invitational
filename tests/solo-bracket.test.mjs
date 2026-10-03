@@ -192,7 +192,7 @@ test("a full 13-player 1v1 bracket plays through current contests to a posted re
   let c = current(s);
   assert.equal(c.kind, "match");
   assert.deepEqual(c.match, [0, 0]);
-  assert.equal(c.label, "Round 1 · Match 1");
+  assert.equal(c.label, "Round 1 Match 1", "named as the bracket names it");
   assert.equal(c.phase, "betting-open");
   assert.equal(contestName(s, eventOf(s), c), "Round 1 Match 1");
   assert.deepEqual(nextOpenMatch(br), { r:0, m:0, a:7, b:8, roundName:"Round 1" });

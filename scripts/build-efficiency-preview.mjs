@@ -22,12 +22,12 @@ await build({
   outfile:"dev/efficiency-components.js", bundle:true, platform:"browser", format:"esm",
   /* Leaflet's stylesheet names its control images */
   loader:{ ".png":"dataurl" },
-  external:["react", "react/*", "react-dom", "react-dom/*"],
+  external:["react", "react/*", "react-dom", "react-dom/*", "/fonts/*"],
   plugins:[{ name:"isolated-preview", setup(builder) {
     builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({
       contents:blocked(["useTournament", "dispatch", "uploadPhoto", "downloadSnapshot", "localGet", "localSet",
         "getDeviceId", "setGmToken", "hasGmToken", "spotifyStatus", "spotifyPlayer", "spotifySearch",
-        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl"]), loader:"js",
+        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "reportTvSound", "setTvView"]), loader:"js",
     }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({
       contents:`export const installEvt = null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}`,

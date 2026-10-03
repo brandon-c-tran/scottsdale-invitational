@@ -6,6 +6,9 @@ import { DenomStacks } from "./PokerChips.jsx";
 import { LevelChip, PokerSeatChips, RollNumber, useLevelRoll } from "./PokerMotion.jsx";
 import { levelAnchor } from "./pokerMotion.js";
 import { blindsSize, createWakeLock, nextTickDelay, tableViewAvailable, tableViewKeepsOpen, tableViewModel } from "./tableView.js";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
+import { Icon } from "../../ui/Icon.jsx";
 import "./table-view.css";
 
 /* D8: the phone laid on the felt. The level and blinds as large as the
@@ -18,6 +21,39 @@ const ordinal = n => {
   const tens = n % 100;
   return `${n}${tens >= 11 && tens <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th"}`;
 };
+
+/* The clock on drums: each digit rolls to its value as the second turns
+   (backglass.css .fd-reel). The words ("Final level") stay words. */
+const DIGITS = [..."0123456789"];
+function ClockReel({ text, className = "" }) {
+  const cells = [...String(text)];
+  if (!/\d/.test(text)) return <span className={className}>{text}</span>;
+  return <span className={`fd-reel${className ? ` ${className}` : ""}`} role="timer" aria-label={text}>
+    {cells.map((ch, i) => {
+      const key = cells.length - i;
+      return /\d/.test(ch)
+        ? <span className="fd-reel-cell" key={`d${key}`} aria-hidden="true">
+            <span className="fd-reel-strip" style={{ "--d":ch }}>{DIGITS.map(d => <span key={d}>{d}</span>)}</span>
+            <span className="fd-reel-sizer">{ch}</span>
+          </span>
+        : <span className="fd-reel-sep" key={`s${key}`} aria-hidden="true">{ch}</span>;
+    })}
+  </span>;
+}
+
+/* The level's chip inside a ring that runs out with the level, the same
+   boundary the TV turns on. */
+function LevelRing({ model, roll }) {
+  const size = 56, r = 25, c = 2 * Math.PI * r;
+  const left = model.levelMs > 0 && !model.final ? Math.max(0, Math.min(1, model.msLeft / model.levelMs)) : 1;
+  return <span className={`fd-table-view-ring${model.paused ? " is-paused" : ""}`}>
+    <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={r} className="track" />
+      <circle cx={size / 2} cy={size / 2} r={r} className="run" style={{ strokeDasharray:c, strokeDashoffset:c * (1 - left) }} />
+    </svg>
+    <LevelChip level={model.level} roll={roll} size={38} />
+  </span>;
+}
 
 function useTableNow(state, me, fixed) {
   const [now, setNow] = useState(() => fixed ?? serverNow());
@@ -72,8 +108,8 @@ export function TableView({ state, me, onClose, now: fixedNow = null, width = nu
   const size = blindsSize(model.blinds, screen - 40);
   return <div ref={root} tabIndex={-1} className="fd-table-view fd-night" role="dialog" aria-modal="true" aria-label="Table view">
     <div className="fd-table-view-bar">
-      <LevelChip level={model.level} roll={roll} size={40} />
-      <span className="fd-table-view-level">Level {model.levelNumber} of {model.levelCount}</span>
+      <LevelRing model={model} roll={roll} />
+      <span className="fd-table-view-level"><OneSafe text={`Level ${model.levelNumber} of ${model.levelCount}`} /></span>
       <button type="button" className="fd-table-view-exit" onClick={onClose}>Exit</button>
     </div>
 
@@ -84,14 +120,15 @@ export function TableView({ state, me, onClose, now: fixedNow = null, width = nu
     </div>
 
     <div className="fd-table-view-clock">
-      <b className={model.paused ? "is-paused" : model.late ? "is-late" : undefined}>{model.paused ? "Paused" : model.clock}</b>
-      <span>{model.paused ? `${model.clock} left in this level` : model.next ? `Next ${model.next}` : "Last level"}</span>
+      <b className={model.paused ? "is-paused" : model.late ? "is-late" : undefined}>{model.paused ? "Paused"
+        : <ClockReel text={model.clock} />}</b>
+      <span>{model.paused ? `${model.clock} left` : model.next ? `Next ${model.next}` : "Last level"}</span>
     </div>
 
     <div className="fd-table-view-seat">
-      {model.busted ? <p className="fd-table-view-out">Out · {ordinal(model.finish)}</p> : <>
+      {model.busted ? <p className="fd-table-view-out">Out <b>{ordinal(model.finish)}</b></p> : <>
         <div className="fd-table-view-stack"><span className="fd-table-view-label">Starting stack</span>
-          <b>{model.stackText}</b></div>
+          <b><ScoreReel value={model.stack} tone="chip" label={model.stackText} /></b></div>
         <DenomStacks stack={model.stack} size={30} className="fd-table-view-denoms" />
       </>}
       <div className="fd-table-view-in">
@@ -111,7 +148,7 @@ export function TableViewEntry({ state, me }) {
   return <>
     {available && <div className="fd-table-view-entry">
       <button type="button" onClick={() => { tapTick(); setOpen(true); }}>
-        <span>Table view</span><span aria-hidden="true">↗</span></button>
+        <span>Table view</span><Icon name="open" size={18} /></button>
     </div>}
     {view && (typeof document === "undefined" ? view : createPortal(view, document.body))}
   </>;

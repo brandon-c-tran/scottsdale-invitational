@@ -117,7 +117,8 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   teams.click(`Place a chip on ${teamLabel(teamState, team)}`);
   assert.deepEqual(teams.picks, [{ kind:"outright", eventId:event.id, pickTeam:true,
     pickPlayers:team.players, drawId:draw.id, evName:event.name, stake:100, ...refs(teamState, event) }]);
-  assert.equal(controls(teamState, event).named(teamLabel(teamState, team)).disabled, true);
+  /* a side you cannot back draws no well (no dead button, no word) */
+  assert.ok(!controls(teamState, event).names.some(name => name === teamLabel(teamState, team) || name === `Place a chip on ${teamLabel(teamState, team)}`), "a side you cannot back has no well");
 });
 
 test("observers bet only the current bracket matchup, then its successor and final", () => {
@@ -169,7 +170,7 @@ test("large teams retain their drawn names and every player target alongside man
   assert.deepEqual(viewed, ROSTER.slice(0, 12));
   assert.deepEqual(view.picks, []);
   /* a Sidewinder backs only the Sidewinders */
-  assert.equal(view.named("The Coyotes").disabled, true);
+  assert.ok(!view.names.some(name => name === "The Coyotes" || name === `Place a chip on ${"The Coyotes"}`), "a side you cannot back has no well");
   view.click("Place a chip on The Sidewinders");
   assert.deepEqual(view.picks[0].pickPlayers, draw.teams[0].players);
   assert.equal(view.picks[0].drawId, draw.id);
@@ -177,7 +178,7 @@ test("large teams retain their drawn names and every player target alongside man
   view.click("Retract your last chip on The Sidewinders");
   assert.deepEqual(view.retractions, ["large-team-stack"]);
   assert.deepEqual(view.retractionRefs, [refs(state, event)]);
-  view.click("Event details↗");
+  view.click("Event details");
   assert.deepEqual(opened, [event.id]);
   assert.equal(view.picks.length, 1);
 });
@@ -189,8 +190,8 @@ test("match participants can manually back their team while opponents stay visib
   const opponent = teamLabel(state, draw.teams[3]);
   assert.match(view.html, /Your team/);
   assert.match(view.html, /You can only bet on your team in this match/);
-  assert.equal(view.named(opponent).disabled, true);
-  assert.equal(view.named(opponent).description, "You can only bet on your team in this match.");
+  assert.ok(!view.names.some(name => name === opponent || name === `Place a chip on ${opponent}`), "a side you cannot back has no well");
+  assert.match(view.html, /aria-description="You can only bet on your team in this match."/, "the felt says why");
   assert.deepEqual(view.picks, []);
   view.click(`Open the full ${pairs.name} bracket`);
   assert.deepEqual(opened, [pairs.id]);
@@ -216,7 +217,7 @@ test("heat winner betting offers one heat at a time and a separate final", () =>
     pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) });
   const participant = controls(state, solo);
   assert.match(participant.html, /Back yourself/);
-  assert.equal(participant.named(ROSTER[1]).disabled, true);
+  assert.ok(!participant.names.some(name => name === ROSTER[1] || name === `Place a chip on ${ROSTER[1]}`), "a side you cannot back has no well");
   assert.equal(participant.pickAll().length, 1);
   assert.equal(participant.picks[0].pickKey, player);
 
@@ -270,7 +271,8 @@ test("locked markets and full exposure disable picks while the rack respects ava
   assert.deepEqual(capped.retractions, ["at-cap"]);
   state.onDeck = null;
   const locked = controls(state, solo);
-  assert.equal(locked.named(ROSTER[1]).disabled, true);
+  /* a locked market draws no well */
+  assert.ok(!locked.names.some(name => name === ROSTER[1] || name === `Place a chip on ${ROSTER[1]}`), "a side you cannot back has no well");
   assert.equal(locked.pickAll().length, 0);
   assert.equal(locked.names.includes(`Retract your last chip on ${ROSTER[1]}`), false);
 });
@@ -382,8 +384,8 @@ test("player cards and chip placement have independent targets on the same board
   otherBettor.wagers = [{ id:"other-chip", player:ROSTER[2], kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:200 }];
   const chips = controls(otherBettor, solo, { onPlayer:p => viewed.push(p) });
-  chips.click(`View ${ROSTER[2]}'s player card (200 chips)`);
-  assert.equal(viewed.at(-1), ROSTER[2]);
+  /* a wide board's row says how many back a side; their cards are in that list */
+  chips.click(`1 backing ${ROSTER[1]}`);
   assert.deepEqual(chips.picks, []);
   assert.deepEqual(chips.retractions, []);
 });
@@ -400,8 +402,8 @@ test("before the weekend and between events the page keeps the original empty-st
 
 test("the active board has one event heading and rejects stale open-market props", () => {
   const open = controls(fresh(solo), solo);
-  assert.equal((open.html.match(/<h1>/g) || []).length, 1);
-  assert.match(open.html, new RegExp(`<h1>${solo.name}</h1>`));
+  assert.equal((open.html.match(/<h1[ >]/g) || []).length, 1);
+  assert.match(open.html, new RegExp(`<h1[^>]*>${solo.name}</h1>`));
   assert.doesNotMatch(open.html, /<h1>Bets<\/h1>/);
   const wager = { id:"owned", player, kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:100 };
@@ -423,7 +425,7 @@ test("the active board has one event heading and rejects stale open-market props
   }
 });
 
-test("a stack shows its actual chip values and removes the newest legacy record", () => {
+test("your chips on a side take back the newest chip, even from a legacy record", () => {
   const state = fresh(solo);
   const wager = { player, kind:"outright", eventId:solo.id, pick:ROSTER[1], pickPlayers:[ROSTER[1]] };
   state.wagers = [
@@ -432,8 +434,6 @@ test("a stack shows its actual chip values and removes the newest legacy record"
     { ...wager, id:"newer-record-older-chip", stake:100, ts:2 },
   ];
   const view = controls(state, solo);
-  assert.match(view.html, /data-chip-stake="100"/);
-  assert.match(view.html, /data-chip-stake="200"/);
   assert.equal(view.named(`Retract your last chip on ${ROSTER[1]}`).description,
     "Remove 200 chips; 400 total on this pick");
   view.click(`Retract your last chip on ${ROSTER[1]}`);

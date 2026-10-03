@@ -9,9 +9,10 @@ import {
   usePlayerIdentity,
 } from "../src/features/identity/PlayerIdentityContext.js";
 
+import { chipInkIsDark } from "../src/features/identity/chipInk.js";
 const player = ROSTER[0];
-const lightColor = CHIP_COLORS.find(color => color.light);
-const darkColor = CHIP_COLORS.find(color => !color.light);
+const lightColor = CHIP_COLORS.find(color => chipInkIsDark(color.hex));
+const darkColor = CHIP_COLORS.find(color => !chipInkIsDark(color.hex));
 
 test("saved chip selections and player numbers retain their existing presentation", () => {
   for (const color of CHIP_COLORS) {
@@ -19,7 +20,7 @@ test("saved chip selections and player numbers retain their existing presentatio
       const profile = Object.freeze({ color:color.hex, skin, num:0 });
       const profiles = Object.freeze({ [player]:profile });
       assert.deepEqual(resolvePlayerIdentity(profiles, player), {
-        color:color.hex, isLight:!!color.light, skin, num:0, photo:null,
+        color:color.hex, isLight:chipInkIsDark(color.hex), skin, num:0, photo:null,
       });
     }
   }

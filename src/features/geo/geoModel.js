@@ -7,12 +7,12 @@ export const geoPhotoSrc = round => round?.photo?.id ? `/api/geo/photo/${encodeU
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const hourLabel = h => `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
-/* "Jul 4, 2019 · 9 PM" */
+/* "Jul 4, 2019, 9 PM" */
 export function whenLabel(when) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(when || "");
   if (!match) return "";
   const [, y, m, d, h] = match.map(Number);
-  return `${MONTHS[m - 1]} ${d}, ${y} · ${hourLabel(h)}`;
+  return `${MONTHS[m - 1]} ${d}, ${y}, ${hourLabel(h)}`;
 }
 export function milesLabel(miles) {
   if (miles === null || miles === undefined) return "";
@@ -58,5 +58,8 @@ export function geoView(state, me = null, now = Date.now()) {
     players, guessed, lockedIn, drafting, playing:!!me && players.includes(me), mine:me ? guesses[me] || null : null,
     revealed:!!revealed, results, mineScored:me ? results.find(row => row.player === me) || null : null,
     standings, last:geo.index >= total - 1, done:geo.phase === "done",
+    /* the game is over once its result posts: nothing of it stays open on a
+       phone (the sheet, Home's row); the state itself is kept for the record */
+    finished:geo.phase === "done" && !!(geo.eventId && state.results?.[geo.eventId]),
   };
 }

@@ -1,36 +1,53 @@
 /* The trophy: the turned cup on a stepped plinth, one tier per session and
    one plate per event. Flat fills from the shared tokens; a blank plate is
-   dull metal, a posted one is bone with the winners' numbers stamped in
-   their chip colors. Phone sizes by default, TV sizes under .is-tv. */
-.fd-trophy { --plate-h:50px; --plate-gap:5px; --tier-pad:6px; --stamp:17px; --stamp-font:12px; --name-font:10px;
+   dull metal, a posted one is bone engraved with its winners: their photo
+   chips and the name the room knows them by (in the green that means won),
+   never a jersey number. The plinth is dark turned metal, not a lamp
+   color: cyan is navigation only. Phone
+   sizes by default, TV sizes under .is-tv. Text never under 12px on the
+   phone or 24px on the TV, and every line box holds its descenders. */
+.fd-trophy { --trophy-base:color-mix(in srgb, var(--bone) 34%, var(--ink0));
+  --trophy-tier:color-mix(in srgb, var(--bone) 13%, var(--ink0)); --trophy-lip:color-mix(in srgb, var(--bone) 28%, var(--ink0));
+  --plate-h:64px; --plate-gap:5px; --tier-pad:6px; --name-font:14px; --winner-font:14px; --face-gap:-8px;
   display:flex; flex-direction:column; align-items:center; width:100%; }
 .fd-trophy-plinth, .fd-trophy-plinth ol { list-style:none; margin:0; padding:0; }
 .fd-trophy-plinth { display:flex; flex-direction:column; align-items:center; width:100%; margin-top:calc(var(--cup, 150px) * -0.09); position:relative; }
 .fd-trophy-tier { width:calc(76% + var(--tier) * (24% / max(1, var(--tier-count) - 1))); padding:var(--tier-pad);
-  background:color-mix(in srgb, var(--accent) 84%, var(--ink0)); border-top:3px solid var(--accent2);
+  background:var(--trophy-tier); box-shadow:inset 0 3px 0 var(--trophy-lip);
   border-left:1.5px solid var(--ink0); border-right:1.5px solid var(--ink0); }
 .fd-trophy-tier:last-child { border-bottom:1.5px solid var(--ink0); border-radius:0 0 6px 6px; }
 .fd-trophy-tier > ol { display:flex; gap:var(--plate-gap); }
 .fd-trophy-plate { flex:1 1 0; min-width:0; min-height:var(--plate-h); display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:3px; padding:3px 2px; border-radius:4px; text-align:center;
-  background:color-mix(in srgb, var(--accent2) 62%, var(--ink0)); border:1.5px solid color-mix(in srgb, var(--accent) 45%, var(--ink0)); }
-.fd-trophy-plate.is-posted { background:var(--bone); color:var(--ink0); border-color:var(--ink0); }
-.fd-trophy-plate-name { max-width:100%; font:700 var(--name-font)/1.05 var(--fd-display); text-transform:uppercase; letter-spacing:.02em;
-  display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:normal; }
-.fd-trophy-stamps { display:flex; flex-wrap:wrap; justify-content:center; gap:2px; }
-.fd-trophy-stamp { min-width:var(--stamp); height:var(--stamp); padding:0 3px; border-radius:3px; border:1px solid var(--ink0);
-  display:inline-flex; align-items:center; justify-content:center; font:700 var(--stamp-font)/1 var(--fd-display); }
-.fd-trophy-plate.is-crowded { --stamp:14px; --stamp-font:10px; }
+  justify-content:center; gap:3px; padding:4px 4px; border-radius:6px; text-align:center;
+  /* a blank plate is an unlit insert: frosted glass with no light behind
+     it yet, its centre a shade warmer, one glint along its top lip */
+  background:radial-gradient(ellipse 70% 80% at 50% 58%, color-mix(in srgb, var(--bone) 13%, var(--ink0)) 0,
+    color-mix(in srgb, var(--bone) 6%, var(--ink0)) 70%, color-mix(in srgb, var(--bone) 4%, var(--ink0)) 100%);
+  border:1.5px solid color-mix(in srgb, var(--bone) 16%, var(--ink0));
+  box-shadow:inset 0 1px 0 color-mix(in srgb, var(--bone) 14%, transparent), inset 0 -2px 0 color-mix(in srgb, var(--ink0) 70%, transparent); }
+.fd-trophy-plate.is-posted { background:var(--bone); color:var(--ink0); border-color:var(--ink0); box-shadow:none; }
+.fd-trophy-plate.is-posted .fd-trophy-winner { color:color-mix(in srgb, var(--green) 40%, var(--ink0)); }
+/* every plate lettered one way: as written (event names keep their digits'
+   case through EventName), never a mix of capitals and as-written plates */
+.fd-trophy-plate-name { max-width:100%; font:800 var(--name-font)/1.2 var(--fd-show); letter-spacing:.01em;
+  overflow-wrap:normal; text-wrap:balance; }
+.fd-trophy-win { display:flex; flex-direction:column; align-items:center; gap:3px; max-width:100%; min-width:0; }
+.fd-trophy-faces { flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.fd-trophy-faces.is-overlap > svg + svg { margin-left:var(--face-gap); }
+.fd-trophy-winner { max-width:100%; font:900 var(--winner-font)/1.25 var(--fd-show); letter-spacing:.01em;
+  overflow-wrap:normal; text-wrap:balance; }
+/* a posted plate opens its event: the whole plate is the target */
+.fd-trophy-plate-open { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; width:100%; min-height:44px;
+  padding:0; border:0; background:none; color:inherit; font:inherit; text-align:center; cursor:pointer; border-radius:6px; }
+.fd-trophy-plate-open:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
 
-.fd-trophy.is-tv { --plate-h:112px; --plate-gap:12px; --tier-pad:12px 16px; --stamp:44px; --stamp-font:32px; --name-font:26px; }
+.fd-trophy.is-tv { --plate-h:124px; --plate-gap:12px; --tier-pad:12px 16px; --name-font:24px; --winner-font:28px; --face-gap:-14px; }
 .fd-trophy.is-tv .fd-trophy-plinth { width:1260px; }
-.fd-trophy.is-tv .fd-trophy-tier { border-top-width:5px; }
-.fd-trophy.is-tv .fd-trophy-plate { gap:8px; padding:8px 8px; border-radius:6px; border-width:2px; }
-.fd-trophy.is-tv .fd-trophy-stamps { gap:6px; }
-.fd-trophy.is-tv .fd-trophy-stamp { padding:0 8px; border-radius:6px; border-width:2px; }
-.fd-trophy.is-tv .fd-trophy-plate.is-crowded { --stamp:36px; --stamp-font:26px; }
-.fd-trophy-plate.is-packed { --stamp:13px; --stamp-font:9px; }
-.fd-trophy.is-tv .fd-trophy-plate.is-packed { --stamp:32px; --stamp-font:24px; }
-.fd-trophy.is-tv .fd-trophy-plate.is-packed .fd-trophy-stamps { gap:4px; }
-.fd-trophy.is-tv .fd-trophy-plate.is-packed .fd-trophy-stamp { padding:0 4px; }
-.fd-trophy.is-tv .fd-trophy-plate-name { -webkit-line-clamp:1; line-clamp:1; white-space:nowrap; text-overflow:ellipsis; display:block; }
+.fd-trophy.is-tv .fd-trophy-tier { box-shadow:inset 0 5px 0 var(--trophy-lip); padding-top:16px; }
+.fd-trophy.is-tv .fd-trophy-plate { gap:6px; padding:8px 14px; border-radius:6px; border-width:2px; }
+/* on the TV the chips and the name share one line under the event */
+.fd-trophy.is-tv .fd-trophy-win { flex-direction:row; gap:12px; }
+/* a pair or a long team name takes two lines rather than an ellipsis */
+.fd-trophy.is-tv .fd-trophy-winner { white-space:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
+  line-height:1.15; padding-bottom:.06em; text-align:left; overflow-wrap:normal; }
+.fd-trophy.is-tv .fd-trophy-plate-name { color:color-mix(in srgb, var(--ink0) 72%, var(--bone)); }

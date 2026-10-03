@@ -224,7 +224,7 @@ function winnersText(state, evId, players) {
 /* What changed while this device looked away, and where to read it: a result
    opens that event, settled bets open the settled list, anything else opens
    the standings. The line is one line: the change it opens, then a count of
-   the rest ("Since 8:00 PM · Volleyball: Adi won · 2 more"); `detail` spells
+   the rest as a number ("Volleyball: Adi won", more: 2); `detail` spells
    everything out for the accessible name. `results` lists every event the
    line reports. */
 export function sinceSummary(saved, state, me, events, standings, now = Date.now()) {
@@ -238,7 +238,7 @@ export function sinceSummary(saved, state, me, events, standings, now = Date.now
     .sort(([, a], [, b]) => (b.correctedAt || b.ts || 0) - (a.correctedAt || a.ts || 0));
   if (changed.length) {
     const [evId, result] = changed[0];
-    const text = saved.results?.[evId] !== undefined ? `Correction · ${eventName(events, evId)}`
+    const text = saved.results?.[evId] !== undefined ? `${eventName(events, evId)} corrected`
       : `${eventName(events, evId)}: ${winnersText(state, evId, result.slots[0])} won`;
     parts.push(changed.length > 1 ? `${changed.length} results · ${text}` : text);
     lead = text;
@@ -278,7 +278,7 @@ export function sinceSummary(saved, state, me, events, standings, now = Date.now
   lead = lead || parts[0];
   const since = `Since ${clock(saved.at)}`;
   const more = parts.length - 1 + extraResults;
-  return { text:[since, lead, more ? `${more} more` : null].filter(Boolean).join(" · "),
+  return { text:lead, more,
     detail:[since, ...parts].join(" · "), route:route || { type:"standings" },
     results:changed.map(([evId]) => evId) };
 }

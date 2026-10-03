@@ -114,7 +114,7 @@ const RAW_BUILTIN_EVENTS = [
   /* ── Saturday afternoon · 1200 ── */
   { id:"volley", n:7, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Four teams of three, single elimination. Games to 15, win by 2. Rotate servers." },
+    desc:"Four teams of three, single elimination. Best of three sets to 15, cap 17. Rotate servers." },
   { id:"8ball", n:8, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
@@ -123,8 +123,8 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
   /* ── Saturday night · 1600 ── */
   { id:"trivia", n:10, session:"san", value:1600, name:"Trivia", kind:"team", game:"trivia",
-    teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Four teams of three, single elimination. First correct answer scores. First team to 7 wins the match." },
+    teamCfg:{ teams:4, size:3 },
+    desc:"Four teams of three, one game. Most points wins." },
   { id:"ragecage", n:11, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     pays:[1600, 1600, 400],
     desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
@@ -206,10 +206,6 @@ const GAMES = {
       objective:"Score five before your opponent.",
       steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls."],
       win:"First to five wins the game. Win the final to take the event." } },
-    { id:"3v3", label:"3v3", howto:{ players:"Teams of three", gear:["Half court","One ball"],
-      objective:"Score seven before the other team.",
-      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls."],
-      win:"First team to seven wins." } },
     { id:"5v5", label:"5v5", howto:{ players:"Two teams of five", gear:["Full court","One ball","A clock"],
       objective:"Be ahead when time runs out.",
       steps:["Tip off to start.","Twos inside the arc, threes beyond it.","Clear past half on a change of possession.","Call your own fouls.","Two halves, running clock."],
@@ -235,10 +231,6 @@ const GAMES = {
     objective:"Win the rally without faulting in the kitchen.",
     steps:["Serve underhand, cross court, past the kitchen.","Let it bounce once each side before volleying.","Stay out of the kitchen on volleys.","Only the serving side scores."],
     win:"Games to eleven, win by two." } },
-  flipcup: { name:"Flip Cup", howto:{ players:"Two teams", gear:["Cups","A table","A pour each"],
-    objective:"Finish the line and flip clean before they do.",
-    steps:["Line up across the table.","Drink it all, then set the cup on the edge.","Flip it upright with one finger.","Land it, the next teammate goes."],
-    win:"First team down the line wins the round. Best of three." } },
   beerio: { name:"Beerio Kart", howto:{ players:"Heats of four", gear:["Switch","Four controllers","A beer each"],
     objective:"Win the race, but finish your beer to count.",
     steps:["Open a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the finish line, or wait there until it is gone."],
@@ -258,20 +250,15 @@ const GAMES = {
       "Each photo scores up to 5,000 for where and 5,000 for when. 10 miles off is about 4,700; a month off about 3,900."],
     win:"Highest total wins. A tie goes to more points for where, then to the faster guesses." } },
   trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["The TV"],
-    objective:"Answer first and right.",
-    steps:["Four teams, single elimination, two teams a match.","A question goes up on the TV.",
-      "The first correct answer scores for that team.",
+    objective:"Most right answers.",
+    steps:["All four teams play one game.","A question goes up on the TV.",
+      "Every right answer scores for that team.",
       "Categories: the groom, the family, the group, a photo round, sports and pop culture."],
-    win:"First team to 7 correct wins the match." } },
+    win:"Most points wins." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
     win:"Chip leader takes the championship. Final chip counts are the final standings, and elimination order ranks the busts." } },
-  gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
-    objective:"Clear five stations faster than everyone else.",
-    steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
-    win:"Fastest clean run takes 1st.",
-    house:"One runner at a time. Someone times each run." } },
 };
 
 const SLOT_META = [
@@ -332,18 +319,19 @@ function legText(leg, dir) {
 
 /* chip identity: everyone starts gray; colors are claimed first come first
    serve and lock when the weekend goes live. Skins repeat freely; the color
-   is the unique claim. light:true colors take ink initials/text. */
+   is the unique claim. The ink on each color is computed for contrast
+   (src/features/identity/chipInk.js). */
 const CHIP_GRAY = "#6B6558";
 const CHIP_COLORS = [
-  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B", light:true }, { hex:"#D89C2F", light:true },
-  { hex:"#C9B25A", light:true }, { hex:"#A8A03F", light:true }, { hex:"#77804C" }, { hex:"#4E6E39" },
+  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B" }, { hex:"#D89C2F" },
+  { hex:"#C9B25A" }, { hex:"#A8A03F" }, { hex:"#77804C" }, { hex:"#4E6E39" },
   { hex:"#6E9450" }, { hex:"#3F7D5C" }, { hex:"#557B72" }, { hex:"#2F7E83" },
   { hex:"#4F93A3" }, { hex:"#3B6E9C" }, { hex:"#5E7291" }, { hex:"#6D6FA8" },
   { hex:"#7C5CA6" }, { hex:"#8A4F62" }, { hex:"#A6527C" }, { hex:"#B23B5E" },
   { hex:"#B23B2E" }, { hex:"#8E3B2F" }, { hex:"#7A5C43" }, { hex:"#A9663F" },
   { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
-  { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
-  { hex:"#D1C0A0", light:true }, { hex:"#E3D7BD", light:true },
+  { hex:"#9AA1A8" }, { hex:"#B9AF9B" },
+  { hex:"#D1C0A0" }, { hex:"#E3D7BD" },
 ];
 const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
   "saw", "flame", "star", "bolt", "wave", "crown"];
@@ -1388,7 +1376,8 @@ function contestTarget(state, ev) {
       const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
       if (keys.some(key => key === null || key === undefined || !draw?.teams?.[key])) continue;
       return { id:`match:${ev.id}:${draw.id}:${r}:${m}`, kind:"match", match:[r,m], drawId:draw.id,
-        label:`${ROUND_NAMES[draw.teams.length]?.[r] || `Round ${r + 1}`} · Match ${m + 1}`,
+        /* named as the bracket names it: "Final", "Semifinal 1", "Round 1 Match 3" */
+        label:bracketMatchName(br, r, m),
         sides:keys.map(key => ({ key, players:[...draw.teams[key].players] })) };
     }
     return null;

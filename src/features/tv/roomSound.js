@@ -6,22 +6,28 @@
      S2  the event intro, at eventOps.announcedAt
      S3  each draw card, at revealTimeline().revealAt + drawStepDelay(i, n),
          panned to the card's column
-     faceOff  D2, a low drum and knock as the face-off's VS stamps (the
-         face-off itself waits for the intro, the draw or the decided
-         contest, so this beat never lands on theirs)
+     land  the held beat: a draw card's last partner landing
+     faceOff  D2, the broadcast sting: the lean-in sting, a whoosh panned to
+         each side's edge, VS (drum, slap, low bell), the record typing in
+         (the face-off itself waits for the intro, the draw or the decided
+         contest, so these never land on theirs)
      S8  betting locks (lockAndStart), at bettingLockedAt
      S5  chips landing on the board, through the density rule
      S10 WON, S11 losing stacks to the bank, S12 the payout, and for a
          bracket the ride, the landing and a quiet UP NOW bell, on
          ADVANCE_TIMING from the decision's own write time
-     S14 a result posted (or a winner scene starting)
+     S14 a result posted (or a winner scene starting), then each later
+         podium place stamping on the podium beats (podiumBeatAt), 1st loudest
      S15 a new leader (the ChipTowers lead ring and the flat board's
          leader). A lead that changes with a decided contest rings when
          its lead card docks, after the contest's moment (dockCard); one
          that changes with a posted result leaves the frame to S14.
      S18 a draft pick landing in its seat (MOTION.cardFlight)
-     S20 a fresh deal, S21 blinds up, S22 a bust
-     S23/S24/S10/S1 the crown on CROWN_TIMING
+     S20 a fresh deal, S21 blinds up, S22 a bust and its bust card
+     the produced crown on CROWN_TIMING (night, the towers, a tower out per
+         place panned to it, the hold, the cascade, S23/S24/S10, the call),
+         open past the champion's song
+     the walkout's stinger and stamp (walkoutCues), open past the song
      D6  an award: its ballot chips (the chip density rule), then S10 and
          S14 as the winner stamps, on AWARD_TIMING from reveal.at
 
@@ -36,12 +42,13 @@ import { pokerClock, resolveCurrentContest, resolveWager, wagerMatchesContest } 
 import { MOTION } from "../../lib/motion.js";
 import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { buildEventReveal, drawStepDelay, revealReady, revealTimeline } from "../weekend/drawReveal.js";
+import { DRAW_PARTNER_BEAT_MS, buildEventReveal, drawRevealGroups, drawStepDelay, partnerFaces, revealReady, revealTimeline }
+  from "../weekend/drawReveal.js";
 import { sideKeyOf } from "../wagers/betStacks.js";
 import { levelAnchor, levelRoll } from "../poker/pokerMotion.js";
-import { ADVANCE_TIMING as A, CROWN_TIMING as C } from "./tvMotion.js";
-import { FACEOFF_TIMING } from "./faceOff.js";
-import { TV_ADVANCE_MS } from "./tvModel.js";
+import { ADVANCE_TIMING as A, CROWN_TIMING as C, crownOutAt } from "./tvMotion.js";
+import { FACEOFF_TICKS_MAX, FACEOFF_TIMING as F, faceOffView } from "./faceOff.js";
+import { podiumBeatAt, TV_ADVANCE_MS } from "./tvModel.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 
@@ -58,6 +65,12 @@ export function revealPans(reveal) {
   const groups = reveal.groups || [];
   const cols = groups.length === 4 ? 2 : Math.min(3, Math.max(1, groups.length));
   return groups.map((_, index) => panAt(index % cols, cols));
+}
+/* which draw cards hold a beat for a last partner (partnerFaces): the TV
+   and the phones land those faces late, the room hears it */
+export function revealPartners(state, reveal) {
+  if (!reveal) return [];
+  return drawRevealGroups(state, reveal).map(group => partnerFaces(group).some(face => face >= 0));
 }
 /* the contest's sides across the board (ContestBoard's grid) */
 export function sidePans(contest) {
@@ -90,12 +103,14 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     if (Number(op.announcedAt) > 0) announced[ev.id] = Number(op.announcedAt);
     if (Number(op.bettingLockedAt) > 0) locks[ev.id] = Number(op.bettingLockedAt);
     const res = state.results?.[ev.id];
-    if (res?.slots?.[0]?.length) results[ev.id] = { revision:Number(res.revision || 1), at:posted(res) };
+    if (res?.slots?.[0]?.length) results[ev.id] = { revision:Number(res.revision || 1), at:posted(res),
+      places:res.stacks ? 0 : Math.min(3, (res.slots || []).filter(slot => slot?.length).length) };
     if (announced[ev.id] && revealReady(state, ev.id) && !state.results?.[ev.id] && !op.startedAt) {
       const reveal = buildEventReveal(state, ev);
       if (reveal) {
         const cards = reveal.versus ? 2 : (reveal.groups || []).length;
         reveals[ev.id] = { id:reveal.id, total:cards + (reveal.crew?.length ? 1 : 0), pans:revealPans(reveal),
+          partners:revealPartners(state, reveal),
           revealAt:revealTimeline(state, ev.id, { reveal })?.revealAt ?? null,
           reducedAt:revealTimeline(state, ev.id, { reveal, reducedMotion:true })?.revealAt ?? null };
       }
@@ -159,8 +174,13 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
       continue;
     }
     if (reveal.revealAt === null) continue;
-    for (let i = 0; i < reveal.total; i++)
-      add("S3", reveal.revealAt + drawStepDelay(i, reveal.total), { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}` });
+    for (let i = 0; i < reveal.total; i++) {
+      const turn = reveal.revealAt + drawStepDelay(i, reveal.total);
+      add("S3", turn, { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}` });
+      /* the held beat: the card's last partner lands */
+      if (reveal.partners?.[i])
+        add("land", turn + DRAW_PARTNER_BEAT_MS, { pan:reveal.pans[i] ?? 0, key:`draw:${reveal.id}:${i}:partner` });
+    }
   }
 
   /* the table closes */
@@ -180,7 +200,12 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
   let rang = false;
   for (const [evId, res] of Object.entries(next.results)) {
     if (prev.results[evId]) continue;
-    if (!rang) { add("S14", res.at, { key:`result:${evId}:${res.revision}` }); rang = true; }
+    if (!rang) {
+      add("S14", res.at, { key:`result:${evId}:${res.revision}` });
+      rang = true;
+      /* the podium: each later place stamps as it turns, 1st last */
+      if (!reduced) podiumCues(res, `result:${evId}:${res.revision}`).forEach(cue => cues.push(cue));
+    }
   }
   if (next.scene && next.scene.id !== prev.scene?.id) {
     if (next.scene.kind === "winner" && !rang) add("S14", next.scene.startedAt, { key:`scene:${next.scene.id}` });
@@ -211,8 +236,28 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
   const pk = next.poker, was = prev.poker;
   if (pk && !pk.started && !pk.posted && (!was || was.id !== pk.id || was.ts !== pk.ts))
     add("S20", now, { key:`deal:${pk.id}:${pk.ts}` });
-  if (pk && was && was.id === pk.id && pk.outs > was.outs)
+  if (pk && was && was.id === pk.id && pk.outs > was.outs) {
     add("S22", now, { key:`bust:${pk.id}:${pk.outs}` });
+    /* the bust card lands as the chip spins flat (TVPokerMoments) */
+    if (!reduced) add("bustCard", now + BUST_CARD_LAND_MS, { key:`bust:${pk.id}:${pk.outs}:card` });
+  }
+  return cues;
+}
+
+/* the bust card lands this long after the bust (the spin-down's length) */
+export const BUST_CARD_LAND_MS = 1000;
+
+/* The podium after a posted result: the first place shown rang S14; each
+   later one stamps on its podium beat (podiumBeatAt), 1st last and
+   loudest (resultMomentPhase reveals them on the same steps). */
+export function podiumCues(res, key) {
+  const places = Math.max(0, Math.min(3, Number(res?.places) || 0));
+  const cues = [];
+  for (let k = 0; k < places; k++) {
+    const place = places - k;
+    if (k === 0 && place !== 1) continue;
+    cues.push({ id:"podium", at:Number(res.at) + podiumBeatAt(k), opts:{ place }, key:`${key}:podium:${place}` });
+  }
   return cues;
 }
 
@@ -237,29 +282,73 @@ export function advanceCues(advance, motion = null, { reduced = false } = {}) {
   return cues;
 }
 
-/* M18 on the room's clock: the rows step down, the roll swells into the
-   flood, the chip drops and spins, CHAMPION stamps, the stack counts, and
-   the Field Day call completes. */
-export function crownCues(crown, { reduced = false } = {}) {
+/* The produced crown on the room's clock (CROWN_TIMING), over the
+   champion's song, so every beat is open (past the walkout duck): night
+   falls, the towers stand, each goes dark from last place up to 3rd
+   (panned to its tower), the last two hold on a roll, 2nd goes dark, the
+   champion's tower rises and cascades into the flood, the chip drops and
+   spins, CHAMPION stamps, the stack counts, and the Field Day call
+   completes as the constellation joins. `count` is the field (towers). */
+export function crownCues(crown, { reduced = false, count = 13 } = {}) {
   if (!crown) return [];
   const at = ms => Number(crown.anchor) + ms;
   const key = `crown:${crown.id || crown.anchor}`;
-  if (reduced) return [{ id:"S1", at:at(0), key:`${key}:call` }];
-  return [
-    { id:"stepDown", at:at(C.stepDown), key:`${key}:step` },
-    { id:"S23", at:at(C.rise), key:`${key}:flood` },
+  if (reduced) return [{ id:"S1", at:at(0), key:`${key}:call`, open:true }];
+  const n = Math.max(2, Math.floor(Number(count) || 13));
+  const pan = index => n > 1 ? Math.round((-0.8 + 1.6 * index / (n - 1)) * 100) / 100 : 0;
+  const cues = [
+    { id:"nightFall", at:at(C.night), key:`${key}:night` },
+    { id:"towersUp", at:at(C.towers), key:`${key}:towers` },
+  ];
+  for (let index = n - 1; index >= 2; index--)
+    cues.push({ id:"towerOut", at:at(crownOutAt(index, n)), pan:pan(index), key:`${key}:out:${index}` });
+  cues.push(
+    { id:"holdRoll", at:at(C.holdTwo), opts:{ ms:C.holdTwoMs }, key:`${key}:hold` },
+    { id:"towerOut", at:at(C.second), pan:pan(1), key:`${key}:out:1` },
+    { id:"cascade", at:at(C.rise), pan:pan(0), key:`${key}:rise` },
+    { id:"S23", at:at(C.flood - 600), key:`${key}:flood` },
     { id:"S24", at:at(C.chip), key:`${key}:chip` },
     { id:"S10", at:at(C.tag), key:`${key}:tag` },
     { id:"crownCount", at:at(C.count), opts:{ ms:C.countMs }, key:`${key}:count` },
     { id:"crownCall", at:at(C.lines), key:`${key}:call` },
-  ];
+  );
+  return cues.map(cue => ({ ...cue, open:true }));
 }
 
-/* D2: one restrained beat as the face-off's VS stamps. The face-off is
+/* D2, the broadcast sting: the lean-in sting as the glass dims, a whoosh
+   panned to each side's own edge as it slams in, VS (drum, slap, low
+   bell), then the head-to-head typing in a tick a letter. The face-off is
    fresh-gated and never plays under reduced motion, so neither does this. */
-export function faceOffCues(faceOff) {
+export function faceOffCues(faceOff, { record = null } = {}) {
   if (!faceOff?.id || !Number.isFinite(Number(faceOff.anchor))) return [];
-  return [{ id:"faceOff", at:Number(faceOff.anchor) + FACEOFF_TIMING.vs, key:`faceoff:${faceOff.id}` }];
+  const at = ms => Number(faceOff.anchor) + ms;
+  const key = `faceoff:${faceOff.id}`;
+  const cues = [
+    { id:"sting", at:at(F.dim), key:`${key}:sting` },
+    { id:"whoosh", at:at(F.slide), pan:-0.8, key:`${key}:left` },
+    { id:"whoosh", at:at(F.slide2), pan:0.8, key:`${key}:right` },
+    { id:"vsHit", at:at(F.vs), key },
+  ];
+  const letters = [...String(record || "")];
+  let ticks = 0;
+  letters.forEach((ch, i) => {
+    if (ch.trim() && ticks < FACEOFF_TICKS_MAX) {
+      ticks++;
+      cues.push({ id:"typeTick", at:at(F.h2h + i * F.typeMs), pan:0, key:`${key}:type:${i}` });
+    }
+  });
+  return cues;
+}
+
+/* The walkout on the room's clock (TVWalkout): the stinger lands as the
+   win song fades in, past the duck, and the name stamps with it. */
+export function walkoutCues(plan) {
+  if (!plan?.id || !Number.isFinite(Number(plan.anchor))) return [];
+  const key = `walkout:${plan.id}`;
+  return [
+    { id:"stinger", at:Number(plan.anchor) + Number(plan.stamp || 0), key:`${key}:stinger`, open:true },
+    { id:"stamp", at:Number(plan.anchor) + Number(plan.stamp || 0) + 40, key:`${key}:stamp`, open:true },
+  ];
 }
 
 /* The fresh gate: the first snapshot (a load, a TV joining late) and any
@@ -272,7 +361,7 @@ export function playCues(cues) {
   const chips = [];
   for (const cue of cues) {
     if (cue.id === "chip") { chips.push({ at:cue.at, pan:cue.pan || 0 }); continue; }
-    cueAt(cue.id, cue.at, { pan:cue.pan || 0, key:cue.key ?? null, opts:cue.opts || {} });
+    cueAt(cue.id, cue.at, { pan:cue.pan || 0, key:cue.key ?? null, opts:cue.opts || {}, open:!!cue.open });
   }
   if (chips.length) roomChipsLanded(chips);
 }
@@ -307,7 +396,8 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
   useEffect(() => {
     if (!faceOff?.id || faced.current === faceOff.id) return;
     faced.current = faceOff.id;
-    playCues(faceOffCues(faceOff));
+    const contest = liveEv ? resolveCurrentContest(state, liveEv) : null;
+    playCues(faceOffCues(faceOff, { record:faceOffView(state, liveEv, contest, events)?.record || null }));
   }, [faceOff?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* the crown moment is fresh-gated already (useCrownMoment) */
@@ -315,7 +405,7 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
   useEffect(() => {
     if (!crown?.id || crowned.current === crown.id) return;
     crowned.current = crown.id;
-    playCues(crownCues(crown, { reduced:reducedNow() }));
+    playCues(crownCues(crown, { reduced:reducedNow(), count:standings?.length || 13 }));
   }, [crown?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* S21: the level rolls up by the clock, or by a fresh level write */

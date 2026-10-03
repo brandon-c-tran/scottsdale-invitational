@@ -561,40 +561,155 @@ test("a restored checkpoint must be well formed and from this version", () => {
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`export { QASheet } from "./src/features/qa/QASheet.jsx";
-    export { QABar } from "./src/features/qa/QABar.jsx";`, resolveDir:root, loader:"jsx" },
+    export { QABar } from "./src/features/qa/QABar.jsx";
+    export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
 });
 const consoleModule = new Module(fileURLToPath(new URL("qa-fast.cjs", import.meta.url)));
 consoleModule.filename = consoleModule.id;
 consoleModule.paths = Module._nodeModulePaths(root);
 consoleModule._compile(compiled.outputFiles[0].text, consoleModule.filename);
-const { QASheet, QABar } = consoleModule.exports;
+const { QASheet, QABar, PlayerIdentityProvider } = consoleModule.exports;
+const inProvider = (state, element) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider,
+  { profiles:state.profiles || {} }, element));
 
-test("the console lists every jump with 44px targets and keeps the live driver", () => {
+test("the console: Step, Bets, Jump to, Lens, Checkpoints and Reset, every target 44px", () => {
   const state = reach("event:8ball:mid").state;
   const status = { environment:"staging", version:3, schema:9, profiles:13, completed:1, total:17, pendingWagers:6,
     openDuels:0, current:"8-Ball Doubles", phase:"Betting open", next:"Lock bets and start", blockers:[] };
   const noop = () => {};
-  const html = renderToStaticMarkup(React.createElement(QASheet, { state, status, me:"Evan", guestLens:false, busy:false,
+  const market = { contestId:"c1", contestRevision:1, label:"Final", bets:6, chips:1400 };
+  const props = { state, status, me:"Evan", guestLens:false, busy:false, market,
     environment:"staging", dispatch:async () => ({ ok:true }), notify:noop, onSwitch:noop, onLens:noop, onPlayLive:noop,
-    onBets:noop, onDuelMe:noop, onDuels:noop, pokerOn:false, onBustOne:noop, onCountRest:noop, onRerun:noop,
-    onReplayMine:noop, onResetRequest:noop, onClose:noop }));
-  for (const text of ["Jump to", "Sim contest", "Finish event", "Play it live (slow)", "Checkpoints", "Locker room",
-    "Friday Night", "Saturday Night", "Finale", "Crowned", "Reset game progress"])
+    onDuelMe:noop, onDuels:noop, pokerOn:false, onBustOne:noop, onCountRest:noop, onRerun:noop,
+    onReplayMine:noop, onResetRequest:noop, onExit:noop, onClose:noop };
+  const html = inProvider(state, React.createElement(QASheet, props));
+  for (const text of ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset", "Sim contest", "Finish event", "Play live",
+    "Everyone bets", "Back the favorite", "Spread evenly", "Clear bets", "Locker room",
+    "Friday Night", "Saturday Night", "Finale", "Crowned", "Reset game progress", "Guest view"])
     assert.ok(html.includes(text), text);
+  /* the order: Step, Bets, Jump to, Lens, Checkpoints, Reset last */
+  const order = ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset"]
+    .map(label => html.search(new RegExp(`<span>${label}</span>(<span class="fd-qa-aside">[^<]*</span>)?</h3>`)));
+  assert.ok(order.every((index, i) => index > 0 && (i === 0 || index > order[i - 1])), `sections in order: ${order}`);
   for (const ev of slateOf(state)) assert.ok(html.includes(`aria-label="${ev.name.replace("&", "&amp;")}: Mid"`), ev.name);
   assert.equal((html.match(/class="is-current"/g) || []).length, 1, "one place is current");
   assert.ok(html.includes('aria-label="8-Ball Doubles: Mid" class="is-current"'));
   const text = html.replace(/<[^>]+>/g, " ");
   assert.ok(!/—|!/.test(text), "no em dashes or exclamation marks");
+  assert.doesNotMatch(text, /releases every claimed|keeps people, travel/, "no explanatory sentences");
+  /* no contest taking bets: the bets actions are off */
+  const closed = inProvider(state, React.createElement(QASheet, { ...props, market:null }));
+  assert.match(closed, /<button type="button" class="fd-qa-bet" disabled="">Everyone bets/);
   const css = readFileSync(new URL("../src/features/qa/qa.css", import.meta.url), "utf8");
-  for (const rule of [".fd-qa-seg button {", ".fd-qa-end {", ".fd-qa-bar-icon {", "button.fd-qa-bar-btn {", ".fd-qa-players button {"])
-    assert.match(css.slice(css.indexOf(rule)).split("}")[0], /(min-height|height):44px/, rule);
+  for (const rule of [".fd-qa-seg button {", ".fd-qa-end {", ".fd-qa-strip-btn {", ".fd-qa-strip-open {", ".fd-qa-players button {", ".fd-qa-bet {"])
+    assert.match(css.slice(css.indexOf(rule)).split("}")[0], /(min-height|height):4[4-8]px/, rule);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css), "tokens only");
-  const bar = renderToStaticMarkup(React.createElement(QABar, { me:"Evan", status, onExit:noop, sim:null, onStop:noop,
-    guestLens:false, onLens:noop, onOpen:noop, minimized:false, onMin:noop, top:false, onPos:noop,
-    dispatch:async () => ({ ok:true }), environment:"staging", notify:noop }));
-  assert.ok(bar.includes("Sim contest") && bar.includes("Console"));
+  const strip = extra => inProvider(state, React.createElement(QABar, { status, sim:null, onStop:noop, guestLens:false,
+    onLens:noop, onOpen:noop, market, dispatch:async () => ({ ok:true }), environment:"staging", notify:noop, ...extra }));
+  const bar = strip();
+  assert.match(bar, /data-qa-open="true"[^>]*aria-label="QA console, Staging"/, "the strip opens the console");
+  assert.match(bar, /aria-label="Everyone bets"/, "one-tap bets while a contest takes them");
+  assert.match(bar, /aria-label="Sim contest"/);
+  assert.doesNotMatch(strip({ market:null }), /Everyone bets/, "no bets button while nothing takes bets");
+  assert.match(strip({ sim:"Evan puts 200 on Khoa" }), /Stop/);
+});
+
+/* ── QA quick bets: the current contest's board in one write ── */
+let betSeq = 0;
+const betsCtx = (extra = {}) => ({ ...LOCAL, player:"Brandon", deviceId:"qa-gm", actionId:`bets-${++betSeq}`, ...extra });
+const marketOf = state => {
+  const ev = eventById(state, state.onDeck);
+  return { ev, contest:resolveCurrentContest(state, ev) };
+};
+const betsOn = (state, mode, extra = {}, ctx = betsCtx()) => {
+  const { contest } = marketOf(state);
+  const next = structuredClone(state);
+  const result = applyAction(next, "qaBets", { mode, contestId:contest.id, contestRevision:contest.revision, seed:4, ...extra }, ctx);
+  return { result, state:result.ok ? next : state };
+};
+
+test("quick bets fill the current contest through the real reducers, under every cap and rule", () => {
+  for (const target of ["event:putt:open", "event:pickleball:open", "event:volley:open", "event:beerio:open"]) {
+    let { state } = reach(target);
+    const { contest } = marketOf(state);
+    const cleared = betsOn(state, "clear");
+    assert.equal(cleared.result.ok, true, `${target}: ${cleared.result.error}`);
+    state = cleared.state;
+    assert.equal(pendingOn(state, contest).length, 0, `${target}: cleared`);
+    assert.equal(betsOn(state, "clear").result.error, "No bets to clear");
+    for (const mode of ["everyone", "favorite", "spread"]) {
+      const run = betsOn(state, mode);
+      assert.equal(run.result.ok, true, `${target} ${mode}: ${run.result.error}`);
+      assert.ok(run.result.extra.placed > 0);
+      state = run.state;
+      assertCoherent(state, `${target} ${mode}`);
+      const events = allEventsOf(state);
+      const bets = pendingOn(state, contest);
+      assert.ok(bets.every(wager => wager.player !== "Brandon"), "the commissioner's own chips stay theirs");
+      for (const player of new Set(bets.map(wager => wager.player))) {
+        /* a wide free-for-all is unrestricted; any other contest takes one side a player */
+        if (contest.kind !== "ffa") assert.equal(new Set(bets.filter(wager => wager.player === player)
+          .map(wager => JSON.stringify(wager.pickPlayers))).size, 1, `${player} holds one side`);
+        const row = computeStandings(state).find(item => item.player === player);
+        assert.ok(atRisk(state, player, events) + duelReserve(state, player) <= maxRisk(row.pts), `${player} inside the cap`);
+      }
+      assert.ok(!Object.keys(state.wagerOps || {}).some(key => key.startsWith("request:qa-sim:")), "no synthetic ledger left");
+    }
+    const back = betsOn(state, "clear");
+    assert.equal(back.result.ok, true);
+    assert.equal(pendingOn(back.state, contest).length, 0, "Clear bets returns every chip");
+  }
+});
+
+test("quick bets: favorite backs the strongest side, spread deals the sides in turn", () => {
+  const { state } = betsOn(reach("event:pickleball:open").state, "clear");
+  const { contest } = marketOf(state);
+  const spectators = wagers => wagers.filter(wager => !contest.players.includes(wager.player));
+  const spread = spectators(pendingOn(betsOn(state, "spread").state, contest));
+  const counts = contest.sides.map(side => spread.filter(wager => wager.teamIdx === side.key).length);
+  assert.ok(counts.every(count => count > 0), `both sides dealt: ${counts}`);
+  const favorite = spectators(pendingOn(betsOn(state, "favorite").state, contest));
+  assert.equal(new Set(favorite.map(wager => wager.teamIdx)).size, 1, "every spectator backs the one favorite");
+});
+
+test("quick bets: commissioner and QA only, production confirms, stale refs refused, a retry places once", () => {
+  const { state } = reach("event:putt:open");
+  const { contest } = marketOf(state);
+  assert.equal(betsOn(state, "everyone", {}, betsCtx({ qa:false })).result.error, "QA is unavailable");
+  assert.equal(betsOn(state, "everyone", {}, betsCtx({ isGm:false })).result.ok, false);
+  assert.equal(betsOn(state, "nope").result.error, "Unknown QA bets action");
+  assert.equal(betsOn(state, "everyone", { contestRevision:contest.revision + 1 }).result.error,
+    "Contest changed, refresh and try again");
+  const prod = betsOn(state, "everyone", {}, betsCtx({ environment:"production" }));
+  assert.equal(prod.result.extra?.needsConfirm, true, "production always confirms");
+  assert.equal(prod.result.extra?.production, true);
+  const confirmed = betsOn(state, "everyone", { confirm:RESET_PROGRESS_CONFIRMATION }, betsCtx({ environment:"production" }));
+  assert.equal(confirmed.result.ok, true, confirmed.result.error);
+  const ctx = betsCtx();
+  const once = betsOn(state, "everyone", {}, ctx);
+  assert.equal(once.result.ok, true);
+  const again = applyAction(once.state, "qaBets", { mode:"everyone", contestId:contest.id, contestRevision:contest.revision, seed:4 }, ctx);
+  assert.equal(again.ok, true);
+  assert.equal(again.extra.unchanged, true, "the same tap acknowledged, not placed twice");
+  /* nothing taking bets: refused */
+  const locked = structuredClone(state);
+  assert.equal(applyAction(locked, "setOnDeck", { id:null, contestId:contest.id, contestRevision:contest.revision },
+    { ...LOCAL, actionId:"lock" }).ok, true);
+  assert.equal(applyAction(locked, "qaBets", { mode:"everyone" }, betsCtx()).error, "No contest is taking bets");
+});
+
+test("quick bets over the Durable Object: one write, one broadcast, no backup", async () => {
+  const { memory, tournament, asGm } = await objectWith();
+  assert.equal((await asGm("qaAdvance", { target:"event:putt:open", seed:5 })).ok, true);
+  const version = tournament.version;
+  const { contest } = marketOf(tournament.state);
+  const before = pendingOn(tournament.state, contest).length;
+  const placed = await asGm("qaBets", { mode:"everyone", contestId:contest.id, contestRevision:contest.revision });
+  assert.equal(placed.ok, true, placed.error);
+  assert.equal(tournament.version, version + 1, "one write");
+  assert.ok(pendingOn(tournament.state, contest).length > before);
+  assert.equal([...memory.entries.keys()].filter(key => key.startsWith("m1:pre-reset:")).length, 0, "no backup");
 });
 
 test("a forward jump or Sim contest makes no backup; a rewind makes the rotating one", async () => {

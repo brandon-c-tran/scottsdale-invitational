@@ -103,9 +103,36 @@ export function drawRevealGroups(state, reveal) {
 export const DRAW_INTRO_MS = 3000;
 export const DRAW_INTRO_REDUCED_MS = 650;
 export const DRAW_FIRST_STEP_MS = 480;
-export const drawStepGap = total => Math.min(680, 2900 / Math.max(1, total - 1));
+/* Each card holds the room about two seconds (Backglass takeover grammar):
+   the card turns, its first faces deal in, and the last partner of each
+   pair or team lands after a held beat (DRAW_PARTNER_BEAT_MS), so the room
+   says the name before it shows. A big field compresses toward
+   DRAW_SEQUENCE_CAP_MS, never under DRAW_STEP_MIN_MS a card. Phones and the
+   TV read these same numbers. */
+export const DRAW_STEP_MS = 2000;
+export const DRAW_STEP_MIN_MS = 1300;
+export const DRAW_SEQUENCE_CAP_MS = 16000;
+export const DRAW_PARTNER_BEAT_MS = 900;
+export const drawStepGap = total => total <= 1 ? DRAW_STEP_MS
+  : Math.max(DRAW_STEP_MIN_MS, Math.min(DRAW_STEP_MS, DRAW_SEQUENCE_CAP_MS / (total - 1)));
 /* ms after the reveal starts that step `index` (0-based) turns */
 export const drawStepDelay = (index, total) => DRAW_FIRST_STEP_MS + index * drawStepGap(total);
+/* the held beat inside a card: the last face of a line of two or more lands
+   this long after its card turns (0 for everyone else) */
+export const partnerDelay = (faceIndex, faces) => faces > 1 && faceIndex === faces - 1 ? DRAW_PARTNER_BEAT_MS : 0;
+/* which face of each line of a draw card holds that beat (-1 for none).
+   A matchup card (`vs`) holds each side's own last partner, so both pairs
+   or teams land alike; a card that is one team or heat listed one player a
+   line holds its last face; byes hold nothing. The phone sheet, the TV and
+   the room's sound all read this, never a card-wide count of their own. */
+export function partnerFaces(group) {
+  const lines = group?.lines || [];
+  const count = line => (line.avatars || []).length;
+  if (group?.bye) return lines.map(() => -1);
+  if (group?.vs) return lines.map(line => partnerDelay(count(line) - 1, count(line)) ? count(line) - 1 : -1);
+  const faces = lines.reduce((n, line) => n + Math.max(1, count(line)), 0);
+  return lines.map((line, j) => faces > 1 && j === lines.length - 1 && count(line) ? count(line) - 1 : -1);
+}
 /* how many steps are showing `elapsed` ms after the reveal started */
 export function drawStepAt(elapsed, total) {
   const count = Math.max(0, Math.floor(Number(total) || 0));

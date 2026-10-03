@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from "react";
+import { Icon } from "../../ui/Icon.jsx";
 import { serverNow, useServerNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { runOfShow } from "./runOfShow.js";
 import "./run-of-show.css";
 
-/* D5: the commissioner's run of show. A hold on the pill (or the list
-   button beside it) opens a read-only card above the pill: Now, Next, Then,
-   how long the current event has run, who is away, and any winner replay
-   the TV still owes. Every action stays on the pill. */
+/* D5: the commissioner's run of show. A hold on the pill (or its more
+   button) opens the tray above the pill; this read-only card leads it: Now,
+   Next, Then, how long the current event has run, who is away, and any
+   winner replay the TV still owes. Every action stays on the pill. */
 
 export const HOLD_MS = 450;
 /* a finger that travels this far is scrolling, not holding */
@@ -37,34 +38,26 @@ export function useHold(onHold, ms = HOLD_MS) {
   return { bind, consume };
 }
 
-const ListGlyph = () => <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-  <circle cx="5" cy="6" r="2.2" fill="var(--sun)" />
-  <circle cx="5" cy="12" r="1.8" fill="currentColor" />
-  <circle cx="5" cy="18" r="1.8" fill="currentColor" />
-  <path d="M10 6h10M10 12h10M10 18h7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
-</svg>;
 
-export function RunOfShowToggle({ open, onToggle, disabled = false }) {
-  return <button type="button" className={`fd-runshow-toggle${open ? " is-open" : ""}`} aria-expanded={open}
-    aria-label="Run of show" disabled={disabled} onClick={onToggle}><ListGlyph /></button>;
-}
-
-export function RunOfShowPanel({ state, events, director = null, showControl = false, now = null, onClose }) {
+/* `embedded`: inside the pill's more tray, which owns the close */
+export function RunOfShowPanel({ state, events, director = null, showControl = false, now = null, onClose, embedded = false }) {
   useServerNow(15000);
   const model = runOfShow(state, events, director, { showControl, now:now ?? serverNow() });
-  if (!model.beats.length) return null;
+  /* in the pill's tray the pill itself is Now: the tray reads on from Next */
+  const beats = embedded ? model.beats.filter(item => item.slot !== "Now") : model.beats;
+  if (!beats.length) return null;
   const meta = [
     model.started && { key:"started", label:"Started", value:`${model.started.event}, ${model.started.text}` },
     model.away.length && { key:"away", label:"Away", value:model.away.map(item => item.name).join(", ") },
     model.replay && { key:"replay", label:"Replay owed", value:model.replay },
   ].filter(Boolean);
-  return <section className="fd-runshow" aria-label="Run of show">
-    <header className="fd-runshow-head">
+  return <section className={`fd-runshow${embedded ? " is-embedded" : ""}`} aria-label="Run of show">
+    {!embedded && <header className="fd-runshow-head">
       <b>Run of show</b>
-      <button type="button" className="fd-runshow-x" aria-label="Close run of show" onClick={onClose}>✕</button>
-    </header>
+      <button type="button" className="fd-runshow-x" aria-label="Close run of show" onClick={onClose}><Icon name="close" size={18} /></button>
+    </header>}
     <ol className="fd-runshow-beats">
-      {model.beats.map(item => <li key={item.slot} className={item.slot === "Now" ? "is-now" : undefined}>
+      {beats.map(item => <li key={item.slot} className={item.slot === "Now" ? "is-now" : undefined}>
         <span className="fd-runshow-slot">{item.slot}</span>
         <span className="fd-runshow-beat"><b>{item.label}</b>
           {(item.blocked || item.subject) && <small>{item.blocked || item.subject}</small>}</span>

@@ -80,7 +80,7 @@ function geoPlan(state, ev) {
   const geo = state.geo?.eventId === ev.id && state.geo.order ? state.geo : null;
   const n = geo ? geo.order.length : rounds.length;
   const photo = i => `Photo ${i + 1} of ${n}`;
-  const out = geo ? [] : [beat("geo-start", "Start game", `${ev.name} · ${n} photos`)];
+  const out = geo ? [] : [beat("geo-start", "Start game", ev.name)];
   for (let i = geo ? geo.index : 0; i < n; i++) {
     if (!(geo && i === geo.index && geo.phase !== "guess")) out.push(beat("geo-reveal", "Reveal", photo(i)));
     if (i < n - 1) out.push(beat("geo-next", "Next photo", photo(i)));

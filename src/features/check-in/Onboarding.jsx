@@ -3,20 +3,31 @@ import { EDITION, ROSTER, SPORTS, RATINGS, allEventsOf } from "../../../shared/c
 import { TravelMap, TRAVEL_CITIES, VenueCard, TravelFields, SizeRow } from "../travel/Travel.jsx";
 import { ProfileEditor } from "../profile/ProfileEditor.jsx";
 import { InstallHint } from "./InstallHint.jsx";
+import { LampChase, ScoreReel } from "../../ui/ScoreReel.jsx";
+import { GlassArt } from "../../ui/GlassArt.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import { createCheckInSubmission } from "./submission.js";
 import "./arrival.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const STAGES = ["Your invitation", "The tournament", "The roster", "The details", "Your card", "Private ratings"];
 
+/* The invitation is a backglass: a frame of chasing lamps around the
+   session's painted Scottsdale sky (the TV's painting, GlassArt), "Field
+   Day" lettered on it in the marquee cut and lit from behind, the thirteen on an
+   amber seal, the place and dates on the clear glass under the floor. */
 function InvitationArt() {
   return <div className="fd-invitation-art" aria-label={`Field Day. ${EDITION.name}, ${EDITION.year}.`}>
-    <div className="fd-invitation-eyebrow"><span>YOUR INVITATION</span><span>{EDITION.year}</span></div>
-    <div className="fd-invitation-wordmark" aria-hidden="true"><span>FIELD</span><span>DAY<span className="fd-invitation-period">.</span></span></div>
+    <LampChase tone="live" />
+    <div className="fd-invitation-scene fd-glass-scene">
+      <GlassArt clear />
+      <div className="fd-invitation-wordmark" aria-hidden="true"><span>Field</span><span>Day</span></div>
+    </div>
     <div className="fd-invitation-seal" aria-hidden="true">
       <svg viewBox="0 0 100 100"><path d="M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z" fill="currentColor" /></svg>
-      <span><strong>{ROSTER.length}</strong><small>PLAYERS</small></span>
+      <span><strong>{ROSTER.length}</strong><small>Players</small></span>
     </div>
-    <div className="fd-invitation-edition"><span>SCOTTSDALE, AZ</span><span>{EDITION.short}<br />2026</span></div>
+    <div className="fd-invitation-edition"><span>Scottsdale, AZ</span><span><OneSafe text={EDITION.short} /><br />{EDITION.year}</span></div>
   </div>;
 }
 
@@ -101,7 +112,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
       `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
       "",
       "",
-      "Private. Only used to balance teams."][step];
+      "Private"][step];
   /* Once the weekend is live a straggler is already here: flights become
      optional, the shirt size is still needed. */
   const canContinue = step === 0 ? !!selected : step === 3 ? !!size && (flightsBooked !== null || !!state.live)
@@ -120,8 +131,8 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
 
   return <main className="fd-arrival" aria-busy={busy}>
     <header className="fd-arrival-header">
-      <span className="fd-eyebrow">FIELD DAY / SCOTTSDALE</span>
-      <span className="fd-arrival-progress">{step < 0 ? "WELCOME" : `${String(step + 1).padStart(2, "0")} / 06`}</span>
+      <span className="fd-arrival-mark">Field Day <span>{EDITION.label}</span></span>
+      <span className="fd-arrival-progress">{step < 0 ? "WELCOME" : <OneSafe all text={`${String(step + 1).padStart(2, "0")} / 06`} />}</span>
       {step >= 0 && <div className="fd-arrival-progress-track" aria-label={`Check-in step ${step + 1} of 6: ${STAGES[step]}`}>
         {STAGES.map((stage, i) => <span key={stage} className={i <= step ? "is-complete" : ""} />)}
       </div>}
@@ -129,21 +140,23 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     <div className={`fd-arrival-layout${step <= 0 ? " is-invitation" : ""}`}>
       <aside className="fd-arrival-aside">
         {step <= 0 ? <InvitationArt /> : <div className="fd-arrival-chapter" aria-hidden="true">
-          <span className="fd-eyebrow">FIELD DAY / {EDITION.year}</span><strong>{String(step + 1).padStart(2, "0")}</strong>
+          <strong>{String(step + 1).padStart(2, "0")}</strong>
           <span className="fd-chapter-name">{STAGES[step]}</span><span className="fd-chapter-date">{EDITION.long}</span>
         </div>}
       </aside>
       <section className="fd-arrival-main" key={step}>
         <div className="fd-arrival-heading"><h1 ref={heading} tabIndex={-1}>{title}</h1>{intro && <p>{intro}</p>}</div>
         <fieldset className="fd-arrival-fields" disabled={busy}>
-          {step === -1 && <div className="fd-install"><InstallHint /><p>Open it from your home screen to check in.</p></div>}
+          {step === -1 && <div className="fd-install"><InstallHint /></div>}
           {step === 0 && <div className="fd-guest-list" role="group" aria-label="Who are you?">
             {ROSTER.map((p, i) => <button type="button" key={p} onClick={() => setSelected(p)} aria-pressed={selected === p}>
-              <span className="fd-guest-index">{String(i + 1).padStart(2, "0")}</span><span>{p}</span><span className="fd-guest-check" aria-hidden="true">{selected === p ? "↗" : "+"}</span>
+              <span className="fd-guest-index"><OneSafe all text={String(i + 1).padStart(2, "0")} /></span><span className="fd-guest-name">{p}</span>
             </button>)}
           </div>}
           {step === 1 && <>
-            <div className="fd-starting-stack"><span className="fd-eyebrow">EVERYONE STARTS AT</span><strong>1,000<span>CHIPS</span></strong></div>
+            <div className="fd-starting-stack">
+              <strong><ScoreReel value={1000} tone="chip" label="1,000 chips" /><span>Chips</span></strong>
+              <span className="fd-starting-stack-sub">Everyone’s starting stack</span></div>
             <div className="fd-weekend-rules">
               {[["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
                 ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
@@ -165,10 +178,10 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
         <footer className="fd-arrival-actions">
           {error && <p className="fd-save-error" role="alert">{error}</p>}
           <button type="button" className="fd-continue" disabled={busy || !canContinue} onClick={go}>
-            <span>{busy ? "Saving…" : continueLabel}</span><span aria-hidden="true">↗</span>
+            <span>{busy ? "Saving…" : continueLabel}</span><Icon name="then" size="1.1em" />
           </button>
           <div className="fd-arrival-links">
-            {step > 0 && <button type="button" className="fd-text-button" disabled={busy} onClick={back}>← Back</button>}
+            {step > 0 && <button type="button" className="fd-text-button" disabled={busy} onClick={back}><Icon name="back" size="1em" />Back</button>}
             {step === 0 && onTv && <button type="button" className="fd-text-button" onClick={onTv} disabled={busy}>TV mode</button>}
             {step === 4 && !state.profiles?.[me]?.color && <span>Choose a chip color to continue.</span>}
           </div>

@@ -24,6 +24,11 @@ export function qaPrompt(result, { production }) {
   return null;
 }
 
+const fmt = n => Number(n || 0).toLocaleString("en-US");
+const betsDone = result => result.extra?.unchanged ? "Already placed"
+  : result.extra?.mode === "clear" ? `${result.extra.cleared} bet${result.extra.cleared === 1 ? "" : "s"} cleared`
+    : `${result.extra?.placed} bet${result.extra?.placed === 1 ? "" : "s"}, ${fmt(result.extra?.chips)}`;
+
 export function useQaFast({ dispatch, environment, notify, onDone }) {
   const production = environment === "production";
   const [pending, setPending] = useState(null);
@@ -47,7 +52,7 @@ export function useQaFast({ dispatch, environment, notify, onDone }) {
       if (asked) { setPrompt({ ...asked, type, payload, key, done }); return result; }
       if (!result.ok) { notify?.(result.error || "QA write failed"); return result; }
       if (result.extra?.checkpoints) setCheckpoints(result.extra.checkpoints);
-      if (done) notify?.(result.extra?.unchanged ? `Already at ${done}` : done);
+      if (done) notify?.(typeof done === "function" ? done(result) : result.extra?.unchanged ? `Already at ${done}` : done);
       onDone?.(type, result);
       return result;
     } finally {
@@ -77,6 +82,9 @@ export function useQaFast({ dispatch, environment, notify, onDone }) {
       { key:`restore:${checkpoint.id}`, done:checkpoint.name }),
     save:name => write("qaCheckpointSave", { name }, { key:"save" }),
     remove:id => write("qaCheckpointDelete", { id }, { key:`delete:${id}` }),
+    /* quick bets on the contest taking bets (worker/qa.js runQaBets) */
+    bets:(mode, market) => write("qaBets", { mode, ...(market ? { contestId:market.contestId,
+      contestRevision:market.contestRevision } : {}) }, { key:`bets:${mode}`, done:betsDone }),
   };
 }
 

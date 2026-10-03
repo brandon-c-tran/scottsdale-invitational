@@ -72,11 +72,11 @@ const BODY_TEXT = ["ink", "bone", "muted", "muted2", "clay-text", "disabled", "s
   "night-text", "night-text2", "signal-text"];
 const SURFACES = ["bg", "paper", "paper2", "night", "night2", "night-deep"];
 const STUDY = {
-  fri:{ bg:"#0e191c", paper:"#192529", paper2:"#233034" },
-  sam:{ bg:"#231d14", paper:"#2c261c", paper2:"#342e24" },
-  sap:{ bg:"#261913", paper:"#30221a", paper2:"#3a2a23" },
-  san:{ bg:"#1f1212", paper:"#2c1d1d", paper2:"#382828" },
-  fin:{ bg:"#111116", paper:"#1d1d22", paper2:"#29292f" },
+  fri:{ bg:"#090b14", paper:"#121626", paper2:"#1b2033" },
+  sam:{ bg:"#090b14", paper:"#121626", paper2:"#1b2033" },
+  sap:{ bg:"#090b14", paper:"#121626", paper2:"#1b2033" },
+  san:{ bg:"#090b14", paper:"#121626", paper2:"#1b2033" },
+  fin:{ bg:"#090b14", paper:"#121626", paper2:"#1b2033" },
 };
 
 test("every body-text token reads at 4.5:1 on every surface in every phase", () => {
@@ -91,7 +91,7 @@ test("every body-text token reads at 4.5:1 on every surface in every phase", () 
   assert.deepEqual(failures, []);
 });
 
-test("each session swaps the surface ramp from the study; bone, gold, accents and ink0 never change", () => {
+test("the glass stays blue-black in every session; only the phase lamp changes", () => {
   const constant = ["ink", "bone", "ink0", "sun", "accent", "accent2", "pool", "olive", "clay", "clay-text", "live2",
     "green", "silver", "bronze", "line", "poker-25", "poker-100", "poker-500", "poker-1000"];
   for (const phase of PHASES) {
@@ -124,7 +124,7 @@ test("the phase shift is gated by a class, eases 1.5s, and reduced motion switch
 });
 
 function fakeDocument(bgByPhase) {
-  const attrs = {}, classes = new Set(), meta = { content:"#0e191c", setAttribute(k, v) { this[k] = v; } };
+  const attrs = {}, classes = new Set(), meta = { content:"#090b14", setAttribute(k, v) { this[k] = v; } };
   const documentElement = {
     setAttribute:(k, v) => { attrs[k] = v; },
     classList:{ add:c => classes.add(c), remove:c => classes.delete(c), contains:c => classes.has(c) },
@@ -140,7 +140,7 @@ test("applying a phase sets data-phase and the theme-color; staging keeps its bl
   const doc = fakeDocument(bg);
   ui.applyPhase(doc, "san", { staging:false, timers });
   assert.equal(doc.attrs["data-phase"], "san");
-  assert.equal(doc.meta.content, "#1f1212", "the status bar follows the session");
+  assert.equal(doc.meta.content, "#090b14", "the status bar follows the glass, which never changes");
   assert.equal(doc.classes.has(ui.PHASE_SHIFT_CLASS), false, "no ease unless asked");
   ui.applyPhase(doc, "fin", { ease:true, staging:false, timers });
   assert.equal(doc.classes.has(ui.PHASE_SHIFT_CLASS), true);
@@ -153,7 +153,7 @@ test("applying a phase sets data-phase and the theme-color; staging keeps its bl
   assert.equal(staging.meta.content, "#101A33");
   /* the build stamps Friday for production and blue for staging */
   const vite = read("vite.config.js");
-  assert.match(vite, /APP_THEME_COLOR: staging \? "#101A33" : "#0e191c"/);
+  assert.match(vite, /APP_THEME_COLOR: staging \? "#101A33" : "#090b14"/);
   const manifest = JSON.parse(read("public/manifest.webmanifest"));
   assert.equal(manifest.theme_color, palette("fri").bg);
   assert.equal(manifest.background_color, palette("fri").bg);
@@ -260,6 +260,7 @@ test("the since line is one line: what it opens, then a count", () => {
   const newest = events.find(ev => ev.id === ids[2]);
   assert.equal(summary.route.type, "event");
   assert.equal(summary.route.evId, newest.id, "it opens the newest result");
-  assert.match(summary.text, new RegExp(`^Since \\d{1,2}:\\d{2} (AM|PM) · ${newest.name}: Adi won · 4 more$`));
+  assert.equal(summary.text, `${newest.name}: Adi won`);
+  assert.equal(summary.more, 4);
   assert.match(summary.detail, /3 results · .* · ruling \+200 · down 1 place, now 2nd$/);
 });

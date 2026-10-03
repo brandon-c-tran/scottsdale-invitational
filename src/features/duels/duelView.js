@@ -35,8 +35,8 @@ export function duelView(state, duel, me, now = serverNow()) {
   const left = offer ? minutesLeft(duel, now) : null;
   let status = "";
   if (offer) status = sender
-    ? duel.open ? `Open to anyone · ${left} min` : `Waiting for ${name} to accept · ${left} min`
-    : duel.open ? `Open challenge · ${left} min` : "Challenged you";
+    ? duel.open ? "Open to anyone" : `Waiting for ${name} to accept`
+    : duel.open ? "Open challenge" : "Challenged you";
   else if (live) status = myRun ? `Waiting for ${name} to draw`
     : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you"
       : otherDrew ? `${name} has drawn` : "Your turn";

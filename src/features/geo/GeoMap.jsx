@@ -49,7 +49,7 @@ function pinNode(kind, { color = "", label = "", drop = false, delay = 0 } = {})
    with `animate`, the guesses drop one by one, the lines draw out, the
    answer lands, and the camera opens to frame them all. */
 export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guesses = [], className = "", label = "Map",
-  interactive = true, animate = false, onTap, focus = null }) {
+  interactive = true, animate = false, onTap, focus = null, pad = null }) {
   const box = useRef(null), map = useRef(null), lib = useRef(null), kind = useRef(null);
   const markers = useRef([]), pinMarker = useRef(null), timers = useRef([]);
   const pickRef = useRef(onPick);
@@ -171,7 +171,8 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
         if (points.length === 1) m.easeTo({ center:points[0], zoom:11, duration });
         else {
           const bounds = points.reduce((b, p) => b.extend(p), new L.LngLatBounds(points[0], points[0]));
-          m.fitBounds(bounds, { padding:{ top:70, bottom:70, left:60, right:60 }, maxZoom:13, duration });
+          /* pad: room kept clear of pins (the TV's answer card sits over the map's top) */
+          m.fitBounds(bounds, { padding:pad || { top:70, bottom:70, left:60, right:60 }, maxZoom:13, duration });
         }
       } else if (points.length === 1) m.setView([points[0][1], points[0][0]], 11);
       else m.fitBounds(points.map(([lng, lat]) => [lat, lng]), { padding:[50, 50], maxZoom:13 });

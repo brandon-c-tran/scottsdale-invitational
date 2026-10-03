@@ -1,172 +1,120 @@
-import React, { useState } from "react";
-import { AWARDS, EDITION, GAMES, ROSTER, cleanLeg } from "../../../shared/core.js";
-import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
-import { VenueCard, FlightPass } from "../travel/Travel.jsx";
+import React, { useRef, useState } from "react";
+import { EDITION } from "../../../shared/core.js";
+import { GlassArt } from "../../ui/GlassArt.jsx";
+import { useGlassTilt } from "../../ui/useGlassTilt.js";
+import { Icon } from "../../ui/Icon.jsx";
+import { EventName } from "../../ui/OneSafe.jsx";
+import { Sheet } from "../../ui/controls.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
 import { isStandalone } from "../check-in/install.js";
 import { TrophyPlates, trophyPlates } from "./Trophy.jsx";
 import { Keepsake } from "../results/Keepsake.jsx";
-import { KEPT_SECTION, keepsakeOpen } from "../results/keepsake.js";
-import { PhotoDesk } from "../photos/PhotoDesk.jsx";
+import { PhotoDesk, PhotoAddButton, usePhotoAdd } from "../photos/PhotoDesk.jsx";
 import { PhotoGrid } from "../photos/PhotoGrid.jsx";
+import { deskMoments } from "../photos/photoModel.js";
+import { programCover } from "./programModel.js";
+import { AwardsSheet, GamesSheet, HouseSheet, PayoutsSheet, RulesSheet, hasAwards } from "./ProgramSheets.jsx";
 import "./weekend.css";
+import "./program.css";
 
-const format = value => Number(value).toLocaleString("en-US");
-const AWARD_NAMES = ["The Championship", "Fraud of the Weekend", "Sharpshooter",
-  "Degenerate of the Weekend", "Media MVP", "Teammate of the Weekend"];
-const BASE_SECTIONS = [["trip", "Trip"], ["rules", "Rules"], ["games", "Games"], ["photos", "Photos"]];
+/* Weekend: the program. One scroll, read top to bottom like a printed
+   program: the cover (the session's painting, what is on now and what is
+   next by the live order, never a time), the story so far (the trophy's
+   plates filling event by event), everyone's photos, then the back page
+   (House, Rules, Games, Payouts, and Awards once there are any), each a
+   sheet. Once the board is crowned the cover is the edition kept
+   (Keepsake) and the program reads as the weekend that was. */
 
-function Rule({ number, title, meta, children }) {
-  return <details className="fd-weekend-rule">
-    <summary><span className="fd-weekend-rule-number">{number}</span>
-      <span><strong>{title}</strong><small>{meta}</small></span>
-      <span className="fd-weekend-rule-toggle" aria-hidden="true" /></summary>
-    <div className="fd-weekend-rule-body">{children}</div>
-  </details>;
+function ProgramCover({ cover, GameMark, onEvent }) {
+  const paneRef = useRef(null);
+  useGlassTilt(paneRef);
+  const { lead, then } = cover;
+  const open = ev => onEvent?.(ev);
+  return <section ref={paneRef} className="fd-program-cover fd-glass-scene" aria-label={lead ? `${lead.label}: ${lead.event.name}` : EDITION.label}>
+    <GlassArt depth clear />
+    {lead ? <button type="button" className="fd-program-lead" onClick={() => open(lead.event)} disabled={!onEvent}
+      aria-label={`${lead.label}: ${lead.event.name}`}>
+      {/* no label over the name: a live event's lamp is lit, the next one's is not */}
+      <span className="fd-program-title" aria-hidden="true">
+        {GameMark ? <span className="fd-program-mark"><GameMark id={lead.event.game} variant={lead.event.variant} size={44} />
+          {lead.live && <i className="fd-insert is-live fd-beat-dot fd-program-lamp" />}</span>
+          : lead.live && <i className="fd-insert is-live fd-beat-dot fd-program-lamp" />}
+        <span className="fd-show is-marquee fd-glass-letter"><EventName name={lead.event.name} /></span>
+      </span>
+    </button> : <div className="fd-program-lead is-edition">
+      <span className="fd-show is-marquee fd-glass-letter">{EDITION.label}</span>
+    </div>}
+    {then && <button type="button" className="fd-program-then fd-glass-window" onClick={() => open(then.event)} disabled={!onEvent}
+      aria-label={`${then.label}: ${then.event.name}`}>
+      <span className="fd-program-then-label" aria-hidden="true">{then.label}</span>
+      {GameMark && <GameMark id={then.event.game} variant={then.event.variant} size={28} />}
+      <b className="fd-show" aria-hidden="true"><EventName name={then.event.name} /></b>
+      {onEvent && <Icon name="next" size={18} />}
+    </button>}
+  </section>;
 }
 
-export function Guide({ events, state, me, onProfile, section: controlledSection, onSection, GameMark, HowToSheet,
-  standings, gm = false, onPlayer, onBracket, photos = null }) {
-  const [localSection, setLocalSection] = useState(null);
-  /* once the board is frozen the edition's own section leads, and opens first */
-  const kept = keepsakeOpen(state);
-  const SECTIONS = kept ? [[KEPT_SECTION, EDITION.label], ...BASE_SECTIONS] : BASE_SECTIONS;
-  const chosen = controlledSection ?? localSection;
-  const section = chosen && SECTIONS.some(([id]) => id === chosen) ? chosen : kept ? KEPT_SECTION : "trip";
-  const setSection = next => { setLocalSection(next); onSection?.(next); };
-  const [howToEv, setHowToEv] = useState(null);
-  const logistics = state?.logistics || {};
-  const profile = state?.profiles?.[me] || {};
-  const games = Object.entries(GAMES);
-  const plates = trophyPlates(state || {}, events);
-  const hasIn = !!cleanLeg(profile.flightIn);
-  const hasOut = !!cleanLeg(profile.flightOut);
-  const changeTab = (event, index) => {
-    let next;
-    if (event.key === "ArrowRight") next = (index + 1) % SECTIONS.length;
-    if (event.key === "ArrowLeft") next = (index + SECTIONS.length - 1) % SECTIONS.length;
-    if (event.key === "Home") next = 0;
-    if (event.key === "End") next = SECTIONS.length - 1;
-    if (next === undefined) return;
-    event.preventDefault();
-    setSection(SECTIONS[next][0]);
-    event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next].focus();
-  };
-
-  return <div className="fd-weekend fd-weekend-guide">
-    <PageHeading kicker={EDITION.long} title="Weekend" />
-    <div className={`fd-weekend-tabs${kept ? " has-kept" : ""}`} role="tablist" aria-label="Weekend">
-      {SECTIONS.map(([id, title], index) => <button key={id} id={`fd-weekend-tab-${id}`} type="button"
-        role="tab" aria-selected={section === id} aria-controls={`fd-weekend-panel-${id}`}
-        tabIndex={section === id ? 0 : -1} onClick={() => setSection(id)}
-        onKeyDown={event => changeTab(event, index)}>{title}</button>)}
+function ProgramPhotos({ state, me, gm, onPlayer, onAll }) {
+  const list = deskMoments(state, { gm });
+  const adder = usePhotoAdd();
+  if (!list.length && !me) return null;
+  return <section className="fd-program-section fd-program-photos" aria-labelledby="fd-program-photos">
+    <div className="fd-program-head">
+      <h2 id="fd-program-photos">Photos</h2>
+      {list.length > 0 && <button type="button" className="fd-program-link" onClick={onAll} aria-label={`All ${list.length} photos`}>
+        All {list.length}<Icon name="next" size={18} /></button>}
+      {me && list.length > 0 && <PhotoAddButton adder={adder} label="Add" />}
+      {me && adder.field}
     </div>
+    {adder.line && <p className="fd-photo-line" role="status">{adder.line}</p>}
+    {list.length > 0
+      ? <PhotoGrid state={state} moments={list} me={me} gm={gm} onPlayer={onPlayer} limit={6} onMore={onAll} />
+      : <button type="button" className="fd-program-first-photo" onClick={adder.open} disabled={!!adder.step} aria-busy={!!adder.step || undefined}>
+        <Icon name="camera" size={36} /><span>{adder.step ? `Adding ${adder.step.at} of ${adder.step.total}` : "Add photos"}</span></button>}
+  </section>;
+}
 
-    {kept && <div id={`fd-weekend-panel-${KEPT_SECTION}`} role="tabpanel" aria-labelledby={`fd-weekend-tab-${KEPT_SECTION}`}
-      hidden={section !== KEPT_SECTION}>
-      {section === KEPT_SECTION && <Keepsake state={state} events={events} standings={standings} me={me} gm={gm}
-        onPlayer={onPlayer} onBracket={onBracket}
-        photos={photos ?? (state?.moments?.some(item => !item.hidden)
-          ? <PhotoGrid state={state} me={me} gm={gm} onPlayer={onPlayer} limit={12} /> : null)} />}
-    </div>}
+const TILES = [["house", "House"], ["rules", "Rules"], ["games", "Games"], ["payouts", "Payouts"]];
 
-    <div id="fd-weekend-panel-trip" role="tabpanel" aria-labelledby="fd-weekend-tab-trip" hidden={section !== "trip"}>
-      <section className="fd-weekend-guide-section fd-weekend-trip">
-        <VenueCard lg={logistics} compact />
-      </section>
-      {me && <section className="fd-weekend-guide-section fd-weekend-flights">
-        <div className="fd-weekend-flights-heading"><h2>Your flights</h2>
-          {onProfile && <button type="button" onClick={onProfile}>{hasIn || hasOut ? "Edit flights" : "Add flights"}</button>}
-        </div>
-        {hasIn && <FlightPass leg={profile.flightIn} dir="in" />}
-        {hasOut && <FlightPass leg={profile.flightOut} dir="out" />}
-        {!hasIn && !hasOut && <p className="fd-weekend-small-note">
-          {profile.flightsBooked === false ? "Not booked yet" : "No flights added"}
-        </p>}
-        {(hasIn !== hasOut) && <p className="fd-weekend-small-note">{hasIn ? "Sunday flight not added" : "Friday flight not added"}</p>}
-      </section>}
-      {!isStandalone() && <details className="fd-weekend-install">
-        <summary>Install Field Day</summary><InstallHint />
-      </details>}
-    </div>
+export function Guide({ events, state, me, onProfile, GameMark, standings, gm = false, onPlayer, onBracket, onEvent, photos = null }) {
+  const st = state || {};
+  const cover = programCover(st, events);
+  const kept = cover.mode === "kept";
+  const [sheet, setSheet] = useState(null);
+  const plates = trophyPlates(st, events);
+  const posted = plates.filter(plate => plate.posted).length;
+  const tiles = hasAwards(st) ? [...TILES, ["awards", "Awards"]] : TILES;
+  const eventOf = id => events.find(ev => ev.id === id);
+  const close = () => setSheet(null);
 
-    <div id="fd-weekend-panel-rules" role="tabpanel" aria-labelledby="fd-weekend-tab-rules" hidden={section !== "rules"}>
-      <section className="fd-weekend-overview">
-        <h2>How Field Day works</h2>
-        <p>{ROSTER.length} players, {events.filter(event => !event.finale).length} events, one board. Teams are redrawn every event.
-          {" "}Everyone starts with 1,000 chips.</p>
-        <p>Whatever you have when the events end is your stack at Championship Poker. The winner of that table is the Field Day champion.</p>
-      </section>
-      <section className="fd-weekend-guide-section" aria-label="Core rules">
-        <div className="fd-weekend-rules">
-          <Rule number="01" title="Event payouts" meta="Friday 400 · Saturday 800, 1,200, 1,600">
-            <p>Every player on a placing team gets the full amount.
-              {" "}In a bracket, both semifinal losers get 3rd. Event crew get the 3rd-place award.
-              {" "}5v5 pays the winners only. Rage Cage pays 1st and 2nd the same.</p>
-            <table className="fd-weekend-payouts"><caption>Chips awarded per player</caption>
-              <thead><tr><th scope="col">Session</th><th scope="col">1st</th><th scope="col">2nd</th><th scope="col">3rd</th></tr></thead>
-              <tbody>{[[400, "Friday"], [800, "Sat AM"], [1200, "Sat PM"], [1600, "Sat night"]].map(([value, name]) =>
-                <tr key={value}><th scope="row">{name}</th>{AWARDS[value].map((amount, index) => <td key={index}>{amount ? format(amount) : "·"}</td>)}</tr>)}</tbody>
-            </table>
-            <p>Event ties are settled on the spot. A tied championship goes to one pressure putt.</p>
-          </Rule>
-          <Rule number="02" title="Betting" meta="One contest at a time · 100 to 1,000 per tap">
-            <p>Only the current contest takes bets: the matchup or heat being played, or the whole event if it is free-for-all.
-              {" "}Bets lock when play starts.</p>
-            <div className="fd-weekend-odds"><div><strong>2:1</strong><span>Free-for-all winner</span></div><div><strong>1:1</strong><span>Matchup, heat<br />or final winner</span></div></div>
-            <p>If you are playing in the matchup or heat, you can only back your own side. One side per contest.</p>
-            <p>Only half your chips can be at risk at a time, rounded down to 100s and never under 500.</p>
-            <p>Correcting a result corrects the payouts. I can void any bet.</p>
-          </Rule>
-          <Rule number="03" title="Duels" meta="Quick Draw · equal ante · three a day">
-            <p>Open a player card to challenge that player, or your own card to challenge anyone. You name the ante and both sides put it up once accepted.</p>
-            <p>Each of you plays Quick Draw on your own phone. Tap when the screen flashes.
-              {" "}Fastest tap wins both antes. Tapping early is a foul. Matching times or two fouls return the chips.</p>
-            <p>One challenge per pair, three a day. An unanswered challenge lapses after 10 minutes. Unplayed duels are void when the finale is dealt.</p>
-          </Rule>
-          <Rule number="04" title="Draws and brackets" meta="Balanced teams · live brackets, heats, and pools">
-            <p>Teams balance from your ratings and your results so far. Results count more as the weekend goes on. Ratings are never shown.</p>
-            <p>Some events use a captains draft instead.</p>
-          </Rule>
-        </div>
-      </section>
-      <section className="fd-weekend-awards" aria-labelledby="fd-guide-awards-title">
-        <div className="fd-weekend-awards-heading"><h2 id="fd-guide-awards-title">Awards</h2><span>Voted Saturday night</span></div>
-        <ul>{AWARD_NAMES.map(award => <li key={award}>{award}</li>)}</ul>
-      </section>
-      <section className="fd-weekend-guide-section">
-        <SectionHeading title="Safety and respect" />
-        <ul className="fd-weekend-house-rules">
-          <li>Alcohol is optional everywhere. NA equivalents carry no penalty. No forced participation.</li>
-          <li>Rack cups hold water. Drink from your own cup.</li>
-          <li>No hard contact. Respect the property.</li>
-          <li>Say so when the 360 camera is recording.</li>
-          <li>I can stop anything for safety.</li>
-        </ul>
-      </section>
-    </div>
+  return <div className="fd-weekend fd-program">
+    {kept
+      ? <Keepsake state={st} events={events} standings={standings} me={me} gm={gm} onPlayer={onPlayer} onBracket={onBracket} photos={photos} />
+      : <ProgramCover cover={cover} GameMark={GameMark} onEvent={onEvent} />}
 
-    <div id="fd-weekend-panel-games" role="tabpanel" aria-labelledby="fd-weekend-tab-games" hidden={section !== "games"}>
-      <section className="fd-weekend-guide-section fd-weekend-trophy" aria-labelledby="fd-guide-trophy-title">
-        <div className="fd-weekend-awards-heading"><h2 id="fd-guide-trophy-title">Trophy</h2>
-          <span>{plates.filter(plate => plate.posted).length} of {plates.length}</span></div>
-        <TrophyPlates state={state || {}} events={events} cup={124} />
-      </section>
-      <section className="fd-weekend-guide-section">
-        <div className="fd-weekend-game-directory">{games.map(([id, game]) => {
-          const objective = (game.howto || game.variants?.[0]?.howto)?.objective || "";
-          return <button type="button" key={id} onClick={() => setHowToEv(id)}
-            aria-label={objective ? `${game.name}. ${objective}` : game.name}>
-            <span className="fd-weekend-game-mark" aria-hidden="true">{GameMark && <GameMark id={id} size={34} />}</span>
-            <span className="fd-weekend-game-title"><strong>{game.name}</strong>{objective && <small>{objective}</small>}</span>
-            <span className="fd-weekend-game-arrow" aria-hidden="true">›</span>
-          </button>;
-        })}</div>
-      </section>
-    </div>
-    <div id="fd-weekend-panel-photos" role="tabpanel" aria-labelledby="fd-weekend-tab-photos" hidden={section !== "photos"}>
-      {section === "photos" && <PhotoDesk state={state || {}} me={me} gm={gm} onPlayer={onPlayer} />}
-    </div>
-    {howToEv && HowToSheet && <HowToSheet gameId={howToEv} onClose={() => setHowToEv(null)} />}
+    {!kept && <section className="fd-program-section fd-program-trophy" aria-labelledby="fd-program-trophy">
+      <div className="fd-program-head"><h2 id="fd-program-trophy">Trophy</h2>
+        {posted > 0 && <span className="fd-program-count">{posted} of {plates.length}</span>}</div>
+      <TrophyPlates state={st} events={events} cup={112} onPlate={onEvent ? id => { const ev = eventOf(id); if (ev) onEvent(ev); } : null} />
+    </section>}
+
+    <ProgramPhotos state={st} me={me} gm={gm} onPlayer={onPlayer} onAll={() => setSheet("photos")} />
+
+    <nav className={`fd-program-index${tiles.length % 2 ? " is-odd" : ""}`} aria-label="Weekend reference">
+      {tiles.map(([id, label]) => <button key={id} type="button" className="fd-program-tile" onClick={() => setSheet(id)}>
+        <Icon name={id} size={34} /><span>{label}</span></button>)}
+    </nav>
+
+    {!isStandalone() && <details className="fd-weekend-install">
+      <summary>Install Field Day</summary><InstallHint />
+    </details>}
+
+    {sheet === "house" && <HouseSheet state={st} me={me} onProfile={onProfile ? () => { close(); onProfile(); } : null} onClose={close} />}
+    {sheet === "rules" && <RulesSheet onClose={close} />}
+    {sheet === "games" && <GamesSheet events={events} GameMark={GameMark} onClose={close} />}
+    {sheet === "payouts" && <PayoutsSheet events={events} GameMark={GameMark} onClose={close} />}
+    {sheet === "awards" && <AwardsSheet state={st} onPlayer={onPlayer} onClose={close} />}
+    {sheet === "photos" && <Sheet title="Photos" onClose={close} className="fd-program-sheet">
+      <PhotoDesk state={st} me={me} gm={gm} onPlayer={onPlayer} /></Sheet>}
   </div>;
 }

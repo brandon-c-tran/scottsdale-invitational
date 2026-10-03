@@ -4,7 +4,9 @@
    awards the TV has already revealed. */
 
 import { ROSTER } from "../../../shared/core.js";
-import { PROMPT_RESULTS_WINDOW_MS, awardResults, nomineesOf, openBallot } from "../../../shared/prompts.js";
+import {
+  PROMPT_RESULTS_WINDOW_MS, awardResults, ballotStatusLine, ballotsOf, nomineesOf, openBallot,
+} from "../../../shared/prompts.js";
 
 /* One award on the TV, from the tap that revealed it (ms after reveal.at):
    the title, then the nominees' photo chips, then the anonymous ballot chips
@@ -160,3 +162,21 @@ export function homeResults(state, now) {
   if (doneAt && Number(now) - doneAt > PROMPT_RESULTS_WINDOW_MS) return [];
   return latest.filter(row => rowShown(row, now));
 }
+
+/* the ballot the commissioner is working on: voting, a reveal, a closed
+   ballot waiting for the TV, a draft, else the last finished one */
+export function deskBallot(state) {
+  const ballots = ballotsOf(state);
+  const newest = list => [...list].sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))[0] || null;
+  return ballots.find(ballot => ballot.status === "open")
+    || newest(ballots.filter(ballot => ballot.status === "closed" && ballot.reveal && !ballot.reveal.done))
+    || newest(ballots.filter(ballot => ballot.status === "closed" && !ballot.reveal))
+    || newest(ballots.filter(ballot => ballot.status === "draft"))
+    || newest(ballots) || null;
+}
+
+/* the menu row's live fact */
+export const deskNote = state => {
+  const ballot = deskBallot(state);
+  return ballot ? ballotStatusLine(ballot) : null;
+};

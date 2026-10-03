@@ -30,7 +30,10 @@ import {
 } from "../shared/show.js";
 import { validateSpotifyTrack } from "../shared/audio.js";
 import { QA_PROGRESS_KEYS } from "../shared/qa.js";
-import { QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress, runQaAdvance } from "./qa.js";
+import {
+  QA_BET_MODES, QaStop, cleanSeed, parseQaTarget, qaBetMarket, qaNeedsRewind, qaProgressCost, resetProgress,
+  runQaAdvance, runQaBets,
+} from "./qa.js";
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { decideMvp, everyoneVoted, mvpNeedsVote, mvpOpen, mvpVoters, newMvpRecord } from "../shared/mvp.js";
 import { geoActions } from "./geo.js";
@@ -2665,6 +2668,39 @@ export const ACTIONS = {
     for (const key of QA_PROGRESS_KEYS)
       if (checkpoint.progress[key] !== undefined) state[key] = structuredClone(checkpoint.progress[key]);
     return ok({ restored:checkpoint.name, id:checkpoint.id });
+  },
+  /* QA quick bets: the current contest's board filled (or cleared) in one
+     write, through the real placeWager and retractWager reducers with
+     synthetic player contexts (worker/qa.js runQaBets), so the chips are
+     ordinary bets under every cap and rule. The same gate as a forward jump
+     (production always confirms); it discards no results, so it makes no
+     backup. A retry of the same tap is acknowledged without placing twice;
+     a stale contest reference is refused. */
+  qaBets(state, payload, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ctx.qa) return err("QA is unavailable");
+    const mode = payload?.mode;
+    if (!QA_BET_MODES.includes(mode)) return err("Unknown QA bets action");
+    const requestKey = wagerRequestKey(ctx);
+    const fingerprint = JSON.stringify([mode, payload?.contestId ?? null, payload?.contestRevision ?? null]);
+    const replay = requestKey && replayedWagerOp(state, requestKey, "commissioner", "qaBets", fingerprint);
+    if (replay) return replay;
+    const gate = qaGate(state, payload, ctx, false); if (gate) return gate;
+    const market = qaBetMarket(state);
+    if (!market) return err("No contest is taking bets");
+    const refError = contestReferenceError(state, market.ev, payload || {}); if (refError) return refError;
+    const seed = cleanSeed(payload?.seed) ?? Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+    let done;
+    try { done = runQaBets(state, mode, { applyAction, ctx, seed }); }
+    catch (error) {
+      if (error instanceof QaStop) return err(error.message);
+      throw error;
+    }
+    if (mode === "clear" ? !done.cleared : !done.placed)
+      return err(mode === "clear" ? "No bets to clear" : "Nobody has room to bet");
+    if (requestKey) rememberWagerOp(state, requestKey, { actor:"commissioner", type:"qaBets", fingerprint,
+      wagerId:null, stake:done.chips });
+    return ok(done);
   },
   /* the weekend sheet: where we sleep and how the host flies. GM writes it
      once, onboarding and the guide read it on every phone */

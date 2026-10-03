@@ -1,13 +1,30 @@
 import React, { useRef, useState } from "react";
-import { EDITION, SESSIONS, disp, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
-import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
-import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
-import { readFolds, sessionFold, writeFolds } from "./scheduleModel.js";
+import { SESSIONS, disp, overflowRoleMeta, resolveWeekendOperation } from "../../../shared/core.js";
+import { AvatarStack } from "../identity/PlayerIdentity.jsx";
+import { PageHeading } from "../../ui/layout.jsx";
+import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
+import { eventRowModel, readFolds, sessionFold, writeFolds } from "./scheduleModel.js";
+import { Icon } from "../../ui/Icon.jsx";
+import { EventName } from "../../ui/OneSafe.jsx";
 import "./weekend.css";
+import "./events.css";
+
+const LAMP_CLASS = { live:"fd-beat-dot", pending:"is-pending", done:"is-done", void:"is-void" };
+const PLACE = ["1", "2", "3"];
+
+/* your place in a posted event: a medallion, 1st lit amber; crew a hollow ring */
+function PlaceMedal({ place }) {
+  const crew = place === "crew";
+  return <span className={`fd-events-medal${place === 0 ? " is-first" : ""}${crew ? " is-crew" : ""}`}
+    aria-label={crew ? "You were crew" : `You placed ${["1st", "2nd", "3rd"][place]}`}>{crew ? "" : PLACE[place]}</span>;
+}
 
 /* The program keeps the same event ordering contract as the tournament:
-   reordering moves within a session, with unassigned events in their own group. */
-export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, onBracket, GameMark, EventCrewCard }) {
+   reordering moves within a session, with unassigned events in their own group.
+   A row is the event's state as a lamp, its name, your part in it (your side
+   as photo chips, a crew role, your place once it posts) and what it pays.
+   Tapping in is for depth. */
+export function Schedule({ state, events, me = null, gm, open, onAdd, onReorder, onPlayer, onBracket, GameMark }) {
   const [reorderMode, setReorderMode] = useState(false);
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
@@ -16,8 +33,6 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
   const shelved = events.filter(event => state.shelved?.[event.id]);
   const inSession = session => events.filter(event => event.session === session.id && !state.shelved?.[event.id]);
   const extras = events.filter(event => !SESSIONS.some(session => session.id === event.session) && !state.shelved?.[event.id]);
-  const active = events.filter(event => !state.shelved?.[event.id]);
-  const complete = active.filter(event => state.results?.[event.id]).length;
   const nextId = resolveWeekendOperation(state, events).event?.id;
   const toggleSession = (id, open) => {
     const next = { ...opened, [id]:open };
@@ -47,58 +62,59 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
   };
 
   const eventRows = (list, canMove = true) => list.map((event, index) => {
-    const result = state.results?.[event.id];
     const draw = state.draws?.[event.id];
-    const onDeck = state.onDeck === event.id;
     const reordering = reorderMode && gm && canMove;
-    const lifecycle = resolveEventLifecycle(state, event);
+    const row = eventRowModel(state, event, me, nextId);
     /* every team event waits on a draw (and heats on setup); that is news
-       only for the next one */
-    const quiet = lifecycle.phase === "scheduled"
-      || (["draw-pending", "setup"].includes(lifecycle.phase) && event.id !== nextId);
-    const status = quiet ? "" : lifecycle.label;
-    return <li key={event.id} className={`fd-weekend-event${onDeck ? " is-on-deck" : ""}${event.finale ? " is-finale" : ""}`}>
-      <div className="fd-weekend-event-line">
-        <button type="button" className="fd-weekend-event-open" disabled={reordering}
-          onClick={() => open(event)} aria-label={`${event.name}.${status ? ` ${status}.` : ""} Open event`}>
-          <span className="fd-weekend-event-mark" aria-hidden="true">
-            {GameMark ? <GameMark id={event.game} size={32} /> : String(index + 1).padStart(2, "0")}
-          </span>
-          <span className="fd-weekend-event-name"><strong>{event.name}</strong>
-            {status && <span className={`fd-weekend-event-status${onDeck ? " is-live" : ""}`}>
-              {onDeck && <i aria-hidden="true" />}{status}
+       only for the next one, which is the row whose lamp flashes */
+    const status = row.status;
+    const { players, role, place } = row.mine;
+    const done = row.lamp === "done";
+    const crewRole = role ? overflowRoleMeta(role).short : "";
+    return <li key={event.id} className={`fd-events-row${row.lamp ? ` is-${row.lamp}` : ""}${event.finale ? " is-finale" : ""}`}>
+      <button type="button" className="fd-events-open" disabled={reordering}
+        onClick={() => open(event)} aria-label={`${event.name}.${status ? ` ${status}.` : done ? " Complete." : ""} Open event`}>
+        <span className="fd-events-lamp" aria-hidden="true">
+          {row.lamp && <i className={`fd-insert ${LAMP_CLASS[row.lamp]}`} />}
+        </span>
+        <span className="fd-events-mark" aria-hidden="true">
+          {GameMark ? <GameMark id={event.game} variant={event.variant} size={34} /> : null}
+        </span>
+        <span className="fd-events-body">
+          <strong className="fd-show"><EventName name={event.name} /></strong>
+          {(status || players.length > 0) && <span className="fd-events-part">
+            {status && <span className="fd-events-status">{status}</span>}
+            {players.length > 0 && <span className="fd-events-you" aria-label={role ? `You: ${overflowRoleMeta(role).label}`
+              : players.length > 1 ? `Your side: ${players.map(player => disp(state, player)).join(", ")}` : "You're in it"}>
+              <AvatarStack state={state} players={players} size={24} max={4} />
+              {crewRole && <small>{crewRole}</small>}
             </span>}
-          </span>
-          {!reordering && <span className="fd-weekend-event-arrow" aria-hidden="true">{result ? "✓" : "↗"}</span>}
-        </button>
-        {!reordering && onBracket && state.brackets?.[event.id] && draw
-          && <button type="button" className="fd-weekend-event-bracket" onClick={() => onBracket(event)}
-            aria-label={`${event.name} bracket`}>Bracket</button>}
-        {reordering && <div className="fd-weekend-reorder" aria-label={`Reorder ${event.name}`}>
-          <button type="button" disabled={moving || index === 0} onClick={() => move(event, -1)}
-            aria-label={`Move ${event.name} earlier`}>↑</button>
-          <button type="button" disabled={moving || index === list.length - 1} onClick={() => move(event, 1)}
-            aria-label={`Move ${event.name} later`}>↓</button>
-        </div>}
-      </div>
-      {!!result?.slots?.[0]?.length && <div className="fd-weekend-winners" aria-label="Winners">
-        <span className="fd-weekend-micro">Won by</span>
-        {result.slots[0].map(player => <button type="button" key={player} className="fd-weekend-winner"
-          disabled={!onPlayer} onClick={() => onPlayer?.(player)} aria-label={`View ${disp(state, player)}'s player card`}>
-          <Avatar state={state} p={player} size={22} />{disp(state, player)}
-        </button>)}
-      </div>}
-      {!reordering && !!draw?.roles?.length && EventCrewCard && <div className="fd-weekend-event-crew">
-        <EventCrewCard state={state} roles={draw.roles} compact />
+          </span>}
+        </span>
+        {!reordering && <span className="fd-events-pays">
+          {done ? <>
+            {place !== null && <PlaceMedal place={place} />}
+            {!!row.winners.length && <span className="fd-events-winners" aria-label={`Won by ${row.winners.map(player => disp(state, player)).join(", ")}`}>
+              <AvatarStack state={state} players={row.winners} size={28} max={3} /></span>}
+          </> : !event.finale && row.lamp !== "void" && <PayoutLadder ev={event} size="tiny" />}
+        </span>}
+      </button>
+      {!reordering && onBracket && state.brackets?.[event.id] && draw
+        && <button type="button" className="fd-events-bracket" onClick={() => onBracket(event)}
+          aria-label={`${event.name} bracket`}>Bracket</button>}
+      {reordering && <div className="fd-weekend-reorder" aria-label={`Reorder ${event.name}`}>
+        <button type="button" disabled={moving || index === 0} onClick={() => move(event, -1)}
+          aria-label={`Move ${event.name} earlier`}><Icon name="up" size={18} /></button>
+        <button type="button" disabled={moving || index === list.length - 1} onClick={() => move(event, 1)}
+          aria-label={`Move ${event.name} later`}><Icon name="down" size={18} /></button>
       </div>}
     </li>;
   });
 
-  return <div className="fd-weekend fd-weekend-program">
-    <PageHeading kicker={EDITION.long} title="Events" />
-    {complete > 0 && <p className="fd-weekend-progress">{complete} of {active.length} complete</p>}
+  return <div className="fd-weekend fd-weekend-program fd-events">
+    <PageHeading title="Events" />
     {gm && <div className="fd-weekend-host-tools">
-      <button type="button" onClick={onAdd} disabled={moving}>+ Add an event</button>
+      <button type="button" onClick={onAdd} disabled={moving}><Icon name="plus" size={14} /> Add event</button>
       <button type="button" aria-pressed={reorderMode} disabled={moving}
         onClick={() => setReorderMode(value => !value)}>{reorderMode ? "Done" : "Reorder"}</button>
     </div>}
@@ -111,38 +127,34 @@ export function Schedule({ state, events, gm, open, onAdd, onReorder, onPlayer, 
       if (fold) {
         const folded = opened[session.id] !== true;
         const listId = `fd-session-list-${session.id}`;
-        return <section key={session.id} className={`fd-weekend-session fd-weekend-session-${session.id} is-done${folded ? " is-folded" : ""}`}
+        return <section key={session.id} className={`fd-events-session is-done${folded ? " is-folded" : ""}`}
           aria-labelledby={`fd-session-${session.id}`}>
-          <h2 id={`fd-session-${session.id}`} className="fd-weekend-session-fold">
-            <button type="button" className="fd-weekend-session-toggle" aria-expanded={!folded}
+          <h2 id={`fd-session-${session.id}`} className="fd-events-session-fold">
+            <button type="button" className="fd-events-session-toggle" aria-expanded={!folded}
               aria-controls={folded ? undefined : listId} aria-label={`${session.label}, ${fold.played} played`}
               onClick={() => toggleSession(session.id, folded)}>
-              <span className="fd-weekend-session-name">{session.label}</span>
-              {folded && !!fold.winners.length && <span className="fd-weekend-session-winners" aria-hidden="true">
-                <AvatarStack state={state} players={fold.winners} size={22} max={5} />
+              <span className="fd-events-session-name">{session.label}</span>
+              {folded && !!fold.winners.length && <span className="fd-events-session-winners" aria-hidden="true">
+                <AvatarStack state={state} players={fold.winners} size={24} max={5} />
               </span>}
-              <span className="fd-weekend-session-count">{fold.played} played</span>
-              <span className="fd-weekend-rule-toggle" aria-hidden="true" />
+              <Icon name={folded ? "expand" : "collapse"} size={18} />
             </button>
           </h2>
-          {!folded && <ol id={listId} className="fd-weekend-event-list">{eventRows(list)}</ol>}
+          {!folded && <ol id={listId} className="fd-events-list">{eventRows(list)}</ol>}
         </section>;
       }
-      return <section key={session.id} className={`fd-weekend-session fd-weekend-session-${session.id}`} aria-labelledby={`fd-session-${session.id}`}>
-        <header className="fd-weekend-session-heading">
-          <div><h2 id={`fd-session-${session.id}`}>{session.label}</h2></div>
-          <span className="fd-weekend-session-value">{session.tag}</span>
-        </header>
-        <ol className="fd-weekend-event-list">{eventRows(list)}</ol>
+      return <section key={session.id} className="fd-events-session" aria-labelledby={`fd-session-${session.id}`}>
+        <h2 id={`fd-session-${session.id}`} className="fd-events-session-heading">{session.label}</h2>
+        <ol className="fd-events-list">{eventRows(list)}</ol>
       </section>;
     })}
-    {!!extras.length && <section className="fd-weekend-session">
-      <SectionHeading title="Added events" detail={`${extras.length} events`} />
-      <ol className="fd-weekend-event-list">{eventRows(extras)}</ol>
+    {!!extras.length && <section className="fd-events-session">
+      <h2 className="fd-events-session-heading">Added</h2>
+      <ol className="fd-events-list">{eventRows(extras)}</ol>
     </section>}
-    {!!shelved.length && <section className="fd-weekend-session fd-weekend-shelved">
-      <SectionHeading title="Shelved" />
-      <ol className="fd-weekend-event-list">{eventRows(shelved, false)}</ol>
+    {!!shelved.length && <section className="fd-events-session is-shelved">
+      <h2 className="fd-events-session-heading">Shelved</h2>
+      <ol className="fd-events-list">{eventRows(shelved, false)}</ol>
     </section>}
   </div>;
 }

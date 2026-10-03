@@ -62,11 +62,13 @@ export const MOTION = Object.freeze({
   sheetOut:200,
   settleHold:2400,   // how long a settled result holds before the next beat
   beat:2000,         // the shared heartbeat period
+  reel:240,          // a score-reel drum turns one digit
 });
 export const EASE = Object.freeze({
   out:"cubic-bezier(.2,.8,.2,1)",
   land:"cubic-bezier(.3,.7,.35,1.25)",
   exit:"cubic-bezier(.5,0,.75,.4)",
+  drum:"cubic-bezier(.3,1.35,.5,1)",  // a drum or coin settling on its detent
 });
 /* A change must reach the screen within this long of its frame to count as
    caused by it; a later local re-render is not news. */
@@ -385,7 +387,46 @@ let portalHost = null;
      hold      a Promise: on arrival the clone hovers (gently bobbing) until
                it settles. It resolves to nothing (the clone leaves where it
                is) or to a second leg { to, duration, arc, fade, easing, land }
-               flown from the hover spot. Capped at MAX_HOLD_MS. */
+               flown from the hover spot. Capped at MAX_HOLD_MS. A second leg
+               may also carry onLand (a callback as it lands: its sound) and
+               settle (the clone squashes and settles where it landed).
+   Coins: when either end is marked data-fly-coin (the rack's chips) and
+   the node is a React element, the chip flies as a coin (Coin.jsx's body,
+   backglass.css .fd-coin3d): leaving the rack it spins on its edge, flying
+   home it flips end over end, and landing in the rack it seats itself. */
+/* a landing with weight: a squash (1.1 wide, 0.9 tall) dropping 7 px, a
+   small rebound, then rest */
+export const LAND_SQUASH = Object.freeze([
+  { transform:"none" },
+  { transform:"translateY(7px) scale(1.1, .9)", offset:.3 },
+  { transform:"translateY(-2px) scale(.97, 1.03)", offset:.65 },
+  { transform:"none" },
+]);
+/* the coin a flight leaves from or goes to (data-fly-coin), if any */
+const coinEnd = end => {
+  const el = typeof end === "string" ? flightTarget(end) : end;
+  return el?.dataset && "flyCoin" in el.dataset ? el : null;
+};
+const COIN_EDGE_LAYERS = 5; // Coin.jsx
+const can3d = () => typeof CSS === "undefined" || typeof CSS.supports !== "function" || CSS.supports("transform-style", "preserve-3d");
+/* Coin.jsx's body around a flying chip, in the source coin's own color */
+function coinBody(node, source) {
+  const face = source?.querySelector?.(".fd-coin3d") || source;
+  let color = "";
+  try { color = window.getComputedStyle(face).getPropertyValue("--coin-color").trim(); } catch {}
+  return React.createElement("span", { className:"fd-coin3d fd-coin3d-fly", style:color ? { "--coin-color":color } : undefined },
+    ...Array.from({ length:COIN_EDGE_LAYERS }, (_, i) =>
+      React.createElement("span", { key:i, className:"fd-coin3d-edge", style:{ "--z":i + 1 } })),
+    React.createElement("span", { key:"face", className:"fd-coin3d-face" }, node));
+}
+/* a spin on the edge (leaving) or a flip end over end (going home) */
+export const coinTurn = home => home
+  ? [{ transform:"rotateX(0deg)" }, { transform:"rotateX(360deg)" }]
+  : [{ transform:"rotateY(0deg)" }, { transform:"rotateY(720deg)" }];
+/* a chip coming home seats itself in its slot: a short tip and settle,
+   added to whatever lean the slot gives it */
+export const COIN_SEAT = Object.freeze([{ transform:"rotateX(40deg)" }, { transform:"rotateX(0deg)" }]);
+
 export function fly(from, to, options = {}) {
   const { node = null, duration = MOTION.flight, delay = 0, arc = 0, scale = "fit",
     fade = false, easing = EASE.out, land = false, hold = null } = options;
@@ -398,14 +439,16 @@ export function fly(from, to, options = {}) {
   const layer = flightLayer();
   if (!layer) return skip;
 
+  const coinFrom = coinEnd(from), coinTo = coinEnd(to);
+  const coin = !!(coinFrom || coinTo) && !!node && React.isValidElement(node) && can3d();
   const shell = document.createElement("div");
-  shell.className = "fd-flight";
+  shell.className = coin ? "fd-flight is-coin" : "fd-flight";
   Object.assign(shell.style, { left:`${fromRect.left}px`, top:`${fromRect.top}px`,
     width:`${fromRect.width}px`, height:`${fromRect.height}px` });
   let unmountReact = null, mounted = Promise.resolve();
   if (node && React.isValidElement(node)) {
     if (!portalHost) return skip;
-    const host = portalHost.add(shell, node);
+    const host = portalHost.add(shell, coin ? coinBody(node, coinFrom || coinTo) : node);
     unmountReact = host.remove;
     /* a host that never renders it (unmounted mid-flight) skips the flight */
     mounted = Promise.race([host.ready.then(() => true),
@@ -433,13 +476,19 @@ export function fly(from, to, options = {}) {
     try {
       animation = shell.animate(frames, { duration, delay, easing:"linear", fill:"forwards" });
     } catch { done(); resolve(false); return; }
+    if (coin) {
+      try { shell.firstElementChild?.animate(coinTurn(!coinFrom), { duration, delay, easing:EASE.out }); } catch {}
+    }
     const pulse = (dest, on) => {
       const target = typeof dest === "string" ? flightTarget(dest) : dest;
       if (on && typeof target?.animate === "function" && !prefersReducedMotion()) {
+        const seat = coinEnd(target) ? target.querySelector(".fd-coin3d") : null;
         try {
-          target.animate([{ transform:"scale(1)" }, { transform:"scale(1.14)" }, { transform:"scale(1)" }],
-            { duration:MOTION.pop, easing:EASE.land });
-        } catch {}
+          if (seat) seat.animate(COIN_SEAT, { duration:MOTION.pop * 1.4, easing:EASE.drum, composite:"add" });
+          else target.animate(LAND_SQUASH, { duration:MOTION.pop, easing:EASE.out });
+        } catch {
+          try { target.animate(LAND_SQUASH, { duration:MOTION.pop, easing:EASE.out }); } catch {}
+        }
       }
     };
     animation.finished.then(() => {
@@ -459,8 +508,20 @@ export function fly(from, to, options = {}) {
           second = shell.animate(legKeyframes(fromRect, toRect, toRect2, next),
             { duration:next.duration ?? MOTION.flight, easing:"linear", fill:"forwards" });
         } catch { done(); resolve(true); return; }
-        second.finished.then(() => { done(); pulse(next.to, next.land); resolve(true); },
-          () => { done(); resolve(true); });
+        /* a coin sent back to the rack flips home */
+        if (coin && coinEnd(next.to)) {
+          try { shell.firstElementChild?.animate(coinTurn(true), { duration:next.duration ?? MOTION.flight, easing:EASE.out }); } catch {}
+        }
+        second.finished.then(() => {
+          try { next.onLand?.(); } catch {}
+          pulse(next.to, next.land);
+          /* settle: the clone squashes where it landed, then hands over */
+          const child = next.settle && !prefersReducedMotion() ? shell.firstElementChild : null;
+          let squash = null;
+          try { squash = child?.animate?.(LAND_SQUASH, { duration:MOTION.pop, easing:EASE.out }) || null; } catch {}
+          if (!squash) { done(); resolve(true); return; }
+          squash.finished.then(() => { done(); resolve(true); }, () => { done(); resolve(true); });
+        }, () => { done(); resolve(true); });
       });
     }, () => { done(); resolve(false); });
   }));
@@ -512,7 +573,7 @@ export function useStageHold(id, active) {
    cannot do this (a delay counts from each element's own mount), so new
    beats are aligned as they start and all of them again when the clock
    estimate moves. The result: every phone and the TV pulse together. */
-export const BEAT_ANIMATIONS = Object.freeze(new Set(["fd-beat", "fd-beat-dot", "fd-beat-fill"]));
+export const BEAT_ANIMATIONS = Object.freeze(new Set(["fd-beat", "fd-beat-dot", "fd-beat-fill", "fd-beat-lamp"]));
 /* The startTime (document timeline ms) that puts a beat at the server phase. */
 export const beatStartTime = (timelineNow, phase) => timelineNow - phase;
 

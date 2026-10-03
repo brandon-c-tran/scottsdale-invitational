@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Icon } from "../../ui/Icon.jsx";
 import { bracketMatchName, disp, resolveSlot, resolveCurrentContest, ROUND_NAMES, teamLabel } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import "./competition-bracket.css";
@@ -161,7 +162,7 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
             {team && <span className="fd-bracket-faces" aria-hidden="true">{team.players.slice(0, 3).map(player =>
               <Avatar key={player} state={state} p={player} size={20} />)}</span>}
             <span className="fd-bracket-name">{name}</span>
-            {won && <span className="fd-bracket-outcome" aria-hidden="true">✓</span>}
+            {won && <span className="fd-bracket-outcome" aria-hidden="true"><Icon name="check" size="1em" /></span>}
           </div>;
           const selectable = canRecord && isCurrent && !decided && sides.every(side => side !== null && side !== undefined);
           return <div key={index} className={className}>
@@ -172,7 +173,7 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
               aria-label={selectable ? `Winner: ${fullName}` : `${fullName || "To be determined"}${won ? ", winner" : ""}`}
               onClick={() => selectable && onPick(r, m, key)}>
               <span className="fd-bracket-name">{name}</span>
-              {won && <span className="fd-bracket-outcome" aria-hidden="true">✓</span>}
+              {won && <span className="fd-bracket-outcome" aria-hidden="true"><Icon name="check" size="1em" /></span>}
               {selectable && <span className="fd-bracket-pick-hint">{pending ? "Saving…" : "Win"}</span>}
             </button>
           </div>;
@@ -200,7 +201,7 @@ export function BracketPeek({ state, ev, me, onOpen, label = "Bracket", card = f
   if (!state.brackets?.[ev?.id] || !state.draws?.[ev.id]) return null;
   return <button type="button" className={`fd-bracket-peek${card ? " is-card" : ""}`} onClick={() => onOpen(ev)}
     aria-label={`Open the full ${ev.name} bracket`}>
-    <span className="fd-bracket-peek-head"><span>{label}</span><span>Full bracket <span aria-hidden="true">↗</span></span></span>
+    <span className="fd-bracket-peek-head"><span>{label}</span><span>Full bracket <Icon name="open" size={16} /></span></span>
     <CompetitionBracket state={state} ev={ev} me={me} size="compact" />
   </button>;
 }

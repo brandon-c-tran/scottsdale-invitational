@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { EDITION, allEventsOf, computeStandings, disp } from "../../../shared/core.js";
 import { ChipCoin } from "../identity/ChipCoin.jsx";
-import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { usePlayerIdentity, usePlayerInitials } from "../identity/PlayerIdentityContext.js";
 import { useReducedMotion } from "../../ui/motion.js";
 import { signedChips } from "../../lib/motion.js";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import { useRisoTilt } from "./useRisoTilt.js";
 import { recordText, seasonStats } from "./seasonStats.js";
 import "./player-pass.css";
@@ -21,21 +23,27 @@ export function cardInk(color) {
     ? "#070b09" : "#ffffff";
 }
 
-/* The card leans toward the thumb (Riso tilt): printed layers slide by
-   depth and the ink plate slips out of register. A press under 8px is still
+/* The card is this player's backglass: the glass painted in their identity
+   color front and back, ink chosen for it (chipInk), a ring of lamp sockets
+   inside the frame, the name lettered in the show face and the photo set in a
+   window lit from behind. It leans toward the thumb (Riso tilt): painted
+   layers slide by depth and the ink plate slips out of register. A press under 8px is still
    the flip; the chip spins on its own. `mint` lets a new claim mint the chip.
    The back is the player's season (seasonStats); `viewer` adds their record
-   against this player, or their rivalries on their own card. */
+   against this player, or their rivalries on their own card. A jersey number
+   is only yours to remember: someone else's card (`own` false) carries
+   their monogram where the number would be, and the chip their face. */
 export function PlayerPass({ state, p, display, num, photo, compact = false, mint = false,
-  viewer = null, events, standings, onFlip }) {
+  viewer = null, events, standings, onFlip, own = true }) {
   const identity = usePlayerIdentity(p);
+  const initials = usePlayerInitials(p);
   const [flipped, setFlipped] = useState(false);
   const reducedMotion = useReducedMotion();
   const cardRef = useRef(null);
   const tilt = useRisoTilt(cardRef, !reducedMotion && !!p);
   const profile = state.profiles?.[p] || {};
   const name = display?.trim() || profile.display || p;
-  const number = num !== undefined && num !== null && num !== "" ? Number(num) : identity.num;
+  const number = !own ? null : num !== undefined && num !== null && num !== "" ? Number(num) : identity.num;
   const saved = photo || (profile.photoV ? `/api/photo/${encodeURIComponent(p)}?v=${profile.photoV}` : null);
   const [failed, setFailed] = useState(null);
   const portrait = saved && failed !== saved ? saved : null;
@@ -66,12 +74,15 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
   if (!p) return null;
   /* The name shrinks to fit its longest word instead of breaking mid-word. */
   const longest = Math.max(4, ...name.split(/\s+/).map(word => word.length));
-  const ghost = number == null ? "FD" : String(number).padStart(2, "0");
+  /* the roster's own initials, unless a new name is being typed */
+  const monogram = (name === (profile.display || p) ? initials : String(name || "").trim().slice(0, 2).toUpperCase()) || "FD";
+  const ghost = number == null ? monogram : String(number).padStart(2, "0");
   const turn = () => { const next = !flipped; setFlipped(next); onFlip?.(next); };
 
   return (
     <div className={`fd-pass-wrap${compact ? " fd-pass-compact" : ""}`}
-      style={{ "--pass-color":identity.color, "--pass-ink":cardInk(identity.color), "--pass-name-chars":longest }}>
+      style={{ "--pass-color":identity.color, "--pass-ink":identity.isLight ? "var(--ink0)" : "var(--bone)",
+        "--pass-name-chars":longest }}>
       <button type="button" ref={cardRef} className="fd-pass" {...tilt.handlers}
         style={backHeight ? { minHeight:flipped ? backHeight : 0 } : undefined}
         onClick={() => { if (tilt.consumeClick()) return; tilt.flip(); turn(); }}
@@ -81,31 +92,31 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
         <span className="fd-pass-tilt">
         <span className={`fd-pass-inner${flipped ? " is-flipped" : ""}`}>
           <span className="fd-pass-face fd-pass-front" aria-hidden={flipped}>
-            <span className="fd-pass-top"><span>FIELD DAY</span><span>{EDITION.name.toUpperCase()} / {EDITION.year}</span></span>
+            <span className="fd-pass-bulbs" aria-hidden="true" />
+            <span className="fd-pass-top"><span className="fd-pass-mark">Field Day</span><span>{EDITION.label}</span></span>
             <span className="fd-pass-art">
               <span className="fd-pass-orbit" />
               <span className="fd-pass-number">{ghost}</span>
               <span className="fd-pass-number fd-pass-plate" aria-hidden="true">{ghost}</span>
-              {portrait && <img className="fd-pass-photo" src={portrait} alt="" onError={() => setFailed(portrait)} />}
+              {portrait && <span className="fd-pass-window"><img className="fd-pass-photo" src={portrait} alt="" onError={() => setFailed(portrait)} /></span>}
               <span className={`fd-pass-chip${portrait ? " with-photo" : ""}`}>
-                <ChipCoin p={p} size={portrait ? 78 : 112} stamp={number == null ? undefined : String(number)} mint={mint} />
+                <ChipCoin p={p} size={portrait ? 74 : 112} stamp={number == null ? undefined : String(number)} mint={mint} />
               </span>
-              <span className="fd-pass-edition">SCOTTSDALE<br />ARIZONA</span>
             </span>
             <span className="fd-pass-name">{name}</span>
-            <span className="fd-pass-foot"><span>{EDITION.short}</span><span>PLAYER / {number ?? "FD"}</span></span>
+            <span className="fd-pass-foot"><span><OneSafe text={EDITION.short} /></span>{number != null && <span><OneSafe text={`PLAYER / ${number}`} /></span>}</span>
           </span>
           <span className={`fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`} aria-hidden={!flipped}>
+            <span className="fd-pass-bulbs" aria-hidden="true" />
             {sheet ? <SeasonBack state={state} name={name} number={number} season={season}
               walkout={profile.walkoutTrack?.name} bodyRef={seasonRef} /> : <>
-              <span className="fd-pass-top"><span>{name}</span><span>FIELD DAY / {EDITION.year}</span></span>
-              <span className="fd-pass-back-title">PLAYER<br />{number == null ? "CARD" : String(number).padStart(2, "0")}</span>
+              <span className="fd-pass-top"><span className="fd-pass-mark">Field Day</span><span>{EDITION.year}</span></span>
+              <span className="fd-pass-back-title"><span>{name}</span><b>{number == null ? "Player card" : `Player ${String(number).padStart(2, "0")}`}</b></span>
               <span className="fd-pass-facts">
-                <span><span>Scottsdale, Arizona</span><span>{EDITION.short}</span></span>
-                {standing && <span><span>Current chips</span><strong>{standing.pts.toLocaleString("en-US")}</strong></span>}
+                <span><span>Scottsdale, Arizona</span><span><OneSafe text={EDITION.short} /></span></span>
+                {standing && <span><span>Current chips</span><strong className="fd-pass-chips">{standing.pts.toLocaleString("en-US")}</strong></span>}
                 {profile.walkoutTrack?.name && <span><span>Win song</span><strong>{profile.walkoutTrack.name}</strong></span>}
               </span>
-              <span className="fd-pass-foot"><span>{name.toUpperCase()}</span><span>{EDITION.year}</span></span>
             </>}
           </span>
         </span>
@@ -132,22 +143,23 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
   const order = () => ({ "--i":index++ });
   const totals = [
     season.rank !== null && { key:"rank", value:String(season.rank), label:"Rank" },
-    season.pts !== null && { key:"chips", value:fmt(season.pts), label:"Chips" },
-    settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}` },
+    /* a plain number: digit windows are for hero numbers, not a stat row */
+    season.pts !== null && { key:"chips", value:Number(season.pts).toLocaleString("en-US"), label:"Chips", tone:"chip" },
+    settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}`, tone:"chip" },
     settledDuels > 0 && { key:"duels", value:recordText(duels), label:"Quick Draw" },
     season.mvps > 0 && { key:"mvps", value:String(season.mvps), label:season.mvps === 1 ? "Team MVP" : "Team MVPs" },
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
   return <span className="fd-pass-season" ref={bodyRef}>
-    <span className="fd-pass-top"><span>{name}</span><span>FIELD DAY / {EDITION.year}</span></span>
+    <span className="fd-pass-top"><span className="fd-pass-mark">Field Day</span><span>{EDITION.year}</span></span>
     <span className="fd-pass-season-head">
-      <span className="fd-pass-season-title">{number == null ? "Player card" : `Player ${number}`}</span>
+      <span className="fd-pass-season-title">{name}</span>
       {number != null && <span className="fd-pass-season-ghost">{String(number).padStart(2, "0")}</span>}
     </span>
     {versus && <span className="fd-pass-box fd-pass-row" style={order()}>
       <span className="fd-pass-box-head"><span>You vs {name}</span><strong>{recordText(versus)}</strong></span>
       {meetings.map((meeting, at) => <span className="fd-pass-line" key={`${meeting.eventId}-${at}`}>
-        <span>{meeting.label === meeting.event ? meeting.event : `${meeting.event} · ${meeting.label}`}</span>
+        <span>{meeting.event}</span>
         <strong>{meeting.won ? "You" : name}</strong>
       </span>)}
       {versus.duels.won + versus.duels.lost + versus.duels.push > 0 && <span className="fd-pass-line">
@@ -162,7 +174,7 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
       </span>)}
     </span>}
     {totals.length > 0 && <span className="fd-pass-totals fd-pass-row" style={order()}>
-      {totals.map(item => <span key={item.key}><strong>{item.value}</strong><small>{item.label}</small></span>)}
+      {totals.map(item => <span key={item.key}><strong className={item.tone ? `is-${item.tone}` : undefined}>{item.value}</strong><small>{item.label}</small></span>)}
     </span>}
     {rivals.length > 0 && <span className="fd-pass-box fd-pass-row" style={order()}>
       <span className="fd-pass-box-head"><span>Rivalries</span></span>

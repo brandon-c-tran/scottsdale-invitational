@@ -96,6 +96,10 @@ const snapshot = {
   updateReady: false,
   /* the VAPID public key pocket alerts subscribe with, when alerts are on */
   pushKey: null,
+  /* commissioner only: each connected TV's sound report (presence, never
+     state); tvsAt is when this device received it (tvHealth) */
+  tvs: null,
+  tvsAt: 0,
 };
 let cached = { ...snapshot };
 const listeners = new Set();
@@ -130,9 +134,33 @@ function wsUrl() {
    alert, so hello and ping say so and hiding says so at once */
 const pageVisible = () => typeof document === "undefined" || document.hidden !== true;
 
+/* the TV says whether its sound runs, so the commissioner can see a muted
+   TV (reportTvSound, fed by TV mode from the sound engine) */
+let tvSound = null;
+/* a device showing TV mode inside the app (the menu's TV mode, not the /tv
+   route) is a TV too: App calls setTvView, and hello, ping and presence say
+   which view this socket is on, so the commissioner's TV check counts it */
+let tvView = false;
+const isTvView = () => tvView || isTvRoute();
+const viewName = () => isTvView() ? "tv" : "app";
+const tvSoundPayload = () => isTvView() && tvSound ? { tvSound } : {};
+export function setTvView(on) {
+  const next = !!on;
+  if (tvView === next) return;
+  tvView = next;
+  if (!isTvView()) tvSound = null;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
+}
+export function reportTvSound(status) {
+  const next = status === "on" ? "on" : "blocked";
+  if (!isTvView() || tvSound === next) return;
+  tvSound = next;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), tvSound } });
+}
+
 function sendHello() {
   const nonce = ++helloSeq;
-  send({ type:"hello", payload:{ view:isTvRoute() ? "tv" : "app", nonce, visible:pageVisible() } });
+  send({ type:"hello", payload:{ view:viewName(), nonce, visible:pageVisible(), ...tvSoundPayload() } });
   return nonce;
 }
 
@@ -196,7 +224,7 @@ function connect() {
     pingTimer = setInterval(() => {
       if (ws !== socket) return;
       const sentAt = Date.now();
-      send({ type: "ping", payload:{ visible:pageVisible() } });
+      send({ type: "ping", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
       clearTimeout(pongTimer);
       pongTimer = setTimeout(() => { if (ws === socket && lastInbound < sentAt) forceReconnect(); },
         PONG_DEADLINE_MS);
@@ -209,9 +237,16 @@ function connect() {
     if (msg.type === "state") receiveState(msg);
     else if (msg.type === "ack") receiveAck(msg);
     else if (msg.type === "pong") noteServerTime(msg.serverNow, lastInbound);
+    else if (msg.type === "tvs") receiveTvs(msg.tvs);
   };
   socket.onclose = () => { if (ws === socket) { ws = null; socketLost(); } };
   socket.onerror = () => { try { socket.close(); } catch {} };
+}
+
+function receiveTvs(tvs) {
+  snapshot.tvs = Array.isArray(tvs) ? tvs : null;
+  snapshot.tvsAt = Date.now();
+  emit();
 }
 
 function receiveState(msg) {
@@ -238,6 +273,8 @@ function receiveState(msg) {
   if (typeof msg.gm === "boolean"
       && (typeof msg.hello === "number" ? msg.hello >= gmHelloFloor : snapshot.gm !== null))
     snapshot.gm = msg.gm;
+  if (Array.isArray(msg.tvs)) { snapshot.tvs = msg.tvs; snapshot.tvsAt = Date.now(); }
+  else if (msg.gm === false) snapshot.tvs = null;
   freshSinceOpen = true;
   snapshot.stale = false;
   clearTimeout(probeTimer);

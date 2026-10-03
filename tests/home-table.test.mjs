@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Module from "node:module";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
@@ -22,7 +23,7 @@ const compiled = buildSync({
     export { Wagers } from "./src/features/wagers/Wagers.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
     export { TVWinLine } from "./src/features/tv/TVCards.jsx";
-    export { ChipFace } from "./src/features/identity/PlayerIdentity.jsx";
+    export { ChipFace, Avatar } from "./src/features/identity/PlayerIdentity.jsx";
   `, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "three"],
   loader:{ ".css":"empty" }, write:false, logLevel:"silent",
@@ -180,9 +181,20 @@ test("X1 + X8: Home's contest card shows each side's bets and win line, players 
     onOpen:noop, onRules:noop, onBets:noop, onBracket:noop, onPlayer:p => viewed.push(p), onStandings:noop, onEvents:noop };
   const html = render(ui.GuestHome, props, state);
   assert.match(html, /You’re playing/);
-  assert.match(html, /Final · Match 1/);
+  /* a final is just "Final" (Brandon, Oct 2): never "Final · Match 1" */
+  assert.match(html, /<span>Final<\/span>/);
+  assert.doesNotMatch(html, /Final · Match/);
   assert.match(html, /aria-label="300 chips bet on this side"/);
-  assert.match(html, new RegExp(`Win: ${ROSTER[0]} and ${ROSTER[1]} to 1st|Win: ${ROSTER[0]} and ${ROSTER[1]} \\+${awardTable(eightBall)[0].toLocaleString("en-US")}`));
+  /* a side's line says where its win puts someone; what a win pays is
+     drawn once in the status, the 1st medallion and its amount (PayoutLadder) */
+  const prize = awardTable(eightBall)[0].toLocaleString("en-US");
+  assert.match(html, new RegExp(`fd-ladder is-tiny[^>]*aria-label="1st ${prize}`));
+  assert.doesNotMatch(html, / to win</, "no \"to win\" line");
+  const ownLine = contestWinLines(state, eightBall, resolveCurrentContest(state, eightBall), { events:[eightBall], standings })
+    .find(line => line.players?.includes(ROSTER[0]));
+  /* Home says it once, for you: "A win puts you 1st" */
+  if (ownLine?.kind === "rank") assert.match(html, /A win (puts you|ties you for) 1st/);
+  else assert.doesNotMatch(html, new RegExp(`Win: ${ROSTER[0]} and ${ROSTER[1]} \\+${prize}`), "never says the award twice");
   assert.doesNotMatch(html, /is-stamping|fd-home-sweep/, "a first load never sweeps");
   for (const player of ROSTER.slice(0, 4))
     assert.match(html, new RegExp(`aria-label="View ${player}&#x27;s player card"`));
@@ -198,7 +210,9 @@ test("X8 reaches the Bets board and the TV live scene", () => {
   const lines = contestWinLines(state, eightBall, contest);
   const tv = render(ui.TVWinLine, { lines, sideKey:0 }, state);
   assert.match(tv, /Win: /);
-  assert.match(tv, /font:600 28px/, "TV text stays at or above 24px");
+  assert.match(tv, /class="tv-win-line/);
+  assert.match(readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8"),
+    /\.tv-win-line \{[^}]*font:600 28px/, "TV text stays at or above 24px");
   assert.equal(render(ui.TVWinLine, { lines:[null], sideKey:0 }, state), "");
 });
 
@@ -209,10 +223,47 @@ test("an identity chip wears the saved photo; value chips and blanks keep their 
   const withPhoto = { [ROSTER[0]]:{ color:CHIP_COLORS[0].hex, num:7, photoV:3 } };
   assert.match(face(withPhoto, {}), /<image href="\/api\/photo\/[^"]+\?v=3"/);
   assert.doesNotMatch(face(withPhoto, {}), />7<\/text>/, "the photo replaces the number");
-  assert.match(face({ [ROSTER[0]]:{ num:7 } }, {}), />7<\/text>/, "no photo keeps the number");
+  /* Oct 2: a number never stands in for a person; without a photo the chip
+     carries their initials, and only where they reach 12px */
+  const initials = ROSTER[0].slice(0, 2).toUpperCase();
+  assert.ok(face({ [ROSTER[0]]:{ num:7 } }, {}).includes(`>${initials}</text>`), "no photo shows the initials");
+  assert.doesNotMatch(face({ [ROSTER[0]]:{ num:7 } }, {}), />7<\/text>/, "never the number");
+  assert.doesNotMatch(face({ [ROSTER[0]]:{ num:7 } }, { size:26 }), /<text/, "initials under 12px stay off");
   assert.match(face({ [ROSTER[0]]:{ num:7 } }, { fallback:"12" }), />12<\/text>/, "the editor previews the typed number");
   assert.match(face(withPhoto, { stamp:500 }), />500<\/text>/, "a value chip keeps its value");
   assert.doesNotMatch(face(withPhoto, { stamp:500 }), /<image/);
   assert.doesNotMatch(face(withPhoto, { stamp:"" }), /<image|<text/, "a blank stamp stays blank");
   assert.doesNotMatch(face(withPhoto, { size:20 }), /<image/, "too small for a face");
+});
+
+test("initials are unique across the roster and never a lookalike of another's at chip size", async () => {
+  const { initialsTable, initialsOf } = await import("../src/features/identity/PlayerIdentityContext.js");
+  const table = initialsTable({});
+  const pairs = ROSTER.map(player => table[player]);
+  assert.ok(pairs.every(pair => /^[A-Z0-9]{2}$/.test(pair)), pairs.join(","));
+  const shape = pair => pair.replace(/Y/g, "V").replace(/[DQ]/g, "O");
+  assert.equal(new Set(pairs.map(shape)).size, ROSTER.length, "EV and EY read alike small: one of them moves");
+  assert.equal(table.Evan, "EV");
+  assert.notEqual(shape(table.Eyob), shape(table.Evan));
+  assert.notEqual(table.Chinh, table.Chiang);
+  /* the saved display name is what is lettered, and every screen agrees */
+  assert.equal(initialsOf({ Evan:{ display:"Evan" } }, "Evan"), "EV");
+  assert.equal(initialsOf({}, "Somebody"), "SO", "an unknown player still gets letters");
+});
+
+test("an avatar's initials sit centered and upright whatever styles its button carries", () => {
+  const html = renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{ Adi:{ display:"j vo" } } },
+    React.createElement(ui.Avatar, { state:{ profiles:{ Adi:{ display:"j vo" } } }, p:"Adi", size:36 })));
+  assert.match(html, />JV<\/span>/, "a lowercase two-word name letters as its initials");
+  for (const rule of ["flex:none", "text-align:center", "font-style:normal", "overflow-wrap:normal"])
+    assert.ok(html.includes(rule), rule);
+});
+
+test("a team of three or more is named, never a roll call", async () => {
+  const { vsNames } = await import("../src/features/home/homeModel.js");
+  const state = { profiles:{}, draws:{ bball5:{ teams:[{ name:"The Rattlers", players:ROSTER.slice(0, 6) }, { players:ROSTER.slice(6) }] } } };
+  assert.equal(vsNames(state, ROSTER.slice(0, 6), "bball5"), "The Rattlers");
+  assert.equal(vsNames(state, ROSTER.slice(6), "bball5"), `Team ${ROSTER[6]}`);
+  assert.equal(vsNames(state, ROSTER.slice(0, 2), "bball5"), `${ROSTER[0]} & ${ROSTER[1]}`, "a pair still reads by name");
+  assert.equal(vsNames(state, ROSTER.slice(0, 7), "nope"), "7 players");
 });

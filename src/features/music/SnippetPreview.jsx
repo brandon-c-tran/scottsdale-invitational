@@ -93,6 +93,5 @@ export function SnippetPreview({ track, from, to, find = songSnippet }) {
         : `Preview ${songClock(from)} to ${songClock(to)}`}</button>
     {view.status === "error" && <p className="fd-song-snippet-note is-error" role="alert">{view.error}</p>}
     <div ref={host} className="fd-song-snippet-video" hidden={!shown} />
-    {shown && <p className="fd-song-snippet-note">Album version from YouTube</p>}
   </div>;
 }

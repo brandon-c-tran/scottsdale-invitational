@@ -20,7 +20,7 @@ import {
   RESET_PROGRESS_PRESERVED_KEYS, SIZES, SPORTS,
   allEventsOf, atRisk, bracketChampion, computeStandings, contestBetEligibility, contestSideOf,
   contestStackOf, draftTurn, duelBetween, duelReserve, duelRoom, duelsSentToday, maxRisk,
-  pokerSetupPreview, presentPlayers, resolveCurrentContest, resolveEventLifecycle, resolveSlot,
+  playerStrength, pokerSetupPreview, presentPlayers, resolveCurrentContest, resolveEventLifecycle, resolveSlot,
   resolveWager, resolveWeekendOperation, stageEntrantView, stageFinalists, wagerMatchesContest,
 } from "../shared/core.js";
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
@@ -486,7 +486,106 @@ function runQaAdvance(state, target, { applyAction, ctx, seed, production = fals
   return { rewound, seed, ...run.stats, ms:Math.round(performance.now() - started) };
 }
 
+/* ── QA quick bets ──
+   Fills (or clears) the current contest's board in one write, through the
+   real placeWager and retractWager reducers with each player's synthetic
+   context, so every cap, eligibility rule and one-side-per-contest check
+   holds and the chips land as ordinary bets. The actor (the commissioner's
+   own claimed player) is left alone, so their own chips stay theirs to tap.
+
+     everyone   each player with room backs a side of their choosing
+     favorite   everyone who may backs the strongest side; a competitor
+                who may only back their own side backs that
+     spread     bettors dealt round the sides in turn, one even stake each
+     clear      every pending chip on the contest goes back */
+const QA_BET_MODES = Object.freeze(["everyone", "favorite", "spread", "clear"]);
+const QA_STAKES = Object.freeze([PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]);
+
+/* the event whose current contest takes bets right now, with that contest */
+function qaBetMarket(state, events = allEventsOf(state)) {
+  const ev = state.onDeck ? events.find(item => item.id === state.onDeck) : null;
+  const contest = ev && !state.results?.[ev.id] ? resolveCurrentContest(state, ev) : null;
+  return contest?.phase === "betting-open" ? { ev, contest } : null;
+}
+
+const pendingOnContest = (state, contest, events) => (state.wagers || []).filter(wager =>
+  wagerMatchesContest(wager, contest) && resolveWager(state, wager, events).status === "pending");
+
+function betRoom(state, player, rows, events) {
+  const pts = rows.find(row => row.player === player)?.pts ?? 0;
+  const exposure = atRisk(state, player, events) + duelReserve(state, player);
+  return Math.max(0, Math.min(maxRisk(pts) - exposure, pts - exposure));
+}
+
+function wagerFor(ev, contest, side, stake) {
+  const wager = { eventId:ev.id, evName:ev.name, contestId:contest.id, contestRevision:contest.revision,
+    pickPlayers:[...side.players], pickTeam:!!contest.drawId, drawId:contest.drawId, stake };
+  if (contest.kind === "ffa") return Object.assign(wager, { kind:"outright", pick:side.key });
+  if (contest.kind === "match") return Object.assign(wager, { kind:"match", match:[...contest.match],
+    matchName:contest.label, teamIdx:side.key });
+  return Object.assign(wager, { kind:contest.kind === "heat" ? "heat" : "stage", stagesId:contest.stagesId,
+    group:contest.group, groupName:contest.label, final:contest.kind === "stage-final", pickKey:side.key });
+}
+
+/* Mutates state (the Durable Object's working copy) and returns what it
+   did, or throws QaStop. */
+function runQaBets(state, mode, { applyAction, ctx, seed }) {
+  const events = allEventsOf(state);
+  const market = qaBetMarket(state, events);
+  if (!market) throw new QaStop("No contest is taking bets");
+  const { ev, contest } = market;
+  const done = { mode, evId:ev.id, contestId:contest.id, placed:0, chips:0, cleared:0, seed };
+  rehearse(seed, tick => {
+    const run = createRunner(state, { ...ctx, applyAction }, tick);
+    if (mode === "clear") {
+      for (const wager of pendingOnContest(state, contest, events)) {
+        for (let guard = 0; guard < 64 && state.wagers.some(item => item.id === wager.id); guard++) {
+          const back = run.as(wager.player, "retractWager", { id:wager.id, contestId:contest.id,
+            contestRevision:contest.revision });
+          if (!back.ok) throw new QaStop(`${back.error}`);
+        }
+        done.cleared += 1;
+      }
+      return;
+    }
+    const rows = computeStandings(state);
+    const strength = side => side.players.reduce((sum, player) =>
+      sum + playerStrength(state, player, ev.sport, rows), 0) / Math.max(1, side.players.length);
+    const favorite = [...contest.sides].sort((a, b) => strength(b) - strength(a))[0];
+    const dealt = new Map(contest.sides.map(side => [side.key, 0]));
+    const bettors = shuffled(run, presentPlayers(state).filter(player => player !== ctx.player));
+    bettors.forEach((player, index) => {
+      const room = betRoom(state, player, rows, events);
+      if (room < PT) return;
+      const held = contestSideOf(state, contest, player, events);
+      const open = contest.sides.filter(side => contestBetEligibility(contest, player, side.key)
+        && (held === null || held === side.key));
+      if (!open.length) return;
+      let side, stake;
+      if (mode === "favorite") {
+        side = open.find(item => item.key === favorite.key) || open[0];
+        stake = pick(run, [2 * PT, 3 * PT, 5 * PT]);
+      } else if (mode === "spread") {
+        const turn = contest.sides[index % contest.sides.length];
+        side = open.find(item => item.key === turn.key)
+          || [...open].sort((a, b) => dealt.get(a.key) - dealt.get(b.key))[0];
+        stake = 2 * PT;
+      } else {
+        side = pick(run, open);
+        stake = pick(run, QA_STAKES);
+      }
+      stake = Math.min(Math.floor(room / PT) * PT, stake);
+      if (!run.as(player, "placeWager", { wager:wagerFor(ev, contest, side, stake) }).ok) return;
+      dealt.set(side.key, dealt.get(side.key) + 1);
+      done.placed += 1;
+      done.chips += stake;
+    });
+  });
+  dropSyntheticLedger(state);
+  return done;
+}
+
 export {
-  QA_DEVICE, QaStop, cleanSeed, parseQaTarget, qaNeedsRewind, qaProgressCost, resetProgress,
-  runQaAdvance, seededRandom,
+  QA_BET_MODES, QA_DEVICE, QaStop, cleanSeed, parseQaTarget, qaBetMarket, qaNeedsRewind, qaProgressCost, resetProgress,
+  runQaAdvance, runQaBets, seededRandom,
 };

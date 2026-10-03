@@ -14,7 +14,8 @@ import { applyAction } from "./support/confirmed-start.mjs";
 import { sharedProjection } from "../worker/publicState.js";
 import {
   DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS, buildEventReveal, drawRevealGroups, drawSequenceMs, drawStepAt, drawStepDelay,
-  introRemainingMs, revealTimeline, startDrawPlayback,
+  introRemainingMs, revealTimeline, startDrawPlayback, DRAW_FIRST_STEP_MS, DRAW_SEQUENCE_CAP_MS, DRAW_STEP_MS,
+  DRAW_STEP_MIN_MS, drawStepGap, partnerDelay, partnerFaces, DRAW_PARTNER_BEAT_MS,
 } from "../src/features/weekend/drawReveal.js";
 import { TV_INTRO_OVERLAY_MS } from "../src/features/tv/tvModel.js";
 
@@ -55,9 +56,17 @@ test("the step model counts cards on the same schedule the reveal always used", 
     }
     assert.equal(drawStepAt(drawSequenceMs(total), total), total);
     assert.equal(drawStepAt(10 * 60 * 1000, total), total);
-    /* long draws stay bounded */
-    assert.ok(drawSequenceMs(total) <= 480 + 2900 + 1);
+    /* Backglass (Oct 2): each card holds the room about two seconds; long
+       draws compress toward the cap but never under the minimum a card */
+    assert.ok(drawSequenceMs(total) <= DRAW_FIRST_STEP_MS + DRAW_SEQUENCE_CAP_MS + 1);
+    assert.ok(drawStepGap(total) <= DRAW_STEP_MS && drawStepGap(total) >= DRAW_STEP_MIN_MS);
   }
+  assert.equal(drawStepGap(4), DRAW_STEP_MS, "a short draw: two seconds a card");
+  /* the held beat: the last partner of a pair or team lands after it */
+  assert.equal(partnerDelay(0, 2), 0);
+  assert.equal(partnerDelay(1, 2), DRAW_PARTNER_BEAT_MS);
+  assert.equal(partnerDelay(0, 1), 0, "a solo line has no partner to wait for");
+  assert.ok(DRAW_PARTNER_BEAT_MS < DRAW_STEP_MIN_MS, "the partner lands before the next card turns");
   assert.equal(drawStepAt(5000, 0), 0);
   assert.equal(drawStepAt(NaN, 4), 0);
 });
@@ -295,6 +304,44 @@ test("the TV reads the same timeline, with the crew as the last step as on phone
   const complete = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(TVDrawReveal, { state, events:[ev], reveal, now:() => revealAt + 60_000 })));
   assert.equal([...complete.matchAll(/tv-reveal-card is-shown/g)].length, groups.length);
+});
+
+/* Oct 2 regression: the held beat was counted per card and given to the
+   card's last face, so a matchup card held back one player of the SECOND
+   side alone (Richard of "Allan · Khoa · Richard" dropped in a beat after
+   everyone else, on phones and the TV). Each side holds its own partner. */
+test("a matchup card holds each side's own last partner, never one face of the second side", async () => {
+  const pair = (a, b) => ({ avatars:[a, b], text:`${a} & ${b}` });
+  assert.deepEqual(partnerFaces({ vs:true, lines:[pair("A", "B"), pair("C", "D")] }), [1, 1]);
+  assert.deepEqual(partnerFaces({ vs:true, lines:[{ avatars:["A", "B", "C"] }, { avatars:["D", "E", "F"] }] }), [2, 2]);
+  assert.deepEqual(partnerFaces({ vs:true, lines:[{ avatars:["A"] }, { avatars:["B"] }] }), [-1, -1], "1v1: nobody's partner");
+  assert.deepEqual(partnerFaces({ lines:[{ avatars:["A", "B", "C"] }] }), [2], "a two-team draw's team card");
+  assert.deepEqual(partnerFaces({ lines:[{ avatars:["A"] }, { avatars:["B"] }, { avatars:["C"] }] }), [-1, -1, 0],
+    "a team listed one player a line: its last face");
+  assert.deepEqual(partnerFaces({ bye:true, lines:[pair("A", "B")] }), [-1]);
+
+  for (const evId of ["8ball", "volley"]) {
+    const state = structuredClone(EMPTY_STATE);
+    const ev = BUILTIN_EVENTS.find(item => item.id === evId);
+    assert.equal(applyAction(state, "announceAndDraw", { evId, players:defaultQaParticipants(ev) }, gm()).ok, true);
+    const reveal = buildEventReveal(state, ev);
+    const groups = drawRevealGroups(state, reveal);
+    const matchups = groups.filter(group => group.vs);
+    assert.ok(matchups.length, `${evId} draws matchup cards`);
+    const expected = matchups.flatMap(group => group.lines.map(line => line.avatars.at(-1))).sort();
+    const revealAt = revealTimeline(state, ev.id, { reveal }).revealAt;
+    const total = groups.length + (reveal.crew?.length ? 1 : 0);
+    /* mid-reveal, every card turned live (not settled) */
+    const { buttons } = render(DrawAnnouncement, { state, reveal, synced:true, reducedMotion:false,
+      now:() => revealAt - 1, onClose:() => {}, onPlayer:() => {} });
+    const held = buttons.filter(button => button.className === "is-partner").map(button => button.key).sort();
+    assert.deepEqual(held, expected, `${evId}: the phone holds both sides' last partner`);
+    const tv = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+      React.createElement(TVDrawReveal, { state, events:[ev], reveal, now:() => revealAt + drawSequenceMs(total) - 1 })));
+    assert.equal([...tv.matchAll(/class="tv-partner"/g)].length, expected.length, `${evId}: the TV holds the same faces`);
+    const { revealPartners } = await import("../src/features/tv/roomSound.js");
+    assert.deepEqual(revealPartners(state, reveal), groups.map(group => !group.bye));
+  }
 });
 
 test("the intro's handoff bar starts part-filled for a phone that heard late", () => {

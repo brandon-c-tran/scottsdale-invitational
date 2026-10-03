@@ -9,7 +9,7 @@ import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { FIXED_STARS, desertScene, constellationStars, skyBoxClearOfDisc, skyStarLayout, starPoints } from "../tv/desertModel.js";
 import { CLASS_H, CLASS_W, classPhotoLayout, classPhotoModel } from "./classPhoto.js";
 
-const DISPLAY = "'Barlow Condensed', 'Arial Narrow', sans-serif";
+const DISPLAY = "'Big Shoulders Display', 'Arial Narrow', sans-serif";
 const PHOTO_TIMEOUT_MS = 4000;
 
 async function fontsReady() {

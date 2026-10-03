@@ -16,10 +16,9 @@ import {
 } from "three";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
-import { DISPLAY } from "../../ui/theme.js";
 import {
   TOWER_GEOMETRY as G, TOWER_TIMING as T, towerTransition, towerSchedule, towerFit, towerSlotX, towerLeaders,
-  towerSignature, towerChips, towerSounds, dropEase, easeInOutCubic, easeOutCubic, frameMonitor,
+  towerSignature, towerChips, towerSounds, dropEase, easeInOutCubic, easeOutCubic, frameMonitor, towerSlotPx,
 } from "./towersModel.js";
 import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
@@ -47,8 +46,9 @@ function seeded(player, j) {
 }
 
 /* The face is the player's actual ChipFace (edge skin and all) rasterized
-   from the DOM, then the jersey number is set with the loaded display face,
-   drawn last over the chip's own color as the 2D chip does. */
+   from the DOM, then their saved photo is set in its middle, drawn last as
+   the 2D chip does. Without a photo the middle stays plain: a jersey number
+   never stands in for a person. */
 async function paintFace(svg, identity) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = TEX;
@@ -64,14 +64,23 @@ async function paintFace(svg, identity) {
     const k = 16 / 15.42, size = TEX * k, off = (TEX - size) / 2;
     g.drawImage(img, off, off, size, size);
   } catch { /* the flat color face still reads */ }
-  if (identity.num != null) {
-    try { await document.fonts?.load?.(`700 64px ${DISPLAY}`); } catch { /* fallback face */ }
-    const k = TEX / 32 * (16 / 15.42);
-    g.fillStyle = identity.isLight ? token("--ink0", "#151c1c") : token("--bone", "#f2eddf");
-    g.font = `700 ${Math.round(11.7 * k)}px ${DISPLAY}`;
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.fillText(String(identity.num), TEX / 2, TEX / 2 + 0.8 * k);
+  if (identity.photo) {
+    try {
+      const photo = new Image();
+      photo.src = identity.photo;
+      await photo.decode();
+      /* the portrait medallion: r 9.3 of the chip's 32, cover-cropped */
+      const k = TEX / 32 * (16 / 15.42), r = 9.3 * k;
+      const w = photo.naturalWidth || photo.width || 1, h = photo.naturalHeight || photo.height || 1;
+      const side = Math.min(w, h);
+      g.save();
+      g.beginPath(); g.arc(TEX / 2, TEX / 2, r, 0, Math.PI * 2); g.clip();
+      g.drawImage(photo, (w - side) / 2, (h - side) / 2, side, side, TEX / 2 - r, TEX / 2 - r, 2 * r, 2 * r);
+      g.restore();
+      g.lineWidth = 0.9 * k;
+      g.strokeStyle = identity.isLight ? token("--ink0", "#0a0910") : token("--chip-mark", "#f4ecd8");
+      g.beginPath(); g.arc(TEX / 2, TEX / 2, r, 0, Math.PI * 2); g.stroke();
+    } catch { /* the plain middle still reads as their chip */ }
   }
   return canvas;
 }
@@ -84,7 +93,7 @@ function paintSide(identity) {
   const g = canvas.getContext("2d");
   g.fillStyle = identity.color;
   g.fillRect(0, 0, w, h);
-  const ink = identity.isLight ? token("--ink0", "#151c1c") : token("--bone", "#f2eddf");
+  const ink = identity.isLight ? token("--ink0", "#0a0910") : token("--bone", "#f4ecd8");
   g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 4; g.lineJoin = "round";
   const each = (n, draw) => { for (let i = 0; i < n; i++) draw((i + 0.5) * w / n); };
   const skin = identity.skin;
@@ -118,7 +127,7 @@ function paintSide(identity) {
 function FaceSource({ p, onPaint }) {
   const identity = usePlayerIdentity(p);
   const ref = useRef(null);
-  const sig = `${identity.color}|${identity.skin}|${identity.num}|${identity.isLight}`;
+  const sig = `${identity.color}|${identity.skin}|${identity.photo}|${identity.isLight}`;
   useEffect(() => {
     let live = true;
     const svg = ref.current?.querySelector("svg");
@@ -161,8 +170,8 @@ function createScene(canvas, { width, height, pixelRatio }) {
   chipGeo.clearGroups();
   chipGeo.addGroup(side.start, side.count, 0);
   chipGeo.addGroup(top.start, top.count + bottom.count, 1);
-  const hullMat = new MeshBasicMaterial({ color:new Color(token("--ink0", "#151c1c")), side:BackSide });
-  const ringMat = new MeshBasicMaterial({ color:new Color(token("--sun", "#e4d477")) });
+  const hullMat = new MeshBasicMaterial({ color:new Color(token("--ink0", "#0a0910")), side:BackSide });
+  const ringMat = new MeshBasicMaterial({ color:new Color(token("--sun", "#ffa630")) });
   const ringGeo = new RingGeometry(1.15, 1.35, 64);
   ringGeo.rotateX(-Math.PI / 2);
   return { renderer, scene, camera, ramp, chipGeo, hullGeo:null, hullW:0, hullMat, ringMat, ringGeo,
@@ -264,14 +273,15 @@ function ringsFor(s, leaders) {
 function snapTo(s, rows) {
   const count = rows.length;
   const tallest = Math.max(1, ...rows.map(row => towerChips(row.pts)));
-  fitCamera(s, towerFit({ width:s.width, baseY:s.baseY, count, tallest, top:s.top }));
+  fitCamera(s, towerFit({ width:s.width, baseY:s.baseY, count, tallest, top:s.top, slotPx:s.slotPx }));
   hullFor(s, s.k);
   const keep = new Set(rows.map(row => row.player));
   s.towers.forEach((t, p) => { if (!keep.has(p)) { s.scene.remove(t.mesh); t.mesh.dispose(); t.hull.dispose(); s.towers.delete(p); } });
   rows.forEach((row, slot) => {
     const n = towerChips(row.pts);
     const t = ensureTower(s, row.player, n);
-    t.x = towerSlotX(slot, count); t.z = 0; t.lift = 0;
+    t.px = s.slotPx ? towerSlotPx(slot, count, s.slotPx) : null;
+    t.x = t.px !== null ? t.px / s.k : towerSlotX(slot, count); t.z = 0; t.lift = 0;
     t.mesh.position.set(t.x, 0, 0);
     setCount(t, n);
     for (let j = 0; j < n; j++) setChip(t, j, { top:j === n - 1 });
@@ -283,7 +293,7 @@ function snapTo(s, rows) {
    (the ambient board); "scene" sounds the step a directed scene takes on
    its own clock (the result's before/after). */
 export default function ChipTowers({ rows, leaders = null, width = 1920, height = 882, baseY = 720, top = 40,
-  pixelRatio = 1, reducedMotion = false, onFail = () => {}, labelFor = null, sound = "fresh" }) {
+  pixelRatio = 1, reducedMotion = false, onFail = () => {}, labelFor = null, labelClass = null, sound = "fresh", slotWidth = 0 }) {
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
   const labels = useRef({});
@@ -295,6 +305,8 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
   const draw = () => {
     const s = sceneRef.current;
     if (!s) return;
+    /* fixed slots: a tower's place is canvas pixels, whatever the scale */
+    if (s.slotPx) s.towers.forEach(t => { if (t.px !== null && t.px !== undefined) t.x = t.px / s.k; });
     s.rings.forEach(ring => {
       if (!ring.follow) return;
       const t = s.towers.get(ring.follow);
@@ -305,12 +317,14 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
     s.towers.forEach(t => {
       const el = labels.current[t.player];
       if (!el) return;
-      const x = s.width / 2 + t.x * s.k;
+      /* a label keeps its whole 132px slot inside the 64px safe sides, even
+         where the end tower stands nearer the edge */
+      const x = Math.min(s.width - 64 - 66, Math.max(64 + 66, s.width / 2 + t.x * s.k));
       const y = s.baseY + G.radius * Math.sin(EL) * s.k;
       el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y + 10)}px) translateX(-50%)`;
-      /* a tower hopping back behind the others sets its label down again
-         where it lands; the ones stepping aside carry theirs */
-      el.style.visibility = t.z < -0.05 ? "hidden" : "";
+      /* every name rides its tower through a re-sort: one hopping back
+         passes under the ones stepping aside, a winner's over them all */
+      el.style.zIndex = el.classList.contains("is-win") ? "3" : t.z < -0.05 ? "1" : "2";
     });
     s.renderer.render(s.scene, s.camera);
   };
@@ -363,7 +377,7 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
       failRef.current("init");
       return undefined;
     }
-    s.baseY = baseY; s.top = top;
+    s.baseY = baseY; s.top = top; s.slotPx = slotWidth;
     hullFor(s, s.k);
     sceneRef.current = s;
     const lost = event => { event.preventDefault(); fail("lost"); };
@@ -430,8 +444,8 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
     const afterTall = Math.max(1, ...next.map(row => towerChips(row.pts)));
     /* the camera widens before a tower outgrows it, narrows after */
     const k0 = s.k;
-    const k1 = towerFit({ width:s.width, baseY:s.baseY, count, tallest:Math.max(beforeTall, afterTall), top:s.top });
-    const kEnd = towerFit({ width:s.width, baseY:s.baseY, count, tallest:afterTall, top:s.top });
+    const k1 = towerFit({ width:s.width, baseY:s.baseY, count, tallest:Math.max(beforeTall, afterTall), top:s.top, slotPx:s.slotPx });
+    const kEnd = towerFit({ width:s.width, baseY:s.baseY, count, tallest:afterTall, top:s.top, slotPx:s.slotPx });
     if (Math.abs(k1 - k0) > 0.01)
       tween(0, Math.max(300, T.hold), t => { fitCamera(s, k0 + (k1 - k0) * easeInOutCubic(t)); }, { done:() => hullFor(s, s.k) });
     /* chips fall onto the winners, one after another, towers in parallel */
@@ -466,13 +480,16 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
         const t = s.towers.get(player);
         if (!t) return;
         let x0 = 0;
-        const x1 = towerSlotX(to, count);
+        /* in fixed slots the hop runs in canvas pixels, the draw converts */
+        const slots = !!s.slotPx;
+        const x1 = slots ? towerSlotPx(to, count, s.slotPx) : towerSlotX(to, count);
         tween(sched.sortStart, T.sort, k => {
           const e = easeInOutCubic(k), arc = Math.sin(k * Math.PI);
-          t.x = x0 + (x1 - x0) * e;
+          if (slots) t.px = x0 + (x1 - x0) * e; else t.x = x0 + (x1 - x0) * e;
           t.z = x1 < x0 ? -2.4 * arc : 1 * arc;
           t.lift = 0.3 * arc;
-        }, { start:() => { x0 = t.x; }, done:() => { t.x = x1; t.z = 0; t.lift = 0; } });
+        }, { start:() => { x0 = slots ? t.px : t.x; },
+          done:() => { if (slots) t.px = x1; else t.x = x1; t.z = 0; t.lift = 0; } });
       });
     }
     /* the lead ring rides with the old leader, then slides to the new one */
@@ -503,7 +520,7 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
       <div className="tv-towers-labels">
         {rows.map(row => (
           <div key={row.player} ref={el => { labels.current[row.player] = el; }}
-            className={`tv-tower-label${leaderSet.has(row.player) ? " is-lead" : ""}`}>
+            className={`tv-tower-label${leaderSet.has(row.player) ? " is-lead" : ""}${labelClass ? ` ${labelClass(row)}` : ""}`}>
             {labelFor ? labelFor(row) : null}
           </div>
         ))}

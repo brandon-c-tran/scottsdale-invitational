@@ -18,6 +18,8 @@ const compiled = buildSync({
     export { Guide } from "./src/features/weekend/Guide.jsx";
     export { HowToSheet } from "./src/features/weekend/HowToSheet.jsx";
     export { VenueCard } from "./src/features/travel/Travel.jsx";
+    export { HouseSheet } from "./src/features/weekend/ProgramSheets.jsx";
+    export { gameStepsModel } from "./src/features/rules/gameSteps.js";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
     export { AppNavigation } from "./src/ui/AppChrome.jsx";
   `, resolveDir:root, loader:"jsx" },
@@ -28,7 +30,7 @@ const componentModule = new Module(fileURLToPath(new URL("player-flow-ui.cjs", i
 componentModule.filename = componentModule.id;
 componentModule.paths = Module._nodeModulePaths(root);
 componentModule._compile(compiled.outputFiles[0].text, componentModule.filename);
-const { GuestHome, Board, PlayerSheet, ProfileEditor, Schedule, Guide, HowToSheet, VenueCard,
+const { GuestHome, Board, PlayerSheet, ProfileEditor, Schedule, Guide, HowToSheet, VenueCard, HouseSheet, gameStepsModel,
   PlayerIdentityProvider, AppNavigation } = componentModule.exports;
 const [me, other] = ROSTER;
 /* Schedule keeps this visit's folded sessions in sessionStorage */
@@ -138,9 +140,10 @@ test("home keeps trip details private while event and reference actions open the
   assert.ok(!view.html.includes(LOGISTICS.venue));
   const first = BUILTIN_EVENTS[0];
   view.click(`Open ${first.name}`);
-  view.click("How to play");
+  /* the rules are in the event sheet: the pane's one way in is the name */
+  assert.ok(!view.buttons.some(button => button.name === `${first.name} rules`));
   assert.deepEqual(view.opened, [first.id]);
-  assert.deepEqual(rules, [first.id]);
+  assert.deepEqual(rules, []);
   assert.deepEqual(routes, []);
   view.click("All events");
   view.click("Standings");
@@ -164,19 +167,20 @@ test("home only shows a current balance and chip-placement action after the week
   assert.ok(!live.buttons.some(button => button.name === "Your chips and standings"));
   assert.equal(live.buttons.filter(button => button.name === "Standings").length, 1);
   live.click("Standings");
-  live.click("Place chips");
+  live.click("Back yourself"); // a competitor in the free-for-all backs themself
   assert.deepEqual(routes, ["standings", "bets"]);
   assert.deepEqual(live.opened, []);
-  live.click("Open event");
+  assert.ok(!live.buttons.some(button => button.name === "Open event"), "the event opens from its name");
+  live.click(`Open ${event.name}`);
   assert.deepEqual(live.opened, [event.id]);
 
   state.wagers = [{ id:"at-cap", player:me, kind:"outright", eventId:event.id,
     pick:other, pickPlayers:[other], stake:500 }];
   const capped = controls(GuestHome, state, props);
-  assert.ok(!capped.buttons.some(button => button.name === "Place chips"));
+  assert.ok(!capped.buttons.some(button => ["Place chips", "Back yourself"].includes(button.name)));
   capped.click("View bets");
   assert.deepEqual(routes, ["standings", "bets", "bets"]);
-  capped.click("500 in bets ↗");
+  capped.click("500 in bets");
   assert.deepEqual(routes, ["standings", "bets", "bets", "bets"]);
 });
 
@@ -190,7 +194,8 @@ test("home partner and opponent cards remain separate from the current event act
   state.eventOps[event.id] = { bettingLockedAt:1, startedAt:2 };
   const view = controls(GuestHome, state, { events:[event] });
   assert.match(view.html, /You’re playing/);
-  assert.match(view.html, /Semifinals · Match 1/);
+  /* a semifinal keeps its number, in the flagged face (ui/OneSafe.jsx) */
+  assert.match(view.html, /Semifinal <span class="fd-one">1<\/span>/, "a lone 1 in its flagged face");
   const assignedPlayers = [other, ...state.draws[event.id].teams[3].players];
   for (const player of assignedPlayers) {
     const name = `View ${player}'s player card`;
@@ -328,7 +333,7 @@ test("live matchup and result player targets preserve the distinct event action"
   live.click(`View ${other}'s player card`);
   assert.deepEqual(live.viewed, [other]);
   assert.deepEqual(live.opened, []);
-  live.click("Open event ›");
+  live.click("Open event");
   assert.deepEqual(live.opened, [event.id]);
   state.results[event.id] = { ts:1, slots:[[other]] };
   const result = controls(Board, state);
@@ -346,14 +351,20 @@ test("public player cards show saved identity and public results without persona
   state.results[BUILTIN_EVENTS[0].id] = { ts:1, slots:[[other]] };
   const view = controls(PlayerSheet, state);
   assert.match(view.html, /Player Alias/);
-  assert.match(view.html, /PLAYER \/ 0/);
+  /* Oct 2: someone else's number is not theirs to show you; their card
+     carries their monogram, and only your own card keeps your number */
+  assert.doesNotMatch(view.html, /PLAYER \/ 0/);
+  assert.match(view.html, /class="fd-pass-number fd-pass-plate" aria-hidden="true">PA</); // a two-word name letters as its initials
   assert.match(view.html, /Public Song/);
-  assert.match(view.html, /Event wins/);
-  assert.match(view.html, /Tournament stats/);
+  /* public results live on the card itself (its season sheet), not repeated under it */
+  assert.ok(view.html.includes(BUILTIN_EVENTS[0].name), "the card lists the event");
+  assert.match(view.html, />1st</, "and the placement");
+  assert.doesNotMatch(view.html, /Tournament stats|Event wins/, "nothing repeats under the card");
   assert.doesNotMatch(view.html, /PRIVATE_SIZE|PRIVATE_ARRIVAL|PRIVATE_DEPARTURE|PRIVATE_RATING/);
   assert.ok(!view.buttons.some(button => button.name === "Edit your profile"));
   const own = controls(PlayerSheet, state, { p:me });
   assert.ok(own.buttons.some(button => button.name === "Edit your profile"));
+  assert.match(own.html, /PLAYER \/ (<span class="fd-one">)?\d/, "your own card keeps your number");
   // Rule change: your own card hosts the open challenge (to anyone).
   assert.ok(own.buttons.some(button => button.name === "Challenge anyone for 100"));
   assert.ok(!own.buttons.some(button => button.name === `Challenge ${me} for 100`));
@@ -374,7 +385,7 @@ test("the board follows actual event progress rather than a prepared future brac
   let view = controls(Board, state, { events:[future, running] });
   assert.match(view.html, /aria-label="Current event: In progress"/);
   assert.doesNotMatch(view.html, /aria-label="Future bracket: In progress"/);
-  view.click("Open event ›");
+  view.click("Open event");
   assert.deepEqual(view.opened, [running.id]);
 
   state.eventOps[running.id].resultEntryAt = 40;
@@ -503,32 +514,34 @@ test("profile keeps check-in chip choices and drafts, while a live editor shows 
   const live = controls(ProfileEditor, { ...state, live:true }, props);
   assert.match(live.html, /value="Draft name"/);
   assert.match(live.html, /value="42"/);
-  assert.match(live.html, /Chips are locked for the weekend/);
+  assert.match(live.html, /fd-profile-chip-locked/);
   assert.ok(!live.buttons.some(button => /Claim chip color|Release selected chip color|Chip pattern/.test(button.name)));
   assert.match(live.html, /<details class="fd-profile-preview"><summary>/);
   assert.deepEqual(state, original);
 });
 
-test("compact Trip keeps saved flights and edit navigation; check-in retains its full venue presentation", () => {
+test("Weekend's back page opens House, Rules, Games and Payouts; the house keeps saved flights and their edit; check-in keeps the full venue", () => {
   const state = { ...fresh(), live:false, logistics:structuredClone(LOGISTICS) };
   state.profiles[me] = { flightIn:{ air:"UA", num:"1885", time:"13:20" }, flightOut:{ note:"Saved return plan" }, flightsBooked:true };
-  const original = structuredClone(state), opened = [], sections = [];
-  const trip = controls(Guide, state, { section:"trip", onProfile:() => opened.push("travel"), onSection:section => sections.push(section) });
-  trip.click("Edit flights");
-  trip.click("Games");
+  const original = structuredClone(state), opened = [];
+  const program = controls(Guide, state, { onProfile:() => opened.push("travel") });
+  for (const tile of ["House", "Rules", "Games", "Payouts"]) program.named(tile);
+  assert.doesNotMatch(program.html, /role="tab"/, "one scroll, no sub-tabs");
+  const house = controls(HouseSheet, state, { onProfile:() => opened.push("travel"), onClose:noop });
+  house.click("Edit your flights");
   assert.deepEqual(opened, ["travel"]);
-  assert.deepEqual(sections, ["games"]);
-  assert.match(trip.html, /1885/);
-  assert.match(trip.html, /Saved return plan/);
-  assert.ok(trip.html.includes(LOGISTICS.venue));
-  assert.ok(!trip.html.includes("airbnb-compound-field-day.webp"));
+  assert.match(house.html, /1885/);
+  assert.match(house.html, /Saved return plan/);
+  assert.ok(house.html.includes(LOGISTICS.venue));
+  assert.ok(house.html.includes("airbnb-compound-field-day.webp"));
+  assert.ok(!house.html.includes(LOGISTICS.hostIn.num), "the host's flight code stays out");
   const checkIn = controls(VenueCard, state, { lg:LOGISTICS });
   assert.ok(checkIn.html.includes("airbnb-compound-field-day.webp"));
   assert.ok(checkIn.html.includes(LOGISTICS.venue));
   assert.deepEqual(state, original);
 });
 
-test("compact event rows keep result and player destinations separate and prepared heats are not labelled live", () => {
+test("an event row opens the event, draws its winners and your place as a picture, and prepared heats are not labelled live", () => {
   const state = fresh(), putt = BUILTIN_EVENTS.find(event => event.id === "putt"), heat = BUILTIN_EVENTS.find(event => event.id === "beerio");
   state.results[putt.id] = { ts:1, slots:[[other], [], []] };
   state.stages[heat.id] = { id:"prepared", kind:"heats", entrantType:"solo", advance:1,
@@ -537,12 +550,14 @@ test("compact event rows keep result and player destinations separate and prepar
   const opened = [], view = controls(Schedule, state, { events:[putt, heat], open:event => opened.push(event.id) });
   sessionArea.clear();
   view.click(`${putt.name}. Complete. Open event`);
-  view.click(`View ${other}'s player card`);
   assert.deepEqual(opened, [putt.id]);
-  assert.deepEqual(view.viewed, [other]);
+  /* the row is one target: its winners are the result's picture, the sheet holds their cards */
+  assert.ok(!view.buttons.some(button => button.name === `View ${other}'s player card`));
+  assert.match(view.html, new RegExp(`aria-label="Won by ${other}"`));
+  assert.match(view.html, /fd-events-row is-done/);
   assert.ok(view.html.includes(heat.name), "the prepared heats row renders");
   assert.doesNotMatch(view.html, /Heats live|Pools live/);
-  assert.match(view.html, /1 of 2 complete/);
+  assert.doesNotMatch(view.html, /of 2 complete/, "the lamps carry progress");
 });
 
 test("Events folds a finished session to one row and keeps the session in play and later ones open", () => {
@@ -569,8 +584,7 @@ test("Events folds a finished session to one row and keeps the session in play a
   const expanded = controls(Schedule, state, { events });
   assert.match(expanded.html, /aria-expanded="true"/);
   for (const event of friday) expanded.named(`${event.name}. Complete. Open event`);
-  expanded.click(`View ${ROSTER[0]}'s player card`);
-  assert.deepEqual(expanded.viewed, [ROSTER[0]]);
+  assert.match(expanded.html, new RegExp(`aria-label="Won by ${ROSTER[0]}"`));
   expanded.named(`Friday Night, ${friday.length} played`).click();
   assert.deepEqual(JSON.parse(sessionArea.get("si-events-open")), { fri:false });
   sessionArea.clear();
@@ -582,18 +596,25 @@ test("Events folds a finished session to one row and keeps the session in play a
   for (const event of events) finished.named(`${event.name}. Complete. Open event`);
 });
 
-test("the single-title game sheet retains every authored objective, step, win condition, and house rule", () => {
+test("every game's sheet is drawn: each step and note as a picture with at most four words, no prose", () => {
   const text = value => renderToStaticMarkup(React.createElement(React.Fragment, null, value));
   for (const [gameId, game] of Object.entries(GAMES)) {
     const variants = game.variants?.length ? game.variants : [{ id:undefined, howto:game.howto }];
     for (const variant of variants) {
       const howto = variant.howto;
       if (!howto) continue;
+      const model = gameStepsModel(gameId, variant.id);
+      assert.ok(model && model.steps.length >= 3 && model.steps.length <= 4, `${gameId}: three or four drawn steps`);
       const view = controls(HowToSheet, fresh(), { gameId, variant:variant.id });
       assert.ok(view.html.includes(text(game.name)));
-      for (const instruction of [howto.objective, ...(howto.steps || []), howto.win, howto.house].filter(Boolean))
-        assert.ok(view.html.includes(text(instruction)), `${gameId}: missing authored instruction`);
-      assert.doesNotMatch(view.html, /fd-weekend-howto-header|fd-weekend-howto-section-label/);
+      for (const item of [...model.steps, ...model.notes]) {
+        assert.ok(item.words !== item.key, `${item.key}: has words`);
+        assert.ok(item.words.split(/\s+/).length <= 4, `${item.key}: at most four words`);
+        assert.ok(view.html.includes(text(item.words)), `${item.key}: shown`);
+      }
+      for (const prose of [howto.objective, ...(howto.steps || []), howto.win].filter(Boolean))
+        assert.ok(!view.html.includes(text(prose)), `${gameId}: no prose`);
+      assert.match(view.html, /class="fd-rules-pic"/);
     }
   }
 });

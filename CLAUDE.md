@@ -62,7 +62,17 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   unanswered or that stays silent after the app returns to the foreground,
   and reports a timed-out write as uncertain until the next state settles it.
   Every frame carries a build id: the TV reloads between ceremonies and phones
-  offer Update ready.
+  offer Update ready. App loads TV mode and the commissioner-only modules
+  (QA, Where and When and Awards desks, finale sheets) on first use through
+  `src/lib/lazyPart.js`, so phones never download them. The TV holds a
+  Screen Wake Lock (`src/lib/wakeLock.js`, shared with Table view), keeps a
+  device-local "Sound early by" (0 to 400 ms, `si-tv-early`, beside Exit TV)
+  that schedules the room bus sooner for a TV or soundbar that delays audio,
+  and reports its sound ("on" or "blocked") on hello, ping and presence;
+  only commissioner frames carry the `tvs` presence summary (never state or
+  snapshots) and the director column shows "TV sound off" or "No TV
+  connected" (`features/director/tvHealth.js`). Player chip ink is computed:
+  whichever of --ink0 and --bone contrasts more (`identity/chipInk.js`).
 - **Pocket alerts (Web Push, A10):** `worker/pushAlerts.js` picks, from the
   board before and after each persisted write, "You're playing" (your
   contest became current; not a wide free-for-all), "Your pick" and
@@ -119,11 +129,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`freshFrameNow`), server-anchored cues (`cueAt`) land on `serverNow()`
   minus `outputLatency` and drop when 300 ms late, so a load, reload,
   reconnect, catch-up or correction is silent; reduced motion plays a
-  sequence's one summary sound. Hush: silent while
+  sequence's one summary sound. Hush: ducked to 25% while
   `state.showControl.audio.walkout` is set and `serverNow() < until` (the
-  Worker writes it; the client only reads it) and from Quick Draw's armed
-  until the reaction is captured. Phones use an "ambient" audio session and
-  unlock inside taps; losses never sound on a phone and no counter ticks. The
+  Worker writes it; the client only reads it), and silent from Quick Draw's
+  armed until the reaction is captured. Phones use a "playback" audio
+  session that plays through the silent switch (the Sound switch is the
+  off switch) and unlock inside taps; losses never sound on a phone and no counter ticks. The
   TV's beats are one hook (`features/tv/roomSound.js`), the phone's remote
   moments another (`features/home/phoneSound.js`); the room reverb follows
   `weekendPhase`. The profile's Sound switch (`si-sound`) sits under Haptics;
@@ -309,7 +320,50 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
 
 ## Current redesign direction
 
-**September 5 correction is authoritative.** Brandon rejected the light
+**October 2 "Backglass" redesign supersedes every visual rule below.**
+Brandon said (Oct 1) the earlier design rules were written by agent
+sessions, not by him, and opened the whole look. The visual system is now
+DESIGN.md (sidecar `.impeccable/design.json`), the direction contract is
+`.impeccable/surfaces/src-app-jsx.md`, and product truth is PRODUCT.md.
+Field Day is a lit pinball backglass: blue-black glass in every session
+(the session shows only in the painted art and the `--phase` lamp; TH1's
+surface ramp is gone), bone ink, three lamps with fixed jobs (magenta live,
+amber chips, cyan info), filament yellow reserved for "you", player colors
+as painted inserts, Shrikhand for moments and names, Big Shoulders Display
+for reels and labels, the system face for body, score reels for chip
+counts, lamp states (steady/flashing/unlit/struck), one painting per phone
+viewport (`GlassArt`), takeovers for every peak. Glows, floods, confetti-like
+chip rain and phone sound at peaks are now allowed. Where the paragraphs
+below describe colors, fonts, the phase ramp or "no gradients, no glows",
+they are history; their product, flow and engineering rules still hold.
+Copy voice (terse, no em dashes, "Winner pays 1:1") is unchanged.
+
+The Backglass pass (with the look-independent foundations: phone sound
+through the silent switch, audio node cleanup, duck under win songs, TV wake
+lock and "Sound early by", TV sound health on the pill, lazy TV/QA/desk
+chunks, computed chip ink) went to STAGING first as `cdec5dff` (Oct 2).
+Wave 2 (Brandon's staging feedback: less busy, color by role, one type
+family: Big Shoulders Display 900 plus the Inline cut for hero lettering
+only, Shrikhand removed; hero-only drum reels; no stranger's numbers;
+commissioner dock; new TV ticker and calm towers; touch tilt, glass
+reflection, parallax painting, coin chips; the per-team draw partner beat;
+in-app TV mode counted as a TV) went to staging as `d87c5798`. Wave 3 (new
+mark "the chip, lit" and icon set; `npm run audit:fit` fit audit, 179 views
+clean; 23.5 s crown; champion card and big-bracket stage; PayoutLadder
+podium; no rules prose or "400 · 200 · 100" lines; Weekend as "the program"
+with drawn GameSteps (`src/features/rules/`, words in `rulesWords.js`, owner
+review at /dev/rules-review.html, not yet approved); state-driven event
+sheet with a separate Commissioner section; text sweep (/dev/copy-review.html);
+one menu system (`src/ui/Menu.jsx`, `director/menuModel.js`) with Skip in
+the pill's ⋯ tray; QA strip and `qaBets`; team walkouts; the star strip as
+one slot per event; Trivia as one four-team game; "Final" labels) is on
+STAGING as version `8c761dc8-826e-4c76-8164-61e2e3356599`: 834 tests, the
+fit audit and the 139-check local e2e pass. Uncommitted at deploy time;
+production is unchanged. Local dev
+note: a stale `vite dev`/workerd left running holds `.wrangler/state` and
+makes every new dev server fail on its first `/ws` or `/api`; stop old ones.
+
+**September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke
 intentional cohesion. This supersedes the September 4 light paper/burgundy
 direction. In the subsequent Home brief, Brandon explicitly allowed a new
@@ -452,7 +506,7 @@ rank-change arrows remain part of the experience.
 
 Team games of three or more a side (the 3v3s and the everyone-plays 5v5,
 `draftsByDefault` in shared/show.js) open with "Captains draft" as the
-director's beat; "Random draw" (`announceAndDraw`) is the extra beside it.
+director's beat; "Random draw" (`announceAndDraw`) is an alternative in the pill's ⋯ tray (Oct 2: the pill shows exactly one primary action; alternatives and Skip, styled quiet and last, live in the tray; menus share `src/ui/Menu.jsx` and `director/menuModel.js`).
 Pairs keep the one-tap random draw with Captains draft as the extra.
 Captain setup makes pick order visible and supports manual, Balanced (live
 `playerStrength`, never private self-ratings), and random selection. The live draft shows whose pick it is, upcoming snake
@@ -784,7 +838,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    and commissioner mode is unlocked. Reset requires the exact confirmation
    payload and creates one rotating internal pre-reset backup before the clean
    state is published. Production import, restore, and internal-backup recovery
-   remain hard disabled. QA fast-forward (`qaAdvance`, worker/qa.js, targets in
+   remain hard disabled. QA quick bets (`qaBets`: everyone / favorite / spread / clear, real wager reducers in one write, commissioner + qa capability, `qaGate` confirmation in production, retry-safe, no backup) sit beside the jumps. QA fast-forward (`qaAdvance`, worker/qa.js, targets in
    shared/qa.js: `locker`, `event:<id>:open|mid|done`, `session:<id>`,
    `poker:set|live|counted`, `crowned`, `step`, `finish`) reaches a point in ONE
    write by running the real reducers on the working copy with synthetic
@@ -935,7 +989,8 @@ edits. This preview never connects to the tournament and is not deployed.
   numbers. Chip identity is 30 colors, first come first serve, times 12 edge
   skins; half of those are deliberately loud (saw, flame, star, bolt, wave,
   crown) but all stay flat, one ink, and clear of the number in the middle.
-- Field Day look: sun-faded rec-tournament at night, championship seriousness.
+- Field Day look (superseded Oct 2 by DESIGN.md's Backglass; kept as history):
+  sun-faded rec-tournament at night, championship seriousness.
   FULL DARK: near-black surfaces tinted by session (bg/paper/paper2, the night
   ramp aliases them; TH1), --ink is
   the primary TEXT color (bone), --ink0 is the absolute brown-black reserved
@@ -950,7 +1005,7 @@ edits. This preview never connects to the tournament and is not deployed.
   Flat scorecard components, chip identity for players (30 claimable colors
   plus 6 edge-tick skins, first come first serve, gray until claimed, locked
   once the weekend goes live except one first claim by a still-gray straggler), subtle grain (screen blend). The mark is the FD chip: a sun-gold betting chip with bone
-  edge ticks and a geometric sun at center; scripts/icons.mjs regenerates the
+  edge inserts and a lit glass window with the desert sun setting (Oct 2, `src/ui/fdMark.js`); scripts/icons.mjs regenerates the
   PWA icons from the same geometry. The staging PWA keeps that mark but uses
   an electric-blue palette and an explicit STG badge, with its own manifest
   and Apple touch icon. No emojis as final artwork, no gradients, no glows,

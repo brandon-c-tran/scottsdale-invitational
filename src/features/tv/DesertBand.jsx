@@ -1,6 +1,9 @@
 import React, { memo, useId, useMemo, useRef } from "react";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
-import { desertScene, FIXED_STARS, isNightSky, skyBoxClearOfDisc, skyStarLayout, starPath } from "./desertModel.js";
+import {
+  desertScene, FIXED_STARS, isNightSky, skyBoxClearOfDisc, skyStarLayout, starPath, backglassScene, discStripes,
+  GLASS_DISC, GLASS_STARRY,
+} from "./desertModel.js";
 
 /* The Desert Clock: a paper-cut Scottsdale horizon, every layer one flat
    fill from the --desert-* tokens. A phase change swaps fills in six hard
@@ -84,3 +87,65 @@ function DesertBandView({ phase = "fri", width = 1920, height = 118, variant = "
 }
 
 export const DesertBand = memo(DesertBandView);
+
+/* ── the backglass: the whole TV canvas, painted for the session ──
+   Banded sky, the sun or moon (striped where it sinks), the far range,
+   Camelback, two buttes lit on one face, saguaros and the dark desert
+   floor the towers stand on. Stars on the night skies; winners' stars
+   from Saturday night. A session change swaps every fill in six hard
+   steps, the way a backglass relamps. */
+function BackglassView({ phase = "fri", stars = [], className = "" }) {
+  const scene = useMemo(() => backglassScene(), []);
+  const disc = GLASS_DISC[phase] || GLASS_DISC.fri;
+  const starry = GLASS_STARRY.includes(phase);
+  const stripes = discStripes(disc);
+  const clip = `tv-glass-disc-${useId().replace(/:/g, "")}`;
+  const { at, starR } = skyStarLayout(scene.starBox);
+  const seen = useRef(null);
+  if (seen.current === null) seen.current = new Set(stars.map(star => star.id));
+  const fresh = new Set(stars.filter(star => !seen.current.has(star.id)).map(star => star.id));
+  fresh.forEach(id => seen.current.add(id));
+  const { width, height, horizon, floor } = scene;
+  return (
+    <svg className={`tv-desert is-glass${className ? ` ${className}` : ""}`} data-phase={phase}
+      width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <defs>
+        <clipPath id={clip}><rect width={width} height={horizon} /></clipPath>
+      </defs>
+      {scene.bands.map(band => <rect key={band.layer} className={`tv-desert-${band.layer}`} y={band.y} width={width} height={band.h} />)}
+      <g className={`tv-desert-stars${starry ? " is-on" : ""}`}>
+        {scene.stars.map((star, i) => <circle key={i} className={`tv-desert-star${star.dim ? " is-dim" : ""}`}
+          cx={star.x} cy={star.y} r={star.r} />)}
+      </g>
+      {isNightSky(phase) && stars.length > 0 && (
+        <g className="tv-desert-constellation">
+          {stars.map(star => {
+            const [x, y] = at(star);
+            return <WinnerStar key={star.id} star={star} x={x} y={y} r={starR * 1.6} fresh={fresh.has(star.id)} />;
+          })}
+        </g>
+      )}
+      {disc.r > 0 && (
+        <g className="tv-desert-disc" clipPath={`url(#${clip})`}>
+          <circle cx={disc.x} cy={disc.y} r={disc.r} />
+          {stripes.map(stripe => <rect key={stripe.y} className={`tv-desert-${stripe.layer || stripe.band}`}
+            x={disc.x - disc.r - 2} y={stripe.y} width={disc.r * 2 + 4} height={stripe.h} />)}
+        </g>
+      )}
+      <path className="tv-desert-far" d={scene.far} />
+      <path className="tv-desert-mid" d={scene.hump} />
+      {scene.buttes.map((butte, i) => <g key={i}>
+        <path className="tv-desert-mesa" d={butte.lit} />
+        <path className="tv-desert-shade" d={butte.shade} />
+      </g>)}
+      <rect className="tv-desert-ground" y={horizon} width={width} height={floor - horizon} />
+      <rect className="tv-desert-rim" y={horizon} width={width} height={4} />
+      <g className="tv-desert-cactus">
+        {scene.cacti.map((c, i) => <path key={i} d={c.d} transform={`translate(${c.x} ${c.y}) scale(${c.scale})`} />)}
+      </g>
+      <rect className="tv-desert-near" y={floor} width={width} height={height - floor} />
+    </svg>
+  );
+}
+
+export const Backglass = memo(BackglassView);

@@ -27,7 +27,7 @@ const compiled = await build({
       export const hasGmToken=()=>true;
       ${blocked(["dispatch", "uploadPhoto", "downloadSnapshot", "localSet", "getDeviceId", "setGmToken",
         "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect",
-        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl"])}
+        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "reportTvSound", "setTvView"])}
     ` }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));
@@ -86,7 +86,8 @@ for (const gm of [false, true]) {
       const html = device.render(state, 2, type);
       assert.match(html, /fd-home is-live/);
       assert.ok(html.includes(event.name));
-      assert.match(html, /Place chips/);
+      /* a competitor backs their own side; anyone else places chips */
+      assert.match(html, /Place chips|Back yourself/);
       assert.deepEqual(state.wagers, []);
       device.commitOnDeck(state.onDeck);
       assert.match(device.render(state, 2, type), /fd-home is-live/, "A subsequent render still works");

@@ -17,7 +17,7 @@ import { Tournament } from "../worker/tournament.js";
 import {
   TV_INTRO_OVERLAY_MS, TV_SCENE_IDLE_MS, tvSceneView, ambientIndex, resultPresentation,
   resultMomentPhase, resultMomentFor, advanceMoment, tvCanvasFit, latestSettledDuel, tickerItems,
-  cueCandidates, tvConnection, bracketStrip, nextOpenMatch,
+  cueCandidates, tvConnection, bracketStrip, nextOpenMatch, soleLeader, boardLevel,
 } from "../src/features/tv/tvModel.js";
 import { noteServerTime, serverOffset, resetServerClock } from "../src/features/tv/serverClock.js";
 
@@ -146,11 +146,15 @@ test("a result presentation splits every change into event award and bets, and n
 
 test("the result moment sequence and its reduced-motion equivalent carry the same facts", () => {
   assert.deepEqual(resultMomentPhase(0, 100), { phase:"podium", revealed:1, sorted:false });
-  assert.equal(resultMomentPhase(0, 3100).revealed, 3);
+  /* the podium builds: 3rd at once, 2nd at 0.9 s, a held beat, 1st at 2.4 s */
+  assert.equal(resultMomentPhase(0, 850).revealed, 1);
+  assert.equal(resultMomentPhase(0, 950).revealed, 2);
+  assert.equal(resultMomentPhase(0, 2350).revealed, 2);
+  assert.equal(resultMomentPhase(0, 2450).revealed, 3);
   assert.deepEqual(resultMomentPhase(0, 100, { reducedMotion:true }), { phase:"podium", revealed:3, sorted:false });
-  assert.deepEqual(resultMomentPhase(0, 8200), { phase:"standings", revealed:3, sorted:false });
-  assert.equal(resultMomentPhase(0, 8200, { reducedMotion:true }).sorted, true);
-  assert.equal(resultMomentPhase(0, 9600).sorted, true);
+  assert.deepEqual(resultMomentPhase(0, 7200), { phase:"standings", revealed:3, sorted:false });
+  assert.equal(resultMomentPhase(0, 10200, { reducedMotion:true }).sorted, true);
+  assert.equal(resultMomentPhase(0, 8600).sorted, true);
   /* directed scene: host-controlled steps */
   assert.equal(resultMomentPhase(0, 999999, { step:"winner" }).phase, "podium");
   assert.equal(resultMomentPhase(0, 10, { step:"standings" }).sorted, false);
@@ -185,7 +189,7 @@ test("poker results present official final stacks and the standings champion, ne
 
 /* ── 5/6/7. TV rendering ── */
 const compiled = await build({
-  stdin:{ contents:`export { TVMode } from "./src/features/tv/TVMode.jsx";
+  stdin:{ contents:`export { TVMode, MAST_H, TICKER_H, SAFE_Y, frameBeads } from "./src/features/tv/TVMode.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
     resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "qrcode-generator"], loader:{ ".css":"empty" },
@@ -195,7 +199,7 @@ const tvModule = new Module(fileURLToPath(new URL("fix-tv.cjs", import.meta.url)
 tvModule.filename = tvModule.id;
 tvModule.paths = Module._nodeModulePaths(root);
 tvModule._compile(compiled.outputFiles[0].text, tvModule.filename);
-const { TVMode, PlayerIdentityProvider } = tvModule.exports;
+const { TVMode, PlayerIdentityProvider, MAST_H, TICKER_H, SAFE_Y, frameBeads } = tvModule.exports;
 
 function renderTv(state, { now = Date.now(), showControl = true, connection = { ready:true, connected:true, version:3 } } = {}) {
   const events = allEventsOf(state);
@@ -253,7 +257,11 @@ test("the TV canvas is fixed, labelled, edition-driven, and keeps the ticker und
   const canvasCss = css.replace(/\.tv-exit \{[^}]*\}/, "");
   const sizes = [...canvasCss.matchAll(/font(?:-size)?:[^;]*?(\d+)px/g)].map(m => Number(m[1]));
   assert.ok(sizes.length > 20 && sizes.every(size => size >= 24), `TV text sizes ${sizes.filter(s => s < 24)}`);
-  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css), "tokens only, flat");
+  /* flat, but for the glass's one hard reflection (DESIGN.md: a gradient
+     exists only as material), defined once as --tv-sheen */
+  const sheen = css.match(/--tv-sheen:[^;]*;/g) || [];
+  assert.equal(sheen.length, 1, "one reflection token");
+  assert.ok(!/#[0-9a-f]{3,6}\b|rgba?\(|gradient/i.test(css.replace(sheen[0], "")), "tokens only, flat");
   const shell = readFileSync(new URL("../src/ui/shell.css", import.meta.url), "utf8");
   assert.ok(!shell.includes("si-glow"));
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
@@ -281,7 +289,7 @@ test("bracket play shows the current match large with a strip, then an advances 
   act(state, "lockAndStart", { evId:"pong", ...ref(state, "pong") }, gm(false));
   const live = renderTv(state, { showControl:false });
   assert.ok(live.includes("is-up-now"));
-  assert.ok(live.includes("Up now · "));
+  assert.ok(live.includes("tv-contest-head") && !live.includes("Up now · "), "the match by its name beside its lit lamp, no meta line");
   assert.ok(live.includes("tv-bracket"), "the drawn bracket under the match");
   assert.ok(!live.includes("tv-ondeck"), "the header does not repeat the board");
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "pong"));
@@ -294,6 +302,21 @@ test("bracket play shows the current match large with a strip, then an advances 
   const strip = bracketStrip(state, BUILTIN_EVENTS.find(e => e.id === "pong"), null);
   assert.ok(strip.some(round => round.matches.some(match => match.sides.some(side => side.won))));
   assert.ok(nextOpenMatch(state.brackets.pong));
+});
+
+/* Oct 2 (Backglass wave 2): the ticker says what the board does not: who is
+   on deck after the match being played, never the live match itself */
+test("ticker: on deck is the matchup after the current one; the live match is the board's", () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "announceAndDraw", { evId:"pong", players:ROSTER.slice(0, 12) }, gm(false));
+  const pong = BUILTIN_EVENTS.find(e => e.id === "pong");
+  const now = nextOpenMatch(state.brackets.pong), deck = onDeckMatch(state.brackets.pong);
+  assert.ok(now && deck && `${now.r}-${now.m}` !== `${deck.r}-${deck.m}`, "a different match");
+  const items = tickerItems({ state, events:allEventsOf(state), standings:computeStandings(state), allTied:false,
+    liveEv:pong, liveContest:resolveCurrentContest(state, pong), now:Date.now() });
+  const onDeck = items.find(item => item.tag === "On deck");
+  assert.ok(onDeck && onDeck.text.endsWith(deck.roundName), onDeck?.text);
+  assert.ok(!items.some(item => item.tag === "Up now"), "the live match is on the board, not the ticker");
 });
 
 test("the TV separates loading from reconnecting with last-known data", () => {
@@ -315,7 +338,8 @@ test("poker on the TV labels dealt stacks as starting chips and marks busts", ()
   act(state, "pokerStart");
   act(state, "pokerBust", { player:ROSTER[12] });
   const html = renderTv(state, { now:state.poker.startedAt + 1000 });
-  assert.ok(html.includes("Starting chips"));
+  /* at the table each seat shows the stack it was dealt, captioned once */
+  assert.ok(html.includes("Stacks as dealt") && !html.includes("Starting chips"));
   assert.ok(html.includes("is-out"));
   assert.ok(!html.includes(">Standings<"));
 });
@@ -381,7 +405,7 @@ test("the ticker shows the most recently settled duel and formats rulings in chi
   const items = tickerItems({ state, events:allEventsOf(state), standings, allTied:false, now:Date.now() });
   assert.ok(items.some(item => item.tag === "Ruling" && item.text.includes("+1,200")));
   assert.ok(items.some(item => item.tag === "Duel" && item.text.startsWith("Khoa beat Brandon")));
-  assert.ok(items.some(item => item.tag === "Leader" && item.text.endsWith("chips")));
+  assert.ok(items.some(item => item.tag === "Leader" && item.parts.some(part => part.amount && part.role === "chip")));
 });
 
 /* ── 10. walkout cues ── */
@@ -496,7 +520,8 @@ test("a revoked grant reports reconnect, never connected, and concurrent refresh
 /* ── TV repair pass (T1-T22) ── */
 import { resolveWeekendOperation, resolveSlot } from "../shared/core.js";
 import {
-  tvLiveEvent, nextUpEvent, latestResultOf, correctionMoment, dockCard, tvBusy, tickerPage, TICKER_TONES,
+  tvLiveEvent, nextUpEvent, latestResultOf, correctionMoment, dockCard, tvBusy, tickerPage, TICKER_ROLES,
+  onDeckMatch, biggestSwing,
   tickerRuling, pokerTableRows, contestRiders, championView, readableInk, weekendProgress, stackRace, duelBoard,
   spotlightPlayer, decidedWinner, TV_CORRECTION_MS, TV_LEAD_CHANGE_MS,
 } from "../src/features/tv/tvModel.js";
@@ -606,7 +631,7 @@ test("T6: away players are never dealt: rows, rail, and cues", () => {
   assert.equal(henry.starting, null);
   assert.equal(rows.at(-1).player, "Henry", "listed apart, after the table");
   const html = renderTv(state, { now:state.poker.startedAt + 1000 });
-  assert.ok(html.includes("tv-away-tag"));
+  assert.ok(html.includes("tv-table-away"), "away players are named under the table");
   const cues = cueCandidates(state, allEventsOf(state), { now:state.poker.startedAt + 1000 });
   assert.equal(cues.players.length, ROSTER.length - 1);
   assert.ok(!cues.players.includes("Henry"));
@@ -662,26 +687,35 @@ test("T10: the reload flag follows what the TV shows, and the client never reloa
   assert.ok(app.includes("!tv) window.__FD_CEREMONY__ = !!(intro || reveal)"), "the TV owns its own flag");
 });
 
-test("T11/T12: reduced motion pages the ticker on the server clock; every tag clears 4.5:1", () => {
+test("T11/T12: the ticker holds one fact a page on the server clock; a quiet label, color only on amounts", () => {
   const items = Array.from({ length:5 }, (_, i) => ({ tag:`T${i}`, text:String(i) }));
-  assert.deepEqual(tickerPage(items, 0).items.map(it => it.tag), ["T0", "T1"]);
-  assert.deepEqual(tickerPage(items, 6000).items.map(it => it.tag), ["T2", "T3"]);
-  assert.equal(tickerPage(items, 12000).pages, 3);
-  assert.equal(tickerPage(items, 18000).index, 0);
+  assert.deepEqual(tickerPage(items, 0).items.map(it => it.tag), ["T0"]);
+  assert.deepEqual(tickerPage(items, 6000).items.map(it => it.tag), ["T1"]);
+  assert.equal(tickerPage(items, 12000).pages, 5);
+  assert.equal(tickerPage(items, 30000).index, 0);
+  assert.deepEqual(tickerPage(items, 6000, 2).items.map(it => it.tag), ["T2", "T3"], "pages of more than one still work");
   const css = readFileSync(new URL("../src/ui/experience.css", import.meta.url), "utf8");
   const token = name => css.match(new RegExp(`${name}:(#[0-9a-f]{6})`, "i"))[1];
   const lum = hex => hex.slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255)
     .map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
     .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
   const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
-  for (const tone of TICKER_TONES) assert.ok(ratio(token(tone), token("--ink0")) >= 4.5, tone);
+  /* Oct 2 (Backglass wave 2): the label is quiet lilac on the glass, no
+     filled tags; an amount's role sets its ink, every one legible on glass */
   const tv = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
-  assert.match(tv, /\.tv-ticker-tag \{[^}]*color:var\(--ink0\)/);
+  assert.match(tv, /\.tv-ticker-tag \{[^}]*color:var\(--muted\)/);
+  for (const ink of ["--sun", "--green", "--clay-text", "--muted", "--bone"]) assert.ok(ratio(token(ink), token("--bg")) >= 4.5, ink);
+  assert.ok(!/\.tv-ticker-tag \{[^}]*background/.test(tv), "no filled tags");
   const state = puttPosted(false);
   state.adjustments = [{ id:"r", player:"Evan", delta:100, reason:"Spirit", ts:1 }];
   const all = tickerItems({ state, events:allEventsOf(state), standings:computeStandings(state), allTied:false,
-    nextEv:evOf(state, "8ball"), now:Date.now() });
-  assert.ok(all.every(item => TICKER_TONES.includes(item.tone.replace(/var\((--[a-z0-9]+)\)/, "$1"))), all.map(i => i.tone).join());
+    latest:latestResultOf(state, allEventsOf(state)), nextEv:evOf(state, "8ball"), now:Date.now() });
+  assert.ok(all.every(item => TICKER_ROLES.includes(item.role)), all.map(i => i.role).join());
+  assert.ok(all.every(item => item.text === item.parts.map(part => typeof part === "string" ? part : part.amount).join("")));
+  /* the last result's biggest swing names one player and their change */
+  const swing = all.find(item => item.tag === "Biggest swing");
+  const best = biggestSwing(state, allEventsOf(state), "putt");
+  assert.ok(swing && best && swing.players[0] === best.player && swing.text.includes("Long Putt"), swing?.text);
 });
 
 test("T13/T14: a correction gets one line first, then the lead change", () => {
@@ -751,7 +785,7 @@ test("T20/T21: champion, progress, race, duels, and spotlight models", () => {
   assert.equal(readableInk("#E39A3B"), "var(--ink0)");
   assert.equal(readableInk("#2F7E83"), "var(--bone)");
   /* D3: a frozen TV takes turns with the class photo; this is the champion's turn */
-  const html = renderTv(state, { showControl:false, now:Math.floor(Date.now() / 24000) * 24000 + 1000 });
+  const html = renderTv(state, { showControl:false, now:Math.floor(Date.now() / 36000) * 36000 + 1000 });
   assert.ok(html.includes("tv-champ") && html.includes(">Final<"));
   assert.ok(!html.includes("tv-ticker") && !html.includes("is-live"), "final: no ticker, no pulsing dot");
   const progress = weekendProgress(state, allEventsOf(state));
@@ -780,4 +814,142 @@ test("T22: latest by original post, rulings the room hears, crash board and Exit
   assert.ok(boundary.includes("tvCanvasFit") && boundary.includes("data-tv-canvas"));
   const tv = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
   assert.ok(tv.includes("is-idle"), "Exit TV hides when the pointer is idle");
+});
+
+/* Oct 2 finish: the ticker names a leader only when one stands alone */
+test("ticker: no Leader fact while the top is shared or the whole board is level", () => {
+  const state = structuredClone(EMPTY_STATE);
+  const events = allEventsOf(state);
+  const level = computeStandings(state);
+  assert.equal(boardLevel(level), true, "everyone on the opening 1,000");
+  assert.equal(soleLeader(level), null);
+  /* a caller that does not flag the level board still gets no leader */
+  const opening = tickerItems({ state, events, standings:level, allTied:false, now:0 });
+  assert.ok(!opening.some(item => item.tag === "Leader"), "no leader at 1,000 apiece");
+  state.adjustments = [{ id:"a", player:"Evan", delta:300, reason:"Spirit", ts:1 },
+    { id:"b", player:"Adi", delta:300, reason:"Spirit", ts:2 }];
+  const shared = computeStandings(state);
+  assert.equal(boardLevel(shared), false);
+  assert.equal(soleLeader(shared), null, "Evan and Adi share the top");
+  assert.ok(!tickerItems({ state, events, standings:shared, allTied:false, now:0 }).some(item => item.tag === "Leader"));
+  state.adjustments.push({ id:"c", player:"Evan", delta:100, reason:"Spirit", ts:3 });
+  const alone = computeStandings(state);
+  assert.equal(soleLeader(alone).player, "Evan");
+  const leader = tickerItems({ state, events, standings:alone, allTied:false, now:0 }).find(item => item.tag === "Leader");
+  assert.equal(leader?.text, "Evan 1,400");
+});
+
+/* Oct 2 wave 2 fix round (finish review): the TV's frame, safe area,
+   ticker, podium and result step */
+const tvm = await import("../src/features/tv/tvModel.js");
+const { applyAction:rawAct } = await import("../worker/actions.js");
+const { RESET_PROGRESS_CONFIRMATION } = await import("../shared/core.js");
+
+test("safe area: the masthead and ticker plates sit 54px (5%) inside the canvas top and bottom", () => {
+  assert.equal(SAFE_Y, 54);
+  const css = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
+  assert.match(css, /--tv-safe-y:54px/);
+  assert.match(css, /\.tv-mast \{[^}]*padding:var\(--tv-safe-y\) var\(--tv-edge\) 0/);
+  const [, top, height] = css.match(/\.tv-ticker-glass, \.tv-ticker-page \{[^}]*top:(\d+)px; height:(\d+)px/);
+  assert.ok(TICKER_H - Number(top) - Number(height) >= SAFE_Y, "the ticker plate ends inside the bottom inset");
+  assert.ok(MAST_H >= SAFE_Y + 64, "the masthead holds its 64px plates under the inset");
+  const html = renderTv(puttPosted(false), { now:Date.now() + 60 * 60000, showControl:false });
+  assert.match(html, new RegExp(`--tv-mast-h:${MAST_H}px`));
+});
+
+test("the frame's lamps: a ring of bulbs at rest, every third lit and stepping, steady under reduced motion", () => {
+  const beads = frameBeads();
+  assert.equal(beads % 3, 0);
+  assert.ok(beads > 120 && beads < 160, `${beads} bulbs about 40px apart`);
+  const html = renderTv(puttPosted(false), { now:Date.now() + 60 * 60000, showControl:false });
+  assert.match(html, /class="tv-frame-lamps is-rest"/);
+  assert.equal(count(html, `pathLength="${beads}"`), 2, "unlit bulbs and the lit run");
+  const css = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
+  assert.match(css, /\.tv-frame-lit \{[^}]*stroke-dasharray:0 3;[^}]*steps\(3, end\)/);
+  assert.match(css, /prefers-reduced-motion: reduce\) \{[^@]*\.tv-frame-lit \{ animation:none; \}/);
+  assert.ok(!/\.tv-frame-[a-z]+ \{[^}]*(drop-shadow|filter:)/.test(css), "no glow on the frame");
+});
+
+test("podium: first is lit in its winner's own color and the frame runs in it", () => {
+  const state = puttPosted(false);
+  const events = allEventsOf(state);
+  const anchor = resultMomentFor(state, events, Date.now(), null, null).anchor;
+  const html = renderTv(state, { now:anchor + 3000, showControl:false });
+  assert.match(html, /class="tv-place is-first is-lit" style="--win:#[0-9a-f]{6}"/i);
+  assert.match(html, /data-chase=""/);
+  assert.match(html, /class="tv-frame-lamps is-run"[^>]*style="--chase:#[0-9a-f]{6}"/i);
+  assert.ok(!html.includes("tv-result-band"), "no session band in a lamp color on the result sign");
+  const css = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
+  assert.ok(!/\.tv-place-backers \{[^}]*border:/.test(css), "the backers sit in a window, not a card in the card");
+  assert.ok(!/\.tv-felt \{[^}]*border:/.test(css) && /\.tv-felt \{[^}]*var\(--tv-window\)/.test(css), "felts are windows in the pane");
+});
+
+test("result step: every tower keeps its name; a tower that did not move shows nothing on its count line", () => {
+  const towers = readFileSync(new URL("../src/features/tv/ChipTowers.jsx", import.meta.url), "utf8");
+  assert.ok(!/visibility = t\.z/.test(towers), "a tower hopping back keeps its label");
+  const css = readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8");
+  assert.match(css, /\.tv-tower-label:is\(\.is-moved, \.is-still\) \.tv-tower-pts \{ animation:tv-tower-pts/);
+  assert.ok(!/tv-tower-still \{[^}]*opacity/.test(css), "no dimmed balances beside the deltas");
+  const mode = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
+  assert.ok(mode.includes("tv-result-headline") && mode.includes("is-marquee tv-result-headline-name"), "the headline in the hero lettering");
+});
+
+test("ticker: two short facts share a page, a long one is alone; the first fact never repeats its tag", () => {
+  const short = n => ({ tag:"Leader", players:["Evan"], parts:["Evan ", { amount:"1,400", role:"chip" }], text:`Evan 1,400 ${n}` });
+  const long = { tag:"Crew", players:["Evan", "Adi", "Khoa"], parts:["Evan, Referee · Adi, Scorekeeper · Khoa, Timekeeper · Ben, Line judge"], text:"" };
+  assert.ok(tvm.tickerFactWidth(short(1)) <= tvm.TICKER_HALF_PX);
+  assert.ok(tvm.tickerFactWidth(long) > tvm.TICKER_HALF_PX);
+  const pages = tvm.tickerPages([short(1), short(2), long, short(3)]);
+  assert.deepEqual(pages.map(page => page.length), [2, 1, 1]);
+  assert.equal(tvm.tickerSpread([short(1), short(2), long], 0).items.length, 2);
+  assert.equal(tvm.tickerSpread([short(1), short(2), long], tvm.TV_TICKER_PAGE_MS).items[0], long);
+  assert.equal(tvm.tickerSpread([], 0).items.length, 0);
+  const state = structuredClone(EMPTY_STATE);
+  const items = tickerItems({ state, events:allEventsOf(state), standings:computeStandings(state), allTied:true, now:0,
+    facts:[{ id:"f", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" }] });
+  const first = items.find(item => item.text.startsWith("First to"));
+  assert.equal(first.tag, "Milestone");
+});
+
+test("ticker: won bets belong to the last result and leave once anything else takes the room", () => {
+  const state = puttPosted(false);
+  const events = allEventsOf(state);
+  const latest = tvm.latestResultOf(state, events);
+  const openWon = [{ w:{ player:"Adi", eventId:"putt" }, r:{ delta:200 } }, { w:{ player:"Ben", eventId:"pong" }, r:{ delta:500 } }];
+  const base = { state, events, standings:computeStandings(state), allTied:false, latest, openWon, now:0 };
+  const won = tickerItems(base).filter(item => item.tag === "Bet won");
+  assert.deepEqual(won.map(item => item.players[0]), ["Adi"], "only the last result's bets");
+  assert.ok(!tickerItems({ ...base, draft:true }).some(item => item.tag === "Bet won"), "not during a draft");
+  assert.ok(!tickerItems({ ...base, liveEv:events.find(ev => ev.id === "pong") }).some(item => item.tag === "Bet won"),
+    "not once a contest is in play");
+  assert.ok(!tickerItems({ ...base, showing:"putt" }).some(item => item.tag === "Result"), "the result on screen is not repeated");
+});
+
+test("ticker: live poker carries only the table's news, never a busted player as a leader or an old bet", () => {
+  const state = structuredClone(EMPTY_STATE);
+  const r = rawAct(state, "qaAdvance", { target:"poker:live", seed:7, confirm:RESET_PROGRESS_CONFIRMATION, confirmPokerLive:true },
+    { isGm:true, qa:true, progressReset:true, environment:"local", player:"Brandon", deviceId:"qa", actionId:"qa-poker" });
+  assert.equal(r.ok, true, r.error);
+  const events = allEventsOf(state);
+  const pk = state.poker;
+  const items = tickerItems({ state, events, standings:computeStandings(state), allTied:false,
+    latest:tvm.latestResultOf(state, events), openWon:[{ w:{ player:"Eyob", eventId:"kart" }, r:{ delta:200 } }],
+    now:Number(pk.startedAt) + 1000 });
+  const tags = items.map(item => item.tag);
+  for (const gone of ["Bet won", "Leader", "Result", "Biggest swing"]) assert.ok(!tags.includes(gone), `${gone} during the finale`);
+  const outs = (pk.outs || []).map(o => o.player);
+  if (outs.length) {
+    const out = items.find(item => item.tag === "Out");
+    assert.equal(out.players[0], outs[outs.length - 1]);
+    assert.ok(!items.some(item => item.tag === "Deepest stack" && outs.includes(item.players[0])), "a busted seat is never the deepest stack");
+  }
+  assert.ok(tags.includes("Average stack"));
+});
+
+test("trophy: the plinth is dark metal (cyan is navigation), winners engraved in green", () => {
+  const css = readFileSync(new URL("../src/features/weekend/trophy.css", import.meta.url), "utf8");
+  assert.ok(!css.includes("--accent"), "no cyan on the trophy");
+  assert.match(css, /\.fd-trophy-plate\.is-posted \.fd-trophy-winner \{ color:color-mix\(in srgb, var\(--green\)/);
+  const jsx = readFileSync(new URL("../src/features/weekend/Trophy.jsx", import.meta.url), "utf8");
+  assert.ok(!jsx.includes(`"--accent"`));
 });

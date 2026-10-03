@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Icon } from "../../ui/Icon.jsx";
 import { ROSTER, SIZES, AIRLINES, cleanLeg, legText, legTime } from "../../../shared/core.js";
 import { jerseyConfirmed, jerseyName } from "../../../shared/guestSetup.js";
 import { DISPLAY, SANS, GOLD_GRAD, label } from "../../ui/theme.js";
@@ -120,7 +121,7 @@ function InfoCell({ lb, v, first }) {
   return (
     <div style={{ flex:1, minWidth:0, padding:"11px 14px",
       borderLeft: first ? "none" : "1px solid var(--line)" }}>
-      <div style={{ ...label, fontSize:10, marginBottom:4 }}>{lb}</div>
+      <div style={{ ...label, marginBottom:4 }}>{lb}</div>
       <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:"var(--ink)",
         lineHeight:1.35 }}>{v}</div>
     </div>
@@ -149,9 +150,8 @@ function VenueCard({ lg, compact = false }) {
             lineHeight:1.5 }}>{lg.venueNote}</div>}
           {mapUrl && (
             <a href={mapUrl} target="_blank" rel="noreferrer"
-              style={{ display:"inline-flex", alignItems:"center", minHeight:44, marginTop:2, fontFamily:SANS, fontWeight:700, fontSize:12.5,
-                letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--accent2)",
-                textDecoration:"none" }}>Open in maps ›</a>
+              style={{ display:"inline-flex", alignItems:"center", gap:4, minHeight:44, marginTop:2, fontFamily:SANS, fontWeight:600, fontSize:15,
+                color:"var(--lamp-info)", textDecoration:"none" }}>Open in Maps<Icon name="open" size={16} /></a>
           )}
         </div>
         {(lg.checkIn || lg.checkOut) && (
@@ -165,10 +165,9 @@ function VenueCard({ lg, compact = false }) {
         <div style={CARD}>
           {lg.airport && (
             <div style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 14px" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--accent2)" aria-hidden="true"
-                style={{ flexShrink:0 }}><path d="M2 4 22 12 2 20l4.6-8z"/></svg>
+              <span style={{ display:"flex", flexShrink:0, color:"var(--accent2)" }}><Icon name="plane" size={20} lit /></span>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ ...label, fontSize:10, marginBottom:3 }}>Fly into</div>
+                <div style={{ ...label, marginBottom:3 }}>Fly into</div>
                 <div style={{ fontFamily:SANS, fontSize:13, color:"var(--muted2)" }}>{lg.airportName}</div>
               </div>
               <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:30, letterSpacing:"0.06em",
@@ -179,7 +178,7 @@ function VenueCard({ lg, compact = false }) {
             /* the flight codes matter to nobody but Brandon; the times are how
                people work out who they are sharing a ride with */
             <div style={{ borderTop: lg.airport ? "1px solid var(--line)" : "none" }}>
-              <div style={{ ...label, fontSize:10, padding:"10px 14px 0" }}>My flights</div>
+              <div style={{ ...label, padding:"10px 14px 0" }}>My flights</div>
               <div style={{ display:"flex" }}>
                 {hostLegs.map(([lb, v], i) => <InfoCell key={lb} lb={lb} v={v} first={i === 0} />)}
               </div>
@@ -201,7 +200,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
     height:48, display:"flex", alignItems:"center", padding:"0 8px", boxSizing:"border-box" };
   const bare = { background:"none", border:"none", padding:0, minWidth:0,
     width:"100%", height:"100%", minHeight:44, boxSizing:"border-box", color:"var(--ink)" };
-  const cap = { ...label, fontSize:9, marginTop:5, color:"var(--muted)" };
+  const cap = { ...label, marginTop:5, color:"var(--muted)" };
   return (
     <div className="fd-flight-entry-wrap"><div className="fd-flight-entry">
       <div style={{ minWidth:0 }}>
@@ -234,39 +233,26 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
   );
 }
 
-/* One boarding pass, read only: this is how a saved leg prints back */
-function FlightPass({ leg: raw, dir, small, edit, setLeg }) {
+/* One boarding pass, read only: this is how a saved leg prints back. A row
+   of the flights board: who (their photo chip, `person`, else the plane),
+   the flight code, then the time and which way. `codeless` keeps a code
+   out (the host's: only his times matter to anyone else). */
+function FlightPass({ leg: raw, dir, small, edit, setLeg, person = null, codeless = false }) {
   if (edit) return <FlightEntry leg={raw} dir={dir} setLeg={setLeg} />;
   const leg = cleanLeg(raw);
   if (!leg) return null;
   if (leg.note) return (
-    <div style={{ fontFamily:SANS, fontWeight:600, fontSize: small ? 12.5 : 13.5,
-      color:"var(--ink)", lineHeight:1.5 }}>{leg.note}</div>
+    <div className="fd-flight-pass is-note">{person}<span className="fd-flight-pass-note">{leg.note}</span></div>
   );
   const t = legTime(leg.time);
-  const numSize = small ? 19 : 22;
   return (
-    <div style={{ display:"flex", alignItems:"center", gap: small ? 10 : 11,
-      background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
-      padding: small ? "9px 11px" : "11px 13px" }}>
-      <svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 24 24" fill="var(--muted)"
-        aria-hidden="true" style={{ flexShrink:0 }}>
-        <path d="M2 4 22 12 2 20l4.6-8z"/>
-      </svg>
-      <div style={{ display:"flex", alignItems:"baseline", gap:7, flex:1, minWidth:0 }}>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 11 : 12,
-          letterSpacing:"0.14em", color:"var(--accent2)" }}>{leg.air || "\u00b7\u00b7"}</span>
-        <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:numSize,
-          color:"var(--ink)", lineHeight:1 }}>{leg.num || "\u2014"}</span>
-      </div>
-      <div style={{ flexShrink:0, borderLeft:"1px dashed var(--line)", paddingLeft: small ? 10 : 12,
-        textAlign:"right" }}>
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: small ? 16 : 19, lineHeight:1.05,
-          color: t ? "var(--signal-text, var(--sun))" : "var(--muted)" }}>{t || "\u2014"}</div>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize: small ? 9.5 : 10,
-          letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--muted)", marginTop:2 }}>
-          {dir === "out" ? "Leaves Sun" : "Lands Fri"}</div>
-      </div>
+    <div className={`fd-flight-pass${small ? " is-small" : ""}`}>
+      <span className="fd-flight-pass-who">{person || <Icon name="plane" size={small ? 16 : 18} lit />}</span>
+      {!codeless && <span className="fd-flight-pass-code">{leg.air && <small>{leg.air}</small>}{leg.num && <b>{leg.num}</b>}</span>}
+      <span className="fd-flight-pass-when">
+        {t && <b>{t}</b>}
+        <small>{dir === "out" ? "Leaves Sun" : "Lands Fri"}</small>
+      </span>
     </div>
   );
 }
@@ -280,7 +266,7 @@ function LegField({ lb, dir, leg, setLeg }) {
         <span style={label}>{lb}</span>
         {filled && (
           <button onClick={() => setLeg(null)} style={{ marginLeft:"auto", background:"none",
-            border:"none", cursor:"pointer", minHeight:44, minWidth:44, padding:0, fontFamily:SANS, fontWeight:700, fontSize:11,
+            border:"none", cursor:"pointer", minHeight:44, minWidth:44, padding:0, fontFamily:SANS, fontWeight:700, fontSize:12,
             letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--muted)" }}>Clear</button>
         )}
       </div>
@@ -469,7 +455,7 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
           <div key={lb} style={stat}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, color:"var(--ink)",
               lineHeight:1 }}>{value}/{ROSTER.length}</div>
-            <div style={{ ...label, fontSize:9, marginTop:4 }}>{lb}</div>
+            <div style={{ ...label, marginTop:4 }}>{lb}</div>
           </div>
         ))}
       </div>
@@ -514,11 +500,11 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
                 {SIZES.map(size => <option key={size} value={size}>{size}</option>)}
               </select>
             </div>
-            <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:5,
+            <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.45, marginTop:5,
               color:legs.length ? "var(--muted2)" : "var(--muted)" }}>{travelStatus}</div>
-            {jerseyStatus && <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:2,
+            {jerseyStatus && <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.45, marginTop:2,
               color:"var(--muted2)" }}>Jersey: {jerseyStatus}</div>}
-            {details && <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.45, marginTop:2,
+            {details && <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.45, marginTop:2,
               color:"var(--muted2)" }}>{details}</div>}
           </div>
         );

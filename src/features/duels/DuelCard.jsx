@@ -70,9 +70,11 @@ export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline
   ].filter(Boolean);
   const highlight = view.canPlay || view.canAccept;
 
+  /* on its own, a duel is a painted glass field in the chips' amber (the
+     viewport's one painting is elsewhere), its lamp lit while it wants you */
   return <article aria-label={`Quick Draw with ${name}`} aria-busy={busy}
-    style={bare ? { minWidth:0 } : { padding:12, border:"1px solid var(--line)", borderRadius:14, marginBottom:8,
-      background:highlight ? "var(--sun-tint)" : "var(--paper)", minWidth:0 }}>
+    className={bare ? undefined : `fd-glass-field fd-field-chip fd-lamp is-chip${highlight ? " is-live" : ""}`}
+    style={bare ? { minWidth:0 } : { padding:"12px 12px 12px", marginBottom:8, minWidth:0 }}>
     <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
       {other && onPlayer ? <button type="button" aria-label={`View ${name}'s player card`} disabled={busy || !onPlayer || !!acknowledged}
         onClick={() => interact(() => onPlayer?.(other))}
@@ -82,19 +84,19 @@ export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline
         <Avatar state={state} p={other} size={36} />
         <span style={{ flex:1, minWidth:0, overflowWrap:"anywhere" }}>
           <strong style={{ display:"block", fontSize:14, fontWeight:600, lineHeight:1.3 }}>{name}</strong>
-          <span style={{ display:"block", marginTop:3, fontSize:11, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
+          <span style={{ display:"block", marginTop:3, fontSize:12, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
         </span>
       </button> : <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, minHeight:44,
         fontFamily:"var(--fd-body)", color:"var(--ink)" }}>
         {other && <Avatar state={state} p={other} size={36} />}
         <span style={{ flex:1, minWidth:0, overflowWrap:"anywhere" }}>
           <strong style={{ display:"block", fontSize:14, fontWeight:600, lineHeight:1.3 }}>{name}</strong>
-          <span style={{ display:"block", marginTop:3, fontSize:11, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
+          <span style={{ display:"block", marginTop:3, fontSize:12, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
         </span>
       </div>}
       <span style={{ flexShrink:0, textAlign:"right", color:"var(--ink)", fontFamily:"var(--fd-body)" }}>
-        <strong style={{ fontFamily:"var(--fd-display)", fontSize:22, fontWeight:600 }}>{(duel.stake || 0).toLocaleString("en-US")}</strong>
-        <small style={{ display:"block", color:"var(--muted)", fontSize:9, marginTop:2 }}>each</small>
+        <strong style={{ fontFamily:"var(--fd-display)", fontSize:24, fontWeight:800, color:"var(--sun)" }}>{(duel.stake || 0).toLocaleString("en-US")}</strong>
+        <small style={{ display:"block", color:"var(--muted2)", fontSize:12, marginTop:2 }}>each</small>
       </span>
     </div>
     {acknowledged ? <p role="status" style={{ margin:"10px 0 0", color:"var(--muted2)", fontSize:12 }}>{acknowledged}</p>

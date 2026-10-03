@@ -5,7 +5,7 @@
 import {
   awardTable, ROSTER, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult,
-  disp, teamLabel, stageEntrantView, snakeTeam, overflowRoleMeta, pokerLive, pokerClock,
+  disp, teamLabel, stageEntrantView, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
 import { constellationStars, constellationLines } from "./desertModel.js";
 import { liveEventOf, openEvent } from "../../ui/phase.js";
@@ -26,14 +26,22 @@ export const TV_RESULT_MOMENT_MS = 20000;
 /* the decided matchup stamps in before the next one takes the board */
 export const TV_ADVANCE_MS = 5000;
 export const TV_AMBIENT_MS = 12000;
+/* the live gap's ambient turns: four or five high-value cards, each held */
+export const TV_AMBIENT_TURN_MS = 20000;
 export const TV_LEAD_CHANGE_MS = 8000;
 export const TV_CORRECTION_MS = 8000;
-/* reduced motion pages the ticker instead of scrolling it */
+/* the ticker holds one fact at a time on the server clock, cross-fading */
 export const TV_TICKER_PAGE_MS = 6000;
-export const TV_TICKER_PER_PAGE = 2;
-/* result moment beats, from the moment's anchor */
-export const RESULT_PODIUM_STEP_MS = 1500;
-export const RESULT_STANDINGS_AT_MS = 8000;
+export const TV_TICKER_PER_PAGE = 1;
+/* result moment beats, from the moment's anchor. The podium builds: 3rd
+   lands at once, 2nd close behind, then a held beat and 1st slams in (a
+   steady 3 s a place read as broken and anticlimactic in the room). The
+   screen, the stamps (roomSound podiumCues) and the walkout all read these. */
+export const RESULT_PODIUM_BEATS_MS = Object.freeze([0, 900, 2400]);
+export const podiumBeatAt = k => RESULT_PODIUM_BEATS_MS[Math.max(0, Math.min(RESULT_PODIUM_BEATS_MS.length - 1, k))];
+/* kept for callers that still space by a step: the gap before 2nd */
+export const RESULT_PODIUM_STEP_MS = RESULT_PODIUM_BEATS_MS[1];
+export const RESULT_STANDINGS_AT_MS = 7000;
 export const RESULT_SORT_DELAY_MS = 1500;
 
 export const fmt = n => (Number(n) || 0).toLocaleString("en-US");
@@ -43,11 +51,6 @@ export const mmss = ms => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 export const editionLabel = () => EDITION.label || `${EDITION.name} · ${EDITION.year}`;
-/* what an event pays, as numbers: "1,200 · 800 · 400 chips" */
-export const payoutLine = ev => {
-  const table = awardTable(ev).filter(Boolean);
-  return table.length ? `${table.map(fmt).join(" · ")} chips` : "The finale";
-};
 /* the betting payout, Brandon's wording: two sides pay 1:1, a wide field 2:1 */
 export const oddsLine = contest => contest ? `Winner pays ${contestMult(contest) === 2 ? "2:1" : "1:1"}` : null;
 export const placeName = place => ["1st", "2nd", "3rd"][place - 1] || `${place}th`;
@@ -266,7 +269,7 @@ export function resultMomentPhase(anchor, now, { reducedMotion = false, step = n
   if (step === "standings")
     return { phase:"standings", revealed:3, sorted:reducedMotion || age >= RESULT_SORT_DELAY_MS };
   if (step === "winner" || age < RESULT_STANDINGS_AT_MS)
-    return { phase:"podium", revealed:reducedMotion ? 3 : Math.min(3, 1 + Math.floor(age / RESULT_PODIUM_STEP_MS)), sorted:false };
+    return { phase:"podium", revealed:reducedMotion ? 3 : RESULT_PODIUM_BEATS_MS.filter(at => age >= at).length, sorted:false };
   return { phase:"standings", revealed:3,
     sorted:reducedMotion || age >= RESULT_STANDINGS_AT_MS + RESULT_SORT_DELAY_MS };
 }
@@ -493,75 +496,251 @@ export function tickerRuling(state) {
     && !grants.has(item.id)) || null;
 }
 
-/* Ticker tags are filled with a light token and set in --ink0, so every tag
-   clears 4.5:1 (clay is too dark for either ink; rulings use live2). */
+/* The ticker is one plate of glass: a quiet label, the people as photo
+   chips, then the fact. Color is by role and lives only on a fact's
+   amount: chips amber, a won bet green, a loss in clay. Nothing in the
+   ticker is lit; the live lamp belongs to the board. */
+export const TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
 /* D4: the weekend's newest facts ride beside the latest result */
-export const FACT_TONES = Object.freeze({ streak:"var(--sun)", first:"var(--pool)", wins:"var(--accent)", bet:"var(--green)" });
+export const FACT_ROLES = Object.freeze({ streak:"info", first:"chip", wins:"info", bet:"won" });
 export const TICKER_FACTS = 2;
-export function tickerItems({ state, events, standings, allTied, draftLive, liveCrew, latest,
-  upNext, upNextDraw, onDeckEv, openWon, nextEv, now, facts = [] }) {
-  const items = [];
-  if (draftLive && draftLive.d.pool.length) {
-    const cur = draftLive.d.teams[snakeTeam(draftLive.d.picks.length, draftLive.d.teams.length)]?.captain;
-    if (cur) items.push({ tag:"Draft", tone:"var(--accent)", players:[cur],
-      text:`${disp(state, cur)}'s pick` });
+/* a fact's label never repeats its first word: "First to 3,000" is a milestone */
+export const TICKER_FACT_TAGS = Object.freeze({ first:"Milestone" });
+/* an amount inside a fact, colored by its role */
+const amount = (value, role = "chip") => ({ amount:value, role });
+const fact = (tag, role, players, parts) => ({ tag, role, players:players || [],
+  parts, text:parts.map(part => typeof part === "string" ? part : part.amount).join("") });
+const signedRole = n => n < 0 ? "loss" : "chip";
+
+/* the matchup after the one being played, in bracket order: who is on deck */
+export function onDeckMatch(br) {
+  if (!br) return null;
+  const names = ROUND_NAMES[br.size] || [];
+  let seen = 0;
+  for (const [r, m] of bracketOrder(br)) {
+    const match = br.rounds[r][m];
+    if (match.winner !== null && match.winner !== undefined) continue;
+    const a = resolveSlot(br, match.a), b = resolveSlot(br, match.b);
+    if (a === null || b === null) continue;
+    if (seen++ === 1) return { r, m, a, b, roundName:names[r] || "Match" };
   }
-  if (liveCrew?.length) items.push({ tag:"Event crew", tone:"var(--accent2)",
-    players:liveCrew.map(item => item.player).slice(0, 4),
-    text:liveCrew.map(item => `${disp(state, item.player)}, ${overflowRoleMeta(item.role).label}`).join(" · ") });
+  return null;
+}
+
+/* the one biggest move a result made on the board: the award and the bets */
+export function biggestSwing(state, events, eventId) {
+  const model = resultPresentation(state, events, eventId);
+  if (!model || model.kind === "stacks") return null;
+  let best = null;
+  model.rows.forEach(row => {
+    const change = (row.award || 0) + (row.bets || 0);
+    if (change && (!best || Math.abs(change) > Math.abs(best.change))) best = { player:row.player, change };
+  });
+  return best ? { ...best, eventName:model.eventName } : null;
+}
+
+/* the largest single backing on the contest being played */
+export function biggestBacking(state, events, ev, contest) {
+  if (!ev || !contest) return null;
+  let best = null;
+  contestStacks(state, events, contest).forEach((side, key) => {
+    const top = side.stacks[0];
+    if (top && (!best || top.stake > best.stake)) best = { player:top.player, stake:top.stake, key };
+  });
+  if (!best) return null;
+  const side = contest.sides.find(item => String(item.key) === String(best.key));
+  return side ? { ...best, side:contestSideView(state, ev, contest, side) } : null;
+}
+/* the one player alone at the top of the board, or null when the top is
+   shared (every player level on the opening 1,000 included) */
+export function soleLeader(standings = []) {
+  const top = standings[0];
+  if (!top) return null;
+  return standings.filter(row => Number(row.pts) === Number(top.pts)).length === 1 ? top : null;
+}
+/* the whole board level: nobody leads and no rank means anything */
+export const boardLevel = (standings = []) => standings.length > 1
+  && standings.every(row => Number(row.pts) === Number(standings[0].pts));
+
+/* What the room wants at a glance and is not already looking at, one fact
+   a page: who is on deck after the match being played, the biggest backing
+   on the contest, the last result and its biggest swing, the weekend's
+   newest facts, the leader, what is in play elsewhere, won bets, duels,
+   rulings, and the next event. The live contest itself is on the board,
+   so the ticker never repeats it. Each fact: { tag, role, players, parts,
+   text }; parts are strings and { amount, role } (text joins them). */
+export function tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv = null, liveContest = null,
+  onDeckEv, openWon, nextEv, now, facts = [], draft = false, showing = null }) {
+  const items = [];
+  const name = p => disp(state, p);
+  /* the finale owns the room: only the table's own news, nothing from a
+     board it has replaced and nothing about a player already out */
+  if (pokerLive(state)) return pokerTickerItems(state, now);
+  const br = liveEv ? state.brackets?.[liveEv.id] : null;
+  const draw = liveEv ? state.draws?.[liveEv.id] : null;
+  const deck = br && draw ? onDeckMatch(br) : null;
+  if (deck && draw.teams[deck.a] && draw.teams[deck.b]) items.push(fact("On deck", "info",
+    [...draw.teams[deck.a].players, ...draw.teams[deck.b].players].slice(0, 4),
+    [`${teamLabel(state, draw.teams[deck.a])} vs ${teamLabel(state, draw.teams[deck.b])}, ${deck.roundName}`]));
+  const backing = liveContest && ["betting-open", "betting-locked", "in-progress"].includes(liveContest.phase)
+    ? biggestBacking(state, events, liveEv, liveContest) : null;
+  if (backing) items.push(fact("Biggest bet", "chip", [...new Set([backing.player, ...backing.side.players])].slice(0, 3),
+    [`${name(backing.player)} backs ${backing.side.name} `, amount(fmt(backing.stake))]));
+  if (liveCrew?.length) items.push(fact("Crew", "info", liveCrew.map(item => item.player).slice(0, 4),
+    [liveCrew.map(item => `${name(item.player)} (${overflowRoleMeta(item.role).label})`).join(", ")]));
   if (latest) {
     const groups = podiumGroups(state, latest.ev.id, latest.res.slots[0]);
-    items.push({ tag:"Final", tone:"var(--olive)", players:latest.res.slots[0].slice(0, 4),
-      text:`${latest.ev.name}: ${groups.length > 3 ? `${groups.length} tied` : groups.map(group => group.name).join(", ")}` });
+    /* the result on screen already names its winner */
+    if (latest.ev.id !== showing) items.push(fact("Result", "info", latest.res.slots[0].slice(0, 4),
+      [`${latest.ev.name}: ${groups.length > 3 ? `${groups.length} tied` : groups.map(group => group.name).join(", ")}`]));
+    const swing = biggestSwing(state, events, latest.ev.id);
+    if (swing) items.push(fact("Biggest swing", signedRole(swing.change), [swing.player],
+      [`${name(swing.player)} `, amount(signed(swing.change), signedRole(swing.change)), ` in ${swing.eventName}`]));
   }
-  [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(fact => items.push({ tag:fact.tag,
-    tone:FACT_TONES[fact.kind] || "var(--accent)", players:(fact.players || []).slice(0, 4), text:fact.text }));
-  if (upNext && upNextDraw) items.push({ tag:"Up now", tone:"var(--sun)",
-    players:[...upNextDraw.teams[upNext.a].players, ...upNextDraw.teams[upNext.b].players].slice(0, 4),
-    text:`${teamLabel(state, upNextDraw.teams[upNext.a])} vs ${teamLabel(state, upNextDraw.teams[upNext.b])}, ${upNext.roundName}` });
+  [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
+    FACT_ROLES[item.kind] || "info", (item.players || []).slice(0, 4), [item.text])));
+  /* a sole leader only: a shared top (or the level opening board) has none */
+  if (!allTied && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
+    [`${name(standings[0].player)} `, amount(fmt(standings[0].pts))]));
   if (onDeckEv && !state.shelved?.[onDeckEv.id]) {
     const riding = (state.wagers || []).filter(w => w.eventId === onDeckEv.id
       && resolveWager(state, w, events).status === "pending");
     const chipsIn = riding.reduce((n, w) => n + w.stake, 0);
-    if (chipsIn > 0) items.push({ tag:"Betting", tone:"var(--accent2)",
-      players:[...new Set(riding.map(w => w.player))].slice(0, 4),
-      text:`${fmt(chipsIn)} chips on ${onDeckEv.name}` });
+    if (chipsIn > 0) items.push(fact("In play", "chip", [...new Set(riding.map(w => w.player))].slice(0, 4),
+      [amount(fmt(chipsIn)), ` on ${onDeckEv.name}`]));
   }
-  (openWon || []).slice(0, 2).forEach(x => items.push({ tag:"Won", tone:"var(--green)", players:[x.w.player],
-    text:`${disp(state, x.w.player)} ${signed(x.r.delta)}` }));
-  if (pokerLive(state)) {
-    const clk = pokerClock(state.poker, now);
-    items.push({ tag:"Poker", tone:"var(--accent)",
-      text:`Blinds ${fmt(clk.sb)} / ${fmt(clk.bb)}, ${pokerSeats(state.poker).length - state.poker.outs.length} still in` });
-  }
+  /* won bets belong to the last result, and only until the next thing
+     takes the room (a contest in play, a draft) */
+  if (latest && !liveEv && !draft) (openWon || [])
+    .filter(x => x.w.eventId === latest.ev.id && x.r.delta > 0)
+    .sort((a, b) => b.r.delta - a.r.delta).slice(0, 2)
+    .forEach(x => items.push(fact("Bet won", "won", [x.w.player], [`${name(x.w.player)} `, amount(signed(x.r.delta), "won")])));
   const duel = latestSettledDuel(state.duels);
   if (duel) {
-    if (duel.r.push) items.push({ tag:"Duel", tone:"var(--accent)", players:[duel.d.from, duel.d.to],
-      text:`${disp(state, duel.d.from)} and ${disp(state, duel.d.to)} tied in Quick Draw` });
+    if (duel.r.push) items.push(fact("Duel", "info", [duel.d.from, duel.d.to],
+      [`${name(duel.d.from)} and ${name(duel.d.to)} tied in Quick Draw`]));
     else {
       const wRun = duel.d.runs[duel.r.winner], lRun = duel.d.runs[duel.r.loser];
-      items.push({ tag:"Duel", tone:"var(--accent)", players:[duel.r.winner, duel.r.loser],
-        text:`${disp(state, duel.r.winner)} beat ${disp(state, duel.r.loser)} in Quick Draw${
-          lRun?.foul ? ", on a foul" : `, ${wRun?.ms} to ${lRun?.ms}ms`}` });
+      items.push(fact("Duel", "info", [duel.r.winner, duel.r.loser],
+        [`${name(duel.r.winner)} beat ${name(duel.r.loser)} in Quick Draw${
+          lRun?.foul ? ", on a foul" : `, ${wRun?.ms} to ${lRun?.ms}ms`}`]));
     }
   }
   const ruling = tickerRuling(state);
-  if (ruling) items.push({ tag:"Ruling", tone:"var(--live2)", players:[ruling.player],
-    text:`${disp(state, ruling.player)} ${signed(ruling.delta)}${ruling.reason ? `, ${ruling.reason}` : ""}` });
-  if (!allTied && standings[0]) items.push({ tag:"Leader", tone:"var(--sun)", players:[standings[0].player],
-    text:`${disp(state, standings[0].player)}, ${fmt(standings[0].pts)} chips` });
-  if (nextEv) items.push({ tag:"Next", tone:"var(--pool)", text:`${nextEv.name}, ${payoutLine(nextEv)}` });
-  if (!items.length) items.push({ tag:"Field Day", tone:"var(--accent)", text:editionLabel() });
+  if (ruling) items.push(fact("Ruling", signedRole(ruling.delta), [ruling.player],
+    [`${name(ruling.player)} `, amount(signed(ruling.delta), signedRole(ruling.delta)), ruling.reason ? `, ${ruling.reason}` : ""]));
+  /* what is next and what it pays, drawn: the event, then its ladder */
+  if (nextEv) items.push(fact("Next", "info", [], [nextEv.name, { ladder:awardTable(nextEv) }]));
+  if (!items.length) items.push(fact("Field Day", "info", [], [editionLabel()]));
   return items;
 }
-/* the tags' fills, for the contrast check */
-export const TICKER_TONES = ["--accent", "--accent2", "--olive", "--sun", "--green", "--live2", "--pool"];
 
-/* reduced motion: the ticker cuts between pages on the server clock */
+/* The live table's own news: the last seat out, what the blinds go to
+   next, the deepest stack still in as dealt, and the average stack. */
+export function pokerTickerItems(state, now) {
+  const pk = state.poker;
+  const items = [];
+  const seats = pokerSeats(pk);
+  const outs = (pk.outs || []).map(o => o.player);
+  const last = outs[outs.length - 1];
+  if (last) items.push(fact("Out", "info", [last], [`${disp(state, last)}, ${placeName(seats.length - outs.length + 1)}`]));
+  const clk = pokerClock(pk, now);
+  const levels = pk.levels || [];
+  const next = levels[clk.idx + 1];
+  if (next) items.push(fact("Next level", "info", [], [`Blinds ${fmt(next.sb)} / ${fmt(next.bb)}`]));
+  const starting = pk.startingStacks || {};
+  const inPlay = seats.filter(p => !outs.includes(p) && Number.isFinite(Number(starting[p])));
+  if (inPlay.length) {
+    const deep = [...inPlay].sort((a, b) => Number(starting[b]) - Number(starting[a]))[0];
+    items.push(fact("Deepest stack", "chip", [deep], [`${disp(state, deep)} `, amount(fmt(Number(starting[deep])))]));
+    const total = inPlay.reduce((n, p) => n + Number(starting[p]), 0);
+    items.push(fact("Average stack", "chip", [], [amount(fmt(Math.round(total / inPlay.length / 25) * 25)), ` across ${inPlay.length} seats`]));
+  }
+  if (!items.length) items.push(fact("Field Day", "info", [], [editionLabel()]));
+  return items;
+}
+
+/* The ticker's pages: two short facts share the plate, side by side, and a
+   long one has it alone, centered. The width is an estimate in canvas
+   pixels at the ticker's sizes (34px body, 40px numerals, 26px label). */
+export const TICKER_HALF_PX = 830;
+export function tickerFactWidth(item) {
+  const tag = String(item?.tag || "").length * 17 + 46;
+  const n = (item?.players || []).length;
+  const faces = n ? 44 + (n - 1) * (n > 2 ? 31 : 52) + 20 : 0;
+  const text = (item?.parts || [item?.text || ""]).reduce((w, part) => w + (typeof part === "string"
+    ? String(part).length * 16.5 : String(part.amount).length * 20), 0);
+  return Math.ceil(tag + faces + text);
+}
+export function tickerPages(items = []) {
+  const pages = [];
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i], b = items[i + 1];
+    if (b && tickerFactWidth(a) <= TICKER_HALF_PX && tickerFactWidth(b) <= TICKER_HALF_PX) { pages.push([a, b]); i++; }
+    else pages.push([a]);
+  }
+  return pages;
+}
+/* the packed page on the server clock: every TV shows the same pair */
+export function tickerSpread(items, now, period = TV_TICKER_PAGE_MS) {
+  const pages = tickerPages(items);
+  const count = Math.max(1, pages.length);
+  const index = count > 1 ? Math.floor(Math.max(0, Number(now) || 0) / period) % count : 0;
+  return { index, pages:count, items:pages[index] || [] };
+}
+
+/* the ticker's page on the server clock: every TV shows the same fact */
 export function tickerPage(items, now, perPage = TV_TICKER_PER_PAGE, period = TV_TICKER_PAGE_MS) {
   const pages = Math.max(1, Math.ceil(items.length / perPage));
   const index = pages > 1 ? Math.floor(Math.max(0, Number(now) || 0) / period) % pages : 0;
   return { index, pages, items:items.slice(index * perPage, index * perPage + perPage) };
+}
+
+/* The live contest's lamp, from the contest itself, so the masthead and the
+   board can never disagree: betting open flashes (pending), play is steady. */
+export function contestLamp(contest) {
+  if (!contest) return null;
+  if (contest.phase === "betting-open") return { label:"Betting open", state:"pending" };
+  if (contest.phase === "betting-locked" || contest.phase === "in-progress") return { label:"Playing", state:"live" };
+  if (contest.phase === "awaiting-result") return { label:"Awaiting result", state:"live" };
+  return null;
+}
+
+/* A side's name at TV scale: one line as large as fits, else two lines
+   broken after the team's "&" (or at its last space), never a stray wrap.
+   The factor is Big Shoulders' bold uppercase advance per character. */
+const ADVANCE = 0.47;
+/* caps: a name set in capitals runs wider (about .56em a letter) */
+export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = {}) {
+  const text = String(name || "");
+  const advance = caps ? 0.56 : ADVANCE;
+  const one = Math.floor(width / Math.max(1, text.length * advance));
+  if (one >= min) return { size:Math.min(max, one), lines:[text] };
+  const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
+  if (cut <= 0) return { size:Math.max(24, Math.min(max, one)), lines:[text] };
+  const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
+  const two = Math.floor(width / Math.max(1, Math.max(...lines.map(line => line.length)) * advance));
+  return { size:Math.max(24, Math.min(max, two)), lines };
+}
+
+/* the wall clock in the masthead, from the server's time, with its AM/PM:
+   without it "4:00" reads as a countdown */
+export const tvClock = now => {
+  const text = new Date(Number(now) || 0).toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" });
+  const match = /^(.*?)\s?([AP]M)$/i.exec(text);
+  return match ? { time:match[1].trim(), period:match[2].toUpperCase() } : { time:text, period:"" };
+};
+
+/* The stage's chrome (masthead, standings horizon, ticker) leaves while a
+   takeover owns the room: the intro, the draw, the champion, the awards,
+   and any moment scene listed in `extra` with a `takeover` name. A `chase`
+   color (a winner's own) lights the lamp frame around the glass. Pure, so
+   every TV agrees. */
+export function stageChrome({ intro = false, reveal = false, champion = false, award = false, extra = [] } = {}) {
+  const scenes = [intro && "intro", reveal && "reveal", champion && "champion", award && "award",
+    ...extra.filter(item => item?.takeover).map(item => item.takeover)].filter(Boolean);
+  const chase = [...extra].reverse().find(item => item?.chase)?.chase || null;
+  return { takeover:scenes[0] || null, chase };
 }
 
 /* The update reload waits for a gap in what the TV is actually showing. */
@@ -663,7 +842,8 @@ export function championView(state, events, standings) {
     wins:top[0].wins,
     tied:top.length > 1,
     plates,
-    path:stats.places.map(item => ({ ...item, label:`${placeName(item.place)} ${item.name}` })),
+    path:stats.places.map(item => ({ ...item, game:events.find(ev => ev.id === item.eventId)?.game || null,
+      label:`${placeName(item.place)} ${item.name}` })),
     betNet:stats.betNet,
     duels:stats.duels,
   };

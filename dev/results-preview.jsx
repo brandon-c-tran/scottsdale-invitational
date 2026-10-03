@@ -2,7 +2,11 @@
    receipt (X2), your own chip shower (M19), and the crown with the last card
    (X5, M18 phone). Real components against sample state in memory; no app
    connection, storage, or remote service. ?scene=receipt|top|shower|crown|
-   crown-other|card|quiet picks what plays on load; ?me= picks the viewer. */
+   crown-other|card|quiet picks what plays on load; ?me= picks the viewer.
+   Backglass moments: ?scene=up|banner|walkout|team plays a phone takeover;
+   ?scene=rain&amount=1200 rains your chips onto the pile;
+   ?t=ms starts any timed moment (the crown too) that far in, and ?pause=1
+   freezes every animation there, for stills. */
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BUILTIN_EVENTS, CHIP_COLORS, EMPTY_STATE, ROSTER, computeStandings } from "../shared/core.js";
@@ -19,8 +23,18 @@ import { LastCardLayer } from "../src/features/results/LastCard.jsx";
 import { lastCardModel } from "../src/features/results/lastCard.js";
 import { renderLastCardImage } from "../src/features/results/cardImage.js";
 import { cardInk } from "../src/features/profile/PlayerPass.jsx";
+import { YoureUpTakeover, UpBanner, PhoneWalkout } from "../src/features/moments/PhoneMoments.jsx";
+import { TeamSort } from "../src/features/moments/TeamSort.jsx";
+import { SkyStrip } from "../src/features/moments/SkyStrip.jsx";
+
 
 const q = new URLSearchParams(location.search);
+const T = Number(q.get("t") || 0);
+if (q.get("pause")) {
+  const style = document.createElement("style");
+  style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
+  document.head.append(style);
+}
 const events = BUILTIN_EVENTS;
 const byId = id => events.find(event => event.id === id);
 const H = 60 * 60 * 1000, FRI = Date.UTC(2026, 9, 31, 1, 0);
@@ -57,7 +71,32 @@ function weekend() {
   state.results.poker = { slots:[[sahil], [evan], []], seats:ROSTER, ts:FRI + 31 * H, revision:1,
     stacks:Object.fromEntries(ROSTER.map((p, i) => [p, p === sahil ? 6000 : p === evan ? 1500 : Math.max(0, 2600 - i * 225)])) };
   state.frozen = true;
+  state.updatedAt = Date.now() - T;
   return state;
+}
+
+/* &cover=1 gives the walkout a stand-in album cover (a flat drawing, no
+   network), so the sleeve slot can be rehearsed */
+const SAMPLE_COVER = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+<rect width="300" height="300" fill="#1d1236"/><circle cx="150" cy="170" r="96" fill="#ff5a8a"/>
+<rect y="150" width="300" height="10" fill="#1d1236"/><rect y="176" width="300" height="14" fill="#1d1236"/>
+<rect y="206" width="300" height="20" fill="#1d1236"/><path d="M0 300V236h300v64Z" fill="#0d0a1a"/></svg>`)}`;
+
+/* the phone takeovers, as a moment the hooks would latch, T ms in */
+function MomentScene({ scene, state }) {
+  const [a, b] = [evan, khoa];
+  const side = (key, players) => ({ key, players, name:players.join(" & ") });
+  const at = Date.now() - T;
+  if (scene === "up") return <YoureUpTakeover state={state} me={me} onBets={() => {}}
+    moment={{ id:"up1", key:"bball1:c1", event:"1v1 Basketball", label:"Semifinal 1", role:"player",
+      mine:side(0, [me]), other:side(1, [me === a ? b : a]), partners:[], anchor:at, elapsed:T }} />;
+  if (scene === "banner") return <UpBanner state={state} onBets={() => {}}
+    moment={{ id:"up2", event:"1v1 Basketball", label:"Semifinal 1", sides:[side(0, [a]), side(1, [b])], anchor:at, elapsed:T }} />;
+  if (scene === "walkout") return <PhoneWalkout state={state}
+    moment={{ id:"w1", player:me, mvp:q.get("mvp") === "1", mvpEvent:"Volleyball", anchor:at, elapsed:T,
+      track:{ name:"Mr. Brightside", artists:"The Killers", imageUrl:q.get("cover") ? SAMPLE_COVER : null } }} />;
+  if (scene === "team") return <TeamSort state={state} team={{ index:0, players:[me, sahil, chiang], name:"Team Sahil" }} at={at} />;
+  return null;
 }
 
 /* one fresh result for the receipt */
@@ -105,6 +144,7 @@ function Preview() {
         setMoment(found);
         if (found?.celebrate) setShower(n => n + 1);
       }
+      if (scene === "rain") setShower(1);
       if (scene === "static") setMoment({ ...resultMoment({ prev:chipSnapshot(before, me, events, computeStandings(before)),
         next:chipSnapshot(after, me, events, computeStandings(after)), prevState:before, state:after, events,
         frame:{ fresh:true } }), animate:false });
@@ -113,7 +153,8 @@ function Preview() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <PlayerIdentityProvider profiles={state.profiles}>
     <Shell environment="preview">
-      <AppHeader state={state} me={viewer} connected loaded GameMark={GameMark} onHome={() => {}} onProfile={() => {}} onMenu={() => {}} />
+      <AppHeader state={state} me={viewer} connected loaded GameMark={GameMark} onHome={() => {}} onProfile={() => {}} onMenu={() => {}}
+        sky={<SkyStrip state={crown ? state : weekend()} events={events} standings={crown ? standings : null} />} />
       <main className="fd-main" style={{ padding:"0 20px 120px" }}>
         <GuestHome state={state} me={viewer} events={events} standings={standings} GameMark={GameMark}
           onPlayer={() => {}} onOpen={() => {}} onBets={() => {}} onStandings={() => {}} onEvents={() => {}}
@@ -122,7 +163,8 @@ function Preview() {
       <AppNavigation tab={tab} onTab={setTab} />
       {moment && <ChipReceipt moment={moment} dock={scene === "top" ? "top" : "bottom"}
         onDismiss={() => q.get("hold") ? null : setMoment(null)} onStandings={() => {}} onSettled={() => {}} />}
-      <ChipShower burst={shower} p={me} />
+      <ChipShower burst={shower} p={me} amount={scene === "rain" ? Number(q.get("amount") || 1200) : moment ? moment.to - moment.from : 0} />
+      <MomentScene scene={scene} state={state} />
       {crown && <LastCardLayer state={state} me={viewer} events={events} standings={standings}
         mode={scene === "card" ? "card" : "moment"} onClose={() => {}} onStandings={() => {}} />}
       <MotionRoot connected loaded />

@@ -1,5 +1,7 @@
 import { HowToSheet } from "./features/weekend/HowToSheet.jsx";
-import { ContestPanel } from "./features/weekend/ContestPanel.jsx";
+import { ContestPanel, useContestOperations } from "./features/weekend/ContestPanel.jsx";
+import { GameSteps } from "./features/rules/GameSteps.jsx";
+import { EventCrew, EventField, EventPays, EventResult, EventRiding, EventTeams, eventStage } from "./features/weekend/EventSheetParts.jsx";
 import { CompetitionBracket } from "./features/weekend/CompetitionBracket.jsx";
 import { EventAnnouncement, DrawAnnouncement } from "./features/weekend/EventAnnouncement.jsx";
 import { DraftSheet, DraftEntry } from "./features/draft/DraftSheet.jsx";
@@ -8,22 +10,25 @@ import { TableViewEntry } from "./features/poker/TableView.jsx";
 import { buildEventReveal, pendingReveal, revealReady } from "./features/weekend/drawReveal.js";
 import "./features/weekend/event-sheet.css";
 import { HomeDuels } from "./features/home/HomeDuels.jsx";
-import { GameMark } from "./ui/GameMark.jsx";
-import { AppHeader, AppNavigation } from "./ui/AppChrome.jsx";
-import { FDMark, IconTV, IconGM } from "./ui/Brand.jsx";
+import { GameMark, GAME_MARK_IDS } from "./ui/GameMark.jsx";
+import { PayoutLadder } from "./ui/PayoutLadder.jsx";
+import { AppHeader, AppNavigation, headerStanding } from "./ui/AppChrome.jsx";
+import { FDMark } from "./ui/Brand.jsx";
 import { GuestHome, hasGameRules } from "./features/home/GuestHome.jsx";
-import { deriveHomeModel } from "./features/home/homeModel.js";
+import { bracketPath, deriveHomeModel } from "./features/home/homeModel.js";
 import { guestLedger, updateHaptic, freshResults, resultMarkers, sinceTracker, SINCE_KEY } from "./features/home/guestUpdates.js";
 import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
 import { AlertsToggle, usePocketAlerts } from "./features/alerts/Alerts.jsx";
 import { SoundToggle } from "./features/profile/SoundToggle.jsx";
 import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
+import { lazyPart } from "./lib/lazyPart.js";
 import { usePhoneSounds } from "./features/home/phoneSound.js";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
 import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
+import { programCover } from "./features/weekend/programModel.js";
 import { Wagers, wagerPickLabel, RACK_DENOMS, mergeWagerLines } from "./features/wagers/Wagers.jsx";
 import { DenomStacks, ChipTray } from "./features/poker/PokerChips.jsx";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useId, lazy, Suspense } from "react";
@@ -34,7 +39,6 @@ import { ProfileEditor } from "./features/profile/ProfileEditor.jsx";
 import { PlayerSheet } from "./features/profile/PlayerSheet.jsx";
 import { savePlayerProfile } from "./features/profile/savePlayerProfile.js";
 import { InstallHint } from "./features/check-in/InstallHint.jsx";
-import { TVMode } from "./features/tv/TVMode.jsx";
 import { nextOpenMatch, tvSceneView } from "./features/tv/tvModel.js";
 import { serverNow, useServerClockSync } from "./lib/serverClock.js";
 import { MotionRoot, useStageHeld } from "./lib/motion.js";
@@ -42,11 +46,12 @@ import { currentFrame } from "./lib/frameGate.js";
 import { chipSnapshot, freshContestWins, mergeMoments, receiptDock, resultMoment } from "./features/results/resultMoment.js";
 import { ChipReceipt } from "./features/results/ChipReceipt.jsx";
 import { ChipShower } from "./features/results/ChipShower.jsx";
+import { MomentsLayer } from "./features/moments/PhoneMoments.jsx";
+import { SkyStrip } from "./features/moments/SkyStrip.jsx";
 import { LastCardLayer } from "./features/results/LastCard.jsx";
 import { useCrownMoment } from "./features/results/useCrownMoment.js";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
-import qrcode from "qrcode-generator";
 import {
   ROSTER, AWARDS, awardTable, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
   DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
@@ -66,19 +71,17 @@ import { duelView, hasDuelTurn } from "./features/duels/duelView.js";
 import { useDuelClock } from "./features/duels/useDuelClock.js";
 import { DirectorPill } from "./features/director/DirectorPill.jsx";
 import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
-import { QABar } from "./features/qa/QABar.jsx";
-import { QASheet } from "./features/qa/QASheet.jsx";
+import { TvHealth } from "./features/director/TvHealth.jsx";
+import { CommissionerDock } from "./features/director/CommissionerDock.jsx";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
-import { GeoDesk } from "./features/geo/GeoDesk.jsx";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
-import { AwardsDesk, deskNote } from "./features/awards/AwardsDesk.jsx";
+import { deskNote } from "./features/awards/awardsModel.js";
 import { directorPill } from "./features/director/directorPill.js";
-import { PokerSetupSheet, CrownSheet } from "./features/director/FinaleSheets.jsx";
 import {
   SHOW_SCENE_DEFINITIONS,
   resolveShowScene,
@@ -87,16 +90,29 @@ import {
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
   spotifyStatus, spotifyPlayer, spotifySearch, spotifyAuthorize, spotifyDisconnect, spotifyAutoWinSongs,
-  spotifyPlay, spotifyPause, spotifyDevice,
+  spotifyPlay, spotifyPause, spotifyDevice, reportTvSound, setTvView,
 } from "./lib/client.js";
 
 import { Shell } from "./ui/Shell.jsx";
 import { usePhaseTheme } from "./ui/usePhaseTheme.js";
 import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/theme.js";
-import { Tag, ActionButton, IconButton, Btn, MenuRow, MenuGroup, Sheet, SheetDock } from "./ui/controls.jsx";
+import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/controls.jsx";
+import { MenuSections } from "./ui/Menu.jsx";
+import { commissionerMenu, moreMenu } from "./features/director/menuModel.js";
+import { Icon } from "./ui/Icon.jsx";
 
 const Onboarding = lazy(() => import("./features/check-in/Onboarding.jsx")
   .then(module => ({ default:module.Onboarding })));
+/* Loaded on first use: the TV's mode, and what only a commissioner opens.
+   A commissioner device warms the sheets once it holds the GM view. */
+const TVMode = /* @__PURE__ */ lazyPart(() => import("./features/tv/TVMode.jsx"), "TVMode");
+const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), "QABar");
+const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
+const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
+const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
+const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
+const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, AwardsDesk, PokerSetupSheet, CrownSheet];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -296,14 +312,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [qa, setQa] = useState(() => localGet("si-qa") === "yes");
   const [guestLens, setGuestLens] = useState(false);
   const gmView = gm && !guestLens;
+  /* a commissioner device fetches its sheets ahead, so none waits on a tap */
+  useEffect(() => { if (gm) for (const part of COMMISSIONER_PARTS) part.preload().catch(() => {}); }, [gm]);
   const [sim, setSim] = useState(null);
   const simRef = useRef({ running:false, cancel:false, fast:false });
-  const [qaMin, setQaMin] = useState(() => localGet("si-qa-min") === "yes");
-  const [qaTop, setQaTop] = useState(() => localGet("si-qa-pos") === "top");
   const [tv, setTv] = useState(() => typeof window !== "undefined" &&
     (window.location.pathname === "/tv" || new URLSearchParams(window.location.search).has("tv")));
   /* the TV never vibrates, however it got there */
   useEffect(() => { setHapticSurface(tv ? "tv" : "phone"); }, [tv]);
+  /* the server counts this device as a TV while it shows TV mode */
+  useEffect(() => { setTvView(tv); }, [tv]);
   /* Sheets stack: setModal replaces the stack (open fresh, or null closes
      all), pushModal opens a sheet INSIDE the current one so back returns to
      it. The X and the scrim always close the whole stack. */
@@ -441,7 +459,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   useEffect(() => {
     if (!gm || tv || tournament.gm !== false) return;
     setGmToken(null); setGm(false); saveMine("si-gm", "no"); setModal(null);
-    notify("This phone was signed out of commissioner mode.");
+    notify("Signed out of commissioner mode");
   }, [gm, tv, tournament.gm, notify]); // eslint-disable-line
   useEffect(() => {
     if (typeof window === "undefined" || !audioDirectorAllowed) return;
@@ -745,9 +763,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
         if (!tv) haptic("pick");
         return;
       }
-      notify(`Your pick · ${draftEvent?.name || "Draft"}`, draftEvent
+      notify("Your pick", draftEvent
         ? { label:"Open draft", fn:() => { setModal({type:"draft",ev:draftEvent}); setToast(null); } } : null, "gold", me);
-      setToast(t => t && t.msg === `Your pick · ${draftEvent?.name || "Draft"}` ? { ...t, draftTurn:key } : t);
+      setToast(t => t && t.msg === "Your pick" ? { ...t, draftTurn:key } : t);
       if (!tv) haptic("pick");
       return;
     }
@@ -770,7 +788,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     }
     draftPicksSeen.current = seen;
     if (picked?.captain && onboardStep >= 99)
-      notify(`${disp(state, picked.captain)} picked you${picked.ev ? ` · ${picked.ev.name}` : ""}`, null, "gold", picked.captain);
+      notify(`${disp(state, picked.captain)} picked you${picked.ev ? ` for ${picked.ev.name}` : ""}`, null, "gold", picked.captain);
   }, [state.drafts, me, events, ready, onboardStep, notify]); // eslint-disable-line
 
   /* duels: nudge once when a challenge lands on you or an open one appears
@@ -790,9 +808,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       const view = duelView(state, d, me);
       let msg = null, action = "View";
       if (view.phase === "offered" && view.recipient)
-        msg = `Quick Draw: ${disp(state, d.from)} challenged you · ${fmt(d.stake)}`;
+        msg = `${disp(state, d.from)} challenged you for ${fmt(d.stake)}`;
       else if (view.phase === "offered" && view.takeable)
-        msg = `${disp(state, d.from)}: open Quick Draw · ${fmt(d.stake)}`;
+        msg = `${disp(state, d.from)} challenged anyone for ${fmt(d.stake)}`;
       else if (view.phase === "live" && !d.consent && view.recipient && !view.myRun) {
         msg = `Quick Draw: ${disp(state, d.from)} challenged you`;
         action = "Play";
@@ -821,8 +839,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     }
     if (lapsed.length) {
       const d = lapsed[0];
-      notify(d.to ? `${disp(state, d.to)} didn't answer · ${fmt(d.stake)} back`
-        : `No one took your open challenge · ${fmt(d.stake)} back`, null, undefined, d.to || me);
+      notify(d.to ? `${disp(state, d.to)} didn't answer` : "No one took your challenge", null, undefined, d.to || me);
     }
     if (wake === Infinity) return undefined;
     const timer = setTimeout(() => setLapseTick(n => n + 1), Math.max(250, wake - now + 250));
@@ -843,10 +860,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
       const oth = d.from === me ? d.to : d.from;
       const other = disp(state, oth);
       if (before === "offered" && st === "live" && d.from === me)
-        msg = { t:`Quick Draw: ${other} accepted`, tone:"gold", chip:oth,
+        msg = { t:`${other} accepted`, tone:"gold", chip:oth,
           action:{ label:"Play", fn:() => { setModal({ type:"duelPlay", id:d.id }); setToast(null); } } };
       else if (st === "declined" && d.from === me)
-        msg = { t:`Quick Draw: ${other} declined`, chip:oth };
+        msg = { t:`${other} declined`, chip:oth };
     });
     if (msg && onboardStep >= 99) notify(msg.t, msg.action || null, msg.tone, msg.chip);
     prevDuelRes.current = map;
@@ -1391,13 +1408,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
     return (
       <Shell tv environment={environment}>
         {/* the TV draws the intro and the draw inside its own canvas */}
-        <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
+        <Suspense fallback={null}><TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
           champion={champion} coChamps={coChamps} showControlEnabled={showControlAllowed}
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
           EventSpotlight={EventSpotlight}
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
-          onExit={() => setTv(false)} />
+          onSoundStatus={reportTvSound}
+          onExit={() => setTv(false)} /></Suspense>
         <Confetti burst={burst} />
       </Shell>
     );
@@ -1429,23 +1447,98 @@ function TournamentApp({ tournament, onUpdateReload }) {
 
   /* win songs play themselves; the rack beside the pill (and docked in the
      header of any open sheet) is only the Stop for the one playing */
-  const cueRack = gmView && audioDirectorAllowed ? docked => <CueRack docked={docked} state={state}
+  /* QA: the contest taking bets, for the quick bets (worker/qa.js runQaBets) */
+  const qaMarket = (() => {
+    if (!qaActive || !onDeckEv) return null;
+    const contest = resolveCurrentContest(state, onDeckEv);
+    if (contest?.phase !== "betting-open") return null;
+    const pending = (state.wagers || []).filter(w => wagerMatchesContest(w, contest)
+      && resolveWager(state, w, events).status === "pending");
+    return { contestId:contest.id, contestRevision:contest.revision, label:contest.label || onDeckEv.name,
+      bets:pending.length, chips:pending.reduce((sum, w) => sum + (w.stake || 0), 0) };
+  })();
+  /* the QA strip: one row at the top of the commissioner's dock */
+  const qaStrip = <Suspense fallback={null}><QABar status={qaStatus} market={qaMarket}
+    sim={sim} onStop={stopSim} guestLens={guestLens}
+    onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
+    onOpen={() => setModal({ type:"qa" })}
+    dispatch={dispatch} environment={environment} notify={notify} /></Suspense>;
+  /* the More menu and the commissioner's menu: one model, one renderer
+     (features/director/menuModel.js, ui/Menu.jsx); each row's id acts here */
+  const gmMenuFacts = modal?.type === "gmMenu" ? {
+    showControl:showControlAllowed, audioDirector:audioDirectorAllowed,
+    scene:activeShowScene ? `${activeShowScene.definition?.label || "Scene"} ${activeShowScene.stepIndex + 1}/${activeShowScene.stepCount}` : null,
+    crownReady:state.live && !state.frozen && crownReady,
+    lockerRoom:state.live && !state.frozen && lockerRoomAvailability(state).enabled,
+    away:Object.keys(state.away || {}), geoPhotos:(state.geoRounds || []).length, awardsNote:deskNote(state),
+    onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
+    takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
+    frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
+    qaAllowed, qaOn:qa, progressReset:progressResetAllowed,
+  } : null;
+  const menuItem = id => {
+    const sheet = type => pushModal({ type });
+    if (id.startsWith("takeBack:")) {
+      const ev = events.find(item => item.id === id.slice("takeBack:".length));
+      return ev ? pushModal({ type:"takeBack", ev }) : undefined;
+    }
+    switch (id) {
+      case "profile": return sheet("profile");
+      case "trip": case "rules": setModal(null); setWeekendSection(id); setTab("guide"); return undefined;
+      case "tv": setModal(null); setTv(true); return undefined;
+      case "commissioner":
+        if (!gm) return sheet("pin");
+        setGuestLens(false); return sheet("gmMenu");
+      case "showControl": case "audioDirector": case "crown": case "attendance": case "lockerRoom":
+      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": return sheet(id);
+      case "geo": return sheet("geoDesk");
+      case "awards": return sheet("awards");
+      case "reset": return sheet("resetProgress");
+      /* A5: launched this way, the TV keeps its sound after every reload */
+      case "tvShortcut": {
+        const command = tvKioskCommand(window.location.origin);
+        return (navigator.clipboard?.writeText ? navigator.clipboard.writeText(command) : Promise.reject(new Error("no clipboard")))
+          .then(() => notify("Shortcut copied"), () => notify(command));
+      }
+      case "lockBets": return setOnDeck(null).then(locked => {
+        if (locked.ok) { setModal(null); notify("Bets locked"); }
+        return locked;
+      });
+      case "snapshot": return downloadSnapshot().then(exported => notify(exported.ok
+        ? `Snapshot exported from ${exported.metadata.environment}` : exported.error || "Export failed"));
+      case "qa": toggleQa(); setModal(null); return undefined;
+      case "exit": return exitGm();
+      default: return undefined;
+    }
+  };
+  const cueRack = gmView && audioDirectorAllowed ? docked => <CueRack docked={docked === true} pill={docked === "pill"} state={state}
     candidates={[]}
     notify={notify} onAudio={() => setModal({type:"audioDirector"})} /> : null;
+  /* Weekend's cover already names the live event: no second live strip over it */
+  const coverNames = ev => {
+    if (!ev) return false;
+    const cover = programCover(state, events);
+    return [cover.lead?.event?.id, cover.then?.event?.id].includes(ev.id);
+  };
   return (
     <SheetDock.Provider value={cueRack && modal?.type !== "audioDirector" ? cueRack(true) : null}>
     <Shell environment={environment}>
       <AppHeader state={state} me={me} onHome={() => setTab("board")}
+        standing={tab === "board" ? null : headerStanding(state, standings, me)}
+        onStandings={() => setModal({type:"standings"})}
         onProfile={() => setModal({type:"profile"})} onMenu={() => setModal({type:"menu"})} gm={gmView}
         onCommissioner={() => !gm ? setModal({type:"pin"})
           : guestLens ? (setGuestLens(false), notify("GM view")) : setModal({type:"gmMenu"})}
-        connected={connected} loaded={loaded} wagerEv={tab === "bets" || tab === "board" ? null : wagerEv} wagerMarketOpen={wagerMarketOpen}
+        connected={connected} loaded={loaded} wagerEv={tab === "bets" || tab === "board" || (tab === "guide" && coverNames(wagerEv)) ? null : wagerEv}
+        wagerMarketOpen={wagerMarketOpen}
         onBets={() => setTab("bets")} GameMark={GameMark}
-        updateReady={!!tournament.updateReady} onReload={onUpdateReload || (() => window.location.reload())} />
+        updateReady={!!tournament.updateReady} onReload={onUpdateReload || (() => window.location.reload())}
+        sky={state.live && me ? <SkyStrip state={state} events={events} standings={standings} /> : null} />
 
+      {/* the page clears the tab bar and the commissioner's dock (its
+          measured height, --fd-dock-h) by the same 18px */}
       <main id="fd-main" className="fd-main" style={{
-        paddingTop: gm && qaActive && qaTop && !qaMin ? 112 : 0,
-        paddingBottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 160 : 92}px + env(safe-area-inset-bottom))` }}>
+        paddingBottom:"calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 18px)" }}>
         {tab === "board" && <GuestHome state={state} me={me} events={events} standings={standings} GameMark={GameMark} StatPills={StatPills}
           onEvents={() => setTab("sched")}
           onOpen={ev => setModal({type:"event", ev})}
@@ -1479,7 +1572,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
                 onStart={pokerStart} onCancel={pokerCancel}
                 onLevel={pokerLevelNudge} onPause={pokerPause} onBust={pokerBust} onUnbust={pokerUnbust}
                 onCount={pokerCount} onReview={() => setModal({type:"pokerResult"})} />} />}
-        {tab === "sched" && <Schedule GameMark={GameMark} EventCrewCard={EventCrewCard} state={state} events={events} gm={gmView}
+        {tab === "sched" && <Schedule GameMark={GameMark} state={state} events={events} me={me} gm={gmView}
           open={ev => setModal({type:"event", ev})} onAdd={() => setModal({type:"addEvent"})}
           onPlayer={p => setModal({type:"player", p})} onBracket={ev => setModal({type:"bracket", ev})}
           onReorder={reorderEvents} />}
@@ -1501,35 +1594,21 @@ function TournamentApp({ tournament, onUpdateReload }) {
         {tab === "guide" && <Guide events={events} state={state} me={me} gm={gmView}
           section={weekendSection} onSection={setWeekendSection}
           onProfile={() => setModal({type:"profile", section:"travel"})} onPlayer={p => setModal({type:"player", p})}
-          standings={standings} gm={gmView} onBracket={ev => setModal({type:"bracket", ev})}
+          standings={standings} onBracket={ev => setModal({type:"bracket", ev})}
+          onEvent={ev => setModal({type:"event", ev})}
           GameMark={GameMark} HowToSheet={HowToSheet} />}
       </main>
 
-      {(() => {
-        if (!gmView || modal) return null;
-        return (
-          <div style={{ position:"fixed", right:14, zIndex:56,
-            bottom:`calc(${gm && qaActive && !qaMin && !qaTop ? 172
-              : tab === "bets" && me && onDeckEv && !state.frozen ? 232 : 84}px + env(safe-area-inset-bottom))`,
-            display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-            {cueRack && (
-              <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-end", gap:8,
-                maxWidth:"78vw", maxHeight:"40vh", overflowY:"auto" }}>
-                {cueRack(false)}
-              </div>
-            )}
-            {gmView && ready && <DirectorPill model={pillModel} state={state} events={events}
-              director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})} />}
-          </div>
-        );
-      })()}
-      {gm && qaActive && <QABar me={me} status={qaStatus} onExit={toggleQa}
-        minimized={qaMin} onMin={() => setQaMin(v => { saveMine("si-qa-min", v ? "no" : "yes"); return !v; })}
-        top={qaTop} onPos={() => setQaTop(v => { saveMine("si-qa-pos", v ? "bottom" : "top"); return !v; })}
-        sim={sim} onStop={stopSim} guestLens={guestLens}
-        onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
-        onOpen={() => setModal({ type:"qa" })}
-        dispatch={dispatch} environment={environment} notify={notify} />}
+      {/* the commissioner's dock: one shelf on the tab bar (the QA strip,
+          the cue rack's Stop, the next step with the TV's state in it); the
+          page is padded by its height */}
+      {((gmView && !modal) || (gm && qaActive)) && <CommissionerDock>
+        {gm && qaActive && qaStrip}
+        {gmView && !modal && ready && <DirectorPill model={pillModel} state={state} events={events}
+          audio={cueRack ? cueRack("pill") : null}
+          director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})}
+          health={<TvHealth tvs={tournament.tvs} receivedAt={tournament.tvsAt} live={!!state.live} />} />}
+      </CommissionerDock>}
 
       <AppNavigation tab={tab} onTab={setTab} live={state.live} badges={navBadges} />
 
@@ -1546,18 +1625,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
           onUnfreeze={() => pushModal({type:"unfreeze"})} finaleDone={!!state.results[events.find(e => e.finale)?.id]} />
       </Sheet>}
       {modal?.type === "menu" && <Sheet title="Field Day" onClose={() => setModal(null)}>
-        <MenuGroup title="Your weekend">
-          <MenuRow name="Your profile" onClick={() => pushModal({type:"profile"})} />
-          <MenuRow name="Trip details" onClick={() => { setModal(null); setWeekendSection("trip"); setTab("guide"); }} />
-          <MenuRow name="Rules" onClick={() => { setModal(null); setWeekendSection("rules"); setTab("guide"); }} />
-        </MenuGroup>
-        <MenuGroup title="Event controls">
-          <MenuRow name="TV mode" onClick={() => { setModal(null); setTv(true); }} />
-          <MenuRow name="Commissioner" onClick={() => {
-            if (!gm) pushModal({type:"pin"});
-            else { setGuestLens(false); pushModal({type:"gmMenu"}); }
-          }} />
-        </MenuGroup>
+        <MenuSections sections={moreMenu({ gm })} onItem={menuItem}
+          glyphs={me ? { you:<Avatar state={state} p={me} size={22} /> } : {}} />
       </Sheet>}
       {modal?.type === "house" && <Sheet title="Trip details" onClose={() => setModal(null)}><VenueCard lg={state.logistics || {}} /></Sheet>}
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
@@ -1572,71 +1641,13 @@ function TournamentApp({ tournament, onUpdateReload }) {
           if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }
           return saved;
         }} />}
-      {modal?.type === "gmMenu" && (
-        <Sheet title="Commissioner" onClose={() => setModal(null)} onBack={modalBack}>
-          {(showControlAllowed || audioDirectorAllowed) && (
-            <MenuGroup title="The show">
-              {showControlAllowed && <MenuRow name="Show Control"
-                note={activeShowScene
-                  ? `On TV: ${activeShowScene.definition?.label || "Scene"}, ${activeShowScene.stepIndex + 1} of ${activeShowScene.stepCount}`
-                  : "Ambient rotation"}
-                onClick={() => pushModal({type:"showControl"})} />}
-              {!showControlAllowed && audioDirectorAllowed && <MenuRow name="Audio Director"
-                onClick={() => pushModal({type:"audioDirector"})} />}
-            </MenuGroup>
-          )}
-          {state.live && !state.frozen && (crownReady || lockerRoomAvailability(state).enabled) && <MenuGroup title="The weekend">
-            {crownReady && <MenuRow name="Crown the champion" onClick={() => pushModal({type:"crown"})} />}
-            {lockerRoomAvailability(state).enabled && <MenuRow name="Back to the locker room"
-              onClick={() => pushModal({type:"lockerRoom"})} />}
-          </MenuGroup>}
-          <MenuGroup title="Games">
-            <MenuRow name="Where and When" note={`${(state.geoRounds || []).length} photos`}
-              onClick={() => pushModal({type:"geoDesk"})} />
-          </MenuGroup>
-          <MenuGroup title="Awards night">
-            <MenuRow name="Awards" note={deskNote(state)} onClick={() => pushModal({type:"awards"})} />
-          </MenuGroup>
-          <MenuGroup title="Fix something">
-            {state.onDeck && <MenuRow name="Lock bets"
-              note={onDeckEv?.name || null}
-              onClick={async () => { const locked = await setOnDeck(null);
-                if (locked.ok) { setModal(null); notify("Bets locked"); } }} />}
-            {events.filter(ev => announcementTakeBack(state, ev).enabled).map(ev =>
-              <MenuRow key={ev.id} name={`Take back ${ev.name}`}
-                onClick={() => pushModal({type:"takeBack", ev})} />)}
-            {state.live && state.frozen && <MenuRow tone="destructive" name="Unfreeze board"
-              onClick={() => pushModal({type:"unfreeze"})} />}
-            <MenuRow name="Who is here"
-              note={Object.keys(state.away || {}).length
-                ? `${Object.keys(state.away).map(p => disp(state, p)).join(", ")} away` : "Everyone here"}
-              onClick={() => pushModal({type:"attendance"})} />
-          </MenuGroup>
-          <MenuGroup title="Setup and records">
-            <MenuRow name="Trip details" onClick={() => pushModal({type:"logistics"})} />
-            <MenuRow name="Travel sheet" onClick={() => pushModal({type:"travelSheet"})} />
-            {/* A5: launched this way, the TV keeps its sound after every reload */}
-            <MenuRow name="TV sound shortcut" note={tvKioskCommand(window.location.origin)}
-              onClick={() => (navigator.clipboard?.writeText ? navigator.clipboard.writeText(tvKioskCommand(window.location.origin))
-                : Promise.reject(new Error("no clipboard"))).then(() => notify("Shortcut copied"), () => notify("Copy failed. Type it from the note."))} />
-            {qaAllowed && <MenuRow name={qa ? "QA mode off" : "QA mode"}
-              onClick={() => { toggleQa(); setModal(null); }} />}
-            {capabilities.snapshotExport && <MenuRow name="Export snapshot" onClick={async () => {
-              const exported = await downloadSnapshot();
-              notify(exported.ok ? `Snapshot exported from ${exported.metadata.environment}`
-                : exported.error || "Export failed");
-            }} />}
-            {progressResetAllowed && <MenuRow tone="destructive" name="Reset game progress"
-              onClick={() => pushModal({type:"resetProgress"})} />}
-            <MenuRow name="Commissioner devices" onClick={() => pushModal({type:"gmDevices"})} />
-            <MenuRow name="Exit GM" onClick={exitGm} />
-          </MenuGroup>
-        </Sheet>
-      )}
-      {gmView && modal?.type === "awards" && <AwardsDesk state={state} events={events} notify={notify}
-        onClose={() => setModal(null)} onBack={modalBack} />}
+      {modal?.type === "gmMenu" && <Sheet title="Commissioner" onClose={() => setModal(null)} onBack={modalBack}>
+        <MenuSections sections={commissionerMenu(gmMenuFacts)} onItem={menuItem} />
+      </Sheet>}
+      {gmView && modal?.type === "awards" && <Suspense fallback={null}><AwardsDesk state={state} events={events} notify={notify}
+        onClose={() => setModal(null)} onBack={modalBack} /></Suspense>}
       {gmView && modal?.type === "geoDesk" && <Sheet title="Where and When" onClose={() => setModal(null)} onBack={modalBack}>
-        <GeoDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload)} />
+        <Suspense fallback={null}><GeoDesk state={state} notify={notify} onAct={(type, payload) => act(type, payload)} /></Suspense>
       </Sheet>}
       {gmView && showControlAllowed && modal?.type === "showControl" && (
         <ShowControlSheet
@@ -1694,7 +1705,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           const cleared = await clearResult(modal.ev, reason);
           if (cleared.ok) {
             setModal(null);
-            notify("Result cleared. Betting stays closed.");
+            notify("Result cleared");
           }
         }}
         onEdit={patch => editEvent(modal.ev.id, patch)}
@@ -1747,7 +1758,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             setModal(null);
             notify(saved.extra?.unchanged
               ? `${modal.ev.name} result is unchanged`
-              : `${modal.ev.name} posted, wagers settled`);
+              : `${modal.ev.name} posted`);
           }
           return saved;
         }} />}
@@ -1775,16 +1786,16 @@ function TournamentApp({ tournament, onUpdateReload }) {
           return saved;
         }}
         onRemove={(id, reason) => act("removeAdjustment", { id, reason }, "Ruling removed", { retry:true })} />}
-      {qaAllowed && modal?.type === "qa" && <QASheet state={state} busy={!!sim}
-        status={qaStatus} me={me} guestLens={guestLens}
+      {qaAllowed && modal?.type === "qa" && <Suspense fallback={null}><QASheet state={state} busy={!!sim}
+        status={qaStatus} me={me} guestLens={guestLens} market={qaMarket}
         environment={environment} dispatch={dispatch} notify={notify}
+        onExit={() => { toggleQa(); setModal(null); }}
         onSwitch={player => switchPlayer(player, false)}
         onLens={() => setGuestLens(v => { notify(v ? "GM view" : "Guest view"); return !v; })}
         pokerOn={pokerLive(state)}
         onPlayLive={() => { setModal(null); runSim(simPlayEvent)(); }}
         onDuelMe={() => { setModal(null); qaGuard(simDuelMe)(); }}
         onDuels={() => { setModal(null); qaGuard(() => simDuels(3))(); }}
-        onBets={() => { setModal(null); qaGuard(simBetsRound)(); }}
         onBustOne={() => { const pool = simPokerAlive().filter(q => q !== me); if (pool.length) pokerBust(pool[Math.floor(Math.random() * pool.length)]); }}
         onCountRest={async () => {
           const p = state.poker; if (!p) return;
@@ -1801,7 +1812,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         onRerun={() => { rerunOnboard(); setModal(null); }}
         onReplayMine={() => { replayOnboardHere(); setModal(null); }}
         onResetRequest={() => setModal({type:"resetProgress"})}
-        onClose={() => setModal(null)} />}
+        onClose={() => setModal(null)} /></Suspense>}
       {progressResetAllowed && modal?.type === "resetProgress" && (
         <ResetProgressSheet state={state} environment={environment} busy={!!sim}
           onClose={() => setModal(null)} onBack={modalBack}
@@ -1834,7 +1845,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           <div style={{ display:"flex", gap:10 }}>
             <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
-                notify(`${modal.ev.name} shelved${bets ? ` · ${bets} bet${bets === 1 ? "" : "s"} returned` : ""}`); } }}>Skip {modal.ev.name}</Btn>
+                notify(bets ? `${modal.ev.name} shelved. ${bets} bet${bets === 1 ? "" : "s"} returned` : `${modal.ev.name} shelved`); } }}>Skip {modal.ev.name}</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
           </div>
         </Sheet>
@@ -1888,7 +1899,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
                   border:away ? "1.5px solid var(--clay)" : "1px solid var(--line)", color:"var(--ink)" }}>
                 <Avatar state={state} p={p} size={28} />
                 <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:13 }}>{disp(state, p)}</span>
-                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11, color:away ? "var(--clay-text)" : "var(--muted2)" }}>
+                <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:away ? "var(--clay-text)" : "var(--muted2)" }}>
                   {away ? "Away" : "Here"}</span>
               </button>;
             })}
@@ -1900,14 +1911,15 @@ function TournamentApp({ tournament, onUpdateReload }) {
           onSignedOut={() => { setGmToken(null); setGm(false); saveMine("si-gm", "no"); setModal(null); }} />
       )}
       {gmView && modal?.type === "crown" && (
-        <CrownSheet state={state} finalePosted={!!state.results[events.find(e => e.finale)?.id]}
-          onClose={() => setModal(null)} onBack={modalBack} onCrown={crownChampion} />
+        <Suspense fallback={null}><CrownSheet state={state} finalePosted={!!state.results[events.find(e => e.finale)?.id]}
+          onClose={() => setModal(null)} onBack={modalBack} onCrown={crownChampion} /></Suspense>
       )}
       {gmView && modal?.type === "pokerSetup" && (
-        <PokerSetupSheet state={state} onClose={() => setModal(null)} onBack={modalBack} onDeal={dealAndStart} />
+        <Suspense fallback={null}><PokerSetupSheet state={state} onClose={() => setModal(null)} onBack={modalBack} onDeal={dealAndStart} /></Suspense>
       )}
 
-      {toast && (
+      {/* a Your pick nudge stands down while the draft itself is open */}
+      {toast && !(toast.draftTurn && modal?.type === "draft") && (
         <div role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
           {toast.chip ? (
             <span className="fd-toast-mark">
@@ -1941,7 +1953,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
         dock={receiptDock({ tab, modal })}
         onStandings={() => { setMoment(null); setModal({ type:"standings" }); }}
         onSettled={() => { setMoment(null); setModal(null); setSettledOpen(true); setTab("bets"); }} />}
-      <ChipShower burst={shower} p={me} />
+      <ChipShower burst={shower} p={me} amount={moment ? moment.to - moment.from : 0} />
+      <MomentsLayer state={state} events={events} me={me} active={ready && !tv && onboardStep >= 99}
+        onBets={() => { setModal(null); setTab("bets"); }} />
       {lastCard.open && <LastCardLayer key={lastCard.open.key} state={state} me={me} events={events}
         standings={standings} mode={lastCard.open.mode} gm={gmView} onClose={lastCard.close}
         onStandings={() => { lastCard.close(); setTab("board"); setModal({ type:"standings" }); }} />}
@@ -2042,8 +2056,8 @@ function StatPills({ row, atRisk = 0, onSun }) {
     <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:3 }}>
       {bits.map((b, i) => (
         <span key={i} style={{ display:"inline-flex", alignItems:"center", gap:3.5, borderRadius:99,
-          padding:"1.5px 7px 1.5px 5px", background: onSun ? "rgba(42,33,25,0.13)" : "var(--ink-tint)",
-          border:`1px solid ${onSun ? "rgba(42,33,25,0.18)" : "var(--line)"}` }}>
+          padding:"1.5px 7px 1.5px 5px", background: onSun ? "color-mix(in srgb, var(--ink0) 13%, transparent)" : "var(--ink-tint)",
+          border:`1px solid ${onSun ? "color-mix(in srgb, var(--ink0) 18%, transparent)" : "var(--line)"}` }}>
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke={b.tone}
             strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true"
             style={{ flexShrink:0 }}>{PILL_ART[b.k]}</svg>
@@ -2089,16 +2103,17 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
   if (!pk || state.results[pk.id]) return null;
   const outIdx = pk.outs.findIndex(o => o.player === me);
   const myRow = standings.find(r => r.player === me);
-  const card = { marginBottom:12, borderRadius:5, overflow:"hidden", border:"1.5px solid var(--ink)",
-    background:"var(--night)" };
+  /* one pane of glass; its rows part on hairlines */
+  const card = { marginBottom:12, borderRadius:14, overflow:"hidden", border:"1px solid var(--line)",
+    background:"var(--night)", boxShadow:"var(--glass-edge)" };
   /* an away guest has no seat: no count, no bust, their chips carry as is */
   const unseated = !!me && Array.isArray(pk.seats) && !pk.seats.includes(me);
   const carried = unseated ? pk.unseated?.[me] ?? myRow?.pts ?? 0 : 0;
-  const seatButton = { minHeight:44, minWidth:44, fontFamily:SANS, fontWeight:700, fontSize:11.5, letterSpacing:"0.05em",
+  const seatButton = { minHeight:44, minWidth:44, fontFamily:SANS, fontWeight:700, fontSize:12, letterSpacing:"0.05em",
     textTransform:"uppercase", borderRadius:10, padding:"0 12px", cursor:"pointer", flexShrink:0 };
   const notSeated = unseated && (
-    <div style={{ borderTop:"1px solid var(--night-line)", padding:"12px 14px", fontFamily:SANS, fontSize:12.5, color:BONE }}>
-      Not seated · your {fmt(carried)} chips carry</div>
+    <div style={{ display:"flex", justifyContent:"space-between", gap:12, borderTop:"1px solid var(--night-line)", padding:"12px 14px", fontFamily:SANS, fontSize:12.5, color:BONE }}>
+      <span>Not seated</span><b>{fmt(carried)}</b></div>
   );
 
   if (!pk.startedAt) {
@@ -2115,7 +2130,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
                 Starting stack: <b>{fmt(myRow.pts)}</b>
               </div>
             ) : (
-              <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--night-text)" }}>{fmt(pk.total)} chips in play</div>
+              <div style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text)" }}>{fmt(pk.total)} chips in play</div>
             )}
           </div>
           <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
@@ -2157,11 +2172,11 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 14px" }}>
         <PokerBlinds pk={pk} clk={clk} now={now} alive={alive} />
         <div style={{ textAlign:"right" }}>
-          <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:26, lineHeight:1,
-            color: clk.msLeft < 60000 && !clk.last ? "var(--live2)" : "var(--sun)" }}>
+          <div style={{ fontFamily:DISPLAY, fontWeight:800, fontSize:30, lineHeight:1.15, fontVariantNumeric:"tabular-nums",
+            color: clk.msLeft < 60000 && !clk.last ? "var(--lamp-live-text)" : "var(--ink)" }}>
             {clk.paused ? mmss(clk.msLeft) : clk.final ? "LAST" : mmss(clk.msLeft)}</div>
-          <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--night-text2)", marginTop:3 }}>
-            {clk.paused ? "paused" : clk.final ? "count your stack" : "to the next level"}</div>
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--night-text2)", marginTop:3 }}>
+            {clk.paused ? "Paused" : clk.final ? "Count" : "Next level"}</div>
         </div>
       </div>
 
@@ -2218,7 +2233,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
             )}
           </span>
           {gm && (
-            <button onClick={onReview} style={{ fontFamily:SANS, fontWeight:700, fontSize:11, letterSpacing:"0.05em",
+            <button onClick={onReview} style={{ fontFamily:SANS, fontWeight:700, fontSize:12, letterSpacing:"0.05em",
               textTransform:"uppercase", background: allIn ? "var(--sun)" : "transparent",
               color: allIn ? "var(--ink0)" : BONE,
               border:"1.5px solid " + (allIn ? "var(--ink0)" : "var(--ghost-line)"),
@@ -2231,19 +2246,19 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
       {gm && (
         <div style={{ borderTop:"1px solid var(--night-line)", padding:"8px 14px 10px",
           display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ ...label, fontSize:10.5, color:"var(--night-text2)" }}>Level</span>
+          <span style={{ ...label, color:"var(--night-text2)" }}>Level</span>
           <button onClick={() => onLevel(-1)} aria-label="Previous level" style={{ width:44, height:44, borderRadius:10, cursor:"pointer",
-            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}>−</button>
+            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}><Icon name="minus" size={18} /></button>
           <button onClick={() => onLevel(1)} aria-label="Next level" style={{ width:44, height:44, borderRadius:10, cursor:"pointer",
-            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}>+</button>
+            background:"transparent", border:"1.5px solid var(--ghost-line)", color:BONE, fontSize:18 }}><Icon name="plus" size={18} /></button>
           {onPause && <button onClick={() => onPause(!clk.paused)} style={{ minHeight:44, padding:"0 12px",
             borderRadius:10, cursor:"pointer", background:"transparent", border:"1.5px solid var(--ghost-line)",
-            color:BONE, fontFamily:SANS, fontWeight:700, fontSize:11.5, textTransform:"uppercase" }}>
+            color:BONE, fontFamily:SANS, fontWeight:700, fontSize:12, textTransform:"uppercase" }}>
             {clk.paused ? "Resume clock" : "Pause clock"}</button>}
           <span style={{ flex:1 }} />
           {!counted.length && (
             <button onClick={onReview} style={{ background:"none", border:"none", color:"var(--night-text)",
-              fontFamily:SANS, fontWeight:700, fontSize:11.5, cursor:"pointer", textTransform:"uppercase",
+              fontFamily:SANS, fontWeight:700, fontSize:12, cursor:"pointer", textTransform:"uppercase",
               minHeight:44, padding:"4px 0" }}>Table sheet</button>
           )}
         </div>
@@ -2267,10 +2282,10 @@ function ChipCounter({ start, onDone }) {
     {denominations.map(value=><div className="fd-chip-count-row" key={value}>
       <label htmlFor={countId+value}>{fmt(value)} chips</label>
       <button type="button" disabled={pending || !Number(counts[value])} aria-label={"Remove one "+value+" chip"}
-        onClick={()=>set(value,Math.max(0,Number(counts[value]||0)-1))}>−</button>
+        onClick={()=>set(value,Math.max(0,Number(counts[value]||0)-1))}><Icon name="minus" size={16} /></button>
       <input id={countId+value} aria-label={"Number of "+value+" chips"} inputMode="numeric" pattern="[0-9]*" value={counts[value]} disabled={pending}
         onChange={event=>{if (/^\d*$/.test(event.target.value)) set(value,event.target.value);}}/>
-      <button type="button" disabled={pending} aria-label={"Add one "+value+" chip"} onClick={()=>set(value,Number(counts[value]||0)+1)}>+</button>
+      <button type="button" disabled={pending} aria-label={"Add one "+value+" chip"} onClick={()=>set(value,Number(counts[value]||0)+1)}><Icon name="plus" size={16} /></button>
     </div>)}
     <div className="fd-chip-count-total"><span>Total</span><strong>{fmt(total)}</strong></div>
     {error && <p role="alert">{error}</p>}
@@ -2314,7 +2329,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
             fontFamily:SANS, fontSize:13, color:"var(--muted)" }}>
             <Avatar state={state} p={r.player} size={22} />
             <span style={{ flex:1, minWidth:0 }}>{disp(state, r.player)}</span>
-            <span>Away · carries {fmt(pk.unseated?.[r.player] ?? r.pts)}</span>
+            <span>Away</span><b style={{ color:"var(--ink)" }}>{fmt(pk.unseated?.[r.player] ?? r.pts)}</b>
           </div>
         ))}
       </div>}
@@ -2457,13 +2472,13 @@ function EventCrewCard({ state, roles, compact=false, onPlayer }) {
     return (
       <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, marginTop:9, paddingTop:8,
         borderTop:"1px solid var(--line)" }}>
-        <span style={{ ...label, color:"var(--accent2)", flexShrink:0 }}>Event crew</span>
+        <span style={{ ...label, color:"var(--muted2)", flexShrink:0 }}>Event crew</span>
         <AvatarStack state={state} players={assignments.map(item => item.player)} size={20} max={3} />
-        <span style={{ fontFamily:SANS, fontWeight:600, fontSize:11.5, color:"var(--ink)", minWidth:0,
+        <span style={{ fontFamily:SANS, fontWeight:600, fontSize:12, color:"var(--ink)", minWidth:0,
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
           {assignments.map(item => disp(state, item.player)).join(", ")}
         </span>
-        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--muted2)",
+        <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:"var(--muted2)",
           flexShrink:0 }}>
           {assignments.map(item => overflowRoleMeta(item.role).short).join(" + ")}
         </span>
@@ -2472,9 +2487,9 @@ function EventCrewCard({ state, roles, compact=false, onPlayer }) {
   }
   return (
     <div style={{ margin:"10px 0 4px", padding:"11px 12px", borderRadius:14,
-      background:"var(--paper2)", border:"1px solid rgba(194,88,50,0.38)" }}>
+      background:"var(--paper2)", border:"1px solid var(--bone-line)" }}>
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-        <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
+        <span style={{ ...label, color:"var(--muted2)", flex:1 }}>Event crew</span>
       </div>
       {assignments.map((item, index) => {
         const meta = overflowRoleMeta(item.role);
@@ -2495,7 +2510,7 @@ function EventCrewCard({ state, roles, compact=false, onPlayer }) {
                 {disp(state, item.player)}
               </div>
             </div>
-            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--accent2)",
+            <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:"var(--accent2)",
               background:"var(--accent-tint)", borderRadius:7, padding:"4px 7px", flexShrink:0 }}>
               {meta.label}
             </span>
@@ -2518,7 +2533,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size="md" }) {
     lg: { av:36, f:19,   tf:17, pad:"11px 14px", gap:14, col:`repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` },
   }[size];
   const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => (
-    <div style={{ background:"var(--paper2)", border:"1px solid " + (isFinal ? "rgba(156,69,38,0.5)" : "var(--line)"),
+    <div style={{ background:"var(--paper2)", border:"1px solid " + (isFinal ? "var(--ghost-line)" : "var(--line)"),
       borderRadius:14, overflow:"hidden", boxShadow:"var(--shadow-1)",
       ...(wide ? { gridColumn:"1 / -1" } : {}) }}>
       <div style={{ ...label, fontSize: size==="lg" ? 13 : 10.5, padding: size==="lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -2548,7 +2563,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size="md" }) {
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
               color: isThrough ? "var(--accent2)" : "var(--ink)" }}>{v.name}</span>
             {isThrough && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:dims.tf, color:"var(--accent2)" }}>
-              {isFinal ? "🏆" : "✓"}</span>}
+              <Icon name={isFinal ? "trophy" : "check"} size="1em" /></span>}
           </button>
         );
       })}
@@ -2574,6 +2589,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
   onPlayNext, announceNext, onAnnounceDraw, onSwap, onTakeBack }) {
   const res = state.results[ev.id];
   const [confirmTakeBack, setConfirmTakeBack] = useState(false);
+  const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
   const br = state.brackets[ev.id];
@@ -2645,112 +2661,72 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
   const suggestedGroups = Math.min(4, Math.max(2, Math.round(stageEntrantCount / (canHeats ? 4 : 3))));
   const groupsChoice = nGroups ?? ev.stageCfg?.nGroups ?? suggestedGroups;
   const heatsFit = inPlayers.length >= groupsChoice * 2;
+  const stage = eventStage(state, ev);
+  const crewAward = awardPlan(ev, draw).find(row => row.place === "crew")?.pts || null;
+  const roles = draw?.roles || st?.roles || draftLive?.roles || null;
+  /* your way through a bracket, unless you are on now (the contest says so) */
+  const path = stage === "live" && me && !contest?.players?.includes(me) ? bracketPath(state, ev, me) : null;
+  /* the contest card shows its own sides while it runs; the drawn teams
+     stand alone only before then (and for a two-team game, as the matchup) */
+  const contestShowsSides = contestActive && contest?.kind !== "ffa";
+  const contestProps = { state, ev, me, gm, onPlayer, onBets, operations:contestOps,
+    onLock:reference=>waitForContest(()=>onLock(reference)),
+    onWinner:result=>waitForContest(()=>onWinner(result)),
+    onUndo:reference=>waitForContest(()=>onUndo(reference)), onResult:()=>waitForContest(enterResult),
+    onPlayNext:onPlayNext ? payload=>waitForContest(()=>onPlayNext(payload)) : undefined };
+  const who = <>
+    {draftLive && !draw && <div className="fd-es-block"><DraftEntry state={state} ev={ev} me={me} onOpen={() => openDraft()}/></div>}
+    {draw && !br && !st && !contestShowsSides && <EventTeams state={state} ev={ev} draw={draw} me={me} onPlayer={onPlayer} />}
+    {br && !contestActive && <div className="fd-es-block"><CompetitionBracket state={state} ev={ev} me={me} onPlayer={onPlayer}/></div>}
+    {st && <div className="fd-es-block"><StageGrid state={state} ev={ev} gm={false} onPlayer={onPlayer}/></div>}
+    {!draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && <EventField state={state} ev={ev} me={me} onPlayer={onPlayer} />}
+    {roles && <EventCrew state={state} roles={roles} me={me} onPlayer={onPlayer} />}
+  </>;
   return (
-    <Sheet title={ev.name} onClose={onClose} onBack={onBack} wide={!!br} busy={setupPending || contestPending}
-      subtitle={[SESSIONS.find(s=>s.id===ev.session)?.label,ev.kind === "solo" ? "Individual" : ev.kind === "pairs" ? "Pairs" : "Teams"].filter(Boolean).join(" · ")}
+    <Sheet title={ev.name} show onClose={onClose} onBack={onBack} wide={!!br} busy={setupPending || contestPending}
       headerActions={<>
         {(draw || st) && onReplay && <button type="button" disabled={setupPending || contestPending} onClick={onReplay}>Replay draw</button>}
         {hasGameRules(ev) && <button type="button" disabled={setupPending || contestPending} onClick={()=>setHowTo(true)}>Rules</button>}
       </>}>
-      <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
-        onLock={reference=>waitForContest(()=>onLock(reference))}
-        onWinner={result=>waitForContest(()=>onWinner(result))}
-        onUndo={reference=>waitForContest(()=>onUndo(reference))} onResult={()=>waitForContest(enterResult)}
-        onPlayNext={onPlayNext ? payload=>waitForContest(()=>onPlayNext(payload)) : undefined} />
-      {br && !contestActive && <CompetitionBracket state={state} ev={ev} me={me} onPlayer={onPlayer}/>}
-      <details className="fd-event-info" open={!draw && !st && !contestActive || undefined}>
-        <summary><span>Event info</span>{table?.[0] > 0 && <small>{fmt(table[0])} chips to win</small>}</summary>
-        {ev.desc && <p>{ev.desc}</p>}
-        {table && <div className="fd-event-awards">{awardPlan(ev, draw).map(row => <span key={row.place}>
-          <small>{row.place === "crew" ? "Crew" : SLOT_META[row.place].label}</small>
-          <strong>+{fmt(row.pts)}</strong></span>)}</div>}
-      </details>
-      {!contestActive && onBets && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
-      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} onClose={()=>setHowTo(false)}/>}
+      {howTo && <HowToSheet gameId={ev.game} variant={ev.variant} ev={ev} onClose={()=>setHowTo(false)}/>}
+      {/* the contest: live it leads; a commissioner's quick Undo shows here in any state */}
+      <ContestPanel {...contestProps} part="contest" />
+      {stage === "before" && <>
+        {who}
+        <GameSteps game={ev} size="card" className="fd-es-steps" />
+        {!GAMES[ev.game] && ev.desc && <p className="fd-es-gm-note">{ev.desc}</p>}
+        {table && <EventPays ev={ev} crew={crewAward} />}
+      </>}
+      {stage === "live" && <>
+        {path?.mine && <p className="fd-es-path">{path.text}</p>}
+        {who}
+        <EventRiding state={state} ev={ev} />
+      </>}
+      {stage === "after" && <>
+        <EventResult state={state} ev={ev} me={me} onPlayer={onPlayer} />
+        {br && <details className="fd-event-info"><summary><span>Bracket</span></summary>
+          <CompetitionBracket state={state} ev={ev} me={me} onPlayer={onPlayer}/></details>}
+        {st && <details className="fd-event-info"><summary><span>{st.kind === "heats" ? "Heats" : "Pools"}</span></summary>
+          <StageGrid state={state} ev={ev} gm={false} onPlayer={onPlayer}/></details>}
+      </>}
+      {!contestActive && onBets && stage !== "after" && <ActionButton variant="secondary" onClick={onBets} style={{width:"100%",marginBottom:12}}>View bets</ActionButton>}
 
-      {draftLive && !draw && (
-        <DraftEntry state={state} ev={ev} me={me} onOpen={() => openDraft()}/>
-      )}
-
-      {draw && !br && !st && (
-        <div style={{ marginBottom:14 }}>
-          <div style={{ ...label, marginBottom:8 }}>The draw</div>
-          {draw.teams.length === 2 ? (
-            <VersusDraw state={state} teams={draw.teams} onPlayer={onPlayer} />
-          ) : (
-            <div style={{ display:"grid", gridTemplateColumns: draw.teams.length > 3 ? "1fr 1fr" : "1fr", gap:8 }}>
-              {draw.teams.map((t,i) => (
-                <div key={i} style={{ background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
-                  padding:"10px 12px",
-                  ...(draw.teams.length > 3 && draw.teams.length % 2 === 1 && i === draw.teams.length - 1
-                    ? { gridColumn:"1 / -1" } : {}) }}>
-                  <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--accent2)", marginBottom:5 }}>{teamLabel(state, t)}</div>
-                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                    {t.players.map(p => <button type="button" key={p} className="fd-player-link" aria-label={`View ${disp(state,p)}'s player card`} onClick={() => onPlayer?.(p)}><Avatar state={state} p={p} size={30} /></button>)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <EventCrewCard state={state} roles={draw.roles} onPlayer={onPlayer} />
-
-        </div>
-      )}
-
-      {st && <details className="fd-event-info" open={!contestActive || undefined}>
-        <summary><span>All {st.kind === "heats" ? "heats" : "pools"}</span><small>{st.advance} through from each</small></summary>
-        <StageGrid state={state} ev={ev} gm={false} onPlayer={onPlayer}/>
-      </details>}
-      {(br || st) && <EventCrewCard state={state} roles={draw?.roles || st?.roles} compact onPlayer={onPlayer}/>}
-
-      {res && res.slots && (() => {
-        const awards = resultAwards(state, ev, res);
-        const crew = awards.filter(award => award.place === "crew");
-        return <div style={{ marginBottom:14 }}>
-          {res.slots.map((players, i) => players?.length > 0 && (
-            <div key={i} style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
-              <span style={{ color:SLOT_META[i].color, fontWeight:700 }}>{SLOT_META[i].label}:</span>{" "}
-              {players.map(p => <button type="button" key={p} className="fd-player-link" onClick={() => onPlayer?.(p)}>{disp(state,p)}</button>)} <span style={{ color:"var(--muted)" }}>
-                {res.stacks ? `${fmt(res.stacks[players[0]] ?? 0)} chips`
-                  : `+${fmt(awards.find(award => award.place === i)?.pts ?? 0)} each`}</span>
-            </div>
-          ))}
-          {crew.length > 0 && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--ink)", marginBottom:4 }}>
-            <span style={{ fontWeight:700 }}>Crew:</span>{" "}
-            {crew.map(({ player }) => <button type="button" key={player} className="fd-player-link" onClick={() => onPlayer?.(player)}>{disp(state,player)}</button>)}
-            {" "}<span style={{ color:"var(--muted)" }}>+{fmt(crew[0].pts)} each</span>
-          </div>}
-          {(() => {
-            const correction = (state.eventOps?.[ev.id]?.corrections || []).at(-1);
-            const reason = res.correctionReason || correction?.reason;
-            const voided = Array.isArray(correction?.voided) ? correction.voided.length : 0;
-            return reason && (res.correctedAt || correction) ? <p className="fd-event-correction">
-              Corrected · {reason}{voided ? ` · ${voided} ${voided === 1 ? "bet" : "bets"} voided` : ""}</p> : null;
-          })()}
-        </div>;
-      })()}
-
-      {gm && !state.frozen && (
-        <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
+      {gm && <section className="fd-es-gm" aria-labelledby={`fd-es-gm-${ev.id}`}>
+        <h2 id={`fd-es-gm-${ev.id}`}>Commissioner</h2>
+        <ContestPanel {...contestProps} part="commissioner" />
+        {!state.frozen && <>
           {ev.teamCfg && !draw && !draftLive && !res && (() => {
             const shape = teamFit(ev, present.length) || ev.teamCfg;
             const fit = shape.teams * shape.size;
             const diff = inPlayers.length - fit;
             return (
             <>
-              <div style={{ display:"flex", alignItems:"center", marginBottom:4 }}>
-                <div style={{ ...label, flex:1 }}>{shape.size === 1 ? "Draw the bracket" : "Draw teams"}</div>
-                <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
-                  fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"7px 12px", borderRadius:10,
-                  background: diff !== 0 ? "var(--clay-tint)" : "var(--paper)",
-                  border: diff !== 0 ? "1.5px solid var(--clay)" : "1px solid var(--line)",
-                  color: diff !== 0 ? "var(--clay-text)" : "var(--ink)" }}>
-                  {inPlayers.length} competitors {showOuts ? "▴" : "▾"}</button>
-              </div>
-              <div style={{ fontFamily:SANS, fontSize:12.5, marginBottom:8,
-                color: diff !== 0 ? "var(--clay-text)" : "var(--muted)" }}>
-                Format: {shapeLabel(shape)}{shape.size === 1 ? "" : `, fits ${fit}`}.
-                {diff > 0 ? ` Assign ${diff} to event crew.` : diff < 0 ? ` ${-diff} short.` : " Exact fit."}
+              <div className="fd-es-gm-fit">
+                <span>{shapeLabel(shape)}</span>
+                <button type="button" className={`fd-es-gm-count${diff !== 0 ? " is-off" : ""}`} aria-expanded={showOuts}
+                  aria-label={`${inPlayers.length} competitors${shape.size === 1 ? "" : ` of ${fit}`}. Choose who plays`}
+                  onClick={() => setShowOuts(v => !v)}>
+                  {inPlayers.length}{shape.size === 1 ? "" : ` / ${fit}`} <Icon name={showOuts ? "collapse" : "expand"} size="1em" /></button>
               </div>
               {showOuts && (
                 <>
@@ -2760,16 +2736,11 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                       style={centeredGridCell(i, present.length, 3, 5)} />)}
                   </div>
                   {overflowAssignments.length > 0 && (
-                    <div style={{ background:"var(--paper2)", border:"1px solid rgba(194,88,50,0.38)",
+                    <div style={{ background:"var(--paper2)", border:"1px solid var(--bone-line)",
                       borderRadius:14, padding:"11px 12px", marginBottom:10 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
-                        <span style={{ ...label, color:"var(--accent2)", flex:1 }}>Event crew</span>
-                      </div>
-                      <div style={{ fontFamily:SANS, fontSize:11.5, lineHeight:1.4, color:"var(--muted2)",
-                        marginBottom:9 }}>
-                        {table?.[2] > 0
-                          ? `Crew do not compete and earn the 3rd-place award, +${fmt(table[2])}.`
-                          : "Crew do not compete or score."}
+                        <span style={{ ...label, flex:1 }}>Crew</span>
+                        {table?.[2] > 0 && <b style={{ color:"var(--sun)", fontFamily:DISPLAY, fontWeight:800, fontSize:16 }}>+{fmt(table[2])}</b>}
                       </div>
                       {overflowAssignments.map(({ player }, index) => {
                         const role = outRoles[player] || "sit-out";
@@ -2788,7 +2759,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                               onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
                               style={{ width:142, maxWidth:"42%", padding:"8px 8px", borderRadius:9,
                                 background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)",
-                                fontFamily:SANS, fontWeight:700, fontSize:11.5 }}>
+                                fontFamily:SANS, fontWeight:700, fontSize:12 }}>
                               {OVERFLOW_ROLES.map(value => (
                                 <option key={value} value={value}>{overflowRoleMeta(value).label}</option>
                               ))}
@@ -2800,9 +2771,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                   )}
                 </>
               )}
-              {(!participantFit.ok || !announceNext) && <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--muted)", lineHeight:1.5, marginBottom:10 }}>
-                {participantFit.ok ? "Teams stay hidden until this event is announced." : participantFit.error}
-              </div>}
+              {!participantFit.ok && <p className="fd-es-gm-note" role="alert" style={{ color:"var(--clay-text)" }}>{participantFit.error}</p>}
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                 {/* the next event draws and announces in one write, intro first */}
                 <Btn disabled={!participantFit.ok || setupPending}
@@ -2858,7 +2827,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                       return result;
                     })}>Swap in</ActionButton>
                 </div>
-                <p>Bets on the team stay. Outright bets on the player leaving are voided.</p>
+                <p>Voids bets on the player leaving.</p>
               </details>
             );
           })()}
@@ -2877,7 +2846,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                         <button onClick={() => setShowOuts(v => !v)} style={{ cursor:"pointer",
                           fontFamily:SANS, fontWeight:700, fontSize:12.5, padding:"6px 11px", borderRadius:10,
                           background:"var(--paper)", border:"1px solid var(--line)", color:"var(--ink)" }}>
-                          {inPlayers.length} playing {showOuts ? "▴" : "▾"}</button>
+                          {inPlayers.length} playing <Icon name={showOuts ? "collapse" : "expand"} size="1em" /></button>
                       </div>
                       {showOuts && (
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
@@ -2972,7 +2941,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           )}
           {!res && !contestActive && lifecycle.blockers?.length > 0 && (
             <div style={{ ...pStyle, marginTop:8, color:"var(--muted)", fontSize:13 }}>
-              Next: {lifecycle.blockers[0]}</div>
+              {lifecycle.blockers[0]}</div>
           )}
           {res && confirmClear && (
             <div style={{ marginTop:10, padding:"12px 13px", background:"var(--paper2)",
@@ -2998,13 +2967,13 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
               <input value={eName} onChange={e => setEName(e.target.value)} maxLength={28} aria-label="Event name"
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
                   padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:12, outline:"none" }} />
-              <div style={{ ...label, marginBottom:6 }}>How it works</div>
+              <div style={{ ...label, marginBottom:6 }}>How to play</div>
               <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} maxLength={300} rows={3}
                 aria-label="Event description"
                 style={{ width:"100%", background:"var(--paper)", border:"1px solid var(--line)", borderRadius:10,
                   padding:"11px 12px", color:"var(--ink)", fontFamily:SANS, fontSize:14, lineHeight:1.5,
                   marginBottom:12, outline:"none", resize:"vertical" }} />
-              <div style={{ ...label, marginBottom:6 }}>Worth{res ? ". Clear the result to change it" : ""}</div>
+              <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[400,800,1200,1600].map(v => (
                   <button key={v} disabled={!!res} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:res ? "default" : "pointer",
@@ -3014,7 +2983,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                     border: eValue===v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{v}</button>
                 ))}
               </div>
-              <div style={{ ...label, marginBottom:6 }}>When</div>
+              <div style={{ ...label, marginBottom:6 }}>Session</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
                 {[...SESSIONS.map(s => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => (
                   <button key={String(id)} onClick={() => setESession(id)} style={{ fontFamily:SANS, fontWeight:600,
@@ -3033,7 +3002,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           ) : !more ? (
             <button onClick={() => setMore(true)} style={{ background:"none", border:"none", cursor:"pointer",
               fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--accent2)", minHeight:44, padding:"8px 0",
-              display:"block", marginLeft:"auto" }}>More options ▾</button>
+              display:"block", marginLeft:"auto" }}>More <Icon name="expand" size="1em" /></button>
           ) : (
             <div style={{ display:"flex", gap:8, marginTop:8, flexWrap:"wrap" }}>
               <Btn kind="ghost" onClick={openEdit} style={{ flex:1 }}>Edit details</Btn>
@@ -3048,8 +3017,8 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
               {ev.custom && confirmRemove && <Btn kind="danger" onClick={onRemove}>Confirm remove</Btn>}
             </div>
           )}
-        </div>
-      )}
+        </>}
+      </section>}
     </Sheet>
   );
 }
@@ -3128,7 +3097,7 @@ function AddEventSheet({ state, onClose, save }) {
       {/* borrow a known game's mark, hero, and how-to; none = the FD chip */}
       <div style={{ ...label, marginBottom:6 }}>Looks like</div>
       <div style={{ display:"flex", gap:6, overflowX:"auto", marginBottom:16, paddingBottom:4 }}>
-        {[null, ...Object.keys(MARKS)].map(g => (
+        {[null, ...GAME_MARK_IDS].map(g => (
           <button key={String(g)} onClick={() => setGame(g)} style={{ width:52, height:52, borderRadius:10,
             cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
             background: game===g ? "var(--sun-tint)" : "var(--paper)",
@@ -3150,7 +3119,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state,ev);
   const active = contest && ["betting-open","betting-locked","in-progress","awaiting-result"].includes(contest.phase);
-  return <Sheet title={ev.name} subtitle="Bracket" onClose={onClose} onBack={onBack} busy={pending} wide>
+  return <Sheet title={ev.name} subtitle="Bracket" show onClose={onClose} onBack={onBack} busy={pending} wide>
     <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={onPlayer} onBets={onBets}
       onLock={reference=>waitFor(()=>onLock(reference))}
       onWinner={result=>waitFor(()=>onWinner(result))}
@@ -3286,10 +3255,10 @@ function ResultSheet({ ev, state, onClose, save }) {
         {editableSlots.map(i => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, padding:"10px 6px", cursor:"pointer",
             borderRadius:14, border:"1px solid " + (active===i ? "var(--accent)" : "var(--line)"),
-            background: active===i ? "rgba(194,88,50,0.1)" : "var(--paper2)" }}>
+            background: active===i ? "var(--ink-tint)" : "var(--paper2)" }}>
             <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, color:SLOT_META[i].color }}>
               {ev.kind==="solo" ? SLOT_META[i].label : SLOT_META[i].team}</div>
-            <div style={{ fontFamily:SANS, fontSize:11, color:"var(--muted)" }}>+{fmt(paysEach(i))} each, {slots[i].length} in</div>
+            <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)" }}>+{fmt(paysEach(i))} each, {slots[i].length} in</div>
           </button>
         ))}
       </div>
@@ -3310,7 +3279,7 @@ function ResultSheet({ ev, state, onClose, save }) {
                 <span style={{ flex:1, fontFamily:SANS, fontWeight:600, fontSize:12.5, minWidth:0,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                   color: w === active ? "var(--ink0)" : "var(--ink)" }}>{teamLabel(state, t)}</span>
-                {w >= 0 && w !== active && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:11,
+                {w >= 0 && w !== active && <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12,
                   color:SLOT_META[w].color, flexShrink:0 }}>{SLOT_META[w].label}</span>}
               </button>
             );
@@ -3351,7 +3320,7 @@ function ResultSheet({ ev, state, onClose, save }) {
       ) : !confirmCorrection ? (
         <ActionButton disabled={slots[0].length===0 || unchanged || pending} onClick={() => setConfirmCorrection(true)}
           style={{ width:"100%", fontSize:16, padding:"14px", marginTop:4 }}>
-          {unchanged ? `Official result · revision ${existing.revision || 1}` : "Review result correction"}</ActionButton>
+          {unchanged ? "Official result" : "Review result correction"}</ActionButton>
       ) : (
         <div style={{ marginTop:4, padding:"12px 13px", background:"var(--paper2)",
           border:"1px solid var(--line)", borderRadius:14 }}>
@@ -3379,123 +3348,6 @@ function ResultSheet({ ev, state, onClose, save }) {
 }
 
 /* ─────────── how to play ─────────── */
-/* Event marks share one scorecard seal and one optical box. The equipment
-   inside can stay distinctive without each icon inventing its own scale,
-   background, or border language. */
-const svgMark = (s, kids) => (
-  <svg width={s} height={s} viewBox="0 0 32 32" aria-hidden="true"
-    style={{ flexShrink:0, display:"block" }}>
-    <circle cx="16" cy="16" r="15" fill="var(--paper2)" stroke="var(--line)" strokeWidth="1.2" />
-    <g transform="translate(2 2) scale(.875)">{kids}</g>
-  </svg>
-);
-const MARKS = {
-  poker: s => svgMark(s, <>
-    <g transform="rotate(-14 12 13)">
-      <rect x="6.5" y="4.5" width="11" height="15" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.5"/>
-    </g>
-    <g transform="rotate(10 21 12)">
-      <rect x="15" y="3.5" width="11" height="15" rx="2" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.5"/>
-      <circle cx="20.5" cy="11" r="2.4" fill="var(--accent)"/>
-    </g>
-    <circle cx="16" cy="23.5" r="7.2" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
-    {[45, 135, 225, 315].map(deg => {
-      const a = deg * Math.PI / 180;
-      return <line key={deg}
-        x1={16 + Math.cos(a) * 4.6} y1={23.5 + Math.sin(a) * 4.6}
-        x2={16 + Math.cos(a) * 6.6} y2={23.5 + Math.sin(a) * 6.6}
-        stroke="var(--bone)" strokeWidth="1.7" strokeLinecap="round"/>;
-    })}
-  </>),
-  putting: s => svgMark(s, <>
-    <path d="M11 27V6" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
-    <path d="M11 6l10 3-10 3z" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6" strokeLinejoin="round"/>
-    <ellipse cx="15" cy="27" rx="8" ry="2.2" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
-  </>),
-  "8ball": s => svgMark(s, <>
-    <circle cx="16" cy="16" r="11" fill="var(--ink0)" stroke="var(--bone)" strokeWidth="1.2"/>
-    <circle cx="16" cy="16" r="5" fill="var(--paper)"/>
-    <text x="16" y="19.4" textAnchor="middle" fontSize="8" fontWeight="700" fontFamily={SANS} fill="var(--ink)">8</text>
-  </>),
-  basketball: s => svgMark(s, <>
-    <circle cx="16" cy="16" r="11" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <path d="M5 16h22M16 5v22M8.5 8c4.5 4 4.5 12 0 16M23.5 8c-4.5 4-4.5 12 0 16" stroke="var(--ink)" strokeWidth="1.3" fill="none"/>
-  </>),
-  spikeball: s => svgMark(s, <>
-    <circle cx="16" cy="8.5" r="3.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.7"/>
-    <ellipse cx="16" cy="22" rx="11" ry="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <path d="M9 22h14M16 17.5v9" stroke="var(--ink)" strokeWidth="1.1"/>
-  </>),
-  volleyball: s => svgMark(s, <>
-    <circle cx="12" cy="16" r="8" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <path d="M12 8c3 4 3 12 0 16M5 13.5c5 1.5 12 1 15-3.5" stroke="var(--ink)" strokeWidth="1.1" fill="none"/>
-    <path d="M25 5v22" stroke="var(--ink)" strokeWidth="1.5" strokeDasharray="2 2"/>
-  </>),
-  die: s => svgMark(s, <>
-    <rect x="6" y="6" width="20" height="20" rx="5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <circle cx="11.5" cy="11.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="11.5" r="1.8" fill="var(--ink)"/>
-    <circle cx="16" cy="16" r="1.8" fill="var(--ink)"/>
-    <circle cx="11.5" cy="20.5" r="1.8" fill="var(--ink)"/><circle cx="20.5" cy="20.5" r="1.8" fill="var(--ink)"/>
-  </>),
-  beerio: s => svgMark(s, <>
-    <circle cx="13" cy="16" r="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <circle cx="13" cy="16" r="3" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.3"/>
-    <path d="M13 8.5v4.5M8 20l3.5-2.5" stroke="var(--ink)" strokeWidth="1.5" strokeLinecap="round"/>
-    <rect x="21" y="12" width="6" height="10" rx="1.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.5"/>
-  </>),
-  pickleball: s => svgMark(s, <>
-    <ellipse cx="13" cy="12.5" rx="8" ry="9" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <path d="M11 21l-3.5 6" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round"/>
-    <circle cx="23" cy="21" r="4.5" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.5"/>
-    <circle cx="21.6" cy="20" r="0.7" fill="var(--ink)"/><circle cx="24" cy="20" r="0.7" fill="var(--ink)"/><circle cx="22.8" cy="22.4" r="0.7" fill="var(--ink)"/>
-  </>),
-  foosball: s => svgMark(s, <>
-    <path d="M16 3v26" stroke="var(--ink)" strokeWidth="1.8" strokeLinecap="round"/>
-    <rect x="11" y="12" width="10" height="8" rx="2" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.6"/>
-    <path d="M12.5 20l-2 5M19.5 20l2 5" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round"/>
-    <circle cx="8" cy="24.5" r="2" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.3"/>
-  </>),
-  pingpong: s => svgMark(s, <>
-    <circle cx="14" cy="13" r="8" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.8"/>
-    <path d="M12 20.5l-4 6.5" stroke="var(--ink)" strokeWidth="2.2" strokeLinecap="round"/>
-    <circle cx="24" cy="22" r="3" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.5"/>
-  </>),
-  pong: s => svgMark(s, <>
-    <path d="M10 12h12l-1.5 13h-9z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
-    <ellipse cx="16" cy="12" rx="6" ry="1.8" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
-    <circle cx="16" cy="6" r="2.6" fill="var(--sun)" stroke="var(--ink)" strokeWidth="1.4"/>
-  </>),
-  flipcup: s => svgMark(s, <>
-    <path d="M6 27a10 5 0 0 1 20 0" fill="none" stroke="var(--ink)" strokeWidth="1.1" strokeDasharray="2 2"/>
-    <g transform="rotate(34 16 15)">
-      <path d="M12 9h8l-1 11h-6z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
-      <ellipse cx="16" cy="9" rx="4" ry="1.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.2"/>
-    </g>
-  </>),
-  ragecage: s => svgMark(s, <>
-    <circle cx="16" cy="16" r="3.6" fill="var(--accent)" stroke="var(--ink)" strokeWidth="1.5"/>
-    {[0,60,120,180,240,300].map(a => {
-      const r = 10, x = 16 + r*Math.cos(a*Math.PI/180), y = 16 + r*Math.sin(a*Math.PI/180);
-      return <circle key={a} cx={x} cy={y} r="2.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.4"/>;
-    })}
-  </>),
-  /* the gauntlet: five stations on a timed circuit, last one lit */
-  gauntlet: s => svgMark(s, <>
-    <path d="M6 24 L10 9 L16 20 L22 7 L26 22" fill="none" stroke="var(--ink)"
-      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    {[[6,24],[10,9],[16,20],[22,7]].map(([x,y], i) => (
-      <circle key={i} cx={x} cy={y} r="2.6" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.5"/>
-    ))}
-    <circle cx="26" cy="22" r="3.4" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
-  </>),
-};
-/* One pictogram system for every event: the same rounded score tile, the same
-   2.4px line, and one terracotta signal. The former marks mixed illustrations,
-   filled objects, and several optical scales; this family stays legible from
-   the 26px schedule rail through the full-screen announcement. */
-
-
-
 /* The original game moments are part of the reveal, on phones and the TV. */
 function GameMoment({ gameId }) {
   const Hero = GAME_HEROES[gameId];
@@ -3542,18 +3394,6 @@ function PongHero() {
       <ellipse cx="122" cy="30" rx="10" ry="3" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
       <g style={{ animation:"si-pong-arc 2s linear 1 both" }}>
         <circle cx="8" cy="0" r="5.5" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
-/* flip cup: the cup hops, turns over, and sticks the landing */
-function FlipHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      <g style={{ animation:"si-flip-cup 2.2s ease-in-out 1 both", transformOrigin:"90px 46px" }}>
-        <path d="M78 32h24l-3 28H81z" fill="var(--paper)" stroke="var(--ink)" strokeWidth="1.8" strokeLinejoin="round"/>
-        <ellipse cx="90" cy="32" rx="12" ry="3.4" fill="var(--paper2)" stroke="var(--ink)" strokeWidth="1.4"/>
       </g>
     </svg>
   );
@@ -3715,21 +3555,6 @@ function RageHero() {
     </svg>
   );
 }
-/* five stations, one clean run */
-function GauntletHero() {
-  return (
-    <svg width="180" height="82" viewBox="0 0 180 82" aria-hidden="true" style={{ display:"block", overflow:"visible" }}>
-      <line x1="8" y1="60" x2="172" y2="60" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round"/>
-      {[36, 68, 100, 132, 164].map((x, i) => (
-        <rect key={x} x={x - 7} y="50" width="14" height="10" rx="2"
-          fill={i === 4 ? "var(--accent)" : "var(--paper2)"} stroke="var(--ink)" strokeWidth="1.4"/>
-      ))}
-      <g style={{ animation:"si-gauntlet 2.8s ease-in-out 1 both" }}>
-        <circle cx="12" cy="44" r="5.5" fill="var(--sun)" stroke="var(--ink0)" strokeWidth="1.6"/>
-      </g>
-    </svg>
-  );
-}
 /* two cards hit the felt, the chip follows */
 function PokerHero() {
   return (
@@ -3753,11 +3578,11 @@ function PokerHero() {
    read this registry; anything unregistered falls back to its GameMark, and
    custom events fall back to the FD chip. Adding an event later:
    BUILTIN_EVENTS entry in core (or the GM add-event flow), then optionally a
-   GAMES howto, a MARKS icon, and a hero here. Nothing else to wire. */
-const GAME_HEROES = { die: DieHero, pong: PongHero, flipcup: FlipHero,
+   GAMES howto, a GameMark (ui/GameMark.jsx), and a hero here. Nothing else to wire. */
+const GAME_HEROES = { die: DieHero, pong: PongHero,
   putting: PuttHero, "8ball": EightHero, basketball: BballHero, spikeball: SpikeHero,
   pingpong: PingpongHero, foosball: FoosHero, volleyball: VolleyHero,
-  pickleball: PickleHero, beerio: KartHero, ragecage: RageHero, gauntlet: GauntletHero, poker: PokerHero };
+  pickleball: PickleHero, beerio: KartHero, ragecage: RageHero, poker: PokerHero };
 /* optional, on-demand rules for one game. Purely client-side, nested over the sheet below. */
 
 
@@ -3858,7 +3683,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
     <Sheet title={`Ruling for ${disp(state, player)}`} onClose={onClose} busy={pending}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:12 }}>
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) - step)} style={{ fontSize:19, width:54 }}
-          aria-label={`Minus ${step}`}>−</Btn>
+          aria-label={`Minus ${step}`}><Icon name="minus" size={18} /></Btn>
         <input value={delta > 0 ? `+${delta}` : String(delta)} inputMode="numeric" disabled={pending}
           aria-label="Ruling chips" onChange={e => {
             const v = e.target.value.replace(/[^\d-]/g, "");
@@ -3867,7 +3692,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
           style={{ ...field, width:130, textAlign:"center", fontFamily:DISPLAY, fontWeight:800, fontSize:34, padding:"6px 8px",
             color: delta >= 0 ? "var(--green)" : "var(--clay-text)" }} />
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) + step)} style={{ fontSize:19, width:54 }}
-          aria-label={`Plus ${step}`}>+</Btn>
+          aria-label={`Plus ${step}`}><Icon name="plus" size={18} /></Btn>
       </div>
       {!legal && delta !== 0 && <p style={{ ...pStyle, color:"var(--clay-text)", textAlign:"center" }}>Rulings move in {step}s.</p>}
       <input value={reason} disabled={pending} onChange={e => setReason(e.target.value)} maxLength={80} aria-label="Ruling reason"
@@ -3950,7 +3775,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
                 {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unknown phone"}
                 {device.current ? " · this device" : ""}</div>
-              {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted2)" }}>
+              {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted2)" }}>
                 Unlocked {new Date(device.createdAt).toLocaleString("en-US", { weekday:"short", hour:"numeric", minute:"2-digit" })}</div>}
             </div>
             <ActionButton compact variant="destructive" disabled={!!pending} onClick={() => revoke(device)}>
@@ -3993,7 +3818,7 @@ function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPl
     <Sheet title={`Announce ${ev.name}`} subtitle={shape || undefined} onClose={onClose} busy={pending}>
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
         <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)" }}>
-          {crew.length ? <>Crew: {crew.map((item, index) => <React.Fragment key={item.player}>{index ? " · " : ""}
+          {crew.length ? <>Crew: {crew.map((item, index) => <React.Fragment key={item.player}>{index ? ", " : ""}
             <button type="button" className="fd-player-link" onClick={() => onPlayer?.(item.player)}>{disp(state, item.player)}</button>
             {` (${overflowRoleMeta(item.role).label})`}</React.Fragment>)}</> : "Everyone plays"}
         </span>
@@ -4174,15 +3999,15 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
         <div style={{ fontFamily:SANS, fontWeight:700, fontSize:compact ? 12.5 : 14,
           color:"var(--ink)", whiteSpace:"nowrap", overflow:"hidden",
           textOverflow:"ellipsis" }}>{track.name}</div>
-        <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
+        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
           {(track.artists || []).join(", ")} · {audioClock(track.durationMs)}</div>
         <a href={track.url} target="_blank" rel="noreferrer"
-          style={{ fontFamily:SANS, fontWeight:700, fontSize:10.5, color:"var(--accent2)",
+          style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:"var(--accent2)",
             textDecoration:"none" }}>Open in Spotify</a>
       </div>
       {action && <Btn kind="ghost" onClick={action}
-        style={{ minHeight:44, padding:"8px 10px", fontSize:11, flexShrink:0 }}>{actionLabel}</Btn>}
+        style={{ minHeight:44, padding:"8px 10px", fontSize:12, flexShrink:0 }}>{actionLabel}</Btn>}
     </div>
   );
 }
@@ -4281,7 +4106,7 @@ function ShowControlSheet({
                   opacity:busy ? 0.45 : 1 }}>
                 <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13,
                   textTransform:"uppercase", letterSpacing:"0.04em" }}>{option.label}</div>
-                <div style={{ fontFamily:SANS, fontSize:11.5, color:"var(--muted)",
+                <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
                   marginTop:4, lineHeight:1.3 }}>{option.note}</div>
               </button>
             ))}
@@ -4446,8 +4271,8 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
             Add <b>SPOTIFY_CLIENT_ID</b> and <b>SPOTIFY_CLIENT_SECRET</b> as Worker
             secrets, then register this exact callback URL in Spotify:</div>
           <div style={{ padding:"11px 12px", border:"1px solid var(--line)", borderRadius:10,
-            background:"var(--paper2)", fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
-            fontSize:11.5, lineHeight:1.45, overflowWrap:"anywhere", color:"var(--ink)",
+            background:"var(--paper2)", fontFamily:"var(--fd-mono)",
+            fontSize:12, lineHeight:1.45, overflowWrap:"anywhere", color:"var(--ink)",
             userSelect:"text" }}>{status.redirectUri || "Callback URL unavailable"}</div>
           <Btn kind="ghost" onClick={() => navigator.clipboard?.writeText(status.redirectUri || "")}
             disabled={!status.redirectUri} style={{ width:"100%", marginTop:9 }}>Copy callback URL</Btn>
@@ -4464,8 +4289,8 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
             style={{ width:"100%" }}>{busy === "connect" ? "Opening Spotify…"
               : status.reconnect ? "Reconnect Spotify" : "Connect Spotify"}</Btn>
           <div style={{ ...label, margin:"18px 0 6px" }}>Registered callback</div>
-          <div style={{ fontFamily:"ui-monospace, SFMono-Regular, Consolas, monospace",
-            fontSize:10.5, overflowWrap:"anywhere", color:"var(--muted)" }}>{status.redirectUri}</div>
+          <div style={{ fontFamily:"var(--fd-mono)",
+            fontSize:12, overflowWrap:"anywhere", color:"var(--muted)" }}>{status.redirectUri}</div>
         </div>
       ) : (
         <>
@@ -4477,13 +4302,13 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
                 color:"var(--ink)", overflow:"hidden", textOverflow:"ellipsis",
                 whiteSpace:"nowrap" }}>{status.account?.displayName || "Spotify"}</div>
-              <div style={{ fontFamily:SANS, fontSize:11.5,
+              <div style={{ fontFamily:SANS, fontSize:12,
                 color:status.premium === false ? "var(--clay-text)" : "var(--muted)" }}>
                 {status.premium === false ? `${status.account?.product || "Free"} account · playback needs Premium`
                   : status.account?.product || "account"}</div>
             </div>
             <Btn kind="danger" disabled={!!busy} onClick={disconnect}
-              style={{ minHeight:38, padding:"8px 9px", fontSize:10.5 }}>Disconnect</Btn>
+              style={{ minHeight:38, padding:"8px 9px", fontSize:12 }}>Disconnect</Btn>
           </div>
 
           <div className="fd-profile-vibration" style={{ marginBottom:14 }}>
@@ -4529,7 +4354,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
               <div style={{ display:"grid", gap:7 }}>
                 {savedCues.map(item => (
                   <div key={item.player}>
-                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:11.5,
+                    <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12,
                       color:"var(--muted)", margin:"0 0 4px 2px" }}>{disp(state, item.player)}</div>
                     <SpotifyTrackCard track={item.track} compact action={() => playTrack(item.track, item.player)}
                       actionLabel={busy === `play:${item.track.trackId}` ? "Playing…" : "Play"} />
@@ -4558,7 +4383,7 @@ function AudioDirectorSheet({ state, onClose, onBack, notify }) {
                 actionLabel={busy === `play:${track.trackId}` ? "Playing…" : "Play"} />)}
             </div>
           )}
-          <div style={{ fontFamily:SANS, fontSize:10.5, color:"var(--muted)",
+          <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
             lineHeight:1.4, marginTop:9 }}>Search results and artwork provided by Spotify.</div>
         </>
       )}

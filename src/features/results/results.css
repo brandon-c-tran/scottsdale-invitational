@@ -9,8 +9,8 @@
   border:1px solid var(--bone-line); border-radius:16px; background:var(--paper2); color:var(--ink);
   box-shadow:var(--shadow-3); overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none;
   transition:transform var(--motion-fast) var(--ease-out); }
-.fd-receipt.is-bottom { bottom:calc(var(--fd-nav-height) + 10px); animation:fd-receipt-rise var(--motion-base) var(--ease-out) backwards; }
-.fd-receipt.is-top { top:calc(env(safe-area-inset-top) + 64px); animation:fd-receipt-drop var(--motion-base) var(--ease-out) backwards; }
+.fd-receipt.is-bottom { bottom:calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 10px); animation:fd-receipt-rise var(--motion-base) var(--ease-out) backwards; }
+.fd-receipt.is-top { top:calc(env(safe-area-inset-top) + 74px); animation:fd-receipt-drop var(--motion-base) var(--ease-out) backwards; }
 @keyframes fd-receipt-rise { from { transform:translateY(24px); opacity:0; } }
 @keyframes fd-receipt-drop { from { transform:translateY(-24px); opacity:0; } }
 .fd-receipt-timer { height:3px; background:var(--line); }
@@ -34,10 +34,16 @@
   animation-delay:var(--fd-line-delay, 0ms); }
 @keyframes fd-receipt-line { from { opacity:0; transform:translateY(8px); } }
 .fd-receipt-stack { display:flex; align-items:flex-end; justify-content:center; min-height:38px; }
-.fd-receipt-ghost { display:grid; gap:2px; opacity:.55; }
+.fd-receipt-ghost { position:relative; display:grid; gap:2px; opacity:.55; }
+/* a loss: the stack that stood here slides off to the bank */
+.fd-receipt-lost { position:absolute; left:50%; bottom:0; display:block; opacity:0; transform:translateX(-50%);
+  animation:fd-receipt-lost 760ms var(--ease-exit) calc(var(--fd-line-delay, 0ms) + 260ms) both; }
+@keyframes fd-receipt-lost { 0% { opacity:1; transform:translateX(-50%); }
+  25% { opacity:1; transform:translate(-50%, 2px) rotate(-3deg); }
+  100% { opacity:0; transform:translate(160px, 4px) rotate(10deg); } }
 .fd-receipt-ghost i { display:block; width:24px; height:5px; border:1px dashed var(--muted); border-radius:3px; }
 .fd-receipt-what { min-width:0; font:600 13px/1.25 var(--fd-body); }
-.fd-receipt-what small { display:block; margin-top:1px; color:var(--muted); font-size:11px; font-weight:500; }
+.fd-receipt-what small { display:block; margin-top:1px; color:var(--muted); font-size:12px; font-weight:500; }
 .fd-receipt-amount { font:700 24px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
 .fd-receipt-line.is-up .fd-receipt-amount { color:var(--green); }
 .fd-receipt-line.is-down .fd-receipt-amount { color:var(--live2); }
@@ -59,14 +65,24 @@
 .fd-receipt-actions button { flex:1; min-height:44px; border:1px solid var(--line); border-radius:10px; background:none;
   color:var(--ink); font:600 14px/1 var(--fd-body); cursor:pointer; }
 
-/* ── M19 your own chips ── */
+/* ── M19 chip rain: your own chips fall and pile with gravity ──
+   Each chip falls under gravity (ease-in), lands on the pile at the bottom
+   of the screen with a squash, bounces twice and rests; then the pile
+   sweeps into the Home tab (ChipShower). */
 .fd-shower { position:fixed; inset:0; z-index:400; pointer-events:none; overflow:hidden; }
-.fd-shower-chip { position:absolute; top:-48px; display:block; opacity:0;
-  animation:fd-shower-fall var(--fd-shower-dur, 1600ms) cubic-bezier(.3,.1,.6,1) var(--fd-shower-delay, 0ms) both; }
+.fd-shower-pile { position:absolute; left:0; right:0; bottom:calc(var(--fd-nav-height, 64px) + 10px); height:240px;
+  transform-origin:50% 100%; }
+.fd-shower-chip { position:absolute; display:block; margin-left:-20px; opacity:0;
+  animation:fd-shower-fall var(--fd-shower-dur, 900ms) linear var(--fd-shower-delay, 0ms) both; }
+.fd-shower-chip > * { display:block; transform:rotate(var(--fd-shower-tilt, 0deg)); }
 @keyframes fd-shower-fall {
-  0% { opacity:1; transform:translate(0, 0) rotate(0deg); }
-  85% { opacity:1; }
-  100% { opacity:0; transform:translate(var(--fd-shower-drift, 0px), 110vh) rotate(var(--fd-shower-spin, 360deg)); }
+  0% { opacity:1; transform:translate(var(--fd-shower-drift, 0px), -110vh) rotate(var(--fd-shower-spin, 360deg));
+    animation-timing-function:cubic-bezier(.55,0,1,.45); }
+  69% { opacity:1; transform:translate(0, 0) rotate(0deg) scale(1.12, .86); animation-timing-function:cubic-bezier(.2,.8,.3,1); }
+  80% { transform:translate(0, -16px) rotate(0deg) scale(.96, 1.04); animation-timing-function:cubic-bezier(.55,0,1,.45); }
+  89% { transform:translate(0, 0) rotate(0deg) scale(1.04, .96); animation-timing-function:cubic-bezier(.2,.8,.3,1); }
+  95% { transform:translate(0, -4px) rotate(0deg); animation-timing-function:ease-in; }
+  100% { opacity:1; transform:none; }
 }
 @media (prefers-reduced-motion: reduce) { .fd-shower { display:none; } }
 
@@ -74,24 +90,48 @@
 .fd-crown { position:fixed; inset:0; z-index:420; background:var(--bg); color:var(--ink); overflow:hidden; }
 .fd-crown-moment { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; cursor:pointer;
   padding:calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 24px); }
-/* D1: every delay is "this long after the crown" on the TV's server clock
-   (--tl is minus the ms already gone when this phone joined, CROWN_TIMING) */
-.fd-crown-kicker { position:absolute; left:0; right:0; top:calc(env(safe-area-inset-top) + 28px); margin:0; text-align:center;
-  color:var(--muted2); font:700 12px/1 var(--fd-body); letter-spacing:.24em; text-transform:uppercase;
-  animation:fd-crown-out 300ms ease-in calc(var(--tl, 0ms) + 1450ms) both; }
-.fd-crown-origin { position:absolute; left:50%; top:38%; transform:translate(-50%, -50%);
-  animation:fd-crown-origin 600ms var(--ease-land) calc(var(--tl, 0ms) + 850ms) both; }
-@keyframes fd-crown-origin { from { opacity:0; transform:translate(-50%, -50%) scale(.4); } }
-.fd-crown-flood { position:absolute; inset:0; background:var(--crown-color); clip-path:circle(150% at 50% 38%);
-  animation:fd-crown-flood 700ms cubic-bezier(.65,0,.35,1) calc(var(--tl, 0ms) + 1450ms) both; }
-@keyframes fd-crown-flood { from { clip-path:circle(0 at 50% 38%); } to { clip-path:circle(150% at 50% 38%); } }
+/* D1, the produced crown: every delay is "this long after the crown" on the
+   TV's server clock (--tl is minus the ms already gone when this phone
+   joined; the beats are CROWN_TIMING's, written out here) */
+.fd-crown-kicker { position:absolute; left:0; right:0; top:calc(env(safe-area-inset-top) + 36px); margin:0; text-align:center;
+  color:var(--bone); font-size:56px; line-height:1;
+  animation:fd-crown-fade 600ms ease-out calc(var(--tl, 0ms) + 700ms) both, fd-crown-out 400ms ease-in calc(var(--tl, 0ms) + 13000ms) both; }
+/* your own chip and final stack stand up with the TV's towers, and your
+   place stamps the instant your tower goes dark */
+.fd-crown-you { position:absolute; left:20px; right:20px; top:30%; display:grid; justify-items:center; gap:8px; text-align:center;
+  animation:fd-crown-you-in 700ms var(--ease-land) calc(var(--tl, 0ms) + 1600ms) both,
+    fd-crown-you-leave 600ms var(--ease-exit) calc(var(--tl, 0ms) + 13000ms) both; }
+@keyframes fd-crown-you-in { from { opacity:0; transform:translateY(40vh); } to { opacity:1; transform:none; } }
+@keyframes fd-crown-you-leave { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(30vh); } }
+.fd-crown-you-chip { display:block; border-radius:50%; }
+.fd-crown-you.is-out .fd-crown-you-chip,
+.fd-crown-you.is-out .fd-crown-you-name,
+.fd-crown-you.is-out .fd-crown-you-pts { animation:fd-crown-dim 700ms ease-in-out calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
+@keyframes fd-crown-dim { from { opacity:1; filter:none; } to { opacity:.5; filter:grayscale(.8); } }
+.fd-crown-you-name { font:700 26px/1 var(--fd-display); text-transform:uppercase; letter-spacing:.02em; }
+.fd-crown-you-pts { color:var(--sun); font:800 34px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-crown-you-place { margin-top:6px; color:var(--bone); font-size:76px; line-height:1;
+  animation:fd-crown-stamp 360ms var(--ease-land) calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
+@keyframes fd-crown-stamp { 0% { opacity:0; transform:scale(1.8) rotate(-6deg); } 70% { opacity:1; transform:scale(.94); }
+  100% { opacity:1; transform:none; } }
+/* the champion's face rises with their tower, where the flood will start */
+.fd-crown-origin { position:absolute; z-index:1; left:50%; top:38%; transform:translate(-50%, -50%);
+  animation:fd-crown-origin 1500ms cubic-bezier(.65,0,.35,1) calc(var(--tl, 0ms) + 13000ms) both,
+    fd-crown-out 300ms ease-in calc(var(--tl, 0ms) + 15400ms) both; }
+@keyframes fd-crown-origin { from { opacity:0; transform:translate(-50%, 60vh) scale(.6); } to { opacity:1; transform:translate(-50%, -50%); } }
+/* the flood: a circle scaled up from their face (transform, never clip-path) */
+.fd-crown-flood { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.fd-crown-flood i { position:absolute; left:50%; top:38%; width:300vmax; height:300vmax; margin:-150vmax 0 0 -150vmax;
+  border-radius:50%; background:var(--crown-color); will-change:transform;
+  animation:fd-crown-flood 1000ms cubic-bezier(.65,0,.35,1) calc(var(--tl, 0ms) + 14500ms) both; }
+@keyframes fd-crown-flood { from { transform:scale(0); } to { transform:scale(1); } }
 /* the ink turns with the flood, so nothing sits dark on night before it */
-.fd-crown-moment.is-flood { color:var(--crown-ink); animation:fd-crown-ink 1ms linear calc(var(--tl, 0ms) + 1650ms) both; }
+.fd-crown-moment.is-flood { color:var(--crown-ink); animation:fd-crown-ink 1ms linear calc(var(--tl, 0ms) + 14900ms) both; }
 @keyframes fd-crown-ink { from { color:var(--ink); } to { color:var(--crown-ink); } }
 @keyframes fd-crown-out { to { opacity:0; } }
 .fd-crown-stage { position:relative; display:grid; justify-items:center; gap:10px; text-align:center; }
 .fd-crown-coins { display:flex; gap:12px; perspective:600px; margin-bottom:10px; }
-.fd-crown-coin { display:block; animation:fd-crown-coin 1200ms var(--ease-out) calc(var(--tl, 0ms) + 2000ms) both; }
+.fd-crown-coin { display:block; animation:fd-crown-coin 1400ms var(--ease-out) calc(var(--tl, 0ms) + 15400ms) both; }
 @keyframes fd-crown-coin {
   0% { opacity:0; transform:translateY(-60vh) rotateY(0deg); }
   8% { opacity:1; }
@@ -100,14 +140,14 @@
   100% { transform:translateY(0) rotateY(720deg); }
 }
 .fd-crown-tag { margin:0; font:700 13px/1 var(--fd-body); letter-spacing:.3em; text-transform:uppercase; color:var(--sun);
-  animation:fd-crown-tag var(--motion-stamp) var(--ease-land) calc(var(--tl, 0ms) + 2300ms) both; }
+  animation:fd-crown-tag var(--motion-stamp) var(--ease-land) calc(var(--tl, 0ms) + 15900ms) both; }
 .fd-crown-moment.is-flood .fd-crown-tag { color:inherit; }
 @keyframes fd-crown-tag { from { opacity:0; transform:scale(1.6); letter-spacing:.6em; } }
-.fd-crown-name { margin:0; font:700 clamp(52px,17vw,88px)/.9 var(--fd-display); letter-spacing:.01em; overflow-wrap:anywhere; }
-.fd-crown-name span { display:inline-block; animation:fd-crown-letter 340ms var(--ease-land) both;
-  animation-delay:calc(var(--tl, 0ms) + 2400ms + var(--fd-letter) * 60ms); }
+.fd-crown-name { margin:0; font-size:clamp(52px,17vw,88px); line-height:1; overflow-wrap:anywhere; }
+.fd-crown-name span { display:inline-block; animation:fd-crown-letter 380ms var(--ease-land) both;
+  animation-delay:calc(var(--tl, 0ms) + 16200ms + var(--fd-letter) * 60ms); }
 @keyframes fd-crown-letter { from { opacity:0; transform:translateY(40px); } }
-.fd-crown-stack { margin:4px 0 0; font:600 15px/1 var(--fd-body); animation:fd-crown-fade 200ms ease-out calc(var(--tl, 0ms) + 2700ms) both; }
+.fd-crown-stack { margin:4px 0 0; font:600 15px/1 var(--fd-body); animation:fd-crown-fade 300ms ease-out calc(var(--tl, 0ms) + 17200ms) both; }
 .fd-crown-stack b { font:700 40px/1 var(--fd-display); font-variant-numeric:tabular-nums; margin-right:4px; }
 @keyframes fd-crown-fade { from { opacity:0; } }
 .fd-crown-skip { position:absolute; right:16px; bottom:calc(env(safe-area-inset-bottom) + 16px); min-width:64px; min-height:44px;
@@ -122,7 +162,7 @@
 .fd-crown-champ { display:flex; align-items:center; gap:10px; margin:8px auto 12px; padding:9px 12px;
   border:1px solid color-mix(in srgb,var(--sun) 45%,transparent); border-radius:12px; background:var(--sun-tint); }
 .fd-crown-champ span { min-width:0; }
-.fd-crown-champ small { display:block; font:600 10px/1.3 var(--fd-body); letter-spacing:.12em; text-transform:uppercase; color:var(--sun); }
+.fd-crown-champ small { display:block; margin-top:3px; font:600 12px/1.3 var(--fd-body); letter-spacing:.1em; text-transform:uppercase; color:var(--sun); }
 .fd-crown-champ b { display:block; font:700 20px/1 var(--fd-display); text-transform:uppercase; }
 .fd-crown-champ strong { margin-left:auto; font:700 22px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
 .fd-crown-card.is-arriving .fd-crown-bar,
@@ -151,26 +191,26 @@
   background:var(--card-color); color:var(--card-ink); box-shadow:var(--shadow-2); }
 .fd-lastcard.is-turning { animation:fd-lastcard-turn var(--motion-card-flight) var(--ease-out) backwards; transform-origin:50% 50%; }
 @keyframes fd-lastcard-turn { from { transform:perspective(900px) rotateY(88deg); opacity:.4; } }
-.fd-lastcard-top { display:flex; justify-content:space-between; gap:10px; font:700 9px/1 var(--fd-body); letter-spacing:.1em; }
+.fd-lastcard-top { display:flex; justify-content:space-between; gap:10px; font:700 12px/1.2 var(--fd-body); letter-spacing:.06em; }
 .fd-lastcard-chip { position:absolute; right:14px; top:30px; }
 .fd-lastcard-place { display:flex; align-items:flex-end; gap:12px; margin-top:10px; padding-right:70px; }
 .fd-lastcard-place b { font:700 96px/.8 var(--fd-display); letter-spacing:-.01em; }
 .fd-lastcard-place span { padding-bottom:4px; }
 .fd-lastcard-place strong { display:block; font:700 30px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
-.fd-lastcard-place small { font:700 10px/1.4 var(--fd-body); letter-spacing:.1em; }
+.fd-lastcard-place small { font:700 12px/1.4 var(--fd-body); letter-spacing:.08em; }
 .fd-lastcard-name { margin:8px 0 2px; font:700 44px/.9 var(--fd-display); text-transform:uppercase; overflow-wrap:anywhere; }
 .fd-lastcard-chart { display:block; width:calc(100% + 8px); height:auto; margin:10px -4px 4px; overflow:visible; }
 .fd-lastcard.is-turning .fd-lastcard-line { stroke-dasharray:1; animation:fd-lastcard-draw 900ms var(--ease-out) backwards;
   animation-delay:calc(var(--motion-card-flight) - 80ms); }
 @keyframes fd-lastcard-draw { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
 .fd-lastcard-chart-num { fill:currentColor; font:700 13px var(--fd-display); }
-.fd-lastcard-tick { fill:currentColor; font:700 8px var(--fd-body); letter-spacing:.08em; }
+.fd-lastcard-tick { fill:currentColor; font:700 12px var(--fd-body); letter-spacing:.04em; }
 .fd-lastcard-facts { margin:6px 0 0; border-top:1.5px solid currentColor; }
 .fd-lastcard-facts div { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:7px 0;
   border-bottom:1px solid color-mix(in srgb,currentColor 25%,transparent); }
 .fd-lastcard-facts dt { min-width:0; font:600 12px/1.3 var(--fd-body); }
 .fd-lastcard-facts dd { margin:0; font:700 16px/1 var(--fd-display); white-space:nowrap; font-variant-numeric:tabular-nums; }
-.fd-lastcard-foot { display:flex; justify-content:space-between; gap:10px; margin-top:10px; font:700 9px/1 var(--fd-body); letter-spacing:.1em; }
+.fd-lastcard-foot { display:flex; justify-content:space-between; gap:10px; margin-top:10px; font:700 12px/1.2 var(--fd-body); letter-spacing:.06em; }
 
 /* Home's way back to the card after the crown */
 .fd-lastcard-entry { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:44px; margin-top:10px;

@@ -48,7 +48,7 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
   const voids = Array.isArray(preview.voidDuels) ? duels.length : Number(preview.voidDuels) || 0;
   const blocker = preview.ok === false ? preview.blockers?.[0] : null;
   const grants = preview.rows.filter(row => row.grant > 0);
-  return <Sheet title="Starting stacks" subtitle={`${preview.rows.length} seats · ${fmt(preview.total)} chips`}
+  return <Sheet title="Starting stacks" subtitle={`${fmt(preview.total)} chips`}
     onClose={onClose} onBack={onBack} busy={commit.pending}>
     {preview.rows.map(row => <div className={`fd-stack-row${row.grant > 0 ? " is-grant" : ""}`} key={row.player}>
       <Avatar state={state} p={row.player} size={30} />

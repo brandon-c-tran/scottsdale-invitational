@@ -21,14 +21,14 @@
   overflow-wrap:break-word; }
 .fd-draw-path li.is-you b { color:var(--fd-you-text, var(--ink)); }
 .fd-draw-path li.is-final b { color:var(--sun); }
-.fd-draw-path small { font:600 10.5px/1.25 var(--fd-body); color:var(--muted2); overflow-wrap:break-word; }
+.fd-draw-path small { font:600 12px/1.25 var(--fd-body); color:var(--muted2); overflow-wrap:break-word; }
 .fd-draw-path-note { color:var(--muted2); }
 .fd-draw-path-faces { display:flex; justify-content:center; }
 .fd-draw-path-faces > * + * { margin-left:-8px; }
 .fd-draw-path-faces.is-candidate { opacity:.6; }
 .fd-draw-path-faces.is-candidate > * + * { margin-left:-10px; }
 .fd-draw-path-either { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:1px 3px; }
-.fd-draw-path-either small { font-size:10px; }
+.fd-draw-path-either small { font-size:12px; }
 
 /* drawing: the footer rises once the last card has turned, the line runs
    out from your chip and each stop lands as the line reaches it */

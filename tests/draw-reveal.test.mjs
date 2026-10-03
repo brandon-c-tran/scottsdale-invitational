@@ -28,7 +28,9 @@ test("draw reveals saved groups in order, stays finished, and bounds long draws"
     assert.deepEqual(seen, [0]);
     time.tick(479); assert.deepEqual(seen, [0]);
     time.tick(1); assert.deepEqual(seen, [0,1]);
-    time.tick(3000);
+    /* Backglass (Oct 2): about two seconds a card, a long draw bounded by
+       DRAW_SEQUENCE_CAP_MS (16 s) */
+    time.tick(16000);
     assert.deepEqual(seen, Array.from({ length:total + 1 }, (_,index) => index));
     assert.equal(time.pending, 0);
     time.tick(30000); assert.equal(seen.at(-1), total);

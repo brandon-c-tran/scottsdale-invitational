@@ -182,13 +182,10 @@ export function lastCardModel(state, player, { events = allEventsOf(state), stan
   const mvps = changes.filter(item => item.kind === "mvp").map(item => eventName(item.eventId));
   if (mvps.length) facts.push({ id:"mvp", label:mvps.length === 1 ? "Team MVP" : "Team MVPs",
     value:mvps.length <= 2 ? mvps.join(", ") : String(mvps.length) });
-  if (bestBet) facts.push({ id:"best", label:`Best bet · ${bestBet.pick}, ${bestBet.event}`, value:signed(bestBet.delta) });
-  else if (betRecord) facts.push({ id:"bets", label:"Bets", value:`${betRecord.won}–${betRecord.lost} · ${signed(betRecord.net)}` });
-  if (quickDraw) facts.push({ id:"qd", label:"Quick Draw", value:`${quickDraw.won}–${quickDraw.lost} · ${signed(quickDraw.net)}` });
-  if (high) {
-    const when = momentLabel(high.at);
-    facts.push({ id:"high", label:when ? `High · ${when}` : "High", value:fmt(high.pts) });
-  }
+  if (bestBet) facts.push({ id:"best", label:`Best bet on ${bestBet.pick}`, value:signed(bestBet.delta) });
+  else if (betRecord) facts.push({ id:"bets", label:`Bets ${betRecord.won}–${betRecord.lost}`, value:signed(betRecord.net) });
+  if (quickDraw) facts.push({ id:"qd", label:`Quick Draw ${quickDraw.won}–${quickDraw.lost}`, value:signed(quickDraw.net) });
+  if (high) facts.push({ id:"high", label:"High", value:fmt(high.pts) });
 
   return {
     player, name:disp(state, player), num:num == null ? null : Number(num),
@@ -242,7 +239,10 @@ export function chartModel(history, { width = 330, height = 128, top = 20, botto
      on the side the line did not come from */
   if (peak) peak.label = { x:Math.min(Math.max(peak.x, left + 16), width - right - 16), y:peak.y - 9, anchor:"middle" };
   const cameFrom = points[n - 2]?.y ?? last.y;
-  last.label = { x:last.x - 8, y:cameFrom < last.y ? last.y + 16 : last.y - 8, anchor:"end" };
+  /* below the point when the line falls into it, unless that would sit on the
+     axis labels (a bust at 0): then above it */
+  const below = last.y + 16;
+  last.label = { x:last.x - 8, y:cameFrom < last.y && below <= height - bottom - 2 ? below : last.y - 8, anchor:"end" };
   const ticks = [];
   series.forEach((step, i) => {
     if (i > 0 && step.session === series[i - 1].session) return;

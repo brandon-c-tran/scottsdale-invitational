@@ -271,7 +271,7 @@ test("the TV draws the session's band with the flat board where WebGL is absent"
       showControlEnabled:false, connection:{ ready:true, connected:true, version:3 }, now:Date.now() + 3600e3, onExit:() => {} })));
   assert.match(html, /data-phase="fri"/);
   assert.match(html, /data-towers="2d"/, "no WebGL on the server: the flat board, no error");
-  assert.match(html, /class="tv-desert is-strip tv-backdrop"/);
+  assert.match(html, /class="tv-desert is-glass tv-backdrop"/, "the session painted across the whole canvas");
   assert.ok(!html.includes("tv-towers-canvas"));
 });
 
@@ -286,9 +286,15 @@ test("Weekend > Games shows the trophy with a stamped plate per posted event", (
   assert.equal((html.match(/fd-trophy-plate is-posted/g) || []).length, 1);
   assert.equal((html.match(/class="fd-trophy-plate"/g) || []).length, events.filter(ev => !ev.finale).length - 1,
     "every other plate is blank");
-  assert.match(html, /class="fd-trophy-stamp"[^>]*>7</, "stamped with the winner's number");
+  /* Oct 2: a plate shows the winner's chip and name; a jersey number never
+     stands in for a person */
+  assert.match(html, /class="fd-trophy-winner"[^>]*>Evan</, "the plate names its winner");
+  assert.ok(!/fd-trophy-stamp/.test(html), "no number stamps");
   const tv = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
-    React.createElement(TrophyPlates, { state, events, variant:"tv", cup:300 })));
+    React.createElement(TrophyPlates, { state, events, variant:"tv", cup:440 })));
   assert.match(tv, /fd-trophy is-tv/);
-  assert.match(tv, />FIELD DAY</);
+  assert.match(tv, />FIELD DAY</, "a cup big enough letters its plate at the TV's 24px floor");
+  const small = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+    React.createElement(TrophyPlates, { state, events, variant:"tv", cup:200 })));
+  assert.doesNotMatch(small, />FIELD DAY</, "a smaller one leaves its plate blank rather than letter it under 24px");
 });

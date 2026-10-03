@@ -109,6 +109,8 @@ const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 /* a phone counts as looking at the app when its socket said so recently;
    a foreground phone pings every 25 seconds */
 const PRESENCE_FRESH_MS = 40 * 1000;
+/* what a TV socket says about its own sound (client.js reportTvSound) */
+const TV_SOUND = new Set(["on", "blocked"]);
 const SPOTIFY_SEARCH_LIMIT = 40;
 /* preview clip lookups per device per minute (answers are cached) */
 const PREVIEW_LIMIT = 60;
@@ -1399,13 +1401,15 @@ export class Tournament {
     if (!meta || typeof meta !== "object") meta = this.socketFallback.get(ws) || null;
     return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:typeof meta?.gmId === "string" ? meta.gmId : null,
-      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0 };
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
   }
 
   setSocketMeta(ws, meta) {
     const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null,
-      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0 };
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
     try { ws?.serializeAttachment?.(clean); } catch {}
     if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
     return clean;
@@ -1415,6 +1419,32 @@ export class Tournament {
      action check below; if GM tokens change shape, change both together. */
   async messageIsGm(gmToken) {
     return !!await this.gmTokenId(gmToken);
+  }
+
+  /* The commissioner's TV check: every TV socket's own sound report and
+     how long since it last spoke. Presence only: never stored, never in a
+     snapshot, and only in commissioner frames (stateFrame, sendTvs). */
+  tvSummary(skip = null, now = Date.now()) {
+    const tvs = [];
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip) continue;
+      const meta = this.socketMeta(ws);
+      if (!meta.tv) continue;
+      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)) });
+    }
+    return tvs;
+  }
+
+  /* a TV spoke (hello, ping, presence) or left: tell commissioner sockets */
+  sendTvs(skip = null) {
+    let tvs = null;
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip) continue;
+      const meta = this.socketMeta(ws);
+      if (!this.viewerFor(meta).isGm) continue;
+      tvs ||= this.tvSummary(skip);
+      try { ws.send(JSON.stringify({ type:"tvs", tvs })); } catch {}
+    }
   }
 
   viewerFor(meta) {
@@ -1442,6 +1472,8 @@ export class Tournament {
       /* whether this connection currently holds a commissioner view, so a
          phone whose token was revoked leaves its commissioner screens */
       ...(meta.deviceId ? { gm:viewer.isGm } : {}),
+      /* the commissioner's TV check (presence, never state) */
+      ...(viewer.isGm ? { tvs:this.tvSummary() } : {}),
       environment:shared?.environment ?? this.environment,
       capabilities,
       /* the VAPID public key a phone subscribes with; public by nature */
@@ -1480,18 +1512,25 @@ export class Tournament {
     /* Presence rides hello, ping and a hidden notice: a phone looking at
        the app gets no pocket alert. A client that never says is foreground. */
     const visible = typeof payload?.visible === "boolean" ? payload.visible : null;
+    const tvSound = TV_SOUND.has(payload?.tvSound) ? payload.tvSound : null;
     if (type === "hello") {
       const gmId = await this.gmTokenId(gmToken);
-      meta = this.setSocketMeta(ws, { ...meta, tv:payload?.view === "tv", gm:!!gmId, gmId,
-        fg:visible !== false, seenAt:Date.now() });
+      const tv = payload?.view === "tv";
+      meta = this.setSocketMeta(ws, { ...meta, tv, gm:!!gmId, gmId,
+        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
       const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
+      if (tv) this.sendTvs();
       return;
     }
     if (type === "ping" || type === "presence") {
-      meta = this.setSocketMeta(ws, { ...meta, fg:visible ?? (type === "ping" ? meta.fg : false),
-        seenAt:Date.now() });
+      /* a socket can switch views (the app's own TV mode): its report says which */
+      const wasTv = !!meta.tv;
+      const tv = payload?.view === "tv" ? true : payload?.view === "app" ? false : wasTv;
+      meta = this.setSocketMeta(ws, { ...meta, tv, fg:visible ?? (type === "ping" ? meta.fg : false),
+        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
       if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {}
+      if (tv || wasTv) this.sendTvs();
       return;
     }
 
@@ -1812,6 +1851,11 @@ export class Tournament {
     }
   }
 
-  async webSocketClose(ws) { try { ws.close(); } catch {} }
-  async webSocketError(ws) { try { ws.close(); } catch {} }
+  async webSocketClose(ws) { this.socketGone(ws); }
+  async webSocketError(ws) { this.socketGone(ws); }
+  socketGone(ws) {
+    const tv = this.socketMeta(ws).tv;
+    try { ws.close(); } catch {}
+    if (tv) this.sendTvs(ws);
+  }
 }

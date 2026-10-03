@@ -194,7 +194,7 @@ test("a chosen song: its cover plays the clip, the room's 30 seconds sit on a ti
   const changes = [];
   const { html, buttons } = render(React.createElement(WinSongPicker, { value:track, onChange:value => changes.push(value) }));
   assert.match(html, /Anthem/);
-  assert.match(html, /Band, Guest · 3:20/);
+  assert.match(html, /<small>Band, Guest<\/small>/);
   assert.match(html, />1:05</);
   assert.match(html, /Plays 1:05 to 1:35/);
   assert.match(html, /role="slider"[^>]*aria-valuetext="Plays 1:05 to 1:35"/);

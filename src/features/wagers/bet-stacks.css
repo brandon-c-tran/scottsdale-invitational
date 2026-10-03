@@ -18,14 +18,19 @@
 /* capped: the value, stamped on the stack's shoulder */
 .fd-stack-tag { position:absolute; left:50%; top:0; z-index:1; transform:translate(-50%, -62%); padding:2px 5px;
   border-radius:99px; background:var(--ink0); color:var(--bone); border:1px solid var(--stack-color);
-  font:700 10px/1 var(--fd-display, 'Barlow Condensed', sans-serif); letter-spacing:.02em; white-space:nowrap; }
+  font:700 12px/1 var(--fd-display); letter-spacing:.02em; white-space:nowrap; }
 
 .fd-stacks { display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px 10px; min-width:0; }
 .fd-stacks-slot { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; }
 .fd-stacks-body { display:flex; align-items:flex-end; gap:6px; line-height:0; }
 .fd-stacks-name { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* the folded bettors' count: a small silver chip, not a name */
+.fd-stacks-group .fd-stacks-name.fd-stacks-count { display:inline-flex; align-items:center; justify-content:center; min-width:2.1em;
+  height:1.45em; padding:0 .45em; border-radius:99px; background:var(--silver); color:var(--ink0);
+  box-shadow:inset 0 0 0 .14em color-mix(in srgb, var(--ink0) 22%, transparent); font-family:var(--fd-display); font-weight:800;
+  line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; overflow:visible; }
 /* every stack's amount, on one line the board reserves */
-.fd-stacks-value { display:block; font:700 12px/1 var(--fd-display, 'Barlow Condensed', sans-serif); letter-spacing:.02em;
+.fd-stacks-value { display:block; font:700 12px/1 var(--fd-display, var(--fd-display)); letter-spacing:.02em;
   font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--bone); }
 .fd-stacks.is-value-side .fd-stacks-value { padding-bottom:2px; }
 

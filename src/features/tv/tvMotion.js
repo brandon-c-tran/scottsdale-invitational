@@ -29,21 +29,48 @@ export const ADVANCE_TIMING = Object.freeze({
   total:3200,
 });
 
-/* ms from the crown (p5-tv-champion, its T0 hold kept) */
+/* ms from the crown: the produced crown (Backglass, Oct 2; retimed Oct 2
+   from 66s to about 23s: "each place takes so long"). Night falls on the
+   art and the towers stand in final order (3.5s), they go dark one by one
+   from last place up to 3rd 0.6s apart (each name and final stack
+   stamped), the last two hold on a roll (2s), 2nd goes dark, the
+   champion's tower rises, their color floods out from it, the name lands,
+   the stack counts, and the constellation joins. Every phone floods on the
+   same `flood` beat and sounds its note of the room's chord. */
 export const CROWN_TIMING = Object.freeze({
-  hold:400,                          // the final standings, as they stood
-  stepDown:400, stepStagger:35, stepMs:320,
-  rise:850, riseMs:600,              // the champion's row rises to the middle
-  flood:1450, floodMs:700,           // their color floods from their own face
-  chip:2000, chipMs:1200,            // their chip drops and turns twice
-  tag:2300, tagMs:300,               // CHAMPION stamps
-  name:2400, nameStagger:60, nameMs:340,
-  stats:2700, statsMs:200,
-  count:2800, countMs:1200,          // the final stack counts in 25s
-  path:3400, pathStagger:90, pathMs:300,
-  lines:3700, lineStagger:300, lineMs:300,
-  total:4800,
+  night:0, nightMs:1800,             // lean-in: night falls on the art
+  title:700,                         // "Final" lights
+  towers:1600, towersMs:1500, towersStagger:100, // the towers stand, last place first
+  hold:3300,                         // the final standings, as they stood
+  stepDown:3600, stepStagger:600, stepMs:500, // a tower goes dark, 13th up to 3rd
+  holdTwo:10200, holdTwoMs:2000,     // the last two hold
+  second:12200,                      // 2nd goes dark
+  rise:13000, riseMs:1500,           // the champion's tower rises and cascades
+  flood:14500, floodMs:1000,         // their color floods from their tower
+  chip:15400, chipMs:1400,           // their chip drops and turns twice
+  tag:15900, tagMs:300,              // CHAMPION stamps
+  name:16200, nameStagger:60, nameMs:380,
+  stats:17200, statsMs:300,
+  count:17600, countMs:1800,         // the final stack counts in 25s
+  path:18200, pathStagger:110, pathMs:300,
+  lines:19800, lineStagger:300, lineMs:300, // the constellation joins
+  total:23500,
 });
+
+/* When the tower in final position `index` (0 = champion) of `count` goes
+   dark, ms from the crown. The field from last place up to 3rd steps
+   `stepStagger` apart from stepDown, ending a step before the last two's
+   hold; 2nd goes at `second`; the champion's rises at `rise`. A shorter
+   field takes up to two steps per tower to fill the same window. */
+export function crownOutAt(index, count, C = CROWN_TIMING) {
+  const n = Math.max(1, Math.floor(Number(count) || 1));
+  const i = Math.max(0, Math.min(n - 1, Math.floor(Number(index) || 0)));
+  if (i === 0) return C.rise;
+  if (i === 1) return C.second;
+  const outs = n - 2;
+  const step = outs > 1 ? Math.min(2 * C.stepStagger, (C.holdTwo - C.stepStagger - C.stepDown) / (outs - 1)) : 0;
+  return Math.round(C.stepDown + (n - 1 - i) * step);
+}
 
 /* ── the bracket ── */
 

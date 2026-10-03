@@ -1,120 +1,128 @@
 .fd-standings-page { padding:0 18px 24px; }
 .fd-standings-page .fd-page-heading { padding-bottom:16px; }
-.fd-board-state { display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
-  color:var(--sun); font:700 10px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; }
-.fd-board-state i,.fd-now-status i { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.fd-board-state { display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+  color:var(--ink); font:800 16px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-board-state.is-final { color:var(--ink); }
 .fd-leader-panel { position:relative; margin:0 0 16px; padding:18px;
-  border:1px solid var(--line); border-top:4px solid var(--sun); border-radius:10px;
+  border:1px solid var(--sun); border-radius:14px; box-shadow:var(--chip-bloom), var(--glass-edge);
   background:var(--paper2); color:var(--ink); overflow:hidden; }
-.fd-leader-topline { display:flex; justify-content:space-between; gap:14px;
-  font:600 9px/1.4 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; }
-.fd-leader-topline>span:last-child { flex-shrink:0; color:var(--muted2); }
-.fd-leader-identity { display:flex; align-items:center; gap:14px; margin:17px 0 4px;
+.fd-leader-topline { margin:0; color:var(--sun); font:800 18px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-leader-identity { display:flex; align-items:center; gap:14px; margin:14px 0 4px;
   width:100%; padding:0; border:0; background:none; text-align:left; color:var(--ink); cursor:pointer; }
-.fd-leader-identity>span { min-width:0; flex:1; font:700 clamp(29px,8vw,42px)/1 var(--fd-display);
-  text-transform:uppercase; overflow-wrap:anywhere; }
-.fd-leader-score { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px; margin-top:8px; }
-.fd-leader-score>strong { font:700 clamp(58px,17vw,82px)/.95 var(--fd-display);
-  color:var(--sun); font-variant-numeric:tabular-nums; }
-.fd-leader-score>span { padding-bottom:6px; text-transform:uppercase;
-  font:600 8px/1.5 var(--fd-body); letter-spacing:.08em; color:var(--muted2); }
+.fd-leader-identity>span { min-width:0; flex:1; font-size:clamp(30px,8.5vw,42px); overflow-wrap:anywhere; }
+.fd-leader-score { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; margin-top:8px; }
+.fd-leader-score>strong { font:800 clamp(58px,17vw,82px)/.95 var(--fd-display); color:var(--sun); }
+.fd-leader-score>span { color:var(--muted2); font:700 16px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-leader-tiebreak { border-top:1px solid var(--line); margin:15px 0 0; padding-top:12px;
-  font:500 12px/1.5 var(--fd-body); }
+  font:500 13px/1.5 var(--fd-body); }
 .fd-now-card { display:block; width:100%; margin:0 0 20px; padding:14px;
-  border:1px solid var(--line); border-radius:10px; background:var(--paper);
+  border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge);
   color:var(--ink); text-align:left; }
 button.fd-now-card { cursor:pointer; }
+.fd-now-live { border-color:var(--lamp-live); box-shadow:var(--live-bloom), var(--glass-edge); }
 .fd-now-event-link { display:block; width:100%; border:0; padding:0; background:none;
   color:inherit; text-align:left; cursor:pointer; }
 .fd-now-topline { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.fd-now-status { display:inline-flex; align-items:center; gap:6px; color:var(--muted2);
-  font:700 9px/1.3 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; }
-.fd-now-live .fd-now-status { color:var(--sun); }
-.fd-now-open { font:400 21px/1 var(--fd-body); color:var(--muted2); }
-.fd-now-title-row { display:flex; align-items:center; gap:12px; margin:7px 0 10px; }
+.fd-now-status { display:inline-flex; align-items:center; gap:8px; color:var(--muted2);
+  font:800 15px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-now-live .fd-now-status { color:var(--ink); }
+.fd-now-open { display:flex; color:var(--muted2); }
+.fd-now-title-row { display:flex; align-items:center; gap:12px; margin:8px 0 10px; }
 .fd-now-title-row>svg { flex-shrink:0; }
-.fd-now-event { min-width:0; font:700 clamp(22px,6vw,28px)/1.05 var(--fd-display);
-  text-transform:uppercase; overflow-wrap:anywhere; }
-.fd-now-matchup { display:grid; grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);
+.fd-now-event { min-width:0; font-size:clamp(24px,6.5vw,30px); overflow-wrap:anywhere; }
+.fd-now-matchup { display:grid; grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);
   gap:8px 5px; border-top:1px solid var(--line); padding-top:10px; }
-.fd-now-round { grid-column:1/-1; font:600 9px/1.3 var(--fd-body);
+.fd-now-round { grid-column:1/-1; font:700 14px/1.3 var(--fd-display);
   text-transform:uppercase; letter-spacing:.06em; color:var(--muted2); }
 .fd-now-players { display:flex; min-width:0; flex-direction:column; }
-.fd-now-player { display:flex; align-items:center; gap:7px; min-height:40px; width:100%; padding:4px 0;
-  border:0; background:none; color:var(--ink); font:600 11px/1.4 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-now-player { display:flex; align-items:center; gap:8px; min-height:44px; width:100%; padding:4px 0;
+  border:0; background:none; color:var(--ink); font:600 14px/1.3 var(--fd-body); text-align:left; cursor:pointer; }
 .fd-now-player>span { overflow-wrap:anywhere; }
-.fd-now-versus { align-self:center; text-align:center; color:var(--muted);
-  font:500 9px/1 var(--fd-body); }
+.fd-now-versus { align-self:center; text-align:center; color:var(--muted2);
+  font:800 15px/1 var(--fd-display); text-transform:uppercase; }
 .fd-now-progress { display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px 12px; margin-top:10px;
-  color:var(--muted2); font:500 10px/1.4 var(--fd-body); }
-.fd-now-progress>button { border:0; background:none; color:var(--ink); font:inherit; min-height:44px; cursor:pointer; }
-.fd-now-progress progress { width:100%; height:3px; grid-column:1/-1; border:0;
-  border-radius:0; background:var(--line); color:var(--sun); appearance:none; }
+  color:var(--muted2); font:500 13px/1.4 var(--fd-body); }
+.fd-now-progress>button { display:flex; align-items:center; gap:4px; border:0; background:none; color:var(--lamp-info); font:600 14px/1 var(--fd-body); min-height:44px; cursor:pointer; }
+.fd-now-progress progress { width:100%; height:4px; grid-column:1/-1; border:0;
+  border-radius:0; background:var(--line); color:var(--lamp-live); appearance:none; }
 .fd-now-progress progress::-webkit-progress-bar { background:var(--line); }
-.fd-now-progress progress::-webkit-progress-value { background:var(--sun); }
-.fd-now-progress progress::-moz-progress-bar { background:var(--sun); }
+.fd-now-progress progress::-webkit-progress-value { background:var(--lamp-live); }
+.fd-now-progress progress::-moz-progress-bar { background:var(--lamp-live); }
 .fd-now-result { background:var(--paper2); }
 .fd-now-result-body { display:flex; align-items:center; justify-content:space-between; gap:16px;
   border-top:1px solid var(--line); padding-top:8px; }
 .fd-now-award { display:flex; flex-direction:column; flex-shrink:0; text-align:right; gap:2px; }
-.fd-now-award>strong { font:700 34px/.95 var(--fd-display); color:var(--sun); }
-.fd-now-award>span { font:500 9px/1.4 var(--fd-body); color:var(--muted2); }
+.fd-now-award>strong { font:800 34px/.95 var(--fd-display); color:var(--sun); }
+.fd-now-award>span { font:600 12px/1.4 var(--fd-body); color:var(--muted2); }
 .fd-now-impact { display:block; border-top:1px solid var(--line); padding-top:9px; margin-top:9px;
-  font:400 11px/1.5 var(--fd-body); color:var(--muted2); }
+  font:400 13px/1.5 var(--fd-body); color:var(--muted2); }
 .fd-now-next-detail { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px 14px;
-  font:500 10px/1.4 var(--fd-body); color:var(--muted2); }
-/* X1: the live table. Every row is about 47px so all 13 fit one phone
-   screen: rank, face, name with its pills, the chip bar, the total. */
-.fd-standings-column-head { display:grid; grid-template-columns:24px minmax(0,1fr) auto;
-  gap:9px; margin:4px 0 0; padding:0 0 7px; border-bottom:1px solid var(--muted);
-  font:600 9px/1.2 var(--fd-body); color:var(--muted2); letter-spacing:.06em; }
-.fd-leaderboard.has-adjustments .fd-standings-column-head { padding-right:58px; }
+  font:500 13px/1.4 var(--fd-body); color:var(--muted2); }
+
+/* X1: the live table as a bank of lamp rows: rank, the player's painted
+   insert (their face), the name, the chip run, one plain number. At rest a
+   row carries nothing else; a rank move appears only while it rolls.
+   Your row is lit in your filament and, when it would scroll out under the
+   tab bar, stays pinned to the bottom edge. */
+.fd-standings-column-head { display:grid; grid-template-columns:30px minmax(0,1fr) auto;
+  gap:10px; margin:4px 0 0; padding:0 4px 6px; border-bottom:1px solid var(--ghost-line);
+  font:700 13px/1.2 var(--fd-display); color:var(--muted2); letter-spacing:.08em; text-transform:uppercase; }
+.fd-leaderboard.has-adjustments .fd-standings-column-head { padding-right:62px; }
 .fd-leaderboard { --fd-row-ground:var(--bg); }
 .si-sheet .fd-leaderboard { --fd-row-ground:var(--paper); }
 .fd-standings-list { position:relative; list-style:none; padding:0; margin:0; }
 .fd-standings-list>li { position:relative; border-bottom:1px solid var(--line); }
 .fd-standings-row { display:grid; align-items:center;
-  grid-template-columns:24px 28px minmax(0,1fr) auto; gap:0 9px;
-  width:100%; min-height:47px; padding:6px 0; border:0; border-radius:0; background:transparent;
+  grid-template-columns:30px 32px minmax(0,1fr) auto; gap:0 10px;
+  width:100%; min-height:60px; padding:8px 4px; border:0; border-radius:0; background:transparent;
   color:var(--ink); text-align:left; cursor:pointer; }
+.fd-leaderboard.is-starting .fd-standings-row { grid-template-columns:0 32px minmax(0,1fr) auto; column-gap:12px; }
+.fd-leaderboard.is-starting .fd-standings-column-head { grid-template-columns:0 minmax(0,1fr) auto; }
 .fd-standings-row:active { transform:none; }
-.fd-standing-position { position:relative; display:block; height:22px; overflow:hidden; text-align:center; color:var(--muted2);
-  font:600 20px/22px var(--fd-display); font-variant-numeric:tabular-nums; }
-.fd-standing-player { display:flex; flex-direction:column; gap:5px; min-width:0; }
-.fd-standing-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 7px; min-width:0; }
+.fd-standing-position { position:relative; display:block; height:24px; overflow:hidden; text-align:center; color:var(--muted2);
+  font:800 21px/24px var(--fd-display); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-standing-player { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.fd-standing-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; min-width:0; }
 .fd-standing-name { min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font:600 13px/18px var(--fd-body); }
-.fd-standing-flags { display:flex; gap:6px; font:700 9px/1.2 var(--fd-body); letter-spacing:.08em; }
-.fd-standing-you { color:var(--muted2); }
+  font:600 16px/20px var(--fd-body); }
+.fd-standing-flags { display:flex; gap:6px; font:800 14px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-standing-you { color:var(--you); }
 .fd-standing-out { color:var(--clay-text); }
-.fd-standing-score { position:relative; display:flex; align-items:flex-end; flex-direction:column; }
-.fd-standing-score>strong { font:700 25px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
-.fd-standing-delta { position:absolute; top:100%; right:0; display:inline-flex; align-items:center; gap:2px; margin-top:1px;
-  color:var(--green); font:700 9px/1 var(--fd-body); }
+.fd-standing-score { position:relative; display:flex; align-items:flex-end; flex-direction:column; min-width:64px; padding-left:8px; }
+/* plain Big Shoulders numerals with room around them: bone at rest, your
+   own in your filament, the leader's in amber (chips) */
+.fd-standing-score>strong { font:800 26px/1.15 var(--fd-display); letter-spacing:.02em; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
+.fd-standings-list>.is-leading .fd-standing-score>strong { color:var(--sun); }
+.fd-standings-list>.is-you .fd-standing-score>strong { color:var(--you); }
+.fd-standing-delta { position:absolute; top:100%; right:0; display:inline-flex; align-items:center; gap:1px; margin-top:2px;
+  color:var(--green); font:800 13px/1 var(--fd-display); }
 .fd-standing-delta.is-down { color:var(--clay-text); }
-.fd-standing-stats:empty { display:none; }
-/* StatPills sets its own inline layout; on the name line it sits inline */
-.fd-standing-stats>div { margin-top:0 !important; gap:4px !important; }
-.fd-chip-bar { display:flex; gap:2px; width:100%; height:6px; border-radius:99px; background:var(--ink-tint); }
-.fd-chip-bar>span { flex:none; min-width:4px; height:100%; border-radius:99px; }
+/* one notch per 100: --fd-chip-unit is one chip's share of the track */
+.fd-chip-bar { position:relative; display:flex; gap:0; width:100%; height:7px; border-radius:2px; background:var(--ink-tint); overflow:hidden; }
+.fd-chip-bar::after { content:""; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(90deg, transparent 0 calc(var(--fd-chip-unit, 5%) - 1.5px), var(--fd-row-ground) calc(var(--fd-chip-unit, 5%) - 1.5px) var(--fd-chip-unit, 5%)); }
+.fd-chip-bar>span { flex:none; min-width:3px; height:100%; }
 .fd-chip-bar-risk { box-sizing:border-box; border:1.5px solid var(--sun); }
 .fd-chip-bar-risk.is-duels { border-color:var(--muted2); }
-.fd-standings-list>.is-leading .fd-standing-position,
-.fd-standings-list>.is-leading .fd-standing-score>strong { color:var(--sun); font-weight:700; }
-.fd-standings-list>.is-you { background:var(--sun-tint); }
-.fd-standings-list>.is-you::before { content:""; position:absolute; inset:7px auto 7px -7px; width:2px; background:var(--sun); }
+/* the leader's rank reads in bone like every rank: amber belongs to the
+   chips, and position already says who leads */
+/* your row: lit in your filament, opaque so it can ride over the others */
+.fd-standings-list>.is-you { z-index:4; border-bottom-color:transparent; border-radius:10px;
+  background:color-mix(in srgb, var(--you) 9%, var(--fd-row-ground)); box-shadow:var(--you-bloom); }
+.fd-standings-list>.is-you .fd-standing-position { color:var(--you); }
+.fd-home .fd-standings-list>.is-you { position:sticky; bottom:calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 8px); }
+.si-sheet .fd-standings-list>.is-you { position:sticky; bottom:8px; }
 /* M2 + M3: the board after a fresh change (timings in boardModel.js
    BOARD_BEATS). Resting styles are the end state; reduced motion never
    mounts the moving parts. */
 .fd-standings-list>li.is-moving { z-index:1; background-color:var(--fd-row-ground); }
 .fd-standings-list>li.is-moving.is-rising { z-index:3; box-shadow:var(--shadow-2); }
-.fd-standings-list>li.is-you.is-moving { box-shadow:inset 0 0 0 999px var(--sun-tint); }
-.fd-standings-list>li.is-you.is-moving.is-rising { box-shadow:inset 0 0 0 999px var(--sun-tint), var(--shadow-2); }
+.fd-standings-list>li.is-you.is-moving { z-index:5; background-color:color-mix(in srgb, var(--you) 9%, var(--fd-row-ground)); box-shadow:var(--you-bloom); }
+.fd-standings-list>li.is-you.is-moving.is-rising { box-shadow:var(--you-bloom), var(--shadow-2); }
 .fd-standing-rise { position:absolute; right:0; bottom:100%; margin-bottom:-2px; white-space:nowrap;
-  font:700 15px/1 var(--fd-display); animation-delay:150ms; }
-.fd-rank-roll { position:relative; display:block; height:22px; }
-.fd-rank-roll>span { display:block; height:22px; }
+  font:800 16px/1 var(--fd-display); animation-delay:150ms; }
+.fd-rank-roll { position:relative; display:block; height:24px; }
+.fd-rank-roll>span { display:block; height:24px; }
 .fd-rank-old { position:absolute; inset:0; opacity:0; }
 .fd-rank-roll .fd-rank-old { animation:fd-rank-out var(--motion-rank, 200ms) var(--ease-out) var(--roll-delay, 0ms) both; }
 .fd-rank-roll .fd-rank-new { animation:fd-rank-in var(--motion-rank, 200ms) var(--ease-out) var(--roll-delay, 0ms) both; }
@@ -126,33 +134,32 @@ button.fd-now-card { cursor:pointer; }
 @keyframes fd-rank-in-down { from { opacity:0; transform:translateY(-100%); } to { opacity:1; transform:none; } }
 .fd-standing-delta.is-popping { animation:fd-arrow-pop 220ms var(--ease-land) 1500ms both; }
 @keyframes fd-arrow-pop { from { opacity:0; transform:scale(0); } to { opacity:1; transform:none; } }
+/* a new sole leader's row lights amber once */
 .fd-standings-row[data-new-leader] { animation:fd-lead-warm 1500ms var(--ease-out) 1500ms both; }
-.fd-standings-row[data-new-leader] .fd-standing-score>strong,
 .fd-standings-row[data-new-leader] .fd-standing-position { animation:fd-lead-ink 300ms var(--ease-out) 1500ms both; }
 @keyframes fd-lead-warm { from { background-color:transparent; } 25% { background-color:var(--sun-tint); } to { background-color:transparent; } }
 @keyframes fd-lead-ink { from { color:var(--ink); } to { color:var(--sun); } }
 .fd-lead-sweep { position:absolute; left:0; right:0; bottom:-1px; z-index:2; height:2px; background:var(--sun);
-  transform-origin:left center; opacity:0; pointer-events:none;
+  box-shadow:0 0 10px var(--sun); transform-origin:left center; opacity:0; pointer-events:none;
   animation:fd-lead-sweep 800ms var(--ease-out) 1550ms both; }
 @keyframes fd-lead-sweep { 0% { opacity:1; transform:scaleX(0); } 50% { opacity:1; transform:scaleX(1); } 100% { opacity:0; transform:scaleX(1); } }
 .fd-standings-list>.has-adjust { display:flex; align-items:center; gap:10px; }
 .fd-standings-list>.has-adjust>.fd-standings-row { min-width:0; flex:1; }
-.fd-standing-adjust { background:var(--paper); border:1px solid var(--line); border-radius:6px;
-  color:var(--muted2); min-height:44px; padding:7px; font:600 10px/1 var(--fd-body); cursor:pointer; }
+.fd-standing-adjust { background:var(--paper); border:1px solid var(--line); border-radius:8px;
+  color:var(--lamp-info); min-height:44px; min-width:52px; padding:7px; font:600 13px/1 var(--fd-body); cursor:pointer; }
 .fd-board-commissioner { display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:23px 0 2px; }
-.fd-board-commissioner>span { color:var(--muted2); text-transform:uppercase; font:600 9px/1.3 var(--fd-body); letter-spacing:.08em; }
-.fd-standings-page button:focus-visible,.fd-leaderboard button:focus-visible { outline:2px solid var(--sun); outline-offset:3px; }
+.fd-standings-page button:focus-visible,.fd-leaderboard button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
 @media (hover:hover) {
   .fd-now-player:hover>span,.fd-standings-row:hover .fd-standing-name { text-decoration:underline; text-underline-offset:3px; }
-  .fd-now-event-link:hover .fd-now-event { color:var(--sun); }
+  .fd-now-event-link:hover .fd-now-event { color:var(--lamp-info); }
 }
 @media (max-width:360px) {
   .fd-standings-page { padding-left:14px; padding-right:14px; }
   .fd-now-card { padding:12px; }
-  .fd-standing-name { font-size:12px; }
-  .fd-standings-row { grid-template-columns:20px 28px minmax(0,1fr) auto; column-gap:7px; }
-  .fd-standing-score>strong { font-size:23px; }
-  .fd-standings-column-head { grid-template-columns:20px minmax(0,1fr) auto; gap:7px; }
+  .fd-standing-name { font-size:15px; }
+  .fd-standings-row { grid-template-columns:26px 30px minmax(0,1fr) auto; column-gap:8px; }
+  .fd-standing-score>strong { font-size:24px; }
+  .fd-standings-column-head { grid-template-columns:26px minmax(0,1fr) auto; gap:8px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .fd-rank-roll .fd-rank-old { display:none; }

@@ -3,6 +3,7 @@ import { disp } from "../../../shared/core.js";
 import { JERSEY_NAME_MAX, cleanBackName, jerseyName } from "../../../shared/guestSetup.js";
 import { SizeRow } from "../travel/Travel.jsx";
 import "./jersey.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 /* The back of the jersey as it will print: the name across the shoulders,
    the number, the size on the collar tag. Neutral cloth, because only these
@@ -41,9 +42,7 @@ function JerseySection({ state, me, display, backName, setBackName, num, setNum,
       <div className="fd-jersey-stage">
         <JerseyBack name={name} num={num} size={size} />
         {locked ? <p className="fd-jersey-status">Jerseys are ordered</p>
-          : confirmed && <p className="fd-jersey-status is-ok"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"
-            stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="m3.2 8.3 3 3 6.6-6.6" /></svg>Confirmed</p>}
+          : confirmed && <p className="fd-jersey-status is-ok"><Icon name="check" size={14} />Confirmed</p>}
       </div>
       <div className="fd-profile-name-row">
         <label className="fd-profile-field">

@@ -26,7 +26,6 @@ function AlertsRow() {
   const on = row === "on";
   return <div className="fd-profile-vibration fd-alerts-row" aria-busy={alerts.busy}>
     <span><span id="fd-alerts-label">Alerts</span>
-      <small>Your match, your pick, a challenge</small>
       {alerts.error && <small className="fd-alerts-error" role="alert">{alerts.error}</small>}</span>
     {row === "blocked"
       ? <span className="fd-alerts-blocked">Off in Settings</span>

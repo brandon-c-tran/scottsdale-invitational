@@ -232,8 +232,10 @@ test("C18 UI: the actual finalists are tapped 1st, 2nd, 3rd and Record order sen
   const props = { state, ev, me:"Brandon", gm:true, onPlayer:() => {}, onLock:() => ({ ok:true }), onUndo:() => ({ ok:true }),
     onWinner:payload => { sent.push(payload); return applyAction(state, "recordContestWinner", { evId:ev.id, ...payload }, gm()); } };
   const start = render(ContestPanel, props);
-  assert.match(start.html, /Tap 1st, 2nd and 3rd\./);
-  assert.equal(start.named("Record order").disabled, true);
+  /* each pick shows the place it will take; the button names what is owed */
+  assert.doesNotMatch(start.html, /Tap 1st/);
+  assert.ok(start.named(`1st: ${a}`));
+  assert.equal(start.named("Pick 1st").disabled, true);
   /* two places and one finalist left: the third is implied */
   const view = render(ContestPanel, props, [`1st: ${b}`, `2nd: ${c}`]);
   assert.ok(view.named(`Remove ${b} from 1st`));
@@ -264,7 +266,7 @@ test("C12/C21/C22: director beats carry a short verb and their subject", () => {
   assert.equal(first.label, "Announce and draw");
   assert.equal(first.subject, "Pickleball Doubles");
   const model = directorPill(state, allEventsOf(state), director(state));
-  assert.deepEqual(model.lines, ["Pickleball Doubles", "Crew: Jeremy · Event official"]);
+  assert.deepEqual(model.lines, ["Pickleball Doubles", "Crew: Jeremy (Event official)"]);
   assert.deepEqual(model.extras.map(extra => extra.label), ["Change crew", "Skip"]);
   assert.equal(model.run.write, "announceAndDraw");
   assert.equal(model.run.startsWeekend, true, "The App's act() confirms the weekend start");

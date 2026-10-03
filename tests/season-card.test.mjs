@@ -244,7 +244,7 @@ test("the card back prints the season, your record against them, and your rivals
   const base = { state:s, standings:computeStandings(s), events:allEventsOf(s), onClose:() => {}, onDuel:() => ({ ok:true }) };
   const theirs = render(PlayerSheet, { ...base, me:C, p:A });
   assert.match(theirs.html, /You vs Chiang/);
-  assert.match(theirs.html, /Beer Pong Doubles · Final/);
+  assert.doesNotMatch(theirs.html, /Beer Pong Doubles · Final/, "the meeting names the event, no round meta");
   assert.match(theirs.html, /Beer Pong Doubles/);
   assert.match(theirs.html, /\+1,200/);
   assert.match(theirs.html, /2,200/);

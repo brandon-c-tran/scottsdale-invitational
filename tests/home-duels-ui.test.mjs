@@ -98,7 +98,8 @@ test("decline stays until the recipient runs and waiting players cannot replay",
   const started = controls({ ...fresh(), duels:[duel({ runs:{ [other]:{ ms:180 } } })] });
   assert.ok(started.buttons.some(button => button.name.startsWith("Decline")));
   assert.ok(started.buttons.some(button => button.name.startsWith("Play")));
-  assert.doesNotMatch(started.html, /180/);
+  /* the painted band's geometry is decoration (aria-hidden svg), not a time */
+  assert.doesNotMatch(started.html.replace(/<svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>/g, ""), /180/);
   const waiting = controls({ ...fresh(), duels:[duel({ runs:{ [me]:{ ms:180 } } })] });
   assert.ok(!waiting.buttons.some(button => button.name.startsWith("Play")));
   assert.match(waiting.html, /Waiting for [^<]+ to draw/);

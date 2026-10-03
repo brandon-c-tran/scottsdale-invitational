@@ -1,27 +1,37 @@
 import React, { useId, useState } from "react";
+import { Icon } from "../../ui/Icon.jsx";
 import { DISPLAY, SANS, BONE } from "../../ui/theme.js";
-import { usePlayerIdentity } from "./PlayerIdentityContext.js";
+import { usePlayerIdentity, usePlayerInitials, useTextFloor } from "./PlayerIdentityContext.js";
 import { photoUrl } from "./playerIdentity.js";
+import { letterPlate } from "./chipInk.js";
 
-/* A missing or failed photo falls back to initials on the player's color. */
-function Avatar({ state, p, size=34, ring, style }) {
+/* A missing or failed photo falls back to initials on the player's color,
+   never a number: initials at 12px or more, on a plate that holds 4.5:1. */
+function Avatar({ state, p, size=34, ring, style, lettered = true }) {
   const prof = state.profiles?.[p];
   const photo = photoUrl(prof, p);
   const [failed, setFailed] = useState(null);
   const src = photo && failed !== photo ? photo : null;
-  const initials = (prof?.display || p || "").slice(0,2).toUpperCase();
+  const initials = usePlayerInitials(p);
   const identity = usePlayerIdentity(p);
-  const c = identity.color;
+  const plate = letterPlate(identity.color);
+  /* initials at .42 of the disc, never under the surface's floor (12px
+     phone, 24px TV), and only where two letters at that size sit inside
+     the disc with room around them */
+  const floor = useTextFloor();
+  const letterPx = Math.max(floor, Math.round(size * 0.42));
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
       display:"flex", alignItems:"center", justifyContent:"center",
-      background: src ? "var(--paper2)" : c, position:"relative",
+      background: src ? "var(--paper2)" : plate.fill, position:"relative",
       border: ring ? "2px solid var(--bone)" : "1.5px solid var(--ink0)", ...style }}>
       {src
         ? <img src={src} alt="" onError={() => setFailed(photo)} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : <span style={{ position:"relative", fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic",
-            fontSize:size*0.44, letterSpacing:"0.03em",
-            color: identity.isLight ? "var(--ink0)" : BONE }}>{initials}</span>}
+        : lettered && size >= letterPx * 1.7 && <span className="fd-avatar-initials" style={{ position:"relative", display:"block", flex:"none",
+            width:"auto", minWidth:0, maxWidth:"none", margin:0, padding:0, overflow:"visible",
+            fontFamily:DISPLAY, fontWeight:800, fontStyle:"normal", fontSize:letterPx,
+            lineHeight:1, letterSpacing:0, textAlign:"center", textTransform:"uppercase",
+            overflowWrap:"normal", transform:"none", color: plate.dark ? "var(--ink0)" : BONE }}>{initials}</span>}
     </div>
   );
 }
@@ -30,11 +40,13 @@ function AvatarStack({ state, players, size=24, max=4 }) {
   const extra = players.length - show.length;
   return (
     <div style={{ display:"flex", alignItems:"center" }}>
-      {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
+      {/* overlapped faces would cut each other's initials: a stack reads by
+          photo and color, its names beside it */}
+      {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} lettered={false} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
       {extra > 0 && <div style={{ width:size, height:size, borderRadius:"50%", marginLeft:-size*0.32,
         background:"var(--paper2)", border:"1.5px solid var(--line)", display:"flex",
         alignItems:"center", justifyContent:"center", fontFamily:SANS, fontWeight:700,
-        fontSize:size*0.4, color:"var(--muted)", flexShrink:0 }}>+{extra}</div>}
+        fontSize:Math.max(12, Math.round(size*0.4)), color:"var(--muted2)", flexShrink:0 }}>+{extra}</div>}
     </div>
   );
 }
@@ -108,14 +120,20 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
 };
 /* The middle of an identity chip is the player's face: their saved photo,
    inset like a portrait medallion. Without one (or while it fails) it is
-   `fallback` (the editor's typed number) or the saved number. An explicit
-   `stamp` always wins: a bet's value, a blind level, or "" for blank. */
+   `fallback` (the editor's typed number, your own) or the player's
+   initials, never their number: nobody remembers anyone else's. Initials
+   draw only where they reach 12px and sit on a plate that holds 4.5:1. An
+   explicit `stamp` always wins: a bet's value, a blind level, or "" for
+   blank. */
 const PHOTO_MIN = 24;
+const INITIALS_UNITS = 13;
 function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: skinOverride,
   color: colorOverride, isLight: lightOverride, valueRing=false, flat=false }) {
   const uid = useId().replace(/:/g, "");
   const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
+  const initials = usePlayerInitials(p);
+  const floor = useTextFloor();
   const [failed, setFailed] = useState(null);
   if (empty) return <div style={{ width:size, height:size, borderRadius:"50%",
     border:"1.5px dashed var(--muted)", opacity:0.45, flexShrink:0 }} />;
@@ -127,7 +145,13 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
   const photo = stampOverride == null && size >= PHOTO_MIN && identity.photo && failed !== identity.photo
     ? identity.photo : null;
-  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : identity.num;
+  const lettered = stampOverride == null && fallback == null;
+  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback
+    : size >= Math.max(floor, size * INITIALS_UNITS / 32) * 2.2 ? initials : "";
+  /* the initials' size in the chip's own units: 13/32 of the chip, raised to
+     the floor where the plate still holds them */
+  const initialsUnits = Math.max(INITIALS_UNITS, floor * 32 / size);
+  const plate = lettered && stamp ? letterPlate(color) : null;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
       style={{ flexShrink:0, display:"block",
@@ -144,7 +168,7 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
         <image href={photo} x="6.7" y="6.7" width="18.6" height="18.6" preserveAspectRatio="xMidYMid slice"
           clipPath={`url(#${faceId})`} onError={() => setFailed(photo)} />
         <circle cx="16" cy="16" r="9.3" fill="none" stroke={skinInk} strokeWidth=".9" />
-      </> : <circle cx="16" cy="16" r="8.75" fill={inlay} stroke={inlayLine} strokeWidth=".8" />}
+      </> : <circle cx="16" cy="16" r="8.75" fill={plate ? plate.fill : inlay} stroke={inlayLine} strokeWidth=".8" />}
       <path d="M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4" fill="none"
         stroke="rgba(255,255,255,.38)" strokeWidth=".75" strokeLinecap="round" opacity=".65" />
       <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
@@ -153,8 +177,9 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
         stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
       {!photo && size >= 20 && stamp != null && stamp !== "" && (
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
-          fontFamily={DISPLAY} fontWeight="700" fontSize={valueRing && stamp >= 100 ? 8.7 : 11.7}
-          fill={light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
+          fontFamily={DISPLAY} fontWeight={plate ? 800 : 700} fontStyle="normal" fontSize={plate ? initialsUnits : valueRing && stamp >= 100 ? 8.7 : 11.7}
+          letterSpacing={plate ? ".02em" : undefined}
+          fill={plate ? (plate.dark ? "var(--ink0)" : "var(--bone)") : light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
       )}
     </svg>
   );
@@ -187,10 +212,10 @@ function BetChipCluster({ chips, size=22, max=3, onRetract, reserveAction=false 
           );
         })}
         {chips.length > max && (
-          <span style={{ position:"absolute", right:-3, top:-5, minWidth:17, height:17,
+          <span style={{ position:"absolute", right:-4, top:-6, minWidth:20, height:20,
             padding:"0 4px", borderRadius:99, display:"flex", alignItems:"center",
             justifyContent:"center", background:"var(--night)", border:"1px solid var(--paper)",
-            color:"var(--bone)", fontFamily:SANS, fontWeight:800, fontSize:9,
+            color:"var(--bone)", fontFamily:SANS, fontWeight:800, fontSize:12,
             lineHeight:1, zIndex:max + 1 }}>+{chips.length - max}</span>
         )}
       </span>
@@ -198,8 +223,8 @@ function BetChipCluster({ chips, size=22, max=3, onRetract, reserveAction=false 
         <span onClick={e => { e.stopPropagation(); onRetract(); }} role="button"
           aria-label="Retract last chip" style={{ width:20, height:20, borderRadius:99,
             display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
-            marginLeft:4, fontSize:10, background:"var(--ink-tint)",
-            color:"var(--muted2)", flexShrink:0 }}>✕</span>
+            marginLeft:4, fontSize:12, background:"var(--ink-tint)",
+            color:"var(--muted2)", flexShrink:0 }}><Icon name="close" size={12} /></span>
       ) : <span aria-hidden="true" style={{ width:24, height:20, flexShrink:0 }} />)}
     </span>
   );

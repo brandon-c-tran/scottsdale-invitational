@@ -19,8 +19,9 @@
 @keyframes fd-level-in { from { transform:rotateY(-90deg); opacity:0; } 1% { opacity:1; } to { transform:none; opacity:1; } }
 
 .fd-poker-blinds { flex:1; min-width:0; display:flex; flex-direction:column; }
-.fd-poker-blinds-num { font:700 26px/1 var(--fd-display); color:var(--bone); justify-self:start; width:max-content; }
-.fd-poker-blinds>span:last-child { font:400 11px/1.3 var(--fd-body); color:var(--night-text); margin-top:3px; }
+/* the roll clips its box, so the line is tall enough for the slash's tail */
+.fd-poker-blinds-num { font:800 30px/1.2 var(--fd-display); letter-spacing:.02em; color:var(--bone); justify-self:start; width:max-content; }
+.fd-poker-blinds>span:last-child { display:flex; flex-wrap:wrap; gap:2px 14px; font:500 13px/1.35 var(--fd-body); color:var(--night-text); margin-top:2px; }
 .fd-seat-chips-row { border-top:1px solid var(--night-line); padding:9px 14px; }
 .fd-seat-chips { display:flex; flex-wrap:wrap; align-items:flex-end; gap:3px; min-height:22px; }
 .fd-seat-chips>span { display:block; }

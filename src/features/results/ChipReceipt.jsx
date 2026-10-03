@@ -1,15 +1,17 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
+import { Icon } from "../../ui/Icon.jsx";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { MOTION, fly, useCountBetween, useReducedMotion } from "../../lib/motion.js";
 import { playSound } from "../../lib/sound.js";
 import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, receiptDockStyle, signedAmount } from "./resultMoment.js";
+import { rainPlan } from "./ChipShower.jsx";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
 /* each line lands this long after the one before it */
 export const LINE_STAGGER = 140;
-const Arrow = () => <span aria-hidden="true">↗</span>;
+const Arrow = () => <Icon name="open" size="1em" />;
 
 /* X2: a docked card on YOUR phone when a fresh result moves YOUR chips.
    Each line settles in turn, won chips fly into the total, and the total
@@ -24,19 +26,34 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
   const drag = useRef(null);
   const lines = moment?.lines || [];
   const version = moment?.version || 0;
-  /* the total starts counting as the first won chip lands */
+  /* the total starts counting as the first won chip lands; when your own
+     win rains chips (ChipShower), it ticks with each one landing on the pile */
   const firstWin = lines.findIndex(line => line.delta > 0);
-  const countDelay = animate ? (firstWin < 0 ? lines.length : firstWin) * LINE_STAGGER + MOTION.flight + 160 : 0;
+  const net = (moment?.to ?? 0) - (moment?.from ?? 0);
+  const rain = animate && moment?.celebrate && net > 0 ? rainPlan(net) : null;
+  const countDelay = !animate ? 0 : rain ? rain.lands[0]
+    : (firstWin < 0 ? lines.length : firstWin) * LINE_STAGGER + MOTION.flight + 160;
   const total = useCountBetween(moment?.from ?? 0, moment?.to ?? 0, { play:animate, delay:countDelay,
-    duration:Math.max(MOTION.count, lines.length * LINE_STAGGER) });
+    duration:rain ? Math.max(MOTION.fast, rain.lands[rain.n - 1] - rain.lands[0] + 60)
+      : Math.max(MOTION.count, lines.length * LINE_STAGGER) });
 
   /* won chips leave each line's stack for the total, once per line */
   useLayoutEffect(() => {
-    /* S12, or S17 for a duel: one riffle as the first won chips land (losses
-       are silent; reduced motion keeps the riffle, not the flight) */
+    /* the payout rings by its size (S17 for a duel alone) as the first won
+       chips land; your own win's chip rain carries its own ladder, so the
+       receipt stays quiet then. A loss has its own quiet sound as its
+       stack slides off to the bank. Reduced motion keeps the sound, not
+       the flight. */
     const won = moment?.animate ? lines.findIndex(line => line.delta > 0 && !flown.current.has(line.id)) : -1;
-    if (won >= 0) playSound(lines.slice(won).every(line => line.delta <= 0 || line.kind === "duel") ? "S17" : "S12",
-      { delayMs:animate ? won * LINE_STAGGER + 120 + MOTION.flight + 180 : 0, key:`receipt:${moment.id}:${version}` });
+    const gained = lines.filter(line => line.delta > 0 && !flown.current.has(line.id)).reduce((sum, line) => sum + line.delta, 0);
+    if (won >= 0 && !(moment.celebrate && animate)) {
+      const duel = lines.slice(won).every(line => line.delta <= 0 || line.kind === "duel");
+      playSound(duel ? "S17" : "payout", { opts:{ n:Math.round(gained / 100) },
+        delayMs:animate ? won * LINE_STAGGER + 120 + MOTION.flight + 180 : 0, key:`receipt:${moment.id}:${version}` });
+    }
+    const lost = moment?.animate ? lines.findIndex(line => line.delta < 0 && !flown.current.has(line.id)) : -1;
+    if (lost >= 0) playSound("loss", { delayMs:animate ? lost * LINE_STAGGER + 260 : 0,
+      key:`receipt:${moment.id}:${version}:loss` });
     if (!animate || !moment) return undefined;
     const timers = [];
     lines.forEach((line, index) => {
@@ -111,7 +128,7 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
     <header className="fd-receipt-top">
       <span className="fd-receipt-mark"><BankChip p={moment.chip || moment.me} size={34} /></span>
       <span className="fd-receipt-title"><b>{moment.title}</b>{moment.subtitle && <small>{moment.subtitle}</small>}</span>
-      <button type="button" className="fd-receipt-x" aria-label="Dismiss" onClick={() => onDismiss?.()}>✕</button>
+      <button type="button" className="fd-receipt-x" aria-label="Dismiss" onClick={() => onDismiss?.()}><Icon name="close" size={18} /></button>
     </header>
     <ol className="fd-receipt-lines">
       {lines.map((line, index) => <li key={line.id} className={`fd-receipt-line ${line.delta >= 0 ? "is-up" : "is-down"}`}
@@ -119,7 +136,10 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
         <span className="fd-receipt-stack" aria-hidden="true"
           ref={el => { if (el) stackRefs.current.set(line.id, el); else stackRefs.current.delete(line.id); }}>
           {line.delta > 0 ? <ChipStack p={moment.me} stake={line.delta} size={22} cap={6} tag={false} />
-            : <span className="fd-receipt-ghost"><i /><i /></span>}
+            : <span className="fd-receipt-ghost"><i /><i />
+              {/* the stack that was here slides off to the bank */}
+              {animate && line.delta < 0 && <span className="fd-receipt-lost">
+                <ChipStack p={moment.me} stake={-line.delta} size={22} cap={6} tag={false} /></span>}</span>}
         </span>
         <span className="fd-receipt-what">{line.label}{line.detail && <small>{line.detail}</small>}</span>
         <span className="fd-receipt-amount">{signedAmount(line.delta)}</span>

@@ -45,7 +45,20 @@ const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds", "logistics"]);
+/* the host's own legs in the trip sheet are public as times only: his flight
+   codes go to the commissioner and to him, never to another guest */
+const HOST = "Brandon";
+function projectLogistics(logistics, { isGm, player }) {
+  if (!logistics || typeof logistics !== "object") return logistics;
+  if (isGm || player === HOST) return logistics;
+  const out = { ...logistics };
+  for (const key of ["hostIn", "hostOut"]) {
+    if (out[key] && typeof out[key] === "object") out[key] = out[key].time ? { time:out[key].time } : out[key].note ? { note:out[key].note } : null;
+    if (!out[key]) delete out[key];
+  }
+  return out;
+}
 
 function normalizeViewer(viewer) {
   return {
@@ -126,6 +139,7 @@ function viewerProjection(state, viewer, extras = {}) {
     mvp:projectMvp(state?.mvp, { player }),
     ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
     ...(moments.length ? { moments } : {}),
+    ...(state && "logistics" in state ? { logistics:projectLogistics(state.logistics, { isGm, player }) } : {}),
   };
 }
 

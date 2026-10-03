@@ -190,7 +190,7 @@ test("privacy: no answer, upcoming photo or other guess reaches a phone before i
 test("the director runs it: start, reveal, next, post result", () => {
   const state = ready();
   const pill = () => resolveDirector(state, allEventsOf(state)).nextAction;
-  assert.deepEqual([pill().type, pill().label, pill().subject], ["geo-start", "Start game", "Where and When · 3 photos"]);
+  assert.deepEqual([pill().type, pill().label, pill().subject], ["geo-start", "Start game", "Where and When"]);
   act(state, "geoStart", { evId:"where" });
   assert.deepEqual([pill().type, pill().subject, pill().roundId], ["geo-reveal", "Photo 1 of 3", ROUNDS[0].id]);
   act(state, "geoReveal", { roundId:ROUNDS[0].id });
@@ -256,4 +256,46 @@ test("a reset keeps the photos and clears the game; restart drops the guesses", 
   assert.equal(reset.ok, true, reset.error);
   assert.equal(state.geo, null);
   assert.equal(state.geoRounds.length, 3);
+});
+
+/* "stuck at the bottom" (Oct 2): once the result posts the game is over on
+   every phone. Before, the game stayed "done" in state, so the full-screen
+   sheet reopened itself on the done frame (a new key after the last reveal)
+   and Home's "+N this photo" row stayed forever. */
+test("the game ends on the phone when its result posts: no sheet, no Home row", async () => {
+  const { buildSync } = await import("esbuild");
+  const { fileURLToPath } = await import("node:url");
+  const { Module } = await import("node:module");
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { geoView } = await import("../src/features/geo/geoModel.js");
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const out = buildSync({ stdin:{ contents:'export { GeoHome, GeoPlaySheet } from "./src/features/geo/GeoPlay.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";', resolveDir:root, loader:"jsx" },
+    bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "maplibre-gl", "leaflet"], loader:{ ".css":"empty" },
+    write:false, logLevel:"silent" });
+  const mod = new Module(fileURLToPath(new URL("where-when-ui.cjs", import.meta.url)));
+  mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
+  mod._compile(out.outputFiles[0].text, mod.filename);
+  const { GeoHome, GeoPlaySheet, PlayerIdentityProvider } = mod.exports;
+  const wrap = (s, node) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:s.profiles || {} }, node));
+
+  const state = ready();
+  act(state, "geoStart", { evId:"where" });
+  for (const [i, round] of ROUNDS.entries()) {
+    act(state, "geoGuess", { roundId:round.id, lat:round.lat + .1, lng:round.lng, when:round.when }, as(khoa));
+    act(state, "geoReveal", { roundId:round.id });
+    if (i < ROUNDS.length - 1) act(state, "geoNext", { roundId:round.id });
+  }
+  const phone = () => publicState(state, { player:khoa });
+  const now = Number(state.geo.closesAt) + 60000;
+  const home = s => wrap(s, React.createElement(GeoHome, { state:s, me:khoa, onOpen() {}, now }));
+  const sheet = s => wrap(s, React.createElement(GeoPlaySheet, { state:s, me:khoa, now, onGuess:async () => ({ ok:true }) }));
+  /* the last reveal: the row and the reveal are there */
+  assert.equal(geoView(phone(), khoa, now).finished, false);
+  assert.match(home(phone()), /fd-geo-home/);
+  assert.match(sheet(phone()), /fd-geo-game is-reveal/);
+  act(state, "geoFinish", { evId:"where" });
+  assert.equal(geoView(phone(), khoa, now).finished, true);
+  assert.equal(home(phone()), "", "Home's row goes with the game");
+  assert.equal(sheet(phone()), "", "the game's sheet does not reopen on the done frame");
 });

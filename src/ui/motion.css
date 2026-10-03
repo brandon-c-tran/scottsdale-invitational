@@ -7,9 +7,13 @@
   --motion-count:750ms; --motion-delta:1100ms; --motion-row:560ms; --motion-stamp:320ms;
   --motion-flight:340ms; --motion-card-flight:520ms; --motion-pop:320ms;
   --motion-sheet-in:260ms; --motion-sheet-out:200ms; --motion-settle:2400ms; --motion-beat:2000ms;
+  --motion-reel:240ms;
   --ease-out:cubic-bezier(.2,.8,.2,1);
   --ease-land:cubic-bezier(.3,.7,.35,1.25);
   --ease-exit:cubic-bezier(.5,0,.75,.4);
+  /* a physical drum or coin settling on its detent: a short overshoot (domain exception to no-bounce) */
+  --ease-drum:cubic-bezier(.3,1.35,.5,1);
+  --ease-drum-spin:cubic-bezier(.14,.62,.3,1.025);
 }
 
 /* ── heartbeat (M1, M20) ──
@@ -21,6 +25,9 @@
 @keyframes fd-beat-dot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.3; transform:scale(.75); } }
 @keyframes fd-beat-pop { 0%,100% { transform:scale(1); } 50% { transform:scale(1.5); } }
 @keyframes fd-beat-fill { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+/* a lit lamp insert (backglass.css .fd-insert): the lens holds, its bloom breathes */
+@keyframes fd-beat-lamp { 0%,100% { box-shadow:var(--lens-rim), 0 0 9px 1px color-mix(in srgb, var(--lamp-on) 60%, transparent); }
+  50% { box-shadow:var(--lens-rim), 0 0 3px 0 color-mix(in srgb, var(--lamp-on) 35%, transparent); } }
 .fd-beat { animation:fd-beat var(--motion-beat) ease-in-out infinite; }
 .fd-beat-dot { display:inline-block; flex-shrink:0; width:6px; height:6px; border-radius:50%; background:currentColor;
   animation:fd-beat-dot var(--motion-beat) ease-in-out infinite; }
@@ -51,6 +58,8 @@
 /* a flight waiting on its hold (a write in the air) bobs where it stopped */
 @keyframes fd-flight-hover { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 .fd-flight.is-hover > * { animation:fd-flight-hover .66s ease-in-out infinite; }
+/* a chip flying as a coin (fly, Coin.jsx) turns in its own perspective */
+.fd-flight.is-coin { perspective:240px; }
 
 /* ── sheets ──
    The scrim fades in under the rising sheet; on close a non-interactive copy

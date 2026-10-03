@@ -177,16 +177,15 @@ test("Weekend leads with the edition once frozen; Save all cards is the commissi
   const guide = (state, extra = {}) => render(state, React.createElement(ui.Guide, { state, events, standings, me:ROSTER[1],
     onPlayer:() => {}, onBracket:() => {}, ...extra }));
   const before = guide(LIVE);
-  assert.ok(!before.includes("Scottsdale · 2026</button>"), "no edition tab before the crown");
-  assert.match(before, /aria-selected="true"[^>]*>Trip</);
+  assert.ok(!before.includes("fd-kept-card"), "no edition before the crown");
+  assert.match(before, /class="fd-program-cover/, "the program opens on its cover");
   const after = guide(CROWNED);
-  assert.match(after, /aria-selected="true"[^>]*>Scottsdale · 2026</, "the edition opens first once frozen");
+  assert.ok(!after.includes("fd-program-cover"), "once frozen the edition is the cover");
+  assert.ok(after.indexOf("fd-kept") < after.indexOf("fd-program-index"), "the edition leads the program");
   assert.equal((after.match(/class="fd-kept-card"/g) || []).length, ROSTER.length);
   assert.ok(after.includes("Last cards") && after.includes("The lead") && after.includes("Events"));
   assert.ok(!after.includes("fd-kept-save-all"));
   assert.ok(guide(CROWNED, { gm:true }).includes("fd-kept-save-all"));
-  assert.match(guide(CROWNED, { section:"trip" }), /aria-selected="true"[^>]*>Trip</, "a chosen section is kept");
-  assert.match(guide(LIVE, { section:"kept" }), /aria-selected="true"[^>]*>Trip</, "a stale choice falls back");
   /* the photo slot renders only what it is given */
   const photos = render(CROWNED, React.createElement(ui.Keepsake, { state:CROWNED, events, standings, me:ROSTER[1],
     photos:React.createElement("div", { className:"photo-grid-slot" }) }));

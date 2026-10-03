@@ -24,7 +24,7 @@ function WaitingOffer({ state, duel, me, now, onWithdraw }) {
     finally { busy.current = false; setPending(false); }
   };
   return <div className="fd-home-duel-waiting" aria-label={`Quick Draw with ${view.name}`} aria-busy={pending}>
-    <span>{view.status.replace(/ · (\d+) min$/, "")}<small>{fmt(duel.stake)} · {view.minutesLeft} min</small></span>
+    <span>{view.status}<small>{fmt(duel.stake)}</small></span>
     {done ? <span role="status">Withdrawn</span> : <button type="button" disabled={pending || !onWithdraw} onClick={withdraw}
       aria-label={duel.open ? "Withdraw open challenge" : `Withdraw challenge to ${view.name}`}>
       {pending ? "Withdrawing…" : "Withdraw"}</button>}

@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { DUEL_GAMES, disp, resolveDuel } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { Btn } from "../../ui/controls.jsx";
-import { BONE, CARD_BG, DISPLAY, SANS, label } from "../../ui/theme.js";
 import { duelView, duelsOpen } from "./duelView.js";
+import "./quickdraw.css";
 import { useDuelClock } from "./useDuelClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { setQuickDrawHush } from "../../lib/sound.js";
@@ -43,9 +43,7 @@ export function reactionFor(elapsed) {
   return { ms:Math.min(Math.round(elapsed), QD_MAX_MS), foul:false };
 }
 
-const lineStyle = { fontFamily:SANS, fontSize:14, lineHeight:1.6, color:"var(--night-text)", textAlign:"center", maxWidth:340 };
-const quiet = { marginTop:14, minHeight:44, padding:"0 16px", background:"none", border:"none",
-  color:"var(--night-text2)", fontFamily:SANS, fontSize:12.5, cursor:"pointer" };
+const BIG = { fontSize:16, padding:"14px 36px" };
 
 /* Quick Draw: the offer, the run, and the result on one full-screen layer.
    Errors render inside this layer, above the game, never behind it. */
@@ -174,49 +172,39 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
   };
 
   const wrap = kids => (
-    <div className="fd-night" role="dialog" aria-modal="true" aria-label="Quick Draw"
-      style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
-        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflowY:"auto",
-        padding:"calc(30px + env(safe-area-inset-top)) 24px calc(30px + env(safe-area-inset-bottom))" }}>
-      {actionError && <p role="alert" style={{ ...lineStyle, color:"var(--live2)", fontWeight:600, margin:"0 0 16px" }}>{actionError}</p>}
+    <div className="fd-qd" role="dialog" aria-modal="true" aria-label="Quick Draw">
+      {actionError && <p role="alert" className="fd-qd-line is-error">{actionError}</p>}
       {kids}
     </div>
   );
-  const heading = (eyebrow, title = "Quick Draw") => <>
-    <div style={{ ...label, fontSize:11, color:"var(--sun)" }}>{eyebrow}</div>
-    <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:44, color:BONE, textTransform:"uppercase",
-      lineHeight:0.95, margin:"6px 0 22px" }}>{title}</div>
+  /* the label names the moment; the title is the game, lettered */
+  const heading = (moment, title = "Quick Draw") => <>
+    <div className="fd-qd-label">{moment}</div>
+    <h2 className="fd-qd-title">{title}</h2>
   </>;
-  const faceOff = <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:22 }}>
+  const faceOff = <div className="fd-qd-faceoff">
     <Avatar state={state} p={me} size={62} ring />
-    <span style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:24, color:"var(--sun)" }}>VS</span>
+    <span className="fd-qd-vs">vs</span>
     {opp ? <Avatar state={state} p={opp} size={62} ring />
-      : <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:22, color:"var(--night-text)", textTransform:"uppercase" }}>Anyone</span>}
+      : <span className="fd-qd-anyone">Anyone</span>}
   </div>;
-  const stakeLine = <div style={{ fontFamily:SANS, fontSize:12.5, color:"var(--night-text2)", marginBottom:26 }}>
-    {fmt(duel.stake)} each, winner takes {fmt(2 * duel.stake)}</div>;
-  const notNow = <button type="button" onClick={onClose} disabled={!!busy} style={quiet}>Not now</button>;
+  const stakeLine = <div className="fd-qd-stake">{fmt(duel.stake)} each, winner takes {fmt(2 * duel.stake)}</div>;
+  const notNow = <button type="button" onClick={onClose} disabled={!!busy} className="fd-qd-quiet">Not now</button>;
   const closeOnly = message => wrap(<>
     {heading("Duel")}
-    <p style={{ ...lineStyle, marginBottom:24 }}>{message}</p>
-    <Btn kind="ghost" onClick={onClose} style={{ fontSize:16, padding:"13px 34px" }}>Close</Btn>
+    <p className="fd-qd-line" style={{ marginBottom:24 }}>{message}</p>
+    <Btn kind="ghost" onClick={onClose} style={BIG}>Close</Btn>
   </>);
 
   if (local === "armed") return (
-    <div onPointerDown={fire} role="button" aria-label="Tap when it flashes"
-      style={{ position:"fixed", inset:0, zIndex:300, background:"var(--night-deep)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", touchAction:"none" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:44, letterSpacing:"0.12em",
-        textTransform:"uppercase", color:"var(--night-text2)", animation:"si-pulse 2.2s infinite" }}>Steady</div>
-      <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text2)", marginTop:10 }}>tap when it flashes</div>
+    <div onPointerDown={fire} role="button" aria-label="Tap when it flashes" className="fd-qd-run is-armed">
+      <div className="fd-qd-steady">Steady</div>
+      <div className="fd-qd-steady-note">Tap when it flashes</div>
     </div>
   );
   if (local === "go") return (
-    <div onPointerDown={fire} role="button" aria-label="Draw"
-      style={{ position:"fixed", inset:0, zIndex:300, background:"var(--sun)",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", touchAction:"none" }}>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontStyle:"italic", fontSize:96,
-        letterSpacing:"0.04em", textTransform:"uppercase", color:"var(--ink0)" }}>Draw</div>
+    <div onPointerDown={fire} role="button" aria-label="Draw" className="fd-qd-run is-go">
+      <div className="fd-qd-go">Draw</div>
     </div>
   );
 
@@ -224,26 +212,25 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
     if (view.phase === "offered" && view.sender) return wrap(<>
       {heading("Challenge sent")}
       {faceOff}
-      <p style={{ ...lineStyle, marginBottom:8 }} role="status">
-        {duel.open ? "Open to anyone" : `Waiting for ${view.name} to accept`} · {view.minutesLeft} min</p>
+      <p className="fd-qd-line is-strong" role="status">
+        {duel.open ? "Open to anyone" : `Waiting for ${view.name} to accept`}</p>
       {stakeLine}
       <Btn kind="dark" onClick={() => perform("withdraw", onWithdraw, onClose)} pending={busy === "withdraw"}
-        disabled={!onWithdraw} style={{ fontSize:15, padding:"13px 30px" }}>
+        disabled={!onWithdraw} style={BIG}>
         {busy === "withdraw" ? "Withdrawing…" : "Withdraw"}</Btn>
       {notNow}
     </>);
     if (view.phase === "offered" && view.canAccept) return wrap(<>
       {heading(duel.open ? "Open challenge" : "Duel")}
       {faceOff}
-      <p style={{ ...lineStyle, marginBottom:8 }}>
-        {duel.open ? `${view.name} challenged anyone` : `${view.name} challenged you`} · {view.minutesLeft} min</p>
-      <div style={{ ...lineStyle, fontSize:13, color:"var(--night-text2)", marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
+      <p className="fd-qd-line is-strong">
+        {duel.open ? `${view.name} challenged anyone` : `${view.name} challenged you`}</p>
       {stakeLine}
-      <div style={{ display:"flex", gap:10, flexWrap:"wrap", justifyContent:"center" }}>
+      <div className="fd-qd-actions">
         <Btn onClick={() => perform("accept", onAccept)} pending={busy === "accept"} disabled={!onAccept || !!busy}
-          style={{ fontSize:16, padding:"14px 36px" }}>{busy === "accept" ? "Accepting…" : "Accept"}</Btn>
+          style={BIG}>{busy === "accept" ? "Accepting…" : "Accept"}</Btn>
         {view.canDecline && <Btn kind="dark" onClick={() => perform("decline", onDecline, onClose)}
-          pending={busy === "decline"} disabled={!onDecline || !!busy} style={{ fontSize:15, padding:"13px 26px" }}>
+          pending={busy === "decline"} disabled={!onDecline || !!busy} style={BIG}>
           {busy === "decline" ? "Declining…" : "Decline"}</Btn>}
       </div>
       {notNow}
@@ -251,17 +238,16 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
     if (view.canPlay) return wrap(<>
       {heading("Duel")}
       {faceOff}
-      <div style={{ ...lineStyle, fontSize:16, marginBottom:8 }}>{DUEL_GAMES.quickdraw.desc}</div>
-      {view.otherDrew && <div style={{ ...lineStyle, color:"var(--sun)", fontWeight:600, marginBottom:8 }}>
-        {view.name} has drawn.</div>}
+      <p className="fd-qd-line is-strong">{DUEL_GAMES.quickdraw.desc}</p>
+      {view.otherDrew && <p className="fd-qd-line is-drawn" style={{ marginTop:8 }}>{view.name} has drawn.</p>}
       {stakeLine}
-      <Btn onClick={arm} style={{ fontSize:16, padding:"14px 40px" }}>Ready</Btn>
+      <Btn onClick={arm} style={{ ...BIG, padding:"14px 44px" }}>Ready</Btn>
       {notNow}
     </>);
-    if (view.phase === "lapsed") return closeOnly("This challenge lapsed. No chips move.");
-    if (view.phase === "withdrawn") return closeOnly("Withdrawn. No chips move.");
-    if (view.phase === "declined") return closeOnly("Declined. No chips move.");
-    if (view.phase === "void") return closeOnly("Voided by the commissioner. No chips move.");
+    if (view.phase === "lapsed") return closeOnly("Lapsed");
+    if (view.phase === "withdrawn") return closeOnly("Withdrawn");
+    if (view.phase === "declined") return closeOnly("Declined");
+    if (view.phase === "void") return closeOnly("Voided by the commissioner");
     return closeOnly(view.phase === "offered" ? "This challenge is for someone else." : "This duel is not yours to play.");
   }
 
@@ -272,56 +258,39 @@ export function QuickDrawGame({ state, me, duel, onSubmit, onAccept, onDecline, 
   const canRematch = res.settled && opp && onRematch && duelsOpen(state);
   return wrap(
     <>
-      {save.status === "failed" && <div role="alert" style={{ ...lineStyle, marginBottom:18 }}>
-        <p style={{ margin:"0 0 10px", color:"var(--live2)", fontWeight:600 }}>{save.error}</p>
-        <Btn onClick={() => submit(captured.current)} style={{ fontSize:15, padding:"12px 28px" }}>
-          Send this draw again</Btn>
+      {save.status === "failed" && <div role="alert" style={{ marginBottom:18 }}>
+        <p className="fd-qd-line is-error" style={{ margin:"0 0 10px" }}>{save.error}</p>
+        <Btn onClick={() => submit(captured.current)} style={BIG}>Send this draw again</Btn>
       </div>}
-      <div style={{ ...label, fontSize:11, color:"var(--sun)" }}>Your draw</div>
-      <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize: run.foul ? 56 : 76, color: run.foul ? "var(--live2)" : BONE,
-        textTransform:"uppercase", lineHeight:1, margin:"8px 0 4px", animation:"si-flag .5s both" }}>
-        {run.foul ? "Foul" : `${run.ms} ms`}</div>
-      {run.foul && <div style={{ fontFamily:SANS, fontSize:14, color:"var(--night-text)" }}>Too early.</div>}
-      {save.status === "pending" && <div role="status" style={{ ...lineStyle, color:"var(--night-text2)", marginTop:10 }}>
-        Saving your draw…</div>}
-      <div style={{ margin:"26px 0", width:"100%", maxWidth:360 }}>
-        {oppRun ? (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[[me, duel.runs?.[me] || run], [opp, oppRun]].map(([p, r2]) => (
-              <div key={p} style={{ background:CARD_BG, borderRadius:14, padding:"12px 10px", textAlign:"center",
-                border: decided && res.winner === p ? "2px solid var(--sun)" : "1px solid var(--line)",
-                opacity: decided && res.loser === p ? 0.65 : 1, animation:"si-flag .5s both" }}>
-                <div style={{ display:"flex", justifyContent:"center", marginBottom:7 }}>
-                  <Avatar state={state} p={p} size={38} /></div>
-                <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:24, color:"var(--ink)" }}>
-                  {duelTime(r2)}</div>
-                <div style={{ fontFamily:SANS, fontWeight:600, fontSize:12.5, color:"var(--muted2)" }}>
-                  {disp(state, p)}</div>
-              </div>
-            ))}
+      <div className="fd-qd-label">Your draw</div>
+      <div className={`fd-qd-mine${run.foul ? " is-foul" : ""}`}>{run.foul ? "Foul" : `${run.ms} ms`}</div>
+      {run.foul && <p className="fd-qd-line is-strong">Too early.</p>}
+      {save.status === "pending" && <p role="status" className="fd-qd-line" style={{ marginTop:10 }}>Saving your draw…</p>}
+      {oppRun ? <div className="fd-qd-board">
+        {[[me, duel.runs?.[me] || run], [opp, oppRun]].map(([p, r2]) => (
+          <div key={p} className={`fd-qd-card${decided && res.winner === p ? " is-winner" : ""}${decided && res.loser === p ? " is-loser" : ""}`}>
+            <Avatar state={state} p={p} size={38} />
+            <strong>{duelTime(r2)}</strong>
+            <span>{disp(state, p)}</span>
           </div>
-        ) : duel.status === "open" && save.status === "saved" && opp ? (
-          <div style={lineStyle}>Waiting on {disp(state, opp)}.</div>
-        ) : null}
-      </div>
+        ))}
+      </div> : duel.status === "open" && save.status === "saved" && opp
+        ? <p className="fd-qd-line fd-qd-wait">Waiting on {disp(state, opp)}.</p> : <div className="fd-qd-wait" />}
       {res.settled && (
-        <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:32, textTransform:"uppercase",
-          color: res.push ? "var(--night-text)" : res.winner === me ? "var(--sun)" : "var(--live2)",
-          marginBottom:22, animation:"si-flag .5s .15s both" }}>
+        <div className={`fd-qd-verdict${res.push ? "" : res.winner === me ? " is-won" : " is-lost"}`}>
           {res.push ? "Tied. Chips returned."
             : res.winner === me ? `You win, +${fmt(duel.stake)}`
             : `${disp(state, opp)} wins`}
         </div>
       )}
-      {duel.status === "void" && <div style={{ ...lineStyle, marginBottom:20 }}>
-        Voided by the commissioner. No chips move.</div>}
-      {duel.status === "declined" && <div style={{ ...lineStyle, marginBottom:20 }}>Declined. No chips move.</div>}
-      <div style={{ display:"flex", gap:10, flexWrap:"wrap", justifyContent:"center" }}>
-        {canRematch && <Btn onClick={() => perform("rematch", onRematch)} pending={busy === "rematch"}
-          style={{ fontSize:16, padding:"13px 30px" }}>
-          {busy === "rematch" ? "Sending…" : `Rematch · ${fmt(duel.stake)}`}</Btn>}
+      {duel.status === "void" && <p className="fd-qd-line" style={{ marginBottom:20 }}>
+        Voided by the commissioner</p>}
+      {duel.status === "declined" && <p className="fd-qd-line" style={{ marginBottom:20 }}>Declined</p>}
+      <div className="fd-qd-actions">
+        {canRematch && <Btn onClick={() => perform("rematch", onRematch)} pending={busy === "rematch"} style={BIG}>
+          {busy === "rematch" ? "Sending…" : `Rematch for ${fmt(duel.stake)}`}</Btn>}
         <Btn kind={res.settled && !canRematch ? "primary" : "ghost"} onClick={onClose} disabled={!!busy}
-          style={{ fontSize:16, padding:"13px 34px" }}>Close</Btn>
+          style={BIG}>Close</Btn>
       </div>
     </>
   );

@@ -20,8 +20,8 @@ import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`
-    export { TVMode, compactStackSize } from "./src/features/tv/TVMode.jsx";
-    export { Wagers } from "./src/features/wagers/Wagers.jsx";
+    export { TVMode, fieldLayout } from "./src/features/tv/TVMode.jsx";
+    export { Wagers, backerRows, BACKER_ROWS } from "./src/features/wagers/Wagers.jsx";
     export { PokerSetupSheet } from "./src/features/director/FinaleSheets.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
   `, resolveDir:root, loader:"jsx" },
@@ -32,7 +32,7 @@ const bundle = new Module(fileURLToPath(new URL("bet-stacks.cjs", import.meta.ur
 bundle.filename = bundle.id;
 bundle.paths = Module._nodeModulePaths(root);
 bundle._compile(compiled.outputFiles[0].text, bundle.filename);
-const { TVMode, compactStackSize, Wagers, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
+const { TVMode, fieldLayout, Wagers, backerRows, BACKER_ROWS, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
 
 let seq = 0;
 const gm = () => ({ isGm:true, player:"Brandon", deviceId:"gm-device", actionId:`bs-${++seq}` });
@@ -199,7 +199,7 @@ function renderWithButtons(element) {
   return { html, buttons, named };
 }
 
-test("phone: your stack retracts, anyone else's stack opens their card, each its own target", () => {
+test("phone: a side is one pot and its backers; your row retracts, anyone else's opens their card", () => {
   const { state, contest, bystanders } = bracketWithBets();
   const me = bystanders[1];
   bet(state, "8ball", me, 1, 100);
@@ -219,14 +219,24 @@ test("phone: your stack retracts, anyone else's stack opens their card, each its
     view.named(`View ${player}'s player card (${stake} chips)`).click();
     assert.equal(viewed.at(-1), player);
   }
-  assert.equal(retracted.length, 1, "another bettor's stack never retracts");
+  assert.equal(retracted.length, 1, "another bettor's row never retracts");
   assert.deepEqual(picks, [], "and never places a chip");
-  /* one sun ring, on your own stack; everyone else's chips are their own stacks */
-  assert.equal(view.html.split("fd-stack-ring").length - 1, 1);
-  for (const player of [...bystanders.slice(0, 8), me])
-    assert.match(view.html, new RegExp(`data-stack-player="${player}"`));
-  /* the side's total sits on its felt */
-  assert.match(view.html, /class="fd-wagers-felt-total">1,600</);
+  /* Pot and backers (Oct 2): one pot a side, no stack per bettor on the board */
+  assert.equal(view.html.split('class="fd-wagers-pot"').length - 1, 2, "one pot a side");
+  assert.doesNotMatch(view.html, /data-stack-player=/, "no bettor's own stack on a side card");
+  assert.match(view.html, /class="fd-wagers-pot-total">1,600</, "the side's total beside its pot");
+  /* your own row is lit and reads "You"; biggest first */
+  assert.match(view.html, /class="fd-wagers-backer is-you"[^>]*>.*?>You</);
+  const order = view.buttons.map(b => /^View (.+)'s player card \(/.exec(b.name)?.[1]).filter(Boolean);
+  assert.deepEqual(order.slice(-3), [bystanders[5], bystanders[7], bystanders[3]]);
+});
+
+test("a side lists four backers, then N more; your own row is always one of them", () => {
+  const rows = [5, 4, 3, 2, 1, 1].map((n, i) => ({ player:`p${i}`, stake:n * 100 }));
+  assert.deepEqual(backerRows(rows, null).map(r => r.player), ["p0", "p1", "p2", "p3"]);
+  assert.deepEqual(backerRows(rows, "p5").map(r => r.player), ["p0", "p1", "p2", "p5"], "yours takes the last row");
+  assert.deepEqual(backerRows(rows.slice(0, 3), "p1").map(r => r.player), ["p0", "p1", "p2"]);
+  assert.equal(BACKER_ROWS, 4);
 });
 
 const renderTv = (state, now = Date.now()) => {
@@ -258,7 +268,7 @@ test("TV: bettors ride as named stacks, never a Name 200 list", () => {
   assert.ok(contest);
 });
 
-test("TV free-for-all: a player's card holds the stacks backing them, an empty card stays quiet", () => {
+test("TV free-for-all: a player's spot on the felt holds the stacks backing them, an empty spot stays quiet", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 200);
@@ -266,7 +276,7 @@ test("TV free-for-all: a player's card holds the stacks backing them, an empty c
   bet(state, "putt", "Evan", ROSTER.indexOf("Evan"), 100);
   const html = renderTv(state);
   const card = player => {
-    const cards = html.split('class="tv-side is-row').slice(1);
+    const cards = html.split('class="tv-side is-spot').slice(1);
     return cards.find(chunk => chunk.includes(`class="tv-side-name">${player}<`)) || "";
   };
   assert.match(card("Khoa"), /data-stack-player="Adi"/);
@@ -292,7 +302,7 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   assert.match(sheet, /aria-label="Minimum stack, 200 added"/);
   act(state, "pokerSetup", {});
   const tv = renderTv(state);
-  assert.match(tv, /tv-buyin-grid/);
+  assert.match(tv, /class="tv-pane tv-table"/);
   assert.doesNotMatch(tv.replace(/<[^>]*>/g, " "), /×| x \d/);
   assert.match(tv, /data-denom="100"/);
   /* the guest card and the All stacks sheet draw the same stacks */
@@ -305,22 +315,29 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   }
 });
 
-test("TV wide field: every row is one fixed height, sized before any chip lands", () => {
-  const { chip, cap, rowH } = compactStackSize(5, 716);
-  assert.equal(rowH, Math.floor((716 - 4 * 14) / 5));
-  assert.equal(cap, STACK_CAP, "one cap everywhere");
-  assert.ok(stackMaxHeight(chip) + 30 + 20 <= rowH, "the tallest stack and its name stand inside a row");
+test("TV wide field: one felt, every spot sized before any chip lands; an empty board is one line", () => {
+  const layout = fieldLayout(13, 1784);
+  assert.equal(layout.rows, 2, "thirteen sides stand in two rows of one felt");
+  assert.equal(layout.perRow, 7);
+  assert.ok(layout.stackH >= stackMaxHeight(layout.chip) + 50, "the tallest stack, its value and its name stand inside a spot");
+  assert.equal(fieldLayout(6, 1784).rows, 1);
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const empty = renderTv(state);
+  assert.doesNotMatch(empty, /No bets/, "an empty board needs no words: its felt is simply not there");
+  assert.match(empty, /class="tv-contest-foot">Winner pays 2:1</, "the payout stays");
+  assert.doesNotMatch(empty, /tv-spot-felt/, "and its felt collapses");
   bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 500);
   const riding = renderTv(state);
-  const rows = html => html.match(/grid-auto-rows:(\d+)px/)?.[1];
-  assert.equal(rows(empty), String(rowH));
-  assert.equal(rows(riding), rows(empty), "a first chip moves no card");
+  bet(state, "putt", "Ben", ROSTER.indexOf("Evan"), 300);
+  const second = renderTv(state);
+  const band = html => html.match(/--field-stack-h:(\d+)px/)?.[1];
+  assert.equal(band(riding), String(layout.stackH));
+  assert.equal(band(second), band(riding), "a second side's first chip moves no spot");
+  assert.equal(riding.split('class="tv-spot-felt"').length - 1, 13, "every spot keeps its felt once chips ride");
 });
 
-test("a wide board's felt is one line: the well, two stacks, and the rest as one +N stack", () => {
+test("a wide board is one row a side: the pot's total, who backs it (yours lit), the +", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const khoa = ROSTER.indexOf("Khoa");
@@ -329,22 +346,19 @@ test("a wide board's felt is one line: the well, two stacks, and the rest as one
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "putt"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   const onKhoa = html => { const at = html.indexOf('aria-label="Bets on Khoa"'); return html.slice(at, html.indexOf('aria-label="Bets on ', at + 1)); };
-  const order = html => [...html.matchAll(/data-stack-player="([^"]+)"/g)].map(match => match[1]);
   const spectator = onKhoa(phone("Henry"));
   assert.match(phone("Henry"), /fd-wagers-pick is-one-line/, "every card on a wide board is one line");
-  assert.match(phone("Henry"), /--fd-felt-lines:1/);
-  assert.deepEqual(order(spectator), ["Adi"]);
-  assert.match(spectator, /aria-label="3 more: 600 chips"/);
-  /* your own small stack takes a stack cell rather than folding */
+  assert.doesNotMatch(spectator, /data-stack-player=/, "no bettor's own stack in a row");
+  assert.match(spectator, /fd-wagers-pot-total">1,000</);
+  assert.match(spectator, /aria-label="4 backing Khoa"/, "how many back it, the list one tap away");
+  /* yours, lit: a tap takes your last chip back */
   const mine = onKhoa(phone("Chinh"));
-  assert.deepEqual(order(mine), ["Chinh"]);
-  assert.match(mine, /Retract your last chip on Khoa/);
-  assert.match(mine, /aria-label="3 more: 900 chips"/);
+  assert.match(mine, /class="fd-wagers-pot-you"[^>]*aria-label="Retract your last chip on Khoa"/);
   /* a matchup keeps two lines */
   const { state:match, bystanders } = bracketWithBets();
   const two = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:match.profiles },
     React.createElement(Wagers, { state:match, me:bystanders[8], events:allEventsOf(match), standings:computeStandings(match),
       gm:false, wagerEv:evOf(match, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  assert.match(two, /--fd-felt-lines:2/);
+  assert.match(two, /class="fd-wagers-backers"/, "a matchup's sides list their backers");
   assert.doesNotMatch(two, /is-one-line/);
 });

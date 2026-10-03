@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 /* Link previews need ABSOLUTE urls: og:url especially is meaningless as a
    path, so the live domain is the default rather than something you have to
@@ -32,10 +34,35 @@ const sourceId = () => {
 };
 const BUILD_ID = process.env.FD_BUILD_ID || sourceId();
 
+/* Dev only: the rehearsal pages under /dev. The Workers asset handler
+   redirects /dev/x.html to /dev/x (its default html_handling), and Vite
+   reads an extensionless request as a module, so the page came back as
+   dev/x.jsx. Serve each dev/*.html page itself, before the Worker sees it. */
+const devPreviews = () => ({
+  name: "fd-dev-previews",
+  apply: "serve",
+  configureServer(server) {
+    server.middlewares.use(async (req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD") return next();
+      const page = /^\/dev\/([\w-]+\.html)$/.exec(new URL(req.url, "http://dev.local").pathname)?.[1];
+      if (!page) return next();
+      let html;
+      try { html = await readFile(path.join(server.config.root, "dev", page), "utf8"); }
+      catch { return next(); }
+      try {
+        html = await server.transformIndexHtml(req.url, html);
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(req.method === "HEAD" ? undefined : html);
+      } catch (error) { next(error); }
+    });
+  },
+});
+
 const appShell = mode => {
   const staging = mode === "staging";
   const values = {
-    APP_THEME_COLOR: staging ? "#101A33" : "#0e191c",
+    APP_THEME_COLOR: staging ? "#101A33" : "#090b14",
     APP_NAME: staging ? "Field Day Staging" : "Field Day",
     APP_MANIFEST: staging ? "/manifest-staging.webmanifest" : "/manifest.webmanifest",
     APP_FAVICON: staging ? "/favicon-staging.svg" : "/favicon.svg",
@@ -61,7 +88,7 @@ export default defineConfig(({ mode }) => {
   else if (mode === "staging") process.env.CLOUDFLARE_ENV = "staging";
   else delete process.env.CLOUDFLARE_ENV;
   return {
-    plugins: [react(), cloudflare(), appShell(mode), ogUrl()],
+    plugins: [devPreviews(), react(), cloudflare(), appShell(mode), ogUrl()],
     define: { __FD_BUILD_ID__: JSON.stringify(BUILD_ID) },
   };
 });

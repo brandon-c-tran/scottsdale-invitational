@@ -314,7 +314,7 @@ test("Home lists your offers and open challenges you can take, with separate tar
     onAccept:id => { accepted.push(id); return { ok:true }; }, onDecline:() => ({ ok:true }) });
   assert.equal((view.html.match(/<article /g) || []).length, 2);
   assert.match(view.html, /Challenged you/);
-  assert.match(view.html, /Open challenge · 10 min/);
+  assert.match(view.html, /Open challenge</);
   view.named(`View ${sahil}'s player card`).click();
   assert.deepEqual(viewed, [sahil]);
   assert.deepEqual(accepted, []);

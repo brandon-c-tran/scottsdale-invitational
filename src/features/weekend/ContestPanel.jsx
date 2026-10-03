@@ -8,6 +8,7 @@ import { CompetitionBracket } from "./CompetitionBracket.jsx";
 import { contestIsFinal, lastWinnerUndo } from "../director/directorPill.js";
 import { tapTick } from "../../lib/haptics.js";
 import "./contest.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const nameOf = (state, side) => side.name || side.players.map(player => disp(state, player)).join(" & ");
 /* A recorded winner can be taken back with one tap for this long. */
@@ -61,19 +62,28 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const canChoose = gm && running && !!onWinner;
   /* the winner targets are their own rows; the bracket stays a picture */
   const showEntrants = !isFfa && (!isBracket || canChoose);
-  const instruction = ordering ? `Tap ${ORD.slice(0, needed).join(needed > 2 ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ")}.`
-    : selectingQualifiers ? `Choose ${advance - 1} more to advance.` : "";
+  /* no instruction line: each pick shows the place it will take, and the
+     record button counts what is still owed */
+  const owed = selectingQualifiers ? advance - 1 - qualifiers.length : 0;
+  /* the sheet's title already names the event: the contest heads itself
+     only when it is a part of it (a match, a heat). Your place in it reads
+     first: playing, and what you have on it. */
+  const heading = isBracket ? contestName(state, ev, contest) : contest.label && contest.label !== ev.name ? contest.label : null;
+  const playing = !!me && !!contest.players?.includes(me);
+  const yourBet = me ? (state.wagers || []).filter(wager => wager.player === me && wagerMatchesContest(wager, contest)
+    && resolveWager(state, wager, allEventsOf(state)).status === "pending").reduce((sum, wager) => sum + (wager.stake || 0), 0) : 0;
   return <section className="fd-contest" aria-label="Current contest" aria-busy={pending}>
     <div className="fd-contest-toolbar">
-      <div><strong>{isBracket ? contestName(state, ev, contest) : contest.label || ev.name}</strong>
-        <span>{(open || running) && <i className="fd-beat-dot" aria-hidden="true" />}{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span></div>
+      <div>{heading && <strong>{heading}</strong>}
+        <span>{(open || running) && <i className="fd-beat-dot" aria-hidden="true" />}{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span>
+        {!gm && (playing || yourBet > 0) && <span className="fd-contest-you">{playing && <span>You’re playing</span>}
+          {yourBet > 0 && <b aria-label={`Your bet ${yourBet.toLocaleString("en-US")}`}><i className="fd-contest-chip" aria-hidden="true" />{yourBet.toLocaleString("en-US")}</b>}</span>}</div>
       {gm && (open || locked) && <button type="button" className="fd-contest-primary" disabled={pending || blocked || !onLock}
         onClick={() => act(() => onLock(reference))}>{pending ? "Starting…" : "Lock bets and start"}</button>}
-      {!gm && onBets && <button type="button" className="fd-contest-primary" disabled={pending || blocked} onClick={onBets}>{open ? "Place chips" : "View bets"}</button>}
+      {!gm && onBets && <button type="button" className="fd-contest-primary" disabled={pending || blocked} onClick={onBets}>{open ? playing ? "Back yourself" : "Place chips" : "View bets"}</button>}
       {gm && running && isFfa && <button type="button" className="fd-contest-primary" disabled={pending || !onResult}
         onClick={() => act(async () => { const result = await onResult(); return result === true ? {ok:true} : result; })}>Enter result</button>}
     </div>
-    {gm && running && !isFfa && instruction && <p className="fd-contest-instruction">{instruction}</p>}
     {showEntrants && <div className="fd-contest-entrants" aria-label={contest.label}>
       {contest.sides.map(side => {
         const name = nameOf(state, side), selected = winner === side.key;
@@ -97,8 +107,8 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
               setQualifiers(current => current.includes(side.key) ? current.filter(key => key !== side.key)
                 : current.length < advance - 1 ? [...current,side.key] : current);
             }}>
-            <span>{name}</span>{canChoose && <small>{ordering ? place >= 0 ? ORD[place] : order.length < needed ? "+" : ""
-              : selected ? "Winner" : qualifier ? qualifiers.includes(side.key) ? "✓" : "+" : "Win"}</small>}
+            <span>{name}</span>{canChoose && <small>{ordering ? place >= 0 ? ORD[place] : order.length < needed ? ORD[order.length] : ""
+              : selected ? "Winner" : qualifier ? <Icon name={qualifiers.includes(side.key) ? "check" : "plus"} size="1em" /> : "Win"}</small>}
           </button>
           <div className="fd-contest-entrant-players">{side.players.map(player => <button key={player} type="button"
             onClick={() => onPlayer?.(player)} disabled={pending || blocked || !onPlayer} aria-label={`View ${disp(state, player)}'s player card`}>
@@ -108,13 +118,13 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
       {canChoose && advance > 1 && selectingQualifiers && <div className="fd-contest-qualifier-actions">
         <button type="button" className="fd-contest-secondary" disabled={pending} onClick={() => { setWinner(null);setQualifiers([]); }}>Change winner</button>
         <button type="button" className="fd-contest-primary" disabled={pending || qualifiers.length !== advance - 1 || !onWinner}
-          onClick={() => act(submit({ winner, qualifiers:[winner, ...qualifiers] }))}>{pending ? "Saving…" : "Record winner"}</button>
+          onClick={() => act(submit({ winner, qualifiers:[winner, ...qualifiers] }))}>{pending ? "Saving…" : owed > 0 ? `Pick ${owed} more` : "Record winner"}</button>
       </div>}
       {canChoose && ordering && <div className="fd-contest-qualifier-actions">
         <button type="button" className="fd-contest-secondary" disabled={pending || !order.length} onClick={() => setOrder([])}>Start over</button>
         <button type="button" className="fd-contest-primary" disabled={pending || !fullOrder}
           onClick={() => act(submit({ winner:fullOrder[0], qualifiers:[fullOrder[0]], order:fullOrder }))}>
-          {pending ? "Saving…" : "Record order"}</button>
+          {pending ? "Saving…" : fullOrder ? "Record order" : `Pick ${ORD[order.length]}`}</button>
       </div>}
     </div>}
     {isBracket && <CompetitionBracket state={state} ev={ev} me={me} gm={gm} pending={pending || blocked} onPlayer={onPlayer}
@@ -125,7 +135,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
         return <button key={`${r}:${m}`} type="button" className="fd-contest-secondary" disabled={pending || blocked || chipsIn}
           onClick={() => act(() => onPlayNext({ ...reference, match:[r, m] }))}>Play {label} next</button>;
       })}
-      {chipsIn && <p>Reorder once the chips on this match come off.</p>}
+      {chipsIn && <p>Chips are on this match.</p>}
     </div>}
     {error && <div className="fd-contest-failure"><p role="alert" className="fd-contest-error">{error}</p>
       <button type="button" className="fd-contest-secondary" disabled={pending} onClick={() => act(retry.current)}>Retry</button></div>}
@@ -133,8 +143,10 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   </section>;
 }
 
-export function ContestPanel(props) {
-  const { state, ev, gm, onResult, onUndo } = props;
+/* The busy guard and the last one-tap winner, shared by every part of one
+   contest's controls. The event sheet holds it so the commissioner's part
+   (finish, corrections) can sit apart from the contest itself. */
+export function useContestOperations() {
   const operationBusy = useRef(false), [blocked, onBusy] = useState(false);
   /* the last one-tap winner, undoable for a few seconds */
   const [recent, setRecent] = useState(null);
@@ -143,22 +155,33 @@ export function ContestPanel(props) {
     const timer = setTimeout(() => setRecent(null), Math.max(0, recent.at + UNDO_WINDOW_MS - Date.now()));
     return () => clearTimeout(timer);
   }, [recent]);
+  return { operationBusy, blocked, onBusy, recent, setRecent };
+}
+
+/* part: "contest" renders the contest (and the quick Undo); "commissioner"
+   renders posting the result and the corrections; omitted renders both, in
+   that order. Pass the same `operations` to both parts. */
+export function ContestPanel(props) {
+  const { state, ev, gm, onResult, onUndo, part = null } = props;
+  const own = useContestOperations();
+  const { operationBusy, blocked, onBusy, recent, setRecent } = props.operations || own;
   const operations = { operationBusy, blocked, onBusy };
+  const showContest = part !== "commissioner", showDesk = part !== "contest";
   const onRecorded = gm && onUndo ? (name, posted) => setRecent({ name, posted, at:Date.now() }) : null;
-  const undoRecent = recent && gm && onUndo
+  const undoRecent = showContest && recent && gm && onUndo
     ? <RecentWinner {...props} {...operations} name={recent.name} posted={recent.posted} onDone={() => setRecent(null)} /> : null;
   /* a final that posted the result keeps its Undo for the same few seconds */
   if (state.results?.[ev.id] || state.shelved?.[ev.id] || state.frozen || ev.finale) return undoRecent;
   /* while the quick Undo is up it is the one correction control shown */
-  const correction = undoRecent ? null : <ContestCorrection {...props} {...operations} />;
+  const correction = recent || !showDesk ? null : <ContestCorrection {...props} {...operations} />;
   const lifecycle = resolveEventLifecycle(state, ev), contest = resolveCurrentContest(state, ev);
   if (!contest || !["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase)) {
     return gm && ["enter-result", "post-result"].includes(lifecycle.nextAction?.type)
-      ? <>{undoRecent}<ContestFinish key={ev.id} onResult={onResult} {...operations} />{correction}</>
+      ? <>{undoRecent}{showDesk && <ContestFinish key={ev.id} onResult={onResult} {...operations} />}{correction}</>
       : undoRecent;
   }
-  return <>{undoRecent}<CurrentContest key={`${ev.id}:${contest.id}:${contest.revision}:${contest.phase}`} {...props} {...operations}
-    contest={contest} onRecorded={onRecorded} />{correction}</>;
+  return <>{undoRecent}{showContest && <CurrentContest key={`${ev.id}:${contest.id}:${contest.revision}:${contest.phase}`} {...props} {...operations}
+    contest={contest} onRecorded={onRecorded} />}{correction}</>;
 }
 
 /* Runs one correction behind the shared busy guard. With no contest id it

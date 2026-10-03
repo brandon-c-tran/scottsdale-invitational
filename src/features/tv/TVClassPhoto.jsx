@@ -1,5 +1,6 @@
 import React, { useMemo, useRef } from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { DesertBand } from "./DesertBand.jsx";
 import { constellationStars } from "./desertModel.js";
@@ -10,8 +11,12 @@ import { nextLatch, useTimeline } from "./tvMotion.js";
    composition the commissioner saves as the poster. When the champion scene
    steps to it freshly, the rows fill from the front of the photo to the
    back and the champion lands last; a reload, a late TV, reduced motion or
-   the frozen TV's ambient turn shows the photo still. */
+   the frozen TV's ambient turn shows the photo still. The win lights the
+   glass for its champion: the sky's disc and its glow in their own color
+   (a shared top keeps the finale's sun). */
 export function ClassPhoto({ state, events, standings, moment = null }) {
+  const sole = standings.length > 0 && standings.filter(row => row.rank === 1).length === 1;
+  const champ = usePlayerIdentity(sole ? standings[0].player : null);
   const layout = useMemo(() => classPhotoLayout(classPhotoModel(state, standings)), [state, standings]);
   const stars = useMemo(() => constellationStars(state, events), [state.results, events]); // eslint-disable-line react-hooks/exhaustive-deps
   const timeline = useTimeline(moment?.id || null, moment?.anchor, CLASS_TIMING.total);
@@ -19,7 +24,8 @@ export function ClassPhoto({ state, events, standings, moment = null }) {
   const delays = useMemo(() => classEntrance(layout), [layout]);
   const { title } = layout;
   return (
-    <div className={`tv-class${playing ? " is-playing" : ""}`} style={playing ? { "--tl":`${-Math.round(timeline.elapsed)}ms` } : undefined}
+    <div className={`tv-class${playing ? " is-playing" : ""}${sole ? " is-lit" : ""}`}
+      style={{ ...(playing ? { "--tl":`${-Math.round(timeline.elapsed)}ms` } : {}), ...(sole ? { "--champ-color":champ.color } : {}) }}
       role="img" aria-label={`${title.brand} · ${title.edition}. ${layout.slots.map(slot => `${slot.rank} ${slot.name.text}`).join(", ")}`}>
       <DesertBand phase="fin" variant="full" width={CLASS_W} height={CLASS_H} stars={stars} starBox={layout.starBox} showStars
         className="tv-class-sky" />

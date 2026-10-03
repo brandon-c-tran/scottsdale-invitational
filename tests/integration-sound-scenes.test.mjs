@@ -130,11 +130,18 @@ test("D2 gate: a covered pane holds the face-off, then it plays from the moment 
   assert.deepEqual(face.faceOffGate(late.gate, { id:null, anchor, covered:false, now:anchor }), { gate:null, anchor:null });
 });
 
-test("D2 sound: one restrained beat as VS stamps; the lock keeps its S8 at the lock", () => {
-  assert.ok(kit.isSound("faceOff"), "a kit part");
-  assert.ok(kit.PARTS.some(part => part.id === "faceOff"));
+test("D2 sound: the broadcast sting (lean-in, a whoosh per side, VS, the record typing); the lock keeps its S8", () => {
+  for (const id of ["sting", "whoosh", "vsHit", "typeTick"]) assert.ok(kit.isSound(id), `${id}: a kit part`);
+  const F = face.FACEOFF_TIMING;
   const cues = room.faceOffCues({ id:"tv-contest:3", anchor:50_000 });
-  assert.deepEqual(cues, [{ id:"faceOff", at:50_000 + face.FACEOFF_TIMING.vs, key:"faceoff:tv-contest:3" }]);
+  assert.deepEqual(cues.map(cue => [cue.id, cue.at - 50_000, cue.pan ?? 0]), [["sting", F.dim, 0], ["whoosh", F.slide, -0.8],
+    ["whoosh", F.slide2, 0.8], ["vsHit", F.vs, 0]], "each side's whoosh is panned to its own edge");
+  assert.equal(cues.find(cue => cue.id === "vsHit").key, "faceoff:tv-contest:3");
+  const typed = room.faceOffCues({ id:"tv-contest:3", anchor:50_000 }, { record:"Tied 2-2" });
+  const ticks = typed.filter(cue => cue.id === "typeTick");
+  assert.equal(ticks.length, 7, "a tick a letter, none for the space");
+  assert.equal(ticks[0].at, 50_000 + F.h2h);
+  assert.ok(F.settle - F.dim >= 6000 && F.settle - F.dim <= 8000, "a 6 to 8 second sting");
   assert.deepEqual(room.faceOffCues(null), []);
 
   const state = announced();
@@ -255,7 +262,10 @@ test("the phone's own card (S4) rings only while the phone follows live", () => 
   const source = read("src/features/weekend/EventAnnouncement.jsx");
   const effect = source.slice(source.indexOf("/* S4:"), source.indexOf("const you = usePlayerIdentity(me);"));
   assert.match(effect, /if \(!currentFrame\(\)\.fresh\) return;/);
-  assert.ok(effect.indexOf("currentFrame().fresh") < effect.indexOf("playSound(\"S4\""));
+  /* Backglass (Oct 2): a team of two or more rings its own sting as the
+     phone floods (TeamSort); everyone else keeps S4 */
+  const ring = effect.indexOf("playSound(team ? \"teamUp\" : \"S4\"");
+  assert.ok(ring > 0 && effect.lastIndexOf("if (!currentFrame().fresh) return;") < ring);
 });
 
 test("the profile's device rows: Haptics, then Sound, then Alerts", () => {
@@ -267,7 +277,9 @@ test("the profile's device rows: Haptics, then Sound, then Alerts", () => {
 test("the frozen TV keys its champion / class photo rotation on the crown, read once", async () => {
   const { frozenAmbient } = await import("../src/features/results/classPhoto.js");
   const crownAt = 1_000_000, period = 12_000, crownMs = 4_800;
-  assert.equal(frozenAmbient({ now:crownAt + crownMs + period - 1, crownAt, crownMs, period }), "champion");
+  assert.equal(frozenAmbient({ now:crownAt + crownMs - 1, crownAt, crownMs, period }), "champion");
+  /* Backglass (Oct 2): the produced crown ends on the class photo */
+  assert.equal(frozenAmbient({ now:crownAt + crownMs + period - 1, crownAt, crownMs, period }), "class");
   const later = crownAt + 60_000;
   const turn = frozenAmbient({ now:later, crownAt, crownMs, period });
   assert.equal(frozenAmbient({ now:later, crownAt:later - 100, crownMs, period }), "champion",

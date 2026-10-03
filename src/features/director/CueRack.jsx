@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { disp } from "../../../shared/core.js";
-import { SANS } from "../../ui/theme.js";
 import { spotifyPause, spotifyPlay, spotifyPlayer, spotifyRetry } from "../../lib/client.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
@@ -8,6 +7,8 @@ import {
   CUE_BRIDGE_MS, WALKOUT_POLL_MS, cueRackItems, dockItems, effectiveWalkout, shouldPollWalkout,
   soundingWalkout, walkoutOf,
 } from "./walkout.js";
+import { Icon } from "../../ui/Icon.jsx";
+import { Avatar } from "../identity/PlayerIdentity.jsx";
 
 /* The audio cue is a chip beside the pill, never a wire into a scene:
    playback happens only on an explicit tap, and its failure is a toast, not
@@ -62,13 +63,17 @@ export function useWalkoutWatch(state, enabled) {
   }, [active]);
 }
 
-export function CueRack({ state, candidates = [], notify, onAudio, docked = false }) {
+/* `pill`: the dock's own slot in the pill's row, one compact control while
+   a song plays (the winner's photo chip with a song mark, and Stop) or one
+   missed song (the same chip, and Retry); nothing otherwise. Quiet glass,
+   never amber: amber is the pill's one action and money. */
+export function CueRack({ state, candidates = [], notify, onAudio, docked = false, pill = false }) {
   const { busy, reconnect, bridge } = useCueState();
   const walkout = effectiveWalkout(walkoutOf(state), bridge, Date.now());
   useCueClock(walkout, bridge);
   const sounding = soundingWalkout(walkout, serverNow());
   const all = cueRackItems(state, candidates, sounding);
-  const items = docked ? dockItems(all) : all;
+  const items = pill ? all.filter(item => item.sounding) : docked ? dockItems(all) : all;
   /* beside the pill, more than two cues (a pair, a team) carry just the
      name, so they wrap into rows instead of a column over the screen */
   const short = docked || items.length > 2;
@@ -99,23 +104,25 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
     setCueState({ bridge:{ walkout:null, serverAt:serverNow(), clientAt:Date.now() } });
   };
 
-  const chip = (key, { onClick, active = false, pending = false, glyph, text, aria }) => (
+  const chip = (key, { onClick, active = false, pending = false, glyph, text, aria, player = null, act = "stop" }) => pill ? (
+    <button key={key} type="button" disabled={!!busy} aria-busy={pending || undefined} onClick={onClick} aria-label={aria}
+      className={`fd-cue-now${active ? " is-playing" : ""}${act === "retry" ? " is-miss" : ""}`}>
+      <span className="fd-cue-now-face" aria-hidden="true">
+        {player ? <Avatar state={state} p={player} size={30} /> : <Icon name="song" size={18} />}
+        <span className="fd-cue-now-badge"><Icon name="song" size={11} /></span>
+      </span>
+      <span className="fd-cue-now-act" aria-hidden="true"><Icon name={act === "retry" ? "undo" : "stop"} size={16} /></span>
+    </button>
+  ) : (
     <button key={key} type="button" disabled={!!busy} aria-busy={pending || undefined} onClick={onClick}
-      aria-label={aria} className={docked ? "fd-cue-chip is-docked" : "fd-cue-chip"}
-      style={{ display:"flex", alignItems:"center", gap:docked ? 5 : 7, minHeight:44, flexShrink:0,
-        background:active ? "var(--sun)" : "var(--night)", border:"1px solid var(--sun)",
-        color:active ? "var(--ink0)" : "var(--sun)", borderRadius:99,
-        padding:docked ? "6px 11px" : "8px 14px", cursor:busy ? "default" : "pointer",
-        opacity:busy && !pending ? 0.6 : 1, boxShadow:docked ? "none" : "var(--shadow-2)",
-        maxWidth:docked ? "34vw" : "78vw" }}>
-      <span aria-hidden="true" style={{ fontSize:13 }}>{glyph}</span>
-      <span style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, whiteSpace:"nowrap",
-        overflow:"hidden", textOverflow:"ellipsis" }}>{text}</span>
+      aria-label={aria} className={`fd-cue-chip${docked ? " is-docked" : ""}${active ? " is-active" : ""}`}>
+      <span className="fd-cue-glyph" aria-hidden="true">{glyph}</span>
+      <span className="fd-cue-text">{text}</span>
     </button>
   );
-  if (reconnect && !sounding) return docked ? null : chip("reconnect", {
+  if (reconnect && !sounding) return docked || pill ? null : chip("reconnect", {
     onClick:() => { setCueState({ reconnect:false }); onAudio?.(); },
-    glyph:"♪", text:"Reconnect Spotify in Audio Director" });
+    glyph:<Icon name="song" size={15} />, text:"Reconnect Spotify in Audio Director" });
   /* a win song that should have played and did not: why, and one retry */
   const miss = state.showControl?.audio?.miss;
   const missed = !sounding && miss?.player && serverNow() - Number(miss.at) < MISS_SHOWN_MS ? miss : null;
@@ -131,11 +138,11 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
   };
   const missChip = missed ? chip("miss", {
     onClick:/reconnect|connected/i.test(missed.reason) ? () => onAudio?.() : retry,
-    pending:busy === "retry", glyph:"!",
+    pending:busy === "retry", glyph:<Icon name="undo" size={15} />, player:missed.player, act:"retry",
     text:docked ? `Retry ${disp(state, missed.player)}` : `${disp(state, missed.player)}'s song didn't play: ${missed.reason}`,
     aria:`${disp(state, missed.player)}'s song didn't play. ${missed.reason}. Retry`,
   }) : null;
-  return [missChip, ...items.map(item => {
+  const list = [missChip, ...items.map(item => {
     const name = item.player ? disp(state, item.player) : null;
     const full = item.sounding
       ? name ? `Stop ${name}'s song` : "Stop the song"
@@ -144,11 +151,13 @@ export function CueRack({ state, candidates = [], notify, onAudio, docked = fals
       onClick:() => item.sounding ? stop() : play(item),
       active:item.sounding,
       pending:busy === item.player || (item.sounding && busy === "stop"),
-      glyph:item.sounding ? "■" : "♪",
+      glyph:<Icon name={item.sounding ? "stop" : "song"} size={15} />,
       text:short ? (item.sounding ? `Stop${name ? ` ${name}` : ""}` : name) : full,
-      aria:full,
+      aria:full, player:item.player || null,
     });
   })].filter(Boolean);
+  /* the pill's slot holds one control: the song playing, else the miss */
+  return pill ? [list.find(node => node !== missChip) || missChip].filter(Boolean) : list;
 }
 
 /* test seam: the shared command state, reset between cases */

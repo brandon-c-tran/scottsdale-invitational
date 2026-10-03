@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DISPLAY } from "../../ui/theme.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
-import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { usePlayerIdentity, useTextFloor } from "../identity/PlayerIdentityContext.js";
 import { COIN_FACETS, edgeInserts } from "../identity/chipCoin.js";
 import {
   STACK_CAP, STACK_TILT as TILT, fitLevels, groupStacks, stackChipCount, stackGeometry, towerGap, towerTiers,
@@ -40,8 +40,9 @@ function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
 }
 
 /* A bettor's chips on one side, as the physical stack of their own identity
-   chip: one chip per 100, the top face carrying the jersey number, drawn
-   last over the chip's own halo. Past the cap the stack stops growing and
+   chip: one chip per 100, the top face carrying their photo (else their
+   initials where they reach 12px; never a number), drawn last over the
+   chip's own halo. Past the cap the stack stops growing and
    its value is stamped. A new chip drops on; a settled winner grows by its
    payout and a loser slides back to the bank. Presentation only. */
 export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine = false, settle = null,
@@ -49,6 +50,7 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
   /* a poker chip is not anyone's: its color, edge and stamp come with it,
      and it stacks one chip per chip rather than one per 100 */
   const player = usePlayerIdentity(p);
+  const floor = useTextFloor();
   const identity = chip ? { color:chip.color, isLight:!!chip.isLight, skin:chip.skin || "quad", num:chip.stamp } : player;
   const chips = count ?? stackChipCount(stake);
   const paidChips = count == null ? stackChipCount(paid) : 0;
@@ -110,7 +112,12 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
       d={`M${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}`} />);
   }
   const rise = paying ? (shown - base) * t : 0;
-  const stamp = identity.num;
+  /* a poker or group chip carries its stamp; a person's face is ChipFace's */
+  /* the stamp letters only where it reaches the surface's text floor (12px
+     on a phone, 24px on the TV); under it the chip's color carries it, and a
+     folded pile's count is on its name line */
+  const stampPx = chip && identity.num != null ? D * (String(identity.num).length > 3 ? 0.25 : String(identity.num).length > 2 ? 0.3 : 0.36) : 0;
+  const stamp = chip && stampPx >= floor - 0.25 ? identity.num : null;
   return (
     <span className={`fd-stack${light ? " is-light" : ""}${mine ? " is-mine" : ""}${settle ? ` is-${settle}` : ""}`}
       style={{ "--stack-color":identity.color, width, animationDelay:settle === "lost" ? `${delay}ms` : undefined }}
@@ -125,12 +132,12 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
           style={paying ? { "--stack-rise":`${r2(rise)}px`, animationDelay:`${delay}ms`,
             animationDuration:`${(shown - base) * 70 + 120}ms` } : undefined}>
           <g transform={`translate(${r2(pad)} ${r2(yFace - D * TILT / 2)}) scale(1 ${TILT})`}>
-            <ChipFace p={p} size={D} stamp="" flat
-              {...(chip ? { color:identity.color, isLight:identity.isLight, skin:identity.skin } : {})} />
+            <ChipFace p={p} size={D} flat
+              {...(chip ? { stamp:"", color:identity.color, isLight:identity.isLight, skin:identity.skin } : {})} />
           </g>
           {D >= 20 && stamp != null && <text x={r2(cx)} y={r2(yFace + D * 0.02)} textAnchor="middle" dominantBaseline="central"
             fontFamily={DISPLAY} fontWeight="700" className="fd-stack-num"
-            fontSize={r2(D * (String(stamp).length > 3 ? 0.25 : String(stamp).length > 2 ? 0.3 : 0.36))}
+            fontSize={r2(stampPx)}
             transform={`translate(0 ${r2(yFace)}) scale(1 .86) translate(0 ${r2(-yFace)})`}>{stamp}</text>}
         </g>
       </svg>
@@ -144,11 +151,11 @@ export const groupChip = count => ({ color:"var(--silver)", isLight:true, skin:"
 
 /* The smallest bettors on a crowded side, as one stack the size and shape of
    the rest: "+N" on its face, their combined chips on the value line. */
-export function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, label = true, valueAt = "below" }) {
+export function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, label = true, valueAt = "below", style = undefined }) {
   const players = rest.players;
   const value = <span className="fd-stacks-value">{fmt(rest.total)}</span>;
   return (
-    <div className="fd-stacks-slot fd-stacks-group" role="img"
+    <div className="fd-stacks-slot fd-stacks-group" role="img" style={style}
       aria-label={`${players.length} more: ${fmt(rest.total)} chips`}>
       <span className="fd-stacks-body">
         <ChipStack chip={groupChip(players.length)} count={stackChipCount(rest.total)} size={size} cap={cap}
@@ -156,7 +163,8 @@ export function StackGroup({ rest, size = 40, cap = STACK_CAP, names = false, la
         {valueAt === "side" && value}
       </span>
       {valueAt !== "side" && value}
-      {names && label && <span className="fd-stacks-name">+{players.length}</span>}
+      {/* a count, drawn as a chip so it never reads as a bettor's name */}
+      {names && label && <span className="fd-stacks-name fd-stacks-count">+{players.length}</span>}
     </div>
   );
 }

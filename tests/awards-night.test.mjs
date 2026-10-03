@@ -273,7 +273,7 @@ test("the director reveals each award when the room is free, and Skip ends it", 
   let director = resolveDirector(state, events, { showControl:false });
   assert.equal(director.nextAction.type, "reveal-award");
   assert.equal(director.nextAction.label, "Reveal awards");
-  assert.equal(director.nextAction.subject, "Fraud of the weekend · 1 of 3");
+  assert.equal(director.nextAction.subject, "Fraud of the weekend (1 of 3)");
   let pill = directorPill(state, events, director);
   assert.deepEqual(pill.run, { write:"promptReveal", payload:{ id:"bawards1", step:1 } });
   assert.deepEqual(pill.extras.find(extra => extra.label === "Skip").run,
@@ -469,7 +469,7 @@ test("the TV reveal and the commissioner's desk render the real components", () 
   const deskAfter = render(React.createElement(ui.AwardsDesk, { state:publicState(tie, { isGm:true }), onClose() {},
     write:() => ({ ok:true }) }), tieFrame.profiles);
   assert.match(deskAfter.html, /Next: Best host/);
-  assert.match(deskAfter.html, /Evan · 12/, "a finished award shows its winner");
+  assert.match(deskAfter.html, /Evan <b>12<[/]b>/, "a finished award shows its winner and count");
   assert.doesNotMatch(deskAfter.html, /Sahil &amp; Khoa/, "the award on the TV waits for its stamp, even here");
   const results = render(React.createElement(ui.AwardsResults, { state:tieFrame, rows:awardResults(tieFrame).reverse() }),
     tieFrame.profiles);

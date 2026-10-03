@@ -449,7 +449,7 @@ function openMvpBeat(state, events) {
   const voters = mvpVoters(state, record).length;
   const voted = record.votes ? Object.keys(record.votes).length : Number(record.voted || 0);
   const name = events.find(item => item.id === evId)?.name || "Team MVP";
-  return directorBeat("close-mvp", "Close MVP vote", { eventId:evId, subject:`${name} · ${voted} of ${voters} voted` });
+  return directorBeat("close-mvp", "Close MVP vote", { eventId:evId, subject:`${voted} of ${voters} voted` });
 }
 
 function awardsBeat(state, events) {
@@ -460,7 +460,7 @@ function awardsBeat(state, events) {
     subject:`${n} of ${n} awards shown` }), secondary:null };
   const next = ballot.questions[shown];
   return { nextAction:directorBeat("reveal-award", shown ? "Next award" : "Reveal awards", { ballotId:ballot.id,
-    step:shown + 1, subject:`${next.title} · ${shown + 1} of ${n}` }),
+    step:shown + 1, subject:`${next.title} (${shown + 1} of ${n})` }),
   secondary:{ type:"skip-awards", label:"Skip", ballotId:ballot.id } };
 }
 /* the ballot being revealed, else the newest closed one not yet shown */

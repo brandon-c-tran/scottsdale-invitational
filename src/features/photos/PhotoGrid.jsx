@@ -7,6 +7,7 @@ import { ActionButton, IconButton, Sheet } from "../../ui/controls.jsx";
 import * as transport from "../../lib/client.js";
 import { canDeleteMoment, deskMoments, momentSrc, momentWhen } from "./photoModel.js";
 import "./photos.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 /* A visible photo is a plain same-origin URL. A hidden one is served only to
    the commissioner, so it is fetched with the token into an object URL. */
@@ -94,9 +95,9 @@ export function PhotoViewer({ state, moment, list = [moment], me = null, gm = fa
       </div>
       <div className="fd-photo-controls">
         {list.length > 1 && <div className="fd-photo-nav">
-          <IconButton label="Previous photo" size={44} disabled={!prev || pending} onClick={() => go(prev)}>‹</IconButton>
+          <IconButton label="Previous photo" size={44} disabled={!prev || pending} onClick={() => go(prev)}><Icon name="back" size={22} /></IconButton>
           <span className="fd-photo-count">{index + 1} of {list.length}</span>
-          <IconButton label="Next photo" size={44} disabled={!next || pending} onClick={() => go(next)}>›</IconButton>
+          <IconButton label="Next photo" size={44} disabled={!next || pending} onClick={() => go(next)}><Icon name="next" size={22} /></IconButton>
         </div>}
         {(deletable || gm) && !confirming && <div className="fd-photo-actions">
           {gm && <ActionButton variant="secondary" compact onClick={toggleHidden} pending={pending}>
@@ -118,9 +119,11 @@ export function PhotoViewer({ state, moment, list = [moment], me = null, gm = fa
 
 /* The read-only grid: newest first, each tile opens the photo. Other
    surfaces (the kept weekend) can drop it in as is; `limit` trims it. */
-export function PhotoGrid({ state, me = null, gm = false, onPlayer = null, limit = 0, onOpen = null, moments = null }) {
+export function PhotoGrid({ state, me = null, gm = false, onPlayer = null, limit = 0, onOpen = null, moments = null, onMore = null }) {
   const list = moments || deskMoments(state, { gm });
-  const shown = limit ? list.slice(0, limit) : list;
+  /* trimmed with somewhere to go: the last tile is the way to the rest */
+  const folded = !!(limit && onMore && list.length > limit);
+  const shown = limit ? list.slice(0, folded ? limit - 1 : limit) : list;
   const [openId, setOpenId] = useState(null);
   const current = openId ? list.find(item => item.id === openId) || null : null;
   if (!shown.length) return null;
@@ -129,6 +132,8 @@ export function PhotoGrid({ state, me = null, gm = false, onPlayer = null, limit
       <div className="fd-photo-grid">
         {shown.map(moment => <Tile key={moment.id} state={state} moment={moment}
           onOpen={item => onOpen ? onOpen(item) : setOpenId(item.id)} />)}
+        {folded && <button type="button" className="fd-photo-tile fd-photo-more" onClick={onMore}
+          aria-label={`All ${list.length} photos`}><span aria-hidden="true">+{list.length - shown.length}</span></button>}
       </div>
       {current && <PhotoViewer state={state} moment={current} list={list} me={me} gm={gm} onPlayer={onPlayer}
         onMove={setOpenId} onClose={() => setOpenId(null)} />}

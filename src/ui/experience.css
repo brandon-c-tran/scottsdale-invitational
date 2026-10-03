@@ -1,66 +1,109 @@
-/* Field Day at night. One palette for guest, commissioner, and TV. The
-   surfaces follow the weekend (data-phase on the root, from ui/phase.js):
-   Friday is the default here, and each session swaps only its surface ramp,
-   muted text, chrome, scrim, shadows and --phase. Bone, gold, accents and
-   chip colors never change. */
+/* Backglass. Field Day is a lit pinball backglass: black glass, reverse-
+   painted panels, bone ink, and lamps that carry state.
+   Lamps have fixed jobs: magenta (--lamp-live) is live and now, amber
+   (--sun) is chips and money, cyan (--lamp-info) is navigation and info.
+   Filament yellow (--you) with its bloom is reserved for "you" and appears
+   nowhere else. Player identity colors are painted inserts, never lit.
+   Lamp states: steady is live, flashing is pending, unlit is done, struck
+   is void (motion.css).
+   The glass takes the session's light (data-phase on the root, from
+   ui/phase.js): Friday night is the default here, and each session swaps
+   only the glass ramp, muted text, chrome, scrim, shadows and --phase.
+   Ink, lamps and chip colors never change. */
+@font-face { font-family:'Big Shoulders Display'; font-style:normal; font-weight:100 900; font-display:swap;
+  src:url(/fonts/big-shoulders-display-latin.woff2) format('woff2'); }
+@font-face { font-family:'Big Shoulders Inline Display'; font-style:normal; font-weight:700 900; font-display:swap;
+  src:url(/fonts/big-shoulders-inline-display-latin.woff2) format('woff2'); }
+/* While Big Shoulders loads (font-display:swap), a local condensed face
+   stands in, scaled to its width (uppercase at 900 averages .48em) and set
+   on its line box (ascent .984, descent .213), so a slow load never shows
+   the wide system face or reflows a plate. Overrides are divided by the
+   size-adjust they ride on. iPhone: Helvetica Neue Condensed Black;
+   Mac/Windows: Arial Narrow Bold. */
+@font-face { font-family:'BS Fallback Condensed'; font-weight:100 900;
+  src:local('HelveticaNeue-CondensedBlack'), local('Helvetica Neue Condensed Black'), local('HelveticaNeue-CondensedBold');
+  size-adjust:80%; ascent-override:123%; descent-override:26.6%; line-gap-override:0%; }
+@font-face { font-family:'BS Fallback Narrow'; font-weight:100 900;
+  src:local('ArialNarrow-Bold'), local('Arial Narrow Bold'), local('Arial Narrow');
+  size-adjust:88%; ascent-override:111.8%; descent-override:24.2%; line-gap-override:0%; }
 :root {
   --fd-paper:var(--paper);
   --fd-burgundy:var(--ink);
   --fd-citron:var(--sun);
   --fd-rust:var(--accent);
-  --fd-display:'Barlow Condensed','Arial Narrow',sans-serif;
-  --fd-body:'Inter',system-ui,sans-serif;
+  /* reels, ranks and labels */
+  --fd-display:'Big Shoulders Display','BS Fallback Condensed','BS Fallback Narrow',sans-serif;
+  /* moments, event names and people's names: the same family, heavy; the
+     Inline cut (marquee lettering) only at hero sizes (.fd-show.is-marquee) */
+  --fd-show:'Big Shoulders Display','BS Fallback Condensed','BS Fallback Narrow',sans-serif;
+  --fd-marquee:'Big Shoulders Inline Display','Big Shoulders Display','BS Fallback Condensed','BS Fallback Narrow',sans-serif;
+  --fd-body:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  /* a URL or key to copy exactly: the system's own monospace */
+  --fd-mono:ui-monospace,monospace;
   color-scheme:dark;
-  --bg:#0e191c; --paper:#192529; --paper2:#233034;
-  --ink:#f2eddf; --ink0:#151c1c; --muted:#b8b2a6; --muted2:#d4cfc4; --disabled:#a09a8e;
-  --line:rgba(242,237,223,.15); --ink-tint:rgba(242,237,223,.05);
-  --accent:#9b8cb8; --accent2:#b2a5cf; --sun:#e4d477;
+  --bg:#090b14; --paper:#121626; --paper2:#1b2033;
+  --ink:#f4ecd8; --ink0:#0a0910; --muted:#b2abc2; --muted2:#d9d2e3; --disabled:#968fa6;
+  --line:rgba(244,236,216,.14); --ink-tint:rgba(244,236,216,.05);
+  --accent:#2bb8d0; --accent2:#5fdcf0; --sun:#ffa630;
   --signal-text:var(--sun); --selection-fill:var(--sun);
-  /* clay is a fill and a line; text in that family is clay-text */
-  --pool:#86b8b2; --olive:#a6b48b; --clay:#c0473a; --clay-text:#e58f7b; --live2:#e58f7b; --green:#a1c69a;
+  /* the three system lamps and the filament */
+  --lamp-live:#ff3fa4; --lamp-live-text:#ff74bf; --lamp-info:var(--accent2); --lamp-chip:var(--sun);
+  --you:#ffe04a;
+  --you-bloom:0 0 0 1px rgba(255,224,74,.85),0 0 14px rgba(255,224,74,.45),0 0 38px rgba(255,224,74,.2);
+  --live-bloom:0 0 0 1px rgba(255,63,164,.8),0 0 16px rgba(255,63,164,.38);
+  --chip-bloom:0 0 0 1px rgba(255,166,48,.8),0 0 16px rgba(255,166,48,.35);
+  --you-tint:rgba(255,224,74,.1); --live-tint:rgba(255,63,164,.12); --info-tint:rgba(95,220,240,.1);
+  /* a reverse-painted panel: lit from behind, bevelled at the glass edge */
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.45);
+  /* clay is a fill and a line (loss, danger); text in that family is clay-text */
+  --pool:#5fb8d6; --olive:#9fc96a; --clay:#e8433a; --clay-text:#ff8a7a; --live2:#ff74bf; --green:#7be38f;
   --night:var(--paper); --night2:var(--paper2); --night-deep:var(--bg);
-  --bone:#f2eddf; --night-text:var(--muted2); --night-text2:var(--muted);
-  --silver:#8c99a4; --bronze:#c08454;
-  /* the session's own color: the line along the top of the header */
+  --bone:#f4ecd8; --night-text:var(--muted2); --night-text2:var(--muted);
+  --silver:#a9b4c2; --bronze:#d08a52;
+  /* the session's own lamp: the line along the top of the header */
   --phase:var(--pool);
   /* the finale's poker chips, one flat color per denomination */
-  --poker-25:#4f9a67; --poker-100:#363b3b; --poker-500:#7c5cab; --poker-1000:#e0ad45;
-  --sun-tint:rgba(228,212,119,.12); --clay-tint:rgba(229,143,123,.15);
-  --green-tint:rgba(161,198,154,.14); --accent-tint:rgba(178,165,207,.14);
-  --bone-line:rgba(251,243,228,.16); --chip-mark:rgba(251,243,228,.75); --night-line:rgba(251,243,228,.12);
-  --ghost-line:rgba(251,243,228,.3); --danger-line:rgba(192,71,58,.4);
-  --shadow-1:0 2px 10px rgba(1,3,4,.5);
-  --shadow-2:0 8px 24px rgba(1,3,4,.6);
-  --shadow-3:0 14px 40px rgba(1,3,4,.7);
-  --scrim:rgba(1,3,4,.62);
+  --poker-25:#3f9a5f; --poker-100:#30313b; --poker-500:#7a4fc0; --poker-1000:#f0b53c;
+  /* the TV backglass painting's inks (art only, never text or state): the
+     session's sky, mesas and desert floor, mixed per phase in tv.css */
+  --art-indigo:#18205e; --art-cobalt:#2443c4; --art-violet:#4a2690; --art-plum:#2c1240;
+  --art-rose:#e0457a; --art-tangerine:#ff6f2c; --art-cream:#ffe7b3; --art-turquoise:#17aeb0;
+  --art-terracotta:#c24a26; --art-umber:#4e2416; --art-sage:#1f4a3f; --art-teal:#0d3a46;
+  --sun-tint:rgba(255,166,48,.13); --clay-tint:rgba(255,138,122,.15);
+  --green-tint:rgba(123,227,143,.13); --accent-tint:rgba(95,220,240,.13);
+  --bone-line:rgba(244,236,216,.16); --chip-mark:rgba(244,236,216,.75); --night-line:rgba(244,236,216,.12);
+  --ghost-line:rgba(244,236,216,.3); --danger-line:rgba(232,67,58,.45);
+  --shadow-1:0 2px 10px rgba(2,3,10,.6);
+  --shadow-2:0 8px 24px rgba(2,3,10,.7);
+  --shadow-3:0 14px 40px rgba(2,3,10,.78);
+  --scrim:rgba(3,4,10,.7);
   --action-fill:var(--sun); --action-ink:var(--ink0);
-  --chrome:rgba(14,25,28,.97); --chrome-line:var(--line);
+  --chrome:rgba(9,11,20,.96); --chrome-line:var(--line);
   --fd-nav-height:calc(74px + env(safe-area-inset-bottom));
 }
-/* Saturday morning: sand */
+/* The glass stays blue-black in every session; the session shows in the
+   painted sky (GlassArt, the TV backglass) and in its own lamp, --phase. */
+/* Saturday morning */
 :root[data-phase="sam"] {
-  --bg:#231d14; --paper:#2c261c; --paper2:#342e24; --muted:#c3bdb1; --muted2:#dcd7cc;
-  --shadow-1:0 2px 10px rgba(4,2,1,.5); --shadow-2:0 8px 24px rgba(4,2,1,.6); --shadow-3:0 14px 40px rgba(4,2,1,.7);
-  --scrim:rgba(4,2,1,.62); --chrome:rgba(35,29,20,.97); --phase:var(--sun);
+  --phase:var(--sun);
 }
-/* Saturday afternoon: adobe */
+/* Saturday afternoon */
 :root[data-phase="sap"] {
-  --bg:#261913; --paper:#30221a; --paper2:#3a2a23; --muted:#c3bdb1; --muted2:#dcd7cc;
-  --shadow-1:0 2px 10px rgba(5,2,1,.5); --shadow-2:0 8px 24px rgba(5,2,1,.6); --shadow-3:0 14px 40px rgba(5,2,1,.7);
-  --scrim:rgba(5,2,1,.62); --chrome:rgba(38,25,19,.97); --phase:#cf7a4f;
+  --phase:#ff7a3c;
 }
-/* Saturday night: oxblood */
+/* Saturday night */
 :root[data-phase="san"] {
-  --bg:#1f1212; --paper:#2c1d1d; --paper2:#382828;
-  --shadow-1:0 2px 10px rgba(5,1,2,.5); --shadow-2:0 8px 24px rgba(5,1,2,.6); --shadow-3:0 14px 40px rgba(5,1,2,.7);
-  --scrim:rgba(5,1,2,.62); --chrome:rgba(31,18,18,.97); --phase:#d86452;
+  --phase:var(--lamp-live);
 }
-/* the finale: near-black, so the gold carries it */
+/* the finale */
 :root[data-phase="fin"] {
-  --bg:#111116; --paper:#1d1d22; --paper2:#29292f;
-  --shadow-1:0 2px 10px rgba(2,2,4,.5); --shadow-2:0 8px 24px rgba(2,2,4,.6); --shadow-3:0 14px 40px rgba(2,2,4,.7);
-  --scrim:rgba(2,2,4,.62); --chrome:rgba(17,17,22,.97); --phase:var(--sun);
+  --phase:var(--sun);
 }
+/* the parts the browser draws: selection, caret and focus are navigation, so cyan */
+::selection { background:var(--lamp-info); color:var(--ink0); }
+html { caret-color:var(--lamp-info); accent-color:var(--lamp-info); scrollbar-color:var(--ghost-line) transparent; }
+input::placeholder, textarea::placeholder { color:var(--muted); }
+a { text-underline-offset:3px; text-decoration-thickness:1px; }
 /* A session change while the app is open eases the surfaces over 1.5s.
    ui/usePhaseTheme.js adds the class only then, never on first load; the TV
    sky keeps its own paper-swap steps. */
@@ -78,7 +121,7 @@
 body { color:var(--ink); font-family:var(--fd-body); }
 button,input,select,textarea { font:inherit; }
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible {
-  outline:2px solid var(--signal-text); outline-offset:4px;
+  outline:2px solid var(--lamp-info); outline-offset:3px;
 }
 .fd-shell { min-height:100vh; min-height:100dvh; display:flex; justify-content:center; background:var(--bg); }
 .fd-shell-inner { width:100%; max-width:620px; min-height:100vh; min-height:100dvh;
@@ -86,53 +129,74 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-shell-inner.is-arrival { max-width:1040px; }
 .fd-shell-inner.is-tv { max-width:none; }
 .fd-environment { background:var(--paper2); color:var(--muted2); padding:5px 12px; text-align:center;
-  font:600 9px/1.4 var(--fd-body); letter-spacing:.15em; text-transform:uppercase; }
+  font:700 12px/1.4 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; }
 .fd-page-heading { padding:20px 0 18px; }
-.fd-kicker { font:600 10px/1.5 var(--fd-body); text-transform:uppercase; letter-spacing:.12em; color:var(--muted2); }
 .fd-page-heading-row { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; }
-.fd-page-heading h1 { color:var(--ink); font:700 clamp(32px,8.5vw,42px)/1.03 var(--fd-display);
-  letter-spacing:.01em; margin:6px 0 0; overflow-wrap:anywhere; }
-.fd-page-heading p { font-size:13px; line-height:1.6; color:var(--muted2); max-width:420px; margin:12px 0 0; }
-.fd-section-heading { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:28px 0 13px; }
-.fd-section-heading h2 { font:700 23px/1.15 var(--fd-display); letter-spacing:.01em; color:var(--ink); margin:0; }
-.fd-section-heading p { margin:5px 0 0; color:var(--muted); font-size:11px; line-height:1.5; }
-.fd-link { border:0; padding:8px 0; background:none; color:var(--fd-burgundy); font-size:11px;
+.fd-page-heading h1 { color:var(--ink); font:800 clamp(34px,9vw,44px)/1 var(--fd-display);
+  letter-spacing:.01em; text-transform:uppercase; margin:0; overflow-wrap:anywhere; }
+.fd-page-heading p { font-size:14px; line-height:1.6; color:var(--muted2); max-width:420px; margin:12px 0 0; }
+.fd-section-heading { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:30px 0 12px; }
+.fd-section-heading h2 { font:800 24px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink); margin:0; }
+.fd-section-heading p { margin:4px 0 0; color:var(--muted2); font-size:12px; line-height:1.5; }
+.fd-link { border:0; padding:8px 0; background:none; color:var(--lamp-info); font-size:13px;
   font-weight:600; cursor:pointer; text-underline-offset:4px; }
-.fd-header { position:sticky; top:0; z-index:40; padding:env(safe-area-inset-top) 20px 0;
+.fd-icon { display:inline-block; flex-shrink:0; vertical-align:-.15em; }
+.fd-icon-then { margin:0 4px; color:var(--muted2); }
+.fd-icon-done { margin-left:3px; color:var(--green); }
+/* the header is the top rail of the backglass: a strip of session lamps
+   along its top edge, the mark, and your own reel lit in your filament */
+.fd-header { position:sticky; top:0; z-index:40; padding:calc(env(safe-area-inset-top) + 7px) 14px 3px 18px;
   background:var(--chrome); backdrop-filter:blur(16px); border-bottom:1px solid var(--line);
   box-shadow:inset 0 3px 0 var(--phase); }
-.fd-header-row { display:flex; align-items:center; gap:10px; min-height:56px; }
-.fd-brand { display:flex; align-items:center; gap:9px; flex:1; text-align:left; border:0;
-  padding:0; background:none; color:var(--fd-burgundy); cursor:pointer; }
-.fd-brand strong { display:block; font:700 24px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
-.fd-brand small { display:block; font-size:8px; font-weight:600; letter-spacing:.15em; margin-top:5px; text-transform:uppercase; }
+.fd-header::before { content:""; position:absolute; left:0; right:0; top:env(safe-area-inset-top); height:3px; pointer-events:none;
+  background:radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--phase) 30%, var(--bone)) 0 1px, transparent 1.6px) 0 0 / 14px 3px repeat-x; }
+.fd-header-row { display:flex; align-items:center; gap:6px; min-height:58px; }
+.fd-brand { display:flex; align-items:center; gap:9px; flex:1; min-width:0; text-align:left; border:0;
+  padding:0; background:none; color:var(--ink); cursor:pointer; }
+.fd-brand>span { min-width:0; overflow:hidden; }
+.fd-brand strong { display:block; font:900 26px/1 var(--fd-show); letter-spacing:.01em; white-space:nowrap; }
+.fd-brand small { display:block; margin-top:3px; color:var(--muted2); font:700 12px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.fd-header-you { display:flex; align-items:baseline; gap:7px; flex-shrink:0; min-height:44px; padding:7px 10px 6px; border:1px solid var(--you); border-radius:10px;
+  background:var(--you-tint); box-shadow:var(--you-bloom); color:var(--you); cursor:pointer; }
+.fd-header-you .fd-reel { font:800 22px/1 var(--fd-display); }
+.fd-header-rank { font:800 16px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
+/* your reel takes the brand's place on a phone: the mark stays as the home
+   button, the words step aside so nothing in the row ever touches */
+@media(max-width:430px) { .fd-header-row:has(.fd-header-you) .fd-brand>span { display:none; }
+  .fd-header-row:has(.fd-header-you) .fd-brand { flex:0 0 auto; margin-right:auto; } }
+@media(max-width:374px) { .fd-header-you~.fd-profile-link { display:none; } }
 .fd-profile-link { display:flex; align-items:center; justify-content:center; padding:0; background:none;
   border:0; border-radius:50%; cursor:pointer; min-width:44px; min-height:44px; }
 .fd-update-chip { display:flex; flex-shrink:0; align-items:center; gap:6px; min-height:44px; padding:0 4px; border:0;
   background:none; color:var(--sun); font:600 12px/1 var(--fd-body); cursor:pointer; }
 @media(max-width:430px) { .fd-header-row.has-update .fd-brand>span { display:none; } }
 .fd-update-chip span { padding:6px 10px; border:1px solid color-mix(in srgb,var(--sun) 45%,transparent); border-radius:99px; }
-.fd-connection { display:flex; align-items:center; gap:8px; padding:9px 0; font-size:11px; color:var(--clay-text); }
+.fd-connection { display:flex; align-items:center; gap:8px; padding:9px 0; font-size:12px; color:var(--clay-text); }
 .fd-connection .fd-beat-dot { color:var(--clay-text); }
-.fd-live-link { display:flex; align-items:center; gap:9px; padding:10px 0 13px; width:100%; border:0;
+.fd-live-link { display:flex; align-items:center; gap:10px; min-height:48px; padding:6px 0 10px; width:100%; border:0;
   background:none; text-align:left; color:var(--ink); cursor:pointer; }
-.fd-live-link-text { flex:1; min-width:0; font-size:12px; font-weight:600; }
-.fd-live-link-text small { display:block; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:3px; }
-.fd-live-label { padding:5px 7px; background:var(--sun); color:var(--ink0); border-radius:6px; font-size:10px; font-weight:700; }
+.fd-live-link-text { flex:1; min-width:0; font-size:22px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-live-label { display:flex; align-items:center; gap:4px; min-height:32px; padding:0 6px 0 10px; border-radius:99px; color:var(--muted2); font:600 13px/1 var(--fd-body); white-space:nowrap; }
+/* open: the breathing fill is the lamp; the label stays bone */
+.fd-live-link.is-open .fd-live-label { color:var(--ink); box-shadow:inset 0 0 0 1px var(--line); }
+.fd-live-label.fd-beat-fill::before { background:var(--live-tint); }
 .fd-nav-wrap { position:fixed; bottom:0; left:0; right:0; z-index:50; display:flex; justify-content:center; pointer-events:none; }
 .fd-nav { width:100%; max-width:620px; height:var(--fd-nav-height); display:flex; padding:6px 12px calc(7px + env(safe-area-inset-bottom));
   border-top:1px solid var(--line); background:var(--chrome); backdrop-filter:blur(18px); pointer-events:auto; }
-.fd-nav button { flex:1; display:flex; flex-direction:column; gap:4px; align-items:center; justify-content:center;
-  color:var(--muted); border:0; background:none; min-height:49px; font-size:10px; font-weight:600; cursor:pointer; }
-.fd-nav-icon { display:flex; width:46px; height:28px; align-items:center; justify-content:center; border-radius:5px; transition:background .18s,transform .18s; }
-.fd-nav button[aria-current=page] { color:var(--sun); }
-.fd-nav button[aria-current=page] .fd-nav-icon { background:var(--sun-tint); }
-.fd-nav-icon { position:relative; }
-.fd-nav-badge { position:absolute; top:2px; right:9px; width:8px; height:8px; border-radius:50%; background:var(--sun); box-shadow:0 0 0 2px var(--chrome); }
+/* standard tabs; the one you are on is lit, a cyan lamp behind its icon */
+.fd-nav button { flex:1; display:flex; flex-direction:column; gap:3px; align-items:center; justify-content:center;
+  color:var(--muted2); border:0; background:none; min-height:52px; font:600 12px/1.1 var(--fd-body); cursor:pointer; }
+.fd-nav-icon { position:relative; display:flex; width:52px; height:30px; align-items:center; justify-content:center; border-radius:99px; transition:background .18s,box-shadow .18s,transform .18s; }
+.fd-nav button[aria-current=page] { color:var(--lamp-info); }
+.fd-nav button[aria-current=page] .fd-nav-icon { background:var(--info-tint); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent), 0 0 14px color-mix(in srgb, var(--lamp-info) 30%, transparent); }
+.fd-nav button[aria-current=page] .fd-nav-icon svg { filter:drop-shadow(0 0 4px color-mix(in srgb, var(--lamp-info) 70%, transparent)); }
+/* something here waits on you: a lit magenta insert */
+.fd-nav-badge { position:absolute; top:1px; right:9px; width:9px; height:9px; border-radius:50%; background:var(--lamp-live);
+  box-shadow:0 0 0 2px var(--chrome), 0 0 8px var(--lamp-live); }
 .fd-main { flex:1; min-width:0; }
 /* One toast: it wraps to two lines inside the screen, and an action is its
    own 44px target. On Bets it rises above the fixed chip rack. */
-.fd-toast { position:fixed; left:12px; right:12px; bottom:calc(var(--fd-nav-height) + 24px); z-index:150; margin:0 auto;
+.fd-toast { position:fixed; left:12px; right:12px; bottom:calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 24px); z-index:150; margin:0 auto;
   display:flex; align-items:center; gap:10px; width:fit-content; max-width:min(calc(100vw - 24px),540px);
   padding:8px 16px 8px 9px; border:1px solid var(--bone-line); border-radius:14px; background:var(--night2);
   color:var(--bone); font:600 14px/1.35 var(--fd-body); box-shadow:var(--shadow-3); animation:si-up .2s ease-out; }
@@ -140,41 +204,47 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-toast.has-action { padding-right:4px; }
 /* While the chip rack is up the toast docks under the header, clear of the
    + targets and the rack at every width. */
-.fd-toast.is-over-rack { top:calc(env(safe-area-inset-top) + 64px); bottom:auto; animation-name:si-in; }
+.fd-toast.is-over-rack { top:calc(env(safe-area-inset-top) + 74px); bottom:auto; animation-name:si-in; }
 .fd-toast-mark { display:flex; flex-shrink:0; align-items:center; gap:6px; }
 .fd-toast-number { font:italic 700 16px/1 var(--fd-display); color:var(--night-text); }
 .fd-toast-msg { flex:1; min-width:0; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
 .fd-toast-action { flex-shrink:0; min-width:44px; min-height:44px; padding:0 12px; border:0; border-left:1px solid var(--bone-line);
-  background:none; color:var(--sun); font:700 13px/1 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+  background:none; color:var(--lamp-info); font:800 15px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
 @media(prefers-reduced-motion:reduce) { .fd-toast { animation:none; } }
 .fd-main > * { animation:si-in .2s ease-out; }
 .fd-event-hero { margin:-1px -22px 22px; padding:24px 22px; background:var(--paper2); color:var(--ink); }
 .fd-event-hero-title { display:flex; align-items:center; gap:14px; margin-bottom:15px; }
 .fd-event-hero-title h2 { font:400 24px/1.1 var(--fd-display); letter-spacing:-.045em; margin:0; }
 .fd-event-payouts { display:flex; flex-wrap:wrap; gap:16px; border-top:1px solid var(--line); padding-top:12px; }
-.fd-event-payouts strong { display:block; font:700 28px/1 'Barlow Condensed',sans-serif; }
-.fd-event-payouts small { font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
+.fd-event-payouts strong { display:block; font:800 28px/1 var(--fd-display); }
+.fd-event-payouts small { font:700 12px/1.2 var(--fd-display); text-transform:uppercase; letter-spacing:.06em; color:var(--muted2); }
 .fd-player-link { display:inline-flex; align-items:center; gap:6px; min-height:44px; min-width:44px; padding:4px 6px;
   border:0; border-radius:6px; background:transparent; color:var(--ink); font:inherit; cursor:pointer; text-align:left; }
 .fd-player-link:hover { background:var(--ink-tint); }
 .fd-player-links { display:flex; flex-wrap:wrap; min-width:0; gap:2px; }
-.fd-player-links .fd-player-link { max-width:100%; padding:2px; font-size:12px; }
+.fd-player-links .fd-player-link { max-width:100%; padding:2px; font-size:13px; }
 .fd-player-links .fd-player-link span { min-width:0; overflow-wrap:anywhere; }
 .fd-crew-link { display:flex; align-items:center; gap:9px; width:100%; min-height:48px; padding:9px 0; border:0; border-top:1px solid var(--line); background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
 .fd-crew-link>span { flex:1; min-width:0; }
-.fd-crew-link strong { display:block; font-size:13px; }
-.fd-crew-link small { display:block; color:var(--muted2); font-size:11px; line-height:1.5; }
+.fd-crew-link strong { display:block; font-size:14px; }
+.fd-crew-link small { display:block; color:var(--muted2); font-size:12px; line-height:1.5; }
 .si-sheet:focus { outline:none; }
 /* the scrim is its own layer so it can fade while the sheet rises (motion.css) */
 .fd-sheet-overlay { position:fixed; inset:0; display:flex; align-items:flex-end; justify-content:center; }
 .fd-sheet-overlay::before { content:""; position:absolute; inset:0; background:var(--scrim); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
-.fd-sheet-overlay .si-sheet { position:relative; width:100%; max-width:560px; max-height:94dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0; box-shadow:var(--shadow-3); }
+/* a sheet is a reverse-painted glass panel: lit from behind, its edge
+   caught along the top */
+.fd-sheet-overlay .si-sheet { position:relative; width:100%; max-width:560px; max-height:94dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); border:1px solid var(--ghost-line); border-bottom:0; border-radius:14px 14px 0 0; box-shadow:var(--glass-edge), var(--shadow-3); scrollbar-width:thin; }
 .fd-sheet-overlay .si-sheet.is-wide { max-width:900px; }
-.fd-sheet-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:60px; padding:8px 16px; background:var(--paper); border-bottom:1px solid var(--line); }
-.fd-sheet-heading { flex:1; min-width:0; color:var(--ink); font:700 23px/1.1 var(--fd-display); overflow-wrap:anywhere; }
-.fd-sheet-heading small { display:block; margin-top:4px; color:var(--muted2); font:400 11px/1.4 var(--fd-body); }
+.fd-sheet-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:72px; padding:16px 12px 14px 18px; background:var(--paper); border-bottom:1px solid var(--line); box-shadow:var(--glass-edge); }
+.fd-sheet-heading { flex:1; min-width:0; color:var(--ink); font:800 24px/1.12 var(--fd-display); letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; }
+/* a sheet that names an event or a person is lettered on the glass */
+.fd-sheet-heading.is-show { font:900 30px/1.12 var(--fd-show); letter-spacing:.01em; text-transform:none; }
+/* a sheet whose body letters its own hero: the header is only its controls */
+.fd-sheet-header:has(> .fd-sheet-heading.is-bare) { min-height:52px; padding-top:6px; padding-bottom:0; border-bottom:0; box-shadow:none; }
+.fd-sheet-heading small { display:block; margin-top:4px; color:var(--muted2); font:400 13px/1.4 var(--fd-body); letter-spacing:0; text-transform:none; }
 .fd-sheet-header-actions { display:flex; align-items:center; gap:6px; }
-.fd-sheet-header-actions button { min-height:44px; padding:6px 8px; border:0; background:none; color:var(--muted2); font-size:12px; cursor:pointer; }
+.fd-sheet-header-actions button { min-height:44px; padding:6px 8px; border:0; background:none; color:var(--lamp-info); font-size:13px; font-weight:600; cursor:pointer; }
 .fd-sheet-body { padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }
 .fd-sheet-body > :first-child { margin-top:0; }
 .fd-sheet-body > :last-child { margin-bottom:0; }
@@ -183,12 +253,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .fd-sheet-overlay .si-sheet { max-height:calc(100dvh - 48px); border-bottom:1px solid var(--line); border-radius:12px; }
 }
 .fd-profile-sections { display:flex; gap:4px; padding:4px; margin:0 0 20px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
-.fd-profile-sections button { flex:1; min-height:44px; padding:8px; border:0; border-radius:6px; background:transparent; color:var(--muted2); font-size:12px; font-weight:600; cursor:pointer; }
-.fd-profile-sections button[aria-pressed=true] { background:var(--sun); color:var(--ink0); }
+.fd-profile-sections button { flex:1; min-height:44px; padding:8px; border:0; border-radius:6px; background:transparent; color:var(--muted2); font-size:13px; font-weight:600; cursor:pointer; }
+.fd-profile-sections button[aria-pressed=true] { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
 .fd-profile-sections button:disabled { cursor:default; opacity:.5; }
 .fd-profile-save { position:sticky; bottom:-18px; z-index:4; background:var(--paper); padding:12px 0; margin-top:16px; border-top:1px solid var(--line); }
 .fd-profile-discard { margin-bottom:12px; }
-.fd-profile-discard p { margin:0 0 8px; color:var(--ink); font-size:13px; }
+.fd-profile-discard p { margin:0 0 8px; color:var(--ink); font-size:14px; }
 .fd-profile-discard div { display:flex; gap:8px; }
 .fd-profile-discard div>* { flex:1; }
 @media(min-width:700px) {
@@ -197,6 +267,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:350px) {
   .fd-header { padding-left:16px; padding-right:16px; }
   .fd-header-row { gap:7px; }
-  .fd-brand strong { font-size:18px; }
+  .fd-brand strong { font-size:22px; }
 }
 @media(prefers-reduced-motion:reduce) { .fd-nav-icon { transition:none; } }

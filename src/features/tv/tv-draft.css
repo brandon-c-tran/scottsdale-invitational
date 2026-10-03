@@ -2,50 +2,53 @@
    .is-fresh (a fresh pick), end states are the resting styles, and reduced
    motion drops every animation. */
 .tv-draft { position:relative; gap:18px; }
-.tv-draft-head { display:flex; align-items:center; gap:32px; flex-shrink:0; min-height:140px; }
+.tv-draft-head { display:flex; align-items:center; gap:32px; flex-shrink:0; min-height:140px; padding:8px 24px; border-radius:18px;
+  background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge); }
 .tv-draft-clock { display:flex; align-items:center; gap:28px; min-width:0; flex:1; }
 .tv-draft-clock-chip { display:block; flex-shrink:0; transform:rotate(-9deg); }
 .tv-draft-clock-copy { min-width:0; }
 .tv-draft-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-draft-who { font-size:96px; line-height:.95; color:var(--bone); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-draft.is-complete .tv-draft-who { color:var(--sun); }
+.tv-draft-who { font-size:96px; line-height:1.15; color:var(--bone); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-draft-order { display:flex; gap:12px; margin:0; padding:0; list-style:none; flex-shrink:0; }
-.tv-draft-order li { display:flex; align-items:center; gap:12px; min-width:170px; padding:12px 16px; border:1px solid var(--line);
-  border-radius:14px; background:var(--paper); }
+.tv-draft-order li { display:flex; align-items:center; gap:12px; min-width:170px; padding:12px 16px;
+  border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
 .tv-draft-order li>span { display:flex; flex-direction:column; gap:4px; min-width:0; }
-.tv-draft-order small { font:700 24px/1 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.tv-draft-order small { font:700 24px/1.2 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
 .tv-draft-order li.is-back small::after { content:" ↩"; }
-.tv-draft-order b { font:700 28px/1 var(--fd-body); color:var(--bone); white-space:nowrap; max-width:190px; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-order b { font:700 28px/1.25 var(--fd-body); color:var(--bone); white-space:nowrap; max-width:190px; overflow:hidden; text-overflow:ellipsis; }
 
 .tv-draft-teams { flex:1; min-height:0; display:grid; gap:18px; }
 .tv-draft-col { display:flex; flex-direction:column; min-width:0; min-height:0; padding:14px 22px 10px; border-radius:14px;
-  background:var(--paper); border:1px solid var(--line); }
-.tv-draft-col.is-clock { border:3px solid var(--sun); padding:12px 20px 8px; }
+  background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge); }
+/* the team on the clock is live: the magenta lamp */
+.tv-draft-col.is-clock { border:2px solid var(--lamp-live); padding:13px 21px 9px; box-shadow:var(--live-bloom); }
 .tv-draft-col>header { display:flex; align-items:center; gap:14px; padding-bottom:10px; border-bottom:1.5px solid var(--ghost-line); }
-.tv-draft-captain { flex:1; min-width:0; font-size:44px; line-height:1; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-draft-count { font-size:36px; line-height:1; color:var(--muted); }
+.tv-draft-captain { flex:1; min-width:0; font-size:44px; line-height:1.15; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-count { font-size:40px; line-height:1.15; color:var(--muted); font-variant-numeric:tabular-nums; }
 .tv-draft-col ol { flex:1; min-height:0; display:grid; grid-template-rows:repeat(var(--draft-rows, 5), minmax(0, 120px)); align-content:start; margin:0; padding:0; list-style:none; }
 .tv-draft-seat { position:relative; display:flex; align-items:center; gap:18px; min-height:0; padding:0 12px;
   margin:0 -12px; border-bottom:1px solid var(--line); border-radius:10px; }
 .tv-draft-seat:last-child { border-bottom:0; }
 .tv-draft-seat-chip { display:grid; place-items:center; flex-shrink:0; width:56px; height:56px; }
-.tv-draft-seat-name { flex:1; min-width:0; font:700 34px/1.1 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-draft-seat.is-latest { background:var(--sun-tint); }
-.tv-draft-seat-pick { font:700 24px/1 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--sun); }
+/* clipped to its seat: the line box holds every descender */
+.tv-draft-seat-name { flex:1; min-width:0; font:700 34px/1.3 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-seat.is-latest { background:var(--ink-tint); }
+.tv-draft-seat-pick { font:700 24px/1.2 var(--fd-body); letter-spacing:.06em; text-transform:uppercase; color:var(--muted2); }
 .tv-draft-seat.is-arriving>* { opacity:0; }
 /* an open seat: a dashed slot for the chip to land in, its pick beside it;
-   the next one to fill is in sun */
+   the next one to fill is solid */
 .tv-draft-slot { display:block; }
 .tv-draft-slot circle { fill:none; stroke:var(--ghost-line); stroke-width:2; stroke-dasharray:5 4; }
-.tv-draft-slot.is-next circle { fill:var(--sun-tint); stroke:var(--sun); stroke-dasharray:none; }
-.tv-draft-seat-open { font:600 26px/1 var(--fd-body); color:var(--night-text); }
-.tv-draft-seat-open.is-next { color:var(--sun); font-weight:700; }
+.tv-draft-slot.is-next circle { fill:var(--ink-tint); stroke:var(--bone); stroke-dasharray:none; }
+.tv-draft-seat-open { font:600 26px/1.25 var(--fd-body); color:var(--muted); }
+.tv-draft-seat-open.is-next { color:var(--bone); font-weight:700; }
 
-.tv-draft-pool { flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
-.tv-draft-wall { display:flex; flex-wrap:wrap; gap:10px 14px; }
+.tv-draft-pool { flex-shrink:0; display:flex; flex-direction:column; gap:10px; padding:12px 24px; border-radius:18px;
+  background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge); }
+.tv-draft-wall { display:flex; flex-wrap:wrap; gap:10px 18px; }
 .tv-draft-wall-item { display:flex; flex-direction:column; align-items:center; gap:6px; width:140px; }
 .tv-draft-wall-chip { display:block; width:72px; height:72px; }
-.tv-draft-wall-name { max-width:100%; font:700 26px/1.1 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-wall-name { max-width:100%; font:700 26px/1.2 var(--fd-body); color:var(--bone); text-align:center; overflow-wrap:normal; }
 
 .tv-draft-flyer { position:absolute; z-index:5; pointer-events:none; transform-origin:50% 50%; will-change:transform; }
 

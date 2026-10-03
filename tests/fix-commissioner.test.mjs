@@ -67,7 +67,7 @@ const compiled = await build({
       export const hasGmToken=()=>true;
       ${blocked(["dispatch", "uploadPhoto", "downloadSnapshot", "localSet", "getDeviceId", "setGmToken",
         "spotifyStatus", "spotifyPlayer", "spotifySearch", "spotifyAuthorize", "spotifyDisconnect",
-        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl"])}
+        "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "reportTvSound", "setTvView"])}
     ` }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({ loader:"js", contents:
       `export const installEvt=null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}` }));
@@ -125,7 +125,7 @@ test("8-Ball through the real path: director crew, one write, intro then reveal"
   const pill = device.render(state);
   assert.match(pill, /Announce and draw/);
   assert.match(pill, /8-Ball Doubles/);
-  assert.match(pill, /Crew: Jeremy · Event official/);
+  assert.match(pill, /Crew: Jeremy \(Event official\)/);
   device.commitOnDeck(state.onDeck);
 
   act(state, "announceAndDraw", { evId:"8ball", players:beat.players, roles:beat.roles });

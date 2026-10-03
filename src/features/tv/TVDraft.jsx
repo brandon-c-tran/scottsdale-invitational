@@ -89,7 +89,6 @@ export function TVDraft({ state, ev, d }) {
         {turn.complete ? (
           <div className="tv-draft-clock">
             <div>
-              <div className="tv-label">{ev.name} draft</div>
               <div className="tv-display tv-draft-who">Teams picked</div>
             </div>
           </div>
@@ -97,8 +96,8 @@ export function TVDraft({ state, ev, d }) {
           <div className="tv-draft-clock">
             <span className="tv-draft-clock-chip" key={`${d.id}:${turn.captain}`}><BankChip p={turn.captain} size={132} /></span>
             <div className="tv-draft-clock-copy" key={`${d.id}:${turn.draftRevision}`}>
-              <div className="tv-label tv-draft-line">{ev.name} · Pick {turn.pickIndex + 1} of {turn.totalPicks}</div>
               <div className="tv-display tv-draft-who">{disp(state, turn.captain)}'s pick</div>
+              <div className="tv-label tv-draft-line">Pick {turn.pickIndex + 1} of {turn.totalPicks}</div>
             </div>
           </div>
         )}
@@ -153,7 +152,7 @@ export function TVDraft({ state, ev, d }) {
 
       {pool.length > 0 && (
         <div className="tv-draft-pool">
-          <div className="tv-label">Available · {pool.length}</div>
+          <div className="tv-label">Available <b>{pool.length}</b></div>
           <div className="tv-draft-wall" ref={wall}>
             {pool.map(player => (
               <div key={player} data-flip={player} className="tv-draft-wall-item">

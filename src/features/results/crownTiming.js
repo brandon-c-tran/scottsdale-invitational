@@ -2,21 +2,35 @@
    moment on the TV's own server instant (CROWN_TIMING), so thirteen phones
    and the TV turn the champion's color on the same beat, hold it, and then
    each phone turns to its own last card. Pure: the anchor comes from state
-   and the plan from the server clock the caller passes in. */
+   and the plan from the server clock the caller passes in.
 
-import { CROWN_TIMING as C } from "../tv/tvMotion.js";
+   The produced crown (Backglass, Oct 2) runs about a minute. A phone opens
+   on its own player's chip and final stack, stamps its place the instant
+   the TV's tower for it goes dark, then the champion's face rises with the
+   TV's tower, the flood lands on every phone together, and each phone
+   sounds its note of the room's chord (chordNote by final position). */
+
+import { CROWN_TIMING as C, crownOutAt } from "../tv/tvMotion.js";
 
 /* the phone holds the champion this long after the TV's crown has landed,
    then its own card turns over */
 export const CROWN_CARD_HOLD_MS = 1400;
 export const PHONE_CROWN = Object.freeze({
-  rise:C.rise, riseMs:C.riseMs,          // the champion's face appears where the flood will start
-  flood:C.flood, floodMs:C.floodMs,      // the room goes one color
+  night:C.night, title:C.title,          // the glass dims; "Final" lights
+  you:C.towers, youMs:C.towersMs,        // your own chip and final stack stand up
+  rise:C.rise, riseMs:C.riseMs,          // the champion's face rises with their tower
+  flood:C.flood, floodMs:C.floodMs,      // the room goes one color; your note sounds
   chip:C.chip, chipMs:C.chipMs,          // their chip drops and turns twice
   tag:C.tag, name:C.name, nameStagger:C.nameStagger,
   stats:C.stats, count:C.count, countMs:C.countMs,
   turn:C.total + CROWN_CARD_HOLD_MS,     // this phone's own last card
 });
+
+/* When this phone's place stamps: the instant the TV's tower for the same
+   final position goes dark (null for the champion, who rises instead). */
+export function phonePlaceAt(index, count) {
+  return index > 0 ? crownOutAt(index, count) : null;
+}
 
 /* a champion scene counts as the crown's own when the crowning write
    started it (the same write, so the same few ms) */

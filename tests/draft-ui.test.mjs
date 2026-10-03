@@ -98,7 +98,7 @@ test("setup requires the commissioner and preserves the selected captain order",
   assert.ok(!guest.buttons.some(button => button.name === "Start the draft"));
   assert.equal(controls(state, ev).named("Start the draft").disabled, true);
   const host = controls(state, ev, {}, [choose(state,captains[1]), choose(state,captains[0])]);
-  assert.match(host.html, /Pick order reverses each round/);
+  assert.doesNotMatch(host.html, /Pick order reverses each round/, "the snake order is drawn, not narrated");
   assert.equal(host.named(choose(state,pool[2])).disabled, true);
   assert.equal((await host.click("Start the draft")).ok, true);
   assert.deepEqual(state.drafts[ev.id].teams.map(team => team.captain), [...captains].reverse());
@@ -158,7 +158,8 @@ test("the real controls finish a full snake draft with visible names, crew and a
     assert.ok(picks.length < 10);
     assert.equal(turn.teamIndex, snakeTeam(picks.length, 2));
     const view = controls(state, ev, { gm:false, me:turn.captain });
-    assert.match(view.html, new RegExp(`Pick ${picks.length + 1} of 10`));
+    /* a lone 1 is set in its flagged face (ui/OneSafe.jsx); the text reads the same */
+    assert.match(view.html.replace(/<span class="fd-one">1<\/span>/g, "1"), new RegExp(`Pick ${picks.length + 1} of 10`));
     const result = await view.click(label(state,player));
     assert.equal(result.ok, true, result.error);
     expectedTeams[turn.teamIndex].push(player); picks.push(turn.teamIndex);
@@ -287,8 +288,10 @@ test("the Home draft entry identifies the current turn and vanishes after confir
   current.click(`Open ${ev.name} draft`);
   assert.deepEqual(current.opened, [true]);
   const other = controls(state, ev, { me:commissioner }, [], DraftEntry);
-  assert.match(other.html, /Draft in progress/);
-  assert.match(other.html, /Pick 1 · Brandon T\./);
+  /* a running draft is a steady lamp on the event, its state never a label */
+  assert.match(other.html, /fd-insert fd-beat-dot/);
+  assert.doesNotMatch(other.html, /Draft in progress/);
+  assert.match(other.html, /Brandon T\.(&#x27;|')s pick/);
   while (state.drafts[ev.id].pool.length) {
     const turn = draftTurn(state.drafts[ev.id]);
     saved(state, "pickDraftPlayer", { evId:ev.id, player:state.drafts[ev.id].pool[0], ...reference(turn) });

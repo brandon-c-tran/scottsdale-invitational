@@ -40,8 +40,9 @@ function element() {
   audio = previewAudioElement();
   if (!audio) return null;
   audio.preload = "auto";
-  /* back to "ambient" only once nothing is playing or on its way (a swap
-     to the next clip, or the unlock silence ending, is not a stop) */
+  /* the session settles only once nothing is playing or on its way (a
+     swap to the next clip, or the unlock silence ending, is not a stop);
+     a phone stays on "playback" either way (sound.js) */
   const settle = () => { if (state.status !== "playing" && state.status !== "loading") setPreviewSession(false); };
   audio.addEventListener("pause", settle);
   audio.addEventListener("timeupdate", () => {

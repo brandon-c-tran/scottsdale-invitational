@@ -1,8 +1,9 @@
 import React from "react";
 
-export function PageHeading({ kicker, title, children, aside }) {
+/* No eyebrow above the heading: the title carries itself. (`kicker` is
+   accepted for older callers and ignored.) */
+export function PageHeading({ title, children, aside }) {
   return <header className="fd-page-heading">
-    {kicker && <div className="fd-kicker">{kicker}</div>}
     <div className="fd-page-heading-row"><h1>{title}</h1>{aside}</div>
     {children}
   </header>;

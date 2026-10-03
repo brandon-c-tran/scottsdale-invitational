@@ -13,6 +13,7 @@ import { SHOW_SCENE_DEFINITIONS, resolveDirector, resolveShowScene } from "../sh
 import { applyAction } from "./support/confirmed-start.mjs";
 import { CROWN_TIMING, nextLatch } from "../src/features/tv/tvMotion.js";
 import { freshChangeStep, MOTION } from "../src/lib/motion.js";
+import { chipInkIsDark } from "../src/features/identity/chipInk.js";
 
 /* D1 (the room floods on the crown), D2 (the face-off before the bets) and D3 (the
    class photo and the poster): pure timing, selection and layout models, the
@@ -124,7 +125,7 @@ test("D1: the phone moment floods on every phone and sits on the TV's timeline",
     assert.match(html, /Skip/);
     assert.doesNotMatch(html, /Save poster/, "a guest never gets the poster");
   }
-  const late = { ...state, updatedAt:Date.now() - 5000 };
+  const late = { ...state, updatedAt:Date.now() - (CROWN_TIMING.flood + CROWN_TIMING.floodMs + 1000) };
   const lateHtml = render(React.createElement(ui.LastCardLayer, { ...props(standings[7].player), state:late }), late);
   assert.doesNotMatch(lateHtml, /fd-crown-flood/, "a phone that opens late goes straight to its card");
   assert.match(lateHtml, /Save card/);
@@ -160,7 +161,15 @@ test("D2: a two-sided contest opening for bets plays, before the bets and not at
   assert.equal(ui.faceOffPlays(null, key), true, "the market opening");
   assert.equal(ui.faceOffPlays(key, key), false);
   assert.equal(ui.faceOffPlays(key, null), false, "the lock closes the market: nothing plays");
-  assert.ok(ui.FACEOFF_TIMING.settle === MOTION.beat, "it settles after one beat");
+  /* Backglass (Oct 2): the broadcast sting holds the room 6 to 8 seconds,
+     a whole number of heartbeats plus its lift */
+  assert.equal(ui.FACEOFF_TIMING.settle, 3 * MOTION.beat + 600, "it settles after the sting holds");
+  assert.ok(ui.FACEOFF_TIMING.slide < ui.FACEOFF_TIMING.slide2 && ui.FACEOFF_TIMING.slide2 < ui.FACEOFF_TIMING.vs
+    && ui.FACEOFF_TIMING.vs < ui.FACEOFF_TIMING.h2h && ui.FACEOFF_TIMING.h2h < ui.FACEOFF_TIMING.lines
+    && ui.FACEOFF_TIMING.lines < ui.FACEOFF_TIMING.settle, "lean in, slam, VS, record, lines, settle");
+  const css = readFileSync(new URL("../src/features/tv/tvScenes.css", import.meta.url), "utf8");
+  for (const beat of ["slide", "slide2", "vs", "lines"])
+    assert.ok(css.includes(`calc(var(--tl) + ${ui.FACEOFF_TIMING[beat]}ms)`), `the face-off's ${beat} beat`);
   act(state, "lockAndStart", { evId:"bball1", ...ref(state, "bball1") });
   assert.equal(ui.faceOffKey(ev, resolveCurrentContest(state, ev)), null, "a locked contest is not a face-off");
   const wide = { ...open, sides:[...open.sides, { key:99, players:["Ben"] }] };
@@ -276,10 +285,13 @@ test("D3: the frozen TV holds the champion through the crown, then takes turns w
   const period = 12000;
   const crownAt = 10 * period;
   assert.equal(ui.frozenAmbient({ now:crownAt + 1000, crownAt, crownMs:CROWN_TIMING.total, period }), "champion");
-  assert.equal(ui.frozenAmbient({ now:crownAt + CROWN_TIMING.total + period - 1, crownAt, crownMs:CROWN_TIMING.total, period }), "champion");
+  assert.equal(ui.frozenAmbient({ now:crownAt + CROWN_TIMING.total - 1, crownAt, crownMs:CROWN_TIMING.total, period }), "champion");
+  assert.equal(ui.frozenAmbient({ now:crownAt + CROWN_TIMING.total + period - 1, crownAt, crownMs:CROWN_TIMING.total, period }), "class",
+    "the produced crown ends on the class photo");
   const later = [0, 1, 2, 3].map(k => ui.frozenAmbient({ now:crownAt + 10 * period + k * period, crownAt, crownMs:CROWN_TIMING.total, period }));
-  assert.deepEqual(new Set(later), new Set(["champion", "class"]), "both take turns");
-  assert.equal(ui.frozenAmbient({ now:3 * period, period }), "class", "the same frame on every TV");
+  assert.deepEqual(new Set(later), new Set(["champion", "class", "trophy"]), "the champion, the class photo and the trophy take turns");
+  assert.equal(ui.frozenAmbient({ now:4 * period, period }), "class", "the same frame on every TV");
+  assert.equal(ui.frozenAmbient({ now:5 * period, period }), "trophy", "every event's winner on its plate");
 });
 
 test("D3: the TV draws the class photo on its step and as the frozen ambient", () => {
@@ -301,9 +313,10 @@ test("D3: the TV draws the class photo on its step and as the frozen ambient", (
     champion:offStandings[0], coChamps:offStandings.filter(row => row.rank === 1), showControlEnabled:false, onDeckEv:null,
     now, connection:LIVE, onExit:() => {} }), off);
   const period = 12000;
-  const start = Math.ceil((off.updatedAt + CROWN_TIMING.total + period) / (2 * period)) * 2 * period;
+  const start = Math.ceil((off.updatedAt + CROWN_TIMING.total + period) / (3 * period)) * 3 * period;
   assert.match(ambient(off.updatedAt + 1000), /tv-champ/, "the crown holds first");
   assert.match(ambient(start + period + 10), /tv-class/, "then the class photo takes its turn");
+  assert.match(ambient(start + 2 * period + 10), /tv-trophy-pane/, "then the trophy, a plate per event's winner");
   assert.match(ambient(start + 10), /tv-champ/, "and the champion returns");
 
   const css = readFileSync(new URL("../src/features/tv/tvScenes.css", import.meta.url), "utf8");
@@ -334,7 +347,7 @@ test("D3: the poster draws the same composition: sky, title, thirteen chips, nam
   const layout = ui.classPhotoLayout(ui.classPhotoModel(state, standings));
   const colors = Object.fromEntries(["sky", "far", "mid", "ground", "near", "cactus", "disc", "star", "bone", "sun", "muted",
     "ink0", "paper2", "chipMark"].map(name => [name, `rgb(1, 2, 3)`]));
-  const identities = new Map(standings.map((row, i) => [row.player, { color:CHIP_COLORS[i].hex, isLight:!!CHIP_COLORS[i].light,
+  const identities = new Map(standings.map((row, i) => [row.player, { color:CHIP_COLORS[i].hex, isLight:chipInkIsDark(CHIP_COLORS[i].hex),
     skin:CHIP_SKINS[i % CHIP_SKINS.length], num:i + 1, photo:null }]));
   const ctx = recorder();
   ui.drawPoster(ctx, { layout, colors, identities, stars:[] });

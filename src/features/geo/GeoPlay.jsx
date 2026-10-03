@@ -10,6 +10,7 @@ import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
 import { PlaceSearch } from "./PlaceSearch.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "./geoModel.js";
 import "./geo.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const sendGuess = payload => dispatch("geoGuess", payload, { retry:true });
 const fmt = n => Math.round(n ?? 0).toLocaleString("en-US");
@@ -134,16 +135,14 @@ function GuessGame({ view, onGuess, now }) {
   const locked = !!mine?.done;
   /* the screen says time is up at zero; the server's grace still takes the last save */
   const timeUp = left <= 0;
-  const hurry = !timeUp && seconds <= 10 ? ` · ${seconds}s` : "";
-  const primary = timeUp ? { label:mine ? "Time's up · guess saved" : "Time's up", run:null, done:!!mine }
-    : step === "photo" ? { label:`Guess where${hurry}`, run:() => go("map") }
-    : step === "map" ? (pin ? { label:`Next: when${hurry}`, run:() => go("when") }
-      : { label:`Tap the map to drop your pin${hurry}`, run:null })
-      : !pin ? { label:`Drop your pin${hurry}`, run:() => go("map") }
+  const hurry = !timeUp && seconds <= 10 ? `${seconds}s` : "";
+  const primary = timeUp ? { label:"Time's up", run:null, done:!!mine }
+    : step === "photo" ? { label:"Guess where", run:() => go("map") }
+    : step === "map" ? (pin ? { label:"Next: when", run:() => go("when") }
+      : { label:"Drop your pin", run:null })
+      : !pin ? { label:"Drop your pin", run:() => go("map") }
         : locked ? { label:"Locked in", run:null, done:true }
-          : { label:`Lock in${hurry}`, run:lockIn, lock:true };
-  /* what is saved, in words, once time is up */
-  const kept = mine ? [Number.isFinite(mine.lat) ? "your pin" : "no pin", mine.when ? whenLabel(mine.when) : "no date"].join(" · ") : "";
+          : { label:"Lock in", run:lockIn, lock:true };
   return <>
     <main className={`fd-geo-game-body is-${step}`}>
       {step === "photo" && <button type="button" className={`fd-geo-game-photo${fill ? " is-fill" : ""}`}
@@ -158,7 +157,6 @@ function GuessGame({ view, onGuess, now }) {
           setFocus({ lat:place.lat, lng:place.lng, zoom:place.zoom, key:`${place.key}:${Date.now()}` });
           setPin({ lat:place.lat, lng:place.lng });
         }} />
-        <span className="fd-geo-tip">{pin ? "Drag the pin, or tap to move it" : "Tap where it was taken"}</span>
       </div>}
       {step === "when" && <div className="fd-geo-game-when">
         <button type="button" className="fd-geo-peek is-inline" onClick={() => go("photo")} aria-label="Back to the photo">
@@ -171,16 +169,15 @@ function GuessGame({ view, onGuess, now }) {
       <nav className="fd-geo-steps" aria-label="Steps">
         {[["photo", "Photo", true], ["map", "Where", !!pin], ["when", "When", whenSet]].map(([id, name, done]) =>
           <button type="button" key={id} aria-pressed={step === id} className={done && id !== "photo" ? "is-done" : ""}
-            onClick={() => go(id)}>{done && id !== "photo" && <i aria-hidden="true">✓</i>}{name}</button>)}
+            onClick={() => go(id)}>{done && id !== "photo" && <i aria-hidden="true"><Icon name="check" size="1em" /></i>}{name}</button>)}
       </nav>
       {error && <p className="fd-geo-error" role="alert">{error}</p>}
       <button type="button" key={`${primary.done ? "done" : "go"}:${stamped}`} disabled={!primary.run}
         className={`fd-geo-primary${primary.lock ? " is-lock" : ""}${primary.done ? " is-done" : ""}${hurry ? " is-hurry" : ""}`}
         onClick={primary.run || undefined}>
-        {primary.done && <i aria-hidden="true">✓</i>}{primary.label}</button>
-      {timeUp ? <p className="fd-geo-note">{mine ? `Saved: ${kept}. Waiting for the reveal.` : "Waiting for the reveal."}</p>
-        : (pin || whenSet) && <p className="fd-geo-note">{saving ? "Saving…" : locked
-          ? "Changes save until the reveal." : "Your guess saves as you go."}</p>}
+        {primary.done && <i aria-hidden="true"><Icon name="check" size="1em" /></i>}{primary.label}
+        {hurry && <b className="fd-geo-hurry">{hurry}</b>}</button>
+      {!timeUp && saving && <p className="fd-geo-note">Saving…</p>}
     </footer>
   </>;
 }
@@ -207,8 +204,8 @@ function YourReveal({ me, view }) {
         {score ? <div className="fd-geo-score">
           <div><small>Where</small><b>+{fmt(where)}</b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
           <div><small>When</small><b>+{fmt(whenPts)}</b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
-        </div> : <p className="fd-geo-note">No guess this photo.</p>}
-        {row && <p className="fd-geo-rank"><b>{fmt(row.total)}</b> total · {ordinal(row.rank)} of {view.standings.length}</p>}
+        </div> : <p className="fd-geo-note">No guess</p>}
+        {row && <p className="fd-geo-rank"><b>{fmt(row.total)}</b><span>{ordinal(row.rank)}</span></p>}
       </div>
     </footer>
   </>;
@@ -221,13 +218,15 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
   const at = now ?? serverNow();
   const view = geoView(state, me, at);
   useTicking(!!view && view.phase === "guess" && now === undefined);
-  const key = view ? `${view.roundId}:${view.phase}` : null;
+  /* the last photo's reveal and the game's end ("done") are one reveal: a
+     phone that closed it is not shown it again when the game ends */
+  const key = view ? `${view.roundId}:${view.phase === "done" ? "reveal" : view.phase}` : null;
   const [dismissed, setDismissed] = useState(null);
   const forced = useRef(force);
   useEffect(() => {
     if (force !== forced.current) { forced.current = force; setDismissed(null); }
   }, [force]);
-  const open = !!view && view.playing && !blocked && dismissed !== key && !!view.round
+  const open = !!view && view.playing && !view.finished && !blocked && dismissed !== key && !!view.round
     && (view.phase === "guess" || view.revealed);
   const leftMs = view ? view.closesAt - at : 0;
   const secondsLeft = Math.max(0, Math.ceil(leftMs / 1000));
@@ -246,7 +245,7 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
     <header className="fd-geo-game-head">
       <span className="fd-geo-count"><small>Where and When</small><b>Photo {view.n} <i>of {view.total}</i></b></span>
       {view.phase === "guess" && <Clock closesAt={view.closesAt} now={at} />}
-      <button type="button" className="fd-geo-close" onClick={() => setDismissed(key)} aria-label="Close">×</button>
+      <button type="button" className="fd-geo-close" onClick={() => setDismissed(key)} aria-label="Close"><Icon name="close" size={20} /></button>
       {/* the minute, draining across the top of the screen */}
       {view.phase === "guess" && <span className="fd-geo-timebar" aria-hidden="true">
         <i style={{ transform:`scaleX(${Math.max(0, Math.min(1, leftMs / GEO_ROUND_MS))})` }} /></span>}
@@ -262,11 +261,11 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
 export function GeoHome({ state, me, onOpen, now }) {
   const view = geoView(state, me, now ?? serverNow());
   useTicking(!!view && view.phase === "guess" && now === undefined, 1000);
-  if (!view || !view.playing || (view.done && !view.revealed)) return null;
+  if (!view || !view.playing || view.finished || (view.done && !view.revealed)) return null;
   const status = view.phase === "guess" ? view.mine ? "Guess locked in" : `${view.secondsLeft} s to guess`
     : view.mineScored ? `+${fmt(view.mineScored.total)} this photo` : "Revealed";
   return <button type="button" className="fd-geo-home" onClick={onOpen}>
-    <span><small><i className="fd-beat-dot" aria-hidden="true" />Where and When · Photo {view.n} of {view.total}</small>
-      <strong>{status}</strong></span><span aria-hidden="true">↗</span>
+    <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Where and When</small>
+      <strong>{status}</strong></span><Icon name="open" size="1em" />
   </button>;
 }

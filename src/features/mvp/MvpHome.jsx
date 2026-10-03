@@ -50,7 +50,7 @@ function MvpVote({ state, model, onVote }) {
       })}
     </div>
     {error ? <p className="fd-awards-error" role="alert">{error}</p>
-      : <p className="fd-awards-note">The MVP gets {MVP_PTS} chips. Most votes wins; a tie is drawn.</p>}
+      : <p className="fd-awards-note">MVP +{MVP_PTS}</p>}
   </div>;
 }
 
@@ -65,21 +65,22 @@ export function MvpHome({ state, me, events, onPlayer, onVote = sendVote, now })
   /* the MVP is the mark: their own chip, which opens their card */
   if (model.kind === "result") {
     const name = model.you ? "You" : disp(state, model.winner);
-    return <section className="fd-awards" aria-label="Team MVP">
+    return <section className="fd-awards is-results" aria-label="Team MVP">
       <button type="button" className="fd-awards-entry" onClick={() => onPlayer?.(model.winner)}
         aria-label={`Team MVP, ${model.name}: ${disp(state, model.winner)}. View player card`}>
         <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={model.winner} size={34} flat /></span>
-        <span><small>Team MVP · {model.name}</small><strong>{name}{model.you ? ` · +${MVP_PTS}` : ""}</strong></span>
+        <span><small>{model.name} MVP</small><strong className="fd-awards-winner">{name}{model.you
+          ? <em className="fd-awards-chips"> +{MVP_PTS}</em> : null}</strong></span>
       </button>
     </section>;
   }
 
   const left = Math.max(0, Math.ceil((model.closesAt - at) / 1000));
   const status = model.mine ? `Your vote: ${disp(state, model.mine)}` : `${model.voted} of ${model.voters} voted`;
-  return <section className="fd-awards" aria-label="Team MVP vote">
+  return <section className={`fd-awards fd-lamp${model.mine ? " is-done" : " is-live"}`} aria-label="Team MVP vote">
     <div className="fd-awards-entry" role="heading" aria-level={2}>
-      <span><small><i className="fd-beat-dot" aria-hidden="true" />Team MVP · {model.name}</small><strong>{status}</strong></span>
-      <span className="fd-awards-entry-go">{left} s</span>
+      <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />{model.name} MVP</small><strong>{status}</strong></span>
+      <span className="fd-awards-entry-go fd-awards-clock">{left} s</span>
     </div>
     <MvpVote state={state} model={model} onVote={onVote} />
   </section>;
@@ -99,7 +100,7 @@ export function MvpVoteSheet({ state, me, events, onVote = sendVote, blocked = f
   const key = open ? `${model.evId}:${model.closesAt}` : null;
   if (!open || blocked || dismissed === key) return null;
   const left = Math.max(0, Math.ceil((model.closesAt - at) / 1000));
-  return <Sheet title="Vote team MVP" subtitle={`${model.name} · ${left} s`} onClose={() => setDismissed(key)}>
+  return <Sheet title="Vote team MVP" subtitle={`${left} s`} onClose={() => setDismissed(key)}>
     <MvpVote state={state} model={model} onVote={onVote} />
   </Sheet>;
 }

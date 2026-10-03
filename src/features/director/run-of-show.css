@@ -12,7 +12,7 @@
 .fd-runshow-beats li { display:grid; grid-template-columns:44px 1fr; align-items:baseline; gap:10px; padding:7px 0;
   border-top:1px solid var(--night-line); }
 .fd-runshow-beats li:first-child { border-top:0; }
-.fd-runshow-slot { font:700 11px/1.3 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; color:var(--night-text); }
+.fd-runshow-slot { font:700 12px/1.3 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; color:var(--night-text); }
 .fd-runshow-beat { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .fd-runshow-beat b { font:700 17px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; color:var(--bone);
   overflow-wrap:anywhere; }
@@ -23,16 +23,9 @@
 .fd-runshow-meta dt { color:var(--night-text); }
 .fd-runshow-meta dd { margin:0; color:var(--bone); text-align:right; overflow-wrap:anywhere; }
 
-.fd-runshow-toggle { display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--bone-line);
-  border-radius:99px; background:var(--night); color:var(--night-text); box-shadow:var(--shadow-2); cursor:pointer; }
-.fd-runshow-toggle.is-open { border-color:var(--sun); color:var(--bone); }
-.fd-runshow-toggle:disabled { opacity:.5; cursor:default; }
-.fd-runshow-toggle:focus-visible, .fd-runshow-x:focus-visible { outline:2px solid var(--sun); outline-offset:2px; }
+/* inside the pill's more tray: the tray is the card */
+.fd-runshow.is-embedded { border:0; border-radius:0; background:none; box-shadow:none; animation:none; }
+.fd-runshow.is-embedded .fd-runshow-beats { padding-top:4px; }
+.fd-runshow-x:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 /* a hold must not select text or raise the iOS callout */
 .fd-director-pill, .fd-director-head { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
-/* the list button rides beside the pill, or in the winner card's head */
-.fd-runshow-row { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
-.fd-runshow-row > .fd-director-pill { min-width:0; }
-.fd-runshow-headrow { display:flex; align-items:flex-start; }
-.fd-runshow-headrow .fd-director-head { flex:1; min-width:0; }
-.fd-runshow-headrow .fd-runshow-toggle { flex:0 0 auto; margin:6px 6px 0 0; box-shadow:none; }

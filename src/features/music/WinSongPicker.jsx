@@ -4,6 +4,7 @@ import { ensurePreview, stopPreview, togglePreview, usePreview } from "./preview
 import { SnippetPreview } from "./SnippetPreview.jsx";
 import { NUDGE_MS, SEARCH_DEBOUNCE_MS, clampStart, clipWindow, maxStart, searchQuery, songClock } from "./winSongModel.js";
 import "./winSong.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 /* answers this phone already has, so retyping a word costs no search */
 const searched = new Map();
@@ -63,7 +64,7 @@ function SongSearch({ onPick, onCancel, search }) {
         aria-label="Search Spotify" enterKeyHint="search" autoComplete="off" autoCorrect="off" spellCheck={false}
         onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />
       {text && <button type="button" className="fd-song-clear" aria-label="Clear search" onClick={() => {
-        setText(""); input.current?.focus(); }}>×</button>}
+        setText(""); input.current?.focus(); }}><Icon name="close" size={18} /></button>}
       {onCancel && <button type="button" className="fd-song-cancel" onClick={onCancel}>Cancel</button>}
     </div>
     <div className="fd-song-status" role="status" aria-live="polite">
@@ -77,7 +78,7 @@ function SongSearch({ onPick, onCancel, search }) {
         <button type="button" className="fd-song-use" onClick={() => onPick(track)}
           aria-label={`Use ${track.name} by ${artistsOf(track)}`}>
           <span className="fd-song-text"><strong>{track.name}{track.explicit && <i className="fd-song-e">E</i>}</strong>
-            <small>{artistsOf(track)} · {songClock(track.durationMs)}</small></span>
+            <small>{artistsOf(track)}</small></span>
           <span className="fd-song-use-pill" aria-hidden="true">Use</span>
         </button>
       </li>)}
@@ -151,13 +152,12 @@ export function WinSongPicker({ value, onChange, enabled = true, search = spotif
   };
 
   return <div className="fd-song">
-    <p className="fd-song-note">Plays in the room when you win. A team plays its MVP's song; a duo, one partner's.</p>
     {searching ? <SongSearch search={search} onCancel={value ? () => setChanging(false) : null} onPick={pick} />
       : <>
         <div className="fd-song-pick">
           <PlayArt track={value} size={84} />
           <span className="fd-song-text"><strong>{value.name}</strong>
-            <small>{artistsOf(value)} · {songClock(value.durationMs)}</small>
+            <small>{artistsOf(value)}</small>
             {value.url && <a href={value.url} target="_blank" rel="noreferrer">Open in Spotify</a>}</span>
           <button type="button" className="fd-song-change" onClick={() => { stopPreview(); setChanging(true); }}>Change</button>
         </div>

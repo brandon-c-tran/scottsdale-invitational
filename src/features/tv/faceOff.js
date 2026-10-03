@@ -19,15 +19,24 @@ import { buildEventReveal, drawSequenceMs, revealReady, revealTimeline } from ".
 import { TV_ADVANCE_MS, TV_INTRO_AUTO_MS, TV_REVEAL_HOLD_MS, contestSideView } from "./tvModel.js";
 import { nextLatch, useTimeline } from "./tvMotion.js";
 
-/* ms from the face-off's start */
+/* ms from the face-off's start: the broadcast sting (Backglass takeover
+   grammar). The chrome leaves and the glass dims with a sting so heads turn,
+   each side slams in from its own edge on a whoosh panned to that edge, VS
+   hits (drum, slap, low bell) and holds, the head-to-head types in a tick a
+   letter, the win lines follow, and it settles into the betting board. The
+   competitors' phones take over on the same server instant (moments/). */
 export const FACEOFF_TIMING = Object.freeze({
-  slide:0, slideMs:560,        // each side slides in from its own edge
-  vs:420, vsMs:320,            // VS stamps between them (the room's one beat)
-  h2h:760, h2hMs:300,          // their record, when they have met
-  lines:900, linesMs:300,      // X8: what a win does
-  settle:MOTION.beat, settleMs:400, // it lifts off the betting board
-  total:MOTION.beat + 400,
+  dim:0, dimMs:900,            // lean-in: the glass dims, the sting
+  slide:900, slideMs:420,      // the left side slams in
+  slide2:1250,                 // the right side slams in
+  vs:1900, vsMs:420,           // VS hits, then holds
+  h2h:2700, typeMs:42,         // the record types in, one tick a letter
+  lines:3900, linesMs:300,     // X8: what a win does
+  settle:3 * MOTION.beat + 600, settleMs:500, // it lifts off the betting board
+  total:3 * MOTION.beat + 1100,
 });
+/* how many letters of the record tick (the rest type silently) */
+export const FACEOFF_TICKS_MAX = 18;
 
 /* The contest a face-off belongs to: a two-sided current contest with its
    market open, as "event:contest", else null. */

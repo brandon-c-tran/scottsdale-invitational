@@ -11,10 +11,10 @@ import "./awards.css";
 const BALLOT_CHIP = Object.freeze({ color:"var(--sun)", isLight:true, skin:"ticks", stamp:"" });
 const COLUMN_SPAN = 1800;
 
-const nameSize = (name, max, width) => {
-  const longest = Math.max(4, ...String(name || "").split(/\s+/).map(word => word.length));
-  return Math.max(24, Math.min(max, Math.floor(width / (longest * 0.52))));
-};
+/* the whole name on one line (capitals run about .56em), down to 24px; a
+   name longer still wraps at its space rather than be cut */
+const nameSize = (name, max, width) =>
+  Math.max(24, Math.min(max, Math.floor(width / (Math.max(4, String(name || "").length) * 0.56))));
 
 function Nominee({ state, player, index, landed, total, layout, width, stamped, winner, tie, settled }) {
   const identity = usePlayerIdentity(player);
@@ -61,8 +61,8 @@ export function AwardsReveal({ state, view, now, reducedMotion = false }) {
       aria-label={`${view.question.title}: ${phase.stamped ? view.winners.length ? view.winners.map(p => disp(state, p)).join(" and ") : "no votes" : "votes coming in"}`}
       style={{ "--tl":`${-Math.round(mount.current.elapsed)}ms` }}>
       <div className="tv-awards-head">
-        <div className="tv-label">Award {view.index + 1} of {view.count}</div>
         <div className="tv-display tv-awards-title">{view.question.title}</div>
+        <div className="tv-label">Award {view.index + 1} of {view.count}</div>
       </div>
       <div className="tv-awards-field" style={{ gap:layout.gap }} data-crowded={view.nominees.length > 8 || undefined}>
         {view.nominees.map((player, index) => (

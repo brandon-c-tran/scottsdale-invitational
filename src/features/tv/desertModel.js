@@ -155,3 +155,71 @@ export function desertScene({ width = 1920, height = 118, variant = "strip" } = 
   }));
   return { width, height, horizon, amp, far, mid, ground, nearTop, cacti, disc, discR, sky:{ top:skyTop, bottom:skyBottom } };
 }
+
+/* ── the backglass painting ──
+   The whole TV canvas is one reverse-painted backglass: banded sky, the
+   session's sun or moon (cut by stripes where it sinks into the horizon),
+   the McDowells far off, Camelback's hump, two flat-topped buttes with a
+   lit face and a shade face, saguaros, and the desert floor the chip
+   towers stand on. Flat shapes only; every fill is a session token. The
+   floor (ground and near) is always dark, because the towers' names and
+   reels sit on it. */
+export const GLASS = Object.freeze({ width:1920, height:1080, horizon:856, floor:944 });
+/* skies that carry the fixed stars */
+export const GLASS_STARRY = Object.freeze(["fri", "san", "fin"]);
+const GLASS_BANDS = [[0, 300, "sky"], [300, 500, "sky2"], [500, 650, "sky3"], [650, 760, "sky4"], [760, GLASS.horizon, "glow"]];
+/* where the disc sits per session: low, in the window between the live
+   board and the floor, so the room sees it during play */
+export const GLASS_DISC = Object.freeze({
+  fri:{ x:1580, y:770, r:76, stripes:false },
+  sam:{ x:430, y:GLASS.horizon, r:220, stripes:true },
+  sap:{ x:1500, y:800, r:104, stripes:false },
+  san:{ x:1480, y:GLASS.horizon, r:160, stripes:true },
+  fin:{ x:960, y:GLASS.horizon, r:0, stripes:false },
+});
+const BUTTES = [
+  { lit:[[40, 856], [150, 716], [176, 700], [430, 700], [452, 716], [520, 856]],
+    shade:[[430, 700], [470, 700], [500, 716], [620, 856], [520, 856], [452, 716]] },
+  { lit:[[1250, 856], [1360, 740], [1384, 728], [1640, 728], [1662, 740], [1760, 856]],
+    shade:[[1640, 728], [1700, 728], [1726, 740], [1900, 856], [1760, 856], [1662, 740]] },
+];
+const GLASS_CACTI = [[300, 1.25, 1], [760, 0.8, 0], [1180, 0.95, 2], [1830, 1.35, 0]];
+const poly = points => `M${points.map(([x, y]) => `${x} ${y}`).join("L")}Z`;
+
+/* the fixed stars: a stable scatter over the upper sky */
+export function glassStars(count = 46, { width = GLASS.width, top = 16, bottom = 640 } = {}) {
+  let seed = 0x2f6b9d;
+  const next = () => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return seed / 0xffffffff; };
+  return Array.from({ length:count }, () => ({
+    x:Math.round(16 + next() * (width - 32)), y:Math.round(top + next() * (bottom - top)),
+    r:Math.round((1.4 + next() * 1.8) * 10) / 10, dim:next() > 0.6,
+  }));
+}
+
+/* the stripes that cut a setting disc: horizontal bars, thicker toward the
+   horizon, each painted in the sky band it crosses */
+export function discStripes(disc, horizon = GLASS.horizon) {
+  if (!disc?.stripes || !(disc.r > 0)) return [];
+  const out = [];
+  const top = disc.y - disc.r * 0.15;
+  let y = top, gap = 10, k = 0;
+  while (y < Math.min(horizon, disc.y + disc.r)) {
+    const h = 5 + k * 3;
+    const band = GLASS_BANDS.find(([from, to]) => y + h / 2 >= from && y + h / 2 < to)?.[2] || "glow";
+    out.push({ y:Math.round(y), h, band });
+    y += h + gap; gap = Math.max(5, gap - 1); k += 1;
+  }
+  return out;
+}
+
+export function backglassScene({ width = GLASS.width, height = GLASS.height } = {}) {
+  const horizon = GLASS.horizon;
+  const bands = GLASS_BANDS.map(([from, to, layer]) => ({ y:from, h:to - from, layer }));
+  const far = skyline(FAR, { width, horizon, amp:190, bottom:horizon + 2 });
+  const hump = skyline(MID, { width, horizon, amp:120, x0:0.34, x1:0.7, envelope:x => smooth(0.3, 0.42, x) * (1 - smooth(0.6, 0.74, x)),
+    bottom:horizon + 2 });
+  const buttes = BUTTES.map(b => ({ lit:poly(b.lit), shade:poly(b.shade) }));
+  const cacti = GLASS_CACTI.map(([x, scale, shape]) => ({ x, y:horizon + 18, scale, d:SAGUAROS[shape].d }));
+  return { width, height, horizon, floor:GLASS.floor, bands, far, hump, buttes, cacti, stars:glassStars(),
+    starBox:{ left:140, right:width - 140, top:120, bottom:560 } };
+}

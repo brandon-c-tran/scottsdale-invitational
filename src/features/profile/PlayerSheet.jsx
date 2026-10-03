@@ -102,34 +102,20 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
     }
   };
 
-  return <Sheet title={disp(state, p)} onClose={onClose} onBack={onBack} busy={pending}>
+  return <Sheet title={disp(state, p)} onClose={onClose} onBack={onBack} busy={pending} show>
     <div className="fd-player-sheet">
-      <PlayerPass key={p} state={state} p={p} compact viewer={me || null} events={events.length ? events : undefined}
+      <PlayerPass key={p} state={state} p={p} compact viewer={me || null} own={!!me && me === p} events={events.length ? events : undefined}
         standings={standings} onFlip={setTurned} />
       {turned && canRematch && <ActionButton type="button" className="fd-player-rematch"
         onClick={openRematch}>Rematch</ActionButton>}
 
-      {state.live && row && <dl className="fd-player-stats" aria-label="Tournament stats">
-        <div><dt>Position</dt><dd>{row.rank}</dd></div>
-        <div><dt>Chips</dt><dd>{fmt(row.pts)}</dd></div>
-        <div><dt>Wins</dt><dd>{row.wins}</dd></div>
-      </dl>}
-      {state.live && row && (row.betNet !== 0 || duelWins > 0 || duelLosses > 0) && <dl className="fd-player-record">
-        {row.betNet !== 0 && <div><dt>Wagers</dt><dd>{signed(row.betNet)}</dd></div>}
-        {(duelWins > 0 || duelLosses > 0) && <div><dt>Duels</dt>
-          <dd>{duelWins} won · {duelLosses} lost<span>{signed(row.duelNet)} chips</span></dd></div>}
-      </dl>}
-      {wins.length > 0 && <section className="fd-player-wins" aria-label="Event wins">
-        <h2>Event wins</h2>
-        <ul>{wins.map(event => <li key={event.id}>{event.name}</li>)}</ul>
-      </section>}
-
+      {/* the card carries rank, chips, bets, duels and every placement: nothing repeats under it */}
       {own && onEdit && <ActionButton type="button" variant="secondary" onClick={onEdit}
         style={{ width:"100%" }}>Edit your profile</ActionButton>}
 
       {canDuel && (current || !away) && <section ref={duelRef} className="fd-player-duel" aria-label="Quick Draw challenge">
         <details className="fd-player-duel-rules"><summary><h2>Quick Draw</h2><span>How to play +</span></summary>
-          <p>Once accepted, each of you plays on your own phone. Tap when the screen flashes. Fastest tap
+          <p>Tap when the screen flashes. Fastest tap
             wins both antes. Tapping early is a foul. An unanswered challenge lapses
             after {DUEL_LAPSE_MS / 60000} minutes.</p>
         </details>

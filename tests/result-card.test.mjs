@@ -126,7 +126,7 @@ test("a bracket match settles your bet with the contest named", () => {
   const receipt = moment(before, after);
   assert.deepEqual(receipt.lines.map(line => [line.label, line.detail, line.delta]),
     [[`Bet on ${khoa} & ${sahil}`, "300 at 1:1", 300]]);
-  assert.equal(receipt.subtitle, `${khoa} & ${sahil} won · Semifinal 1`);
+  assert.equal(receipt.subtitle, `${khoa} & ${sahil} won Semifinal 1`);
 });
 
 test("duels and rulings join the receipt; the duel on screen is not said twice; a returned bet is a quiet line", () => {
@@ -238,8 +238,9 @@ test("the last card says only what happened: place, stack, wins, best bet, Quick
   assert.deepEqual(card.leaders.map(leader => leader.player), [khoa]);
   assert.deepEqual(card.wins, [putt.name]);
   assert.deepEqual(card.facts.map(fact => [fact.id, fact.value]), [
-    ["wins", putt.name], ["best", "+600"], ["qd", "1–1 · +100"], ["high", "2,200"]]);
-  assert.match(card.facts[1].label, new RegExp(`Best bet · ${khoa}, ${cage.name}`));
+    ["wins", putt.name], ["best", "+600"], ["qd", "+100"], ["high", "2,200"]]);
+  assert.equal(card.facts[1].label, `Best bet on ${khoa}`);
+  assert.equal(card.facts[2].label, "Quick Draw 1–1");
   assert.equal(card.dates, "OCT 30 TO NOV 1");
   assert.equal(card.footer, `${ROSTER.length} PLAYERS · 3 EVENTS`);
 
@@ -343,7 +344,7 @@ test("the canvas card draws every fact without throwing", () => {
   ui.drawLastCard(ctx, ui.lastCardModel(state, me, { events }), { color:"#E39A3B", ink:"#070b09" });
   const texts = calls.filter(call => call[0] === "fillText").map(call => call[1]);
   assert.ok(texts.includes("PLAYER 01"));
-  assert.ok(texts.includes("Quick Draw"));
+  assert.ok(texts.some(text => /^Quick Draw/.test(text)));
   assert.ok(texts.includes("2,200"));
 });
 
@@ -353,7 +354,9 @@ test("App: results no longer rain confetti on every phone; receipts, own-chip sh
   assert.match(app, /if \(tv && resultsSeenRef\.current/, "the room-wide burst is the TV's alone");
   assert.equal((app.match(/<Confetti /g) || []).length, 1, "only the TV renders confetti");
   assert.match(app, /<ChipReceipt /);
-  assert.match(app, /<ChipShower burst=\{shower\} p=\{me\} \/>/);
+  assert.match(app, /<ChipShower burst=\{shower\} p=\{me\} amount=\{moment \? moment\.to - moment\.from : 0\} \/>/,
+    "the chip rain is sized by the win");
+  assert.match(app, /<MomentsLayer /, "the phone takeovers are mounted");
   assert.match(app, /<LastCardLayer /);
   assert.match(app, /onLastCard=/);
 });

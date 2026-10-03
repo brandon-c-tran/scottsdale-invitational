@@ -110,7 +110,8 @@ test("the TV draft fills the canvas: open chip slots by pick, the chip wall, the
   for (const slot of open) assert.match(html, new RegExp(`tv-draft-seat-open[^"]*">Pick ${slot.pick}</span>`));
   assert.equal((html.match(/class="tv-draft-slot is-next"/g) || []).length, 1, "the next seat is marked");
   assert.equal((html.match(/data-flip="[A-Za-z]+"/g) || []).length, draft.pool.length, "every available player is on the wall");
-  assert.match(html, new RegExp(`${flip.name} · Pick ${turn.pickIndex + 1} of ${turn.totalPicks}`));
+  /* the masthead names the event; the draft's own line counts the picks */
+  assert.match(html, new RegExp(`>Pick ${turn.pickIndex + 1} of ${turn.totalPicks}<`));
   assert.match(html, /tv-draft-who/);
   assert.match(html, /Pick 3<\/span>/, "the latest pick is marked in its seat");
   assert.doesNotMatch(html, /is-fresh|is-slam|is-arriving|tv-draft-flyer/, "a first render never animates");
@@ -201,7 +202,7 @@ function dealt() {
 test("poker renders built on any ordinary mount: the stacks, the level chip, the seat chips", () => {
   const state = dealt(), standings = computeStandings(state);
   const setup = render(state, React.createElement(TVPoker, { state, standings, now:Date.now() }));
-  assert.match(setup, /tv-buyin-grid/);
+  assert.match(setup, /class="tv-pane tv-table"/);
   assert.match(setup, /data-denom="25"/);
   const stacks = render(state, React.createElement(DenomStacks, { stack:2900, build:true }));
   assert.match(stacks, /fd-poker-stacks/);
@@ -213,9 +214,10 @@ test("poker renders built on any ordinary mount: the stacks, the level chip, the
   assert.match(live, /aria-label="Level 1"/);
   assert.match(live, /25 \/ 50/);
   assert.doesNotMatch(live, /fd-roll-out|is-tipping|fd-level-face is-out/, "a first render never animates");
-  /* the rail: still in first, then the busts, the latest bust first */
-  const names = [...live.matchAll(/data-flip="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(names.slice(-2), [seats[0], seats[3]]);
+  /* the table: every seat keeps its place on the rail; a bust is struck where it sat */
+  const order = [...live.matchAll(/data-seat="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(order, seats);
+  for (const p of [seats[0], seats[3]]) assert.match(live, new RegExp(`class="tv-seat is-out" data-seat="${p}"`));
   assert.equal((live.match(/fd-seat-chip is-flat/g) || []).length, 2);
   const row = render(state, React.createElement(PokerSeatChips, { state, pk:state.poker }));
   assert.match(row, /role="img" aria-label="Still in: /);

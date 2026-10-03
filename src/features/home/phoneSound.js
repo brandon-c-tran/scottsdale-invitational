@@ -1,6 +1,7 @@
 /* A4, the moments a phone hears from the room, only when they are its
-   owner's own: you just took the lead (S15, as the leader's row warms), a
-   duel challenge addressed to you (S16), and the draft coming round to you
+   owner's own: you just took the lead (S15, as the leader's row warms), you
+   passed someone (rankUp, a quiet rising pair as your row lands), a duel
+   challenge addressed to you (S16), and the draft coming round to you
    (S19). Everything else about other people is silent on your phone.
 
    Pure: phoneSnapshot() reduces a state to those facts, phoneCues() diffs
@@ -28,7 +29,9 @@ export function phoneSnapshot(state, standings, me) {
     const at = draftTurn(draft);
     if (at && !at.complete && at.captain === me) { turn = `${at.draftId}:${at.draftRevision}:${at.pickIndex}`; break; }
   }
-  return { me, frozen:!!state.frozen, leaders, challenges, turn };
+  const row = standings?.find?.(item => item.player === me);
+  const level = standings?.length ? standings.every(item => item.pts === standings[0].pts) : true;
+  return { me, frozen:!!state.frozen, leaders, challenges, turn, rank:row && !level ? Number(row.rank) || null : null };
 }
 
 /* [{ id, delayMs, key }] */
@@ -36,8 +39,11 @@ export function phoneCues(prev, next) {
   if (!prev || !next || prev.me !== next.me) return [];
   const cues = [];
   const me = next.me;
-  if (!next.frozen && next.leaders.includes(me) && (!prev.leaders.includes(me) || next.leaders.length < prev.leaders.length))
-    cues.push({ id:"S15", delayMs:BOARD_BEATS.leader, key:null });
+  const lead = !next.frozen && next.leaders.includes(me) && (!prev.leaders.includes(me) || next.leaders.length < prev.leaders.length);
+  if (lead) cues.push({ id:"S15", delayMs:BOARD_BEATS.leader, key:null });
+  /* you passed someone: as your row lands (the lead has its own bell) */
+  else if (!next.frozen && Number(prev.rank) > 0 && Number(next.rank) > 0 && next.rank < prev.rank)
+    cues.push({ id:"rankUp", delayMs:BOARD_BEATS.roll, key:null });
   const known = new Set(prev.challenges);
   const challenge = next.challenges.find(id => !known.has(id));
   if (challenge) cues.push({ id:"S16", delayMs:0, key:`duel:${challenge}` });

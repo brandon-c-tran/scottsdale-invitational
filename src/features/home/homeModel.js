@@ -1,6 +1,6 @@
 import {
   PT, ROUND_NAMES, ROSTER, allEventsOf, bracketMatchName, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
-  duelReserve, maxRisk, overflowRoleMeta, participationForEvent,
+  disp, duelReserve, maxRisk, overflowRoleMeta, participationForEvent, resolveWager, resultAwards,
   resolveEventLifecycle, resolveCurrentContest, resolveSlot, resolveWeekendOperation,
   stageEntrantView, stageFinalists, stacksPosted, teamLabel, wagerBoardEvent,
 } from "../../../shared/core.js";
@@ -211,4 +211,84 @@ export function bracketPath(state, event, me) {
   const open = bracketOrder(bracket).filter(([r, m]) => unresolved(bracket.rounds[r][m]) && !isCurrent(r, m));
   const pick = open.find(([r, m]) => bracketMatchOpen(bracket, r, m)) || open[0];
   return pick ? { mine:false, text:`${matchName(pick[0], pick[1])} next` } : null;
+}
+
+const youNames = (state, players) => players.map(player => disp(state, player)).join(" & ");
+/* a side of three or more is its team's name ("The Rattlers", else "Team
+   Richard"), never a roll call; a pair or a single still reads by name */
+const teamOf = (state, evId, players) => state.draws?.[evId]?.teams?.find(team => players.length && team.players.includes(players[0])) || null;
+export const vsNames = (state, players, evId) => {
+  if (players.length <= 2) return youNames(state, players);
+  const team = evId ? teamOf(state, evId, players) : null;
+  return team ? teamLabel(state, team) : `${players.length} players`;
+};
+const youOrd = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
+const fmtChips = value => (value ?? 0).toLocaleString("en-US");
+const UP_PHASES = new Set(["betting-open", "betting-locked", "in-progress", "result-entry"]);
+
+/* The You strip on Home: your rank and the one line that answers "am I up,
+   did I win, what is riding". Derived from the snapshot; tone picks the lamp
+   (live = magenta, chip = amber, you = filament, info = cyan, done = unlit:
+   out, away) and route is
+   where a tap goes. First match wins:
+   away, playing now, chips riding, the last result you placed in, your next
+   assignment, the next event. */
+export function deriveYouStrip({ state, me, events = allEventsOf(state), standings = computeStandings(state),
+  model = deriveHomeModel({ state, me, events, standings }) }) {
+  const row = standings.find(item => item.player === me);
+  if (!row) return null;
+  const before = model.mode === "before";
+  /* before the weekend everyone holds the same 1,000 and the event panel
+     already names the first game: no strip */
+  if (before) return null;
+  const tied = standings.filter(item => item.rank === row.rank).length > 1;
+  const rank = before ? null : { n:row.rank, tied, text:tied ? `T${row.rank}` : youOrd(row.rank) };
+  const base = { pts:row.pts, rank };
+  const ev = model.current?.event || null;
+  if (model.mode === "complete") return { ...base, tone:"you",
+    text:row.rank === 1 ? tied ? "Tied for the championship" : "Champion" : "", route:null };
+  if (model.mode === "finale") return { ...base, tone:model.finale?.out ? "done" : "live",
+    text:model.finale?.out ? "Out of the finale" : "At the table", route:null };
+  if (state.away?.[me]) return { ...base, tone:"done", text:"Marked away", route:null };
+
+  const current = model.current;
+  const contest = current?.contest;
+  if (!before && contest && contest.players?.includes(me) && UP_PHASES.has(current.lifecycle.phase)) {
+    const others = contest.sides.filter(side => !side.players.includes(me));
+    const text = contest.sides.length === 2
+      ? `You’re up vs ${vsNames(state, others.flatMap(side => side.players), ev.id)}`
+      : `You’re playing ${ev.name}`;
+    return { ...base, tone:"live", text, up:true, route:{ type:"event", ev } };
+  }
+
+  const riding = (state.wagers || []).filter(wager => wager.player === me
+    && resolveWager(state, wager, events).status === "pending");
+  if (riding.length) {
+    const total = riding.reduce((sum, wager) => sum + (wager.stake || 0), 0);
+    const picks = [...new Set(riding.map(wager => (wager.pickPlayers || [wager.pick]).join("|")))];
+    const text = picks.length === 1
+      ? `${fmtChips(total)} riding on ${youNames(state, picks[0].split("|"))}`
+      : `${fmtChips(total)} riding on ${picks.length} bets`;
+    return { ...base, tone:"chip", text, route:{ type:"bets" } };
+  }
+
+  const latest = events.filter(event => state.results?.[event.id]?.slots?.[0]?.length && !state.shelved?.[event.id])
+    .sort((a, b) => (state.results[b.id].ts || 0) - (state.results[a.id].ts || 0))[0];
+  const award = latest && !state.results[latest.id].stacks
+    ? resultAwards(state, latest, state.results[latest.id]).find(item => item.player === me) : null;
+  if (!before && award && award.pts > 0) {
+    const label = award.place === 0 ? "Won" : award.place === "crew" ? "Crew" : youOrd(award.place + 1);
+    return { ...base, tone:"chip", text:`${latest.name}: ${label} +${fmtChips(award.pts)}`, route:{ type:"event", ev:latest } };
+  }
+
+  if (!ev) return { ...base, tone:"info", text:"", route:null };
+  if (before) return { ...base, tone:"info", text:`First event: ${ev.name}`, route:{ type:"event", ev } };
+  const path = bracketPath(state, ev, me);
+  if (path?.mine) return { ...base, tone:"info", text:`${ev.name}: ${path.text}`, route:{ type:"bracket", ev } };
+  const a = current.assignment;
+  if (a?.kind === "crew") return { ...base, tone:"info", text:`${ev.name}: ${a.label}`, route:{ type:"event", ev } };
+  if (a?.status === "out") return { ...base, tone:"done", text:`Out of ${ev.name}`, route:{ type:"event", ev } };
+  const opponents = a?.opponents?.length ? ` vs ${vsNames(state, a.opponents, ev.id)}` : "";
+  const group = a?.group?.name && a.status !== "out" ? `, ${a.group.name}` : "";
+  return { ...base, tone:"info", text:`Next: ${ev.name}${group}${opponents}`, route:{ type:"event", ev } };
 }

@@ -42,6 +42,7 @@ export function tableViewModel(state, me, now) {
   const stack = Number(pk.startingStacks?.[me]) || 0;
   return {
     level:clk.idx, levelNumber:clk.idx + 1, levelCount:levels.length || clk.idx + 1,
+    levelMs:(Number(levels[clk.idx]?.mins) || 0) * 60000,
     sb:clk.sb, bb:clk.bb, blinds:`${fmt(clk.sb)} / ${fmt(clk.bb)}`,
     next:next ? `${fmt(next.sb)} / ${fmt(next.bb)}` : null,
     msLeft:clk.msLeft, paused:clk.paused, final:clk.final, last:clk.last,
@@ -64,51 +65,13 @@ export function nextTickDelay(model) {
   return (rest || 1000) + TICK_SLOP_MS;
 }
 
-/* the blinds as large as the width allows: Barlow Condensed figures run
+/* the blinds as large as the width allows: Big Shoulders Display figures run
    about half an em, the separator a little less */
 export function blindsSize(text, width, { max = 136, min = 56 } = {}) {
   const units = [...String(text || "")].reduce((sum, ch) => sum + (ch === " " ? 0.24 : ch === "," ? 0.22 : ch === "/" ? 0.36 : 0.5), 0);
   return Math.max(min, Math.min(max, Math.floor(width / Math.max(units, 1))));
 }
 
-/* Screen Wake Lock, where the browser has it (iOS 18.4+ Safari and home-
-   screen apps). The system drops the lock whenever the page is hidden, so
-   it is asked for again when the page comes back, until released. Never
-   throws; `held()` says whether a lock is live. */
-export const wakeLockSupported = (nav = typeof navigator === "undefined" ? null : navigator) =>
-  !!nav?.wakeLock && typeof nav.wakeLock.request === "function";
-
-export function createWakeLock({ nav = typeof navigator === "undefined" ? null : navigator,
-  doc = typeof document === "undefined" ? null : document } = {}) {
-  let sentinel = null, wanted = false, pending = null;
-  const acquire = async () => {
-    if (!wanted || sentinel || pending || !wakeLockSupported(nav) || doc?.visibilityState === "hidden") return false;
-    pending = Promise.resolve().then(() => nav.wakeLock.request("screen")).then(lock => {
-      pending = null;
-      if (!wanted) { Promise.resolve().then(() => lock?.release?.()).catch(() => {}); return false; }
-      sentinel = lock;
-      lock?.addEventListener?.("release", () => { if (sentinel === lock) sentinel = null; });
-      return true;
-    }, () => { pending = null; return false; });
-    return pending;
-  };
-  const onVisible = () => { if (doc?.visibilityState === "visible") acquire(); };
-  return {
-    supported:wakeLockSupported(nav),
-    start() {
-      if (wanted) return acquire();
-      wanted = true;
-      doc?.addEventListener?.("visibilitychange", onVisible);
-      return acquire();
-    },
-    async release() {
-      wanted = false;
-      doc?.removeEventListener?.("visibilitychange", onVisible);
-      /* a request still in flight releases itself when it lands */
-      const lock = sentinel;
-      sentinel = null;
-      try { await lock?.release?.(); } catch {}
-    },
-    held:() => !!sentinel,
-  };
-}
+/* Screen Wake Lock: the one helper lives in src/lib/wakeLock.js (Table
+   view and the TV both hold the screen awake through it) */
+export { createWakeLock, wakeLockSupported } from "../../lib/wakeLock.js";

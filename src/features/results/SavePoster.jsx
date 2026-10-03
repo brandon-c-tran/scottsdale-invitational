@@ -33,7 +33,7 @@ export function SavePoster({ state, events, standings }) {
       {saving ? "Saving…" : "Save poster"}</button>
     {preview && <div className="fd-crown-preview" role="dialog" aria-label="Saved poster">
       <img src={preview} alt="Class photo poster" />
-      <p>Press and hold the image to save it.</p>
+      <p>Press and hold to save</p>
       <button type="button" onClick={() => setPreview(null)}>Done</button>
     </div>}
   </>;

@@ -28,6 +28,11 @@ export const STACK_TOWER = 2;
 export const towerTiers = (chips, cap = STACK_CAP) => chips <= cap ? 0 : chips <= 2 * cap ? 1 : STACK_TOWER;
 export const towerGap = size => Math.max(4, Math.round(Math.max(8, Number(size) || 0) * 0.14));
 export const stackMaxHeight = (size, cap = STACK_CAP) => stackGeometry(size, cap + STACK_TOWER).height + towerGap(size);
+/* one stake's stack as ChipStack draws it (a tower past the cap) */
+export function stackHeight(size, stake, cap = STACK_CAP) {
+  const chips = stackChipCount(stake), tiers = towerTiers(chips, cap);
+  return stackGeometry(size, Math.max(1, Math.min(chips, cap)) + tiers).height + (tiers ? towerGap(size) : 0);
+}
 
 /* chips in a stake: one per PT, and any chip at all shows as one */
 export const stackChipCount = stake => {
@@ -249,5 +254,11 @@ export const contestOfEntry = (eventId, entry) => entry ? ({ id:entry.id, eventI
 export const eventWinnerStacks = (state, events, eventId) => settledStacks(state, events, { eventId },
   wager => wager.eventId === eventId && wager.kind === "outright");
 
-/* the name under a TV stack: the first word of the display name */
-export const stackName = (state, player) => String(disp(state, player) || player).split(/\s+/)[0];
+/* the name under a stack: the first word of the display name, unless that
+   word is an initial or two ("j vo", "J. R."), when the whole name stays */
+export const shortName = display => {
+  const name = String(display || "").trim();
+  const first = name.split(/\s+/)[0] || "";
+  return first.replace(/[^\p{L}\p{N}]/gu, "").length <= 2 ? name : first;
+};
+export const stackName = (state, player) => shortName(disp(state, player) || player);

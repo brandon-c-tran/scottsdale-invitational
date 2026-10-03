@@ -7,6 +7,7 @@ import { whenLabel } from "./geoModel.js";
 import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
 import { PlaceSearch } from "./PlaceSearch.jsx";
 import "./geo.css";
+import { Icon } from "../../ui/Icon.jsx";
 
 const newRoundId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -73,12 +74,12 @@ function RoundEditor({ round, onSave, onCancel }) {
     }} />
     <GeoMap mode="pick" pin={pin} onPick={setPin} focus={focus} className="fd-geo-pick" label="Drop the answer pin" />
     <label className="fd-geo-field"><span>Place</span><input value={place} maxLength={GEO_PLACE_MAX}
-      onChange={event => setPlace(event.target.value)} placeholder="Shown at the reveal" /></label>
+      onChange={event => setPlace(event.target.value)} /></label>
     <div className="fd-geo-field"><span>When it was taken</span>
       <WhenPicker value={wall} set={whenSet} onChange={(next, turned) => { setWall(next); if (turned) setWhenSet(true); }} />
     </div>
-    <label className="fd-geo-field"><span>Caption · optional</span><input value={caption} maxLength={GEO_CAPTION_MAX}
-      onChange={event => setCaption(event.target.value)} placeholder="Shown at the reveal" /></label>
+    <label className="fd-geo-field"><span>Caption</span><input value={caption} maxLength={GEO_CAPTION_MAX}
+      onChange={event => setCaption(event.target.value)} placeholder="Optional" /></label>
     {error && <p className="fd-geo-error" role="alert">{error}</p>}
     <div className="fd-geo-editor-actions">
       <button type="button" className="fd-geo-send" disabled={!!busy} onClick={save}>{busy === "save" ? "Saving…" : "Save photo"}</button>
@@ -110,7 +111,7 @@ export function GeoDesk({ state, onAct, notify }) {
     onSave={save} onCancel={() => setEditing(null)} />;
   return <div className="fd-geo-desk">
     {running && <div className="fd-geo-running">
-      <span>Game running · photo {state.geo.index + 1} of {state.geo.order.length}</span>
+      <span>Photo {state.geo.index + 1} of {state.geo.order.length} live</span>
       <button type="button" onClick={async () => {
         if (confirm !== "restart") { setConfirm("restart"); return; }
         setConfirm(null);
@@ -125,9 +126,9 @@ export function GeoDesk({ state, onAct, notify }) {
           {round.caption && <small>{round.caption}</small>}</span>
         {!running && <span className="fd-geo-list-actions">
           <button type="button" aria-label={`Move ${round.place} up`} disabled={index === 0}
-            onClick={() => onAct("geoMoveRound", { id:round.id, by:-1 })}>↑</button>
+            onClick={() => onAct("geoMoveRound", { id:round.id, by:-1 })}><Icon name="up" size={18} /></button>
           <button type="button" aria-label={`Move ${round.place} down`} disabled={index === rounds.length - 1}
-            onClick={() => onAct("geoMoveRound", { id:round.id, by:1 })}>↓</button>
+            onClick={() => onAct("geoMoveRound", { id:round.id, by:1 })}><Icon name="down" size={18} /></button>
           <button type="button" onClick={() => setEditing(round.id)}>Edit</button>
           <button type="button" className={confirm === round.id ? "is-confirm" : ""} onClick={() => remove(round.id)}>
             {confirm === round.id ? "Delete?" : "Delete"}</button>

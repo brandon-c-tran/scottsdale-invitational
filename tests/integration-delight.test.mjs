@@ -103,7 +103,11 @@ test("the TV podium names the finale once, and a settled slot card keeps a pair'
   assert.match(tv, /className=\{`tv-advance is-slot\$\{chips \? " has-settle" : ""\}`\}/);
   const css = src("src/features/tv/tvScenes.css");
   assert.match(css, /\.tv-advance\.is-slot\.has-settle \.tv-advance-name \{[^}]*white-space:nowrap/);
-  assert.match(css, /\.tv-advance\.is-slot\.has-settle \.tv-advance-who \{[^}]*min-width:420px/);
+  /* the settled chips are one row under the winner, clipped to the card */
+  assert.match(css, /\.tv-advance\.is-slot\.has-settle \{[^}]*flex-direction:column[^}]*overflow:hidden/);
+  assert.match(src("src/features/tv/tv.css"), /\.tv-settle \.tv-stacks \{[^}]*flex-wrap:nowrap/);
+  assert.match(tv, /slots=\{fit\.won\}/);
+  assert.match(tv, /slots=\{fit\.lost\}/);
 });
 
 test("a captain's turn nudge leaves with the turn and stays quiet over the open draft", () => {

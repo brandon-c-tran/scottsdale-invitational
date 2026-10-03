@@ -17470,7 +17470,7 @@ input::placeholder {
     transform: translate(118px, 0);
   }
 }
-} @keyframes si-trophy {
+@keyframes si-trophy {
   from {
     transform: rotateY(0deg);
   }
@@ -21901,7 +21901,7 @@ summary:focus-visible {
   justify-content: center;
   gap: 36px;
   margin-top: 14px;
-  max-width: 1240px;
+  max-width: 100%;
 }
 .tv-settle-zone {
   display: flex;
@@ -21934,6 +21934,8 @@ summary:focus-visible {
   color: var(--clay-text);
 }
 .tv-settle .tv-stacks {
+  flex-wrap: nowrap;
+  align-items: flex-end;
   justify-content: center;
 }
 .tv-place-backers {
@@ -23796,31 +23798,59 @@ summary:focus-visible {
   margin-top: 0;
   flex-shrink: 0;
 }
-.tv-advance.is-slot.has-settle {
-  gap: 32px;
-}
-.tv-advance.is-slot.has-settle .tv-advance-who {
-  flex: 1 1 440px;
-  min-width: 420px;
-}
-.tv-advance.is-slot.has-settle .tv-advance-line {
+.tv-advance-call {
+  display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
+}
+.tv-advance.is-slot.has-settle {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 22px;
+  padding: 22px 36px;
+  overflow: hidden;
+}
+.tv-advance.is-slot.has-settle .tv-advance-who {
+  flex: 0 0 auto;
+  gap: 6px;
 }
 .tv-advance.is-slot.has-settle .tv-advance-name {
   font-size: 56px;
-  max-width: 100%;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.tv-advance.is-slot.has-settle .tv-advance-call {
+  flex-direction: row;
+  align-items: center;
+  column-gap: 36px;
+  max-width: 100%;
+}
 .tv-advance.is-slot.has-settle .tv-advance-stamp {
-  font-size: 88px;
+  font-size: 84px;
+  flex-shrink: 0;
+}
+.tv-advance.is-slot.has-settle .tv-advance-detail {
+  min-width: 0;
+  row-gap: 2px;
+  column-gap: 28px;
+  white-space: nowrap;
 }
 .tv-advance.is-slot.has-settle .tv-settle {
-  flex-shrink: 1;
+  justify-content: flex-start;
+  gap: 24px;
+  max-width: 100%;
+}
+.tv-advance.is-slot.has-settle .tv-settle-zone {
   min-width: 0;
+  padding: 12px 22px;
+}
+.tv-advance.is-slot.has-settle .tv-settle-head {
+  font-size: 44px;
 }
 .tv-canvas:has(.tv-crown) .tv-mast {
   z-index: 2;

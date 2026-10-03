@@ -3,7 +3,9 @@
    ?gap=N clears the live event and shows ambient turn N (0 is the board).
    Backglass moments: ?moment=walkout|faceoff|crown|bust|blinds plays that
    takeover over the canvas, ?t=ms starts it that far in, ?pause=1 freezes
-   it there for stills.
+   it there for stills. ?decide=1 records the current contest's first side
+   as the winner through the real reducers, so the decided moment (and its
+   bets paying out) plays.
    No socket: the transport is never started; the TV only renders. */
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -21,6 +23,7 @@ import { FaceOff } from "../src/features/tv/TVFaceOff.jsx";
 import { ChampionMoment } from "../src/features/tv/TVChampion.jsx";
 import { faceOffView } from "../src/features/tv/faceOff.js";
 import { championView } from "../src/features/tv/tvModel.js";
+import { applyAction } from "../worker/actions.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
@@ -28,8 +31,25 @@ const id = params.get("scenario") || "crowd-match";
 const gap = params.get("gap");
 const base = createEfficiencyFixture(id).state;
 /* ?spread=1 spreads the board (rulings in 100s) so the ranks show */
-const fixture = !params.get("spread") ? base : { ...base, adjustments:[...(base.adjustments || []),
-  ...Object.keys(base.profiles || {}).map((p, i) => ({ id:`sp${i}`, player:p, delta:((i * 7) % 13) * 100, reason:"preview", ts:1 }))] };
+/* the real lock and winner writes, as the commissioner taps them */
+function decide(input) {
+  const next = structuredClone(input);
+  const ev = wagerBoardEvent(next, allEventsOf(next));
+  if (!ev) return input;
+  const ctx = { isGm:true, deviceId:"tv-preview" };
+  const ref = () => { const c = resolveCurrentContest(next, ev); return { evId:ev.id, contestId:c.id, contestRevision:c.revision }; };
+  applyAction(next, "lockAndStart", ref(), { ...ctx, actionId:"lock" });
+  const contest = resolveCurrentContest(next, ev);
+  const advance = next.stages?.[ev.id]?.advance || 1;
+  const qualifiers = contest.kind === "heat" ? contest.sides.slice(0, advance).map(side => side.key) : undefined;
+  const result = applyAction(next, "recordContestWinner", { ...ref(), winner:contest.sides[0].key, qualifiers },
+    { ...ctx, actionId:"win" });
+  if (!result.ok) console.warn("decide:", result.error);
+  return next;
+}
+const decided = params.get("decide") ? decide(base) : base;
+const fixture = !params.get("spread") ? decided : { ...decided, adjustments:[...(decided.adjustments || []),
+  ...Object.keys(decided.profiles || {}).map((p, i) => ({ id:`sp${i}`, player:p, delta:((i * 7) % 13) * 100, reason:"preview", ts:1 }))] };
 /* a gap between events: nothing announced, open or in play */
 const state = gap === null ? fixture : { ...fixture, onDeck:null, eventOps:{}, draws:{}, brackets:{}, stages:{}, drafts:{},
   poker:null, wagers:[], live:true };

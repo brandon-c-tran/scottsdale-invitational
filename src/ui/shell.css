@@ -171,7 +171,6 @@ input::placeholder { color:var(--muted); }
   88%       { transform: translate(118px,0); }
   100%      { transform: translate(118px,0); }
 }
-}
 /* the prize: flat blades rotated around one axis read as a solid */
 @keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
 /* routes draw themselves in, then a chip runs the line */

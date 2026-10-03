@@ -578,20 +578,25 @@ function DecidedWinner({ state, ev, winner, motion = null }) {
 }
 
 /* The decided contest's chips settle: the winners' stacks grow by their
-   payout, every other stack slides back to the bank. */
+   payout, every other stack slides back to the bank. One row, always: past
+   `fit` stacks a zone folds its smallest into one "+N" stack, so a crowd of
+   bettors never stacks the board into a column. */
 const SETTLE_LOSE_AT = 700, SETTLE_PAY_AT = 1300;
-function SettleBoard({ state, settle, size = 56 }) {
+const SETTLE_FIT = { won:6, lost:3 }, SETTLE_SLOT_FIT = { won:4, lost:2 };
+function SettleBoard({ state, settle, size = 56, fit = SETTLE_FIT }) {
   if (!settle?.any) return null;
   const names = p => stackName(state, p);
   return (
     <div className="tv-settle">
       {settle.winners.length > 0 && <div className="tv-settle-zone is-won">
         <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_PAY_AT}ms` }}>{signed(settle.paid)}</div>
-        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} className="tv-stacks" valueAt="below" />
+        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} className="tv-stacks"
+          slots={fit.won} valueAt="below" />
       </div>}
       {settle.losers.length > 0 && <div className="tv-settle-zone is-lost">
         <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_LOSE_AT}ms` }}>{signed(-settle.lost)}</div>
-        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} className="tv-stacks" valueAt="below" />
+        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} className="tv-stacks"
+          slots={fit.lost} valueAt="below" />
       </div>}
     </div>
   );
@@ -606,18 +611,21 @@ const AdvanceDetail = ({ moment }) => {
 function AdvanceMoment({ state, moment, slot = false }) {
   const chips = !!moment.settle?.any;
   /* over a bracket, the card keeps to the contest's space so the bracket
-     beside it can carry the winners forward */
+     beside it can carry the winners forward; with bets to pay, the winner
+     sits on top and the chips settle in one row under it */
   if (slot) return (
     <div className={`tv-advance is-slot${chips ? " has-settle" : ""}`} role="status">
       <div className="tv-advance-who">
         <div className="tv-advance-line">
-          <Faces players={moment.players} size={88} />
+          <Faces players={moment.players} size={chips ? 72 : 88} />
           <div className="tv-display tv-advance-name">{moment.name}</div>
         </div>
-        <div key={moment.id} className="fd-show is-marquee tv-advance-stamp">{moment.verb}</div>
-        <AdvanceDetail moment={moment} />
+        <div className="tv-advance-call">
+          <div key={moment.id} className="fd-show is-marquee tv-advance-stamp">{moment.verb}</div>
+          <AdvanceDetail moment={moment} />
+        </div>
       </div>
-      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} />
+      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} size={48} fit={SETTLE_SLOT_FIT} />
     </div>
   );
   return (
@@ -920,7 +928,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   else if (!crownAt.current) crownAt.current = crown?.anchor || crownAnchor(state) || 0;
   /* D3: the class photo's entrance */
   const classMoment = useClassMoment(showScene);
-  const slotAdvance = !!advance && advance.kind === "match" && !!activeBracketEv;
+  /* beside a bracket or the heats, the moment keeps to the contest's card */
+  const slotAdvance = !!advance && !!(activeBracketEv || activeStageEv) && !!liveContest
+    && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(liveContest.phase);
 
   const resultMoment = resultMomentFor(state, events, now, sceneView, showScene);
   const resultModel = useMemo(() => resultMoment ? resultPresentation(state, events, resultMoment.eventId) : null,

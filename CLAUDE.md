@@ -296,8 +296,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and a cleared result take it back and the exposure trim covers it; never
   in the finale, never to a leader. A fresh lock of the same contest
   re-stamps it. **Underdog odds** (`UNDERDOG_GAP` 1,000, `UNDERDOG_MULT` 2):
-  `oddsFor` compares a two-sided contest's sides as average chips per
-  player times 2 when its market first opens (`openContest`), stored in
+  `oddsFor` takes a two-sided contest's gap as |average chips per player
+  of side A - side B| x the smaller side's size (a 1v1 needs a 1,000-chip
+  gap, a pair 1,000 combined, the 7 v 6 compares at six players) when its
+  market first opens (`openContest`), stored in
   `eventOps[ev].odds[contestId]` (`underdog` side key or null) and kept if
   that contest opens again (a correction's replay); every new ticket stores
   `mult` = `contestMult(contest, side)`, and `wagerMult` reads any ticket's
@@ -730,7 +732,8 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    winner pays 1:1. Any contest with exactly two sides, including a
    two-team game like Volleyball, Flip Cup or 5v5, is a matchup paying 1:1,
    except its underdog's side when the sides opened 1,000 or more apart
-   (average chips per player, times 2): that side pays 2:1 (v3.1, Comebacks
+   (|average chips per player of A - of B| x the smaller side's size): that
+   side pays 2:1 (v3.1, Comebacks
    above). Competitors may back only their own side. Payout copy is always
    "Winner pays 1:1" or "Winner pays 2:1", never "even", said per side when a
    contest carries odds. Every bettor holds one side

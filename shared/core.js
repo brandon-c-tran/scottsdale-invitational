@@ -280,7 +280,8 @@ const wagerMult = w => Number.isInteger(w?.mult) && w.mult >= 1 ? w.mult
    Leader bounty: whoever leads the board when a contest's betting locks is
    stamped on it; beating them pays every winner BOUNTY_PTS from the bank.
    Underdog odds: a two-sided contest whose sides sit UNDERDOG_GAP apart
-   (each side's average chips per player, times 2) pays the lower side's
+   (the gap in average chips per player, times the smaller side's size)
+   pays the lower side's
    winning tickets UNDERDOG_MULT, fixed when its betting opens.
    Byes to the bottom: a bracket's byes go to the lowest-ranked teams. */
 const BOUNTY_PTS = 2 * PT;
@@ -1138,20 +1139,19 @@ function bountyAwards(state, events = allEventsOf(state)) {
 }
 
 /* -- Underdog odds --
-   A two-sided contest compares each side's average chips per player, times
-   2 (a pair reads as its combined chips, a 7 v 6 as fair). UNDERDOG_GAP or
-   more apart, the lower side is the underdog and its winning tickets pay
+   A two-sided contest's gap is the difference in its sides' average chips
+   per player times the smaller side's size: a 1v1 needs 1,000 chips between
+   them, a pair 1,000 combined, a 7 v 6 compares at six players. UNDERDOG_GAP
+   or more, the lower side is the underdog and its winning tickets pay
    UNDERDOG_MULT. Stored at market open (eventOps[ev].odds[contestId]) and on
    each ticket, so later standings never move it. */
 function oddsFor(state, contest, rows = computeStandings(state)) {
   if (!contest || contest.sides?.length !== 2 || pokerLive(state) || stacksPosted(state)) return null;
   const pts = Object.fromEntries(rows.map(row => [row.player, row.pts]));
-  const strength = contest.sides.map(side => {
-    const players = (side.players || []).filter(player => pts[player] !== undefined);
-    return players.length ? 2 * players.reduce((sum, player) => sum + pts[player], 0) / players.length : null;
-  });
-  if (strength.some(value => value === null)) return null;
-  const gap = Math.abs(strength[0] - strength[1]);
+  const counted = contest.sides.map(side => (side.players || []).filter(player => pts[player] !== undefined));
+  if (counted.some(players => !players.length)) return null;
+  const strength = counted.map(players => players.reduce((sum, player) => sum + pts[player], 0) / players.length);
+  const gap = Math.abs(strength[0] - strength[1]) * Math.min(counted[0].length, counted[1].length);
   if (gap < UNDERDOG_GAP) return { underdog:null, gap:Math.round(gap) };
   const low = strength[0] < strength[1] ? 0 : 1;
   return { underdog:contest.sides[low].key, mult:UNDERDOG_MULT, gap:Math.round(gap) };

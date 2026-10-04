@@ -160,7 +160,7 @@ test("the bounty never touches the poker finale", () => {
   assert.equal(bountyAwards(finale).length, 0);
 });
 
-test("underdog odds: a 1,000 gap (average chips per player, times 2) pays the lower side 2:1", () => {
+test("underdog odds: a 1,000 gap pays the lower side 2:1, fixed at the open", () => {
   const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
   const c = current(s, "die");
   assert.deepEqual(c.odds && { underdog:c.odds.underdog, mult:c.odds.mult }, { underdog:3, mult:UNDERDOG_MULT });
@@ -192,7 +192,7 @@ test("underdog odds: a 1,000 gap (average chips per player, times 2) pays the lo
   assert.equal(current(s, "die").odds.underdog, 3);
 });
 
-test("underdog odds need the full gap; pairs compare combined chips and a 7 v 6 compares averages", () => {
+test("underdog odds: |average A - average B| x the smaller side's size, 1,000 or more", () => {
   const close = dieBoard(state => { rule(state, ROSTER[8], 400); rule(state, ROSTER[9], 500); });
   assert.equal(current(close, "die").odds, undefined, "a 900 gap is even money");
   assert.equal(close.eventOps.die.odds[current(close, "die").id].underdog, null);
@@ -206,6 +206,22 @@ test("underdog odds need the full gap; pairs compare combined chips and a 7 v 6 
   const lifted = fresh();
   ROSTER.slice(7).forEach(player => rule(lifted, player, 500));
   assert.equal(oddsFor(lifted, court).underdog, 0);
+  /* the 7 v 6 compares at six players: 150 a head is 900, 200 a head 1,200 */
+  const near = fresh(), far = fresh();
+  ROSTER.slice(7).forEach((player, i) => { rule(near, player, i ? 100 : 400); rule(far, player, 200); });
+  assert.deepEqual(oddsFor(near, court), { underdog:null, gap:900 });
+  assert.equal(oddsFor(far, court).gap, 1200);
+  assert.equal(oddsFor(far, court).underdog, 0);
+  /* a 1v1 needs a real 1,000-chip gap */
+  const solo = { sides:[{ key:0, players:[ROSTER[0]] }, { key:1, players:[ROSTER[1]] }] };
+  const nine = fresh(); rule(nine, ROSTER[1], 900);
+  assert.deepEqual(oddsFor(nine, solo), { underdog:null, gap:900 });
+  const thousand = fresh(); rule(thousand, ROSTER[1], 1000);
+  assert.deepEqual(oddsFor(thousand, solo), { underdog:0, mult:UNDERDOG_MULT, gap:1000 });
+  /* a pair: 1,000 combined (500 a head), and 900 combined is even money */
+  const pairNine = fresh(); rule(pairNine, ROSTER[2], 400); rule(pairNine, ROSTER[3], 500);
+  assert.equal(oddsFor(pairNine, pairs).underdog, null);
+  assert.equal(oddsFor(s, pairs).gap, 1000);
   /* the wide field keeps 2:1 everywhere and carries no odds */
   assert.equal(oddsFor(fresh(), { sides:ROSTER.map(key => ({ key, players:[key] })) }), null);
 });

@@ -4,8 +4,8 @@
    Mirrors exactly what src/App.jsx dispatches; asserts both windows receive
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
-import { ROSTER, resolveWager, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
-  RESET_PROGRESS_CONFIRMATION }
+import { ROSTER, resolveWager, resolveCurrentContest, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
+  RESET_PROGRESS_CONFIRMATION, resultAwards }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -81,8 +81,8 @@ const a = A.win, b = B.win;
 await a.waitVersion(0); await new Promise(r => setTimeout(r, 300));
 assert(a.state && b.state, "both windows received initial state on hello");
 assert(a.environment === "local" && a.capabilities?.qa && a.capabilities?.progressReset
-  && a.capabilities?.restore,
-  "local server is visibly isolated and enables rehearsal, reset, and recovery capabilities");
+  && a.capabilities?.restore && a.capabilities?.showControl,
+  "local server is visibly isolated and enables rehearsal, recovery, and Show Control capabilities");
 
 /* ── onboarding: claim different players ── */
 let r = await a.dispatch("claim", { player: "Brandon" });
@@ -115,6 +115,39 @@ assert(r.ok && r.extra?.backupKey?.startsWith("m1:pre-reset:"),
 await b.waitVersion(a.version);
 
 /* ── draw 8-Ball ── */
+assert(a.state.live === false && b.state.live === false,
+  "the existing clean-slate reset leaves the weekend before play");
+{
+  const earlyDuel = await b.dispatch("sendDuel", { to:"Khoa", game:"quickdraw" });
+  assert(!earlyDuel.ok, "duels wait for the first game (rejected: " + earlyDuel.error + ")");
+}
+/* directed presentation is durable and independent from the tournament loop */
+r = await a.dispatch("startShowScene", { kind:"opening" });
+assert(r.ok, "GM starts a directed event scene");
+await b.waitVersion(a.version);
+const showId = b.state.showControl?.active?.id;
+assert(showId && b.state.showControl.active.step === 0,
+  "window B receives the active Show Control scene");
+
+const TVScene = makeWindow("TV(Show)");
+await TVScene.open;
+await new Promise(resolve => setTimeout(resolve, 100));
+assert(TVScene.win.you === null && TVScene.win.state?.showControl?.active?.id === showId,
+  "a refreshing TV reconstructs the active scene while remaining unclaimed");
+
+r = await a.dispatch("advanceShowScene", { id:showId });
+assert(r.ok, "GM advances the directed scene");
+await TVScene.win.waitVersion(a.version);
+assert(TVScene.win.state.showControl.active.step === 1,
+  "TV receives the authoritative scene step");
+r = await a.dispatch("endShowScene", { id:showId, outcome:"skipped" });
+assert(r.ok, "GM skips the scene back to ambient TV");
+await b.waitVersion(a.version);
+assert(b.state.showControl.active === null
+    && b.state.showControl.history[0]?.outcome === "skipped",
+  "scene outcome is durable without changing tournament state");
+TVScene.win.ws.close();
+
 r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER });
 assert(!r.ok && /exactly 12/i.test(r.error),
   "GM cannot silently squeeze 13 players into a 12-seat format (rejected: " + r.error + ")");
@@ -133,140 +166,139 @@ assert(draw.roles?.length === 1 && draw.roles[0].player === "Evan" && draw.roles
   "excluded player has an explicit operational role");
 const br0 = b.state.brackets["8ball"];
 assert(br0 && br0.size === 6, "6-team bracket created");
+assert(b.state.live === false, "preparing a draw does not start the weekend");
 
 /* ── open betting ── */
 r = await a.dispatch("setOnDeck", { id: "8ball" });
+assert(!r.ok && r.extra?.needsStartConfirm && r.extra.event === "8-Ball Doubles",
+  "the first opening asks to confirm that it starts the weekend");
+r = await a.dispatch("setOnDeck", { id: "8ball", startWeekend: true });
 assert(r.ok, "GM opens betting (on deck)");
 await b.waitVersion(a.version);
 assert(b.state.onDeck === "8ball", "window B sees betting open");
+assert(a.state.live === true && b.state.live === true,
+  "opening the first game starts the weekend in both windows");
 
-/* ── wagers from both windows ── */
-const t0 = draw.teams[0];
-const retrySafeWager = { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 300 };
-r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
-assert(r.ok, "Evan places outright wager (300 on team 0)");
-r = await b.dispatch("placeWager", { wager: retrySafeWager }, { actionId:"wager-idempotency-e2e" });
+/* ── wagers from both windows, always on the one current contest ── */
+const contestNow = (win, id) => resolveCurrentContest(win.state, allEventsOf(win.state).find(ev => ev.id === id));
+const refsOf = contest => ({ contestId:contest.id, contestRevision:contest.revision });
+const chipOn = (contest, key, stake, extra = {}) => {
+  const ev = allEventsOf(b.state).find(item => item.id === contest.eventId);
+  const side = contest.sides.find(item => item.key === key);
+  const common = { eventId:contest.eventId, evName:ev.name, stake, ...refsOf(contest) };
+  if (contest.kind === "ffa") return contest.drawId
+    ? { ...common, kind:"outright", pickTeam:true, pickPlayers:side.players, drawId:contest.drawId, ...extra }
+    : { ...common, kind:"outright", pick:key, ...extra };
+  return { ...common, kind:"match", match:contest.match, teamIdx:key, drawId:contest.drawId, ...extra };
+};
+const opening = contestNow(b, "8ball");
+assert(opening?.kind === "match" && opening.phase === "betting-open", "the first matchup is the one open contest");
+const backed = opening.sides[0].key;
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 300) }, { actionId:"wager-idempotency-e2e" });
+assert(r.ok, "Evan places 300 on the first matchup (" + (r.error || "ok") + ")");
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 300) }, { actionId:"wager-idempotency-e2e" });
 assert(r.ok && r.extra?.unchanged, "transport retry is acknowledged without a duplicate wager");
 await b.waitVersion(a.version);
-let evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
-assert(evanOutright.length === 1 && evanOutright[0].stake === 300,
-  "same request id leaves exactly one 300-point wager");
-r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 100 } });
+let evanLine = b.state.wagers.filter(w => w.player === "Evan" && w.eventId === "8ball");
+assert(evanLine.length === 1 && evanLine[0].stake === 300, "same request id leaves exactly one 300-chip wager");
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 100) });
 assert(r.ok && r.extra?.aggregated, "a deliberate second chip aggregates into the existing wager");
 await b.waitVersion(a.version);
-evanOutright = b.state.wagers.filter(w => w.player === "Evan" && w.kind === "outright");
-assert(evanOutright.length === 1 && evanOutright[0].stake === 400 && evanOutright[0].chips?.length === 2,
+evanLine = b.state.wagers.filter(w => w.player === "Evan" && w.eventId === "8ball");
+assert(evanLine.length === 1 && evanLine[0].stake === 400 && evanLine[0].chips?.length === 2,
   "one persisted line carries both intentional chips");
-r = await b.dispatch("placeWager", { wager: { ...retrySafeWager, stake: 200 } });
-assert(!r.ok, "Evan's next 200 rejected, 500 cap at 1000 points (rejected: " + r.error + ")");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: "stale-draw-id", stake: 200 } });
-assert(!r.ok && /draw changed/i.test(r.error), "stale drawId is rejected before the cap response (" + r.error + ")");
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 200) });
+assert(!r.ok, "Evan's next 200 rejected, 500 cap at 1000 chips (rejected: " + r.error + ")");
+r = await b.dispatch("placeWager", { wager: chipOn(opening, opening.sides[1].key, 100) });
+assert(!r.ok, "one side per contest: the other side is refused (" + r.error + ")");
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 100, { drawId:"stale-draw-id" }) });
+assert(!r.ok && /changed|current contest/i.test(r.error), "a stale draw reference is rejected (" + r.error + ")");
 
-const m00 = br0.rounds[0][0];
-const aIdx = m00.a.t, bIdx = m00.b.t;
-r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
-  teamIdx: aIdx, pickPlayers: [...draw.teams[aIdx].players], pickTeam: true, drawId: draw.id,
-  match: [0, 0], matchName: "Play-in", stake: 100 } });
-assert(r.ok, "Evan places matchup wager (100 on play-in)");
-await b.waitVersion(a.version);
-assert(b.state.wagers.length === 2, "both open wagers visible in window B");
-
-/* lock betting and start the competition */
-r = await a.dispatch("setOnDeck", { id: null });
-assert(r.ok, "GM locks betting for 8-Ball");
-r = await a.dispatch("startEvent", { evId: "8ball" });
-assert(r.ok, "GM starts 8-Ball");
-await b.waitVersion(a.version);
-
-/* ── advance the bracket ── */
-r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 0, m: 0, teamIdx: aIdx });
-assert(r.ok, "GM advances play-in match 1 winner");
-await b.waitVersion(a.version);
-{
-  const events = allEventsOf(b.state);
-  const mw = b.state.wagers.find(w => w.kind === "match");
-  const res = resolveWager(b.state, mw, events);
-  assert(res.status === "won" && res.delta === 100, "the matchup wager settled WON +100 on window B immediately");
-  const resA = resolveWager(a.state, a.state.wagers.find(w => w.kind === "match"), allEventsOf(a.state));
-  assert(resA.status === res.status, "both windows agree on matchup settlement");
+/* ── play the bracket: lock and start, record the winner, the next matchup opens ── */
+const winners = [];
+for (let guard = 0; guard < 12; guard++) {
+  const contest = contestNow(a, "8ball");
+  if (!contest) break;
+  if (contest.phase === "betting-open") {
+    r = await a.dispatch("lockAndStart", { evId:"8ball", ...refsOf(contest) });
+    assert(r.ok, `GM locks and starts ${contest.label} (${r.error || "ok"})`);
+    await b.waitVersion(a.version);
+    continue;
+  }
+  const winner = contest.id === opening.id ? backed : contest.sides[0].key;
+  r = await a.dispatch("recordContestWinner", { evId:"8ball", ...refsOf(contest), winner });
+  assert(r.ok, `GM records the ${contest.label} winner (${r.error || "ok"})`);
+  winners.push({ contest, winner });
+  await b.waitVersion(a.version);
+  if (contest.id === opening.id) {
+    const res = resolveWager(b.state, b.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball"), allEventsOf(b.state));
+    assert(res.status === "won" && res.delta === 400, "the matchup wager settled WON +400 (even money) on window B immediately");
+    const resA = resolveWager(a.state, a.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball"), allEventsOf(a.state));
+    assert(resA.status === res.status, "both windows agree on matchup settlement");
+  }
 }
-/* finish the bracket: play-in m1, semis, final. Champion = team 0 so Evan's outright wins. */
-const m01 = br0.rounds[0][1];
-r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 0, m: 1, teamIdx: m01.a.t });
-assert(r.ok, "GM advances play-in match 2");
-await b.waitVersion(a.version);
-const brB = () => b.state.brackets["8ball"];
-const semi0 = brB().rounds[1][0]; // a: t0
-r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 1, m: 0, teamIdx: 0 });
-assert(r.ok, "GM advances semifinal 1 (team 0)");
-r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 1, m: 1, teamIdx: 1 });
-assert(r.ok, "GM advances semifinal 2 (team 1)");
-r = await a.dispatch("pickBracketWinner", { evId: "8ball", r: 2, m: 0, teamIdx: 0 });
-assert(r.ok, "GM picks final winner (team 0)");
-await b.waitVersion(a.version);
-assert(bracketChampion(brB()) === 0, "bracket champion is team 0 on window B");
+const championTeam = bracketChampion(b.state.brackets["8ball"]);
+const final = winners.at(-1);
+assert(championTeam !== null && championTeam === final?.winner, "bracket champion is the final's winner on window B");
 
-/* wager placed on an already-decided matchup must be rejected */
-r = await b.dispatch("placeWager", { wager: { kind: "match", eventId: "8ball", evName: "8-Ball Doubles",
-  teamIdx: 0, pickPlayers: [...t0.players], pickTeam: true, drawId: draw.id, match: [2, 0],
-  matchName: "Final", stake: 200 } });
+/* a chip on an already-decided matchup must be rejected */
+r = await b.dispatch("placeWager", { wager: chipOn(opening, backed, 100) });
 assert(!r.ok, "wager on decided matchup rejected (" + r.error + ")");
 
 /* ── post the result ── */
-const runnerTeam = 1;
+const runnerTeam = final.contest.sides.find(side => side.key !== final.winner).key;
 r = await a.dispatch("beginResultEntry", { evId: "8ball" });
-assert(r.ok, "GM opens official result entry");
+assert(r.ok, "GM opens official result entry (" + (r.error || "ok") + ")");
 const vBefore = a.version;
-r = await a.dispatch("saveResult", { evId: "8ball", slots: [[...draw.teams[0].players], [...draw.teams[runnerTeam].players], []] });
-assert(r.ok, "GM posts official result");
+r = await a.dispatch("saveResult", { evId: "8ball",
+  slots: [[...draw.teams[championTeam].players], [...draw.teams[runnerTeam].players], []] });
+assert(r.ok, "GM posts official result (" + (r.error || "ok") + ")");
 await Promise.all([a.waitVersion(vBefore + 1), b.waitVersion(vBefore + 1)]);
 
 /* ── confirm settlement on both screens ── */
-for (const [label, win] of [["A", a], ["B", b]]) {
-  const events = allEventsOf(win.state);
-  const ow = win.state.wagers.find(w => w.kind === "outright");
-  const res = resolveWager(win.state, ow, events);
-  assert(res.status === "won" && res.delta === 800, `window ${label}: Evan's outright settled WON +800 (2:1 on stake 400)`);
+for (const [label, win] of [["A", a], ["B", b]])
   assert(win.state.onDeck === null, `window ${label}: betting closed automatically on result`);
-}
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-assert(evanRow.pts === 1900 && evanRow.betNet === 900, `Evan at 1900 pts (1000 start +800 outright +100 matchup), got ${evanRow.pts}`);
+/* +400 on the matchup, plus whatever the result pays Evan (crew take 3rd) */
+const evanAward = resultAwards(b.state, allEventsOf(b.state).find(ev => ev.id === "8ball"), b.state.results["8ball"])
+  .filter(award => award.player === "Evan").reduce((sum, award) => sum + award.pts, 0);
+assert(evanRow.pts === 1000 + 400 + evanAward && evanRow.betNet === 400 && evanRow.awardPts === evanAward,
+  `Evan at ${1000 + 400 + evanAward} chips (1000 start +400 matchup +${evanAward} award), got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);
 
 /* betting stays closed after result */
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "8ball", evName: "8-Ball Doubles",
-  pickTeam: true, pickPlayers: [...t0.players], drawId: draw.id, stake: 200 } });
+r = await b.dispatch("placeWager", { wager: chipOn(final.contest, final.winner, 100) });
 assert(!r.ok, "no wagers after result posted (" + r.error + ")");
 
 /* ── the poker finale: setup gate, freeze, stacks become standings ── */
 r = await b.dispatch("pokerSetup", {});
 assert(!r.ok, "non-GM cannot set the table (rejected: " + r.error + ")");
 r = await a.dispatch("setOnDeck", { id: "putt" });
-assert(r.ok, "GM opens betting on Long Putt");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 200 } });
-assert(r.ok, "Evan places a chip on Long Putt");
+assert(r.ok, "GM opens betting on Long Putt (" + (r.error || "ok") + ")");
+await b.waitVersion(a.version);
+r = await b.dispatch("placeWager", { wager: chipOn(contestNow(b, "putt"), "Khoa", 200) });
+assert(r.ok, "Evan places a chip on Long Putt (" + (r.error || "ok") + ")");
 r = await a.dispatch("pokerSetup", {});
 assert(!r.ok, "pending wager blocks the table (rejected: " + r.error + ")");
-r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt").id });
-assert(r.ok, "Evan pulls the chip back");
+await b.waitVersion(a.version);
+r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt").id,
+  ...refsOf(contestNow(b, "putt")) });
+assert(r.ok, "Evan pulls the chip back (" + (r.error || "ok") + ")");
 /* scaling cap: half the stack scales with the stack */
 r = await a.dispatch("adjust", { player: "Evan", delta: 3000, reason: "cap test" });
-assert(r.ok, "GM ruling puts Evan deep in points");
+assert(r.ok, "GM ruling puts Evan deep in chips");
 await b.waitVersion(a.version);
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 800 } });
-assert(r.ok, "800 fits under Evan's scaled cap");
-r = await b.dispatch("placeWager", { wager: { kind: "outright", eventId: "putt", evName: "Long Putt",
-  pick: "Khoa", pickPlayers: ["Khoa"], pickTeam: false, stake: 1700 } });
+r = await b.dispatch("placeWager", { wager: chipOn(contestNow(b, "putt"), "Khoa", 800) });
+assert(r.ok, "800 fits under Evan's scaled cap (" + (r.error || "ok") + ")");
+r = await b.dispatch("placeWager", { wager: chipOn(contestNow(b, "putt"), "Khoa", 1700) });
 assert(!r.ok && /Max \d+ at risk/.test(r.error), "exposure past the scaled cap rejected (" + r.error + ")");
-r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.stake === 800).id });
+await b.waitVersion(a.version);
+r = await b.dispatch("retractWager", { id: b.state.wagers.find(w => w.player === "Evan" && w.eventId === "putt" && w.stake === 800).id,
+  ...refsOf(contestNow(b, "putt")) });
 assert(r.ok, "Evan pulls the 800 back");
 
 /* chip colors are first come first serve. Profiles deliberately survive resets,
@@ -279,28 +311,23 @@ assert(r.ok, "Brandon claims the first color (" + (r.error || "ok") + ")");
 r = await a.dispatch("pickChip", { player: "Khoa", color: CHIP_COLORS[0].hex, skin: "dots" });
 assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
 
-/* duels are a weekend thing: everyone sits on 1,000 until the board goes live */
-{
-  let r0 = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
-  assert(!r0.ok, "no duels before the weekend starts (rejected: " + r0.error + ")");
-  r0 = await a.dispatch("setLive", { on: true });
-  assert(r0.ok, "GM starts the weekend");
-  await b.waitVersion(a.version);
-}
-
-/* a duel settles into the standings, zero sum */
+/* The first game already opened the weekend; a duel settles zero sum. A
+   challenge is an offer: nobody draws until Khoa accepts. */
 {
   const before = computeStandings(a.state);
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
   r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw" });
-  assert(r.ok, "Evan challenges Khoa");
-  await b.waitVersion(a.version);
-  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
-  r = await b.dispatch("playDuel", { id: duel.id, ms: 150 });
-  assert(r.ok, "Evan draws in 150ms");
+  assert(r.ok && r.extra?.id, "Evan challenges Khoa");
+  const id = r.extra.id;
+  r = await b.dispatch("playDuel", { id, ms: 150 });
+  assert(!r.ok, "no run before Khoa accepts (rejected: " + r.error + ")");
   r = await a.dispatch("claim", { player: "Khoa" });
   assert(r.ok, "window A speaks for Khoa");
-  r = await a.dispatch("playDuel", { id: duel.id, ms: 400 });
+  r = await a.dispatch("acceptDuel", { id });
+  assert(r.ok, "Khoa accepts");
+  r = await b.dispatch("playDuel", { id, ms: 150 });
+  assert(r.ok, "Evan draws in 150ms");
+  r = await a.dispatch("playDuel", { id, ms: 400 });
   assert(r.ok, "Khoa answers in 400ms");
   r = await a.dispatch("claim", { player: "Brandon" });
   assert(r.ok, "window A back to Brandon");
@@ -321,13 +348,16 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
   const pts0 = Object.fromEntries(before.map(x => [x.player, x.pts]));
   r = await b.dispatch("sendDuel", { to: "Khoa", game: "quickdraw", stake: 300 });
   assert(r.ok, "Evan challenges Khoa for 300");
+  const id = r.extra.id;
   await a.waitVersion(b.version);
-  const duel = b.state.duels.find(d => d.from === "Evan" && d.to === "Khoa" && d.status === "open");
+  const duel = b.state.duels.find(d => d.id === id);
   assert(duel.stake === 300, "the duel carries the chosen ante");
-  r = await b.dispatch("playDuel", { id: duel.id, ms: 200 });
-  assert(r.ok, "Evan runs 200ms");
   r = await a.dispatch("claim", { player: "Khoa" });
-  r = await a.dispatch("playDuel", { id: duel.id, ms: 500 });
+  r = await a.dispatch("acceptDuel", { id });
+  assert(r.ok, "Khoa accepts the 300");
+  r = await b.dispatch("playDuel", { id, ms: 200 });
+  assert(r.ok, "Evan runs 200ms");
+  r = await a.dispatch("playDuel", { id, ms: 500 });
   assert(r.ok, "Khoa runs 500ms");
   await b.waitVersion(a.version);
   const pts1 = Object.fromEntries(computeStandings(b.state).map(x => [x.player, x.pts]));
@@ -345,8 +375,8 @@ assert(!r.ok, "the same color is gone (rejected: " + r.error + ")");
   assert(r.ok, "GM ruling drops Chinh to 400");
 }
 
-r = await a.dispatch("setOnDeck", { id: null });
-assert(r.ok, "betting closed");
+r = await a.dispatch("setOnDeck", { id: null, ...refsOf(contestNow(a, "putt")) });
+assert(r.ok, "betting closed (" + (r.error || "ok") + ")");
 const prePokerRows = computeStandings(a.state).map(row => ({ player:row.player, pts:row.pts }));
 r = await a.dispatch("pokerSetup", {});
 assert(r.ok, "table set");
@@ -423,15 +453,10 @@ assert(r.ok, "clearResult re-arms the table");
 await b.waitVersion(a.version);
 assert(computeStandings(b.state)[0].pts !== pokerTotal, "board restored pre-poker");
 r = await a.dispatch("pokerCancel", {});
-assert(r.ok, "cleared finale can be canceled");
-await b.waitVersion(a.version);
-assert(JSON.stringify(computeStandings(b.state).map(row => ({ player:row.player, pts:row.pts })))
-    === JSON.stringify(prePokerRows),
-  "cancel removes only this table's minimum grants and restores the exact prior board");
-const cancelVersion = a.version;
-r = await a.dispatch("pokerCancel", {});
-assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
-  "retrying poker cancel is a no-op");
+assert(!r.ok && /cards are live/i.test(r.error), "a started table cannot be canceled (rejected: " + r.error + ")");
+assert(computeStandings(b.state).every(row => row.pts === b.state.poker.startingStacks[row.player]),
+  "a cleared finale shows the dealt stacks while the table is re-armed");
+void prePokerRows;
 
 /* Phone and TV reconnects receive the same full authoritative version/state. */
 {
@@ -458,9 +483,17 @@ assert(r.ok && r.extra?.unchanged && a.version === cancelVersion,
   const tv = await hello(`tv-${crypto.randomUUID()}`);
   assert(tv.message.you === null || tv.message.you === undefined,
     "TV reconnect remains unclaimed and read-only");
+  /* Every connection gets its own projection: the board is identical, the
+     private parts (ratings, sizes, flights, device ids) are not. */
   assert(tv.message.environment === "local" && tv.message.version === b.version
-      && JSON.stringify(tv.message.state) === JSON.stringify(b.state),
-    "TV reconnect receives the same complete state and environment");
+      && JSON.stringify(tv.message.state.results) === JSON.stringify(b.state.results)
+      && JSON.stringify(tv.message.state.wagers) === JSON.stringify(b.state.wagers)
+      && JSON.stringify(computeStandings(tv.message.state)) === JSON.stringify(computeStandings(b.state)),
+    "TV reconnect receives the same board, standings, and environment");
+  assert(Object.keys(tv.message.state.seeds || {}).length === 0
+      && !("wagerOps" in tv.message.state)
+      && ![a.deviceId, b.deviceId].some(id => JSON.stringify(tv.message).includes(id)),
+    "TV reconnect receives no private ratings, retry ledger, or device ids");
   tv.socket.close();
 }
 

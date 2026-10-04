@@ -1,0 +1,1049 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T16:50:31.820Z",
+  "title": "Design System: Field Day",
+  "extensions": {
+    "colorMeta": {
+      "glass-ground": {
+        "role": "neutral",
+        "displayName": "Blue-Black Glass",
+        "purpose": "Page and TV ground in every session (--bg).",
+        "canonical": "#090b14",
+        "tonalRamp": [
+          "#090b13",
+          "#21232e",
+          "#3c3f4a",
+          "#5a5d69",
+          "#7c808c",
+          "#9da1ae",
+          "#c3c7d5",
+          "#eaeefc"
+        ]
+      },
+      "glass-panel": {
+        "role": "neutral",
+        "displayName": "Glass Panel",
+        "purpose": "Sheets, secondary buttons, sheet headers (--paper).",
+        "canonical": "#121626",
+        "tonalRamp": [
+          "#070a19",
+          "#1f2334",
+          "#3a3f51",
+          "#575d71",
+          "#797f94",
+          "#9aa1b7",
+          "#c0c6dd",
+          "#e9eefe"
+        ]
+      },
+      "glass-panel-raised": {
+        "role": "neutral",
+        "displayName": "Raised Glass",
+        "purpose": "Toasts, raised plates, environment strip (--paper2).",
+        "canonical": "#1b2033",
+        "tonalRamp": [
+          "#060a1b",
+          "#1e2336",
+          "#393f54",
+          "#565d73",
+          "#787f97",
+          "#99a1b9",
+          "#bfc6e0",
+          "#e9eefe"
+        ]
+      },
+      "bone-ink": {
+        "role": "neutral",
+        "displayName": "Bone",
+        "purpose": "Primary text and lettering on the painting (--ink, --bone).",
+        "canonical": "#f4ecd8",
+        "tonalRamp": [
+          "#100a01",
+          "#292314",
+          "#463f2f",
+          "#645d4c",
+          "#87806e",
+          "#a8a18e",
+          "#cfc7b3",
+          "#f6eeda"
+        ]
+      },
+      "ink-black": {
+        "role": "neutral",
+        "displayName": "Ink Black",
+        "purpose": "Text on lit fills, lettering keyline, reel recesses (--ink0).",
+        "canonical": "#0a0910",
+        "tonalRamp": [
+          "#0b0a11",
+          "#24232b",
+          "#403e47",
+          "#5d5c66",
+          "#807f89",
+          "#a1a0ab",
+          "#c7c6d1",
+          "#eeedf8"
+        ]
+      },
+      "muted-lilac": {
+        "role": "neutral",
+        "displayName": "Muted Lilac",
+        "purpose": "Secondary text, placeholders (--muted).",
+        "canonical": "#b2abc2",
+        "tonalRamp": [
+          "#0d0817",
+          "#262032",
+          "#423c4f",
+          "#605a6e",
+          "#837c92",
+          "#a49db4",
+          "#cac3da",
+          "#f0ebfc"
+        ]
+      },
+      "muted-lilac-bright": {
+        "role": "neutral",
+        "displayName": "Bright Lilac",
+        "purpose": "Labels, inactive tabs, sublines (--muted2).",
+        "canonical": "#d9d2e3",
+        "tonalRamp": [
+          "#0d0913",
+          "#27212e",
+          "#423d4a",
+          "#615a69",
+          "#837d8c",
+          "#a59eae",
+          "#cbc4d4",
+          "#f2ebfc"
+        ]
+      },
+      "disabled-lilac": {
+        "role": "neutral",
+        "displayName": "Disabled Lilac",
+        "purpose": "Disabled text at 4.5:1 (--disabled).",
+        "canonical": "#968fa6",
+        "tonalRamp": [
+          "#0d0817",
+          "#262032",
+          "#423c50",
+          "#605a6f",
+          "#837c92",
+          "#a49db5",
+          "#cac3db",
+          "#f0ebfd"
+        ]
+      },
+      "lamp-live-magenta": {
+        "role": "primary",
+        "displayName": "Live Magenta",
+        "purpose": "The live/now lamp (--lamp-live).",
+        "canonical": "#ff3fa4",
+        "tonalRamp": [
+          "#1e000d",
+          "#460128",
+          "#750346",
+          "#a80666",
+          "#e1148b",
+          "#fe5cab",
+          "#feabcc",
+          "#fde8f0"
+        ]
+      },
+      "lamp-live-text": {
+        "role": "primary",
+        "displayName": "Live Magenta Text",
+        "purpose": "Text in the live family (--lamp-live-text, --live2).",
+        "canonical": "#ff74bf",
+        "tonalRamp": [
+          "#1d000f",
+          "#45012c",
+          "#73044c",
+          "#a2176e",
+          "#cc4592",
+          "#f268b4",
+          "#fea9d3",
+          "#fde8f1"
+        ]
+      },
+      "lamp-chip-amber": {
+        "role": "secondary",
+        "displayName": "Chip Amber",
+        "purpose": "Chips, money, primary action fill (--sun, --action-fill).",
+        "canonical": "#ffa630",
+        "tonalRamp": [
+          "#160700",
+          "#351e01",
+          "#5b3601",
+          "#845000",
+          "#b26f05",
+          "#e08c02",
+          "#fdb768",
+          "#fdebd9"
+        ]
+      },
+      "lamp-info-cyan": {
+        "role": "tertiary",
+        "displayName": "Info Cyan",
+        "purpose": "Navigation, links, focus, info panels (--lamp-info, --accent2).",
+        "canonical": "#5fdcf0",
+        "tonalRamp": [
+          "#000e12",
+          "#022a2f",
+          "#024952",
+          "#006a77",
+          "#0290a2",
+          "#2cb4c8",
+          "#5edbef",
+          "#cef7fe"
+        ]
+      },
+      "info-cyan-deep": {
+        "role": "tertiary",
+        "displayName": "Deep Cyan",
+        "purpose": "The info lamp's fill tone (--accent).",
+        "canonical": "#2bb8d0",
+        "tonalRamp": [
+          "#000e12",
+          "#042930",
+          "#064853",
+          "#066979",
+          "#0f90a4",
+          "#24b4cc",
+          "#5adbf4",
+          "#d3f6fd"
+        ]
+      },
+      "filament-you": {
+        "role": "tertiary",
+        "displayName": "Filament",
+        "purpose": "Reserved for the viewer's own: reel, row, chase (--you).",
+        "canonical": "#ffe04a",
+        "tonalRamp": [
+          "#0f0b00",
+          "#2b2400",
+          "#4b3f04",
+          "#6d5d00",
+          "#957f00",
+          "#bba10e",
+          "#e5c624",
+          "#fff0aa"
+        ]
+      },
+      "clay-loss": {
+        "role": "signal",
+        "displayName": "Clay",
+        "purpose": "Loss and danger as fill or line (--clay).",
+        "canonical": "#e8433a",
+        "tonalRamp": [
+          "#210000",
+          "#4c0001",
+          "#7c0408",
+          "#b1060f",
+          "#e03a33",
+          "#fd6d60",
+          "#feb0a6",
+          "#fee9e6"
+        ]
+      },
+      "clay-text": {
+        "role": "signal",
+        "displayName": "Clay Text",
+        "purpose": "Text in the clay family (--clay-text).",
+        "canonical": "#ff8a7a",
+        "tonalRamp": [
+          "#200000",
+          "#4b0101",
+          "#7b0906",
+          "#9f3329",
+          "#c8594b",
+          "#ee7b6c",
+          "#ffb0a4",
+          "#ffe9e5"
+        ]
+      },
+      "gain-green": {
+        "role": "signal",
+        "displayName": "Gain Green",
+        "purpose": "A rise, a won settle (--green).",
+        "canonical": "#7be38f",
+        "tonalRamp": [
+          "#001002",
+          "#012d0e",
+          "#054e1e",
+          "#00712c",
+          "#299848",
+          "#52bb69",
+          "#7ae28e",
+          "#c9ffd0"
+        ]
+      },
+      "pool-lamp": {
+        "role": "session",
+        "displayName": "Pool",
+        "purpose": "Friday's session lamp (--pool, --phase default).",
+        "canonical": "#5fb8d6",
+        "tonalRamp": [
+          "#000e14",
+          "#032934",
+          "#074759",
+          "#0d6880",
+          "#2f8da9",
+          "#55afcd",
+          "#7dd5f4",
+          "#daf4fd"
+        ]
+      },
+      "adobe-lamp": {
+        "role": "session",
+        "displayName": "Adobe",
+        "purpose": "Saturday afternoon's session lamp.",
+        "canonical": "#ff7a3c",
+        "tonalRamp": [
+          "#1c0300",
+          "#411300",
+          "#6c2700",
+          "#9a3c05",
+          "#d15308",
+          "#f97536",
+          "#feb393",
+          "#fdeae2"
+        ]
+      },
+      "silver-place": {
+        "role": "signal",
+        "displayName": "Silver",
+        "purpose": "2nd place rim (--silver).",
+        "canonical": "#a9b4c2",
+        "tonalRamp": [
+          "#050c15",
+          "#1c252f",
+          "#37414c",
+          "#555f6b",
+          "#77818e",
+          "#98a3b0",
+          "#bdc8d7",
+          "#e4f0ff"
+        ]
+      },
+      "bronze-place": {
+        "role": "signal",
+        "displayName": "Bronze",
+        "purpose": "3rd place rim (--bronze).",
+        "canonical": "#d08a52",
+        "tonalRamp": [
+          "#180600",
+          "#391b00",
+          "#613202",
+          "#8b4b06",
+          "#b16e35",
+          "#d68f57",
+          "#feb57c",
+          "#fdebdd"
+        ]
+      },
+      "poker-25": {
+        "role": "chip",
+        "displayName": "Poker 25",
+        "purpose": "25 chip.",
+        "canonical": "#3f9a5f",
+        "tonalRamp": [
+          "#001003",
+          "#002d12",
+          "#034d25",
+          "#017139",
+          "#3a955a",
+          "#5eb87b",
+          "#85dfa0",
+          "#c7ffd5"
+        ]
+      },
+      "poker-100": {
+        "role": "chip",
+        "displayName": "Poker 100",
+        "purpose": "100 chip.",
+        "canonical": "#30313b",
+        "tonalRamp": [
+          "#0a0a13",
+          "#22232d",
+          "#3e3f49",
+          "#5b5d68",
+          "#7e7f8b",
+          "#9fa0ad",
+          "#c5c6d3",
+          "#ecedfb"
+        ]
+      },
+      "poker-500": {
+        "role": "chip",
+        "displayName": "Poker 500",
+        "purpose": "500 chip.",
+        "canonical": "#7a4fc0",
+        "tonalRamp": [
+          "#110029",
+          "#2f005d",
+          "#4e1a8b",
+          "#6b3faf",
+          "#8e64d7",
+          "#af86fd",
+          "#cebafe",
+          "#f0ebfe"
+        ]
+      },
+      "poker-1000": {
+        "role": "chip",
+        "displayName": "Poker 1000",
+        "purpose": "1000 chip.",
+        "canonical": "#f0b53c",
+        "tonalRamp": [
+          "#130900",
+          "#312101",
+          "#543b00",
+          "#795705",
+          "#a57707",
+          "#ce9715",
+          "#f8bc45",
+          "#ffeccc"
+        ]
+      },
+      "art-indigo": {
+        "role": "art",
+        "displayName": "Art Indigo",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#18205e",
+        "tonalRamp": [
+          "#040034",
+          "#141a58",
+          "#2c3979",
+          "#48589b",
+          "#697bc2",
+          "#899de6",
+          "#b4c5fc",
+          "#e9eefc"
+        ]
+      },
+      "art-cobalt": {
+        "role": "art",
+        "displayName": "Art Cobalt",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#2443c4",
+        "tonalRamp": [
+          "#020035",
+          "#080275",
+          "#1426a8",
+          "#2b4cce",
+          "#4973f7",
+          "#779dfe",
+          "#afc6fe",
+          "#e7eeff"
+        ]
+      },
+      "art-violet": {
+        "role": "art",
+        "displayName": "Art Violet",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#4a2690",
+        "tonalRamp": [
+          "#0f002c",
+          "#2b0161",
+          "#47228c",
+          "#6344af",
+          "#8569d7",
+          "#a68bfd",
+          "#c8bdfc",
+          "#eeecfd"
+        ]
+      },
+      "art-plum": {
+        "role": "art",
+        "displayName": "Art Plum",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#2c1240",
+        "tonalRamp": [
+          "#140024",
+          "#2f1543",
+          "#4c3263",
+          "#6a5083",
+          "#8e72a8",
+          "#b093cc",
+          "#d6b9f3",
+          "#f4eaff"
+        ]
+      },
+      "art-rose": {
+        "role": "art",
+        "displayName": "Art Rose",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#e0457a",
+        "tonalRamp": [
+          "#1f0008",
+          "#48001e",
+          "#790037",
+          "#ab0851",
+          "#d73c73",
+          "#ff6294",
+          "#ffacc0",
+          "#fee8ec"
+        ]
+      },
+      "art-tangerine": {
+        "role": "art",
+        "displayName": "Art Tangerine",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#ff6f2c",
+        "tonalRamp": [
+          "#1c0300",
+          "#411401",
+          "#6d2500",
+          "#9c3a04",
+          "#d2520a",
+          "#fd7132",
+          "#fdb396",
+          "#ffe9e1"
+        ]
+      },
+      "art-cream": {
+        "role": "art",
+        "displayName": "Art Cream",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#ffe7b3",
+        "tonalRamp": [
+          "#120a00",
+          "#2f2201",
+          "#503c06",
+          "#705b2a",
+          "#937d4d",
+          "#b59f6d",
+          "#dcc592",
+          "#feedc8"
+        ]
+      },
+      "art-turquoise": {
+        "role": "art",
+        "displayName": "Art Turquoise",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#17aeb0",
+        "tonalRamp": [
+          "#000f0f",
+          "#022a2b",
+          "#004a4b",
+          "#0f6b6c",
+          "#179294",
+          "#29b7b9",
+          "#5ddee0",
+          "#b4feff"
+        ]
+      },
+      "art-terracotta": {
+        "role": "art",
+        "displayName": "Art Terracotta",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#c24a26",
+        "tonalRamp": [
+          "#1f0000",
+          "#450e00",
+          "#721f02",
+          "#a42e00",
+          "#ce5531",
+          "#f47854",
+          "#ffb19b",
+          "#fdeae4"
+        ]
+      },
+      "art-umber": {
+        "role": "art",
+        "displayName": "Art Umber",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#4e2416",
+        "tonalRamp": [
+          "#1e0100",
+          "#3e1608",
+          "#5e3224",
+          "#7f5041",
+          "#a47262",
+          "#c79382",
+          "#efb9a7",
+          "#fdeae3"
+        ]
+      },
+      "art-sage": {
+        "role": "art",
+        "displayName": "Art Sage",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#1f4a3f",
+        "tonalRamp": [
+          "#000f0a",
+          "#032b22",
+          "#1e493e",
+          "#3d675b",
+          "#5f8b7e",
+          "#80ad9f",
+          "#a5d3c5",
+          "#ccfbec"
+        ]
+      },
+      "art-teal": {
+        "role": "art",
+        "displayName": "Art Teal",
+        "purpose": "Backglass painting ink only, mixed per session; never text or state.",
+        "canonical": "#0d3a46",
+        "tonalRamp": [
+          "#000e14",
+          "#012933",
+          "#1b4652",
+          "#3a6572",
+          "#5d8895",
+          "#7eaab8",
+          "#a3d0de",
+          "#d8f4fd"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "show": {
+        "displayName": "Show (Big Shoulders (show weight))",
+        "purpose": "Event names on the painting; moments and people's names up to 104px. Never uppercase."
+      },
+      "show-sheet": {
+        "displayName": "Show, sheet",
+        "purpose": "Sheet titles that name an event or a person."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "The Field Day word in the header."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page headings, uppercase Big Shoulders."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section and plain sheet headings."
+      },
+      "reel": {
+        "displayName": "Reel",
+        "purpose": "Chip counts in score reels; em-scaled."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Ranks, column heads, statuses; lone 1s through OneSafe. 12px phone floor."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Functional text, system face."
+      },
+      "body-control": {
+        "displayName": "Control",
+        "purpose": "Buttons (13px compact)."
+      },
+      "tv-hero": {
+        "displayName": "TV hero",
+        "purpose": "Table totals, champion; 120px and up."
+      },
+      "tv-primary": {
+        "displayName": "TV primary",
+        "purpose": "Leader, side totals; 56 to 72px."
+      },
+      "tv-secondary": {
+        "displayName": "TV secondary",
+        "purpose": "Names, reels, ticker; 40px."
+      },
+      "tv-label": {
+        "displayName": "TV label",
+        "purpose": "Labels at the 24 to 32px floor."
+      },
+      "tv-body": {
+        "displayName": "TV body",
+        "purpose": "Body copy on the canvas."
+      }
+    },
+    "shadows": [
+      {
+        "name": "glass-edge",
+        "value": "inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.45)",
+        "purpose": "The bevel of every reverse-painted panel, header and button."
+      },
+      {
+        "name": "shadow-1",
+        "value": "0 2px 10px rgba(2,3,10,.6)",
+        "purpose": "Small lift."
+      },
+      {
+        "name": "shadow-2",
+        "value": "0 8px 24px rgba(2,3,10,.7)",
+        "purpose": "TV glass panels."
+      },
+      {
+        "name": "shadow-3",
+        "value": "0 14px 40px rgba(2,3,10,.78)",
+        "purpose": "Sheets, toasts, the TV now-playing strip."
+      },
+      {
+        "name": "you-bloom",
+        "value": "0 0 0 1px rgba(255,224,74,.85), 0 0 14px rgba(255,224,74,.45), 0 0 38px rgba(255,224,74,.2)",
+        "purpose": "The filament: your reel, your row. Reserved."
+      },
+      {
+        "name": "live-bloom",
+        "value": "0 0 0 1px rgba(255,63,164,.8), 0 0 16px rgba(255,63,164,.38)",
+        "purpose": "A live magenta lamp."
+      },
+      {
+        "name": "chip-bloom",
+        "value": "0 0 0 1px rgba(255,166,48,.8), 0 0 16px rgba(255,166,48,.35)",
+        "purpose": "An amber chip lamp; the TV leader."
+      },
+      {
+        "name": "lamp-lit",
+        "value": "0 0 0 1px var(--lamp), 0 0 18px color-mix(in srgb, var(--lamp) 38%, transparent), var(--glass-edge)",
+        "purpose": ".fd-lamp is-live / is-pending frame, any job."
+      },
+      {
+        "name": "lg-lip",
+        "value": "inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.55)",
+        "purpose": "Liquid glass: the lit top lip and dark underside of a thick pane (hero objects only)."
+      },
+      {
+        "name": "lg-fringe",
+        "value": "inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16)",
+        "purpose": "Liquid glass: the cool and warm fringes where a thick pane splits light at its sides."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.2,.8,.2,1)",
+        "purpose": "Entrances, sheet rise."
+      },
+      {
+        "name": "ease-land",
+        "value": "cubic-bezier(.3,.7,.35,1.25)",
+        "purpose": "Stamps, art standing up, link-return pop: lands with a slight overshoot."
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(.5,0,.75,.4)",
+        "purpose": "Leaving: sheet fall, walkout dock."
+      },
+      {
+        "name": "reel-roll",
+        "value": "240ms cubic-bezier(.3,1.35,.5,1)",
+        "purpose": "Each score-reel drum rolls to its digit."
+      },
+      {
+        "name": "motion-fast",
+        "value": "140ms",
+        "purpose": "Presses, small flips."
+      },
+      {
+        "name": "motion-base",
+        "value": "260ms",
+        "purpose": "Standard enter, sheet rise."
+      },
+      {
+        "name": "motion-story",
+        "value": "720ms",
+        "purpose": "A composed beat."
+      },
+      {
+        "name": "motion-count",
+        "value": "750ms",
+        "purpose": "A number counts in 100s."
+      },
+      {
+        "name": "motion-delta",
+        "value": "1100ms",
+        "purpose": "The change rises off a number."
+      },
+      {
+        "name": "motion-row",
+        "value": "560ms",
+        "purpose": "Standings rows slide."
+      },
+      {
+        "name": "motion-stamp",
+        "value": "320ms",
+        "purpose": "WON / CHAMPION stamps."
+      },
+      {
+        "name": "motion-flight",
+        "value": "340ms",
+        "purpose": "A chip flies from the rack."
+      },
+      {
+        "name": "motion-settle",
+        "value": "2400ms",
+        "purpose": "A settled result holds."
+      },
+      {
+        "name": "motion-beat",
+        "value": "2000ms",
+        "purpose": "The shared heartbeat, server-phased."
+      },
+      {
+        "name": "lamp-flash",
+        "value": "1.2s steps(1,end) infinite",
+        "purpose": "A pending lamp."
+      },
+      {
+        "name": "lamp-chase",
+        "value": "0.9s linear infinite",
+        "purpose": "Bulbs running the frame."
+      },
+      {
+        "name": "tv-rest-chase",
+        "value": "14s, one run in the last 20%",
+        "purpose": "The TV frame at rest, amber."
+      },
+      {
+        "name": "takeover-chrome",
+        "value": "450ms (data-takeover) / 420ms (data-moment)",
+        "purpose": "Masthead up, ticker down, horizon drops 60px."
+      },
+      {
+        "name": "takeover-lean-in",
+        "value": "900ms",
+        "purpose": "The glass dims before a reveal."
+      },
+      {
+        "name": "faceoff",
+        "value": "total 7100ms",
+        "purpose": "Dim 0, slides 900/1250, VS 1900, record 2700, lines 3900, lift 6600."
+      },
+      {
+        "name": "walkout",
+        "value": "total 9100ms",
+        "purpose": "Flood 0 (800), art 250, name 700, song 1100, dock 8400 (700)."
+      },
+      {
+        "name": "youre-up",
+        "value": "total 7000ms",
+        "purpose": "Flood 0 (700), word 250 (380); spectator banner 5000ms."
+      },
+      {
+        "name": "crown",
+        "value": "total 66000ms",
+        "purpose": "Night 0 (3000), towers 3500, step-down from 7500 every 3400, rise 52000, flood 54200, tag 56000, count 57800."
+      },
+      {
+        "name": "ticker-page",
+        "value": "6000ms, 0.7s cross-fade",
+        "purpose": "One fact at a time."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone-narrow",
+        "value": "350px"
+      },
+      {
+        "name": "phone-compact",
+        "value": "420px"
+      },
+      {
+        "name": "phone-max",
+        "value": "620px"
+      },
+      {
+        "name": "sheet-dialog",
+        "value": "700px"
+      },
+      {
+        "name": "tv-canvas",
+        "value": "1920x1080 fixed, letterboxed"
+      }
+    ],
+    "sound": {
+      "key": "D (D, E, F#, A, B); motif A, D, F#",
+      "materials": [
+        "clay chips",
+        "felt",
+        "wooden knock",
+        "card flick",
+        "low frame drum",
+        "celesta-like sun-bell",
+        "low bowl"
+      ],
+      "buses": {
+        "room": "TV only",
+        "you": "phone only, the owner's taps and moments",
+        "gm": "phone only, commissioner acknowledgement"
+      },
+      "duck": "0.25 over 150ms under a win song; open recipes (stinger, crown) pass",
+      "phone": "highpass 380Hz; low bodies implied by up to 4 harmonics in 400 to 1500Hz; reverb send x0.45",
+      "late": "a cue more than 300ms late is dropped"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The money lamp: amber fill, ink-black text, glass bevel.",
+      "html": "<button class=\"ds-btn-primary\">Play</button>",
+      "css": ".ds-btn-primary { background: #ffa630; color: #0a0910; border: 1px solid #ffa630; border-radius: 8px; min-height: 48px; padding: 12px 16px; font: 600 15px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.45); cursor: pointer; transition: transform .1s, opacity .15s; } .ds-btn-primary:hover { opacity: .92; } .ds-btn-primary:active { transform: scale(.98); } .ds-btn-primary:focus-visible { outline: 2px solid #5fdcf0; outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Glass panel, bone text, 1px line.",
+      "html": "<button class=\"ds-btn-secondary\">Decline</button>",
+      "css": ".ds-btn-secondary { background: #121626; color: #f4ecd8; border: 1px solid rgba(244,236,216,.14); border-radius: 8px; min-height: 48px; padding: 12px 16px; font: 600 15px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.45); cursor: pointer; transition: transform .1s; } .ds-btn-secondary:hover { border-color: rgba(244,236,216,.3); } .ds-btn-secondary:active { transform: scale(.98); } .ds-btn-secondary:focus-visible { outline: 2px solid #5fdcf0; outline-offset: 3px; }"
+    },
+    {
+      "name": "Score Reel",
+      "kind": "custom",
+      "refersTo": "header-you",
+      "description": "A chip count, each digit in its own window; filament tone for you, bone otherwise.",
+      "html": "<span class=\"ds-reel ds-you\"><span class=\"ds-cell\">1</span><span class=\"ds-sep\">,</span><span class=\"ds-cell\">4</span><span class=\"ds-cell\">0</span><span class=\"ds-cell\">0</span></span> <span class=\"ds-reel\"><span class=\"ds-cell\">1</span><span class=\"ds-sep\">,</span><span class=\"ds-cell\">0</span><span class=\"ds-cell\">0</span><span class=\"ds-cell\">0</span></span>",
+      "css": ".ds-reel { display: inline-flex; align-items: flex-end; gap: .07em; font: 800 28px/1 'Big Shoulders Display', 'Arial Narrow', sans-serif; font-variant-numeric: tabular-nums; color: #f4ecd8; --t: #f4ecd8; --mix: 4%; } .ds-cell { position: relative; display: inline-block; height: 1.14em; line-height: 1.14em; padding: 0 .09em; border-radius: .1em; background: color-mix(in srgb, var(--t) var(--mix), #0a0910); box-shadow: inset 0 0 0 .045em rgba(0,0,0,.85), 0 .04em 0 rgba(255,255,255,.14), 0 -.03em 0 rgba(0,0,0,.6), inset 0 .3em .2em -.14em rgba(0,0,0,.82), inset 0 -.3em .2em -.14em rgba(0,0,0,.82); } .ds-sep { height: 1.14em; line-height: 1.14em; } .ds-you { color: #ffe04a; text-shadow: 0 0 12px rgba(255,224,74,.45); --t: #ffe04a; --mix: 9%; }"
+    },
+    {
+      "name": "Lamp Insert",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Lensed lamp: steady live, flashing pending, unlit done, struck void.",
+      "html": "<span class=\"ds-row\"><i class=\"ds-insert\"></i>Playing <i class=\"ds-insert ds-pending\"></i>Betting open <i class=\"ds-insert ds-off\"></i>Done <i class=\"ds-insert ds-off ds-void\"></i>Void</span>",
+      "css": ".ds-row { display: inline-flex; align-items: center; gap: 10px; color: #d9d2e3; font: 800 15px/1 'Big Shoulders Display', sans-serif; letter-spacing: .06em; text-transform: uppercase; } .ds-insert { --l: #ff3fa4; position: relative; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--l) 45%, #f4ecd8) 0 18%, var(--l) 48%, color-mix(in srgb, var(--l) 55%, #0a0910) 100%); box-shadow: 0 0 0 1.5px rgba(0,0,0,.85), 0 0 0 2.5px rgba(244,236,216,.34), 0 0 9px 1px color-mix(in srgb, var(--l) 60%, transparent); } .ds-insert::after { content: ''; position: absolute; left: 20%; top: 13%; width: 36%; height: 27%; border-radius: 50%; background: rgba(255,255,255,.78); transform: rotate(-24deg); } .ds-pending { animation: ds-flash 1.2s steps(1,end) infinite; } .ds-off { background: radial-gradient(circle at 50% 58%, color-mix(in srgb, var(--l) 26%, #0a0910) 0 40%, color-mix(in srgb, var(--l) 10%, #0a0910) 100%); box-shadow: 0 0 0 1.5px rgba(0,0,0,.85), 0 0 0 2.5px rgba(244,236,216,.34); } .ds-off::after { opacity: .38; } .ds-void::before { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px; margin-top: -1px; z-index: 1; background: #b2abc2; transform: rotate(-38deg); } @keyframes ds-flash { 50% { opacity: .35; box-shadow: 0 0 0 1.5px rgba(0,0,0,.85), 0 0 0 2.5px rgba(244,236,216,.34); } } @media (prefers-reduced-motion: reduce) { .ds-pending { animation: none; } }"
+    },
+    {
+      "name": "Painted Glass Field",
+      "kind": "card",
+      "refersTo": "glass-field",
+      "description": "A panel reverse-painted in its job's ink: reflection, keyline, halftone corner. Here the amber duel field, lit.",
+      "html": "<section class=\"ds-field\"><strong>Allan</strong><span>Challenged you</span><b>100</b></section>",
+      "css": ".ds-field { --f: #ffa630; position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; width: 320px; padding: 16px; color: #f4ecd8; font: 400 14px/1.4 -apple-system, system-ui, sans-serif; border: 1px solid var(--f); border-radius: 14px; background: linear-gradient(112deg, transparent 0 64%, rgba(255,255,255,.03) 64% 71%, transparent 71%), color-mix(in srgb, var(--f) 8%, #090b14); box-shadow: 0 0 0 1px var(--f), 0 0 18px color-mix(in srgb, var(--f) 38%, transparent), inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.45); } .ds-field::before { content: ''; position: absolute; right: 0; bottom: 0; width: 62%; height: 78%; z-index: -1; border-bottom-right-radius: inherit; background: radial-gradient(circle, color-mix(in srgb, var(--f) 34%, transparent) 0 1px, transparent 1.6px) 0 0 / 6px 6px; -webkit-mask-image: linear-gradient(to top left, #000, transparent 72%); mask-image: linear-gradient(to top left, #000, transparent 72%); } .ds-field::after { content: ''; position: absolute; inset: 4px; z-index: -1; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--f) 22%, transparent); } .ds-field strong { font-weight: 600; font-size: 15px; } .ds-field span { color: #d9d2e3; grid-column: 1; } .ds-field b { grid-row: 1 / 3; grid-column: 2; align-self: center; color: #ffa630; font: 800 28px/1 'Big Shoulders Display', sans-serif; }"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "nav-tab-active",
+      "description": "Four standard tabs; the current one lit cyan, a magenta insert for something waiting.",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\"><span class=\"ds-ic\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11 12 4l8 7v8H4z\"/></svg></span>Home</button><button><span class=\"ds-ic\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><rect x=\"4\" y=\"5\" width=\"16\" height=\"15\" rx=\"2\"/><path d=\"M4 10h16\"/></svg></span>Events</button><button><span class=\"ds-ic\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg><i class=\"ds-badge\"></i></span>Bets</button><button><span class=\"ds-ic\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><path d=\"M4 5h7v14H4zM13 5h7v14h-7z\"/></svg></span>Weekend</button></nav>",
+      "css": ".ds-nav { display: flex; width: 390px; padding: 6px 12px 7px; background: rgba(9,11,20,.96); border-top: 1px solid rgba(244,236,216,.14); } .ds-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 52px; border: 0; background: none; color: #d9d2e3; font: 600 12px/1.1 -apple-system, system-ui, sans-serif; cursor: pointer; } .ds-ic { position: relative; display: flex; width: 52px; height: 30px; align-items: center; justify-content: center; border-radius: 99px; transition: background .18s, box-shadow .18s; } .ds-nav button[aria-current=page] { color: #5fdcf0; } .ds-nav button[aria-current=page] .ds-ic { background: rgba(95,220,240,.1); box-shadow: inset 0 0 0 1px color-mix(in srgb, #5fdcf0 55%, transparent), 0 0 14px color-mix(in srgb, #5fdcf0 30%, transparent); } .ds-nav button:hover .ds-ic { background: rgba(244,236,216,.05); } .ds-nav button:focus-visible { outline: 2px solid #5fdcf0; outline-offset: 3px; } .ds-badge { position: absolute; top: 1px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: #ff3fa4; box-shadow: 0 0 0 2px #090b14, 0 0 8px #ff3fa4; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Ground-black, pressed into the glass, cyan focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search a song\">",
+      "css": ".ds-input { width: 280px; height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(244,236,216,.3); background: #090b14; color: #f4ecd8; font: 500 16px -apple-system, system-ui, sans-serif; outline: none; box-shadow: inset 0 2px 5px color-mix(in srgb, #0a0910 55%, transparent); caret-color: #5fdcf0; } .ds-input::placeholder { color: #b2abc2; } .ds-input:hover { border-color: rgba(244,236,216,.45); } .ds-input:focus-visible { outline: 2px solid #5fdcf0; outline-offset: 3px; }"
+    },
+    {
+      "name": "Header You Plate",
+      "kind": "custom",
+      "refersTo": "header-you",
+      "description": "Your rank and reel in the header, lit in the filament. Reserved for the viewer.",
+      "html": "<button class=\"ds-you-plate\"><span>T2</span><b>1,000</b></button>",
+      "css": ".ds-you-plate { display: inline-flex; align-items: baseline; gap: 7px; min-height: 44px; padding: 7px 10px 6px; border: 1px solid #ffe04a; border-radius: 10px; background: rgba(255,224,74,.1); box-shadow: 0 0 0 1px rgba(255,224,74,.85), 0 0 14px rgba(255,224,74,.45), 0 0 38px rgba(255,224,74,.2); color: #ffe04a; cursor: pointer; } .ds-you-plate span { font: 800 16px/1 'Big Shoulders Display', sans-serif; letter-spacing: .02em; text-transform: uppercase; } .ds-you-plate b { font: 800 22px/1 'Big Shoulders Display', sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 0 12px rgba(255,224,74,.45); } .ds-you-plate:focus-visible { outline: 2px solid #5fdcf0; outline-offset: 3px; }"
+    },
+    {
+      "name": "Lettering on the Painting",
+      "kind": "custom",
+      "refersTo": "show",
+      "description": "Bone Big Shoulders (show weight) on a heavy ink keyline, lit in its lamp, over a session sky (flat bands).",
+      "html": "<div class=\"ds-scene\"><h2>8-Ball Doubles</h2></div>",
+      "css": ".ds-scene { width: 360px; padding: 48px 20px 18px; border-radius: 14px; background: linear-gradient(#2443c4 0 40%, #17aeb0 40% 62%, #c24a26 62% 82%, #4e2416 82%); } .ds-scene h2 { margin: 0; color: #f4ecd8; font: 400 36px/1 'Big Shoulders Display', 'Arial Narrow', sans-serif; text-shadow: 2px 0 0 #0a0910, -2px 0 0 #0a0910, 0 2px 0 #0a0910, 0 -2px 0 #0a0910, 1.5px 1.5px 0 #0a0910, -1.5px 1.5px 0 #0a0910, 1.5px -1.5px 0 #0a0910, -1.5px -1.5px 0 #0a0910, 0 4px 0 #0a0910, 0 0 22px color-mix(in srgb, #ff3fa4 75%, transparent); }"
+    },
+    {
+      "name": "Liquid Glass Pane",
+      "kind": "surface",
+      "refersTo": "fd-liquid",
+      "description": "The hero objects' material (the podium steps, the rack, the champion's flood, your last card, the next-event ribbon): a thick pane that bends light. Lit lip, side fringes, light falling off down the pane, two reflection bands, light gathering at the foot, one sweep of light when it lands. Built only from the --lg-* tokens over the pane's own fill; frosted (backdrop blur) only where something really sits behind it (the rack over the felt).",
+      "html": "<div class=\"ds-liquid\">+1,600</div>",
+      "css": ".ds-liquid { padding:24px 32px; border-radius:18px; color:#f4ecd8; font:800 40px/1 \"Big Shoulders Display\", sans-serif; background:linear-gradient(112deg,transparent 0 55%,rgba(244,236,216,.075) 55% 62%,transparent 62% 66%,rgba(244,236,216,.04) 66% 68.5%,transparent 68.5%), linear-gradient(180deg,rgba(244,236,216,.13),rgba(244,236,216,.035) 32%,transparent 60%), radial-gradient(90% 60% at 50% 112%,rgba(244,236,216,.11),transparent 70%), #12141f; box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.55), inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16), 0 8px 24px rgba(2,3,10,.7); }"
+    },
+    {
+      "name": "Podium Step",
+      "kind": "tv",
+      "refersTo": "tv-step",
+      "description": "One place on the TV result podium: a liquid-glass plinth (lid seen from above, front face) standing on the painted desert floor, 2nd 1st 3rd joined. Its place is cut in the glass in the Inline lettering (1st amber, 2nd silver, 3rd bronze), its award stamped under it in amber; its people stand on the lid sized by count (podiumStage). 1st is lit through in its winner's own color with a shaft of that light from above.",
+      "html": "<div class=\"ds-step\"><span>1</span><b>+400</b></div>",
+      "css": ".ds-step { width:300px; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:0 0 6px 6px; background:radial-gradient(75% 60% at 50% 0,rgba(255,166,48,.34),transparent 78%), linear-gradient(180deg,#1b2033,#0b0b13); box-shadow:inset 0 1px 0 rgba(255,255,255,.3), inset 1px 0 0 rgba(95,220,240,.2), inset -1px 0 0 rgba(255,63,164,.16), 0 8px 24px rgba(2,3,10,.7); } .ds-step span { font:900 96px/1 \"Big Shoulders Inline Display\", sans-serif; color:#ffa630; } .ds-step b { font:800 40px/1.1 \"Big Shoulders Display\", sans-serif; color:#ffa630; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lit Backglass",
+    "overview": "Field Day is a lit pinball backglass. The ground is blue-black glass; panels are reverse-painted onto it and lit from behind; ink is bone. Chip counts are score reels, every digit in its own window. State is lamps: a lamp is steady when live, flashing when pending, unlit when done, and struck through when void. When someone wins, the glass lights for them: their color floods, a lamp chase runs the frame, and the room hears it. It refuses the category default of a dark sportsbook dashboard: no slate cards with soft rounded tiles, no data-viz chrome.\n\nThe phone is operated in ten-second glances, so the world is dense and legible before it is decorative. Each viewport carries exactly one painting (the session's Scottsdale desert, shared with the TV); everything else is flat painted glass in the ink of its job. The TV is the stage: the whole 1920x1080 canvas is the painting, content stands on dark glass above the horizon, and the thirteen chip towers stand on the desert floor as the standings. Motion and sound exist to make a result legible to the room; they are anchored to the server clock so every screen moves together.\n\nLettering does the brand work. Big Shoulders (show weight), a fat show script, letters the moments, event names and people's names as if painted on the glass. Big Shoulders Display, condensed and heavy, runs the reels, ranks and labels like a scoreboard. The system face carries everything functional.",
+    "keyCharacteristics": [
+      "Blue-black glass ground in every session; the session lives in the painting and one lamp, never in the surfaces.",
+      "Three system lamps with fixed jobs (magenta live, amber chips, cyan navigation) plus a reserved filament yellow for \"you\".",
+      "Player identity colors are painted inserts, never lit, except in that player's own winning moment.",
+      "Score reels with apertures for every chip count; lamp inserts for every state.",
+      "One painting per viewport; every other panel is a painted glass field.",
+      "Flat inks; gradients only where they describe glass, a lens or a drum."
+    ],
+    "rules": [
+      {
+        "name": "The Fixed Jobs Rule",
+        "body": "A lamp's color is its job. Magenta is live and now, amber is chips and money, cyan is navigation and info. A new surface picks the lamp by what the thing is, never by what looks good beside it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Filament Rule",
+        "body": "Filament yellow with its bloom means \"you\" and nothing else. If an element is not the viewer's own, it may not use `--you`, `--you-bloom` or `--you-tint`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Painted Insert Rule",
+        "body": "A player's identity color is paint, not light: chip faces, bars, tower stacks and card fills are flat and carry no bloom. The single exception is that player's own winning moment, when their color floods the screen and lights the lamp chase.",
+        "section": "colors"
+      },
+      {
+        "name": "The Glass Stays Black Rule",
+        "body": "The ground is blue-black in every session. The session shows in the painting and in `--phase`, never in a surface ramp.",
+        "section": "colors"
+      },
+      {
+        "name": "The Phone Floor Rule",
+        "body": "No phone text below 12px. TV text never below 24px canvas pixels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flagged One Rule",
+        "body": "Big Shoulders draws \"1\" as a bare stroke, so uppercased beside letters it reads as I or a bar. Every label with letters that contains a lone 1 goes through `OneSafe`, which sets that 1 in the body face (`.fd-one`: weight 800, condensed, .94em). Every event name with a digit goes through `EventName`, which keeps it out of uppercase (\"1v1 Basketball\", never \"1V1 BASKETBALL\"). A bare number (a rank alone, a clock, a reel) stays in the display face. Big Shoulders (show weight)'s own 1 is flagged and needs nothing.",
+        "section": "typography"
+      },
+      {
+        "name": "The Names Are Lettered Rule",
+        "body": "Event names and people's names in a moment are Big Shoulders (show weight); uppercase Big Shoulders is for data and labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Painting Rule",
+        "body": "A viewport carries one painting (`GlassArt` in a `.fd-glass-scene`). On Home it sits in the live contest panel when a contest is live (your strip is then lettered into it, inset) and in your strip when nothing is live; the crown card uses the Saturday-night painting; Bets puts it behind the current event's name; check-in puts it behind the invitation. Every other panel is a painted glass field.",
+        "section": "layout"
+      },
+      {
+        "name": "The Light Means State Rule",
+        "body": "A glow is a lamp, and a lamp is state. Nothing glows for decoration; an element blooms only when it is live, pending, chips in play, the active tab, or you.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Liquid Glass Rule",
+        "body": "Liquid glass is for the hero objects that deserve a body (the podium, the champion, your last card, the rack, the next-event ribbon), never for everyday rows or sheets. It is built from the --lg-* tokens only, animates transform and opacity, and frosts with a backdrop blur only where something really sits behind it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do pick a lamp by job: magenta (`--lamp-live`) for live and now, amber (`--sun`) for chips and money, cyan (`--lamp-info`) for navigation and info.",
+      "Do show every chip count as a `ScoreReel` and every state as a lamp (steady live, flashing pending, unlit done, struck void).",
+      "Do keep one painting per viewport (`GlassArt` in a `.fd-glass-scene`) and make every other panel a `.fd-glass-field` in its job's ink.",
+      "Do letter event and people's names in Big Shoulders (show weight), and wrap any Big Shoulders label holding a lone 1 in `OneSafe` and any event name with a digit in `EventName`.",
+      "Do anchor every moment to the server clock and give each animated element its end state as its resting style.",
+      "Do keep phone text at 12px or more, TV text at 24px or more, and active controls at 44px or more.",
+      "Do route every sound through `playSound` in the key of D on the right bus."
+    ],
+    "donts": [
+      "Don't use `--you`, `--you-bloom` or `--you-tint` on anything that is not the viewer's own.",
+      "Don't light a player's identity color (bloom, glow, chase) outside that player's own winning moment.",
+      "Don't tint the glass ground by session; the session belongs to the painting and `--phase`.",
+      "Don't put an eyebrow or kicker label above a heading; the heading carries itself.",
+      "Don't use gradients as decoration. Gradients exist only as material: the lens of an insert, the pane's hard reflection, a halftone mask, a reel drum's curvature.",
+      "Don't repeat a banner strip; one live line per surface.",
+      "Don't set a lone 1 in uppercase Big Shoulders beside letters, or uppercase an event name that contains a digit.",
+      "Don't let a glow appear without a state behind it.",
+      "Don't write a raw hex or rgba outside `:root`, its `data-phase` blocks, and the player colors."
+    ]
+  }
+}

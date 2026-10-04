@@ -5,6 +5,10 @@ Workers with a Durable Object as the single source of truth. Real-time over
 WebSockets: draws reveal on every phone, wagers settle the moment results post,
 TV mode runs on the living room screen.
 
+The current direction is a full experience and systems refactor. Start with
+[the working brief](docs/REFOUNDATION.md) for the guest experience, design taste,
+architecture boundaries, production-data requirements, and remaining work.
+
 ## Setup
 
 ```powershell
@@ -54,6 +58,13 @@ See [the M1 implementation plan](docs/M1-implementation-plan.md) and
 [production data runbook](docs/production-data-runbook.md) before any remote
 operation. The repeatable local baseline and remaining approval gates are in
 [the M1 rehearsal report](docs/M1-rehearsal-report.md).
+
+Milestone 2 is defined in [the M2 PRD](docs/M2-prd.md) and sequenced in
+[the M2 implementation plan](docs/M2-implementation-plan.md). Its first
+feature-gated slices are recoverable Show Control and the Spotify test Audio
+Director. They are enabled locally and in staging; production remains disabled.
+Spotify search needs `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. Playback
+also requires a one-time commissioner OAuth connection from Audio Director.
 
 ## How sync works
 

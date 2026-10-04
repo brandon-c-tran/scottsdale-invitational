@@ -1,0 +1,39 @@
+/* Shared motion and browser foundations. Semantic colors live in experience.css. */
+
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+/* No double-tap zoom anywhere: two quick taps on a nudge, a chip or a
+   stepper are two taps. Pinch zoom stays available. */
+html { touch-action:manipulation; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+/* iPhone zooms the page into any field set under 16px when it takes focus */
+@supports (-webkit-touch-callout:none) {
+  input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea { font-size:max(16px, 1em) !important; }
+}
+button:active:not(:disabled) { transform: scale(0.97); }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline:2px solid var(--lamp-info); outline-offset:3px;
+}
+input::placeholder { color:var(--muted); }
+@keyframes si-fall { to { transform: translateY(110vh) translateX(var(--drift)) rotate(720deg); opacity:0.7; } }
+@keyframes si-pulse { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+@keyframes si-up { from { transform: translateY(26px); opacity:0; } to { transform:none; opacity:1; } }
+@keyframes si-in { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes si-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes si-flag { 0% { opacity:0; transform: translateY(30px) scale(0.92); } 60% { transform: translateY(-4px) scale(1.015); } 100% { opacity:1; transform:none; } }
+@keyframes si-shine { 0% { transform: translateX(-120%) skewX(-18deg);} 100% { transform: translateX(240%) skewX(-18deg);} }
+@keyframes si-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes si-pop { 0% { transform:scale(1); } 40% { transform:scale(1.22); } 100% { transform:scale(1); } }
+/* the prize: flat blades rotated around one axis read as a solid */
+@keyframes si-trophy { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+/* routes draw themselves in, then a chip runs the line */
+@keyframes si-route { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes si-land { 0%,100% { r:3.4; opacity:1; } 50% { r:5.2; opacity:0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  * { animation:none !important; transition:none !important; }
+  /* SVG motion does not obey CSS animation:none. Keep the static route map. */
+  .fd-travel-motion { display:none; }
+}
+::-webkit-scrollbar { width:0; height:0; }
+/* dvh tracks the visible viewport (browser bars come and go); vh is the fallback */
+.si-vh { min-height:100vh; min-height:100dvh; }
+.si-sheet { max-height:90vh; max-height:90dvh; }

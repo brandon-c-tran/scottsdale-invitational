@@ -16,11 +16,12 @@ import {
   pokerDenoms,
   pokerDistribution,
   resolveEventLifecycle,
+  resolveCurrentContest,
   resolveSlot,
   stageEntrantView,
   stageFinalists,
 } from "../shared/core.js";
-import { applyAction } from "../worker/actions.js";
+import { applyAction } from "./support/confirmed-start.mjs";
 
 const gm = { isGm:true, player:"Brandon" };
 const originalRandom = Math.random;
@@ -45,7 +46,7 @@ function configureEvent(state, event) {
       .map(player => ({ player, role:"scorekeeper" }));
     act(state, "runDraw", { evId:event.id, players, roles });
   }
-  if (["pingpong", "bball1", "beerio"].includes(event.id)) {
+  if (["pingpong", "beerio"].includes(event.id)) {
     act(state, "runStages", {
       evId:event.id,
       cfg:{ kind:"heats", nGroups:3, advance:1, players:[...ROSTER] },
@@ -58,40 +59,26 @@ function configureEvent(state, event) {
   }
 }
 
-function finishCompetition(state, event) {
-  const bracket = state.brackets[event.id];
-  if (bracket) {
-    for (let round = 0; round < bracket.rounds.length; round++) {
-      for (let match = 0; match < bracket.rounds[round].length; match++) {
-        const current = bracket.rounds[round][match];
-        if (current.winner !== null && current.winner !== undefined) continue;
-        const winner = resolveSlot(bracket, current.a);
-        assert.notEqual(winner, null, `${event.id} bracket side is seated`);
-        act(state, "pickBracketWinner", {
-          evId:event.id,
-          r:round,
-          m:match,
-          teamIdx:winner,
-        });
-      }
-    }
-  }
+function contestRef(state, event) {
+  const contest = resolveCurrentContest(state, event);
+  assert.ok(contest, `${event.id} must have a current contest`);
+  return { contestId:contest.id, contestRevision:contest.revision };
+}
 
-  const stages = state.stages[event.id];
-  if (stages) {
-    for (let group = 0; group < stages.groups.length; group++) {
-      for (let index = 0; index < stages.advance; index++) {
-        act(state, "toggleThrough", {
-          evId:event.id,
-          g:group,
-          key:stages.groups[group].entrants[index],
-        });
-      }
-    }
-    act(state, "setFinalWinner", {
-      evId:event.id,
-      key:stageFinalists(stages)[0],
-    });
+function finishCompetition(state, event) {
+  let recorded = 0, contest;
+  while ((contest = resolveCurrentContest(state, event)) && contest.kind !== "ffa") {
+    assert.ok(recorded < 30, `${event.id} must finish its finite contest sequence`);
+    const ref = contestRef(state, event);
+    if (contest.phase === "betting-open")
+      act(state, "lockAndStart", { evId:event.id, ...ref });
+    assert.equal(resolveCurrentContest(state, event).phase, "in-progress");
+    const winner = contest.sides[0].key;
+    const qualifiers = contest.kind === "heat"
+      ? contest.sides.slice(0, state.stages[event.id].advance).map(side => side.key) : undefined;
+    act(state, "recordContestWinner", { evId:event.id, winner, ...ref,
+      ...(qualifiers ? { qualifiers } : {}) });
+    recorded += 1;
   }
 }
 
@@ -162,14 +149,14 @@ test("configured poker distribution is exact and legal for 12, 13, and 14 seats"
 
 test("deterministic rehearsal completes every event, locks the dealt board, and reverses poker exactly", () => {
   const state = structuredClone(EMPTY_STATE);
-  act(state, "setLive", { on:true });
+  assert.equal(state.live, false);
 
   const events = BUILTIN_EVENTS.filter(event => !event.finale);
   for (const event of events) {
     configureEvent(state, event);
-    act(state, "setOnDeck", { id:event.id });
-    act(state, "setOnDeck", { id:null });
-    act(state, "startEvent", { evId:event.id });
+    act(state, "announceEvent", { evId:event.id });
+    assert.equal(state.live, true, "Opening a game makes the weekend live");
+    act(state, "lockAndStart", { evId:event.id, ...contestRef(state, event) });
     finishCompetition(state, event);
     act(state, "beginResultEntry", { evId:event.id });
     act(state, "saveResult", {
@@ -194,6 +181,9 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     delta:100,
     reason:"Minimum stack",
   });
+  /* the team MVP votes close first (the deal would close them itself, and a
+     cancel does not reopen a decided vote) */
+  for (const evId of Object.keys(state.mvp || {})) act(state, "mvpClose", { evId });
   const beforePoker = computeStandings(state)
     .map(row => ({ player:row.player, pts:row.pts }));
   const unrelatedMinimumRuling = state.adjustments
@@ -221,6 +211,16 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     confirmOverwrite:true,
     correctionReason:"Must be blocked",
   }, gm).error, /cancel the poker table/i);
+
+  /* an undealt table reverses exactly; once cards are live it cannot be cancelled */
+  act(state, "pokerCancel");
+  const cancelRetry = act(state, "pokerCancel");
+  assert.equal(cancelRetry.extra.unchanged, true);
+  assert.equal(state.poker, null);
+  assert.ok(state.adjustments.some(adjustment => adjustment.id === unrelatedMinimumRuling.id));
+  assert.deepEqual(computeStandings(state).map(row => ({ player:row.player, pts:row.pts })),
+    beforePoker);
+  act(state, "pokerSetup");
 
   act(state, "pokerStart");
   const startRetry = act(state, "pokerStart");
@@ -256,11 +256,7 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     confirmClear:true,
     correctionReason:"Rehearsal verifies exact reversal",
   });
-  act(state, "pokerCancel");
-  const cancelRetry = act(state, "pokerCancel");
-  assert.equal(cancelRetry.extra.unchanged, true);
-  assert.equal(state.poker, null);
-  assert.ok(state.adjustments.some(adjustment => adjustment.id === unrelatedMinimumRuling.id));
-  assert.deepEqual(computeStandings(state).map(row => ({ player:row.player, pts:row.pts })),
-    beforePoker);
+  assert.match(applyAction(state, "pokerCancel", {}, gm).error, /cards are live/i);
+  assert.deepEqual(Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts])),
+    state.poker.startingStacks);
 });

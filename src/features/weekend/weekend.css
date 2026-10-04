@@ -1,0 +1,102 @@
+.fd-weekend { padding:0 22px 30px; color:var(--ink); font-family:var(--fd-body); min-width:0; }
+.fd-weekend *, .fd-weekend *::before, .fd-weekend *::after { box-sizing:border-box; }
+.fd-weekend button, .fd-weekend a { -webkit-tap-highlight-color:transparent; }
+.fd-weekend button:focus-visible, .fd-weekend a:focus-visible, .fd-weekend summary:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+
+.fd-weekend-host-tools { display:flex; gap:8px; margin-bottom:18px; }
+.fd-weekend-host-tools button { min-height:44px; padding:9px 13px; font:700 12px var(--fd-body); background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:7px; cursor:pointer; }
+.fd-weekend-host-tools button:first-child { margin-right:auto; }
+.fd-weekend-host-tools button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info); border-color:var(--lamp-info); }
+.fd-weekend-host-tools button:disabled, .fd-weekend-reorder button:disabled { opacity:.3; cursor:default; }
+.fd-weekend-session { margin:0 0 24px; }
+.fd-weekend-session-heading { display:flex; gap:10px; align-items:center; padding:0 0 10px; }
+/* the session's lamp insert carries live; the heading stays bone */
+.fd-weekend-session.is-live .fd-weekend-session-heading h2 { color:var(--ink); }
+.fd-weekend-session-heading > div { min-width:0; flex:1; }
+.fd-weekend-session-heading p { margin:0 0 4px; color:var(--muted); font-size:12px; }
+.fd-weekend-session-heading h2 { font-family:var(--fd-display); font-size:24px; line-height:1.1; letter-spacing:.04em; text-transform:uppercase; margin:0; font-weight:800; }
+.fd-weekend-session-number { align-self:stretch; display:flex; align-items:center; font-family:var(--fd-display); font-size:37px; line-height:1; font-weight:500; color:var(--accent2); }
+.fd-weekend-session-value { color:var(--muted2); font-size:12px; line-height:1.4; font-weight:650; white-space:nowrap; }
+.fd-weekend-session-fin .fd-weekend-session-value { background:var(--sun); color:var(--ink0); border-color:var(--sun); }
+.fd-weekend-event-list { list-style:none; margin:0; padding:0; border-top:1px solid var(--line); }
+.fd-weekend-event { margin:0; padding:0; border-bottom:1px solid var(--line); position:relative; }
+.fd-weekend-event-line { display:flex; align-items:center; gap:4px; }
+.fd-weekend-event-open { display:flex; align-items:center; gap:12px; min-height:60px; padding:10px 0; border:0; background:transparent; width:100%; min-width:0; color:inherit; text-align:left; cursor:pointer; transition:transform .15s ease; }
+.fd-weekend-event-open:active:not(:disabled) { transform:translateX(3px); }
+.fd-weekend-event-open:disabled { cursor:default; opacity:1; }
+.fd-weekend-event-mark { display:grid; place-items:center; width:36px; height:36px; flex-shrink:0; color:var(--ink); font-family:var(--fd-display); font-size:26px; }
+.fd-weekend-event-name { display:flex; flex-direction:column; min-width:0; gap:5px; flex:1; }
+.fd-weekend-event-name > strong { font-size:24px; line-height:1.05; overflow-wrap:anywhere; }
+.fd-weekend-event-status { display:flex; align-items:center; gap:7px; color:var(--muted2); font:800 14px/1.1 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; }
+.fd-weekend-event-status.is-live { color:var(--ink); }
+.fd-weekend-event-arrow { display:flex; padding-left:6px; color:var(--muted2); }
+.fd-weekend-event-arrow.is-done { color:var(--green); }
+/* lamp states on the program: lit while open or on, unlit once posted,
+   struck when shelved */
+.fd-weekend-event.is-done .fd-weekend-event-name > strong { color:var(--muted2); }
+.fd-weekend-event.is-void .fd-weekend-event-name > strong { color:var(--muted); text-decoration:line-through; text-decoration-thickness:2px; }
+/* on deck: a raised row of clear glass; its status lamp carries live (the
+   header's betting pill is the screen's lamp, so no outline here) */
+.fd-weekend-event.is-on-deck { background:var(--ink-tint); padding-inline:12px; margin-inline:-12px; border-radius:10px; }
+.fd-weekend-event.is-finale .fd-weekend-event-mark { background:var(--sun); color:var(--ink0); }
+.fd-weekend-winners { display:flex; flex-wrap:wrap; gap:0 10px; align-items:center; padding:0 0 6px 48px; }
+
+.fd-weekend-winner { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:650; min-height:44px; border:0; padding:4px 0; background:transparent; color:var(--ink); cursor:pointer; }
+.fd-weekend-winner:disabled { cursor:default; }
+.fd-weekend-event-crew { padding:0 0 12px 53px; }
+.fd-weekend-reorder { display:flex; flex-shrink:0; gap:4px; }
+.fd-weekend-reorder button { width:44px; min-height:44px; border:1px solid var(--line); border-radius:6px; background:transparent; font:600 19px var(--fd-body); color:var(--ink); cursor:pointer; }
+.fd-weekend-shelved .fd-weekend-event { opacity:.65; }
+/* a finished session folds to one row so what is next stays near the top */
+.fd-weekend-session.is-folded { margin-bottom:0; border-block:1px solid var(--line); }
+.fd-weekend-session.is-folded + .fd-weekend-session.is-folded { border-top:0; }
+.fd-weekend-session.is-folded + .fd-weekend-session:not(.is-folded) { margin-top:24px; }
+.fd-weekend-session-fold { margin:0; font:inherit; }
+.fd-weekend-session-toggle { display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:6px 0; border:0; background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-weekend-session.is-done:not(.is-folded) .fd-weekend-session-toggle { margin-bottom:4px; }
+.fd-weekend-session-name { flex:1; min-width:0; font:800 21px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; color:var(--muted2); }
+.fd-weekend-session-winners { flex-shrink:0; }
+.fd-weekend-session-count { flex-shrink:0; color:var(--muted2); font-size:12px; font-weight:650; white-space:nowrap; }
+.fd-weekend-session-toggle[aria-expanded="true"] .fd-weekend-rule-toggle::after { transform:rotate(0); }
+.fd-weekend-error { font-size:12px; line-height:1.4; color:var(--accent2); }
+
+.fd-weekend-guide-section { margin:0 0 22px; scroll-margin-top:80px; }
+
+.fd-weekend-install { border-top:1px solid var(--line); }
+.fd-weekend-install summary { display:flex; align-items:center; min-height:48px; color:var(--muted2); cursor:pointer; font-size:15px; }
+.fd-weekend-install summary::after { content:"+"; margin-left:auto; font-size:18px; }
+.fd-weekend-install[open] summary::after { content:"2"; }
+@media (min-width:500px) {
+  .fd-weekend-event-name > strong { font-size:25px; }
+  .fd-weekend-session-heading h2 { font-size:23px; }
+}
+@media (max-width:359px) {
+  .fd-weekend { padding-inline:18px; }
+  .fd-weekend-session-heading { gap:8px; }
+  .fd-weekend-session-heading h2 { font-size:21px; }
+  .fd-weekend-session-number { font-size:31px; }
+  .fd-weekend-session-value { font-size:12px; }
+  .fd-weekend-event-open { gap:9px; }
+  .fd-weekend-event-mark { width:35px; }
+  .fd-weekend-event-name > strong { font-size:22px; }
+  .fd-weekend-winners, .fd-weekend-event-crew { padding-left:44px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .fd-weekend-event-open, .fd-weekend-rule-toggle::after { transition:none; }
+}
+
+/* How to play (HowToSheet): the drawn steps (rules.css), a format switch for a game with formats, an added event's own words */
+.fd-weekend-howto { font-family:var(--fd-body); color:var(--ink); padding:0 0 8px; min-width:0; }
+.fd-weekend-howto * { box-sizing:border-box; }
+.fd-weekend-howto-objective { margin:0; font:600 16px/1.5 var(--fd-body); color:var(--ink); }
+
+.fd-weekend-howto-variants { display:flex; gap:4px; background:var(--paper2); padding:4px; border-radius:8px; margin:0 0 16px; }
+.fd-weekend-howto-variants button { flex:1; min-width:0; min-height:44px; padding:8px; border:0; border-radius:6px; color:var(--ink); background:transparent; font:700 12px/1.2 var(--fd-body); cursor:pointer; }
+.fd-weekend-howto-variants button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+
+.fd-weekend-install .fd-section-heading { margin-top:0; }
+/* a bracket game gets its own way in from the program */
+.fd-weekend-event-bracket { flex-shrink:0; min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:99px;
+  background:transparent; color:var(--lamp-info); font:600 13px/1 var(--fd-body); cursor:pointer; }
+.fd-weekend-event-bracket:hover { background:var(--info-tint); }
+

@@ -1,13 +1,36 @@
 /* Client transport. The client never writes state. It sends actions and
    renders whatever the server broadcasts. dispatch() returns a promise that
-   resolves with the server's ack (ok or a rejection reason). */
+   resolves with the server's ack (ok or a rejection reason).
+
+   Liveness: a phone that slept can hold a socket that looks open and is
+   dead. Every inbound message counts as proof of life; a ping without an
+   answer in 10s, or a foreground/online/pageshow probe without a state in
+   2.5s, replaces the socket. `connected` is true only while the socket is
+   open AND has delivered a state since it opened, so the header reads
+   Reconnecting until a fresh board lands. */
 
 import { useSyncExternalStore } from "react";
 import { EMPTY_STATE } from "../../shared/core.js";
+import { BUILD_ID, buildsDiffer } from "../../shared/build.js";
+import { noteServerTime } from "./serverClock.js";
+import { classifyFrame, publishFrame } from "./frameGate.js";
 
 const localGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const sessionGet = k => { try { return sessionStorage.getItem(k); } catch { return null; } };
+const sessionSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch {} };
 export { localGet, localSet };
+
+const PING_EVERY_MS = 25000;
+const PONG_DEADLINE_MS = 10000;
+const PROBE_DEADLINE_MS = 2500;
+const OPEN_DEADLINE_MS = 8000;
+const QUIET_MS = PING_EVERY_MS + PONG_DEADLINE_MS;
+const ACK_TIMEOUT_MS = 6000;
+const UNCERTAIN_EXPIRY_MS = 60000;
+const UPDATE_AWAY_MS = 30000;
+/* the TV checks for an idle gap this often while an update waits */
+const TV_IDLE_POLL_MS = 1000;
 
 /* randomUUID exists only in a secure context, so over plain http it is
    undefined and throwing here would blank the app before React ever mounts.
@@ -21,28 +44,154 @@ if (!deviceId) { deviceId = newDeviceId(); localSet("si-device", deviceId); }
 export const getDeviceId = () => deviceId;
 
 let gmToken = localGet("si-gm-token") || null;
-export const setGmToken = t => { gmToken = t; localSet("si-gm-token", t || ""); };
+/* hellos older than this were answered for a different token */
+let gmHelloFloor = 0;
+export const setGmToken = t => {
+  gmToken = t; localSet("si-gm-token", t || "");
+  /* unknown until the server answers a hello carrying the new token */
+  snapshot.gm = null;
+  gmHelloFloor = helloSeq + 1;
+  /* publish the unknown at once: a view still holding the last "false"
+     would read a fresh sign-in as a revocation and sign it straight out */
+  emit();
+  /* the server decides each connection's view at hello: ask again */
+  if (ws?.readyState === 1) sendHello();
+};
 export const hasGmToken = () => !!gmToken;
 
+const isTvRoute = () => typeof window !== "undefined" && (window.location.pathname === "/tv"
+  || new URLSearchParams(window.location.search).has("tv"));
+
+const DEFAULT_CAPABILITIES = {
+  qa:false,
+  progressReset:false,
+  restore:false,
+  snapshotExport:false,
+  showControl:false,
+  audioDirector:false,
+  audioCatalog:false,
+  audioPlayback:false,
+  push:false,
+};
 const snapshot = {
   state: EMPTY_STATE,
   version: 0,
   connected: false,
+  /* socket open, independent of whether a state has arrived on it */
+  socketOpen: false,
+  /* no fresh state proves this socket is alive; header shows Reconnecting */
+  stale: false,
   ready: false,
   lastAction: null,
   environment: "production",
-  capabilities: { qa:false, progressReset:false, restore:false, snapshotExport:false },
+  capabilities: { ...DEFAULT_CAPABILITIES },
+  /* the roster player the server has for this device, or null */
+  you: null,
+  /* whether the server treats this connection as the commissioner: true,
+     false, or null until a hello on this socket has been answered */
+  gm: null,
+  build: BUILD_ID,
+  serverBuild: null,
+  /* the Worker runs a newer build than this bundle */
+  updateReady: false,
+  /* the VAPID public key pocket alerts subscribe with, when alerts are on */
+  pushKey: null,
+  /* commissioner only: each connected TV's sound report (presence, never
+     state); tvsAt is when this device received it (tvHealth) */
+  tvs: null,
+  tvsAt: 0,
 };
 let cached = { ...snapshot };
 const listeners = new Set();
 const emit = () => { cached = { ...snapshot }; listeners.forEach(fn => fn()); };
+export const getTournamentSnapshot = () => cached;
 
-let ws = null, backoff = 500, pingTimer = null, reconnectTimer = null, aid = 0;
+let ws = null, backoff = 500, pingTimer = null, pongTimer = null, reconnectTimer = null;
+let probeTimer = null, openTimer = null, aid = 0, helloSeq = 0;
+let lastInbound = 0, freshSinceOpen = false, lastBoot = null;
+/* the hello a foreground probe is waiting on: frames before its answer are
+   catch-up, not news, and never animate (frameGate.js) */
+let settleNonce = null;
 const pendingAcks = new Map();
+const uncertain = new Map();
+
+function syncConnected() {
+  const next = snapshot.socketOpen && freshSinceOpen && !snapshot.stale;
+  if (next !== snapshot.connected) { snapshot.connected = next; return true; }
+  return false;
+}
+function markStale() {
+  if (snapshot.stale) return;
+  snapshot.stale = true; syncConnected(); emit();
+}
 
 function wsUrl() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${location.host}/ws`;
+}
+
+/* whether this page is on screen: a phone looking at the app gets no pocket
+   alert, so hello and ping say so and hiding says so at once */
+const pageVisible = () => typeof document === "undefined" || document.hidden !== true;
+
+/* the TV says whether its sound runs, so the commissioner can see a muted
+   TV (reportTvSound, fed by TV mode from the sound engine) */
+let tvSound = null;
+/* a device showing TV mode inside the app (the menu's TV mode, not the /tv
+   route) is a TV too: App calls setTvView, and hello, ping and presence say
+   which view this socket is on, so the commissioner's TV check counts it */
+let tvView = false;
+const isTvView = () => tvView || isTvRoute();
+const viewName = () => isTvView() ? "tv" : "app";
+const tvSoundPayload = () => isTvView() && tvSound ? { tvSound } : {};
+export function setTvView(on) {
+  const next = !!on;
+  if (tvView === next) return;
+  tvView = next;
+  if (!isTvView()) tvSound = null;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
+}
+export function reportTvSound(status) {
+  const next = status === "on" ? "on" : "blocked";
+  if (!isTvView() || tvSound === next) return;
+  tvSound = next;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), tvSound } });
+}
+
+function sendHello() {
+  const nonce = ++helloSeq;
+  send({ type:"hello", payload:{ view:viewName(), nonce, visible:pageVisible(), ...tvSoundPayload() } });
+  return nonce;
+}
+
+/* Close handling shared by a real close and a socket we gave up on. Pending
+   actions fail now instead of waiting out their timers; they may still have
+   landed, so they come back uncertain and settle on the next fresh state. */
+function socketLost() {
+  clearInterval(pingTimer); clearTimeout(pongTimer); clearTimeout(probeTimer); clearTimeout(openTimer);
+  snapshot.socketOpen = false; freshSinceOpen = false;
+  syncConnected(); emit();
+  for (const [actionId, pending] of [...pendingAcks])
+    becomeUncertain(actionId, pending.sent ? "Connection lost, try again" : "Offline, try again", !pending.sent);
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, backoff);
+  backoff = Math.min(backoff * 2, 8000);
+}
+
+function dropSocket() {
+  if (!ws) return;
+  const dead = ws;
+  ws = null;
+  dead.onopen = dead.onmessage = dead.onclose = dead.onerror = null;
+  try { dead.close(); } catch {}
+}
+
+/* Replace a socket that looks open but has gone quiet. */
+function forceReconnect() {
+  dropSocket();
+  backoff = 500;
+  markStale();
+  socketLost();
 }
 
 function connect() {
@@ -50,51 +199,154 @@ function connect() {
      schedule a second reconnect, and never stack reconnect timers */
   if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
   clearTimeout(reconnectTimer);
-  if (ws) { ws.onclose = null; ws.onerror = null; try { ws.close(); } catch {} }
-  ws = new WebSocket(wsUrl());
-  ws.onopen = () => {
+  dropSocket();
+  const socket = new WebSocket(wsUrl());
+  ws = socket;
+  clearTimeout(openTimer);
+  openTimer = setTimeout(() => { if (ws === socket && socket.readyState === 0) forceReconnect(); },
+    OPEN_DEADLINE_MS);
+  socket.onopen = () => {
+    clearTimeout(openTimer);
     backoff = 500;
     /* fresh socket, fresh baseline: if the server was ever reset, its
        version restarts and a stale high-water mark would wedge us */
     snapshot.version = 0;
-    snapshot.connected = true; emit();
-    send({ type: "hello" });
+    snapshot.gm = null;
+    gmHelloFloor = helloSeq + 1;
+    snapshot.socketOpen = true; freshSinceOpen = false; settleNonce = null;
+    lastInbound = Date.now();
+    syncConnected(); emit();
+    sendHello();
+    clearTimeout(probeTimer);
+    probeTimer = setTimeout(() => { if (ws === socket && !freshSinceOpen) forceReconnect(); },
+      PROBE_DEADLINE_MS * 2);
     clearInterval(pingTimer);
-    pingTimer = setInterval(() => send({ type: "ping" }), 25000);
+    pingTimer = setInterval(() => {
+      if (ws !== socket) return;
+      const sentAt = Date.now();
+      send({ type: "ping", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
+      clearTimeout(pongTimer);
+      pongTimer = setTimeout(() => { if (ws === socket && lastInbound < sentAt) forceReconnect(); },
+        PONG_DEADLINE_MS);
+    }, PING_EVERY_MS);
   };
-  ws.onmessage = e => {
+  socket.onmessage = e => {
+    if (ws !== socket) return;
+    lastInbound = Date.now();
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.type === "state") {
-      if (msg.version >= snapshot.version) {
-        snapshot.state = msg.state; snapshot.version = msg.version;
-        snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
-        snapshot.environment = msg.environment || "production";
-        snapshot.capabilities = msg.capabilities
-          || { qa:false, progressReset:false, restore:false, snapshotExport:false };
-        emit();
-      }
-    } else if (msg.type === "ack") {
-      const p = pendingAcks.get(msg.actionId);
-      if (p) {
-        pendingAcks.delete(msg.actionId);
-        clearTimeout(p.t);
-        clearTimeout(p.retryTimer);
-        p.resolve(msg);
-      }
-    }
+    if (msg.type === "state") receiveState(msg);
+    else if (msg.type === "ack") receiveAck(msg);
+    else if (msg.type === "pong") noteServerTime(msg.serverNow, lastInbound);
+    else if (msg.type === "tvs") receiveTvs(msg.tvs);
   };
-  ws.onclose = () => {
-    snapshot.connected = false; emit();
-    clearInterval(pingTimer);
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connect, backoff);
-    backoff = Math.min(backoff * 2, 8000);
-  };
-  ws.onerror = () => { try { ws.close(); } catch {} };
+  socket.onclose = () => { if (ws === socket) { ws = null; socketLost(); } };
+  socket.onerror = () => { try { socket.close(); } catch {} };
+}
+
+function receiveTvs(tvs) {
+  snapshot.tvs = Array.isArray(tvs) ? tvs : null;
+  snapshot.tvsAt = Date.now();
+  emit();
+}
+
+function receiveState(msg) {
+  if (typeof msg.boot === "string") lastBoot = msg.boot;
+  noteServerTime(msg.serverNow, lastInbound || Date.now());
+  settleUncertain(msg);
+  const accepted = msg.version >= snapshot.version;
+  const answersProbe = typeof msg.hello === "number" && settleNonce !== null && msg.hello >= settleNonce;
+  const motion = classifyFrame({ msg, prevState:snapshot.state, hadState:freshSinceOpen,
+    settling:settleNonce !== null && !answersProbe, accepted,
+    hidden:typeof document !== "undefined" && document.hidden === true });
+  if (answersProbe) settleNonce = null;
+  if (accepted) {
+    snapshot.state = msg.state; snapshot.version = msg.version;
+    snapshot.ready = true; snapshot.lastAction = msg.lastAction || null;
+    snapshot.environment = msg.environment || "production";
+    snapshot.capabilities = msg.capabilities || { ...DEFAULT_CAPABILITIES };
+    snapshot.pushKey = typeof msg.pushKey === "string" ? msg.pushKey : null;
+    if ("you" in msg) snapshot.you = msg.you || null;
+  }
+  /* A frame sent before the server read this socket's token says nothing
+     about it: the view is learned from the answer to our latest hello, and
+     later frames (a revocation) keep it current. */
+  if (typeof msg.gm === "boolean"
+      && (typeof msg.hello === "number" ? msg.hello >= gmHelloFloor : snapshot.gm !== null))
+    snapshot.gm = msg.gm;
+  if (Array.isArray(msg.tvs)) { snapshot.tvs = msg.tvs; snapshot.tvsAt = Date.now(); }
+  else if (msg.gm === false) snapshot.tvs = null;
+  freshSinceOpen = true;
+  snapshot.stale = false;
+  clearTimeout(probeTimer);
+  syncConnected();
+  noteServerBuild(msg.build);
+  if (accepted) publishFrame({ ...motion, version:msg.version });
+  emit();
+}
+
+function receiveAck(msg) {
+  const p = pendingAcks.get(msg.actionId);
+  if (p) {
+    pendingAcks.delete(msg.actionId);
+    clearTimeout(p.t);
+    clearTimeout(p.retryTimer);
+    p.resolve(msg);
+    return;
+  }
+  /* an ack that arrives after we gave up still settles the uncertain result */
+  const u = uncertain.get(msg.actionId);
+  if (u) finishUncertain(msg.actionId, msg.ok ? { ...msg, late:true } : msg);
 }
 
 function send(obj) {
-  try { ws?.readyState === 1 && ws.send(JSON.stringify({ ...obj, deviceId, gmToken })); } catch {}
+  try {
+    if (ws?.readyState !== 1) return false;
+    ws.send(JSON.stringify({ ...obj, deviceId, gmToken }));
+    return true;
+  } catch { return false; }
+}
+
+/* ── uncertain results ──
+   A dispatch that timed out, or whose socket closed under it, may still have
+   landed. It resolves { ok:false, uncertain:true, error, actionId, settled }:
+   `error` keeps the old text for existing callers, and `settled` resolves
+   with the real outcome ({ ok:true, late:true } when the next state shows
+   the action applied; { ok:false, error } when a hello answered after it
+   shows it did not). A UI can render "Checking…" until it settles. */
+function becomeUncertain(actionId, error, certainFailure = false) {
+  const pending = pendingAcks.get(actionId);
+  if (!pending) return;
+  pendingAcks.delete(actionId);
+  clearTimeout(pending.t); clearTimeout(pending.retryTimer);
+  if (certainFailure) { pending.resolve({ ok:false, error }); return; }
+  let settle;
+  const settled = new Promise(resolve => { settle = resolve; });
+  const expiry = setTimeout(() => finishUncertain(actionId,
+    { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }), UNCERTAIN_EXPIRY_MS);
+  /* the first hello sent from here on is answered after this action */
+  uncertain.set(actionId, { settle, boot:pending.boot, probe:helloSeq + 1, expiry });
+  pending.resolve({ ok:false, uncertain:true, error, actionId, settled });
+  probe();
+}
+
+function finishUncertain(actionId, outcome) {
+  const u = uncertain.get(actionId);
+  if (!u) return;
+  uncertain.delete(actionId);
+  clearTimeout(u.expiry);
+  u.settle({ ...outcome, actionId });
+}
+
+function settleUncertain(msg) {
+  if (!uncertain.size) return;
+  const applied = Array.isArray(msg.applied) ? msg.applied : [];
+  for (const [actionId, u] of [...uncertain]) {
+    if (applied.includes(actionId)) { finishUncertain(actionId, { ok:true, late:true }); continue; }
+    if (typeof msg.hello !== "number" || msg.hello < u.probe) continue;
+    finishUncertain(actionId, u.boot && msg.boot && u.boot !== msg.boot
+      ? { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }
+      : { ok:false, error:"Not saved, try again" });
+  }
 }
 
 export function dispatch(type, payload, { retry = false } = {}) {
@@ -103,30 +355,281 @@ export function dispatch(type, payload, { retry = false } = {}) {
     const actionId = "a" + (++aid) + "-" + Date.now();
     const message = { actionId, type, payload };
     let retryTimer = null;
-    const t = setTimeout(() => {
-      pendingAcks.delete(actionId);
-      clearTimeout(retryTimer);
-      resolve({ ok: false, error: "No response, try again" });
-    }, 6000);
+    const t = setTimeout(() => becomeUncertain(actionId, "No response, try again"), ACK_TIMEOUT_MS);
     if (retry) {
       retryTimer = setTimeout(() => {
         if (pendingAcks.has(actionId)) send(message);
       }, 1800);
     }
-    pendingAcks.set(actionId, { resolve, t, retryTimer });
-    send(message);
+    const pending = { resolve, t, retryTimer, boot:lastBoot, sent:false };
+    pendingAcks.set(actionId, pending);
+    pending.sent = send(message);
   });
 }
 
+/* Foreground, network back, or page restored: ask for a fresh state and
+   replace the socket if none arrives quickly. */
+function probe({ foreground = false } = {}) {
+  if (typeof window === "undefined") return;
+  if (!ws || ws.readyState > 1) { clearTimeout(reconnectTimer); backoff = 500; connect(); return; }
+  if (ws.readyState === 0) return;
+  if (Date.now() - lastInbound > QUIET_MS) markStale();
+  const socket = ws;
+  const sentAt = Date.now();
+  const nonce = sendHello();
+  if (foreground) settleNonce = nonce;
+  clearTimeout(probeTimer);
+  probeTimer = setTimeout(() => {
+    if (ws === socket && lastInbound < sentAt) forceReconnect();
+  }, PROBE_DEADLINE_MS);
+}
+
+/* ── new builds ──
+   The Worker stamps its build on every state. A TV reloads itself in the
+   first gap where nothing is playing (the TV canvas sets
+   window.__FD_CEREMONY__ from what it actually shows); a phone shows
+   Update ready and reloads the next time it comes back to the foreground.
+   Reloading never touches localStorage. A build that keeps coming back old
+   (a cached bundle) stops reloading after two tries this session. */
+function reloadAttempts(build) {
+  const [seen, count] = (sessionGet("fd-update-reload") || "").split("|");
+  return seen === build ? Number(count) || 0 : 0;
+}
+export function reloadForUpdate() {
+  if (typeof window === "undefined") return false;
+  const build = snapshot.serverBuild || "";
+  sessionSet("fd-update-reload", `${build}|${reloadAttempts(build) + 1}`);
+  window.location.reload();
+  return true;
+}
+/* App sets __FD_HOLD_RELOAD__ while a sheet or check-in draft is open: a
+   reload would drop it, so the phone keeps Update ready until the next return */
+const autoReloadAllowed = () => reloadAttempts(snapshot.serverBuild || "") < 2 && pendingAcks.size === 0
+  && !(typeof window !== "undefined" && window.__FD_HOLD_RELOAD__ === true);
+
+/* No blind deadline: a ceremony is never cut off. The flag reflects only
+   what is on screen, so an idle gap comes between beats. */
+let tvReloadTimer = null;
+function tvReloadWhenIdle() {
+  clearTimeout(tvReloadTimer);
+  if (!snapshot.updateReady || reloadAttempts(snapshot.serverBuild || "") >= 2) return;
+  const busy = pendingAcks.size > 0 || (typeof window !== "undefined" && window.__FD_CEREMONY__ === true);
+  if (busy) {
+    tvReloadTimer = setTimeout(tvReloadWhenIdle, TV_IDLE_POLL_MS);
+    return;
+  }
+  reloadForUpdate();
+}
+
+function noteServerBuild(build) {
+  if (typeof build !== "string") return;
+  snapshot.serverBuild = build;
+  /* two reloads that still come back old cannot be fixed by a third: stop asking */
+  const differs = buildsDiffer(BUILD_ID, build) && reloadAttempts(build) < 2;
+  if (differs === snapshot.updateReady) return;
+  snapshot.updateReady = differs;
+  if (differs && isTvRoute()) tvReloadWhenIdle();
+}
+
+export function useTournament() {
+  return useSyncExternalStore(
+    cb => { listeners.add(cb); return () => listeners.delete(cb); },
+    () => cached,
+    () => cached,
+  );
+}
+
+if (typeof window !== "undefined") {
+  connect();
+  let hiddenAt = null;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { hiddenAt = Date.now(); send({ type:"presence", payload:{ visible:false } }); return; }
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = null;
+    if (snapshot.updateReady && away >= UPDATE_AWAY_MS && autoReloadAllowed() && reloadForUpdate()) return;
+    probe({ foreground:true });
+  });
+  window.addEventListener("pageshow", () => probe({ foreground:true }));
+  window.addEventListener("online", () => probe({ foreground:true }));
+  window.addEventListener("offline", () => markStale());
+}
+
 export async function uploadPhoto(player, dataUrl) {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 20000);
   try {
     const r = await fetch(`/api/photo/${encodeURIComponent(player)}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dataUrl, deviceId, gmToken }),
+      signal: controller.signal,
     });
     return await r.json();
-  } catch { return { ok: false, error: "Upload failed" }; }
+  } catch {
+    return { ok: false, error: controller.signal.aborted
+      ? "Photo upload timed out. Try again." : "Upload failed" };
+  } finally {
+    clearTimeout(deadline);
+  }
 }
+
+/* D11 photo desk (worker/moments.js). The upload is a form with the resized
+   photo and its thumbnail, sent as this device; the 20-second deadline is the
+   profile photo's. Deletes and hides are small and get 8 seconds. */
+const MOMENT_UPLOAD_MS = 20000;
+const MOMENT_EDIT_MS = 8000;
+async function momentRequest(path, init, { ms, timeout, failed }) {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), ms);
+  try {
+    const r = await fetch(path, { ...init, signal:controller.signal });
+    const body = await r.json().catch(() => ({}));
+    return r.ok ? { ok:true, ...body } : { ...body, ok:false, error:body.error || failed, status:r.status };
+  } catch {
+    return { ok:false, error:controller.signal.aborted ? timeout : failed };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+const momentHeaders = () => ({ "X-Field-Day-Device":deviceId,
+  ...(gmToken ? { Authorization:`Bearer ${gmToken}` } : {}) });
+export function uploadMoment({ photo, thumb, takenAt = null }) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  form.append("thumb", thumb, "thumb.jpg");
+  if (takenAt) form.append("takenAt", String(takenAt));
+  return momentRequest("/api/moments", { method:"POST", headers:{ "X-Field-Day-Device":deviceId }, body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const deleteMoment = id => momentRequest(`/api/moments/${encodeURIComponent(id)}`,
+  { method:"DELETE", headers:momentHeaders() },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't delete. Try again." });
+export const setMomentHidden = (id, hidden) => momentRequest(`/api/moments/${encodeURIComponent(id)}`,
+  { method:"POST", headers:{ ...momentHeaders(), "Content-Type":"application/json" }, body:JSON.stringify({ hidden }) },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't save. Try again." });
+/* a hidden photo is served only to the commissioner, so it cannot be an
+   <img src>: fetch it with the token and hand back an object URL */
+export async function hiddenMomentUrl(id, thumb = false) {
+  try {
+    const r = await fetch(`/api/moments/${encodeURIComponent(id)}${thumb ? "/thumb" : ""}`,
+      { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
+/* Where and When (commissioner): a round's photo, uploaded before its
+   answer is saved; a photo not yet shown is fetched with the token */
+export function geoUploadPhoto(photo) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  return momentRequest("/api/geo/photo", { method:"POST", headers:momentHeaders(), body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const geoDeleteRound = id => momentRequest(`/api/geo/round/${encodeURIComponent(id)}`,
+  { method:"DELETE", headers:momentHeaders() },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't delete. Try again." });
+export async function geoPhotoUrl(id) {
+  try {
+    const r = await fetch(`/api/geo/photo/${encodeURIComponent(id)}`, { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
+/* Trivia (worker/tournament.js handleTrivia). The commissioner uploads a
+   picture question's photo and reads the bank with the token; the TV asks
+   for a tune's clip once its question is up. */
+export function triviaUploadPhoto(photo) {
+  const form = new FormData();
+  form.append("photo", photo, "photo.jpg");
+  return momentRequest("/api/trivia/photo", { method:"POST", headers:momentHeaders(), body:form },
+    { ms:MOMENT_UPLOAD_MS, timeout:"Upload timed out. Try again.", failed:"Upload failed" });
+}
+export const triviaBank = () => momentRequest("/api/trivia/bank", { headers:momentHeaders(), cache:"no-store" },
+  { ms:MOMENT_EDIT_MS, timeout:"No answer. Try again.", failed:"Couldn't load the bank" });
+export const triviaClip = questionId => momentRequest(`/api/trivia/clip/${encodeURIComponent(questionId)}`,
+  { headers:momentHeaders(), cache:"no-store" }, { ms:MOMENT_EDIT_MS, timeout:"No clip", failed:"No clip" });
+export const triviaClipCheck = ({ title = "", artist = "", isrc = "" } = {}) =>
+  momentRequest(`/api/trivia/clip?${new URLSearchParams({ title, artist, isrc })}`, { headers:momentHeaders(), cache:"no-store" },
+    { ms:MOMENT_EDIT_MS, timeout:"No answer", failed:"No clip" });
+export async function triviaPhotoUrl(id) {
+  try {
+    const r = await fetch(`/api/trivia/photo/${encodeURIComponent(id)}`, { headers:momentHeaders(), cache:"no-store" });
+    return r.ok ? URL.createObjectURL(await r.blob()) : null;
+  } catch { return null; }
+}
+
+/* Crash reports for `wrangler tail`. Best effort, never throws. */
+export function reportClientError(report) {
+  try {
+    const body = JSON.stringify({ ...report, build:BUILD_ID,
+      path:typeof window !== "undefined" ? window.location.pathname : "", tv:isTvRoute() });
+    return fetch("/api/client-error", { method:"POST", keepalive:true,
+      headers:{ "Content-Type":"application/json" }, body }).catch(() => null);
+  } catch { return Promise.resolve(null); }
+}
+
+/* A stuck audio request frees the cue chip after eight seconds. */
+const SPOTIFY_CLIENT_TIMEOUT_MS = 8000;
+async function spotifyRequest(path, { method = "GET", body, gm = false } = {}) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const deadline = controller ? setTimeout(() => controller.abort(), SPOTIFY_CLIENT_TIMEOUT_MS) : null;
+  try {
+    const response = await fetch(`/api/spotify/${path}`, {
+      ...(controller ? { signal:controller.signal } : {}),
+      method,
+      headers:{
+        ...(body ? { "Content-Type":"application/json" } : {}),
+        "X-Field-Day-Device":deviceId,
+        ...(gm ? { Authorization:`Bearer ${gmToken || ""}` } : {}),
+      },
+      ...(body ? { body:JSON.stringify(body) } : {}),
+    });
+    const result = await response.json().catch(() => ({}));
+    return response.ok
+      ? result
+      : { ...result, ok:false, error:result.error || "Spotify request failed" };
+  } catch {
+    return { ok:false, error:controller?.signal.aborted
+      ? "Spotify did not answer. Try again" : "Spotify is unavailable" };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
+export const spotifyStatus = () => spotifyRequest("status", { gm:true });
+export const spotifyPlayer = () => spotifyRequest("player", { gm:true });
+export const spotifySearch = query =>
+  spotifyRequest(`search?q=${encodeURIComponent(query)}`, { gm:true });
+/* the song's album upload on YouTube, for playing the exact snippet */
+export const songSnippet = ({ trackId = "", name = "", artist = "", durationMs = 0 } = {}) =>
+  spotifyRequest(`snippet?${new URLSearchParams({ trackId, name, artist, durationMs:String(durationMs || 0) })}`, { gm:true });
+/* a 30-second clip for the Win song picker, played on this phone */
+export const songPreview = ({ isrc = "", name = "", artist = "" } = {}) =>
+  spotifyRequest(`preview?${new URLSearchParams({ isrc:isrc || "", name, artist })}`, { gm:true });
+export const spotifyAuthorize = () =>
+  spotifyRequest("authorize", { method:"POST", gm:true });
+export const spotifyDisconnect = () =>
+  spotifyRequest("disconnect", { method:"POST", gm:true });
+/* `player` names a walkout cue and `durationMs` bounds a searched track, so
+   the Worker can stamp how long Field Day's own sounds stay silent */
+export const spotifyPlay = ({ uri = null, deviceId:targetDevice = "", positionMs = 0, player = null,
+  durationMs = null } = {}) =>
+  spotifyRequest("play", {
+    method:"POST",
+    gm:true,
+    body:{ uri, deviceId:targetDevice, positionMs, player, durationMs },
+  });
+export const spotifyAutoWinSongs = on =>
+  spotifyRequest("auto", { method:"POST", gm:true, body:{ on:!!on } });
+export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
+  spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });
+/* replay the win song that did not play (showControl.audio.miss) */
+export const spotifyRetry = () => spotifyRequest("retry", { method:"POST", gm:true, body:{} });
+export const spotifyPause =({ deviceId:targetDevice = "" } = {}) =>
+  spotifyRequest("pause", {
+    method:"POST",
+    gm:true,
+    body:{ deviceId:targetDevice },
+  });
 
 export async function downloadSnapshot() {
   try {
@@ -147,19 +650,4 @@ export async function downloadSnapshot() {
   } catch {
     return { ok: false, error: "Export failed" };
   }
-}
-
-export function useTournament() {
-  return useSyncExternalStore(
-    cb => { listeners.add(cb); return () => listeners.delete(cb); },
-    () => cached,
-    () => cached,
-  );
-}
-
-if (typeof window !== "undefined") {
-  connect();
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && (!ws || ws.readyState > 1)) connect();
-  });
 }

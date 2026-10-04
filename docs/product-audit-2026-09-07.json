@@ -1,0 +1,460 @@
+{
+  "date": "2026-09-07",
+  "summary": "Keep the direct chip board, visible leaderboard, player cards and draw/draft motion. Repair blocked journeys and conflicting role state first; consolidate the live event and result models; give poker a deliberate playing-to-counting handoff.",
+  "findings": [
+    {
+      "id": "FD-01",
+      "priority": "P1",
+      "title": "Late guests cannot finish check-in",
+      "roles": [
+        "Player",
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "A guest without a saved color is required to choose one after the weekend has locked all chip choices. There is no route from that screen to Home.",
+      "repro": "Start the first game, then check in a fresh player. Khoa reached step 5: ‘Chips are locked for the weekend’ and ‘Choose a chip color to continue’, with Continue disabled and no chooser.",
+      "change": "Allow a valid default identity or an explicitly supported first color claim for late arrivals. Preserve established claims and completed check-in.",
+      "acceptance": "An uncolored guest can finish during betting, play and poker; returning guests keep their saved answers and skip completed setup.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-02",
+      "priority": "P1",
+      "title": "Quick Draw presents rejected attempts as finished",
+      "roles": [
+        "Player"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "The game enters ‘Your draw’ before the server accepts the run. Errors appear behind the full-screen game, leaving participants waiting for a run that was never saved.",
+      "repro": "Both browser participants waited over 38 seconds after Draw, then tapped. The server rejected ‘Bad time’; both screens showed a time and ‘Waiting on’ the other player. A too-fast automated 69 ms run showed the same false completion. Reopening the game was necessary.",
+      "change": "Model captured, saving, accepted and rejected attempts explicitly. Preserve a valid captured run on transport retry; an invalid time needs an honest retry state. Put recovery inside the game.",
+      "acceptance": "Rejected or unacknowledged runs never look saved. Retrying a valid run does not grant a better reaction attempt; accepted retries are harmless. A player can always exit.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-04",
+      "priority": "P1",
+      "title": "A stale result editor can replace or clear a newer result",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Network",
+        "Component"
+      ],
+      "problem": "Three commissioners safely share current-match actions, but older official-result editors do not identify the result revision they reviewed. Confirmation alone does not prevent overwriting another person's work.",
+      "repro": "A opens a correction at revision 1; B posts revision 2; A submits the old confirmed correction or clear. Both stale operations succeed against revision 2 (C10/C11).",
+      "change": "Send the reviewed result revision with correction and clear. Preserve the editor, show the newly committed result and require renewed review when it changed.",
+      "acceptance": "Old forms cannot silently replace/delete newer results or recalculate payouts. Independent events remain operable concurrently; no global commissioner lock.",
+      "source": "audit-commissioner-concurrency-2026-09-07.md"
+    },
+    {
+      "id": "FD-05",
+      "priority": "P1",
+      "title": "An old poker cancellation can delete the replacement table",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Network",
+        "Component"
+      ],
+      "problem": "Poker commands target the event, without a distinct table session. A delayed cancellation from the previous table applies to whichever table exists now.",
+      "repro": "A opens cancellation for table A. B cancels A, creates and starts B, then enters 2,200 chips. A's old pokerCancel with an empty payload succeeds and removes B and its count (C16).",
+      "change": "Give each table setup an identity and require it on start, cancel, bust, count and post actions.",
+      "acceptance": "A retired table's delayed command is rejected. The new table, entered counts and minimum-stack grants remain intact; same-session retries remain safe.",
+      "source": "audit-commissioner-concurrency-2026-09-07.md"
+    },
+    {
+      "id": "FD-06",
+      "priority": "P1",
+      "title": "Unclaimed TV clients receive private ratings",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Network",
+        "Code"
+      ],
+      "problem": "Check-in promises private ratings, but every WebSocket receives the complete authority state. Omitting those fields from the TV screen does not keep them private.",
+      "repro": "An unclaimed local TV connection received the exact synthetic ratings saved by a player and a synthetic flight response in its next state frame (C27). No production guest data was inspected.",
+      "change": "Separate stored state from audience-specific snapshots. Keep team-balancing inputs on the server and define own-player, commissioner and public display fields.",
+      "acceptance": "Actual public/TV network payloads exclude private ratings. Player/commissioner access is tested; the intended audience for logistics answers is explicit.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-07",
+      "priority": "P1",
+      "title": "TV can call a prepared game live while another game is playing",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Browser",
+        "Component",
+        "Code"
+      ],
+      "problem": "TV independently scans brackets, heats and drafts instead of consistently following actual play. The shared operation resolver also needs preparation precedence corrected in one ordering.",
+      "repro": "Fresh Home said Long Putt first while TV said 8-Ball next. Preparing 8-Ball made TV say CHECK-IN / LIVE BRACKET. After Long Putt started, phone showed Long Putt in progress while TV returned to 8-Ball UP NOW. Component cases also cover shelved games and a future draft displacing play.",
+      "change": "Define one current-activity model with actual play ahead of preparation. Separate preparing a game from intentionally presenting it to the room.",
+      "acceptance": "Phones, commissioner actions and TV agree before play, while betting, during play and after results. Preparing or shelving a future game in either order never steals current-game priority.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-08",
+      "priority": "P1",
+      "title": "TV hides connection loss and initial loading",
+      "roles": [
+        "TV",
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser",
+        "Code"
+      ],
+      "problem": "The display looks current even when it has not received a snapshot or its connection is gone. A room cannot tell that standings or a clock are stale.",
+      "repro": "Stopped only the disposable audit server. Both phones said Reconnecting; TV continued displaying WEEKEND LIVE / STANDINGS UPDATED with no connection warning. Restart restored the phones automatically and retained identities and scores.",
+      "change": "Pass loading, connection and freshness state into TV. Keep useful last-known data with a visible disconnected label; recover automatically.",
+      "acceptance": "Cold loading never masquerades as a confirmed board. A disconnected TV clearly says updates stopped, including during a locally ticking poker clock.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-09",
+      "priority": "P2",
+      "title": "Two commissioners can silently overwrite the same chip count",
+      "roles": [
+        "Commissioner",
+        "Player"
+      ],
+      "proof": [
+        "Network",
+        "Component"
+      ],
+      "problem": "Different-player counts save safely together; two open editors for the same player do not detect newer saved values.",
+      "repro": "A count starts at 1,200; one commissioner saves 2,200; another submits their stale editor as 1,300. The final saved value is 1,300 with no conflict (C15).",
+      "change": "Use a per-player count revision within the poker session and show saved versus proposed values when they differ.",
+      "acceptance": "Same-player stale writes require review while three commissioners can still count three different players in parallel.",
+      "source": "audit-commissioner-concurrency-2026-09-07.md"
+    },
+    {
+      "id": "FD-10",
+      "priority": "P2",
+      "title": "Frozen standings still accept some result changes",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Network",
+        "Component"
+      ],
+      "problem": "Freeze policy differs by handler. Contest/draft changes reject frozen state, but official result correction and clear still mutate it.",
+      "repro": "Freeze after posting Long Putt, then submit confirmed correction and clear from other commissioners. Both succeed while frozen remains true (C12). This is a stale-command/server finding, not a claim that every current screen exposes those buttons.",
+      "change": "Choose one explicit reopen/correct policy and enforce it for every result path.",
+      "acceptance": "A previously open editor cannot alter confirmed final standings without following the same visible reopening policy.",
+      "source": "audit-commissioner-concurrency-2026-09-07.md"
+    },
+    {
+      "id": "FD-11",
+      "priority": "P2",
+      "title": "One personal poker count moves every player into counting",
+      "roles": [
+        "Commissioner",
+        "Player",
+        "TV"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "The first saved count implicitly changes the shared workflow, removes other players' I busted controls and makes the commissioner prompt say Post final counts. The TV still looks like ordinary play.",
+      "repro": "At blind level 1 with 13 players in, Brandon saved 900. Evan's Count / I busted row disappeared and became a zeroed chip counter; the host moved to Post final chip counts with only 1 of 13 counted.",
+      "change": "Distinguish personal counting from the official collection phase. Show which players are playing, out, counting and submitted, plus the total discrepancy, consistently across roles.",
+      "acceptance": "A personal count does not remove valid live-play actions for others. The shared collection transition is intentional; the host reviews received/missing counts before posting once.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-12",
+      "priority": "P2",
+      "title": "Home loses my next assignment when someone else is up",
+      "roles": [
+        "Player",
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "The current matchup replaces personal context, even when my partner and next round are already known. A player must dig into the bracket to learn their own job.",
+      "repro": "Brandon was paired with Chinh in an 8-Ball semifinal. Home showed Play-in 2 participants and betting, with no Brandon/Chinh assignment. Evan's crew label did show, so the gap depends on assignment type.",
+      "change": "Keep the room's current matchup and a compact personal partner/next-round, crew, qualified or eliminated state together.",
+      "acceptance": "A ten-second glance answers both ‘what is happening?’ and ‘what do I do next?’ without adding another competing Home hero.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-13",
+      "priority": "P2",
+      "title": "Settled duels lack an obvious durable review route",
+      "roles": [
+        "Player"
+      ],
+      "proof": [
+        "Browser",
+        "Code"
+      ],
+      "problem": "The result screen shows saved times and winnings, but closing it removes the actionable duel from Home. Inspected personal history routes do not provide a settled-duel ledger.",
+      "repro": "After Evan's accepted 83 ms run beat Brandon's accepted foul, both scores updated and the result was readable. Closing removed Your duels from Home. Source inspection found aggregate/card stats and wager history, but no equivalent duel result destination.",
+      "change": "Add compact duel history to an existing personal activity/card destination, with times, outcome, ante and void reason.",
+      "acceptance": "A returning player can find the accepted duel result after closing, refreshing or missing its transient notification.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-14",
+      "priority": "P2",
+      "title": "Some rating and poker controls miss the touch-size floor",
+      "roles": [
+        "Player",
+        "Commissioner"
+      ],
+      "proof": [
+        "Code"
+      ],
+      "problem": "Older rating, poker and walkout controls still use compact targets that fall below the project's 44px floor; the main betting targets are much better.",
+      "repro": "The role audit identifies source dimensions and narrow-screen rating geometry. This is a code-backed concern; no full touch-device or accessibility certification was performed.",
+      "change": "Audit hit areas rather than merely increasing visual padding. Reuse shared controls and keep related actions reachable at narrow widths.",
+      "acceptance": "Required actions have at least 44px hit targets at 320px width, visible focus, accessible names and no overlapping controls.",
+      "source": "audit-player-2026-09-07.md"
+    },
+    {
+      "id": "FD-15",
+      "priority": "P2",
+      "title": "Ambient TV makes the leader the least readable row",
+      "roles": [
+        "TV"
+      ],
+      "proof": [
+        "Component",
+        "Code"
+      ],
+      "problem": "The main ambient leader card uses bone text on the yellow highlight. Current token contrast is about 1.28:1.",
+      "repro": "Render ambient standings with a clear leader. The main leader card uses --ink on GOLD_GRAD/--sun, unlike the mini-board's existing dark ink treatment.",
+      "change": "Use the existing contrasting ink token on yellow for rank, name and score; verify on the actual display.",
+      "acceptance": "The leading player and chip total remain readable at TV distance in both ambient and directed standings.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-16",
+      "priority": "P2",
+      "title": "TV poker mixes starting balances and final awards",
+      "roles": [
+        "TV",
+        "Commissioner",
+        "Player"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "During poker the standings rail retains old balances for busted players. The directed winner scene treats poker like an ordinary award and displays +0 each.",
+      "repro": "After 11 browser busts, TV's rail still showed their original 1,000 under Standings. Post Evan's official 12,600-chip final stack: both phones showed 12,600; TV's winner scene showed Evan, +0 each.",
+      "change": "Share a result presentation model that distinguishes event awards from poker stacks. Label starting balances and mark out players on the same rows; display count progress when appropriate.",
+      "acceptance": "The same official winner and final chips appear on every role. TV does not present a busted player's starting stack as current holdings.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-17",
+      "priority": "P2",
+      "title": "TV’s standings scene silently drops five players",
+      "roles": [
+        "TV",
+        "Player",
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser",
+        "Component"
+      ],
+      "problem": "Explicit Standings and Standings updated scenes render only the first eight players, without pagination or a Top 8 label.",
+      "repro": "Commissioner → Show Control → Standings. At 1280×720 the display had eight rows and substantial unused space. The post-poker standings scene also stopped after place 8.",
+      "change": "Fit all 13 in a readable board or page through everyone with explicit page state.",
+      "acceptance": "Every player can locate their score in the dedicated standings presentation, including those at the bottom.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-18",
+      "priority": "P2",
+      "title": "A stale TV scene blocks useful tournament information",
+      "roles": [
+        "TV",
+        "Commissioner"
+      ],
+      "proof": [
+        "Component",
+        "Code"
+      ],
+      "problem": "The director correctly detects an outdated result scene, but TV replaces its body with Scene unavailable until a commissioner clears it.",
+      "repro": "Correct the result revision while its winner scene is active. Actual component rendering shows the unavailable scene; host recovery exists on a different device.",
+      "change": "Fall back to the current event or standings with a compact scene notice, while preserving host Clear/Retry controls.",
+      "acceptance": "Optional presentation failure cannot strand the shared display. Corrected results become useful immediately, without a blank or dead-end presentation.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-19",
+      "priority": "P2",
+      "title": "Reduced motion removes access to ambient TV scenes",
+      "roles": [
+        "TV"
+      ],
+      "proof": [
+        "Code"
+      ],
+      "problem": "Reduced motion disables scene cycling, while the scene dots are not controls. QR, next event, latest result and other ambient views cannot be reached through that display.",
+      "repro": "With reduced motion, TVMode omits its interval and remains on the first ambient board. The ticker also stops inside an overflow-hidden region.",
+      "change": "Keep information changes without animated transitions, or expose simple scene navigation.",
+      "acceptance": "Reduced motion changes movement, not which information exists or can be reached.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-20",
+      "priority": "P3",
+      "title": "TV exit and unattended-use behavior need finishing",
+      "roles": [
+        "TV",
+        "Commissioner"
+      ],
+      "proof": [
+        "Code"
+      ],
+      "problem": "Exit is an unlabeled 40px × button. Leaving a directly opened /tv view does not update the URL, so refresh re-enters TV. Real remote, fullscreen and sleep behavior remain untested.",
+      "repro": "The TV exit uses setTv(false) without route replacement and lacks a descriptive accessible name. No claim is made that the actual TV sleeps or needs a particular API.",
+      "change": "Label Exit TV, meet the hit-target floor and make entry/exit route behavior deliberate. Validate the intended television and remote before adding keep-awake controls.",
+      "acceptance": "A host can enter, exit and reload predictably, and the intended display stays useful during an unattended session.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-21",
+      "priority": "P2",
+      "title": "The draw tells the event host they are sitting out",
+      "roles": [
+        "Player",
+        "Commissioner",
+        "TV"
+      ],
+      "proof": [
+        "Browser",
+        "Code"
+      ],
+      "problem": "The phone reveal formats a storage key instead of using the operational role label used elsewhere.",
+      "repro": "Evan was assigned Event host during the 12-player 8-Ball draw. Event sheet and TV said Host / Event host; the phone reveal said sit out.",
+      "change": "Use the shared role metadata in every draw, Home, event and TV presentation.",
+      "acceptance": "A player receives the same actual job across all surfaces; crew participation is not reduced to an exclusion label.",
+      "source": "audit-tv-2026-09-07.md"
+    },
+    {
+      "id": "FD-22",
+      "priority": "P2",
+      "title": "Draft confirmation leaves captains on a closed-draft sheet",
+      "roles": [
+        "Player",
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser"
+      ],
+      "problem": "The reveal works, but a captain who was already inside the live draft returns to a sparse Draft closed screen after Done instead of the confirmed teams.",
+      "repro": "Evan opened the volleyball draft and made pick 1. Brandon completed and confirmed the teams. Evan received the draw reveal; Done exposed the old draft sheet with only Draft closed. Closing again reached the event sheet.",
+      "change": "Replace the completed draft route with the saved team/event destination for all open participants, retaining the reveal and sensible Back behavior.",
+      "acceptance": "After confirmation, both captains and spectators land on confirmed teams and their assignment with one dismissal of the reveal.",
+      "source": "PRODUCT-E2E-2026-09-07.md"
+    },
+    {
+      "id": "FD-23",
+      "priority": "P3",
+      "title": "Starting the draft can retain an unhelpful scroll position",
+      "roles": [
+        "Commissioner"
+      ],
+      "proof": [
+        "Browser"
+      ],
+      "problem": "The setup-to-live transition can carry the setup sheet's scroll offset into the new live draft. Its current-pick heading begins partly under the sticky header.",
+      "repro": "At 1280×720 after choosing captains and Start the draft, the live dialog retained scrollTop 78.4. Evan's pick heading began at y61.7 under the header; the screenshot clipped its upper portion.",
+      "change": "Treat setup-to-live as a new task position: reveal/focus the current turn. Keep saved scroll for actual Back navigation and player-card returns.",
+      "acceptance": "The first live draft view exposes whose turn it is and the available players, without requiring a corrective scroll.",
+      "source": "PRODUCT-E2E-2026-09-07.md"
+    }
+  ],
+  "direction": {
+    "headline": "Let the app carry more of the weekend",
+    "thesis": "The biggest opportunity is to remove coordination work from Brandon and his best men while making each player’s next move obvious. These are proposed product changes, grounded in the audit; they have not been built.",
+    "scope": "Mobile players and commissioners, plus the shared TV. Touch targets, outdoor legibility and interruption recovery stay in scope.",
+    "recommendation": "Build the shared game flow, preparation handoff and delegated scoring together. Use each result for the room reveal and personal receipt. Treat the poker finale as the next complete workflow.",
+    "proposals": [
+      {
+        "id": "S1",
+        "title": "Give the three commissioners a shared run sheet",
+        "change": "Keep one live contest and a separate preparing lane. The next event has a named person handling setup, confirmed participants and crew, and a ready handoff. Promoting it makes it public across phones and TV together.",
+        "example": "While Brandon runs 8-Ball, one best man prepares volleyball’s draft and another sets up the station. Preparation stays backstage. When the current event ends, the prepared event is ready to announce.",
+        "impact": "Less hunting through Events, duplicated setup and verbal checking. Hosts can work ahead without hijacking what the room sees.",
+        "newCapability": "Preparation ownership, readiness and handoff are new. The existing next-action button stays useful inside the live event; another button would not deliver this change.",
+        "guardrail": "Keep one official betting market initially. Handoffs are visible, not hard locks that stop another commissioner helping.",
+        "proof": "Measure time from an event result to the next game being ready, repeated setup actions and commissioner navigation outside the live event."
+      },
+      {
+        "id": "S2",
+        "title": "Make event crew able to run their assigned game",
+        "change": "Give one named scorekeeper or event official permission to record results for that event. Their phone opens directly to its actual bracket, heat or standings entry. An accepted result settles chips and advances the next contest.",
+        "example": "Evan is the 8-Ball scorekeeper. He taps the winning team at the table; the next matchup opens on everyone’s phones. Brandon can keep playing instead of receiving and entering the result.",
+        "impact": "Removes the repeated finish-game → find-a-commissioner → explain-result → wait-for-entry handoff. A crew role becomes real participation.",
+        "newCapability": "Scoped event authority is new. Crew currently have a label; commissioner-only entry still requires the hosts to operate every result.",
+        "guardrail": "Delegate once to a trusted person, with a visible recorder and correction trail. Commissioners retain takeover and correction. Use a safe correction path when later bets exist; do not introduce mandatory opponent approvals or a general guest inbox.",
+        "proof": "Measure the share of contests completed without commissioner input and the number of result corrections. Pilot with 8-Ball and one multi-qualifier heat event."
+      },
+      {
+        "id": "S3",
+        "title": "Make Home my place in the current game",
+        "change": "Use one live event destination reached from Home, Events and Bets. It presents my playing, waiting, crew, captain or spectator state, with the relevant action on the actual game board. Keep the full leaderboard visible below.",
+        "example": "During someone else’s play-in, Brandon sees the current matchup plus “Chinh is your partner; semifinal 2.” When that matchup becomes current, his own-team chip target and play instructions become primary. A spectator sees both betting sides for the same contest.",
+        "impact": "A player can answer what is happening, what they need to do and what comes next in one glance. The app carries context between betting, playing and results.",
+        "newCapability": "A complete personal participation lifecycle is the change: queued, up now, qualified, eliminated, crew and finished. Patching one missing partner label would cover only one state.",
+        "guardrail": "Keep the familiar navigation and direct chip interaction. Make Bets a useful view of the same contest and personal positions, rather than a second event controller. Readiness prompts should not hold up a game for thirteen taps.",
+        "proof": "Observe whether a waiting player, current competitor and crew member can identify their next job within ten seconds without leaving Home."
+      },
+      {
+        "id": "S4",
+        "title": "Make every result a shared moment and a personal receipt",
+        "change": "One official result drives a short room reveal and a personalized phone receipt: event award, won/lost bets, new chip total and rank movement. Save that same result as an expandable event recap and build the weekend recap from those records.",
+        "example": "A match ends: TV shows the winners and the board moving. Evan’s phone shows his +100 winning bet and new balance. After the volleyball final, teammates see their team award; someone who missed the reveal can reopen it from Events.",
+        "impact": "Makes the competition legible and memorable. Players see why their chips moved and the group gets the fun of a shared outcome.",
+        "newCapability": "Animations already exist. Connecting awards, wagers, personal change and a durable recap is the added experience. It also provides the basis for factual weekend highlights and rivalry records later.",
+        "guardrail": "Use the group’s actual results and Brandon’s voice. Keep receipts brief and nonblocking, TV optional, and the current game visible between moments. Add photos only if there is an easy real capture workflow.",
+        "proof": "Ask players to explain their latest chip change and find a result they missed. Check that the room can follow the outcome without a commissioner narrating the bookkeeping."
+      },
+      {
+        "id": "S5",
+        "title": "Give the finale its own complete table workflow",
+        "change": "Poker moves through handing out earned stacks, live play, collecting final counts, reconciliation and the champion. Players get their own table action; commissioners divide count review; TV shows the matching room phase.",
+        "example": "At handout, each phone shows the exact chips to take. During play it shows blinds and bust status. At final counting, three commissioners can split the remaining players and see what is missing before posting together.",
+        "impact": "The physical-table handoff becomes a coordinated conclusion to the weekend, with fewer verbal checks and accidental phase changes.",
+        "newCapability": "An explicit shared table workflow replaces the current inference that any personal count means everyone is finishing. Existing earned stacks, counter and poker rules are retained.",
+        "guardrail": "Personal counting must not end play for everyone. Keep cards physical; do not expand into an online poker engine. Large count discrepancies need deliberate review.",
+        "proof": "Rehearse the full handout-to-champion path with the three hosts and players, checking that every role knows whether play or final collection is underway."
+      }
+    ]
+  }
+}

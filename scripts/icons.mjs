@@ -1,180 +1,138 @@
-/* Regenerates the PWA icon set from the FD chip mark (same geometry as FDMark
-   in src/App.jsx, tokens resolved to static hex). Pure geometry, no browser
-   dependency. Use --icons-only to leave the existing share card untouched. */
+/* Regenerates every app icon and the link card from the one master mark,
+   "the chip, lit" (src/ui/fdMark.js, also drawn in the app by Brand.jsx
+   FDMark). Pure geometry rasterised by sharp, no browser. Lettering uses the
+   bundled Big Shoulders cuts (static 900 instances of public/fonts, OFL), so
+   the card renders the same on every machine. Use --icons-only to leave the
+   existing share card untouched. */
 import { writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
+import { markBody, MARK_INKS, MARK_INKS_STAGING } from "../src/ui/fdMark.js";
+import { EDITION } from "../shared/core.js";
 
-const SUN = "#F0B02F", INK0 = "#2A2119", NIGHT = "#171009", BONE = "#FBF3E4";
-const ACCENT = "#C25832", ACCENT2 = "#D97A50", MUTED = "#C9B896";
-const STAGING_ICON = {
-  sun: "#35C8F5",
-  ink: "#101A33",
-  detail: "#F7FBFF",
-  badge: "#EB3F78",
-};
-const DISPLAY_FONT = fileURLToPath(new URL("./fonts/BarlowCondensed-Bold.ttf", import.meta.url));
-const VENUE_IMAGE = fileURLToPath(new URL("../public/airbnb-compound-field-day.webp", import.meta.url));
+const GROUND = "#090b14", BONE = "#f4ecd8", AMBER = "#ffa630", LILAC = "#b2abc2";
+const SHOW_FONT = fileURLToPath(new URL("./fonts/BigShouldersDisplay-Black.ttf", import.meta.url));
+const MARQUEE_FONT = fileURLToPath(new URL("./fonts/BigShouldersInlineDisplay-Black.ttf", import.meta.url));
 
-/* Chip mark mirrors FDMark. Triangular rays read as a sun rather than a clock,
-   and the compact favicon drops the hairline inner ring at tiny sizes. */
-const mark = (px, ring = INK0, compact = false, palette = null, label = "") => {
-  const sun = palette?.sun || SUN;
-  const ink = palette?.ink || INK0;
-  const detail = palette?.detail || BONE;
-  const pt = (r, deg) => {
-    const a = deg * Math.PI / 180;
-    return [32 + Math.cos(a) * r, 32 + Math.sin(a) * r].map(v => v.toFixed(2));
-  };
-  const ticks = Array.from({ length: 8 }, (_, i) => {
-    const [x1, y1] = pt(23.4, i * 45 + 22.5), [x2, y2] = pt(28.2, i * 45 + 22.5);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${detail}" stroke-width="3.4" stroke-linecap="round"/>`;
-  }).join("");
-  const rays = Array.from({ length: 8 }, (_, i) => {
-    const a = i * 45;
-    const [x1, y1] = pt(10.7, a - 8), [x2, y2] = pt(17.8, a), [x3, y3] = pt(10.7, a + 8);
-    return `<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="${ink}"/>`;
-  }).join("");
-  const labelMarkup = label ? `
-    <rect x="8.5" y="42" width="47" height="16" rx="4" fill="${palette.badge}"
-      stroke="${detail}" stroke-width="1.5"/>
-    <text x="32" y="54.3" text-anchor="middle" fill="${detail}"
-      font-family="Arial, sans-serif" font-size="12.5" font-weight="900"
-      letter-spacing="1.2">${label}</text>` : "";
-  return `
-  <svg width="${px}" height="${px}" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="32" cy="32" r="29.5" fill="${sun}" stroke="${ring}" stroke-width="3.5"/>
-    ${ticks.replaceAll('stroke-width="3.4"', 'stroke-width="3.8"')}
-    ${compact ? "" : `<circle cx="32" cy="32" r="20.6" fill="none" stroke="${ink}" stroke-width="1.5" opacity="0.6"/>`}
-    ${rays}
-    <circle cx="32" cy="32" r="8.4" fill="${ink}"/>${labelMarkup}
-  </svg>`;
-};
-
-const frame = (body, px, markPx, bg) => {
+/* the mark at markPx, centred on a px square, over an optional ground */
+const icon = ({ px, markPx, bg = null, inks = MARK_INKS, label = "", level = "full" }) => {
   const at = (px - markPx) / 2;
-  const nested = body.replace("<svg ", `<svg x="${at}" y="${at}" `);
-  return `<svg width="${px}" height="${px}" viewBox="0 0 ${px} ${px}"
-    xmlns="http://www.w3.org/2000/svg">
+  return `<svg width="${px}" height="${px}" viewBox="0 0 ${px} ${px}" xmlns="http://www.w3.org/2000/svg">
     ${bg ? `<rect width="${px}" height="${px}" fill="${bg}"/>` : ""}
-    ${nested}
+    <svg x="${at}" y="${at}" width="${markPx}" height="${markPx}" viewBox="0 0 64 64">
+      ${markBody({ level, inks, label, uid:"m" })}
+    </svg>
   </svg>`;
 };
 
-/* The link card is an invitation first and a logo lockup second. A real venue
-   crop gives the URL a sense of place; the scorecard panel keeps every word
-   legible at group-chat thumbnail size. Text is rendered through the bundled
-   display face so generation is deterministic on every platform. */
-const typeLayer = (value, size, color, tracking = 0) => sharp({
-  text: {
-    text: `<span foreground="${color}" letter_spacing="${Math.round(tracking * 1024)}">${value}</span>`,
-    font: `Barlow Condensed Bold ${size}`,
-    fontfile: DISPLAY_FONT,
-    rgba: true,
-    dpi: 72,
+const OUTPUTS = [
+  /* "any": the chip alone, full bleed */
+  { file:"public/icon-512.png", px:512, markPx:504 },
+  { file:"public/icon-192.png", px:192, markPx:188 },
+  /* maskable: the chip inside the 80% safe circle on the glass ground */
+  { file:"public/icon-maskable-512.png", px:512, markPx:400, bg:GROUND },
+  { file:"public/icon-maskable-192.png", px:192, markPx:150, bg:GROUND },
+  /* iOS home screen: opaque glass ground, the chip clear of the corner mask */
+  { file:"public/apple-touch-icon.png", px:180, markPx:150, bg:GROUND },
+];
+const STAGING_OUTPUTS = [
+  { file:"public/icon-staging-512.png", px:512, markPx:504 },
+  { file:"public/icon-staging-192.png", px:192, markPx:188 },
+  { file:"public/icon-staging-maskable-512.png", px:512, markPx:400, bg:MARK_INKS_STAGING.ink },
+  { file:"public/icon-staging-maskable-192.png", px:192, markPx:150, bg:MARK_INKS_STAGING.ink },
+  { file:"public/apple-touch-icon-staging.png", px:180, markPx:150, bg:MARK_INKS_STAGING.ink },
+];
+
+const type = (value, font, fontfile, size, color, tracking = 0) => sharp({
+  text:{
+    text:`<span foreground="${color}" letter_spacing="${Math.round(tracking * 1024)}">${value}</span>`,
+    font:`${font} ${size}`, fontfile, rgba:true, dpi:72,
   },
 }).png().toBuffer();
 
-const share = async () => {
-  const [venue, kicker, step, title, edition, manifesto, facts] = await Promise.all([
-    sharp(VENUE_IMAGE)
-      .resize(550, 630, { fit:"cover", position:"centre" })
-      .modulate({ brightness:0.83, saturation:0.78 })
-      .sharpen({ sigma:0.6 })
-      .toBuffer(),
-    typeLayer("YOUR INVITATION", 20, MUTED, 1.6),
-    typeLayer("1 OF 6", 20, MUTED, 1.4),
-    typeLayer("FIELD DAY", 164, BONE, 0.35),
-    typeLayer("SCOTTSDALE · 2026", 38, ACCENT2, 1.2),
-    typeLayer("THE BACHELOR PARTY IS\nA TOURNAMENT.", 48, BONE, 0.25),
-    typeLayer("OCT 30 TO NOV 1  ·  13 PLAYERS  ·  16 EVENTS", 28, MUTED, 0.45),
-  ]);
-
-  const scorecard = `<svg width="1200" height="630" viewBox="0 0 1200 630"
-    xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <filter id="grain" x="0" y="0" width="100%" height="100%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="2" seed="8"/>
-      </filter>
-    </defs>
-    <rect width="662" height="630" fill="${NIGHT}"/>
-    <rect x="650" width="12" height="630" fill="${ACCENT}"/>
-    <rect x="662" width="538" height="630" fill="${NIGHT}" opacity="0.14"/>
-    <rect x="24" y="24" width="1152" height="582" rx="10" fill="none"
-      stroke="${BONE}" stroke-width="2" opacity="0.18"/>
-    <rect x="58" y="82" width="76" height="4" rx="2" fill="${ACCENT}"/>
-    <rect x="142" y="82" width="76" height="4" rx="2" fill="${BONE}" opacity="0.15"/>
-    <rect x="226" y="82" width="76" height="4" rx="2" fill="${BONE}" opacity="0.15"/>
-    <rect x="310" y="82" width="76" height="4" rx="2" fill="${BONE}" opacity="0.15"/>
-    <rect x="394" y="82" width="76" height="4" rx="2" fill="${BONE}" opacity="0.15"/>
-    <rect x="478" y="82" width="76" height="4" rx="2" fill="${BONE}" opacity="0.15"/>
-    <line x1="58" y1="488" x2="548" y2="488" stroke="${BONE}" stroke-width="2" opacity="0.16"/>
-    <rect x="662" y="24" width="514" height="8" fill="${SUN}"/>
-    ${mark(178, BONE).replace("<svg ", '<svg x="560" y="382" ')}
-    <rect width="1200" height="630" filter="url(#grain)" opacity="0.026" style="mix-blend-mode:screen"/>
-  </svg>`;
-
-  return sharp({ create:{ width:1200, height:630, channels:4, background:NIGHT } })
+/* Big Shoulders draws "1" as a bare stroke, which reads as I beside capitals
+   (the app's OneSafe flags it). A lone 1 is set in a key color, found in the
+   raster, repainted, and given the same flag: a short stroke off the stem's
+   top, turned -35deg. */
+const KEY = [255, 0, 255];
+const flaggedType = async (value, font, fontfile, size, color, tracking = 0) => {
+  const marked = value.replace(/(^|[^0-9])1(?![0-9])/g, `$1<span foreground="#ff00ff">1</span>`);
+  const { data, info } = await sharp(await type(marked, font, fontfile, size, color, tracking))
+    .raw().toBuffer({ resolveWithObject:true });
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16));
+  const stems = [];
+  for (let x = 0; x < info.width; x++) for (let y = 0; y < info.height; y++) {
+    const at = (y * info.width + x) * 4;
+    const d = Math.abs(data[at] - KEY[0]) + Math.abs(data[at + 1] - KEY[1]) + Math.abs(data[at + 2] - KEY[2]);
+    if (data[at + 3] === 0 || d > 120) continue;
+    let stem = stems.find(s => x <= s.x1 + 2);
+    if (!stem) stems.push(stem = { x0:x, x1:x, y0:y, y1:y });
+    stem.x1 = Math.max(stem.x1, x); stem.y0 = Math.min(stem.y0, y); stem.y1 = Math.max(stem.y1, y);
+    data[at] = r; data[at + 1] = g; data[at + 2] = b;
+  }
+  const flags = stems.map(({ x0, x1, y0 }) => {
+    const w = x1 - x0 + 1, len = size * 0.23, a = 35 * Math.PI / 180;
+    const sx = x0 + w * 0.5, sy = y0 + w * 0.35;
+    return `<line x1="${sx}" y1="${sy}" x2="${sx - Math.cos(a) * len}" y2="${sy + Math.sin(a) * len}"
+      stroke="${color}" stroke-width="${w * 0.86}" stroke-linecap="butt"/>`;
+  }).join("");
+  const pad = Math.ceil(size * 0.2);
+  return sharp({ create:{ width:info.width + pad, height:info.height, channels:4, background:{ r:0, g:0, b:0, alpha:0 } } })
     .composite([
-      { input:venue, left:650, top:0 },
-      { input:Buffer.from(scorecard), left:0, top:0 },
-      { input:kicker, left:58, top:47 },
-      { input:step, left:514, top:47 },
-      { input:title, left:56, top:119 },
-      { input:edition, left:59, top:252 },
-      { input:manifesto, left:58, top:326 },
-      { input:facts, left:58, top:523 },
+      { input:Buffer.from(`<svg width="${info.width + pad}" height="${info.height}" xmlns="http://www.w3.org/2000/svg"><g transform="translate(${pad} 0)">${flags}</g></svg>`), left:0, top:0 },
+      { input:data, raw:info, left:pad, top:0 },
+    ]).png().toBuffer();
+};
+
+/* The link card: the mark and the name, nothing to read twice. The edition
+   and its dates come from EDITION, never spelled out here. */
+const share = async () => {
+  /* the name fills the column beside the mark */
+  const column = 540;
+  const probe = await sharp(await type("Field Day", "FD Big Shoulders Inline", MARQUEE_FONT, 200, BONE, 1)).metadata();
+  const titleSize = Math.floor(200 * column / probe.width);
+  const [title, edition, dates] = await Promise.all([
+    type("Field Day", "FD Big Shoulders Inline", MARQUEE_FONT, titleSize, BONE, 1),
+    flaggedType(EDITION.label.toUpperCase(), "FD Big Shoulders", SHOW_FONT, 60, AMBER, 3),
+    flaggedType(EDITION.short.toUpperCase(), "FD Big Shoulders", SHOW_FONT, 44, LILAC, 3),
+  ]);
+  const [t, e] = await Promise.all([title, edition].map(buf => sharp(buf).metadata()));
+  const markPx = 400, markX = 88, markY = (630 - markPx) / 2;
+  const textX = 566;
+  const block = t.height + 18 + e.height + 22 + 44;
+  const top = Math.round((630 - block) / 2) - 8;
+  const plate = `<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="630" fill="${GROUND}"/>
+    <rect x="24" y="24" width="1152" height="582" rx="14" fill="none" stroke="${BONE}" stroke-opacity=".14" stroke-width="2"/>
+    <svg x="${markX}" y="${markY}" width="${markPx}" height="${markPx}" viewBox="0 0 64 64">${markBody({ level:"full", uid:"s" })}</svg>
+  </svg>`;
+  return sharp(Buffer.from(plate))
+    .composite([
+      { input:title, left:textX - 6, top },
+      { input:edition, left:textX - Math.ceil(60 * 0.2), top:top + t.height + 18 },
+      { input:dates, left:textX - Math.ceil(44 * 0.2), top:top + t.height + 18 + e.height + 22 },
     ])
     .png({ compressionLevel:9, adaptiveFiltering:true })
     .toBuffer();
 };
 
-const OUTPUTS = [
-  { file: "public/icon-512.png", px: 512, markPx: 512, bg: null },
-  { file: "public/icon-192.png", px: 192, markPx: 192, bg: null },
-  /* Maskable: a quieter 72% mark leaves real room for every launcher crop. */
-  { file: "public/icon-maskable-512.png", px: 512, markPx: 368, bg: NIGHT, ring: BONE },
-  { file: "public/icon-maskable-192.png", px: 192, markPx: 138, bg: NIGHT, ring: BONE },
-  /* iOS home screen: opaque night field */
-  { file: "public/apple-touch-icon.png", px: 180, markPx: 148, bg: NIGHT, ring: BONE },
-];
-
-const STAGING_OUTPUTS = [
-  { file: "public/icon-staging-512.png", px: 512, markPx: 512, bg: null },
-  { file: "public/icon-staging-192.png", px: 192, markPx: 192, bg: null },
-  { file: "public/icon-staging-maskable-512.png", px: 512, markPx: 368, bg: STAGING_ICON.ink },
-  { file: "public/icon-staging-maskable-192.png", px: 192, markPx: 138, bg: STAGING_ICON.ink },
-  { file: "public/apple-touch-icon-staging.png", px: 180, markPx: 148, bg: STAGING_ICON.ink },
-];
-
 if (!process.argv.includes("--icons-only")) {
   writeFileSync("public/share.png", await share());
   console.log("wrote public/share.png");
 }
-
 for (const o of OUTPUTS) {
-  const svg = frame(mark(o.markPx, o.ring), o.px, o.markPx, o.bg);
-  await sharp(Buffer.from(svg)).png().toFile(o.file);
+  await sharp(Buffer.from(icon(o))).png().toFile(o.file);
   console.log("wrote", o.file);
 }
-
 for (const o of STAGING_OUTPUTS) {
-  const svg = frame(
-    mark(o.markPx, STAGING_ICON.detail, false, STAGING_ICON, "STG"),
-    o.px,
-    o.markPx,
-    o.bg,
-  );
-  await sharp(Buffer.from(svg)).png().toFile(o.file);
+  await sharp(Buffer.from(icon({ ...o, inks:MARK_INKS_STAGING, label:"STG" }))).png().toFile(o.file);
   console.log("wrote", o.file);
 }
 
-/* Vector favicon uses the compact geometry, so 16px does not turn into a
-   ring of hairlines. Browsers that ignore SVG keep the 192px PNG fallback. */
-writeFileSync("public/favicon.svg", mark(64, BONE, true).trim());
+/* The vector favicon is the small cut (chip and sun), so a 16px tab does not
+   turn into a ring of crumbs. Browsers that ignore SVG keep the 192px PNG. */
+const favicon = (inks, label = "") => `<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${markBody({ level:"small", inks, label, uid:"f" })}</svg>`;
+writeFileSync("public/favicon.svg", favicon(MARK_INKS));
 console.log("wrote public/favicon.svg");
-writeFileSync(
-  "public/favicon-staging.svg",
-  mark(64, STAGING_ICON.detail, true, STAGING_ICON, "STG").trim(),
-);
+writeFileSync("public/favicon-staging.svg", favicon(MARK_INKS_STAGING, "STG"));
 console.log("wrote public/favicon-staging.svg");

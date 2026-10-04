@@ -1,13 +1,12 @@
 {
   "name": "Field Day Staging",
   "short_name": "FD Staging",
-  "description": "The isolated staging environment for Field Day.",
+  "description": "Field Day staging.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "lang": "en",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#101A33",
   "theme_color": "#101A33",
   "icons": [

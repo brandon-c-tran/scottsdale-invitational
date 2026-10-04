@@ -1,7 +1,9 @@
+import { isMomentStorageKey } from "./moments.js";
+
 const SNAPSHOT_FORMAT = "field-day-snapshot";
 const SNAPSHOT_VERSION = 1;
-/* v5/v6 snapshots remain importable; hydration adds current metadata maps. */
-const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7]);
+/* v5-v7 snapshots remain importable; hydration adds current metadata maps. */
+const SUPPORTED_STATE_VERSIONS = new Set([5, 6, 7, 8, 9]);
 const ENVIRONMENTS = new Set(["local", "staging", "production"]);
 const REQUIRED_KEYS = ["state", "version", "claims"];
 const INTERNAL_BACKUP_PREFIX = "m1:pre-restore:";
@@ -10,6 +12,7 @@ const INTERNAL_BACKUP_PREFIXES = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const MAX_ENTRIES = 256;
 const MAX_PHOTO_LENGTH = 120000;
+const MAX_WAGER_OPS = 8192;
 
 const utf8Size = value => new TextEncoder().encode(value).byteLength;
 
@@ -18,6 +21,10 @@ function isPortableStorageKey(key) {
     && key.length > 0
     && key.length <= 256
     && key !== "gmToken"
+    && !key.startsWith("private:")
+    /* photo desk photos have their own export (worker/moments.js): a
+       weekend of them would outgrow this one JSON body and every backup */
+    && !isMomentStorageKey(key)
     && !INTERNAL_BACKUP_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 
@@ -123,6 +130,14 @@ function validateSnapshot(snapshot) {
   } else {
     if (!SUPPORTED_STATE_VERSIONS.has(state.v)) errors.push("Unsupported stored state version");
     if (metadata?.stateSchemaVersion !== state.v) errors.push("State schema metadata does not match state");
+    /* D6 ballots (optional: older snapshots have none) */
+    if (state.prompts !== undefined) {
+      const prompts = state.prompts;
+      if (!prompts || typeof prompts !== "object" || Array.isArray(prompts)
+          || !Array.isArray(prompts.ballots) || prompts.ballots.length > 64
+          || !prompts.responses || typeof prompts.responses !== "object" || Array.isArray(prompts.responses))
+        errors.push("State ballots are malformed");
+    }
     if (!state.profiles || typeof state.profiles !== "object" || Array.isArray(state.profiles))
       errors.push("State profiles must be an object");
     else {
@@ -138,6 +153,15 @@ function validateSnapshot(snapshot) {
   const claims = entryMap.get("claims");
   if (!claims || typeof claims !== "object" || Array.isArray(claims))
     errors.push("Claims entry must be an object");
+  /* Optional: the wager retry ledger has its own key since it left "state".
+     Older snapshots embed it in state and carry no such entry. */
+  if (entryMap.has("wagerOps")) {
+    const ops = entryMap.get("wagerOps");
+    if (!ops || typeof ops !== "object" || Array.isArray(ops))
+      errors.push("Wager ledger entry must be an object");
+    else if (Object.keys(ops).length > MAX_WAGER_OPS)
+      errors.push("Wager ledger entry has too many records");
+  }
 
   for (const [key, value] of entryMap) {
     if (!key.startsWith("photo:")) continue;

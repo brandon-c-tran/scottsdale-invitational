@@ -11,8 +11,15 @@
 import {
   ALL_PLAYERS, ROSTER, isActivePlayer,
 } from "../shared/core.js";
+import { checkInComplete } from "../shared/checkin.js";
+import {
+  SPOTIFY_TRACK_URI, buildWalkout, reconcileWalkout, sameWalkout, walkoutLive, walkoutOf,
+} from "../shared/audio.js";
+import { BUILD_ID } from "../shared/build.js";
 import { applyAction } from "./actions.js";
-import { hydrateStoredState } from "./state.js";
+import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
+import { createStateSerializer } from "./publicState.js";
+import { WAGER_OPS_KEY, hydrateStoredState, splitStoredState } from "./state.js";
 import {
   INTERNAL_BACKUP_PREFIX,
   INTERNAL_RESET_BACKUP_PREFIX,
@@ -23,8 +30,104 @@ import {
   snapshotSha256,
   validateSnapshot,
 } from "./snapshot.js";
+import {
+  SpotifyServiceError,
+  compactSpotifyDevice,
+  compactSpotifyPlayback,
+  exchangeAuthorizationCode,
+  publicSpotifyError,
+  REAUTHORIZE_MESSAGE,
+  refreshAuthorization,
+  requestClientToken,
+  searchSpotifyTracks,
+  spotifyApi,
+  spotifyAuthorizeUrl,
+  spotifyConfigured,
+  spotifyRedirectUri,
+} from "./spotify.js";
+import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
+import { alertsFor } from "./pushAlerts.js";
+import { WIN_SONG_CLIP_MS, WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.js";
+import { mvpDue, nextMvpDeadline } from "../shared/mvp.js";
+import { findPreview, previewCache } from "./previews.js";
+import { findAlbumUpload } from "./youtube.js";
+import { projectPrompts } from "../shared/prompts.js";
+import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
+import { geoPhotoId, geoShownIds } from "../shared/geo.js";
+import { triviaPhotoId } from "../shared/trivia.js";
+import { bankForDesk } from "./trivia.js";
+
+/* Where and When photos ride the photo desk's prefix, so every snapshot,
+   restore and reset leaves them alone exactly as it does the desk's */
+const geoPhotoKey = id => `${MOMENT_PREFIX}geo:${id}`;
+/* the phone's resize (photoModel PHOTO_PREP) tops out at 1.45 MB */
+const GEO_PHOTO_BYTES = 1_500_000;
+/* Trivia's picture questions ride the same prefix and the same limits */
+const triviaPhotoKey = id => `${MOMENT_PREFIX}trivia:${id}`;
 
 const tokenEncoder = new TextEncoder();
+/* The Durable Object value limit is 2 MB; warn well before it. */
+const STATE_WARN_BYTES = 1.5 * 1024 * 1024;
+const STATE_WARN_EVERY_MS = 60 * 1000;
+const MAX_DEVICE_ID_LENGTH = 200;
+const APPLIED_ACTION_LIMIT = 24;
+const validDeviceId = value => typeof value === "string" && value.length > 0
+  && value.length <= MAX_DEVICE_ID_LENGTH ? value : null;
+/* One commissioner token per unlocked device, private (never exported in a
+   snapshot). The single shared token from before stays valid as the
+   "earlier unlock" entry until someone revokes it. */
+const GM_TOKENS_KEY = "private:gm:tokens";
+const GM_TOKEN_LIMIT = 20;
+const SPOTIFY_SESSION_KEY = "private:spotify:session";
+const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
+/* the weekend speaker: chosen once in Speaker, sent with every cue */
+const SPOTIFY_DEVICE_KEY = "private:spotify:device";
+/* win songs play by themselves unless the commissioner turned them off */
+const SPOTIFY_AUTO_KEY = "private:spotify:auto";
+/* the room's volume while a win song fades, so its end puts it back */
+const SPOTIFY_FADE_KEY = "private:spotify:fade";
+/* the room's speaker level, kept across songs (see roomLevel) */
+const SPOTIFY_LEVEL_KEY = "private:spotify:level";
+const WIN_LEVEL_FLOOR = 10;
+const WIN_LEVEL_DEFAULT = 70;
+/* a win song fades in, and out before its clip ends (a Stop or a take-back fades faster) */
+const WIN_FADE_IN_MS = 1500;
+const WIN_FADE_OUT_MS = 3000;
+const WIN_FADE_STOP_MS = 1000;
+const WIN_FADE_STEPS = 6;
+const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
+/* QA checkpoints: named game-progress saves, private (never in a snapshot,
+   a backup, or any frame). An index plus one key per checkpoint, so no
+   value approaches the per-value limit. */
+const QA_CHECKPOINT_INDEX_KEY = "private:qa:checkpoints";
+const QA_CHECKPOINT_PREFIX = "private:qa:checkpoint:";
+const QA_CHECKPOINT_ID = /^cp[a-z0-9]{6,40}$/;
+/* writes that replace game progress keep one rotating pre-reset backup */
+const RESET_BACKUP_ACTIONS = new Set(["resetTournament", "qaAdvance", "qaRestore"]);
+/* writes that never send pocket alerts */
+const QUIET_ACTIONS = RESET_BACKUP_ACTIONS;
+/* QA steps that rehearse a single win still play its song */
+const QA_SONG_TARGETS = new Set(["step", "finish"]);
+/* search runs as the guest types (debounced on the phone) */
+const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
+/* a phone counts as looking at the app when its socket said so recently;
+   a foreground phone pings every 25 seconds */
+const PRESENCE_FRESH_MS = 40 * 1000;
+/* what a TV socket says about its own sound (client.js reportTvSound) */
+const TV_SOUND = new Set(["on", "blocked"]);
+const SPOTIFY_SEARCH_LIMIT = 40;
+/* preview clip lookups per device per minute (answers are cached) */
+const PREVIEW_LIMIT = 60;
+/* YouTube album uploads by Spotify track id: private, kept for good (a miss
+   is asked again after a day); a search spends a fifth of a percent of the
+   key's daily quota, so a device may start at most 10 a minute */
+const SNIPPET_KEY_PREFIX = "private:youtube:";
+const SNIPPET_MISS_MS = 24 * 60 * 60 * 1000;
+const SNIPPET_LIMIT = 10;
+const spotifyJson = (body, status = 200) => Response.json(body, {
+  status,
+  headers:{ "Cache-Control":"no-store" },
+});
 async function secureTokenEqual(provided, expected) {
   if (!provided || !expected) return false;
   const [providedHash, expectedHash] = await Promise.all([
@@ -47,12 +150,31 @@ export class Tournament {
   constructor(ctx, env) {
     this.ctx = ctx;
     this.env = env;
+    /* A fresh id per instance. Hibernation or eviction rebuilds the object
+       and empties the in-memory applied-action lists, so clients can tell a
+       missing id apart from an action that never landed. */
+    this.bootId = crypto.randomUUID();
+    this.appliedActions = new Map();
+    this.socketFallback = new WeakMap();
+    /* D11: the photo desk keeps its own keys, outside "state" */
+    this.momentDesk = new MomentDesk({
+      storage:ctx.storage,
+      playerFor:device => isActivePlayer(this.claims?.[device]) ? this.claims[device] : null,
+      isGmToken:async token => !!await this.gmTokenId(token),
+      onChange:() => this.broadcastState("moments"),
+    });
     ctx.blockConcurrencyWhile(async () => this.hydrateFromStorage());
   }
 
   get environment() {
     return ["local", "staging", "production"].includes(this.env.APP_ENV)
       ? this.env.APP_ENV : "production";
+  }
+
+  /* parsed once per instance; null when the key pair or subject is missing */
+  get vapid() {
+    if (this.vapidCache === undefined) this.vapidCache = vapidConfig(this.env);
+    return this.vapidCache;
   }
 
   get capabilities() {
@@ -63,14 +185,85 @@ export class Tournament {
       progressReset: configured && this.env.PROGRESS_RESET_ENABLED === "true",
       restore: isolated,
       snapshotExport: isolated,
+      showControl: configured && this.env.M2_SHOW_CONTROL_ENABLED === "true",
+      audioDirector:configured && (
+        this.env.M2_AUDIO_CATALOG_ENABLED === "true"
+        || this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
+      ),
+      audioCatalog:configured
+        && this.env.M2_AUDIO_CATALOG_ENABLED === "true"
+        && spotifyConfigured(this.env),
+      audioPlayback:configured
+        && this.env.M2_AUDIO_PLAYBACK_ENABLED === "true"
+        && spotifyConfigured(this.env),
+      /* pocket alerts: on only with a complete VAPID key pair and subject */
+      push:configured && !!this.vapid,
+      /* the Win song picker's exact-snippet preview (worker/youtube.js) */
+      songSnippets:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && !!this.env.YOUTUBE_API_KEY,
     };
   }
 
   async hydrateFromStorage() {
-    this.state = hydrateStoredState(await this.ctx.storage.get("state"));
+    const storedWagerOps = await this.ctx.storage.get(WAGER_OPS_KEY);
+    this.state = hydrateStoredState(await this.ctx.storage.get("state"), storedWagerOps);
+    /* What the separate key holds now. A state still carrying its embedded
+       ledger migrates on the next write, in the same atomic put. */
+    this.persistedWagerOps = storedWagerOps === undefined ? null : JSON.stringify(storedWagerOps);
     this.version = (await this.ctx.storage.get("version")) || 0;
     this.gmToken = (await this.ctx.storage.get("gmToken")) || null;
+    this.gmTokens = (await this.ctx.storage.get(GM_TOKENS_KEY)) || {};
     this.claims = (await this.ctx.storage.get("claims")) || {}; // deviceId -> player
+    await this.momentDesk.load();
+  }
+
+  /* every frame's state: the tournament projection plus the photo desk's
+     public records (worker/publicState.js) */
+  serializer() {
+    return createStateSerializer(this.state, { moments:this.momentDesk?.index });
+  }
+
+  /* the id of the commissioner token presented, or null */
+  async gmTokenId(token) {
+    if (typeof token !== "string" || !token) return null;
+    for (const [id, record] of Object.entries(this.gmTokens || {}))
+      if (await secureTokenEqual(token, record?.token)) return id;
+    return this.gmToken && await secureTokenEqual(token, this.gmToken) ? "legacy" : null;
+  }
+
+  async revokeGmToken(id) {
+    if (id === "legacy") {
+      this.gmToken = null;
+      await this.ctx.storage.delete("gmToken");
+      this.dropGmSockets("legacy");
+      return true;
+    }
+    if (!this.gmTokens?.[id]) return false;
+    const next = { ...this.gmTokens };
+    delete next[id];
+    await this.ctx.storage.put(GM_TOKENS_KEY, next);
+    this.gmTokens = next;
+    this.dropGmSockets(id);
+    return true;
+  }
+
+  /* A revoked device stops receiving the commissioner view at once, not at
+     its next message. */
+  dropGmSockets(id) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      const meta = this.socketMeta(ws);
+      if (!meta.gm || meta.gmId !== id) continue;
+      this.setSocketMeta(ws, { ...meta, gm:false, gmId:null });
+      this.sendState(ws);
+    }
+  }
+
+  gmDeviceList(currentId) {
+    const devices = Object.entries(this.gmTokens || {})
+      .map(([id, record]) => ({ id, player:record?.player || null, createdAt:record?.createdAt || 0,
+        current:id === currentId }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+    if (this.gmToken) devices.push({ id:"legacy", player:null, createdAt:0, legacy:true, current:currentId === "legacy" });
+    return devices;
   }
 
   async fetch(req) {
@@ -84,7 +277,17 @@ export class Tournament {
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
+    /* D6 ballots: the GM token authors, a device claim answers (ahead of
+       /api/admin/, whose production auth is the snapshot token) */
+    if (url.pathname === "/api/admin/prompts" || url.pathname.startsWith("/api/admin/prompts/")
+        || url.pathname === "/api/prompts" || url.pathname.startsWith("/api/prompts/"))
+      return this.handlePrompts(req, url);
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
+    if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
+    if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
+      return this.momentDesk.handle(req, url);
+    if (url.pathname.startsWith("/api/geo/")) return this.handleGeo(req, url);
+    if (url.pathname.startsWith("/api/trivia/")) return this.handleTrivia(req, url);
 
     if (url.pathname.startsWith("/api/photo/")) {
       const player = decodeURIComponent(url.pathname.split("/").pop());
@@ -104,7 +307,7 @@ export class Tournament {
         let body;
         try { body = await req.json(); } catch { return Response.json({ ok: false, error: "Bad photo" }, { status: 400 }); }
         const { dataUrl, deviceId, gmToken } = body || {};
-        const isGm = await secureTokenEqual(gmToken, this.gmToken);
+        const isGm = !!await this.gmTokenId(gmToken);
         if ((!isActivePlayer(player) || this.claims[deviceId] !== player) && !isGm)
           return Response.json({ ok: false, error: "Not your profile" }, { status: 403 });
         if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/") || dataUrl.length > 120000)
@@ -123,13 +326,956 @@ export class Tournament {
     return new Response("Not found", { status: 404 });
   }
 
+  /* ── Where and When photos (shared/geo.js) ──
+     POST   /api/geo/photo         multipart { photo } (GM token): stored under
+                                   the photo desk's prefix (moment:geo:<id>),
+                                   so snapshots, restores and resets skip it
+     GET    /api/geo/photo/<id>    the commissioner always; anyone once its
+                                   round has been shown on the TV
+     DELETE /api/geo/round/<id>    the round and its photo (GM token) */
+  async handleGeo(req, url) {
+    const parts = url.pathname.split("/").filter(Boolean); // ["api","geo",kind,id?]
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const isGm = await this.adminGmToken(req);
+    if (parts[2] === "photo" && parts.length === 3 && req.method === "POST") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      if (Number(req.headers.get("Content-Length") || 0) > GEO_PHOTO_BYTES * 1.2)
+        return json({ ok:false, error:"That photo is too large" }, 413);
+      let form;
+      try { form = await req.formData(); } catch { return json({ ok:false, error:"That photo could not be read" }, 400); }
+      const file = form.get("photo");
+      const raw = file && typeof file.arrayBuffer === "function" ? new Uint8Array(await file.arrayBuffer()) : null;
+      if (!raw || raw.byteLength > GEO_PHOTO_BYTES) return json({ ok:false, error:"That photo is too large" }, 413);
+      /* a photo's own date and place would give the answer away */
+      const photo = stripJpegMetadata(raw);
+      const info = photo && jpegInfo(photo);
+      if (!info || Math.max(info.width, info.height) > 2048) return json({ ok:false, error:"That photo could not be read" }, 400);
+      const id = `g${Date.now().toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+      await this.ctx.storage.put(geoPhotoKey(id), photo);
+      return json({ ok:true, photo:{ id, w:info.width, h:info.height } });
+    }
+    if (parts[2] === "photo" && parts.length === 4 && req.method === "GET") {
+      const id = parts[3];
+      if (!geoPhotoId(id)) return new Response("Not found", { status:404 });
+      const shown = geoShownIds(this.state.geo).some(roundId =>
+        (this.state.geoRounds || []).find(round => round.id === roundId)?.photo?.id === id);
+      if (!shown && !isGm) return new Response("Not found", { status:404 });
+      const bytes = await this.ctx.storage.get(geoPhotoKey(id));
+      if (!bytes) return new Response("Not found", { status:404 });
+      return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
+        "Cache-Control":shown ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "round" && parts.length === 4 && req.method === "DELETE") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      const round = (this.state.geoRounds || []).find(item => item.id === parts[3]);
+      const result = await this.applyHttpAction("geoDeleteRound", { id:parts[3] }, { isGm:true });
+      if (result.ok && round?.photo?.id) await this.ctx.storage.delete(geoPhotoKey(round.photo.id));
+      return json(result, result.ok ? 200 : 409);
+    }
+    return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  /* ── Trivia (shared/trivia.js) ──
+     POST /api/trivia/photo          multipart { photo } (GM token): a picture
+                                     question's photo, EXIF stripped, stored
+                                     as moment:trivia:<id> outside state
+     GET  /api/trivia/photo/<id>     the commissioner always; anyone once its
+                                     question has been shown
+     GET  /api/trivia/bank           the built-in bank, answers and all (GM)
+     GET  /api/trivia/clip/<qid>     a tune's 30-second clip address (Deezer,
+                                     worker/previews.js): anyone once shown
+     GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM) */
+  async handleTrivia(req, url) {
+    const parts = url.pathname.split("/").filter(Boolean); // ["api","trivia",kind,id?]
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const isGm = await this.adminGmToken(req);
+    const game = this.state.trivia?.questions?.length ? this.state.trivia : null;
+    const shown = game ? game.questions.slice(0, game.index + 1) : [];
+    if (parts[2] === "photo" && parts.length === 3 && req.method === "POST") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      if (Number(req.headers.get("Content-Length") || 0) > GEO_PHOTO_BYTES * 1.2)
+        return json({ ok:false, error:"That photo is too large" }, 413);
+      let form;
+      try { form = await req.formData(); } catch { return json({ ok:false, error:"That photo could not be read" }, 400); }
+      const file = form.get("photo");
+      const raw = file && typeof file.arrayBuffer === "function" ? new Uint8Array(await file.arrayBuffer()) : null;
+      if (!raw || raw.byteLength > GEO_PHOTO_BYTES) return json({ ok:false, error:"That photo is too large" }, 413);
+      const photo = stripJpegMetadata(raw);
+      const info = photo && jpegInfo(photo);
+      if (!info || Math.max(info.width, info.height) > 2048) return json({ ok:false, error:"That photo could not be read" }, 400);
+      const id = `p${Date.now().toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+      await this.ctx.storage.put(triviaPhotoKey(id), photo);
+      return json({ ok:true, photo:{ id, w:info.width, h:info.height } });
+    }
+    if (parts[2] === "photo" && parts.length === 4 && req.method === "GET") {
+      const id = parts[3];
+      if (!triviaPhotoId(id)) return new Response("Not found", { status:404 });
+      const visible = shown.some(question => question.photo?.id === id);
+      if (!visible && !isGm) return new Response("Not found", { status:404 });
+      const bytes = await this.ctx.storage.get(triviaPhotoKey(id));
+      if (!bytes) return new Response("Not found", { status:404 });
+      return new Response(bytes, { headers:{ "Content-Type":"image/jpeg",
+        "Cache-Control":visible ? "public, max-age=86400" : "no-store" } });
+    }
+    if (parts[2] === "bank" && parts.length === 3 && req.method === "GET") {
+      if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+      return json({ ok:true, categories:bankForDesk() });
+    }
+    if (parts[2] === "clip" && req.method === "GET") {
+      let target = null;
+      if (parts.length === 4) {
+        const question = shown.find(item => item.id === parts[3])
+          || (isGm ? game?.questions.find(item => item.id === parts[3]) : null);
+        if (!question || question.format !== "tune" || !question.clip) return json({ ok:false, error:"Not found" }, 404);
+        target = question.clip;
+      } else if (parts.length === 3) {
+        if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
+        target = { title:(url.searchParams.get("title") || "").slice(0, 120), artist:(url.searchParams.get("artist") || "").slice(0, 120),
+          isrc:(url.searchParams.get("isrc") || "").toUpperCase() };
+        if (!target.title.trim()) return json({ ok:false, error:"No song" }, 400);
+      } else return json({ ok:false, error:"Not found" }, 404);
+      const found = await this.triviaClip(target);
+      return found ? json({ ok:true, url:found.url }) : json({ ok:false, error:"No clip" }, 404);
+    }
+    return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  /* A tune's clip: by ISRC, else title and artist, else the two as one
+     search. Answers (misses included) are kept a few minutes. */
+  async triviaClip({ title = "", artist = "", isrc = "" }) {
+    const key = `trivia|${isrc || ""}|${title}|${artist}`.toLowerCase();
+    this.previews = this.previews || previewCache();
+    let found = this.previews.get(key);
+    if (found !== undefined) return found;
+    const fetchImpl = this.previewFetch || fetch;
+    found = await findPreview({ isrc:/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(isrc) ? isrc : null, name:title, artist }, fetchImpl)
+      || await findPreview({ name:`${title} ${artist}`.trim() }, fetchImpl);
+    this.previews.set(key, found);
+    return found;
+  }
+
+  /* a commissioner token on an HTTP request (Bearer or the GM header) */
+  async adminGmToken(req) {
+    const auth = req.headers.get("Authorization") || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
+    return !!token && !!await this.gmTokenId(token);
+  }
+
+  /* One write from an HTTP request, on the same path a socket action takes:
+     the same reducer, persisted, then broadcast to every screen. */
+  async applyHttpAction(type, payload, { isGm = false, player = null, deviceId = null } = {}) {
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, type, payload, {
+      isGm, player, deviceId, actionId:null, environment:this.environment,
+      progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
+    });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast(type, nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"persist-failed", action:type,
+        error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false, error:"Couldn't save. Try again." };
+    }
+    return result;
+  }
+
+  /* ── D6 ballots over HTTP (docs/REFOUNDATION.md) ──
+     GET  /api/admin/prompts                 every ballot, drafts included (GM token)
+     POST /api/admin/prompts                 save a draft { ballot } (GM token)
+     POST /api/admin/prompts/:id/:command    publish, close, reopen, reveal { step }, end
+     DELETE /api/admin/prompts/:id           discard
+     GET  /api/admin/prompts/:id/results     revealed totals only
+     GET  /api/prompts                       published ballots for this device's player
+     POST /api/prompts/:id/responses         { questionId, choice } (device claim)
+     Both read the same per-viewer projection a frame carries: answers never
+     leave, and totals appear only after the TV reveals them. */
+  async handlePrompts(req, url) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const readBody = async () => {
+      if (Number(req.headers.get("Content-Length") || 0) > 16384) return null;
+      const text = await req.text();
+      if (text.length > 16384) return null;
+      if (!text) return {};
+      try { const parsed = JSON.parse(text); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null; }
+      catch { return null; }
+    };
+    const answer = result => result.ok
+      ? json({ ok:true, ...(result.extra?.unchanged ? { unchanged:true } : {}), ...(result.extra?.id ? { id:result.extra.id } : {}) })
+      : json({ ok:false, error:result.error }, 400);
+    const parts = url.pathname.split("/").filter(Boolean).slice(1).map(part => decodeURIComponent(part));
+    const admin = parts[0] === "admin";
+    const [, id = null, command = null, extra = null] = admin ? parts.slice(1) : parts;
+    if (extra !== null) return json({ ok:false, error:"Not found" }, 404);
+
+    if (admin) {
+      if (!await this.gmAuthorized(req)) return json({ ok:false, error:"Commissioner authentication required" }, 403);
+      const view = () => projectPrompts(this.state.prompts, { isGm:true });
+      if (!id) {
+        if (req.method === "GET") return json({ ok:true, ...view() });
+        if (req.method !== "POST") return json({ ok:false, error:"Method not allowed" }, 405);
+        const body = await readBody();
+        if (!body) return json({ ok:false, error:"Bad request" }, 400);
+        return answer(await this.applyHttpAction("promptSave", body.ballot || body, { isGm:true }));
+      }
+      if (req.method === "DELETE" && !command)
+        return answer(await this.applyHttpAction("promptDiscard", { id }, { isGm:true }));
+      if (req.method === "GET" && (command === "results" || !command)) {
+        const ballot = view().ballots.find(item => item.id === id);
+        if (!ballot) return json({ ok:false, error:"No such ballot" }, 404);
+        return json({ ok:true, ballot });
+      }
+      const types = { publish:"promptPublish", close:"promptClose", reopen:"promptReopen", reveal:"promptReveal",
+        end:"promptRevealEnd" };
+      if (req.method !== "POST" || !Object.hasOwn(types, command || "")) return json({ ok:false, error:"Not found" }, 404);
+      const body = await readBody();
+      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      return answer(await this.applyHttpAction(types[command], { id, ...(body.step !== undefined ? { step:body.step } : {}) },
+        { isGm:true }));
+    }
+
+    /* a guest is whoever this device claimed */
+    const deviceId = validDeviceId(req.headers.get("X-Field-Day-Device"));
+    const player = deviceId && isActivePlayer(this.claims[deviceId]) ? this.claims[deviceId] : null;
+    if (!player) return json({ ok:false, error:"Check in first" }, 403);
+    if (!id && req.method === "GET") {
+      const ballots = projectPrompts(this.state.prompts, { player }).ballots;
+      return json({ ok:true, ballots, pending:ballots.filter(ballot => ballot.status === "open").flatMap(ballot =>
+        ballot.questions.filter(question => !ballot.mine?.[question.id]).map(question => ({ ballotId:ballot.id,
+          questionId:question.id }))) });
+    }
+    if (id && command === "responses" && req.method === "POST") {
+      const body = await readBody();
+      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      return answer(await this.applyHttpAction("promptRespond",
+        { id, questionId:body.questionId, choice:body.choice ?? null }, { player, deviceId }));
+    }
+    return json({ ok:false, error:"Not found" }, 404);
+  }
+
+  async gmAuthorized(req) {
+    const auth = req.headers.get("Authorization") || "";
+    const token = auth.startsWith("Bearer ")
+      ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
+    return !!await this.gmTokenId(token);
+  }
+
+  spotifyRateLimit(deviceId, limit = SPOTIFY_SEARCH_LIMIT) {
+    const now = Date.now();
+    this.spotifySearches = this.spotifySearches || new Map();
+    const recent = (this.spotifySearches.get(deviceId) || [])
+      .filter(timestamp => now - timestamp < SPOTIFY_SEARCH_WINDOW_MS);
+    if (recent.length >= limit) return false;
+    recent.push(now);
+    this.spotifySearches.set(deviceId, recent);
+    return true;
+  }
+
+  async spotifySearchAuthorized(req) {
+    if (await this.gmAuthorized(req)) return { ok:true, key:"gm" };
+    const deviceId = req.headers.get("X-Field-Day-Device") || "";
+    return isActivePlayer(this.claims[deviceId])
+      ? { ok:true, key:`device:${deviceId}` }
+      : { ok:false, key:null };
+  }
+
+  async spotifyCatalogAccessToken() {
+    if (this.spotifyCatalogToken?.expiresAt > Date.now() + 30000)
+      return this.spotifyCatalogToken.accessToken;
+    this.spotifyCatalogToken = await requestClientToken(this.env);
+    return this.spotifyCatalogToken.accessToken;
+  }
+
+  async storeSpotifyOAuthState(state, redirectUri) {
+    const now = Date.now();
+    const existing = await this.ctx.storage.list({ prefix:SPOTIFY_STATE_PREFIX });
+    const stale = [...existing.entries()]
+      .filter(([, value]) => now - Number(value?.createdAt) > SPOTIFY_STATE_TTL_MS)
+      .map(([key]) => key);
+    const fresh = [...existing.entries()]
+      .filter(([key]) => !stale.includes(key))
+      .sort((left, right) => Number(left[1]?.createdAt) - Number(right[1]?.createdAt));
+    const excess = fresh.slice(0, Math.max(0, fresh.length - 4)).map(([key]) => key);
+    if (stale.length || excess.length) await this.ctx.storage.delete([...stale, ...excess]);
+    await this.ctx.storage.put(`${SPOTIFY_STATE_PREFIX}${state}`, {
+      createdAt:now,
+      redirectUri,
+    });
+  }
+
+  async spotifySession({ forceRefresh = false } = {}) {
+    let session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+    if (!session?.refreshToken && !session?.accessToken)
+      throw new SpotifyServiceError("Connect Spotify first",
+        { status:401, code:"not_connected" });
+    if (session.reauthorize)
+      throw new SpotifyServiceError(REAUTHORIZE_MESSAGE, { status:401, code:"reauthorize" });
+    if (forceRefresh || !(session.expiresAt > Date.now() + 30000)) {
+      /* one refresh at a time: concurrent cue taps share it rather than
+         spending the same refresh token twice */
+      if (!this.spotifyRefreshing) {
+        const current = session;
+        this.spotifyRefreshing = (async () => {
+          try {
+            const refreshed = await refreshAuthorization(this.env, current);
+            await this.ctx.storage.put(SPOTIFY_SESSION_KEY, refreshed);
+            return refreshed;
+          } catch (error) {
+            if (error instanceof SpotifyServiceError && error.code === "reauthorize")
+              await this.ctx.storage.put(SPOTIFY_SESSION_KEY, { ...current, reauthorize:true });
+            throw error;
+          } finally {
+            this.spotifyRefreshing = null;
+          }
+        })();
+      }
+      session = await this.spotifyRefreshing;
+    }
+    return session;
+  }
+
+  async spotifyUserApi(path, init = {}) {
+    let session = await this.spotifySession();
+    try {
+      return await spotifyApi(session.accessToken, path, init);
+    } catch (error) {
+      if (!(error instanceof SpotifyServiceError) || error.status !== 401) throw error;
+      session = await this.spotifySession({ forceRefresh:true });
+      return spotifyApi(session.accessToken, path, init);
+    }
+  }
+
+  /* An explicit speaker becomes the saved one; otherwise the saved one plays. */
+  async spotifySpeaker(requested) {
+    const saved = await this.ctx.storage.get(SPOTIFY_DEVICE_KEY);
+    const id = typeof requested === "string" && requested && requested.length <= 160
+      ? requested : saved?.id || "";
+    if (id && id !== saved?.id)
+      await this.ctx.storage.put(SPOTIFY_DEVICE_KEY, { id, name:null, savedAt:Date.now() });
+    return id;
+  }
+
+  /* Always aim at the chosen speaker. Spotify answers 404 when nothing is
+     active; transfer playback to the speaker and try exactly once more. */
+  async spotifyPlayOnSpeaker(deviceId, body) {
+    const play = () => this.spotifyUserApi(
+      `/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`,
+      { method:"PUT", body:JSON.stringify(body) },
+    );
+    try {
+      return await play();
+    } catch (error) {
+      if (!(error instanceof SpotifyServiceError) || error.status !== 404) throw error;
+      if (!deviceId)
+        throw new SpotifyServiceError("No speaker chosen. Choose one in Speaker",
+          { status:409, code:"no_device" });
+      await this.spotifyUserApi("/me/player", {
+        method:"PUT",
+        body:JSON.stringify({ device_ids:[deviceId], play:false }),
+      });
+      return play();
+    }
+  }
+
+  /* -- the walkout silence contract (shared/audio.js) --
+     Presentation state beside the scene, written only here: after a cue's
+     play succeeds, after the speaker confirms or loses the song, on pause,
+     and by the alarm at `until`. Its write is its own version and never part
+     of an official action; a failed write is logged and the request that
+     caused it still answers with Spotify's outcome. */
+  async setWalkout(walkout, reason) {
+    const current = walkoutOf(this.state);
+    if (sameWalkout(current, walkout)) return current;
+    const nextState = structuredClone(this.state);
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    /* a song that plays settles any earlier miss */
+    const audio = { ...(control.audio || {}), walkout:walkout || null };
+    if (walkout) delete audio.miss;
+    nextState.showControl = { ...control, audio };
+    try {
+      await this.persistAndBroadcast(reason, nextState);
+    } catch (error) {
+      console.error(JSON.stringify({ event:"walkout-write-failed", reason,
+        error:String(error?.message || error).slice(0, 300) }));
+      return current;
+    }
+    if (walkout) await this.scheduleAlarm();
+    return walkout;
+  }
+
+  /* A win song that should have played and did not: the commissioner sees
+     why and can retry (showControl.audio.miss, presentation only). */
+  async setSongMiss(song, error) {
+    const status = error?.status, code = String(error?.code || "");
+    const reason = code === "not_connected" ? "Spotify isn't connected"
+      : code === "reauthorize" || status === 401 ? REAUTHORIZE_MESSAGE
+      : code === "PREMIUM_REQUIRED" ? "Spotify Premium is required"
+      : status === 404 || code === "no_device" || code === "NO_ACTIVE_DEVICE" ? "The speaker is offline. Open Spotify on it"
+      : status === 429 ? "Spotify is busy. Retry in a moment"
+      : "Spotify didn't answer";
+    const nextState = structuredClone(this.state);
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    nextState.showControl = { ...control, audio:{ ...(control.audio || {}), miss:{
+      player:song.player, key:song.key, mvp:song.mvp === true, whole:song.clipMs === null, reason, at:Date.now(),
+    } } };
+    try { await this.persistAndBroadcast("walkoutMiss", nextState); }
+    catch (writeError) {
+      console.error(JSON.stringify({ event:"walkout-miss-write-failed", error:String(writeError?.message || writeError).slice(0, 200) }));
+    }
+  }
+
+  /* The object's one alarm serves two clocks: a walkout's `until` and an
+     open team MVP vote's `closesAt`. It is set for whichever comes first. */
+  async scheduleAlarm() {
+    const times = [];
+    const walkout = walkoutOf(this.state);
+    /* a win song starts fading out before its end */
+    if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
+      : walkout.until + 250);
+    const deadline = nextMvpDeadline(this.state);
+    if (deadline !== null) times.push(deadline);
+    if (!times.length) return;
+    try { await this.ctx.storage.setAlarm?.(Math.min(...times)); } catch {}
+  }
+
+  /* An MVP vote whose minute is up closes in its own write, like a
+     commissioner's close, and its winner's song follows. */
+  async closeDueMvps(now) {
+    const due = mvpDue(this.state, now);
+    if (!due.length) return;
+    const before = this.state;
+    const nextState = structuredClone(this.state);
+    for (const evId of due)
+      applyAction(nextState, "mvpClose", { evId }, { isGm:true, player:null, deviceId:null, actionId:null,
+        environment:this.environment });
+    try {
+      await this.persistAndBroadcast("mvpClose", nextState);
+    } catch (error) {
+      console.error(JSON.stringify({ event:"mvp-close-failed", error:String(error?.message || error).slice(0, 300) }));
+      return;
+    }
+    this.queueWinSong(before, this.state, "mvpClose");
+  }
+
+  /* an action that rebuilt showControl (a progress reset or a QA jump) does
+     not stop the song on the speaker, so a live walkout stays */
+  carryWalkout(nextState) {
+    const live = walkoutLive(this.state, Date.now());
+    if (!live || walkoutOf(nextState)) return;
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    nextState.showControl = { ...control, audio:{ ...(control.audio || {}), walkout:live } };
+  }
+
+  /* the alarm: close MVP votes whose time is up, clear a walkout once its
+     song is over (ending a win song's clip on the speaker), then re-arm for
+     whatever is still waiting */
+  async alarm() {
+    await this.closeDueMvps(Date.now());
+    const walkout = walkoutOf(this.state);
+    if (walkout && Date.now() >= (walkout.auto ? walkout.until - WIN_FADE_OUT_MS : walkout.until)) {
+      if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
+      /* a newer song may have replaced this one while it faded */
+      if (walkoutOf(this.state)?.startedAt === walkout.startedAt) await this.setWalkout(null, "walkoutEnded");
+    }
+    await this.scheduleAlarm();
+  }
+
+  /* One lane for everything a win song does on the speaker (start and fade
+     in, fade out and stop), so a fade never runs over the next song. */
+  songQueue(task) {
+    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(() => null);
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  wait(ms) { return this.sleep ? this.sleep(ms) : new Promise(resolve => setTimeout(resolve, ms)); }
+
+  async spotifyVolume(percent, deviceId) {
+    const level = Math.max(0, Math.min(100, Math.round(percent)));
+    await this.spotifyUserApi(`/me/player/volume?volume_percent=${level}${deviceId ? `&device_id=${encodeURIComponent(deviceId)}` : ""}`,
+      { method:"PUT" });
+  }
+
+  /* a fade is WIN_FADE_STEPS volume calls spread over `ms` */
+  async rampVolume(from, to, ms, deviceId) {
+    for (let step = 1; step <= WIN_FADE_STEPS; step++) {
+      await this.spotifyVolume(from + (to - from) * step / WIN_FADE_STEPS, deviceId);
+      if (step < WIN_FADE_STEPS) await this.wait(ms / WIN_FADE_STEPS);
+    }
+  }
+
+  /* Fade the speaker out over `fadeMs` and pause it, only while it still
+     plays this song (a track someone started since is left alone), then put
+     the volume back where the room had it. A speaker that refuses volume
+     just stops. Never throws. */
+  async stopWinSong(walkout, fadeMs = 0) {
+    try {
+      const playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player"));
+      if (!playback?.playing || (walkout.trackId && playback.track?.trackId !== walkout.trackId)) return false;
+      const device = playback.device;
+      const speaker = device?.id || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
+      const fades = !!device?.supportsVolume && Number(device.volume) > 0 && fadeMs > 0;
+      if (fades) {
+        try { await this.rampVolume(device.volume, 0, fadeMs, speaker); } catch {}
+      }
+      await this.spotifyUserApi(`/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
+        { method:"PUT" });
+      const saved = await this.ctx.storage.get(SPOTIFY_FADE_KEY);
+      const restore = saved?.trackId === walkout.trackId && Number(saved.volume) >= WIN_LEVEL_FLOOR ? saved.volume
+        : await this.roomLevel(device);
+      if (device?.supportsVolume && Number(restore) > 0) {
+        try { await this.spotifyVolume(restore, speaker); }
+        catch (error) {
+          /* the next song's start puts the level back from SPOTIFY_LEVEL_KEY */
+          console.error(JSON.stringify({ event:"win-song-restore-failed", error:String(error?.message || error).slice(0, 200) }));
+        }
+      }
+      await this.ctx.storage.delete(SPOTIFY_FADE_KEY);
+      return true;
+    } catch (error) {
+      console.error(JSON.stringify({ event:"win-song-stop-failed",
+        error:String(error?.message || error).slice(0, 300) }));
+      return false;
+    }
+  }
+
+  /* Start a win song at silence and bring it up to the room's level. The
+     level is the speaker's own before the song (or the one a fade that was
+     cut short meant to restore). A speaker that refuses volume, or one that
+     is not awake yet, plays at its level with no fade. */
+  /* The room's level: the speaker's own volume whenever it is read settled
+     (no win song of ours mid-fade) and audible, remembered for good. A
+     speaker read at or near silence (a fade-out whose restore the speaker
+     refused) is never taken as the room's level. */
+  async roomLevel(device) {
+    const inSong = await this.ctx.storage.get(SPOTIFY_FADE_KEY);
+    if (Number(inSong?.volume) >= WIN_LEVEL_FLOOR) return inSong.volume;
+    const volume = Number(device?.volume);
+    if (device?.supportsVolume && volume >= WIN_LEVEL_FLOOR) {
+      await this.ctx.storage.put(SPOTIFY_LEVEL_KEY, volume);
+      return volume;
+    }
+    const stored = Number(await this.ctx.storage.get(SPOTIFY_LEVEL_KEY));
+    return stored >= WIN_LEVEL_FLOOR ? stored : WIN_LEVEL_DEFAULT;
+  }
+
+  async startWinSong(song) {
+    const speaker = await this.spotifySpeaker("");
+    let before = null;
+    try { before = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
+    const device = before?.device;
+    const level = await this.roomLevel(device);
+    let fade = device?.id && device.supportsVolume && (!speaker || device.id === speaker)
+      ? { device:device.id, volume:level } : null;
+    if (fade) { try { await this.spotifyVolume(0, fade.device); } catch { fade = null; } }
+    try {
+      await this.spotifyPlayOnSpeaker(speaker, { uris:[song.track.uri], position_ms:song.track.startMs || 0 });
+    } catch (error) {
+      if (fade) { try { await this.spotifyVolume(fade.volume, fade.device); } catch {} }
+      throw error;
+    }
+    await this.stampWalkout({ uri:song.track.uri, player:song.player, positionMs:song.track.startMs || 0,
+      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true, mvp:song.mvp === true });
+    if (!fade) {
+      /* a speaker that was asleep: now that it plays, make sure it is not
+         sitting at the silence a refused restore left */
+      try {
+        const now = compactSpotifyPlayback(await this.spotifyUserApi("/me/player"))?.device;
+        if (now?.supportsVolume && Number(now.volume) < WIN_LEVEL_FLOOR) await this.spotifyVolume(level, now.id || speaker);
+      } catch {}
+      return;
+    }
+    await this.ctx.storage.put(SPOTIFY_FADE_KEY, { trackId:song.track.trackId, volume:fade.volume, device:fade.device });
+    try { await this.rampVolume(0, fade.volume, WIN_FADE_IN_MS, fade.device); }
+    catch { try { await this.spotifyVolume(fade.volume, fade.device); } catch {} }
+  }
+
+  /* ── win songs (worker/winSong.js) ──
+     After a write persisted and broadcast, the win it recorded plays the
+     winner's saved song on the chosen speaker; a write that takes the win
+     back stops it. Serialized, best effort, never holds up or fails a write,
+     and silent when Spotify is not connected. */
+  queueWinSong(before, after, type) {
+    if (!this.capabilities.audioPlayback) return null;
+    let song = null;
+    try { song = winSongFor(before, after); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"win-song-select-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    const takeBack = !song && WIN_SONG_STOP_ACTIONS.has(type);
+    if (!song && !takeBack) return null;
+    return this.songQueue(async () => {
+      if (await this.ctx.storage.get(SPOTIFY_AUTO_KEY) === false) return;
+      const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+      const connected = !!(session?.refreshToken || session?.accessToken) && !session.reauthorize;
+      if (takeBack) {
+        const live = walkoutLive(this.state, Date.now());
+        if (connected && live?.auto && await this.stopWinSong(live, WIN_FADE_STOP_MS)) await this.setWalkout(null, "walkoutStop");
+        return;
+      }
+      if (this.lastWinSong === song.key) return;
+      this.lastWinSong = song.key;
+      if (!connected) {
+        await this.setSongMiss(song, { code:session?.reauthorize ? "reauthorize" : "not_connected" });
+        return;
+      }
+      await this.playWinSong(song);
+    });
+  }
+
+  /* start a win song, and on failure say so where the commissioner looks */
+  async playWinSong(song) {
+    try {
+      await this.startWinSong(song);
+      return { ok:true };
+    } catch (error) {
+      console.error(JSON.stringify({ event:"win-song-play-failed",
+        error:String(error?.message || error).slice(0, 300) }));
+      await this.setSongMiss(song, error);
+      return { ok:false, error:this.state.showControl?.audio?.miss?.reason || "Spotify didn't answer" };
+    }
+  }
+
+  /* the commissioner's Retry on a missed win song: the same player's saved
+     song, the same length, as a fresh play */
+  async retryWinSong() {
+    const miss = this.state.showControl?.audio?.miss;
+    const track = miss?.player ? this.state.profiles?.[miss.player]?.walkoutTrack : null;
+    if (!miss || !track) return { ok:false, error:"Nothing to retry" };
+    const song = { player:miss.player, track, clipMs:miss.whole ? null : WIN_SONG_CLIP_MS,
+      key:`${miss.key}:retry:${Date.now()}`, mvp:miss.mvp === true };
+    return this.songQueue(() => this.playWinSong(song));
+  }
+
+  /* a player's saved cue for this track, when exactly one player saved it */
+  walkoutPlayerFor(trackId) {
+    if (!trackId) return null;
+    const owners = Object.entries(this.state.profiles || {})
+      .filter(([player, profile]) => isActivePlayer(player) && profile?.walkoutTrack?.trackId === trackId)
+      .map(([player]) => player);
+    return owners.length === 1 ? owners[0] : null;
+  }
+
+  /* Called only after Spotify accepted the play. A cue's length comes from
+     the player's saved track; a search result sends its own; a resume reads
+     the speaker once and otherwise assumes the longest walkout. Never throws:
+     the song is already playing. */
+  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false, mvp = false }) {
+    const startedAt = Date.now();
+    try {
+      if (uri) {
+        const trackId = uri.match(SPOTIFY_TRACK_URI)?.[1] || null;
+        const saved = player ? this.state.profiles?.[player]?.walkoutTrack : null;
+        const length = saved?.trackId === trackId ? saved.durationMs : durationMs;
+        return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs,
+          clipMs, auto, mvp }), "walkoutStart");
+      }
+      let playback = null;
+      try { playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
+      const trackId = playback?.track?.trackId || null;
+      return await this.setWalkout(buildWalkout({
+        player:player || this.walkoutPlayerFor(trackId),
+        trackId,
+        startedAt,
+        durationMs:playback?.track?.durationMs,
+        positionMs:playback?.progressMs || 0,
+      }), "walkoutStart");
+    } catch (error) {
+      console.error(JSON.stringify({ event:"walkout-stamp-failed",
+        error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    }
+  }
+
+  spotifyCallbackRedirect(req, status) {
+    const url = new URL(req.url);
+    url.pathname = "/";
+    url.search = "";
+    url.searchParams.set("spotify", status);
+    return Response.redirect(url.toString(), 302);
+  }
+
+  async handleSpotify(req, url) {
+    const catalogFlag = this.env.M2_AUDIO_CATALOG_ENABLED === "true";
+    const playbackFlag = this.env.M2_AUDIO_PLAYBACK_ENABLED === "true";
+    if (!catalogFlag && !playbackFlag) return new Response("Not found", { status:404 });
+
+    if (url.pathname === "/api/spotify/callback" && req.method === "GET") {
+      if (!playbackFlag) return this.spotifyCallbackRedirect(req, "disabled");
+      const stateId = url.searchParams.get("state") || "";
+      const stateKey = `${SPOTIFY_STATE_PREFIX}${stateId}`;
+      const pending = stateId ? await this.ctx.storage.get(stateKey) : null;
+      if (stateId) await this.ctx.storage.delete(stateKey);
+      if (!pending || Date.now() - Number(pending.createdAt) > SPOTIFY_STATE_TTL_MS)
+        return this.spotifyCallbackRedirect(req, "invalid_state");
+      if (url.searchParams.get("error"))
+        return this.spotifyCallbackRedirect(req, "denied");
+      const code = url.searchParams.get("code") || "";
+      if (!code || code.length > 2048)
+        return this.spotifyCallbackRedirect(req, "error");
+      try {
+        const token = await exchangeAuthorizationCode(this.env, {
+          code,
+          redirectUri:pending.redirectUri,
+        });
+        const account = await spotifyApi(token.accessToken, "/me");
+        await this.ctx.storage.put(SPOTIFY_SESSION_KEY, {
+          ...token,
+          account:{
+            id:String(account?.id || "").slice(0, 100),
+            displayName:String(account?.display_name || account?.id || "Spotify").slice(0, 100),
+            product:String(account?.product || "unknown").slice(0, 30),
+          },
+          connectedAt:Date.now(),
+        });
+        return this.spotifyCallbackRedirect(req, "connected");
+      } catch {
+        return this.spotifyCallbackRedirect(req, "error");
+      }
+    }
+
+    /* the Win song picker's on-phone clip (worker/previews.js) */
+    if (url.pathname === "/api/spotify/preview" && req.method === "GET") {
+      if (!catalogFlag) return new Response("Not found", { status:404 });
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      const isrc = (url.searchParams.get("isrc") || "").toUpperCase();
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      if (!/^[A-Z]{2}[A-Z0-9]{3}\d{7}$/.test(isrc) && !name.trim())
+        return spotifyJson({ ok:false, error:"No song to preview" }, 400);
+      const key = isrc || `${name}|${artist}`.toLowerCase();
+      this.previews = this.previews || previewCache();
+      let found = this.previews.get(key);
+      if (found === undefined) {
+        if (!this.spotifyRateLimit(`preview:${authorized.key}`, PREVIEW_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
+        found = await findPreview({ isrc:isrc || null, name, artist }, this.previewFetch || fetch);
+        this.previews.set(key, found);
+      }
+      return found ? spotifyJson({ ok:true, url:found.url }) : spotifyJson({ ok:false, error:"No preview for this song" }, 404);
+    }
+
+    /* the song's album upload on YouTube, looked up once and kept */
+    if (url.pathname === "/api/spotify/snippet" && req.method === "GET") {
+      if (!this.capabilities.songSnippets) return spotifyJson({ ok:false, error:"Snippet preview is not set up" }, 503);
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      const trackId = url.searchParams.get("trackId") || "";
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      const durationMs = Math.floor(Number(url.searchParams.get("durationMs")) || 0);
+      if (!/^[A-Za-z0-9]{22}$/.test(trackId) || !name.trim() || durationMs < 1000)
+        return spotifyJson({ ok:false, error:"No song to preview" }, 400);
+      const storeKey = `${SNIPPET_KEY_PREFIX}${trackId}`;
+      let saved = await this.ctx.storage.get(storeKey);
+      if (!saved || (!saved.videoId && Date.now() - Number(saved.at) > SNIPPET_MISS_MS)) {
+        if (!this.spotifyRateLimit(`snippet:${authorized.key}`, SNIPPET_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
+        try {
+          const found = await findAlbumUpload({ name, artist, durationMs }, this.env.YOUTUBE_API_KEY,
+            this.youtubeFetch || fetch);
+          saved = { videoId:found?.videoId || null, at:Date.now() };
+          await this.ctx.storage.put(storeKey, saved);
+        } catch (error) {
+          console.error(JSON.stringify({ event:"snippet-lookup-failed", error:String(error?.message || error).slice(0, 200) }));
+          return spotifyJson({ ok:false, error:"YouTube did not answer. Try again" }, 502);
+        }
+      }
+      return saved.videoId ? spotifyJson({ ok:true, videoId:saved.videoId })
+        : spotifyJson({ ok:false, error:"No matching album version on YouTube" }, 404);
+    }
+
+    if (url.pathname === "/api/spotify/search" && req.method === "GET") {
+      if (!catalogFlag) return new Response("Not found", { status:404 });
+      const authorized = await this.spotifySearchAuthorized(req);
+      if (!authorized.ok)
+        return spotifyJson({ ok:false, error:"Check in first" }, 403);
+      if (!this.spotifyRateLimit(authorized.key))
+        return spotifyJson({ ok:false, error:"Too many searches; wait a minute", retryAfter:60 }, 429);
+      const query = (url.searchParams.get("q") || "").trim().replace(/\s+/g, " ");
+      if (query.length < 2 || query.length > 80)
+        return spotifyJson({ ok:false, error:"Search must be 2 to 80 characters" }, 400);
+      try {
+        const accessToken = await this.spotifyCatalogAccessToken();
+        return spotifyJson({ ok:true, tracks:await searchSpotifyTracks(accessToken, query) });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (!await this.gmAuthorized(req))
+      return spotifyJson({ ok:false, error:"Commissioner authentication required" }, 403);
+
+    if (url.pathname === "/api/spotify/status" && req.method === "GET") {
+      const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
+      let redirectUri = null;
+      try { redirectUri = spotifyRedirectUri(req, this.env); } catch {}
+      const hasTokens = !!(session?.refreshToken || session?.accessToken);
+      const device = hasTokens ? await this.ctx.storage.get(SPOTIFY_DEVICE_KEY) : null;
+      return spotifyJson({
+        ok:true,
+        configured:spotifyConfigured(this.env),
+        /* a revoked grant is not a connection, whatever tokens remain */
+        connected:hasTokens && !session.reauthorize,
+        account:session?.account || null,
+        redirectUri,
+        catalogEnabled:catalogFlag,
+        playbackEnabled:playbackFlag,
+        ...(hasTokens ? {
+          autoWinSongs:await this.ctx.storage.get(SPOTIFY_AUTO_KEY) !== false,
+          reconnect:!!session.reauthorize,
+          ...(session.reauthorize ? { error:REAUTHORIZE_MESSAGE } : {}),
+          premium:session.account?.product ? session.account.product === "premium" : null,
+          device:device?.id ? { id:device.id, name:device.name || null } : null,
+        } : {}),
+      });
+    }
+
+    if (!playbackFlag) return new Response("Not found", { status:404 });
+
+    if (url.pathname === "/api/spotify/authorize" && req.method === "POST") {
+      if (!spotifyConfigured(this.env))
+        return spotifyJson({ ok:false, error:"Spotify credentials are not configured" }, 503);
+      try {
+        const redirectUri = spotifyRedirectUri(req, this.env);
+        const state = `${crypto.randomUUID()}${crypto.randomUUID()}`.replaceAll("-", "");
+        await this.storeSpotifyOAuthState(state, redirectUri);
+        return spotifyJson({
+          ok:true,
+          authorizationUrl:spotifyAuthorizeUrl({
+            clientId:this.env.SPOTIFY_CLIENT_ID,
+            redirectUri,
+            state,
+          }),
+        });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/disconnect" && req.method === "POST") {
+      const pending = await this.ctx.storage.list({ prefix:SPOTIFY_STATE_PREFIX });
+      await this.ctx.storage.delete([SPOTIFY_SESSION_KEY, ...pending.keys()]);
+      return spotifyJson({ ok:true });
+    }
+
+    if (url.pathname === "/api/spotify/auto" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      if (typeof body?.on !== "boolean") return spotifyJson({ ok:false, error:"Choose on or off" }, 400);
+      await this.ctx.storage.put(SPOTIFY_AUTO_KEY, body.on);
+      return spotifyJson({ ok:true, autoWinSongs:body.on });
+    }
+
+    if (url.pathname === "/api/spotify/device" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      const id = typeof body?.deviceId === "string" ? body.deviceId : "";
+      if (!id || id.length > 160)
+        return spotifyJson({ ok:false, error:"Choose a speaker" }, 400);
+      const device = { id, name:typeof body?.name === "string" ? body.name.slice(0, 100) : null,
+        savedAt:Date.now() };
+      await this.ctx.storage.put(SPOTIFY_DEVICE_KEY, device);
+      return spotifyJson({ ok:true, device:{ id:device.id, name:device.name } });
+    }
+
+    if (url.pathname === "/api/spotify/player" && req.method === "GET") {
+      try {
+        const [deviceBody, playbackBody] = await Promise.all([
+          this.spotifyUserApi("/me/player/devices"),
+          this.spotifyUserApi("/me/player"),
+        ]);
+        const playback = compactSpotifyPlayback(playbackBody);
+        /* the speaker is the truth: a walkout ends when its song stops */
+        const stored = walkoutOf(this.state);
+        const walkout = stored
+          ? await this.setWalkout(reconcileWalkout(stored, playback, Date.now()), "walkoutSync")
+          : null;
+        return spotifyJson({
+          ok:true,
+          devices:(deviceBody?.devices || []).map(compactSpotifyDevice).filter(Boolean),
+          playback,
+          walkout,
+        });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/play" && req.method === "POST") {
+      let body;
+      try { body = await req.json(); } catch {
+        return spotifyJson({ ok:false, error:"Invalid playback request" }, 400);
+      }
+      const uri = typeof body?.uri === "string" ? body.uri : null;
+      if (uri && !/^spotify:track:[A-Za-z0-9]{22}$/.test(uri))
+        return spotifyJson({ ok:false, error:"Invalid Spotify track" }, 400);
+      const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
+        ? body.deviceId : "";
+      const positionMs = Math.max(0, Math.min(12 * 60 * 60 * 1000,
+        Math.floor(Number(body?.positionMs) || 0)));
+      const cuePlayer = body?.player === undefined || body?.player === null ? null : body.player;
+      if (cuePlayer !== null && !isActivePlayer(cuePlayer))
+        return spotifyJson({ ok:false, error:"Invalid player" }, 400);
+      try {
+        const speaker = await this.spotifySpeaker(deviceId);
+        await this.spotifyPlayOnSpeaker(speaker,
+          uri ? { uris:[uri], position_ms:positionMs } : {});
+        const walkout = await this.stampWalkout({ uri, player:cuePlayer, positionMs,
+          durationMs:body?.durationMs });
+        return spotifyJson({ ok:true, deviceId:speaker || null, walkout });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    if (url.pathname === "/api/spotify/retry" && req.method === "POST") {
+      const result = await this.retryWinSong();
+      return spotifyJson(result || { ok:false, error:"Spotify didn't answer" }, result?.ok ? 200 : 409);
+    }
+
+    if (url.pathname === "/api/spotify/pause" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      const deviceId = typeof body?.deviceId === "string" && body.deviceId.length <= 160
+        ? body.deviceId : "";
+      try {
+        /* Stop on a win song fades it out in a second; anything else pauses */
+        const live = walkoutLive(this.state, Date.now());
+        const faded = live?.auto && !deviceId
+          ? await this.songQueue(() => this.stopWinSong(live, WIN_FADE_STOP_MS)) : false;
+        if (!faded) {
+          const speaker = deviceId || (await this.ctx.storage.get(SPOTIFY_DEVICE_KEY))?.id || "";
+          await this.spotifyUserApi(
+            `/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`,
+            { method:"PUT" },
+          );
+        }
+        await this.setWalkout(null, "walkoutStop");
+        return spotifyJson({ ok:true, walkout:null });
+      } catch (error) {
+        const failure = publicSpotifyError(error);
+        return spotifyJson(failure.body, failure.status);
+      }
+    }
+
+    return new Response("Not found", { status:404 });
+  }
+
   async adminAuthorized(req) {
     const auth = req.headers.get("Authorization") || "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : req.headers.get("X-Field-Day-GM-Token");
-    const expected = this.environment === "production"
-      ? this.env.SNAPSHOT_ADMIN_TOKEN
-      : this.gmToken;
-    return secureTokenEqual(token, expected);
+    if (this.environment !== "production") return !!await this.gmTokenId(token);
+    return secureTokenEqual(token, this.env.SNAPSHOT_ADMIN_TOKEN);
   }
 
   async readBoundedJson(req) {
@@ -142,14 +1288,23 @@ export class Tournament {
     catch { throw new Error("Malformed JSON"); }
   }
 
-  async createSnapshot() {
-    const entries = await this.ctx.storage.list();
-    /* Fresh local objects may not have written their default state yet. The
-       in-memory authority still has a complete logical value for each required
-       key, so export it without mutating storage. */
-    if (!entries.has("state")) entries.set("state", this.state);
+  /* Fresh local objects may not have written their default state yet. The
+     in-memory authority still has a complete logical value for each required
+     key, so export it (in its stored shape) without mutating storage. */
+  withInMemoryDefaults(entries) {
+    if (!entries.has("state")) {
+      const split = splitStoredState(this.state);
+      entries.set("state", split.state);
+      if (!entries.has(WAGER_OPS_KEY) && Object.keys(split.wagerOps).length)
+        entries.set(WAGER_OPS_KEY, split.wagerOps);
+    }
     if (!entries.has("version")) entries.set("version", this.version);
     if (!entries.has("claims")) entries.set("claims", this.claims);
+    return entries;
+  }
+
+  async createSnapshot() {
+    const entries = this.withInMemoryDefaults(await this.ctx.storage.list());
     return buildSnapshot(entries, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -159,10 +1314,7 @@ export class Tournament {
 
   async restoreValidatedSnapshot(snapshot, checked) {
     const current = await this.ctx.storage.list();
-    const backupSource = new Map(current);
-    if (!backupSource.has("state")) backupSource.set("state", this.state);
-    if (!backupSource.has("version")) backupSource.set("version", this.version);
-    if (!backupSource.has("claims")) backupSource.set("claims", this.claims);
+    const backupSource = this.withInMemoryDefaults(new Map(current));
     const backup = buildSnapshot(backupSource, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -239,6 +1391,12 @@ export class Tournament {
         "X-Field-Day-Environment": this.environment,
       }});
     }
+
+    /* the photo desk's own export (not part of a portable snapshot) */
+    if (url.pathname === "/api/admin/moments" && req.method === "GET")
+      return Response.json(this.momentDesk.adminIndex(), { headers:{ "Cache-Control":"no-store" } });
+    if (url.pathname.startsWith("/api/admin/moments/") && req.method === "GET")
+      return this.momentDesk.read(req, url.pathname.split("/").pop(), false, { admin:true });
 
     if (url.pathname === "/api/admin/snapshot/validate" && req.method === "POST") {
       let snapshot;
@@ -317,19 +1475,151 @@ export class Tournament {
     return new Response("Not found", { status: 404 });
   }
 
+  /* ── connection identity ──
+     A socket is bound to the device id it first presents (its hello). The
+     binding lives in the hibernation attachment so it survives eviction; the
+     WeakMap covers test sockets and runtimes without attachments. */
+  socketMeta(ws) {
+    let meta = null;
+    try { meta = ws?.deserializeAttachment?.() ?? null; } catch {}
+    if (!meta || typeof meta !== "object") meta = this.socketFallback.get(ws) || null;
+    return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
+      gmId:typeof meta?.gmId === "string" ? meta.gmId : null,
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+  }
+
+  setSocketMeta(ws, meta) {
+    const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
+      gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null,
+      fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+    try { ws?.serializeAttachment?.(clean); } catch {}
+    if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
+    return clean;
+  }
+
+  /* The one place a connection's commissioner view is decided. It mirrors the
+     action check below; if GM tokens change shape, change both together. */
+  async messageIsGm(gmToken) {
+    return !!await this.gmTokenId(gmToken);
+  }
+
+  /* The commissioner's TV check: every TV socket's own sound report and
+     how long since it last spoke. Presence only: never stored, never in a
+     snapshot, and only in commissioner frames (stateFrame, sendTvs). */
+  tvSummary(skip = null, now = Date.now()) {
+    const tvs = [];
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip) continue;
+      const meta = this.socketMeta(ws);
+      if (!meta.tv) continue;
+      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)) });
+    }
+    return tvs;
+  }
+
+  /* a TV spoke (hello, ping, presence) or left: tell commissioner sockets */
+  sendTvs(skip = null) {
+    let tvs = null;
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip) continue;
+      const meta = this.socketMeta(ws);
+      if (!this.viewerFor(meta).isGm) continue;
+      tvs ||= this.tvSummary(skip);
+      try { ws.send(JSON.stringify({ type:"tvs", tvs })); } catch {}
+    }
+  }
+
+  viewerFor(meta) {
+    if (meta?.tv) return { isGm:false, player:null };
+    const claimed = meta?.deviceId ? this.claims[meta.deviceId] : null;
+    return { isGm:meta?.gm === true, player:isActivePlayer(claimed) ? claimed : null };
+  }
+
+  rememberApplied(deviceId, actionId) {
+    if (!deviceId || typeof actionId !== "string" || !actionId || actionId.length > 120) return;
+    const list = (this.appliedActions.get(deviceId) || []).filter(id => id !== actionId);
+    list.push(actionId);
+    this.appliedActions.set(deviceId, list.slice(-APPLIED_ACTION_LIMIT));
+  }
+
+  stateFrame(ws, serialize, extra = {}, shared = null) {
+    const meta = this.socketMeta(ws);
+    const viewer = this.viewerFor(meta);
+    const capabilities = shared?.capabilities ?? this.capabilities;
+    const head = JSON.stringify({
+      type:"state",
+      version:this.version,
+      ...extra,
+      you:viewer.player,
+      /* whether this connection currently holds a commissioner view, so a
+         phone whose token was revoked leaves its commissioner screens */
+      ...(meta.deviceId ? { gm:viewer.isGm } : {}),
+      /* the commissioner's TV check (presence, never state) */
+      ...(viewer.isGm ? { tvs:this.tvSummary() } : {}),
+      environment:shared?.environment ?? this.environment,
+      capabilities,
+      /* the VAPID public key a phone subscribes with; public by nature */
+      ...(capabilities.push ? { pushKey:this.vapid.publicKey } : {}),
+      build:BUILD_ID,
+      boot:this.bootId,
+      applied:meta.deviceId ? this.appliedActions.get(meta.deviceId) || [] : [],
+      /* send time, so every screen shares one clock (src/lib/serverClock.js) */
+      serverNow:Date.now(),
+    });
+    return `${head.slice(0, -1)},"state":${serialize(viewer)}}`;
+  }
+
+  sendState(ws, extra = {}) {
+    try { ws.send(this.stateFrame(ws, this.serializer(), extra)); } catch {}
+  }
+
   async webSocketMessage(ws, raw) {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
-    const { actionId, type, payload, deviceId, gmToken } = msg;
+    if (!msg || typeof msg !== "object" || Array.isArray(msg)) return;
+    const { actionId, type, payload, gmToken } = msg;
     const reply = obj => { try { ws.send(JSON.stringify({ type: "ack", actionId, ...obj })); } catch {} };
 
+    /* Trust only the device id this socket was bound to. A different id on a
+       later message is someone else's identity, never a re-bind. */
+    let meta = this.socketMeta(ws);
+    const presented = validDeviceId(msg.deviceId);
+    if (meta.deviceId && presented && presented !== meta.deviceId) {
+      if (type === "hello" || type === "ping" || type === "presence") return;
+      return reply({ ok:false, error:"This connection belongs to another device. Reload." });
+    }
+    if (!meta.deviceId && presented) meta = this.setSocketMeta(ws, { ...meta, deviceId:presented });
+    const deviceId = meta.deviceId;
+
+    /* Presence rides hello, ping and a hidden notice: a phone looking at
+       the app gets no pocket alert. A client that never says is foreground. */
+    const visible = typeof payload?.visible === "boolean" ? payload.visible : null;
+    const tvSound = TV_SOUND.has(payload?.tvSound) ? payload.tvSound : null;
     if (type === "hello") {
-      try { ws.send(JSON.stringify({ type: "state", version: this.version, state: this.state,
-        you: isActivePlayer(this.claims[deviceId]) ? this.claims[deviceId] : null,
-        environment: this.environment, capabilities: this.capabilities })); } catch {}
+      const gmId = await this.gmTokenId(gmToken);
+      const tv = payload?.view === "tv";
+      meta = this.setSocketMeta(ws, { ...meta, tv, gm:!!gmId, gmId,
+        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+      const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
+      this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
+      if (tv) this.sendTvs();
       return;
     }
-    if (type === "ping") { try { ws.send(JSON.stringify({ type: "pong" })); } catch {} return; }
+    if (type === "ping" || type === "presence") {
+      /* a socket can switch views (the app's own TV mode): its report says which */
+      const wasTv = !!meta.tv;
+      const tv = payload?.view === "tv" ? true : payload?.view === "app" ? false : wasTv;
+      meta = this.setSocketMeta(ws, { ...meta, tv, fg:visible ?? (type === "ping" ? meta.fg : false),
+        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+      if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {}
+      if (tv || wasTv) this.sendTvs();
+      return;
+    }
+
+    if (type === "pushSubscribe" || type === "pushUnsubscribe")
+      return reply(await this.pushCommand(type, payload, deviceId));
 
     if (type === "gmUnlock") {
       /* a 4-digit pin needs a brake: ten misses lock the door for a minute */
@@ -343,23 +1633,71 @@ export class Tournament {
         return reply({ ok: false, error: "Wrong passcode" });
       }
       this.pinFails = 0;
-      if (!this.gmToken) {
-        this.gmToken = crypto.randomUUID();
-        await this.ctx.storage.put("gmToken", this.gmToken);
+      /* each unlock mints this device's own token and replaces its last one */
+      const token = crypto.randomUUID();
+      const kept = Object.entries(this.gmTokens || {})
+        .filter(([, record]) => record?.deviceId !== deviceId)
+        .sort((a, b) => (b[1]?.createdAt || 0) - (a[1]?.createdAt || 0))
+        .slice(0, GM_TOKEN_LIMIT - 1);
+      const nextTokens = { ...Object.fromEntries(kept), [crypto.randomUUID().slice(0, 8)]:{
+        token, deviceId:typeof deviceId === "string" ? deviceId.slice(0, 200) : null,
+        player:isActivePlayer(this.claims?.[deviceId]) ? this.claims[deviceId] : null, createdAt:now,
+      } };
+      await this.ctx.storage.put(GM_TOKENS_KEY, nextTokens);
+      this.gmTokens = nextTokens;
+      return reply({ ok: true, extra: { gmToken: token } });
+    }
+
+    if (type === "gmDevices" || type === "gmRevoke" || type === "gmExit") {
+      const currentId = await this.gmTokenId(gmToken);
+      if (type === "gmExit") {
+        if (currentId) await this.revokeGmToken(currentId);
+        return reply({ ok: true });
       }
-      return reply({ ok: true, extra: { gmToken: this.gmToken } });
+      if (!currentId) return reply({ ok: false, error: "Commissioner only" });
+      if (type === "gmRevoke") {
+        const id = typeof payload?.id === "string" ? payload.id : "";
+        if (!await this.revokeGmToken(id)) return reply({ ok: false, error: "That device is already signed out" });
+      }
+      return reply({ ok: true, extra: { devices: this.gmDeviceList(currentId) } });
     }
 
     if (type === "claim") {
       const player = payload?.player;
       if (!ROSTER.includes(player)) return reply({ ok: false, error: "Pick a player" });
-      const nextClaims = { ...this.claims, [deviceId]:player };
-      await this.ctx.storage.put("claims", nextClaims);
-      this.claims = nextClaims;
-      return reply({ ok: true });
+      if (!deviceId) return reply({ ok:false, error:"Reload and try again" });
+      const previous = this.claims[deviceId];
+      if (previous !== player) {
+        const nextClaims = { ...this.claims, [deviceId]:player };
+        await this.ctx.storage.put("claims", nextClaims);
+        this.claims = nextClaims;
+        /* The claim changes what this device may see (its own ratings and
+           travel answers), so its sockets get their view before the ack. */
+        const serialize = this.serializer();
+        for (const socket of this.ctx.getWebSockets?.() || []) {
+          if (this.socketMeta(socket).deviceId !== deviceId) continue;
+          try { socket.send(this.stateFrame(socket, serialize)); } catch {}
+        }
+      }
+      /* A returning guest in a new browser or reinstalled app already has
+         every answer on the server; the client skips the rest of check-in. */
+      return reply({ ok: true, extra:{ player, checkedIn:checkInComplete(this.state, player) } });
     }
 
-    const isGm = await secureTokenEqual(gmToken, this.gmToken);
+    const gmId = await this.gmTokenId(gmToken);
+    const isGm = !!gmId;
+    /* A token that starts or stops matching changes this socket's view. */
+    let viewChanged = false;
+    if (isGm !== meta.gm || gmId !== meta.gmId) {
+      meta = this.setSocketMeta(ws, { ...meta, gm:isGm, gmId });
+      viewChanged = !meta.tv;
+    }
+    if (type === "qaCheckpoints" || type === "qaCheckpointSave" || type === "qaCheckpointDelete") {
+      if (viewChanged) this.sendState(ws);
+      return reply(await this.qaCheckpointCommand(type, payload, isGm));
+    }
+    const qaCheckpoint = type === "qaRestore" && isGm && this.capabilities.qa
+      ? await this.qaCheckpointBody(payload?.id) : null;
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
@@ -369,23 +1707,188 @@ export class Tournament {
       actionId,
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
+      showControl:this.capabilities.showControl,
+      qa:this.capabilities.qa,
+      ...(qaCheckpoint ? { qaCheckpoint } : {}),
     });
-    if (!result.ok) return reply(result);
+    if (!result.ok) {
+      if (viewChanged) this.sendState(ws);
+      return reply(result);
+    }
+    this.carryWalkout(nextState);
     /* Explicit no-ops make retried result/transition actions idempotent:
        acknowledge them without incrementing the transport version or
        broadcasting a state that did not change. */
-    if (result.extra?.unchanged)
+    if (result.extra?.unchanged) {
+      this.rememberApplied(deviceId, actionId);
+      if (viewChanged) this.sendState(ws);
       return reply({ ...result, version:this.version });
-    const persisted = await this.persistAndBroadcast(type, nextState, {
-      backupPrefix:type === "resetTournament" ? INTERNAL_RESET_BACKUP_PREFIX : null,
-    });
+    }
+    const before = this.state;
+    let persisted;
+    try {
+      persisted = await this.persist(nextState, {
+        /* a forward QA jump or Sim contest discards nothing, so only a rewind
+           (or a restore or reset) pays for the photo-sized backup */
+        backupPrefix:RESET_BACKUP_ACTIONS.has(type) && (type !== "qaAdvance" || result.extra?.rewound)
+          ? INTERNAL_RESET_BACKUP_PREFIX : null,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({ event:"persist-failed", action:type,
+        error:String(error?.message || error).slice(0, 300) }));
+      if (viewChanged) this.sendState(ws);
+      return reply({ ok:false, error:"Couldn't save. Try again." });
+    }
+    this.rememberApplied(deviceId, actionId);
+    /* The actor's ack is not held up by the broadcast. Its own socket gets
+       the new board first (a resolved dispatch has always meant the state
+       it produced is already on screen), then the ack, then every other
+       socket. Each frame carries the applied id. */
+    const serialize = this.serializer();
+    const shared = { environment:this.environment, capabilities:this.capabilities };
+    try { ws.send(this.stateFrame(ws, serialize, { lastAction:type }, shared)); } catch {}
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
+    this.broadcastState(type, { serialize, shared, skip:ws });
+    /* a team MVP vote that just opened closes by itself on the alarm */
+    if (nextMvpDeadline(this.state) !== null) this.scheduleAlarm();
+    /* rehearsal jumps and resets move the board, not the room: no alerts
+       and no win songs. QA's Sim contest and Finish event rehearse one win
+       at a time, so their song plays as it would on the night. */
+    if (!QUIET_ACTIONS.has(type)) {
+      this.queueAlerts(before, this.state, isActivePlayer(claimed) ? claimed : null);
+      this.queueWinSong(before, this.state, type);
+    } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
+      this.queueWinSong(before, this.state, type);
+    }
   }
 
-  async persistAndBroadcast(lastAction, nextState = this.state, { backupPrefix = null } = {}) {
+  /* ── pocket alerts (worker/push.js) ──
+     A device subscribes for whoever it has claimed; the alert follows the
+     claim at send time. Alerts go out after the write persisted and its
+     broadcast left, never hold up or fail a write, and skip a player who is
+     looking at the app right now. */
+  async pushCommand(type, payload, deviceId) {
+    if (!deviceId) return { ok:false, error:"Reload and try again" };
+    if (type === "pushUnsubscribe") {
+      await dropSubscription(this.ctx.storage, deviceId,
+        typeof payload?.endpoint === "string" ? payload.endpoint : null);
+      return { ok:true };
+    }
+    if (!this.capabilities.push) return { ok:false, error:"Alerts are off" };
+    if (!isActivePlayer(this.claims[deviceId])) return { ok:false, error:"Check in first" };
+    const sub = cleanSubscription(payload, { environment:this.environment });
+    if (!sub) return { ok:false, error:"This browser can't take alerts" };
+    await saveSubscription(this.ctx.storage, deviceId, sub);
+    return { ok:true };
+  }
+
+  playerLooking(player, now = Date.now()) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      const meta = this.socketMeta(ws);
+      if (!meta.tv && meta.fg && now - meta.seenAt < PRESENCE_FRESH_MS
+          && meta.deviceId && this.claims[meta.deviceId] === player) return true;
+    }
+    return false;
+  }
+
+  queueAlerts(before, after, actor) {
+    if (!this.capabilities.push) return null;
+    let alerts;
+    try { alerts = alertsFor(before, after, { actor }).filter(alert => !this.playerLooking(alert.player)); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"push-select-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    if (!alerts.length) return null;
+    /* dedupe is serialized; the sends themselves run side by side */
+    const claimed = this.alertGate = (this.alertGate || Promise.resolve())
+      .then(() => claimAlerts(this.ctx.storage, alerts)).catch(() => []);
+    const work = claimed.then(fresh => deliverAlerts(fresh, { storage:this.ctx.storage, env:this.env,
+      claims:this.claims, fetchImpl:this.pushFetch || fetch })).catch(() => null);
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  /* ── QA checkpoints (commissioner, QA capability) ──
+     Saving and deleting never touch the tournament, so nothing broadcasts;
+     restoring is the qaRestore action, one write like any other. */
+  async qaCheckpointIndex() {
+    const list = await this.ctx.storage.get(QA_CHECKPOINT_INDEX_KEY);
+    return Array.isArray(list) ? list.filter(item => QA_CHECKPOINT_ID.test(item?.id || "")) : [];
+  }
+
+  async qaCheckpointBody(id) {
+    if (typeof id !== "string" || !QA_CHECKPOINT_ID.test(id)) return null;
+    return (await this.ctx.storage.get(`${QA_CHECKPOINT_PREFIX}${id}`)) || null;
+  }
+
+  async qaCheckpointCommand(type, payload, isGm) {
+    if (!isGm) return { ok:false, error:"Commissioner only" };
+    if (!this.capabilities.qa) return { ok:false, error:"QA is unavailable" };
+    let list = await this.qaCheckpointIndex();
+    if (type === "qaCheckpointSave") {
+      if (list.length >= QA_CHECKPOINT_LIMIT)
+        return { ok:false, error:`${QA_CHECKPOINT_LIMIT} saved. Delete one first` };
+      const now = Date.now();
+      const summary = qaCheckpointSummary(this.state);
+      const meta = {
+        id:`cp${now.toString(36)}${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`,
+        name:cleanCheckpointName(payload?.name) || summary.label,
+        savedAt:now,
+        v:this.state.v,
+        version:this.version,
+        summary,
+      };
+      list = [meta, ...list];
+      await this.ctx.storage.put({
+        [`${QA_CHECKPOINT_PREFIX}${meta.id}`]:{ ...meta, progress:qaProgressOf(this.state) },
+        [QA_CHECKPOINT_INDEX_KEY]:list,
+      });
+      return { ok:true, extra:{ checkpoints:list, saved:meta.id } };
+    }
+    if (type === "qaCheckpointDelete") {
+      const id = typeof payload?.id === "string" ? payload.id : "";
+      if (!list.some(item => item.id === id)) return { ok:true, extra:{ checkpoints:list, unchanged:true } };
+      list = list.filter(item => item.id !== id);
+      await this.ctx.storage.put(QA_CHECKPOINT_INDEX_KEY, list);
+      await this.ctx.storage.delete(`${QA_CHECKPOINT_PREFIX}${id}`);
+    }
+    return { ok:true, extra:{ checkpoints:list } };
+  }
+
+  async persistAndBroadcast(lastAction, nextState = this.state, options = {}) {
+    const persisted = await this.persist(nextState, options);
+    this.broadcastState(lastAction);
+    return persisted;
+  }
+
+  /* Stored shape: "state" without the wager retry ledger, which has its own
+     key and is written only when it changed. */
+  storageWrite(nextState, nextVersion) {
+    const split = splitStoredState(nextState);
+    const write = { state:split.state, version:nextVersion };
+    const opsJson = JSON.stringify(split.wagerOps);
+    if (opsJson !== this.persistedWagerOps) write[WAGER_OPS_KEY] = split.wagerOps;
+    this.warnIfLarge(split.state, opsJson);
+    return { write, opsJson };
+  }
+
+  warnIfLarge(storedState, opsJson) {
+    let bytes = 0;
+    try { bytes = JSON.stringify(storedState).length; } catch { return; }
+    if (bytes <= STATE_WARN_BYTES) return;
+    const now = Date.now();
+    if (this.lastSizeWarning && now - this.lastSizeWarning < STATE_WARN_EVERY_MS) return;
+    this.lastSizeWarning = now;
+    console.warn(JSON.stringify({ event:"state-size", stateBytes:bytes,
+      wagerOpsBytes:opsJson.length, limitBytes:2 * 1024 * 1024 }));
+  }
+
+  async persist(nextState = this.state, { backupPrefix = null } = {}) {
     const nextVersion = this.version + 1;
     nextState.updatedAt = Date.now();
+    const { write, opsJson } = this.storageWrite(nextState, nextVersion);
     /* Persist first, cache second. The atomic map write keeps state/version
        aligned, and a failed write cannot leak an uncommitted in-memory board. */
     let backupKey = null;
@@ -407,25 +1910,36 @@ export class Tournament {
         });
         for (let index = 0; index < backupEntries.length; index++)
           await txn.put(`${backupKey}:entry:${index}`, backupEntries[index].value);
-        await txn.put({ state:nextState, version:nextVersion });
+        await txn.put(write);
       });
     } else {
-      await this.ctx.storage.put({ state:nextState, version:nextVersion });
+      await this.ctx.storage.put(write);
     }
+    this.persistedWagerOps = opsJson;
     this.state = nextState;
     this.version = nextVersion;
-    this.broadcastState(lastAction);
     return backupKey ? { backupKey } : null;
   }
 
-  broadcastState(lastAction) {
-    const frame = JSON.stringify({ type: "state", version: this.version, state: this.state, lastAction,
-      environment: this.environment, capabilities: this.capabilities });
-    for (const ws of this.ctx.getWebSockets()) {
-      try { ws.send(frame); } catch {}
+  /* Every socket gets its own projection (publicState.js). Sockets with the
+     same viewer share one serialized state; only the small frame head is
+     per socket. */
+  broadcastState(lastAction, {
+    serialize = this.serializer(),
+    shared = { environment:this.environment, capabilities:this.capabilities },
+    skip = null,
+  } = {}) {
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip) continue;
+      try { ws.send(this.stateFrame(ws, serialize, { lastAction }, shared)); } catch {}
     }
   }
 
-  async webSocketClose(ws) { try { ws.close(); } catch {} }
-  async webSocketError(ws) { try { ws.close(); } catch {} }
+  async webSocketClose(ws) { this.socketGone(ws); }
+  async webSocketError(ws) { this.socketGone(ws); }
+  socketGone(ws) {
+    const tv = this.socketMeta(ws).tv;
+    try { ws.close(); } catch {}
+    if (tv) this.sendTvs(ws);
+  }
 }

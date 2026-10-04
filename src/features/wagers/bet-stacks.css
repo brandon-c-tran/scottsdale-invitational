@@ -1,0 +1,68 @@
+/* Bet stacks. Flat tones only: the rim is one darker band of the chip's own
+   color, the inserts one ink, a seam of --ink0 between chips. No gradient,
+   no glow, no sheen. */
+.fd-stack { position:relative; display:inline-flex; flex-direction:column; align-items:center; justify-content:flex-end;
+  flex-shrink:0; line-height:0; }
+.fd-stack > svg { display:block; overflow:visible; }
+.fd-stack-rim { fill:color-mix(in srgb, var(--stack-color) 70%, var(--ink0)); stroke:var(--ink0); stroke-width:.9px;
+  stroke-linejoin:round; }
+.fd-stack-insert { fill:color-mix(in srgb, var(--bone) 82%, var(--stack-color)); }
+.fd-stack.is-light .fd-stack-insert { fill:var(--ink0); }
+.fd-stack-seam { fill:none; stroke:var(--ink0); stroke-linecap:round; }
+.fd-stack-num { fill:var(--bone); }
+.fd-stack.is-light .fd-stack-num { fill:var(--ink0); }
+/* past the cap: a bone line across the break under the tower */
+.fd-stack-break { fill:none; stroke:var(--bone); stroke-linecap:round; }
+/* your own stack: a sun ring on the felt under it */
+.fd-stack-ring { fill:none; stroke:var(--sun); }
+/* capped: the value, stamped on the stack's shoulder */
+.fd-stack-tag { position:absolute; left:50%; top:0; z-index:1; transform:translate(-50%, -62%); padding:2px 5px;
+  border-radius:99px; background:var(--ink0); color:var(--bone); border:1px solid var(--stack-color);
+  font:700 12px/1 var(--fd-display); letter-spacing:.02em; white-space:nowrap; }
+
+.fd-stacks { display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px 10px; min-width:0; }
+.fd-stacks-slot { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; }
+.fd-stacks-body { display:flex; align-items:flex-end; gap:6px; line-height:0; }
+.fd-stacks-name { max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* the folded bettors' count: a small silver chip, not a name */
+.fd-stacks-group .fd-stacks-name.fd-stacks-count { display:inline-flex; align-items:center; justify-content:center; min-width:2.1em;
+  height:1.45em; padding:0 .45em; border-radius:99px; background:var(--silver); color:var(--ink0);
+  box-shadow:inset 0 0 0 .14em color-mix(in srgb, var(--ink0) 22%, transparent); font-family:var(--fd-display); font-weight:800;
+  line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; overflow:visible; }
+/* every stack's amount, on one line the board reserves */
+.fd-stacks-value { display:block; font:700 12px/1 var(--fd-display, var(--fd-display)); letter-spacing:.02em;
+  font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--bone); }
+.fd-stacks.is-value-side .fd-stacks-value { padding-bottom:2px; }
+
+/* a fitted felt: the total top right, stacks standing from the bottom up
+   (biggest first, bottom left); the level is chosen before paint */
+.fd-fit { position:relative; flex:1; min-height:0; min-width:0; overflow:hidden; }
+/* wrap-reverse flips the cross axis: flex-start is the line's floor */
+.fd-fit-stacks { position:absolute; left:0; right:0; bottom:0; flex-wrap:wrap-reverse; align-content:flex-start; align-items:flex-start; }
+.fd-fit-stacks .fd-stack { width:auto !important; }
+.fd-fit-total { position:absolute; top:0; right:0; font-variant-numeric:tabular-nums; }
+
+/* a chip lands on its stack */
+@keyframes fd-stack-drop {
+  0% { transform:translateY(-26px); opacity:0; }
+  55% { transform:translateY(2px); opacity:1; }
+  78% { transform:translateY(-1.5px); }
+  100% { transform:none; opacity:1; }
+}
+.fd-stack-chip.is-drop, .fd-stack-face.is-drop { animation:fd-stack-drop .34s cubic-bezier(.3,.7,.35,1) both; }
+/* a winner's payout: each chip pops on under a rising top face */
+@keyframes fd-stack-pay { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+@keyframes fd-stack-rise { from { transform:translateY(var(--stack-rise)); } to { transform:none; } }
+.fd-stack-chip.is-paid { animation:fd-stack-pay .16s ease-out both; }
+.fd-stack-face.is-rising { animation-name:fd-stack-rise; animation-timing-function:linear; animation-fill-mode:both; }
+/* a loser's stack goes back to the bank */
+@keyframes fd-stack-bank {
+  0% { transform:none; opacity:1; }
+  25% { transform:translate(-4px, -3px); opacity:1; }
+  100% { transform:translate(var(--bank-x, 90px), var(--bank-y, 36px)) rotate(10deg); opacity:0; }
+}
+.fd-stack.is-lost, .fd-stacks-slot.is-lost { animation:fd-stack-bank .8s cubic-bezier(.5,0,.75,.4) both; }
+@media (prefers-reduced-motion: reduce) {
+  .fd-stack-chip.is-drop, .fd-stack-face.is-drop, .fd-stack-chip.is-paid, .fd-stack-face.is-rising { animation:none; }
+  .fd-stack.is-lost, .fd-stacks-slot.is-lost { animation:none; opacity:0; }
+}

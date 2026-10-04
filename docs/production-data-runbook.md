@@ -29,11 +29,31 @@ The app currently uses the Durable Object KV API:
 - `state`
 - `version`
 - `claims`
+- `wagerOps` (the wager retry ledger; older states embed it in `state` and
+  migrate to this key on their next write, older snapshots restore either way)
 - `gmToken`
 - `photo:<player-id>`
+- private integration records such as `private:spotify:*`
+- pocket alert records: `private:push:subs` (each device's Web Push
+  subscription, keyed by device id; the player is the device's claim at send
+  time) and `private:push:sent` (which alerts already went out, for dedupe)
+
+- the photo desk (D11, `worker/moments.js`): `moment:index` (one small
+  record per photo: id, author player id, times, size, hidden flag; never a
+  device id), `moment:full:<id>` (the re-encoded JPEG, EXIF stripped, at most
+  1.5 MB) and `moment:thumb:<id>` (its grid thumbnail). Hard caps: 200
+  photos, 150 MB, 40 per player, 12 uploads a minute per player
 
 Snapshot export enumerates storage so future portable keys are included.
-`gmToken` and internal `m1:pre-restore:*` keys are deliberately excluded.
+`gmToken`, all `private:*` integration records, internal
+`m1:pre-restore:*` keys, and every `moment:*` key are deliberately excluded.
+
+The photo desk is excluded because a portable snapshot is one JSON body
+capped at 8 MB and 256 entries, and every restore, reset or QA rewind copies
+every portable key into an internal backup in one transaction: a weekend of
+photos would break both. Photos therefore survive a restore, a game-progress
+reset and a QA rewind untouched, cannot be imported from a snapshot, and are
+kept by their own export (below).
 
 Cloudflare SQLite-backed Durable Objects also support point-in-time recovery
 for the embedded database, including KV data. PITR is a secondary emergency
@@ -159,6 +179,27 @@ Validation must fail for:
 - a referenced photo missing from entries
 - a payload over configured bounds
 
+## Photo desk export
+
+The weekend's photos are not in a portable snapshot. Export them into a new
+folder (never the repository), with the same authentication as a snapshot:
+
+```powershell
+npm.cmd run moments:export -- --url http://127.0.0.1:5173 --out .\snapshots\moments-local
+```
+
+Production needs the same approval and flag as a production snapshot:
+
+```powershell
+npm.cmd run moments:export -- --url https://fielddayseries.com --out .\snapshots\moments-YYYYMMDD-HHMM --confirm production-export
+```
+
+The folder gets every photo as `<id>.jpg` (hidden ones included) and
+`moments.json` with each record (author player id, times, size). It never
+overwrites a file. Take one after the weekend, before any cleanup, and treat
+it like a snapshot: private, outside the repository. Deleting a photo in the
+app removes its bytes; the export is the only copy after that.
+
 ## Non-production restore rehearsal
 
 First record the current local state by exporting it:
@@ -228,12 +269,95 @@ through Wrangler's private prompt, never in `wrangler.jsonc`:
 npx.cmd wrangler secret put GM_PIN --env staging
 ```
 
+Spotify testing additionally uses the staging-only secrets
+`SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. Register the exact callback
+URL shown in Commissioner > Audio Director, then add both values through
+Wrangler's private prompts:
+
+```powershell
+npx.cmd wrangler secret put SPOTIFY_CLIENT_ID --env staging
+npx.cmd wrangler secret put SPOTIFY_CLIENT_SECRET --env staging
+```
+
+Never place either value in `wrangler.jsonc`, a snapshot, chat, or command
+argument.
+
+Production (since Sept 30) has the same Spotify app's `SPOTIFY_CLIENT_ID`
+and `SPOTIFY_CLIENT_SECRET`, plus `YOUTUBE_API_KEY` for the Win song
+picker's snippet preview, with the callback
+`https://fielddayseries.com/api/spotify/callback` registered in the Spotify
+dashboard. Set them with `--env=""` so Wrangler targets production
+explicitly. The YouTube key must have no application restriction (the
+Worker sends no referrer); restricting it to YouTube Data API v3 is fine.
+
 The top-level production Worker has its own secret. Changing it is a production
 mutation and requires explicit approval:
 
 ```powershell
 npx.cmd wrangler secret put GM_PIN
 ```
+
+## Pocket alerts (Web Push)
+
+Pocket alerts ("You're playing", "Your pick", "{Name} challenged you") need
+one VAPID key pair per environment. `VAPID_SUBJECT` is already a checked-in
+var (`https://fielddayseries.com`, the contact Apple and Google see). The pair
+is two Worker secrets, `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Until both
+are set the Worker reports `capabilities.push:false`, no phone shows the
+Alerts row or the Home card, and nothing is sent. No Apple developer account
+is involved: iOS 16.4+ takes Web Push for home-screen apps directly.
+
+Generate a pair and store both halves through Wrangler's stdin, so the private
+key is never displayed, typed, or written to disk. Each command prints only
+the public key:
+
+```powershell
+node scripts/vapid-keys.mjs --put staging
+node scripts/vapid-keys.mjs --put production
+```
+
+The production command is a production mutation and requires approval. Each
+`wrangler secret put` publishes a new version of that Worker with the secret;
+the code is unchanged, so running it before or after the deploy that ships
+alerts are both fine.
+
+Manual alternative, with a pair from any Web Push key tool (for example
+`npx.cmd web-push generate-vapid-keys`), pasted into Wrangler's private prompts:
+
+```powershell
+npx.cmd wrangler secret put VAPID_PUBLIC_KEY --env staging
+npx.cmd wrangler secret put VAPID_PRIVATE_KEY --env staging
+npx.cmd wrangler secret put VAPID_PUBLIC_KEY
+npx.cmd wrangler secret put VAPID_PRIVATE_KEY
+```
+
+Never place the private key in `wrangler.jsonc`, a snapshot, chat, or a
+command argument. The two halves only work as a pair: store them together.
+
+Check after deploy: open the installed app on an iPhone. Home shows "Get
+alerts when you're up"; Turn on, then Allow. Profile > Alerts reads on. Close
+the app and have another player challenge you; the notification opens Home.
+
+Replacing the pair (run the command again) invalidates every subscription.
+Each phone that already allowed alerts subscribes again with the new key the
+next time it opens the app. To turn alerts off, delete either secret:
+
+```powershell
+npx.cmd wrangler secret delete VAPID_PRIVATE_KEY --env staging
+npx.cmd wrangler secret delete VAPID_PRIVATE_KEY
+```
+
+QA fast-forward, checkpoint restore and the game-progress reset never send
+alerts. Every other write does, in every environment: a production dry run
+driven through the normal commissioner controls alerts guests who turned
+alerts on. Rehearse alerts on staging, or delete `VAPID_PRIVATE_KEY` in
+production for the dry run and run `node scripts/vapid-keys.mjs --put
+production` after it; each phone that allowed alerts subscribes again with the
+new pair the next time it opens the app.
+
+Local rehearsal can put a throwaway pair in `.dev.vars.local` (see
+`.dev.vars.example`). The local environment also accepts a loopback push
+endpoint for testing; staging and production accept only real push services.
 
 ## Import a snapshot into staging
 

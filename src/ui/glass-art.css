@@ -1,0 +1,135 @@
+/* The phone's backglass painting (GlassArt.jsx): the TV's inks, one set per
+   session, mixed from the art inks in experience.css (art only, never text
+   or state). The root's data-phase picks the set, or the svg's own
+   data-phase in a preview. The fixed stars show only on the night skies. */
+.fd-glass-art { display:block; pointer-events:none;
+  --g-sky:color-mix(in srgb, var(--art-indigo) 55%, var(--ink0));
+  --g-sky2:color-mix(in srgb, var(--art-indigo) 80%, var(--ink0));
+  --g-sky3:var(--art-indigo);
+  --g-sky4:color-mix(in srgb, var(--art-cobalt) 55%, var(--art-indigo));
+  --g-glow:color-mix(in srgb, var(--art-violet) 55%, var(--art-cobalt));
+  --g-far:color-mix(in srgb, var(--art-indigo) 55%, var(--art-teal));
+  --g-mid:color-mix(in srgb, var(--art-teal) 75%, var(--ink0));
+  --g-mesa:color-mix(in srgb, var(--art-violet) 50%, var(--art-teal));
+  --g-shade:color-mix(in srgb, var(--art-teal) 45%, var(--ink0));
+  --g-ground:color-mix(in srgb, var(--art-teal) 38%, var(--ink0));
+  --g-cactus:var(--ink0);
+  --g-disc:var(--art-cream);
+  --g-rim:color-mix(in srgb, var(--pool) 55%, var(--art-teal));
+  --g-stars:1; }
+:root[data-phase="sam"] .fd-glass-art:not([data-phase]), .fd-glass-art[data-phase="sam"] {
+  --g-sky:var(--art-violet);
+  --g-sky2:color-mix(in srgb, var(--art-rose) 50%, var(--art-violet));
+  --g-sky3:var(--art-rose);
+  --g-sky4:var(--art-tangerine);
+  --g-glow:var(--sun);
+  --g-far:color-mix(in srgb, var(--art-rose) 45%, var(--art-plum));
+  --g-mid:color-mix(in srgb, var(--art-plum) 70%, var(--art-umber));
+  --g-mesa:color-mix(in srgb, var(--art-terracotta) 70%, var(--art-rose));
+  --g-shade:color-mix(in srgb, var(--art-plum) 75%, var(--ink0));
+  --g-ground:color-mix(in srgb, var(--art-umber) 60%, var(--ink0));
+  --g-cactus:color-mix(in srgb, var(--art-plum) 50%, var(--ink0));
+  --g-disc:color-mix(in srgb, var(--art-cream) 55%, var(--sun));
+  --g-rim:var(--sun);
+  --g-stars:0; }
+:root[data-phase="sap"] .fd-glass-art:not([data-phase]), .fd-glass-art[data-phase="sap"] {
+  --g-sky:var(--art-cobalt);
+  --g-sky2:color-mix(in srgb, var(--art-cobalt) 60%, var(--art-turquoise));
+  --g-sky3:var(--art-turquoise);
+  --g-sky4:color-mix(in srgb, var(--art-turquoise) 55%, var(--art-cream));
+  --g-glow:color-mix(in srgb, var(--art-cream) 70%, var(--sun));
+  --g-far:color-mix(in srgb, var(--art-cobalt) 40%, var(--art-terracotta));
+  --g-mid:color-mix(in srgb, var(--art-terracotta) 80%, var(--art-umber));
+  --g-mesa:color-mix(in srgb, var(--art-tangerine) 55%, var(--art-terracotta));
+  --g-shade:color-mix(in srgb, var(--art-umber) 85%, var(--art-terracotta));
+  --g-ground:color-mix(in srgb, var(--art-umber) 70%, var(--ink0));
+  --g-cactus:color-mix(in srgb, var(--art-sage) 70%, var(--ink0));
+  --g-disc:var(--art-cream);
+  --g-rim:var(--art-tangerine);
+  --g-stars:0; }
+:root[data-phase="san"] .fd-glass-art:not([data-phase]), .fd-glass-art[data-phase="san"] {
+  --g-sky:color-mix(in srgb, var(--art-plum) 60%, var(--ink0));
+  --g-sky2:var(--art-plum);
+  --g-sky3:color-mix(in srgb, var(--art-violet) 70%, var(--art-plum));
+  --g-sky4:var(--art-violet);
+  --g-glow:color-mix(in srgb, var(--art-rose) 60%, var(--art-violet));
+  --g-far:color-mix(in srgb, var(--art-violet) 45%, var(--ink0));
+  --g-mid:color-mix(in srgb, var(--art-plum) 70%, var(--ink0));
+  --g-mesa:color-mix(in srgb, var(--art-rose) 35%, var(--art-plum));
+  --g-shade:color-mix(in srgb, var(--art-plum) 50%, var(--ink0));
+  --g-ground:color-mix(in srgb, var(--art-plum) 40%, var(--ink0));
+  --g-cactus:var(--ink0);
+  --g-disc:color-mix(in srgb, var(--art-rose) 55%, var(--art-cream));
+  --g-rim:var(--art-rose);
+  --g-stars:1; }
+:root[data-phase="fin"] .fd-glass-art:not([data-phase]), .fd-glass-art[data-phase="fin"] {
+  --g-sky:var(--ink0);
+  --g-sky2:color-mix(in srgb, var(--bg) 70%, var(--ink0));
+  --g-sky3:var(--bg);
+  --g-sky4:color-mix(in srgb, var(--paper) 60%, var(--bg));
+  --g-glow:var(--paper);
+  --g-far:color-mix(in srgb, var(--paper2) 70%, var(--bg));
+  --g-mid:var(--paper);
+  --g-mesa:var(--paper2);
+  --g-shade:var(--bg);
+  --g-ground:color-mix(in srgb, var(--bg) 60%, var(--ink0));
+  --g-cactus:var(--ink0);
+  --g-rim:var(--sun);
+  --g-stars:1; }
+.fd-glass-sky { fill:var(--g-sky); }
+.fd-glass-sky2 { fill:var(--g-sky2); }
+.fd-glass-sky3 { fill:var(--g-sky3); }
+.fd-glass-sky4 { fill:var(--g-sky4); }
+.fd-glass-glow { fill:var(--g-glow); }
+.fd-glass-far { fill:var(--g-far); }
+.fd-glass-mid { fill:var(--g-mid); }
+.fd-glass-mesa { fill:var(--g-mesa); }
+.fd-glass-shade { fill:var(--g-shade); }
+.fd-glass-ground { fill:var(--g-ground); }
+.fd-glass-rim { fill:var(--g-rim); }
+.fd-glass-cactus path { fill:var(--g-cactus); }
+.fd-glass-disc circle { fill:var(--g-disc); }
+.fd-glass-stars { fill:var(--bone); opacity:var(--g-stars); }
+
+/* The one lit piece of a viewport (a scene): the painting fills it, sky to
+   floor, cut from the bottom so the horizon and the floor always meet the
+   scene's lower edge whatever the content's height, and what sits in it is
+   lettered on the glass. Every other panel is a painted glass field
+   (backglass.css .fd-glass-field). */
+.fd-glass-scene { position:relative; isolation:isolate; overflow:hidden; }
+/* clip, not a scroll box, so the plates and the glare inside can follow
+   the page's scroll (view timelines look for the nearest scroller) */
+@supports (overflow:clip) { .fd-glass-scene { overflow:clip; } }
+.fd-glass-scene > .fd-glass-art { position:absolute; inset:0; z-index:-1; width:100%; height:100%; }
+/* where the painting meets the clear glass under it: a hairline of the floor's lip */
+.fd-glass-scene::after { content:""; position:absolute; left:0; right:0; bottom:0; z-index:-1; height:1px;
+  background:rgba(0,0,0,.6); box-shadow:0 1px 0 rgba(255,255,255,.06); }
+/* lettering painted on the art: bone show lettering on a heavy ink keyline,
+   lit from behind in its lamp. The keyline carries the contrast on any sky. */
+.fd-glass-letter { color:var(--bone);
+  text-shadow:2px 0 0 var(--ink0), -2px 0 0 var(--ink0), 0 2px 0 var(--ink0), 0 -2px 0 var(--ink0),
+    1.5px 1.5px 0 var(--ink0), -1.5px 1.5px 0 var(--ink0), 1.5px -1.5px 0 var(--ink0), -1.5px -1.5px 0 var(--ink0),
+    0 4px 0 var(--ink0), 0 0 22px color-mix(in srgb, var(--lamp, var(--lamp-live)) 75%, transparent); }
+/* a window cut in the painting for a line of text: dark glass, bezelled */
+.fd-glass-window { border-radius:9px; background:color-mix(in srgb, var(--ink0) 88%, transparent);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.9), inset 0 2px 6px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.16); }
+
+/* GlassArt depth: the painting as stacked plates (sky, far range, buttes,
+   floor), each an svg over the same box. Each plate may paint past the
+   frame (overflow visible) so a slide never shows an edge; the scene clips.
+   useGlassTilt slides them by depth (inline translate); scroll drifts them
+   by --depth-drift where scroll-driven animation runs (far plates most, so
+   they lag the page). Reduced motion: all still, exactly the flat art. */
+.fd-glass-depth > svg { position:absolute; inset:0; display:block; width:100%; height:100%; overflow:visible; }
+.fd-glass-depth > [data-glass-depth="0"] { --depth-drift:5px; }
+.fd-glass-depth > [data-glass-depth="1"] { --depth-drift:3px; }
+.fd-glass-depth > [data-glass-depth="2"] { --depth-drift:1.5px; }
+.fd-glass-depth > [data-glass-depth="3"] { --depth-drift:0px; }
+@supports (animation-timeline:view()) {
+  .fd-glass-depth > svg { animation:fd-depth-drift linear both; animation-timeline:view(); }
+}
+@keyframes fd-depth-drift {
+  from { transform:translateY(calc(var(--depth-drift) * -1)); }
+  to { transform:translateY(var(--depth-drift)); }
+}
+@media(prefers-reduced-motion:reduce) { .fd-glass-depth > svg { animation:none; transform:none; } }

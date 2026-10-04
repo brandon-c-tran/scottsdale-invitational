@@ -1,0 +1,39 @@
+/* D11 photo desk on the phone: Weekend's Photos section, the grid, and the
+   photo sheet. Each photo is a window set into the glass: a black bezel and
+   a caught top edge. Tokens only (experience.css). */
+.fd-photo-desk-head { display:flex; align-items:center; gap:10px; min-height:48px; margin-bottom:12px; }
+.fd-photo-desk-count { font:800 16px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.fd-photo-add { margin-left:auto; display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--action-fill); background:var(--action-fill); color:var(--action-ink);
+  font:700 14px/1 var(--fd-body); font-variant-numeric:tabular-nums; box-shadow:var(--glass-edge); }
+.fd-photo-add:disabled { cursor:default; opacity:.7; }
+.fd-photo-line { margin:0 0 12px; font:600 13px/1.5 var(--fd-body); color:var(--muted2); }
+
+.fd-photo-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+.fd-photo-tile { position:relative; display:block; aspect-ratio:1; min-height:44px; padding:0; border:2px solid var(--ink0);
+  border-radius:10px; overflow:hidden; background:var(--paper2); cursor:pointer;
+  box-shadow:0 0 0 1px var(--line), var(--shadow-1); }
+.fd-photo-tile::after { content:""; position:absolute; inset:0; border-radius:8px; pointer-events:none;
+  box-shadow:inset 0 1px 0 color-mix(in srgb, var(--bone) 28%, transparent); }
+.fd-photo-tile img { display:block; width:100%; height:100%; object-fit:cover; }
+.fd-photo-tile-by { position:absolute; left:5px; bottom:5px; display:flex; }
+/* the way to every photo: the grid's last window, its count lettered */
+.fd-photo-more { display:grid; place-items:center; background:var(--ink0); color:var(--ink); font:800 28px/1.15 var(--fd-display); }
+.fd-photo-tile.is-hidden img { opacity:.4; }
+.fd-photo-tile-flag { position:absolute; top:5px; left:5px; padding:3px 6px; border-radius:6px;
+  background:var(--chrome); color:var(--clay-text); font:800 13px/1 var(--fd-display); letter-spacing:.08em;
+  text-transform:uppercase; }
+
+.fd-photo-author { width:44px; height:44px; padding:0; border:0; border-radius:99px; background:none;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.fd-photo-stage { display:flex; justify-content:center; touch-action:pan-y; }
+.fd-photo-frame { width:100%; max-height:64vh; border:3px solid var(--ink0); border-radius:14px; overflow:hidden; background:var(--ink0);
+  box-shadow:0 0 0 1px var(--line), var(--shadow-2); }
+.fd-photo-frame img { display:block; width:100%; height:100%; object-fit:contain; animation:si-fade .25s ease-out; }
+.fd-photo-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+.fd-photo-nav { display:flex; align-items:center; gap:10px; }
+.fd-photo-count { min-width:52px; text-align:center; font:800 16px/1 var(--fd-display); color:var(--muted2);
+  font-variant-numeric:tabular-nums; }
+.fd-photo-actions { display:flex; gap:8px; margin-left:auto; }
+.fd-photo-confirm { display:flex; margin-top:10px; }
+.fd-photo-error { margin:10px 0 0; font:600 13px/1.5 var(--fd-body); color:var(--clay-text); }

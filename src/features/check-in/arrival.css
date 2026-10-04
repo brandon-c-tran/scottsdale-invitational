@@ -1,0 +1,160 @@
+/* Check-in in the backglass. The invitation is a lit glass poster: black
+   glass in a frame of chasing lamps, "Field Day" in marquee lettering with
+   lamps behind it, the thirteen on an amber seal. The steps are the same
+   glass as the rest of the phone: progress is cyan (navigation), the roster
+   spot you claim lights your own filament, ratings fill as cyan lamps, the
+   one Continue is the amber action. Tokens only (experience.css). */
+.fd-arrival {
+  color-scheme:dark;
+  width:100%; flex:1; padding:36px 40px 0; background:var(--bg); color:var(--ink);
+  font-family:var(--fd-body); min-height:100dvh;
+}
+.fd-arrival button, .fd-arrival input { font:inherit; }
+.fd-arrival button:focus-visible, .fd-arrival input:focus-visible, .fd-arrival a:focus-visible {
+  outline:3px solid var(--lamp-info); outline-offset:3px;
+}
+.fd-arrival-header { display:flex; gap:16px 20px; justify-content:space-between; align-items:center; flex-wrap:wrap; padding-bottom:26px; }
+.fd-arrival-mark { display:flex; align-items:baseline; gap:10px; font:900 24px/1 var(--fd-show); color:var(--ink); }
+.fd-arrival-mark>span { color:var(--muted2); font:800 13px/1 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-eyebrow, .fd-arrival-progress { font:800 13px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-arrival-progress { color:var(--lamp-info); font-variant-numeric:tabular-nums; }
+/* progress is a row of cyan lamps: lit through the step you are on */
+.fd-arrival-progress-track { width:100%; display:flex; gap:6px; margin-top:-4px; }
+.fd-arrival-progress-track span { height:4px; flex:1; border-radius:99px; background:var(--paper2); }
+.fd-arrival-progress-track .is-complete { background:var(--lamp-info); box-shadow:0 0 8px color-mix(in srgb, var(--lamp-info) 60%, transparent); }
+.fd-arrival-layout { display:grid; grid-template-columns:minmax(0,.92fr) minmax(0,1fr); gap:64px; padding:22px 0 0; align-items:start; }
+.fd-arrival-aside { position:sticky; top:40px; }
+
+/* ── the invitation poster ── */
+.fd-invitation-art { position:relative; padding:0 0 20px; border-radius:18px; color:var(--ink);
+  background:color-mix(in srgb, var(--lamp-live) 5%, var(--bg)); border:1px solid var(--ghost-line);
+  box-shadow:var(--glass-edge), var(--shadow-2); }
+.fd-invitation-art .fd-chase { z-index:2; }
+.fd-invitation-art>*:not(.fd-chase):not(.fd-invitation-seal) { position:relative; z-index:1; }
+.fd-invitation-seal { z-index:3; }
+/* the painting is the poster's field: sky to floor inside the lamp frame,
+   the lettering on it */
+.fd-invitation-scene { margin:7px 7px 0; padding:16px 16px 52px; border-radius:12px 12px 0 0; }
+/* the lettering: the marquee cut on an ink keyline, lit from behind */
+.fd-invitation-wordmark { font:900 clamp(80px,10vw,120px)/.95 var(--fd-marquee); letter-spacing:.01em; color:var(--bone);
+  text-shadow:3px 0 0 var(--ink0), -3px 0 0 var(--ink0), 0 3px 0 var(--ink0), 0 -3px 0 var(--ink0),
+    2px 2px 0 var(--ink0), -2px 2px 0 var(--ink0), 2px -2px 0 var(--ink0), -2px -2px 0 var(--ink0),
+    0 6px 0 var(--ink0), 0 0 28px color-mix(in srgb, var(--lamp-live) 70%, transparent); }
+.fd-invitation-wordmark > span { display:block; }
+.fd-invitation-wordmark > span + span { font-size:1.3em; margin-top:-2px; }
+.fd-invitation-seal { position:absolute; width:96px; height:96px; right:10px; top:52px; transform:rotate(12deg); color:var(--sun);
+  filter:drop-shadow(0 0 14px color-mix(in srgb, var(--sun) 45%, transparent)); }
+.fd-invitation-seal svg { width:100%; height:100%; }
+.fd-invitation-seal > span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--ink0); }
+.fd-invitation-seal strong { font:900 46px/.9 var(--fd-display); letter-spacing:0; }
+.fd-invitation-seal small { font:800 12px/1 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; margin-top:3px; }
+.fd-invitation-edition { display:flex; justify-content:space-between; align-items:start; margin:0; padding:14px 22px 0;
+  color:var(--muted2); font:800 14px/1.35 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-invitation-edition > span:last-child { text-align:right; }
+
+.fd-arrival-heading h1 { font:800 clamp(32px,3.3vw,40px)/1.02 var(--fd-display); letter-spacing:.01em; text-transform:uppercase;
+  margin:0; text-wrap:balance; outline:none; }
+.fd-arrival-heading:has(> h1:only-child) { margin-bottom:20px; }
+.fd-arrival-heading p { font-size:15px; line-height:1.55; color:var(--muted2); margin:12px 0 22px; text-wrap:pretty; }
+.fd-arrival-fields { border:0; padding:0; margin:0; min-width:0; }
+.fd-arrival-fields:disabled { opacity:.7; }
+/* the roster: tap your own name and your filament lights */
+.fd-guest-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.fd-guest-list button { display:flex; align-items:center; gap:9px; min-height:52px; padding:12px 11px; border:1px solid var(--line); background:var(--paper);
+  color:var(--ink); cursor:pointer; font-size:14px; font-weight:600; text-align:left; border-radius:10px; box-shadow:var(--glass-edge); }
+.fd-guest-list button[aria-pressed="true"] { background:var(--you-tint); color:var(--you); border-color:var(--you); box-shadow:var(--you-bloom); }
+.fd-guest-index { font:800 15px/1 var(--fd-display); color:var(--muted2); }
+.fd-guest-list button[aria-pressed="true"] .fd-guest-index { color:var(--you); }
+.fd-guest-name { min-width:0; overflow-wrap:anywhere; }
+.fd-arrival-actions { position:sticky; bottom:0; background:var(--bg); padding:18px 0 max(18px, env(safe-area-inset-bottom)); margin-top:12px; z-index:2;
+  box-shadow:0 -1px 0 var(--line); }
+.fd-continue { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; border:1px solid var(--action-fill); border-radius:12px;
+  background:var(--action-fill); color:var(--action-ink); padding:16px 19px; font-size:16px !important; font-weight:700 !important; cursor:pointer;
+  min-height:56px; text-align:left; box-shadow:var(--chip-bloom); }
+.fd-continue > span:last-child { font-size:21px; line-height:1; }
+.fd-continue:disabled { cursor:default; background:var(--paper2); border-color:var(--line); color:var(--muted2); box-shadow:var(--glass-edge); }
+.fd-arrival-links { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; font-size:13px; color:var(--muted2); min-height:44px; }
+.fd-text-button { background:none; color:var(--lamp-info); border:0; padding:8px 0; min-height:44px; cursor:pointer; font-size:14px !important; font-weight:600 !important; }
+.fd-text-button:disabled { color:var(--muted); cursor:default; }
+.fd-save-error { border:1px solid var(--danger-line); border-radius:10px; padding:10px 12px; margin:0 0 12px; font-size:14px; line-height:1.5; color:var(--clay-text); background:var(--clay-tint); }
+.fd-arrival-chapter { padding:24px 0; border-top:1px solid var(--line); display:flex; flex-direction:column; }
+.fd-arrival-chapter > strong { font:900 220px/.9 var(--fd-display); letter-spacing:-.02em; color:transparent; -webkit-text-stroke:3px var(--lamp-info);
+  margin:30px 0 24px -6px; filter:drop-shadow(0 0 18px color-mix(in srgb, var(--lamp-info) 35%, transparent)); }
+.fd-chapter-name { font:800 34px/1.05 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
+.fd-chapter-date { color:var(--muted2); font:800 14px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; margin-top:24px; }
+/* the starting stack: a black score window with the thousand on an amber reel */
+.fd-starting-stack { position:relative; padding:20px 22px 22px; border-radius:14px; background:var(--ink0); color:var(--bone);
+  border:1px solid var(--line); box-shadow:inset 0 3px 12px color-mix(in srgb, var(--ink0) 80%, transparent), var(--glass-edge); }
+.fd-starting-stack-sub { display:block; margin-top:10px; color:var(--muted2); font:800 14px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-starting-stack > strong { display:flex; align-items:baseline; gap:12px; font:800 96px/.95 var(--fd-display); }
+.fd-starting-stack > strong > span:last-child { color:var(--sun); font:800 18px/1 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+.fd-weekend-rules > div { display:flex; gap:18px; border-bottom:1px solid var(--line); padding:18px 0; }
+.fd-weekend-rules > div > span { font:800 18px/1.2 var(--fd-display); color:var(--lamp-info); margin-top:1px; }
+.fd-weekend-rules h2, .fd-details-panel h2 { font:800 20px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; margin:0 0 6px; }
+.fd-weekend-rules p { font-size:14px; line-height:1.55; color:var(--muted2); margin:0; }
+.fd-arrival-map { margin-top:28px; }
+.fd-destination-note { border-top:1px solid var(--line); margin-top:20px; padding:18px 0; display:flex; flex-direction:column; gap:8px; }
+.fd-destination-note > span { color:var(--muted2); font:800 14px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-destination-note strong { font:900 34px/1.05 var(--fd-show); }
+.fd-details-panel { border:1px solid var(--line); border-radius:14px; padding:18px; margin-top:20px; background:var(--paper); box-shadow:var(--glass-edge); }
+.fd-details-panel h2 { margin-bottom:20px; }
+.fd-rating-status { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:14px; color:var(--muted2); }
+.fd-rating-group { margin-top:24px; }
+.fd-rating-group .fd-eyebrow { margin:0 0 4px; color:var(--ink); font-size:16px; }
+.fd-rating-labels, .fd-rating-row { display:grid; grid-template-columns:95px minmax(0,1fr); gap:12px; align-items:center; }
+.fd-rating-labels > div, .fd-rating-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; }
+.fd-rating-labels > div { font:800 12px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; text-align:center; color:var(--muted2); margin:6px 0; }
+.fd-rating-row { padding:12px 0; border-bottom:1px solid var(--line); }
+.fd-rating-row strong { font-size:14px; display:block; }
+.fd-rating-row small { display:block; font-size:13px; color:var(--muted2); margin-top:3px; }
+/* a rating fills like a row of lamps: every lamp up to your answer lit */
+.fd-rating-options button { min-height:44px; min-width:0; border:1px solid var(--line); background:var(--bg); color:var(--muted2); border-radius:99px; cursor:pointer;
+  padding:0; font:800 15px/1 var(--fd-display); box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 50%, transparent); }
+.fd-rating-options .is-filled { background:var(--info-tint); color:var(--lamp-info); border-color:color-mix(in srgb, var(--lamp-info) 60%, transparent); box-shadow:none; }
+.fd-rating-options button[aria-pressed="true"] { background:var(--lamp-info); color:var(--ink0); border-color:var(--lamp-info);
+  box-shadow:0 0 12px color-mix(in srgb, var(--lamp-info) 50%, transparent); }
+.fd-install { padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge); }
+.fd-install p { font-size:14px; line-height:1.6; color:var(--muted2); }
+@media (hover:hover) { .fd-guest-list button:hover:not([aria-pressed="true"]) { border-color:var(--ghost-line); } .fd-continue:hover:not(:disabled) { filter:brightness(1.06); } }
+@media (prefers-reduced-motion:no-preference) {
+  .fd-arrival-main { animation:fd-arrive .28s ease-out both; }
+  .fd-guest-list button, .fd-continue { transition:background .16s, color .16s, box-shadow .16s, border-color .16s; }
+  @keyframes fd-arrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+}
+@media (max-width:759px) {
+  .fd-arrival { padding:calc(22px + env(safe-area-inset-top)) 16px 0; }
+  .fd-arrival-header { padding-bottom:18px; gap:14px; }
+  .fd-arrival-layout { display:block; padding-top:0; }
+  .fd-arrival-aside { position:static; }
+  .is-invitation .fd-arrival-aside { margin-bottom:22px; }
+  .fd-arrival-chapter { display:none; }
+  .fd-invitation-art { padding:0 0 18px; }
+  .fd-invitation-scene { padding:14px 12px 48px; }
+  .fd-invitation-edition { padding:14px 18px 0; }
+  .fd-invitation-wordmark { font-size:clamp(64px,19vw,96px); }
+  .fd-invitation-wordmark > span + span { font-size:1.22em; }
+  .fd-invitation-seal { right:12px; top:46px; width:86px; height:86px; }
+  .fd-invitation-seal strong { font-size:40px; }
+  .fd-arrival-heading h1 { font-size:34px; }
+  .is-invitation .fd-arrival-heading h1 { font-size:30px; }
+  .fd-arrival-heading p { font-size:15px; margin:10px 0 18px; }
+  .fd-guest-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .fd-guest-list button { min-height:48px; padding:10px 9px; font-size:14px; gap:7px; }
+  .fd-guest-index { font-size:13px; }
+  .fd-arrival-actions { padding-top:14px; }
+  .fd-starting-stack > strong { font-size:84px; }
+}
+@media (max-width:359px) {
+  .fd-arrival { padding-left:14px; padding-right:14px; }
+  .fd-guest-list button { padding:10px 7px; gap:5px; font-size:13px; }
+  .fd-invitation-seal { width:74px; height:74px; top:44px; right:6px; }
+  .fd-invitation-seal strong { font-size:34px; }
+}
+/* Narrow phones: the sport name sits above its five choices so each choice
+   keeps a full 44px target. */
+@media (max-width:419px) {
+  .fd-rating-row, .fd-rating-labels { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .fd-rating-labels > span { display:none; }
+  .fd-rating-labels > div { margin:0; }
+  .fd-rating-row strong, .fd-rating-row small { display:inline; margin:0 8px 0 0; }
+}

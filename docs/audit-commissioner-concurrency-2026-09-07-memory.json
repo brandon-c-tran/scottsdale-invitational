@@ -1,0 +1,4025 @@
+{
+  "date": "2026-09-07T23:47:30.774Z",
+  "mode": "memory",
+  "endpoint": null,
+  "passed": 21,
+  "findings": 6,
+  "errors": 0,
+  "results": [
+    {
+      "id": "C01",
+      "title": "Three commissioners announce the same market from one snapshot",
+      "status": "verified",
+      "accepted": 1,
+      "rejected": 2,
+      "errors": [
+        "Contest changed, refresh and try again",
+        "Contest changed, refresh and try again"
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "b",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 0
+          },
+          "ack": {
+            "ok": false,
+            "error": "Contest changed, refresh and try again",
+            "version": 1
+          }
+        },
+        {
+          "actor": "c",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 0
+          },
+          "ack": {
+            "ok": false,
+            "error": "Contest changed, refresh and try again",
+            "version": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "C02",
+      "title": "Different simultaneous announcements keep one current market",
+      "status": "verified",
+      "accepted": 1,
+      "current": "putt",
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "b",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "nine"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Close the current betting market first",
+            "version": 1
+          }
+        },
+        {
+          "actor": "c",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "ragecage"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Close the current betting market first",
+            "version": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "C03",
+      "title": "Three lock/start taps only start the current matchup once",
+      "status": "verified",
+      "accepted": 3,
+      "writes": 1,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850749:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850749:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "c",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850749:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2,
+            "unchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "C04",
+      "title": "A chip racing the lock is either kept before lock or rejected",
+      "status": "verified",
+      "racingChipAccepted": true,
+      "lateChipError": "Betting is closed for this contest",
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "kind": "outright",
+              "eventId": "putt",
+              "pick": "Sahil",
+              "stake": 100,
+              "contestId": "ffa:putt:solo",
+              "contestRevision": 1
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "kind": "outright",
+              "eventId": "putt",
+              "pick": "Sahil",
+              "stake": 100,
+              "contestId": "ffa:putt:solo",
+              "contestRevision": 1
+            }
+          },
+          "ack": {
+            "ok": false,
+            "error": "Betting is closed for this contest",
+            "version": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "C05",
+      "title": "Competing matchup winners cannot skip or overwrite the next matchup",
+      "status": "verified",
+      "accepted": 1,
+      "rejected": 2,
+      "nextRevision": 2,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850751:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850751:0:0",
+            "contestRevision": 1,
+            "winner": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850751:0:0",
+            "contestRevision": 1,
+            "winner": 3
+          },
+          "ack": {
+            "ok": false,
+            "error": "Contest changed, refresh and try again",
+            "version": 3
+          }
+        },
+        {
+          "actor": "c",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850751:0:0",
+            "contestRevision": 1,
+            "winner": 0
+          },
+          "ack": {
+            "ok": false,
+            "error": "Contest changed, refresh and try again",
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850751:0:0",
+            "contestRevision": 1,
+            "winner": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 3,
+            "unchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "C06",
+      "title": "Two corrections of the previous matchup restore it only once",
+      "status": "verified",
+      "accepted": 1,
+      "restoredLocked": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850753:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850753:0:0",
+            "contestRevision": 1,
+            "winner": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "undoLastContest",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850753:0:0",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "b",
+          "type": "undoLastContest",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850753:0:0",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": false,
+            "error": "No previous contest to correct",
+            "version": 4
+          }
+        },
+        {
+          "actor": "c",
+          "type": "undoLastContest",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850753:0:0",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": false,
+            "error": "No previous contest to correct",
+            "version": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "C07",
+      "title": "Three commissioners cannot make three draft picks from one turn",
+      "status": "verified",
+      "picksAccepted": 1,
+      "undosAccepted": 1,
+      "staleAfterUndoRejected": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "startDraft",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ],
+            "captains": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 0,
+            "draftRevision": 0,
+            "player": "Khoa"
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 0,
+            "draftRevision": 0,
+            "player": "Chinh"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Draft changed, refresh and try again",
+            "version": 2
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 0,
+            "draftRevision": 0,
+            "player": "Adi"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Draft changed, refresh and try again",
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "undoDraftPick",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 1,
+            "draftRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "undoDraftPick",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 1,
+            "draftRevision": 1
+          },
+          "ack": {
+            "ok": false,
+            "error": "Draft changed, refresh and try again",
+            "version": 3
+          }
+        },
+        {
+          "actor": "c",
+          "type": "undoDraftPick",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 1,
+            "draftRevision": 1
+          },
+          "ack": {
+            "ok": false,
+            "error": "Draft changed, refresh and try again",
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850754-8978bbf4-d5f4-4b89-ba04-4d14d32a5ca6",
+            "pickIndex": 0,
+            "draftRevision": 0,
+            "player": "Khoa"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Draft changed, refresh and try again",
+            "version": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "C08",
+      "title": "Concurrent finalization preserves one exact drafted draw",
+      "status": "verified",
+      "accepted": 3,
+      "writes": 1,
+      "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+      "drawId": "d1788824850757-6cac3938-5656-45c2-803c-661b10254a6e",
+      "trace": [
+        {
+          "actor": "a",
+          "type": "startDraft",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ],
+            "captains": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 0,
+            "draftRevision": 0,
+            "player": "Khoa"
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 1,
+            "draftRevision": 1,
+            "player": "Chinh"
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 2,
+            "draftRevision": 2,
+            "player": "Adi"
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 3,
+            "draftRevision": 3,
+            "player": "Chiang"
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 4,
+            "draftRevision": 4,
+            "player": "Richard"
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 5,
+            "draftRevision": 5,
+            "player": "Allan"
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 6,
+            "draftRevision": 6,
+            "player": "Henry"
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pickDraftPlayer",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 7,
+            "draftRevision": 7,
+            "player": "Ben"
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "a",
+          "type": "finalizeDraft",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 8,
+            "draftRevision": 8
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "b",
+          "type": "finalizeDraft",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 8,
+            "draftRevision": 8
+          },
+          "ack": {
+            "ok": true,
+            "version": 10,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "c",
+          "type": "finalizeDraft",
+          "payload": {
+            "evId": "bball",
+            "draftId": "df1788824850756-10de11b1-103f-4982-b0f8-2d5876eb7ddb",
+            "pickIndex": 8,
+            "draftRevision": 8
+          },
+          "ack": {
+            "ok": true,
+            "version": 10,
+            "unchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "C09",
+      "title": "Conflicting first official results require an explicit correction",
+      "status": "verified",
+      "accepted": 1,
+      "rejected": 2,
+      "winner": [
+        "Sahil"
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Sahil"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "b",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Khoa"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": false,
+            "error": "Confirm replacing the official result",
+            "version": 4
+          }
+        },
+        {
+          "actor": "c",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Chinh"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": false,
+            "error": "Confirm replacing the official result",
+            "version": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "C10",
+      "title": "A stale confirmed correction overwrites a newer result",
+      "status": "verified",
+      "finding": true,
+      "severity": "P1",
+      "viewedRevision": 1,
+      "overwrittenRevision": 2,
+      "newerWinner": "Khoa",
+      "finalWinner": "Chinh",
+      "finalRevision": 3,
+      "correctionHistory": 2,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Sahil"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Khoa"
+              ]
+            ],
+            "confirmOverwrite": true,
+            "correctionReason": "A corrects the score"
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Chinh"
+              ]
+            ],
+            "confirmOverwrite": true,
+            "correctionReason": "B confirms from the original result"
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "C11",
+      "title": "A stale clear confirmation deletes a newer official result",
+      "status": "verified",
+      "finding": true,
+      "severity": "P1",
+      "reviewedRevision": 1,
+      "clearedRevision": 2,
+      "officialResultMissing": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Sahil"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Khoa"
+              ]
+            ],
+            "confirmOverwrite": true,
+            "correctionReason": "Verified score"
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "c",
+          "type": "clearResult",
+          "payload": {
+            "evId": "putt",
+            "confirmClear": true,
+            "correctionReason": "Clear the original result I reviewed"
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "C12",
+      "title": "Corrections and clear can still change a frozen board",
+      "status": "verified",
+      "finding": true,
+      "severity": "P2",
+      "frozenStayedTrue": true,
+      "changedLeader": "Khoa",
+      "resultThenCleared": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Sahil"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "setFrozen",
+          "payload": {
+            "f": true
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Khoa"
+              ]
+            ],
+            "confirmOverwrite": true,
+            "correctionReason": "Late correction"
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "c",
+          "type": "clearResult",
+          "payload": {
+            "evId": "putt",
+            "confirmClear": true,
+            "correctionReason": "Late clear"
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "title": "Three poker setup/start requests do not duplicate the table",
+      "status": "verified",
+      "setupWrites": 1,
+      "startWrites": 1,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2,
+            "unchanged": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "C14",
+      "title": "Parallel counts for different people preserve all three submissions",
+      "status": "verified",
+      "counts": [
+        {
+          "player": "Sahil",
+          "count": 1000
+        },
+        {
+          "player": "Khoa",
+          "count": 1025
+        },
+        {
+          "player": "Chinh",
+          "count": 1050
+        }
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Khoa",
+            "count": 1025
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Chinh",
+            "count": 1050
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "C15",
+      "title": "A stale count editor silently replaces another commissioner's count",
+      "status": "verified",
+      "finding": true,
+      "severity": "P2",
+      "player": "Sahil",
+      "initiallyViewed": 1200,
+      "newerCount": 2200,
+      "staleEditorSaved": 1300,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 1200
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 2200
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 1300
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "C16",
+      "title": "A stale cancel command erases a replacement poker table",
+      "status": "verified",
+      "finding": true,
+      "severity": "P1",
+      "replacementTableWasStarted": true,
+      "replacementCountLost": 2200,
+      "tableNow": null,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerCancel",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 2200
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCancel",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        }
+      ]
+    },
+    {
+      "id": "C17",
+      "title": "Three simultaneous final poker posts publish one result",
+      "status": "verified",
+      "accepted": 3,
+      "writes": 1,
+      "lateCountRejected": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Brandon",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Evan",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Eyob",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Sahil",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Khoa",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Chinh",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Adi",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Chiang",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Richard",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 11
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Allan",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 12
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Henry",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 13
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Ben",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 14
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Jeremy",
+            "count": 1000
+          },
+          "ack": {
+            "ok": true,
+            "version": 15
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerResult",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 16
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerResult",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 16,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerResult",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 16,
+            "unchanged": true
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Jeremy",
+            "count": 2000
+          },
+          "ack": {
+            "ok": false,
+            "error": "Counts are posted",
+            "version": 16
+          }
+        }
+      ]
+    },
+    {
+      "id": "C18",
+      "title": "A duel play and decline cannot both change the same duel",
+      "status": "verified",
+      "racingActionsAccepted": 1,
+      "voided": true,
+      "playAfterVoidRejected": true,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "sendDuel",
+          "payload": {
+            "to": "Jeremy",
+            "stake": 100
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "playDuel",
+          "payload": {
+            "id": "du17888248507629933",
+            "ms": 200
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "declineDuel",
+          "payload": {
+            "id": "du17888248507629933"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Already in play",
+            "version": 3
+          }
+        },
+        {
+          "actor": "c",
+          "type": "voidDuel",
+          "payload": {
+            "id": "du17888248507629933"
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "a",
+          "type": "playDuel",
+          "payload": {
+            "id": "du17888248507629933",
+            "ms": 150
+          },
+          "ack": {
+            "ok": false,
+            "error": "Duel is closed",
+            "version": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "C19",
+      "title": "Concurrent wagers and duel antes cannot exceed shared exposure",
+      "status": "verified",
+      "accepted": 1,
+      "exposure": 300,
+      "cap": 500,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "sendDuel",
+          "payload": {
+            "to": "Jeremy",
+            "stake": 300
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "b",
+          "type": "sendDuel",
+          "payload": {
+            "to": "Jeremy",
+            "stake": 300
+          },
+          "ack": {
+            "ok": false,
+            "error": "Jeremy can't cover that ante",
+            "version": 2
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "kind": "outright",
+              "eventId": "putt",
+              "pick": "Chinh",
+              "stake": 300,
+              "contestId": "ffa:putt:solo",
+              "contestRevision": 1
+            }
+          },
+          "ack": {
+            "ok": false,
+            "error": "Max 500 at risk",
+            "version": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "C20",
+      "title": "Guest authority cannot invoke commissioner mutations",
+      "status": "verified",
+      "rejected": 5,
+      "trace": [
+        {
+          "actor": "guest",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "setFrozen",
+          "payload": {
+            "f": true
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Brandon"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "startDraft",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ],
+            "captains": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil"
+            ]
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "C21",
+      "title": "Complete bracket, current-market bets, and final event result converge across roles",
+      "status": "verified",
+      "gameFamily": "four-team bracket",
+      "played": 3,
+      "settledWinningTickets": 3,
+      "winners": [
+        "Eyob",
+        "Brandon",
+        "Chinh"
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "bball",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "bball",
+              "stake": 100,
+              "contestId": "match:bball:d1788824850763:0:0",
+              "contestRevision": 1,
+              "kind": "match",
+              "match": [
+                0,
+                0
+              ],
+              "teamIdx": 0,
+              "drawId": "d1788824850763"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:0:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:0:0",
+            "contestRevision": 1,
+            "winner": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "bball",
+              "stake": 100,
+              "contestId": "match:bball:d1788824850763:0:1",
+              "contestRevision": 2,
+              "kind": "match",
+              "match": [
+                0,
+                1
+              ],
+              "teamIdx": 1,
+              "drawId": "d1788824850763"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:0:1",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "c",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:0:1",
+            "contestRevision": 2,
+            "winner": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "bball",
+              "stake": 100,
+              "contestId": "match:bball:d1788824850763:1:0",
+              "contestRevision": 3,
+              "kind": "match",
+              "match": [
+                1,
+                0
+              ],
+              "teamIdx": 0,
+              "drawId": "d1788824850763"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "c",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:1:0",
+            "contestRevision": 3
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "bball",
+            "contestId": "match:bball:d1788824850763:1:0",
+            "contestRevision": 3,
+            "winner": 0
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "c",
+          "type": "saveResult",
+          "payload": {
+            "evId": "bball",
+            "slots": [
+              [
+                "Eyob",
+                "Brandon",
+                "Chinh"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 11
+          }
+        }
+      ]
+    },
+    {
+      "id": "C22",
+      "title": "Three two-through heats plus their final settle winner bets correctly",
+      "status": "verified",
+      "gameFamily": "solo heats and final",
+      "played": 4,
+      "settledWinningTickets": 4,
+      "winners": [
+        "Jeremy"
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "runStages",
+          "payload": {
+            "evId": "pingpong",
+            "cfg": {
+              "kind": "heats",
+              "nGroups": 3,
+              "advance": 2,
+              "players": [
+                "Brandon",
+                "Evan",
+                "Eyob",
+                "Sahil",
+                "Khoa",
+                "Chinh",
+                "Adi",
+                "Chiang",
+                "Richard",
+                "Allan",
+                "Henry",
+                "Ben",
+                "Jeremy"
+              ]
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "pingpong"
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "pingpong",
+              "stake": 100,
+              "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:0",
+              "contestRevision": 1,
+              "kind": "heat",
+              "group": 0,
+              "final": false,
+              "stagesId": "s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+              "pickKey": "Jeremy"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "b",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:0",
+            "contestRevision": 1,
+            "winner": "Jeremy",
+            "qualifiers": [
+              "Jeremy",
+              "Richard"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "pingpong",
+              "stake": 100,
+              "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:1",
+              "contestRevision": 2,
+              "kind": "heat",
+              "group": 1,
+              "final": false,
+              "stagesId": "s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+              "pickKey": "Henry"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:1",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "c",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:1",
+            "contestRevision": 2,
+            "winner": "Henry",
+            "qualifiers": [
+              "Henry",
+              "Eyob"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "pingpong",
+              "stake": 100,
+              "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:2",
+              "contestRevision": 3,
+              "kind": "heat",
+              "group": 2,
+              "final": false,
+              "stagesId": "s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+              "pickKey": "Khoa"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "c",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:2",
+            "contestRevision": 3
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "heat:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681:2",
+            "contestRevision": 3,
+            "winner": "Khoa",
+            "qualifiers": [
+              "Khoa",
+              "Allan"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 11
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "pingpong",
+              "stake": 100,
+              "contestId": "final:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+              "contestRevision": 4,
+              "kind": "stage",
+              "final": true,
+              "stagesId": "s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+              "pickKey": "Jeremy"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 12
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "final:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+            "contestRevision": 4
+          },
+          "ack": {
+            "ok": true,
+            "version": 13
+          }
+        },
+        {
+          "actor": "b",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "pingpong",
+            "contestId": "final:pingpong:s1788824850766-88fe60a5-c0ab-4aa6-959e-973870608681",
+            "contestRevision": 4,
+            "winner": "Jeremy"
+          },
+          "ack": {
+            "ok": true,
+            "version": 14
+          }
+        },
+        {
+          "actor": "c",
+          "type": "saveResult",
+          "payload": {
+            "evId": "pingpong",
+            "slots": [
+              [
+                "Jeremy"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "C23",
+      "title": "Team pools and their final preserve the full winning teams",
+      "status": "verified",
+      "gameFamily": "team pools and final",
+      "played": 3,
+      "settledWinningTickets": 3,
+      "winners": [
+        "Allan",
+        "Chiang"
+      ],
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "spike",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "spike",
+              "stake": 100,
+              "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:0",
+              "contestRevision": 1,
+              "kind": "heat",
+              "group": 0,
+              "final": false,
+              "stagesId": "s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+              "pickKey": 2,
+              "drawId": "d1788824850769"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "spike",
+            "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:0",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "b",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "spike",
+            "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:0",
+            "contestRevision": 1,
+            "winner": 2,
+            "qualifiers": [
+              2
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "spike",
+              "stake": 100,
+              "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:1",
+              "contestRevision": 2,
+              "kind": "heat",
+              "group": 1,
+              "final": false,
+              "stagesId": "s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+              "pickKey": 1,
+              "drawId": "d1788824850769"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "spike",
+            "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:1",
+            "contestRevision": 2
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "c",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "spike",
+            "contestId": "heat:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929:1",
+            "contestRevision": 2,
+            "winner": 1,
+            "qualifiers": [
+              1
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "eventId": "spike",
+              "stake": 100,
+              "contestId": "final:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+              "contestRevision": 3,
+              "kind": "stage",
+              "final": true,
+              "stagesId": "s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+              "pickKey": 2,
+              "drawId": "d1788824850769"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "c",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "spike",
+            "contestId": "final:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+            "contestRevision": 3
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "a",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "spike",
+            "contestId": "final:spike:s1788824850769-a068b1fb-3828-418a-8388-28a591206929",
+            "contestRevision": 3,
+            "winner": 2
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "c",
+          "type": "saveResult",
+          "payload": {
+            "evId": "spike",
+            "slots": [
+              [
+                "Allan",
+                "Chiang"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 11
+          }
+        }
+      ]
+    },
+    {
+      "id": "C24",
+      "title": "FFA, direct teams, duel settlement, and earned chips reach the poker champion",
+      "status": "verified",
+      "gameFamilies": [
+        "FFA",
+        "direct team contest",
+        "Quick Draw",
+        "poker finale"
+      ],
+      "earnedStartingStack": 1900,
+      "champion": "Jeremy",
+      "finalStack": 21000,
+      "trace": [
+        {
+          "actor": "a",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "kind": "outright",
+              "eventId": "putt",
+              "pick": "Jeremy",
+              "stake": 100,
+              "contestId": "ffa:putt:solo",
+              "contestRevision": 1
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        },
+        {
+          "actor": "a",
+          "type": "sendDuel",
+          "payload": {
+            "to": "Jeremy",
+            "stake": 100
+          },
+          "ack": {
+            "ok": true,
+            "version": 3
+          }
+        },
+        {
+          "actor": "a",
+          "type": "playDuel",
+          "payload": {
+            "id": "du17888248507703412",
+            "ms": 220
+          },
+          "ack": {
+            "ok": true,
+            "version": 4
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "playDuel",
+          "payload": {
+            "id": "du17888248507703412",
+            "ms": 180
+          },
+          "ack": {
+            "ok": true,
+            "version": 5
+          }
+        },
+        {
+          "actor": "b",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "contestId": "ffa:putt:solo",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 6
+          }
+        },
+        {
+          "actor": "b",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt"
+          },
+          "ack": {
+            "ok": true,
+            "version": 7
+          }
+        },
+        {
+          "actor": "c",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "slots": [
+              [
+                "Jeremy"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 8
+          }
+        },
+        {
+          "actor": "a",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "volley",
+            "players": [
+              "Brandon",
+              "Evan",
+              "Eyob",
+              "Sahil",
+              "Khoa",
+              "Chinh",
+              "Adi",
+              "Chiang",
+              "Richard",
+              "Allan",
+              "Henry",
+              "Ben"
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 9
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "placeWager",
+          "payload": {
+            "wager": {
+              "kind": "outright",
+              "eventId": "volley",
+              "pickTeam": true,
+              "pickPlayers": [
+                "Brandon",
+                "Evan",
+                "Sahil",
+                "Chiang",
+                "Khoa",
+                "Eyob"
+              ],
+              "drawId": "d1788824850771",
+              "stake": 100,
+              "contestId": "ffa:volley:d1788824850771",
+              "contestRevision": 1
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 10
+          }
+        },
+        {
+          "actor": "a",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "volley",
+            "contestId": "ffa:volley:d1788824850771",
+            "contestRevision": 1
+          },
+          "ack": {
+            "ok": true,
+            "version": 11
+          }
+        },
+        {
+          "actor": "a",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "volley"
+          },
+          "ack": {
+            "ok": true,
+            "version": 12
+          }
+        },
+        {
+          "actor": "b",
+          "type": "saveResult",
+          "payload": {
+            "evId": "volley",
+            "slots": [
+              [
+                "Brandon",
+                "Evan",
+                "Sahil",
+                "Chiang",
+                "Khoa",
+                "Eyob"
+              ]
+            ]
+          },
+          "ack": {
+            "ok": true,
+            "version": 13
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerSetup",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 14
+          }
+        },
+        {
+          "actor": "a",
+          "type": "pokerStart",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 15
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": true,
+            "version": 16
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Evan"
+          },
+          "ack": {
+            "ok": true,
+            "version": 17
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Eyob"
+          },
+          "ack": {
+            "ok": true,
+            "version": 18
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Sahil"
+          },
+          "ack": {
+            "ok": true,
+            "version": 19
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Khoa"
+          },
+          "ack": {
+            "ok": true,
+            "version": 20
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Chinh"
+          },
+          "ack": {
+            "ok": true,
+            "version": 21
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Adi"
+          },
+          "ack": {
+            "ok": true,
+            "version": 22
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Chiang"
+          },
+          "ack": {
+            "ok": true,
+            "version": 23
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Richard"
+          },
+          "ack": {
+            "ok": true,
+            "version": 24
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Allan"
+          },
+          "ack": {
+            "ok": true,
+            "version": 25
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Henry"
+          },
+          "ack": {
+            "ok": true,
+            "version": 26
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerBust",
+          "payload": {
+            "player": "Ben"
+          },
+          "ack": {
+            "ok": true,
+            "version": 27
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerCount",
+          "payload": {
+            "player": "Jeremy",
+            "count": 21000
+          },
+          "ack": {
+            "ok": true,
+            "version": 28
+          }
+        },
+        {
+          "actor": "b",
+          "type": "pokerResult",
+          "payload": {},
+          "ack": {
+            "ok": true,
+            "version": 29
+          }
+        },
+        {
+          "actor": "a",
+          "type": "setFrozen",
+          "payload": {
+            "f": true
+          },
+          "ack": {
+            "ok": true,
+            "version": 30
+          }
+        },
+        {
+          "actor": "c",
+          "type": "pokerCancel",
+          "payload": {},
+          "ack": {
+            "ok": false,
+            "error": "Clear the result first",
+            "version": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "C25",
+      "title": "Guest and unclaimed TV cannot invoke any audited commissioner action",
+      "status": "verified",
+      "commissionerActions": 28,
+      "roles": 2,
+      "rejections": 56,
+      "trace": [
+        {
+          "actor": "guest",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "setOnDeck",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "startEvent",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "undoLastContest",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "clearResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "runDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "clearDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "runStages",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "clearStages",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "startDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "undoDraftPick",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "finalizeDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "cancelDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerSetup",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerStart",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "pokerCancel",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "setFrozen",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "adjust",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "voidDuel",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "startShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "advanceShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "endShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "announceEvent",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "announceAndDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "setOnDeck",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "startEvent",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "lockAndStart",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "recordContestWinner",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "undoLastContest",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "beginResultEntry",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "saveResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "clearResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "runDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "clearDraw",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "runStages",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "clearStages",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "startDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "undoDraftPick",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "finalizeDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "cancelDraft",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "pokerSetup",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "pokerStart",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "pokerResult",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "pokerCancel",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "setFrozen",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "adjust",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "voidDuel",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "startShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "advanceShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "endShowScene",
+          "payload": {
+            "evId": "putt",
+            "id": "putt",
+            "isGm": true,
+            "player": "Brandon"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Commissioner only",
+            "version": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "C26",
+      "title": "Unclaimed TV cannot write player data or impersonate a player",
+      "status": "verified",
+      "playerActionsRejected": 4,
+      "trace": [
+        {
+          "actor": "tv",
+          "type": "saveProfile",
+          "payload": {
+            "player": "Brandon",
+            "display": "Impersonated"
+          },
+          "ack": {
+            "ok": false,
+            "error": "Not your profile",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "saveSeeds",
+          "payload": {
+            "player": "Brandon",
+            "ratings": {
+              "pool": 3
+            }
+          },
+          "ack": {
+            "ok": false,
+            "error": "Not your ratings",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "sendDuel",
+          "payload": {
+            "to": "Evan",
+            "stake": 100
+          },
+          "ack": {
+            "ok": false,
+            "error": "Check in first",
+            "version": 0
+          }
+        },
+        {
+          "actor": "tv",
+          "type": "playDuel",
+          "payload": {
+            "id": "fake",
+            "ms": 200
+          },
+          "ack": {
+            "ok": false,
+            "error": "Check in first",
+            "version": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "C27",
+      "title": "Unclaimed TV receives a player's private ratings and flight response",
+      "status": "verified",
+      "finding": true,
+      "severity": "P1",
+      "crossReference": "TV audit public snapshot privacy finding",
+      "unclaimedConnectionReceived": [
+        "seeds[player].pool",
+        "seeds[player].golf",
+        "profiles[player].flightIn",
+        "profiles[player].flightsBooked"
+      ],
+      "trace": [
+        {
+          "actor": "guest",
+          "type": "saveSeeds",
+          "payload": {
+            "player": "Jeremy",
+            "ratings": {
+              "pool": 3,
+              "golf": 2
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 1
+          }
+        },
+        {
+          "actor": "guest",
+          "type": "saveProfile",
+          "payload": {
+            "player": "Jeremy",
+            "display": "Audit guest",
+            "flightsBooked": true,
+            "flightIn": {
+              "air": "AA",
+              "num": "123",
+              "time": "12:00"
+            }
+          },
+          "ack": {
+            "ok": true,
+            "version": 2
+          }
+        }
+      ]
+    }
+  ]
+}

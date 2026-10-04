@@ -1,0 +1,128 @@
+/* The commissioner's dock: one glass shelf on the tab bar, never floating
+   over the page. App pads the page by its height (--fd-dock-h, measured in
+   CommissionerDock.jsx) so nothing under it is ever covered: the QA strip,
+   the cue rack's Stop, and the next step with its more button. */
+.fd-gm-dock { position:fixed; left:0; right:0; bottom:var(--fd-nav-height); z-index:49; display:flex; justify-content:center; pointer-events:none; }
+.fd-gm-dock-inner { display:flex; flex-direction:column; gap:6px; width:100%; max-width:620px; max-height:48dvh; overflow-y:auto; overscroll-behavior:contain;
+  padding:8px 12px; border-top:1px solid var(--line); background:var(--chrome); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+  pointer-events:auto; }
+/* nothing to show: no shelf (and a 0px --fd-dock-h). Everything the dock
+   carries is a control or a status line; an idle song slot is neither */
+.fd-gm-dock-inner:not(:has(button, [role=status], [role=alert])) { display:none; }
+/* the win song's slot in the pill's row: empty until a song plays (or one
+   missed), then one compact control slides in beside the pill */
+.fd-director-song { display:flex; flex:0 0 auto; }
+.fd-director-song:empty { display:none; }
+.fd-director.is-health-only:has(> .fd-director-song:empty):not(:has(.fd-tv-health)) { display:none; }
+.fd-cue-now { display:flex; align-items:center; gap:8px; min-height:52px; min-width:44px; padding:0 12px 0 8px; border:1px solid var(--bone-line);
+  border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); cursor:pointer;
+  animation:fd-cue-in .32s var(--ease-out) both; }
+.fd-cue-now:disabled { cursor:default; opacity:.6; }
+.fd-cue-now[aria-busy="true"] { opacity:1; }
+.fd-cue-now-face { position:relative; display:flex; line-height:0; }
+.fd-cue-now-badge { position:absolute; right:-5px; bottom:-4px; display:grid; place-items:center; width:17px; height:17px; border-radius:50%;
+  background:var(--bone); color:var(--ink0); box-shadow:0 0 0 2px var(--night); }
+.fd-cue-now-act { display:grid; place-items:center; width:28px; height:28px; border-radius:8px; background:var(--paper2); color:var(--bone); }
+.fd-cue-now.is-miss .fd-cue-now-act { color:var(--clay-text); }
+.fd-director-headrow .fd-director-song { margin:6px 6px 0 0; }
+.fd-director-headrow .fd-cue-now { min-height:44px; }
+@keyframes fd-cue-in { from { opacity:0; transform:translateX(-8px) scale(.94); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .fd-cue-now { animation:none; } }
+/* the audio cue: a chip in the dock or a sheet's header, Stop lit while the song plays */
+.fd-cue-chip { display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; min-height:44px; max-width:78vw; padding:0 14px;
+  border:1px solid var(--sun); border-radius:99px; background:var(--night); color:var(--sun); cursor:pointer; }
+.fd-cue-chip.is-docked { gap:5px; max-width:42vw; padding:0 12px; }
+.fd-cue-chip.is-active { background:var(--sun); color:var(--ink0); }
+.fd-cue-chip:disabled { cursor:default; opacity:.6; }
+.fd-cue-chip[aria-busy="true"] { opacity:1; }
+.fd-cue-glyph { display:inline-flex; flex:0 0 auto; }
+.fd-cue-text { min-width:0; font:700 13px/1.2 var(--fd-body); overflow-wrap:anywhere; }
+/* Verb on one line, the object on the lines below it; everything wraps,
+   nothing truncates, and the chevron keeps its own column so text never
+   runs under it. */
+.fd-director { display:flex; flex-direction:column; align-items:stretch; gap:6px; width:100%; }
+.fd-director > * { max-width:100%; }
+.fd-director-pill { display:flex; flex:1; align-items:center; gap:10px; min-height:52px; padding:9px 14px 9px 16px; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); cursor:pointer; text-align:left; }
+.fd-director-pill:disabled { opacity:.6; cursor:default; }
+.fd-director-pill.is-blocked .fd-director-label { color:var(--night-text); }
+.fd-director-text { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; }
+.fd-director-label { font:700 17px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; color:var(--bone); overflow-wrap:anywhere; }
+.fd-director-note { font:600 12px/1.35 var(--fd-body); color:var(--night-text); overflow-wrap:anywhere; }
+.fd-director-chevron { flex:0 0 auto; margin-left:auto; font:700 18px/1 var(--fd-body); color:var(--sun); }
+/* the pill and its more button: one row, the button as tall as the pill */
+.fd-director-row { display:flex; align-items:stretch; gap:8px; }
+.fd-director-row > .fd-director-pill { min-width:0; }
+.fd-pill-more { position:relative; flex:0 0 auto; display:grid; place-items:center; width:48px; min-height:44px; padding:0;
+  border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--night-text); box-shadow:var(--glass-edge); cursor:pointer; }
+.fd-pill-more.is-open { border-color:var(--ghost-line); background:var(--paper2); color:var(--bone); }
+.fd-pill-more:disabled { opacity:.5; cursor:default; }
+/* a tray that holds actions, not only the run of show */
+.fd-pill-more.has-actions::after { content:""; position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:99px; background:var(--muted2); }
+.fd-pill-more.is-open::after { display:none; }
+.fd-director-headrow { display:flex; align-items:flex-start; }
+.fd-director-headrow .fd-director-head { flex:1; min-width:0; }
+.fd-director-headrow .fd-pill-more { margin:6px 6px 0 0; min-height:44px; height:44px; box-shadow:none; }
+/* the more tray: the run of show, then the beat's alternatives, then its
+   edge cases (Skip), quiet and last */
+.fd-pill-tray { width:100%; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone);
+  box-shadow:var(--glass-edge); overflow:hidden; animation:fd-pill-tray-in var(--motion-base, 220ms) var(--ease-out, ease-out) backwards; }
+@keyframes fd-pill-tray-in { from { opacity:0; transform:translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .fd-pill-tray { animation:none; } }
+.fd-pill-tray-group { border-top:1px solid var(--night-line); }
+.fd-pill-tray-row { display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:0 14px; border:0;
+  border-top:1px solid var(--night-line); background:none; color:var(--bone); font:600 15px/1.25 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-pill-tray-row:first-child { border-top:0; }
+.fd-pill-tray-row > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.fd-pill-tray-row > .fd-icon { flex:0 0 auto; color:var(--muted); }
+.fd-pill-tray-row.is-edge { color:var(--night-text); font-weight:500; font-size:14px; }
+.fd-pill-tray-row:not(:disabled):active { background:var(--ink-tint); }
+.fd-pill-tray-row:disabled { opacity:.5; cursor:default; }
+/* the room's TV, muted or gone: one clay line in the pill */
+.fd-tv-health { display:inline-flex; align-items:center; gap:6px; margin-top:2px; color:var(--clay-text); font:700 12.5px/1.35 var(--fd-body); }
+.fd-director.is-health-only { align-items:flex-end; }
+.fd-director.is-health-only .fd-tv-health { min-height:32px; margin:0; }
+
+.fd-director-card { width:100%; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); overflow:hidden; }
+.fd-director-head { display:flex; flex-direction:column; gap:2px; padding:10px 14px 8px; }
+.fd-director-head strong { font:700 17px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; }
+.fd-director-head span { font:600 12px/1.35 var(--fd-body); color:var(--night-text); }
+.fd-director-side { display:flex; align-items:stretch; border-top:1px solid var(--night-line); }
+.fd-director-pick { display:flex; flex:1; align-items:center; justify-content:space-between; gap:10px; min-width:0; min-height:60px; padding:10px 14px; border:0; background:none; color:var(--bone); font:700 20px/1.1 var(--fd-display); text-align:left; cursor:pointer; }
+.fd-director-pick span { overflow-wrap:anywhere; }
+.fd-director-pick small { flex:0 0 auto; padding:6px 10px; border:1px solid var(--sun); border-radius:6px; color:var(--sun); font:700 12px/1 var(--fd-body); letter-spacing:.05em; text-transform:uppercase; }
+.fd-director-pick:not(:disabled):active { background:var(--sun-tint); }
+.fd-director-pick:disabled { opacity:.6; cursor:default; }
+.fd-director-faces { display:flex; align-items:center; padding-right:6px; }
+.fd-director-faces button { display:grid; place-items:center; width:44px; min-height:44px; padding:0; border:0; background:none; cursor:pointer; }
+
+.fd-director-recent { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; width:100%; padding:6px 6px 6px 12px; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); font:600 12.5px/1.4 var(--fd-body); }
+.fd-director-recent > .fd-icon { flex:0 0 auto; color:var(--green); }
+.fd-director-recent span { flex:1; min-width:0; overflow-wrap:anywhere; font:900 18px/1.15 var(--fd-show); }
+.fd-director-recent button { display:inline-flex; align-items:center; gap:6px; min-height:44px; min-width:64px; padding:8px 14px; border:1px solid var(--sun); border-radius:6px; background:none; color:var(--sun); font:700 12.5px/1.2 var(--fd-body); cursor:pointer; }
+.fd-director-recent button:disabled { opacity:.5; cursor:default; }
+.fd-director-error { margin:0; padding:6px 12px; border-radius:8px; background:var(--night); color:var(--clay-text); font:600 12.5px/1.4 var(--fd-body); }
+.fd-director button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+
+/* Commissioner sheets for the finale */
+.fd-stack-row { display:flex; align-items:center; gap:10px; min-height:48px; padding:6px 0; border-bottom:1px solid var(--line); }
+.fd-stack-row.is-away { opacity:.5; }
+.fd-stack-row > span { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.fd-stack-row b { font:600 14px/1.2 var(--fd-body); color:var(--ink); overflow-wrap:anywhere; }
+.fd-stack-row small { font:500 12px/1.3 var(--fd-body); color:var(--muted); }
+.fd-stack-row small.is-grant { color:var(--live2); }
+.fd-stack-row strong { font:700 19px/1 var(--fd-display); color:var(--ink); min-width:56px; text-align:right; }
+.fd-stack-row > span.fd-stack-total { flex:0 0 auto; align-items:flex-end; gap:4px; }
+.fd-stack-row > span > .fd-poker-stacks { margin-top:4px; }
+.fd-stack-tray { display:grid; gap:10px; margin:14px 0 4px; padding:12px; border-radius:10px; background:var(--bg);
+  border:1px solid var(--night-line); font:600 12.5px/1.4 var(--fd-body); color:var(--muted2); }
+.fd-stack-summary { display:grid; gap:6px; margin:12px 0 14px; font:600 12.5px/1.4 var(--fd-body); color:var(--muted2); }
+.fd-stack-summary div { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.fd-stack-summary strong { color:var(--ink); }
+.fd-stack-summary .fd-stack-grants { display:flex; align-items:center; gap:4px; }
+
+/* walkout cues docked in a sheet header (ui/controls.jsx SheetDock), on a
+   row of their own under the title, so a sheet with header actions never
+   squeezes its title into a column at 390px; Close stays top right */
+.fd-sheet-header:has(> .fd-sheet-dock:not(:empty)) { flex-wrap:wrap; row-gap:4px; }
+.fd-sheet-dock { order:1; flex:1 0 100%; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:6px; }
+.fd-sheet-dock:empty { display:none; }

@@ -1,0 +1,70 @@
+/* PayoutLadder: what an event pays, as a podium. Each place is one unit on
+   one floor: a chip stack stamped with its place (1st amber, 2nd silver,
+   3rd bronze, crew a muted plain chip) on a glass step lettered with the
+   amount; steps rise by place (2nd, 1st, 3rd left to right). Equal columns
+   across the container, so the podium fills its width. Tokens only. Phone
+   text 12px and up, TV 24px and up. */
+.fd-ladder { list-style:none; margin:0; padding:0; }
+
+/* ── the podium (phone, tv) ── */
+.fd-ladder.is-podium { display:grid; grid-template-columns:repeat(var(--ladder-cols), minmax(0, 1fr)); align-items:end;
+  gap:6px; width:100%; max-width:calc(var(--ladder-cols) * 128px); margin-inline:auto; }
+.fd-ladder.is-podium .fd-ladder-step { display:flex; flex-direction:column; align-items:stretch; min-width:0; }
+.fd-ladder-stand { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+.fd-ladder-stand .fd-stack { margin-bottom:-4px; position:relative; z-index:1; }
+/* the step: glass lit from above, its front face a little darker, the
+   amount lettered on it */
+.fd-ladder-plinth { box-sizing:border-box; display:flex; align-items:flex-start; justify-content:center; width:100%;
+  height:calc(var(--ladder-step) * var(--rise)); padding-top:8px; border-radius:10px 10px 0 0;
+  border:1px solid var(--line); border-bottom:0;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--bone) 9%, var(--paper2)) 0, var(--paper2) 22%, color-mix(in srgb, var(--ink0) 30%, var(--paper2)) 100%);
+  box-shadow:var(--glass-edge); }
+.fd-ladder-step.is-place-1 .fd-ladder-plinth { border-color:color-mix(in srgb, var(--sun) 45%, transparent);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--sun) 22%, var(--paper2)) 0, color-mix(in srgb, var(--sun) 9%, var(--paper2)) 24%, color-mix(in srgb, var(--ink0) 25%, var(--paper2)) 100%); }
+.fd-ladder-step.is-place-crew .fd-ladder-plinth { background:transparent; border:1px dashed var(--muted); border-bottom:0; box-shadow:none; }
+.fd-ladder-amount { font:800 20px/1.15 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+.fd-ladder-step.is-place-1 .fd-ladder-amount { color:var(--sun); }
+.fd-ladder-step.is-place-crew .fd-ladder-amount { color:var(--muted2); }
+/* the floor the podium stands on */
+.fd-ladder.is-podium { position:relative; padding-bottom:1px; }
+.fd-ladder.is-podium::after { content:""; position:absolute; left:-6px; right:-6px; bottom:0; height:1px; background:var(--ghost-line); }
+.fd-ladder.is-filled::after { display:none; }
+.fd-ladder.is-filled .fd-ladder-stand { border-bottom:1px solid var(--ghost-line); }
+
+/* filled: the winners stand in front of their step */
+.fd-ladder-winners { display:flex; flex-direction:column; align-items:stretch; gap:4px; padding-top:8px; min-width:0; text-align:center; }
+.fd-ladder-faces { display:flex; flex-wrap:wrap; justify-content:center; gap:0 2px; width:100%; }
+.fd-ladder-who { max-width:100%; color:var(--ink); font:600 13px/1.25 var(--fd-body); overflow-wrap:break-word; }
+.fd-ladder-step.is-place-1 .fd-ladder-who { color:var(--ink); font-weight:700; }
+
+/* the TV: the same podium at ten feet */
+.fd-ladder.is-podium.is-tv { gap:14px; max-width:calc(var(--ladder-cols) * 230px); }
+.fd-ladder.is-tv .fd-ladder-plinth { padding-top:16px; border-radius:14px 14px 0 0; }
+.fd-ladder.is-tv .fd-ladder-amount { font-size:48px; }
+.fd-ladder.is-tv .fd-ladder-who { font-size:28px; }
+.fd-ladder.is-tv .fd-ladder-stand .fd-stack { margin-bottom:-8px; }
+
+/* ── one line: each medallion with its amount beside it (ticker, rows) ── */
+.fd-ladder:is(.is-ticker, .is-tiny) { display:flex; align-items:center; }
+.fd-ladder:is(.is-ticker, .is-tiny) .fd-ladder-step { display:flex; flex-direction:row; align-items:center; gap:8px; }
+.fd-ladder-medal { box-sizing:border-box; display:grid; place-items:center; border-radius:50%; flex-shrink:0;
+  background:var(--bone); color:var(--ink0); border:2px solid var(--ink0); font-family:var(--fd-display); font-weight:800;
+  line-height:1; font-variant-numeric:tabular-nums;
+  box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--ink0) 20%, transparent); }
+.fd-ladder-step.is-place-1 .fd-ladder-medal { background:var(--sun); }
+.fd-ladder-step.is-place-2 .fd-ladder-medal { background:var(--silver); }
+.fd-ladder-step.is-place-3 .fd-ladder-medal { background:var(--bronze); }
+.fd-ladder-step.is-place-crew .fd-ladder-medal { background:transparent; border:2px dashed var(--muted); }
+.fd-ladder.is-ticker { gap:22px; }
+.fd-ladder.is-ticker .fd-ladder-amount { font-size:34px; }
+.fd-ladder.is-tiny { gap:6px; }
+.fd-ladder.is-tiny .fd-ladder-medal { border-width:1.5px; }
+.fd-ladder.is-tiny .fd-ladder-amount { font-size:16px; color:var(--sun); }
+/* filled: steps share one floor whatever their winners' height, so each
+   place's stand sits in row 1 and its winners in row 2 */
+.fd-ladder.is-filled .fd-ladder-step { display:contents; }
+.fd-ladder.is-filled .fd-ladder-stand { grid-row:1; align-self:end; }
+.fd-ladder.is-filled .fd-ladder-winners { grid-row:2; align-self:start; }
+.fd-ladder-face { display:grid; place-items:center; min-width:44px; min-height:44px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; }
+.fd-ladder-face.is-you > div { box-shadow:0 0 0 2px var(--you); }
+.fd-ladder-face:focus-visible { outline:2px solid var(--lamp-info); outline-offset:1px; }

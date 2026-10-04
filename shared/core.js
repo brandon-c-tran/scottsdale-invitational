@@ -1,6 +1,7 @@
 /* Single source of truth for game logic. Imported by BOTH the React client
    and the Durable Object. The server is authoritative; the client uses these
    for display only. */
+import { MASCOTS, defaultTeamNames } from "./teamNames.js";
 
 /* Names are the shipped M0 storage keys, so Scottsdale keeps them as stable
    ids. The record shape separates identity from display and attendance without
@@ -29,6 +30,11 @@ const ALL_PLAYERS = rosterPlayers(ROSTER_CONFIG, ROSTER_STATUSES);
 const ROSTER = rosterPlayers();
 const rosterRecord = id => ROSTER_CONFIG.find(player => player.id === id) || null;
 const isActivePlayer = id => ROSTER.includes(id);
+/* Away is a reversible commissioner mark for someone not at the venue right
+   now. It only removes them from new draws, contest sides and poker seats;
+   their chips, claims and profile are untouched. */
+const isAway = (state, id) => !!state?.away?.[id];
+const presentPlayers = state => ROSTER.filter(player => !isAway(state, player));
 
 /* the chip quantum: every point value in the economy is a multiple of PT and
    one rendered BankChip is worth PT points. The board is denominated in
@@ -42,7 +48,11 @@ const BUYIN_FLOOR = 6 * PT; // finale minimum: nobody sits down under 600
    below MAX_RISK. The rack meter draws this rather than stating it */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
-const AWARDS = { 400:[400,0,0], 800:[800,400,0], 1200:[1200,800,400], 1600:[1600,800,400] };
+/* The ladder: 1st takes the event value, 2nd half, 3rd a quarter. The keys
+   are the legal event values. An event may carry its own `pays` table
+   instead (5v5 pays winners only; Rage Cage pays 1st and 2nd the same). */
+const AWARDS = { 400:[400,200,100], 800:[800,400,200], 1200:[1200,600,300], 1600:[1600,800,400] };
+const awardTable = ev => Array.isArray(ev?.pays) && ev.pays.length === 3 ? ev.pays : AWARDS[ev?.value] || [0, 0, 0];
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
 const SPORTS = [
@@ -70,68 +80,62 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"400 PTS" },
-  { id:"sam", label:"Saturday Morning",   tag:"800 PTS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"1200 PTS" },
-  { id:"san", label:"Saturday Night",     tag:"1600 PTS" },
+  { id:"fri", label:"Friday Night",       tag:"400 CHIPS" },
+  { id:"sam", label:"Saturday Morning",   tag:"800 CHIPS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"1200 CHIPS" },
+  { id:"san", label:"Saturday Night",     tag:"1600 CHIPS" },
   { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const RAW_BUILTIN_EVENTS = [
-  /* ── Friday night · 400 pts ── */
+  /* ── Friday night · 400 ── */
   { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"8ball", n:2, session:"fri", value:400, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"die", n:2, session:"fri", value:400, name:"Beer Die Doubles", kind:"pairs", sport:"die", game:"die",
+    teamCfg:{ teams:6, size:2, bracket:6 },
+    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
+  { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
+    desc:"Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins." },
+  /* ── Saturday morning · 800 ── */
+  /* everyone plays: captains draft two sides of seven and six. Winners only. */
+  { id:"bball5", n:4, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+    teamCfg:{ teams:2, size:6 }, pays:[800, 0, 0],
+    participation:{ type:"all", allowSitOut:true, overflowRoles:[] },
+    desc:"Captains draft two sides, seven and six. Full court, twos and threes on the clock. Ahead at the horn wins." },
+  { id:"pickleball", n:5, session:"sam", value:800, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
+    teamCfg:{ teams:6, size:2, bracket:6 },
+    desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
+  /* a bracket of everyone present: entrants are teams of one, seeded by the
+     draw, and the top seeds take the byes */
+  { id:"bball1", n:6, session:"sam", value:800, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+    teamCfg:{ teams:13, size:1, bracket:13 },
+    desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
+  /* ── Saturday afternoon · 1200 ── */
+  { id:"volley", n:7, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+    teamCfg:{ teams:4, size:3, bracket:4 },
+    desc:"Four teams of three, single elimination. Best of three sets to 15, cap 17. Rotate servers." },
+  { id:"8ball", n:8, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:3, session:"fri", value:400, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:9, session:"sap", value:1200, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  { id:"die", n:4, session:"fri", value:400, name:"Beer Die", kind:"pairs", sport:"die", game:"die",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sink it in a cup for the instant kill." },
-  /* ── Saturday morning · 800 pts ── */
-  { id:"bball", n:5, session:"sam", value:800, name:"3v3 Basketball", kind:"team", sport:"bball", game:"basketball", variant:"3v3",
-    teamCfg:{ teams:4, size:3, bracket:4 },
-    desc:"Half court to 7 by 1s and 2s, win by 1. Call your own fouls." },
-  { id:"spike", n:6, session:"sam", value:800, name:"Spikeball Doubles", kind:"pairs", sport:"spike", game:"spikeball",
-    teamCfg:{ teams:6, size:2 },
-    desc:"Two pools, winners meet in the final. To 11, win by 2, cap 15." },
-  { id:"pingpong", n:7, session:"sam", value:800, name:"Ping Pong", kind:"solo", sport:"pingpong", game:"pingpong",
-    desc:"Round-robin heats, then a final. Games to 11, win by 2, serve switches every two." },
-  { id:"foosball", n:8, session:"sam", value:800, name:"Foosball", kind:"pairs", sport:"foosball", game:"foosball",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Split the rods, no spinning, first to 10 goals." },
-  /* ── Saturday afternoon · 1200 pts ── */
-  { id:"volley", n:9, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
-    teamCfg:{ teams:2, size:6 },
-    desc:"Best 2 of 3 sets to 15, win by 2, cap 17. Rotate servers." },
-  { id:"nine", n:10, session:"sap", value:1200, name:"Nine-Hole Putting", kind:"solo", sport:"golf", game:"putting",
-    desc:"Nine holes, lowest total strokes. Max 5 per hole." },
-  { id:"bball1", n:11, session:"sap", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
-    desc:"Round-robin heats, then a final. Ones to 5, make it take it, win by 1." },
-  { id:"pickleball", n:12, session:"sap", value:1200, name:"Pickleball", kind:"pairs", sport:"pickleball", game:"pickleball",
-    teamCfg:{ teams:6, size:2, bracket:6 },
-    desc:"Single elimination doubles. Serve deep, stay out of the kitchen, rally it out. Games to 11, win by 2." },
-  /* ── Saturday night · 1600 pts ── */
-  { id:"flip", n:13, session:"san", value:1600, name:"Flip Cup", kind:"team", sport:"flip", game:"flipcup",
-    teamCfg:{ teams:2, size:6 },
-    desc:"Best of 3. Flip clean, next teammate goes." },
-  { id:"beerio", n:14, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  /* ── Saturday night · 1600 ── */
+  { id:"trivia", n:10, session:"san", value:1600, name:"Trivia", kind:"team", game:"trivia",
+    teamCfg:{ teams:4, size:3 },
+    desc:"Four teams of three, one game. Most points wins." },
+  { id:"ragecage", n:11, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+    pays:[1600, 1600, 400],
+    desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
+  { id:"beerio", n:12, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+    stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
-  { id:"bball5", n:15, session:"san", value:1600, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
-    teamCfg:{ teams:2, size:5 },
-    desc:"Full court, five a side. Twos and threes on the clock. Ahead at the horn wins." },
-  { id:"ragecage", n:16, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
-    desc:"Everyone circles the cups, two balls in play. Sink and stack, get stacked on and you are out. Last one standing wins." },
-  { id:"gauntlet", n:17, session:"san", value:1600, name:"The Gauntlet", kind:"solo", game:"gauntlet",
-    desc:"One timed circuit: pressure putt, flip your cup, pong shot, die toss, center cup. Fastest clean runs take it." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
-  { id:"poker", n:18, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
-    desc:"Your points are your stack, dealt out in chips. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
+  { id:"poker", n:13, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
+    desc:"Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
 const OVERFLOW_ROLES = ["referee", "scorekeeper", "photographer", "on-deck", "sit-out"];
@@ -154,12 +158,12 @@ const OVERFLOW_ROLE_META = Object.freeze({
   "on-deck": Object.freeze({
     label:"On-deck lead",
     short:"Next up",
-    detail:"Keeps the next matchup ready to go.",
+    detail:"Gets the next matchup ready.",
   }),
   "sit-out": Object.freeze({
     label:"Event host",
     short:"Host",
-    detail:"Resets the station and keeps play moving.",
+    detail:"Resets the station between games.",
   }),
 });
 const overflowRoleMeta = role => OVERFLOW_ROLE_META[role] || OVERFLOW_ROLE_META["sit-out"];
@@ -183,32 +187,28 @@ const BUILTIN_EVENTS = RAW_BUILTIN_EVENTS.map(ev => ({
 const GAMES = {
   putting: { name:"Putting", howto:{ players:"Solo", gear:["Putter","One ball"],
     objective:"Sink it, or finish closest to the pin.",
-    steps:["Set up at the marked spot.","Putt for the hole, distance counts.","Closest ball beats a miss, a make beats everything.","Lowest strokes or closest putt wins, by event."],
-    win:"Long Putt: closest of three attempts. Nine-Hole: fewest total strokes. Ties go to sudden death." } },
+    steps:["Putt from the marked spot.","A make beats any miss. Otherwise the closest ball wins."],
+    win:"Closest of three attempts wins. Ties go to sudden death." } },
   "8ball": { name:"8-Ball", howto:{ players:"Pairs", gear:["Pool table","Full rack","Two cues"],
     objective:"Clear your group, then sink the 8.",
-    steps:["Break, then split stripes and solids.","Partners alternate shots.","Clear your group of seven. A scratch is ball in hand for them.","Call and sink the 8 to win."],
-    win:"First pair to legally pot the 8 takes the rack." } },
+    steps:["Break, then split stripes and solids.","Partners alternate shots.","A scratch gives the other pair ball in hand.","Call the 8 before you shoot it."],
+    win:"First pair to legally sink the 8 wins." } },
   pong: { name:"Beer Pong", howto:{ players:"Pairs", gear:["Table","Ten cups","Two balls"],
     objective:"Sink every cup on the far end first.",
-    steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted.","Clear their last cup to win."],
+    steps:["Rack six, one re-rack on request.","Both partners throw each turn.","Bounces count two and can be swatted."],
     win:"First pair to sink all their cups wins.", house:"Redemption throw in the semis and final." } },
   die: { name:"Beer Die", howto:{ players:"Pairs", gear:["Table","One die","Four cups","A pour"],
-    objective:"Land the die in their cup, or make them flub the catch.",
-    steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table, no darting it, no skying it.","They catch it one-handed off the bounce, or you score.","Sink it in a cup for the instant kill."],
-    win:"First pair to the set score wins. Sinking the die ends it on the spot.",
+    objective:"Land the die in their cup, or make them miss the catch.",
+    steps:["Sit across the table, cups on your two corners.","Toss the die up past head height and onto the far end.","It has to bounce off the table. No darting it, no skying it.","They catch it one-handed off the bounce, or you score."],
+    win:"First pair to the set score wins. Sinking the die in a cup ends it on the spot.",
     house:"Call your own height on the toss. A plunk means chug." } },
   basketball: { name:"Basketball", variants:[
-    { id:"1v1", label:"1v1", howto:{ players:"Solo, heats then a final", gear:["Half court","One ball"],
-      objective:"Beat your man to five.",
-      steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls.","First to five, win by one."],
-      win:"First to five wins the game. Best record in your heat moves on." } },
-    { id:"3v3", label:"3v3", howto:{ players:"Teams of three", gear:["Half court","One ball"],
-      objective:"Outscore them to seven.",
-      steps:["Check the ball up top.","Score by ones and twos.","Take it back past the arc on a turnover.","Call your own fouls.","First to seven, win by one."],
-      win:"First team to seven wins." } },
+    { id:"1v1", label:"1v1", howto:{ players:"Solo, single elimination", gear:["Half court","One ball"],
+      objective:"Score five before your opponent.",
+      steps:["Check the ball up top.","Everything counts one.","Make it, take it.","Call your own fouls."],
+      win:"First to five wins the game. Win the final to take the event." } },
     { id:"5v5", label:"5v5", howto:{ players:"Two teams of five", gear:["Full court","One ball","A clock"],
-      objective:"Be ahead when the horn sounds.",
+      objective:"Be ahead when time runs out.",
       steps:["Tip off to start.","Twos inside the arc, threes beyond it.","Clear past half on a change of possession.","Call your own fouls.","Two halves, running clock."],
       win:"Ahead at the horn wins.", house:"No hard contact." } },
   ]},
@@ -218,42 +218,49 @@ const GAMES = {
     win:"To eleven, win by two, cap fifteen." } },
   pingpong: { name:"Ping Pong", howto:{ players:"Solo", gear:["Table","Paddles","One ball"],
     objective:"Win points until eleven.",
-    steps:["Rally for serve, then serve two and hand it over.","Serve must clear the net and bounce once each side.","Let it bounce once on your side before returning.","Games to eleven, win by two."],
-    win:"Games to eleven, win by two. Best in the final takes it." } },
+    steps:["Rally for serve, then serve two and hand it over.","Serve must clear the net and bounce once each side.","Let it bounce once on your side before returning."],
+    win:"Games to eleven, win by two. The winner of the final takes the event." } },
   foosball: { name:"Foosball", howto:{ players:"Pairs", gear:["Foosball table","One ball"],
     objective:"Score on their goal, defend yours.",
-    steps:["Split the rods with your partner.","Serve through the side hole.","Pass and shoot. A full spin wipes the goal.","Dead ball resets to the serve.","Ball in their goal scores."],
+    steps:["Split the rods with your partner.","Serve through the side hole.","No spinning. A goal off a full spin does not count.","A dead ball goes back to the serve."],
     win:"First pair to ten goals wins." } },
   volleyball: { name:"Volleyball", howto:{ players:"Two teams", gear:["Sand court","Net","One ball"],
     objective:"Ground the ball on their side.",
-    steps:["Serve from behind the line.","Three touches a side, clean contact only.","Rotate on every side-out.","Win the rally, win the point."],
+    steps:["Serve from behind the line.","Three touches a side, clean contact only.","Rotate on every side-out.","Every rally scores a point."],
     win:"Best two of three sets to fifteen, win by two, cap seventeen." } },
   pickleball: { name:"Pickleball", howto:{ players:"Pairs", gear:["Court","Paddles","One ball"],
     objective:"Win the rally without faulting in the kitchen.",
     steps:["Serve underhand, cross court, past the kitchen.","Let it bounce once each side before volleying.","Stay out of the kitchen on volleys.","Only the serving side scores."],
     win:"Games to eleven, win by two." } },
-  flipcup: { name:"Flip Cup", howto:{ players:"Two teams", gear:["Cups","A table","A pour each"],
-    objective:"Finish the line and flip clean before they do.",
-    steps:["Line up across the table.","Drink it all, then set the cup on the edge.","Flip it upright with one finger.","Land it, the next teammate goes."],
-    win:"First team down the line wins the round. Best of three." } },
   beerio: { name:"Beerio Kart", howto:{ players:"Heats of four", gear:["Switch","Four controllers","A beer each"],
     objective:"Win the race, but finish your beer to count.",
-    steps:["Draw into a heat of four.","Crack a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the line, or sit there until it is gone."],
+    steps:["Open a beer at the start line.","Pull over to drink, no sipping while you steer.","Finish the beer before the finish line, or wait there until it is gone."],
     win:"Best finishes advance to the final. Highest total wins." } },
-  ragecage: { name:"Rage Cage", howto:{ players:"Solo, last standing", gear:["Ring of cups","Center cup","Two balls"],
-    objective:"Never get caught holding a ball. Empty the ring before you.",
-    steps:["Everyone circles the cups, two balls in play.","Bounce a ball into your cup, then pass it on.","Make it in one, stack your cup on the player to your left.","Get stacked on and you are out.","Sink the center cup to end it. Last player standing wins."],
-    win:"Last one standing takes 1st. Elimination order sets 2nd and 3rd." } },
+  ragecage: { name:"Rage Cage", howto:{ players:"Everyone, last standing", gear:["A cup per player","Center cup","Two balls"],
+    objective:"Sink your ball and pass it on before you get stacked.",
+    steps:["One cup each in a circle, the center cup filled by everyone. Two balls start on opposite sides.",
+      "Bounce into your cup. Make it on the first try and pass to anyone; otherwise pass left.",
+      "Make yours while the player to your left is still shooting and stack on them. Stacked players drink and are out.",
+      "The last two go head to head. The loser drinks the center cup."],
+    win:"Last one standing takes 1st, the final loser 2nd, the third-to-last out 3rd. 1st and 2nd pay the same." } },
+  where: { name:"Where and When", howto:{ players:"Solo", gear:["Your phone", "The TV"],
+    objective:"Place each photo: where it was taken, and when.",
+    steps:["A photo from Brandon's past goes up on the TV and your phone.",
+      "Drop a pin where it was taken and pick the date and hour. You can change it until the reveal.",
+      "60 seconds a photo.",
+      "Each photo scores up to 5,000 for where and 5,000 for when. 10 miles off is about 4,700; a month off about 3,900."],
+    win:"Highest total wins. A tie goes to more points for where, then to the faster guesses." } },
+  trivia: { name:"Trivia", howto:{ players:"Teams of three", gear:["Your phone", "The TV"],
+    objective:"Most points after every round.",
+    steps:["A question goes up on the TV and every phone.",
+      "Your team shares one answer. Anyone on it can change it until one of you locks it in.",
+      "A right answer scores 500, plus up to 500 the sooner your team locks.",
+      "Closest number: the nearest team scores 1,000, the next 500. Exact scores 250 more."],
+    win:"Most points wins. A tie goes to the team that locked its scoring answers faster." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
-    objective:"Finish with the biggest stack. Your points buy you in.",
-    steps:["Your points are your chips, dealt from the buy-in sheet.","No-limit hold'em. Blinds rise on the clock, shown on the TV.","Bust and you are out.","When the last level ends, count your stack.","Final chip counts are the final standings."],
-    win:"Chip leader takes the championship. Elimination order settles the busts.",
-    house:"No wagers, duels, or rulings while cards are live." } },
-  gauntlet: { name:"The Gauntlet", howto:{ players:"Solo, on the clock", gear:["Putter","Cups","Pong ball","One die"],
-    objective:"Clear five stations faster than everyone else.",
-    steps:["Sink the pressure putt.","Flip your cup clean.","Hit a pong shot.","Land a die on the table.","Finish at the center cup. Miss a station, run it back."],
-    win:"Fastest clean run takes 1st. The clock settles ties.",
-    house:"One runner at a time. Someone times each run." } },
+    objective:"Finish with the biggest stack.",
+    steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
+    win:"Chip leader takes the championship. Final chip counts are the final standings, and elimination order ranks the busts." } },
 };
 
 const SLOT_META = [
@@ -262,14 +269,32 @@ const SLOT_META = [
   { label:"3rd", team:"3rd place",  color:"var(--bronze)" },
 ];
 
-const OUTRIGHT_MULT = 2; // winner pays 2:1; everything else pays even
+const OUTRIGHT_MULT = 2; // a wide field's winner pays 2:1; everything else pays even
+/* A ticket keeps the payout it was placed at. Outright tickets written before
+   two-sided events paid even carry no mult and stay 2:1; every other ticket
+   written before underdog odds carries none and stays 1:1. */
+const wagerMult = w => Number.isInteger(w?.mult) && w.mult >= 1 ? w.mult
+  : w?.kind === "outright" ? OUTRIGHT_MULT : 1;
 
-/* head-to-head phone duels: challenge anyone, both play a 5-second minigame on
-   your own phone, the pot settles itself. The challenger names the ante
-   and both sides put up the same; DUEL_STAKE is only the default. */
+/* ── comebacks (v3.1) ──
+   Leader bounty: whoever leads the board when a contest's betting locks is
+   stamped on it; beating them pays every winner BOUNTY_PTS from the bank.
+   Underdog odds: a two-sided contest whose sides sit UNDERDOG_GAP apart
+   (the gap in average chips per player, times the smaller side's size)
+   pays the lower side's
+   winning tickets UNDERDOG_MULT, fixed when its betting opens.
+   Byes to the bottom: a bracket's byes go to the lowest-ranked teams. */
+const BOUNTY_PTS = 2 * PT;
+const UNDERDOG_GAP = 10 * PT;
+const UNDERDOG_MULT = 2;
+
+/* head-to-head phone duels: challenge one player or anyone, the other side
+   accepts, both play a 5-second minigame on their own phone, the pot settles
+   itself. The challenger names the ante and both sides put up the same;
+   DUEL_STAKE is only the default. The offer lifecycle lives by resolveDuel. */
 const DUEL_STAKE = PT;
 const DUEL_GAMES = {
-  quickdraw: { name:"Quick Draw", desc:"The screen flashes after a random wait. Tap it. Fastest tap wins, tapping early is a foul." },
+  quickdraw: { name:"Quick Draw", desc:"Tap when the screen flashes. Fastest tap wins. Tapping early is a foul." },
 };
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
@@ -310,25 +335,27 @@ function legText(leg, dir) {
 
 /* chip identity: everyone starts gray; colors are claimed first come first
    serve and lock when the weekend goes live. Skins repeat freely; the color
-   is the unique claim. light:true colors take ink initials/text. */
+   is the unique claim. The ink on each color is computed for contrast
+   (src/features/identity/chipInk.js). */
 const CHIP_GRAY = "#6B6558";
 const CHIP_COLORS = [
-  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B", light:true }, { hex:"#D89C2F", light:true },
-  { hex:"#C9B25A", light:true }, { hex:"#A8A03F", light:true }, { hex:"#77804C" }, { hex:"#4E6E39" },
+  { hex:"#C05B33" }, { hex:"#D97742" }, { hex:"#E39A3B" }, { hex:"#D89C2F" },
+  { hex:"#C9B25A" }, { hex:"#A8A03F" }, { hex:"#77804C" }, { hex:"#4E6E39" },
   { hex:"#6E9450" }, { hex:"#3F7D5C" }, { hex:"#557B72" }, { hex:"#2F7E83" },
   { hex:"#4F93A3" }, { hex:"#3B6E9C" }, { hex:"#5E7291" }, { hex:"#6D6FA8" },
   { hex:"#7C5CA6" }, { hex:"#8A4F62" }, { hex:"#A6527C" }, { hex:"#B23B5E" },
   { hex:"#B23B2E" }, { hex:"#8E3B2F" }, { hex:"#7A5C43" }, { hex:"#A9663F" },
   { hex:"#B37A4A" }, { hex:"#8C6A54" }, { hex:"#6F6546" }, { hex:"#4E4A3C" },
-  { hex:"#9AA1A8", light:true }, { hex:"#B9AF9B", light:true },
-  { hex:"#D1C0A0", light:true }, { hex:"#E3D7BD", light:true },
+  { hex:"#9AA1A8" }, { hex:"#B9AF9B" },
+  { hex:"#D1C0A0" }, { hex:"#E3D7BD" },
 ];
 const CHIP_SKINS = ["ticks", "plain", "dash", "quad", "dots", "ring",
   "saw", "flame", "star", "bolt", "wave", "crown"];
 
 /* this edition's hard dates, in one place: every surface reads these instead
    of spelling the weekend out again and getting it wrong */
-const EDITION = { long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
+const EDITION = { name:"Scottsdale", year:2026, label:"Scottsdale · 2026",
+  long:"October 30 to November 1, 2026", short:"Oct 30 to Nov 1" };
 
 /* the weekend sheet ships with the real booking already in it, so nobody has
    to type it and the invite is correct the moment it goes out. GM can edit
@@ -371,9 +398,11 @@ function cleanLogistics(stored) {
   return out;
 }
 
-const EMPTY_STATE = { v:7, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
-  stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, onDeck:null, frozen:false,
-  onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, logistics:{ ...LOGISTICS }, updatedAt:0 };
+const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
+  stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, onDeck:null, frozen:false,
+  onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
+  logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, mvp:{}, jerseysLocked:false,
+  geoRounds:[], geo:null, triviaRounds:[], trivia:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -383,6 +412,16 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "customEvents",
   "eventEdits",
   "eventOrder",
+  /* D6: ballots are guest answers, not game progress */
+  "prompts",
+  /* the jersey order is placed once, whatever the games do */
+  "jerseysLocked",
+  /* Where and When's authored photos and answers are configuration; the
+     game played on them (state.geo) is progress */
+  "geoRounds",
+  /* Trivia's set list (bank picks and the commissioner's own questions) is
+     configuration; the game played on it (state.trivia) is progress */
+  "triviaRounds",
 ]);
 
 /* ─────────── helpers ─────────── */
@@ -406,11 +445,45 @@ function allEventsOf(state) {
   }
   return evs;
 }
-function eventCapacity(ev) {
+/* The shape a team event actually plays with the people present. A full
+   room plays the configured format with any extras on crew. A short room
+   keeps pairs as pairs and brackets as brackets with fewer teams (5 teams
+   seed a play-in into a 4-team bracket), while two-sided team games keep
+   both sides and shrink them evenly. Remainders go to crew. */
+function teamFit(ev, count = ROSTER.length) {
+  const cfg = ev?.teamCfg;
+  if (!cfg || !Number.isInteger(cfg.teams) || !Number.isInteger(cfg.size)
+      || cfg.teams < 2 || cfg.size < 1) return null;
+  /* everyone plays (the full court): the sides split whoever is present,
+     one apart at most ("7 v 6") */
+  if (participationForEvent(ev).type === "all") {
+    if (count < cfg.teams) return null;
+    const split = Array.from({ length:cfg.teams }, (_, i) => Math.floor(count / cfg.teams) + (i < count % cfg.teams ? 1 : 0));
+    return { teams:cfg.teams, size:split[0], bracket:null, reduced:count < cfg.teams * cfg.size, split };
+  }
+  if (count >= cfg.teams * cfg.size)
+    return { teams:cfg.teams, size:cfg.size, bracket:cfg.bracket || null, reduced:false };
+  if (cfg.bracket || ev.kind === "pairs" || ev.stageCfg) {
+    const teams = Math.floor(count / cfg.size);
+    return teams >= 2 ? { teams, size:cfg.size, bracket:cfg.bracket ? teams : null, reduced:true } : null;
+  }
+  const size = Math.floor(count / cfg.teams);
+  return size >= 1 ? { teams:cfg.teams, size, bracket:null, reduced:true } : null;
+}
+/* the format line a commissioner reads: "6 teams of 2", or "13 players"
+   when every entrant is one person */
+const shapeLabel = fit => !fit ? "" : fit.split && new Set(fit.split).size > 1 ? fit.split.join(" v ")
+  : fit.size === 1 ? `${fit.teams} players` : `${fit.teams} teams of ${fit.size}`;
+function eventCapacity(ev, count) {
   const policy = participationForEvent(ev);
-  if (policy.type === "strict-teams")
+  if (policy.type === "strict-teams") {
+    if (count !== undefined && ev?.teamCfg) {
+      const fit = teamFit(ev, count);
+      return fit ? fit.teams * fit.size : null;
+    }
     return Number.isInteger(policy.teams) && Number.isInteger(policy.size)
       ? policy.teams * policy.size : null;
+  }
   if (policy.type === "fixed") return Number.isInteger(policy.entrants) ? policy.entrants : null;
   return null;
 }
@@ -426,7 +499,10 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
   if (players.some(player => !activeSet.has(player)))
     return { ok:false, code:"inactive-player", error:"Only confirmed players can participate" };
 
-  const capacity = eventCapacity(ev);
+  const fit = policy.type === "strict-teams" && ev?.teamCfg ? teamFit(ev, activeUnique.length) : null;
+  const capacity = policy.type === "strict-teams" && ev?.teamCfg
+    ? (fit ? fit.teams * fit.size : ev.teamCfg.teams * ev.teamCfg.size)
+    : eventCapacity(ev);
   if (policy.type === "all") {
     if (players.length !== activeUnique.length || activeUnique.some(player => !players.includes(player)))
       return { ok:false, code:"all-required", error:`All ${activeUnique.length} confirmed players are required`,
@@ -434,6 +510,9 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
   } else if (policy.type === "strict-teams" || policy.type === "fixed") {
     if (!capacity || capacity < 1)
       return { ok:false, code:"bad-policy", error:"Event participation is not configured" };
+    if (ev?.teamCfg && !fit)
+      return { ok:false, code:"roster-short", error:`This event needs ${2 * ev.teamCfg.size} players; ${activeUnique.length} present`,
+        selectedCount:players.length, activeCount:activeUnique.length, required:2 * ev.teamCfg.size };
     if (activeUnique.length < capacity)
       return { ok:false, code:"roster-short", error:`This event needs ${capacity} players; ${activeUnique.length} confirmed`,
         selectedCount:players.length, activeCount:activeUnique.length, required:capacity };
@@ -466,9 +545,38 @@ function validateEventParticipants(ev, selected, active = ROSTER) {
     players,
     overflow,
     capacity,
+    fit,
     selectedCount:players.length,
     activeCount:activeUnique.length,
     policy,
+  };
+}
+/* The commissioner's one-tap default: everyone present plays, and the
+   overflow goes to whoever has sat out least so crew duty rotates. Ties go
+   to whoever sat out longest ago, then the end of the roster. */
+function suggestParticipants(state, ev) {
+  if (!ev) return null;
+  const present = presentPlayers(state);
+  if (!ev.teamCfg) return ev.stageCfg?.kind === "heats" ? { players:present, roles:[], fit:null } : null;
+  const fit = teamFit(ev, present.length);
+  if (!fit) return null;
+  /* everyone plays (the 7 v 6 full court): no crew */
+  if (participationForEvent(ev).type === "all") return { players:present, roles:[], fit };
+  const counts = {}, last = {};
+  const tally = (roles, at) => (Array.isArray(roles) ? roles : []).forEach(item => {
+    if (!item?.player) return;
+    counts[item.player] = (counts[item.player] || 0) + 1;
+    last[item.player] = Math.max(last[item.player] || 0, Number(at) || 0);
+  });
+  Object.entries(state.draws || {}).forEach(([id, draw]) => { if (id !== ev.id) tally(draw?.roles, draw?.ts); });
+  Object.entries(state.stages || {}).forEach(([id, stage]) => { if (id !== ev.id) tally(stage?.roles, stage?.ts); });
+  const order = [...present].sort((a, b) => (counts[a] || 0) - (counts[b] || 0)
+    || (last[a] || 0) - (last[b] || 0) || ROSTER.indexOf(b) - ROSTER.indexOf(a));
+  const crew = order.slice(0, present.length - fit.teams * fit.size);
+  return {
+    players:present.filter(player => !crew.includes(player)),
+    roles:crew.map((player, index) => ({ player, role:OVERFLOW_ROLES[index % OVERFLOW_ROLES.length] })),
+    fit,
   };
 }
 function normalizeOverflowRoles(selected, active = ROSTER, roles = [], ev = null) {
@@ -507,10 +615,24 @@ const disp = (state, p) => state.profiles?.[p]?.display || p;
 const shuffle = arr => { const a = [...arr]; for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
 /* snake draft order: pick #k (0-indexed) over T teams -> which team is on the clock */
 const snakeTeam = (k, T) => { const r = Math.floor(k / T), p = k % T; return r % 2 === 0 ? p : T - 1 - p; };
+/* The draft's visible turn and write references travel together. Revision
+   also advances on undo, when the same pick index can be reached again. */
+function draftTurn(draft) {
+  if (!draft?.id || !Array.isArray(draft.teams) || !draft.teams.length
+      || !Array.isArray(draft.picks) || !Array.isArray(draft.pool)) return null;
+  const pickIndex = draft.picks.length, remaining = draft.pool.length;
+  const complete = remaining === 0;
+  const teamIndex = complete ? null : snakeTeam(pickIndex, draft.teams.length);
+  return { draftId:draft.id, pickIndex, draftRevision:Number(draft.revision || 0),
+    teamIndex, captain:teamIndex === null ? null : draft.teams[teamIndex].captain,
+    round:Math.floor(pickIndex / draft.teams.length) + 1,
+    totalPicks:pickIndex + remaining, remaining, complete };
+}
 
-/* mascot bank for teams of 3+; assigned at draw time, stable for the event */
-const TEAM_NAMES = ["The Sidewinders","The Javelinas","The Roadrunners","The Coyotes","The Scorpions",
-  "The Gila Monsters","The Jackrabbits","The Rattlers","The Dust Devils","The Bobcats","The Vultures","The Quail"];
+/* the desert mascots: once every team's name, now one flavor of the
+   suggestions (shared/teamNames.js). A draw still shuffles them, unused, so a
+   seeded rehearsal's random stream (worker/qa.js) runs as it always has. */
+const TEAM_NAMES = MASCOTS.map(mascot => `The ${mascot}`);
 
 function teamLabel(state, t) {
   if (t.name) return t.name;
@@ -541,6 +663,8 @@ function resolveWager(state, w, events) {
   if (w.status === "void") return { status:"void", delta:0 };
   const ev = events.find(e => e.id === w.eventId);
   if (!ev) return { status:"void", delta:0 };
+  /* a shelved event returns its chips; restoring it restores the tickets */
+  if (state.shelved?.[w.eventId]) return { status:"void", delta:0 };
   if (w.kind === "outright") {
     if (w.pickTeam) {
       const draw = state.draws[w.eventId];
@@ -552,7 +676,7 @@ function resolveWager(state, w, events) {
     const won = w.pickTeam
       ? w.pickPlayers.every(p => winners.includes(p))
       : winners.includes(w.pick);
-    return { status: won ? "won" : "lost", delta: won ? OUTRIGHT_MULT * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
   if (w.kind === "match") {
     const draw = state.draws[w.eventId];
@@ -562,9 +686,9 @@ function resolveWager(state, w, events) {
     if (!match) return { status:"void", delta:0 };
     if (match.winner === null || match.winner === undefined) return { status:"pending", delta:0 };
     const won = match.winner === w.teamIdx;
-    return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
-  if (w.kind === "stage") {
+  if (w.kind === "stage" || w.kind === "heat") {
     const st = state.stages[w.eventId];
     if (!st || st.id !== w.stagesId) return { status:"void", delta:0 };
     if (st.entrantType === "team") {
@@ -574,13 +698,18 @@ function resolveWager(state, w, events) {
     if (w.final) {
       if (st.finalWinner === null || st.finalWinner === undefined) return { status:"pending", delta:0 };
       const won = st.finalWinner === w.pickKey;
-      return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+      return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
     }
     const g = st.groups[w.group];
     if (!g) return { status:"void", delta:0 };
+    if (w.kind === "heat") {
+      if (g.winner === null || g.winner === undefined) return { status:"pending", delta:0 };
+      const won = g.winner === w.pickKey;
+      return { status:won ? "won" : "lost", delta:won ? wagerMult(w) * w.stake : -w.stake };
+    }
     if ((g.through || []).length < st.advance) return { status:"pending", delta:0 };
     const won = g.through.includes(w.pickKey);
-    return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
   return { status:"void", delta:0 };
 }
@@ -640,6 +769,8 @@ const POKER_CONFIG = Object.freeze({
   rounding:"exact",
   denominations:Object.freeze([1000, 500, 100, 25]),
   blindPack:Object.freeze({ denomination:25, count:8, minimumStack:400 }),
+  /* small chips to play with before any 1000 is dealt */
+  workingLayer:Object.freeze([Object.freeze({ v:100, n:10 }), Object.freeze({ v:500, n:2 })]),
 });
 /* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
 const POKER_LEVELS = [
@@ -648,21 +779,53 @@ const POKER_LEVELS = [
   { sb:600, bb:1200, mins:15 },
 ];
 const pokerLevels = () => POKER_LEVELS.map(l => ({ ...l }));
-/* pure clock walk; clients tick a 1s interval and re-derive */
+/* pure clock walk; clients tick a 1s interval and re-derive from a
+   server-anchored now. The current level carries its own start and an
+   optional pause, so a nudge starts the new level fresh and a pause holds
+   the remaining time exactly. Tables started before those fields existed
+   keep deriving from startedAt plus levelOffset. The last level has no end:
+   it counts down once and then reads as the final level, never 0:00. */
 function pokerClock(poker, now) {
   const levels = poker.levels || POKER_LEVELS;
-  if (!poker.startedAt) return { idx:0, ...levels[0], msLeft:levels[0].mins * 60000, running:false };
-  let elapsed = now - poker.startedAt;
-  let idx = 0;
-  while (idx < levels.length - 1 && elapsed >= levels[idx].mins * 60000) {
-    elapsed -= levels[idx].mins * 60000; idx++;
+  const lastIdx = levels.length - 1;
+  if (!poker.startedAt) return { idx:0, ...levels[0], msLeft:levels[0].mins * 60000,
+    running:false, paused:false, last:lastIdx === 0, final:false };
+  const paused = Number.isFinite(poker.pausedAt) && poker.pausedAt > 0;
+  const at = paused ? poker.pausedAt : now;
+  let idx, elapsed;
+  if (Number.isInteger(poker.levelIdx) && Number.isFinite(poker.levelStartedAt)) {
+    idx = Math.max(0, Math.min(lastIdx, poker.levelIdx));
+    elapsed = Math.max(0, at - poker.levelStartedAt);
+    while (idx < lastIdx && elapsed >= levels[idx].mins * 60000) {
+      elapsed -= levels[idx].mins * 60000; idx++;
+    }
+  } else {
+    elapsed = Math.max(0, at - poker.startedAt);
+    idx = 0;
+    while (idx < lastIdx && elapsed >= levels[idx].mins * 60000) {
+      elapsed -= levels[idx].mins * 60000; idx++;
+    }
+    const shifted = Math.max(0, Math.min(lastIdx, idx + (poker.levelOffset || 0)));
+    /* a legacy nudge moved the level but not its clock: never report a
+       shifted level as already expired */
+    if (shifted !== idx) elapsed = Math.min(elapsed, levels[shifted].mins * 60000 - 1000);
+    idx = shifted;
   }
-  idx = Math.max(0, Math.min(levels.length - 1, idx + (poker.levelOffset || 0)));
   const msLeft = Math.max(0, levels[idx].mins * 60000 - elapsed);
-  return { idx, ...levels[idx], msLeft, running:true, last: idx === levels.length - 1 };
+  const last = idx === lastIdx;
+  return { idx, ...levels[idx], msLeft, elapsed, running:!paused, paused, last,
+    final:last && msLeft === 0 };
+}
+/* the level a clock write starts from: the derived clock at the server's now */
+function pokerClockAnchor(poker, now) {
+  const clk = pokerClock(poker, now);
+  const levels = poker.levels || POKER_LEVELS;
+  return { idx:clk.idx, levelStartedAt:now - (levels[clk.idx].mins * 60000 - clk.msLeft) };
 }
 /* Physical dealing breakdown: reserve eight 25s for blinds when practical,
-   then deal greedily. The final 25 pass keeps post-finale counts exact too. */
+   then a working layer (up to ten 100s and two 500s) so nobody opens with a
+   stack of 1000s they cannot bet with, then greedily. The final 25 pass keeps
+   post-finale counts exact too. */
 function pokerDenoms(pts) {
   const value = Number(pts);
   if (!Number.isInteger(value) || value < 0 || value % POKER_CONFIG.countQuantum !== 0)
@@ -680,6 +843,11 @@ function pokerDenoms(pts) {
   const pack = POKER_CONFIG.blindPack;
   add(pack.denomination, pack.count);
   chips -= pack.denomination * pack.count;
+  for (const { v, n:most } of POKER_CONFIG.workingLayer) {
+    const n = Math.min(most, Math.floor(chips / v));
+    add(v, n);
+    chips -= n * v;
+  }
   for (const v of POKER_CONFIG.denominations.filter(v => v !== pack.denomination)) {
     const n = Math.floor(chips / v);
     add(v, n);
@@ -704,11 +872,13 @@ function pokerDistribution(entries) {
     const before = Number(entry?.pts);
     if (seen.has(player)) errors.push(`Duplicate poker seat: ${player}`);
     seen.add(player);
-    if (!Number.isInteger(before) || before < 0)
+    if (!Number.isInteger(before))
       errors.push(`Invalid stack for ${player}`);
     else if (before % POKER_CONFIG.stackQuantum !== 0)
       errors.push(`${player}'s stack must be exact ${POKER_CONFIG.stackQuantum}s`);
-    const legalBefore = Number.isInteger(before) && before >= 0 ? before : 0;
+    /* a correction can leave a balance under zero; it deals as zero, so the
+       minimum stack covers it and the grant brings the board up to the stack */
+    const legalBefore = Number.isInteger(before) ? before : 0;
     const uncapped = Math.max(POKER_CONFIG.minimumStack, legalBefore);
     const stack = POKER_CONFIG.maxStack === null
       ? uncapped : Math.min(POKER_CONFIG.maxStack, uncapped);
@@ -729,13 +899,36 @@ function pokerDistribution(entries) {
     rows,
     total:rows.reduce((sum, row) => sum + row.stack, 0),
     minimumCount:rows.filter(row => row.grant > 0).length,
+    inventory:pokerInventory(rows.map(row => row.stack)),
   };
 }
+/* the tray: how many of each chip the whole table is dealt */
+function pokerInventory(stacks) {
+  const totals = new Map();
+  (Array.isArray(stacks) ? stacks : Object.values(stacks || {})).forEach(stack =>
+    pokerDenoms(stack).forEach(({ v, n }) => totals.set(v, (totals.get(v) || 0) + n)));
+  return POKER_CONFIG.denominations.filter(v => totals.has(v)).map(v => ({ v, n:totals.get(v) }));
+}
+
+/* ─────────── duels: challenges are offers ───────────
+   A challenge written with `consent:true` is an offer. It reserves only the
+   challenger's ante until the recipient accepts (or, for an open challenge,
+   until the first eligible player takes it). An unaccepted offer lapses
+   DUEL_LAPSE_MS after `ts`; a lapsed offer reserves nothing and reads as void,
+   so no timer is needed. Records without `consent` predate the offer model:
+   both antes were reserved at send, so they read as accepted and settle
+   exactly as before. */
+const DUEL_LAPSE_MS = 10 * 60 * 1000;
+const duelAccepted = duel => !!duel && (!duel.consent || !!duel.acceptedAt);
+const duelLapsed = (duel, now = Date.now()) => !!duel && duel.status === "open"
+  && !duelAccepted(duel) && now - Number(duel.ts || 0) >= DUEL_LAPSE_MS;
+const duelLapsesAt = duel => duel?.consent ? Number(duel.ts || 0) + DUEL_LAPSE_MS : null;
 
 /* duel outcome is DERIVED from the two stored runs, never written. A foul
    loses to a clean draw; two fouls or identical times push, chips go back. */
 function resolveDuel(duel) {
   if (duel.status !== "open") return { settled:false, status:duel.status };
+  if (!duelAccepted(duel)) return { settled:false, status:"open" };
   const a = duel.runs?.[duel.from], b = duel.runs?.[duel.to];
   if (!a || !b) return { settled:false, status:"open" };
   const score = r => (r.foul ? Infinity : r.ms);
@@ -743,22 +936,250 @@ function resolveDuel(duel) {
   const winner = score(a) < score(b) ? duel.from : duel.to;
   return { settled:true, push:false, winner, loser: winner === duel.from ? duel.to : duel.from };
 }
+/* one lifecycle every surface reads:
+   offered | lapsed | live | settled | declined | withdrawn | void */
+function duelPhase(duel, now = Date.now()) {
+  if (!duel) return null;
+  if (duel.status !== "open")
+    return duel.status === "declined" || duel.status === "withdrawn" ? duel.status : "void";
+  if (resolveDuel(duel).settled) return "settled";
+  if (!duelAccepted(duel)) return duelLapsed(duel, now) ? "lapsed" : "offered";
+  return "live";
+}
+/* offered or live: the duels that still need someone */
+const duelOpen = (duel, now = Date.now()) => {
+  const phase = duelPhase(duel, now);
+  return phase === "offered" || phase === "live";
+};
+/* chips a player's duels hold back: every accepted, unsettled duel they sit
+   in, plus the challenger's own ante on an offer still waiting for an answer */
+function duelReserve(state, player, now = Date.now()) {
+  if (!player) return 0;
+  return (state?.duels || []).reduce((sum, duel) => {
+    const phase = duelPhase(duel, now);
+    const stake = Number(duel.stake) || 0;
+    if (phase === "live" && (duel.from === player || duel.to === player)) return sum + stake;
+    if (phase === "offered" && duel.from === player) return sum + stake;
+    return sum;
+  }, 0);
+}
+/* what a player can still put up: the same cap and balance a wager uses */
+function duelRoom(state, player, { events, rows, now = Date.now() } = {}) {
+  const standings = rows || computeStandings(state);
+  const pts = standings.find(row => row.player === player)?.pts ?? 0;
+  const exposure = atRisk(state, player, events || allEventsOf(state)) + duelReserve(state, player, now);
+  const cap = maxRisk(pts);
+  return { pts, cap, exposure, capRoom:cap - exposure, balanceRoom:pts - exposure,
+    room:Math.min(cap - exposure, pts - exposure) };
+}
+/* the offered or live duel two players already share, if any */
+const duelBetween = (state, a, b, now = Date.now()) => (state?.duels || []).find(duel =>
+  duelOpen(duel, now) && duel.to && ((duel.from === a && duel.to === b) || (duel.from === b && duel.to === a)))
+  || null;
+/* three challenges a day. Declined, withdrawn and lapsed offers do not count. */
+const DUEL_DAILY_LIMIT = 3;
+const duelsSentToday = (state, player, now = Date.now()) => (state?.duels || []).filter(duel =>
+  duel.from === player && Number(duel.ts || 0) > now - 24 * 60 * 60 * 1000
+  && !["declined", "withdrawn", "lapsed"].includes(duelPhase(duel, now))).length;
+/* Fairness: until a duel settles, a viewer may see only their own run. Other
+   runs keep the fact that someone drew and lose the time and foul. Pure; the
+   broadcast projection applies it per connection. */
+function redactDuelsForViewer(duels, viewerPlayer) {
+  if (!Array.isArray(duels)) return duels;
+  return duels.map(duel => {
+    if (!duel || typeof duel !== "object" || !duel.runs || typeof duel.runs !== "object") return duel;
+    if (resolveDuel(duel).settled) return duel;
+    let changed = false;
+    const runs = {};
+    for (const [player, run] of Object.entries(duel.runs)) {
+      if (player === viewerPlayer || !run) runs[player] = run;
+      else { runs[player] = { played:true }; changed = true; }
+    }
+    return changed ? { ...duel, runs } : duel;
+  });
+}
+
+/* Each place pays its award (awardTable) to every player in it: a team's
+   players each take the full amount. A bracket has no 3rd-place game, so
+   both semifinal losers take the full 3rd-place award. Event crew (a draw's
+   players left off every team) take the 3rd-place award too. Value-less
+   events (the poker finale) pay nothing. */
+function resultAwards(state, ev, res) {
+  const table = awardTable(ev);
+  const draw = state.draws?.[ev?.id];
+  const out = [];
+  const thirdEach = table[2] || 0;
+  (res?.slots || []).forEach((players, place) => {
+    const each = table[place] || 0;
+    (players || []).forEach(player => out.push({ player, place, pts:each }));
+  });
+  if (!res?.stacks && thirdEach > 0) {
+    const placed = new Set(out.map(award => award.player));
+    (draw?.roles || []).forEach(({ player }) => {
+      if (player && !placed.has(player)) out.push({ player, place:"crew", pts:thirdEach });
+    });
+  }
+  return out;
+}
+/* what an event pays before anyone plays it, for the event sheet */
+function awardPlan(ev, draw = null) {
+  const table = awardTable(ev);
+  const crew = draw ? (draw.roles || []).length > 0
+    : Number.isInteger(eventCapacity(ev)) && eventCapacity(ev) < ROSTER.length;
+  const rows = table.map((pts, place) => ({ place, pts }));
+  return [
+    ...rows,
+    ...(crew ? [{ place:"crew", pts:rows[2].pts }] : []),
+  ].filter(row => row.pts > 0);
+}
+/* a ruling made after the finale counts corrects that count: it carries the
+   poker result revision, applies only on top of those posted stacks, and never
+   leaks into the pre-poker board. A recount posts a new revision, and rulings
+   made on an earlier count stop applying (they stay in the ledger, labelled
+   with their count). Older rulings without a revision fall back to time. */
+const postCountRuling = (a, stacksRes = null) => a.pokerRevision !== undefined
+  || !!stacksRes && a.ts > stacksRes.ts;
+const postCountRulingApplies = (a, stacksRes) => !!stacksRes && (a.pokerRevision !== undefined
+  ? Number(a.pokerRevision) === Number(stacksRes.revision || 1)
+  : a.ts > stacksRes.ts);
+
+/* ── Team MVP ──
+   state.mvp[evId] = { id, team, openedAt, closesAt, closedAt?, winner?, tally?, how? }
+   (plus the private `votes` map on the server until it closes). A team of
+   MVP_MIN_TEAM or more that wins an event votes one teammate MVP, who earns
+   MVP_PTS. Derived like an award: it pays only while that same team is still
+   the event's posted first place, so a correction or a cleared result takes
+   it back with no write of its own. */
+const MVP_PTS = PT;
+const MVP_MIN_TEAM = 3;
+const MVP_WINDOW_MS = 60 * 1000;
+const sameSet = (left, right) => Array.isArray(left) && Array.isArray(right)
+  && left.length === right.length && left.every(player => right.includes(player));
+function mvpStands(state, evId) {
+  const record = state?.mvp?.[evId], result = state?.results?.[evId];
+  return !!record && !!result && !result.stacks && sameSet(result.slots?.[0] || [], record.team || []);
+}
+const mvpOpen = (state, evId) => !!state?.mvp?.[evId] && !state.mvp[evId].closedAt && mvpStands(state, evId);
+function mvpAwards(state) {
+  return Object.entries(state?.mvp || {})
+    .filter(([evId, record]) => record?.closedAt && record.winner && mvpStands(state, evId))
+    .map(([eventId, record]) => ({ eventId, player:record.winner, pts:MVP_PTS, at:Number(record.closedAt) }));
+}
+
+/* -- Leader bounty --
+   eventOps[ev].bounties[contestId] = { players, kind, match?, group?, stagesId?,
+   drawId?, field?, at }, stamped when the contest's betting locks (or it
+   starts) and never moved by later standings. Derived like an award: the
+   contest's winning side earns BOUNTY_PTS each only while the recorded
+   outcome has a bounty player on a losing side and none on the winning side,
+   so a correction, undo or cleared result takes it back with no write of its
+   own. Never in the poker finale; never to a leader. */
+const bountyLeaders = (state, rows = computeStandings(state)) => {
+  if (!rows.length) return [];
+  const top = Math.max(...rows.map(row => row.pts));
+  return rows.filter(row => row.pts === top).map(row => row.player);
+};
+/* The bounty a contest would carry if it locked now: the leaders who play
+   in it, when someone else in it could collect. Null before the weekend
+   (everyone tied at 1,000 is a contest of leaders) and in the finale. */
+function bountyFor(state, contest, rows = computeStandings(state)) {
+  if (!contest?.sides?.length || pokerLive(state) || stacksPosted(state)) return null;
+  const field = [...new Set(contest.sides.flatMap(side => side.players || []))];
+  const leaders = bountyLeaders(state, rows);
+  const players = leaders.filter(player => field.includes(player));
+  if (!players.length || field.every(player => players.includes(player))) return null;
+  return { players, field };
+}
+/* who won a contest that carried a bounty, and who it was played among, from
+   the official record as it stands now; null while undecided or stale */
+function bountyOutcome(state, ev, record) {
+  const draw = state.draws?.[ev.id];
+  const teamOf = key => draw?.teams?.[key]?.players || null;
+  if (record.drawId && draw?.id !== record.drawId) return null;
+  if (record.kind === "match") {
+    const br = state.brackets?.[ev.id];
+    const match = br?.rounds?.[record.match?.[0]]?.[record.match?.[1]];
+    if (!match || match.winner === null || match.winner === undefined) return null;
+    const sides = [resolveSlot(br, match.a), resolveSlot(br, match.b)].map(teamOf).filter(Boolean);
+    return { winners:teamOf(match.winner) || [], field:sides.flat() };
+  }
+  if (record.kind === "heat" || record.kind === "stage-final") {
+    const st = state.stages?.[ev.id];
+    if (!st || st.id !== record.stagesId) return null;
+    const keys = record.kind === "heat" ? st.groups?.[record.group]?.entrants || [] : stageFinalists(st) || [];
+    const winner = record.kind === "heat" ? st.groups?.[record.group]?.winner : st.finalWinner;
+    if (winner === null || winner === undefined) return null;
+    return { winners:stageEntrantView(state, st, winner).players,
+      field:keys.flatMap(key => stageEntrantView(state, st, key).players) };
+  }
+  const result = state.results?.[ev.id];
+  if (!result || result.stacks || !result.slots?.[0]?.length) return null;
+  return { winners:result.slots[0], field:Array.isArray(record.field) ? record.field
+    : (result.slots || []).flat() };
+}
+/* every bounty the record pays now: { eventId, contestId, player, pts, at, from } */
+function bountyAwards(state, events = allEventsOf(state)) {
+  const out = [];
+  for (const ev of events) {
+    const bounties = state.eventOps?.[ev.id]?.bounties;
+    if (!bounties || ev.finale || state.shelved?.[ev.id]) continue;
+    for (const [contestId, record] of Object.entries(bounties)) {
+      if (!record || !Array.isArray(record.players) || !record.players.length) continue;
+      const outcome = bountyOutcome(state, ev, record);
+      if (!outcome || !outcome.winners.length) continue;
+      if (record.players.some(player => outcome.winners.includes(player))) continue;
+      if (!record.players.some(player => outcome.field.includes(player))) continue;
+      const entry = contestStackOf(state, ev.id).find(item => item.id === contestId);
+      const at = Number(entry?.decidedAt) || Number(state.results?.[ev.id]?.ts) || Number(record.at) || 0;
+      outcome.winners.forEach(player => out.push({ eventId:ev.id, contestId, player, pts:BOUNTY_PTS, at,
+        from:[...record.players] }));
+    }
+  }
+  return out;
+}
+
+/* -- Underdog odds --
+   A two-sided contest's gap is the difference in its sides' average chips
+   per player times the smaller side's size: a 1v1 needs 1,000 chips between
+   them, a pair 1,000 combined, a 7 v 6 compares at six players. UNDERDOG_GAP
+   or more, the lower side is the underdog and its winning tickets pay
+   UNDERDOG_MULT. Stored at market open (eventOps[ev].odds[contestId]) and on
+   each ticket, so later standings never move it. */
+function oddsFor(state, contest, rows = computeStandings(state)) {
+  if (!contest || contest.sides?.length !== 2 || pokerLive(state) || stacksPosted(state)) return null;
+  const pts = Object.fromEntries(rows.map(row => [row.player, row.pts]));
+  const counted = contest.sides.map(side => (side.players || []).filter(player => pts[player] !== undefined));
+  if (counted.some(players => !players.length)) return null;
+  const strength = counted.map(players => players.reduce((sum, player) => sum + pts[player], 0) / players.length);
+  const gap = Math.abs(strength[0] - strength[1]) * Math.min(counted[0].length, counted[1].length);
+  if (gap < UNDERDOG_GAP) return { underdog:null, gap:Math.round(gap) };
+  const low = strength[0] < strength[1] ? 0 : 1;
+  return { underdog:contest.sides[low].key, mult:UNDERDOG_MULT, gap:Math.round(gap) };
+}
 
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {};
-  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {}, mvpPts = {}, bountyPts = {};
+  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; mvpPts[p] = 0; bountyPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
-    /* value-less events (the poker finale) award nothing here; slots[0] still
-       counts as a win so the chip leader carries one */
-    const table = AWARDS[ev.value] || [0, 0, 0];
-    (res.slots || []).forEach((players, i) => (players || []).forEach(p => {
-      if (pts[p] === undefined) return;
-      pts[p] += table[i] || 0;
-      awardPts[p] += table[i] || 0;
-      if (i === 0) wins[p] += 1;
-    }));
+    /* slots[0] counts as a win even at the finale, so the chip leader carries one */
+    resultAwards(state, ev, res).forEach(({ player, place, pts:award }) => {
+      if (pts[player] === undefined) return;
+      pts[player] += award;
+      awardPts[player] += award;
+      if (place === 0) wins[player] += 1;
+    });
+  });
+  mvpAwards(state).forEach(({ player, pts:award }) => {
+    if (pts[player] === undefined) return;
+    pts[player] += award;
+    mvpPts[player] += award;
+  });
+  bountyAwards(state, evs).forEach(({ player, pts:award }) => {
+    if (pts[player] === undefined) return;
+    pts[player] += award;
+    bountyPts[player] += award;
   });
   (state.wagers || []).forEach(w => {
     const r = resolveWager(state, w, evs);
@@ -772,29 +1193,47 @@ function computeStandings(state) {
     if (pts[r.winner] !== undefined) { pts[r.winner] += d.stake; duelNet[r.winner] += d.stake; }
     if (pts[r.loser] !== undefined) { pts[r.loser] -= d.stake; duelNet[r.loser] -= d.stake; }
   });
-  (state.adjustments || []).forEach(a => { if (pts[a.player] !== undefined) pts[a.player] += a.delta; });
+  const rulings = (state.adjustments || []).filter(a => !a.removedAt);
+  rulings.forEach(a => {
+    if (pts[a.player] !== undefined && !postCountRuling(a)) pts[a.player] += a.delta;
+  });
   /* poker finale override: final chip stacks BECOME the totals. Only rulings
-     made after the count applies on top; everything earlier is already in
-     the physical chips. Elimination order (embedded in the result) breaks
-     ties among busted players: later bust ranks higher. */
+     made on the count apply on top; everything earlier is already in the
+     physical chips. Elimination order (embedded in the result) breaks ties
+     among busted players: later bust ranks higher, and a 0 that never busted
+     (older results) ranks below every bust. */
   let stacksRes = null;
   Object.values(state.results || {}).forEach(res => { if (res?.stacks) stacksRes = res; });
+  /* The champion is the chip leader among the SEATS. A player marked away
+     was never dealt in: their carried total stays on the board, but it can
+     never outrank the table, so rank 1 is always someone who played. */
+  let leaders = null;
   if (stacksRes) {
     ROSTER.forEach(p => { pts[p] = stacksRes.stacks[p] ?? 0; });
-    (state.adjustments || []).forEach(a => {
-      if (a.ts > stacksRes.ts && pts[a.player] !== undefined) pts[a.player] += a.delta;
+    rulings.forEach(a => {
+      if (postCountRulingApplies(a, stacksRes) && pts[a.player] !== undefined) pts[a.player] += a.delta;
     });
+    const seats = (Array.isArray(stacksRes.seats) ? stacksRes.seats
+      : Array.isArray(state.poker?.seats) ? state.poker.seats : ROSTER).filter(p => pts[p] !== undefined);
+    const top = seats.length ? Math.max(...seats.map(p => pts[p])) : 0;
+    leaders = new Set(top > 0 ? seats.filter(p => pts[p] === top) : []);
   }
+  const lead = p => leaders?.has(p) ? 1 : 0;
   const outRank = p => {
     const i = (stacksRes?.outs || []).indexOf(p);
-    return i < 0 ? Infinity : i;
+    return i >= 0 ? i : stacksRes?.stacks?.[p] === 0 ? -1 : Infinity;
   };
-  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p] }))
-    .sort((x,y) => y.pts - x.pts
+  const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p],
+    mvpPts:mvpPts[p], bountyPts:bountyPts[p] }))
+    .sort((x,y) => lead(y.player) - lead(x.player) || y.pts - x.pts
       || (stacksRes ? outRank(y.player) - outRank(x.player) : 0)
       || y.wins - x.wins || x.player.localeCompare(y.player));
   let rank = 0, prev = null;
-  rows.forEach((r,i) => { if (r.pts !== prev || (stacksRes && r.pts === 0)) { rank = i+1; prev = r.pts; } r.rank = rank; });
+  rows.forEach((r,i) => {
+    const key = `${lead(r.player)}:${r.pts}`;
+    if (key !== prev || (stacksRes && r.pts === 0)) { rank = i+1; prev = key; }
+    r.rank = rank;
+  });
   return rows;
 }
 function atRisk(state, p, events) {
@@ -859,18 +1298,23 @@ function seedSnake(keys, nGroups, strengthOf) {
   return groups;
 }
 
-function drawTeams(ev, state, players) {
+function drawTeams(ev, state, players, active = presentPlayers(state)) {
   const cfg = ev.teamCfg; if (!cfg) return null;
-  const compatibility = validateEventParticipants(ev, players);
+  const compatibility = validateEventParticipants(ev, players, active);
   if (!compatibility.ok) return null;
+  const fit = compatibility.fit || cfg;
   const s = strengthMap(state, players, ev.sport);
-  const nTeams = cfg.teams;
+  const nTeams = fit.teams;
   const groups = refineTeams(seedSnake(players, nTeams, p => s[p]), p => s[p]).map(g => shuffle(g));
   if (participationForEvent(ev).type === "strict-teams"
-      && groups.some(group => group.length !== cfg.size)) return null;
-  const mascots = (cfg.size || 0) >= 3 ? shuffle(TEAM_NAMES) : null;
-  return { id:"d"+Date.now(), method:"balanced", ts:Date.now(),
-    teams: groups.map((players, i) => mascots ? { players, name: mascots[i % mascots.length] } : { players }) };
+      && groups.some(group => group.length !== fit.size)) return null;
+  if ((fit.size || 0) >= 3) shuffle(TEAM_NAMES);
+  /* two draws in one millisecond must not share an id: tickets key on it */
+  const id = `d${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  /* a team of three or more opens with its first suggestion as its name */
+  const names = defaultTeamNames(state, ev, id, groups.map(players => ({ players })));
+  return { id, method:"balanced", ts:Date.now(),
+    teams: groups.map((players, i) => names[i] ? { players, name:names[i] } : { players }) };
 }
 
 function splitIntoGroups(keys, nGroups, strengthOf) {
@@ -878,6 +1322,18 @@ function splitIntoGroups(keys, nGroups, strengthOf) {
 }
 
 function makeBracket(n) {
+  if (n === 2) return { size:2, rounds:[
+    [ {a:{t:0},b:{t:1},winner:null} ],
+  ]};
+  if (n === 3) return { size:3, rounds:[
+    [ {a:{t:1},b:{t:2},winner:null} ],
+    [ {a:{t:0},b:{w:[0,0]},winner:null} ],
+  ]};
+  if (n === 5) return { size:5, rounds:[
+    [ {a:{t:3},b:{t:4},winner:null} ],
+    [ {a:{t:0},b:{w:[0,0]},winner:null}, {a:{t:1},b:{t:2},winner:null} ],
+    [ {a:{w:[1,0]},b:{w:[1,1]},winner:null} ],
+  ]};
   if (n === 4) return { size:4, rounds:[
     [ {a:{t:0},b:{t:3},winner:null}, {a:{t:1},b:{t:2},winner:null} ],
     [ {a:{w:[0,0]},b:{w:[0,1]},winner:null} ],
@@ -887,46 +1343,150 @@ function makeBracket(n) {
     [ {a:{t:0},b:{w:[0,0]},winner:null}, {a:{t:1},b:{w:[0,1]},winner:null} ],
     [ {a:{w:[1,0]},b:{w:[1,1]},winner:null} ],
   ]};
+  if (Number.isInteger(n) && n >= 7 && n <= MAX_BRACKET) return seededBracket(n);
   return null;
 }
-const ROUND_NAMES = { 4:["Semifinals","Final"], 6:["Play-in","Semifinals","Final"] };
+/* 2 to 6 keep the hand-drawn shapes above: stored brackets depend on them. */
+const MAX_BRACKET = 16;
+/* seeds 1..P in standard bracket order: 1 meets P in the first round, and
+   the top two seeds can meet only in the final */
+function seedOrder(P) {
+  let order = [1];
+  while (order.length < P) {
+    const n = order.length * 2;
+    order = order.flatMap(seed => [seed, n + 1 - seed]);
+  }
+  return order;
+}
+/* A single-elimination bracket of n entrants (draw index = seed - 1) in the
+   next power of two. A seed whose first opponent does not exist takes a bye
+   and enters the next round directly, as a {t} slot, the way the 5 and 6
+   shapes seat their byes. Round 1 holds only the matches actually played. */
+function seededBracket(n) {
+  let P = 2;
+  while (P < n) P *= 2;
+  const order = seedOrder(P);
+  const rounds = [[]];
+  let entries = [];
+  for (let i = 0; i < P; i += 2) {
+    const [hi, lo] = [order[i], order[i + 1]];
+    if (lo > n) { entries.push({ t:hi - 1 }); continue; }
+    rounds[0].push({ a:{ t:hi - 1 }, b:{ t:lo - 1 }, winner:null });
+    entries.push({ w:[0, rounds[0].length - 1] });
+  }
+  for (let r = 1; entries.length > 1; r++) {
+    rounds[r] = [];
+    const next = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      rounds[r].push({ a:entries[i], b:entries[i + 1], winner:null });
+      next.push({ w:[r, rounds[r].length - 1] });
+    }
+    entries = next;
+  }
+  return { size:n, rounds };
+}
+/* The slots that sit out the first round (their first match comes later). */
+function bracketByeSlots(br) {
+  const first = new Set();
+  (br?.rounds?.[0] || []).forEach(match => [match.a, match.b]
+    .forEach(slot => { if (slot?.t !== undefined) first.add(slot.t); }));
+  const out = [];
+  for (let t = 0; t < (br?.size || 0); t++) if (!first.has(t)) out.push(t);
+  return out;
+}
+/* a stable tie-break from the draw's own id, so a seeding replays */
+const seedHash = text => {
+  let h = 2166136261;
+  for (const ch of String(text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return h;
+};
+/* Byes to the bottom: the bracket's bye slots go to the lowest-ranked teams
+   (average chips per player, ties broken by a hash of the drawn teams), lowest first into
+   the earliest slot; every other team keeps its draw order. A board where
+   every team is level (before the weekend) keeps the draw order as drawn.
+   Returns seeds[slot] = draw team index. */
+function bracketSeeds(state, draw, br) {
+  const teams = draw?.teams || [];
+  const identity = teams.map((_, index) => index);
+  const byes = bracketByeSlots(br);
+  if (!byes.length || teams.length !== br?.size) return identity;
+  const pts = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
+  const average = team => (team.players || []).reduce((sum, player) => sum + (pts[player] ?? START), 0)
+    / Math.max(1, (team.players || []).length);
+  const strength = teams.map(average);
+  if (strength.every(value => value === strength[0])) return identity;
+  const tieKey = index => seedHash((teams[index].players || []).join("|"));
+  const ranked = [...identity].sort((a, b) => strength[a] - strength[b]
+    || tieKey(a) - tieKey(b) || a - b);
+  const bottom = ranked.slice(0, byes.length);
+  const rest = identity.filter(index => !bottom.includes(index));
+  return identity.map(slot => byes.includes(slot) ? bottom[byes.indexOf(slot)] : rest.shift());
+}
+/* The bracket a draw plays, seeded so its byes go to the bottom. The seed
+   order rides on the bracket (seeds[slot] = team) and the teams that sit
+   out the first round on byes, so the draw replays exactly. */
+function seedBracket(state, draw, n = draw?.teams?.length) {
+  const br = makeBracket(n);
+  if (!br) return null;
+  const byeSlots = bracketByeSlots(br);
+  const seeds = bracketSeeds(state, draw, br);
+  const remap = slot => slot && slot.t !== undefined ? { ...slot, t:seeds[slot.t] } : slot;
+  br.rounds = br.rounds.map(round => round.map(match => ({ ...match, a:remap(match.a), b:remap(match.b) })));
+  br.seeds = seeds;
+  if (byeSlots.length) br.byes = byeSlots.map(slot => seeds[slot]);
+  return br;
+}
+const ROUND_NAMES = { 2:["Final"], 3:["Semifinal","Final"], 4:["Semifinals","Final"],
+  5:["Play-in","Semifinals","Final"], 6:["Play-in","Semifinals","Final"],
+  7:["Quarterfinals","Semifinals","Final"], 8:["Quarterfinals","Semifinals","Final"] };
+for (let n = 9; n <= MAX_BRACKET; n++) ROUND_NAMES[n] = ["Round 1","Quarterfinals","Semifinals","Final"];
+/* A round's name, and one match's short name: "Semifinal 2", "Final",
+   "Round 1 Match 3" (a numbered round keeps "Match" so it reads). */
+const bracketRoundName = (size, r) => ROUND_NAMES[size]?.[r] || `Round ${r + 1}`;
+function bracketMatchName(bracket, r, m) {
+  const name = bracketRoundName(bracket?.size, r);
+  if ((bracket?.rounds?.[r]?.length || 1) <= 1) return name;
+  return /\d$/.test(name) ? `${name} Match ${m + 1}` : `${name.replace(/s$/, "")} ${m + 1}`;
+}
 function resolveSlot(br, slot) {
   if (!slot) return null;
   if (slot.t !== undefined) return slot.t;
   const src = br.rounds[slot.w[0]]?.[slot.w[1]];
   return src && src.winner !== null && src.winner !== undefined ? src.winner : null;
 }
-/* A deterministic QA matchup pick. It only returns fully seated, undecided
-   bracket matches and never backs the opponent facing the simulated player's
-   own team. Cycling `ordinal` spreads a rehearsal over both matches and sides. */
+/* The commissioner may play a different seated matchup first while its
+   market is still empty. The choice rides on the bracket so every reader of
+   what plays now agrees, and it lapses once that matchup is decided. */
+function bracketMatchOpen(br, r, m) {
+  const match = br?.rounds?.[r]?.[m];
+  if (!match || match.winner !== null && match.winner !== undefined) return false;
+  return resolveSlot(br, match.a) !== null && resolveSlot(br, match.b) !== null;
+}
+function bracketOrder(br) {
+  const order = [];
+  (br?.rounds || []).forEach((round, r) => round.forEach((_, m) => order.push([r, m])));
+  const next = Array.isArray(br?.next) ? br.next : null;
+  if (next && bracketMatchOpen(br, next[0], next[1]))
+    return [[next[0], next[1]], ...order.filter(([r, m]) => r !== next[0] || m !== next[1])];
+  return order;
+}
+/* The QA path uses the same current matchup and eligibility as real chips. */
 function qaBracketMatchWager(state, ev, player, ordinal = 0, stake = PT) {
   const draw = state.draws?.[ev?.id];
-  const bracket = state.brackets?.[ev?.id];
-  if (!draw || !bracket) return null;
-  const open = [];
-  for (let r = 0; r < bracket.rounds.length; r++) {
-    for (let m = 0; m < bracket.rounds[r].length; m++) {
-      const match = bracket.rounds[r][m];
-      if (match.winner !== null && match.winner !== undefined) continue;
-      const sides = [resolveSlot(bracket, match.a), resolveSlot(bracket, match.b)];
-      if (sides.every(teamIdx => teamIdx !== null && draw.teams[teamIdx]))
-        open.push({ r, m, sides });
-    }
-  }
-  if (!open.length) return null;
+  const contest = resolveCurrentContest(state, ev);
+  if (!draw || contest?.kind !== "match") return null;
+  const sides = contest.sides.filter(side => contestBetEligibility(contest, player, side.key));
+  if (!sides.length) return null;
   const index = Math.abs(Math.trunc(Number(ordinal) || 0));
-  const selected = open[index % open.length];
-  const myTeamIdx = draw.teams.findIndex(team => team.players.includes(player));
-  const teamIdx = selected.sides.includes(myTeamIdx)
-    ? myTeamIdx
-    : selected.sides[Math.floor(index / open.length) % selected.sides.length];
+  const teamIdx = sides[index % sides.length].key;
   return {
     kind:"match",
     eventId:ev.id,
     evName:ev.name,
     drawId:draw.id,
-    match:[selected.r, selected.m],
-    matchName:(ROUND_NAMES[bracket.size] || [])[selected.r] || "Match",
+    match:[...contest.match],
+    matchName:contest.label,
+    contestId:contest.id, contestRevision:contest.revision,
     teamIdx,
     pickPlayers:[...draw.teams[teamIdx].players],
     pickTeam:true,
@@ -965,6 +1525,421 @@ const stagesStarted = st => !!st && (
   st.finalWinner !== null && st.finalWinner !== undefined
   || st.groups?.some(group => (group.through || []).length > 0)
 );
+const needsStageSetup = (state, ev) => !!ev.stageCfg && !state.stages?.[ev.id]
+  && !(!state.eventOps?.[ev.id]?.contest && (state.onDeck === ev.id
+    || state.eventOps?.[ev.id]?.startedAt || state.eventOps?.[ev.id]?.bettingOpenedAt
+    || state.eventOps?.[ev.id]?.bettingLockedAt || state.eventOps?.[ev.id]?.resultEntryAt));
+/* A contest is one wagerable decision. Only the first seated, unresolved
+   matchup/group is current. Old snapshots derive their phase without adding
+   a market or guessing a winner from historical advancement selections. */
+function contestTarget(state, ev) {
+  if (!ev || state.results?.[ev.id] || state.shelved?.[ev.id]
+      || ev.finale || (state.drafts?.[ev.id] && !state.draws?.[ev.id])) return null;
+  const draw = state.draws?.[ev.id];
+  if (ev.teamCfg && !draw) return null;
+  const br = state.brackets?.[ev.id];
+  if (ev.teamCfg?.bracket && !br) return null;
+  if (br) {
+    for (const [r, m] of bracketOrder(br)) {
+      const match = br.rounds[r][m];
+      if (match.winner !== null && match.winner !== undefined) continue;
+      const keys = [resolveSlot(br, match.a), resolveSlot(br, match.b)];
+      if (keys.some(key => key === null || key === undefined || !draw?.teams?.[key])) continue;
+      return { id:`match:${ev.id}:${draw.id}:${r}:${m}`, kind:"match", match:[r,m], drawId:draw.id,
+        /* named as the bracket names it: "Final", "Semifinal 1", "Round 1 Match 3" */
+        label:bracketMatchName(br, r, m),
+        sides:keys.map(key => ({ key, players:[...draw.teams[key].players] })) };
+    }
+    return null;
+  }
+  const st = state.stages?.[ev.id];
+  if (needsStageSetup(state, ev)) return null;
+  if (st) {
+    if (st.entrantType === "team" && (!draw || st.drawId !== draw.id)) return null;
+    const sides = keys => keys.map(key => ({ key, players:stageEntrantView(state, st, key).players }));
+    const group = st.groups.findIndex(g => (g.through || []).length < st.advance
+      || (st.contestVersion === 1 && (g.winner === null || g.winner === undefined)));
+    if (group >= 0) return { id:`heat:${ev.id}:${st.id}:${group}`, kind:"heat", group,
+      stagesId:st.id, drawId:st.drawId || null, label:st.groups[group].name, sides:sides(st.groups[group].entrants) };
+    const finalists = stageFinalists(st);
+    if (!finalists || st.finalWinner !== null && st.finalWinner !== undefined) return null;
+    return { id:`final:${ev.id}:${st.id}`, kind:"stage-final", stagesId:st.id, drawId:st.drawId || null,
+      label:"Final", sides:sides(finalists) };
+  }
+  return { id:`ffa:${ev.id}:${draw?.id || "solo"}`, kind:"ffa", drawId:draw?.id || null, label:ev.name,
+    sides:draw ? draw.teams.map((team, key) => ({ key, players:[...team.players] }))
+      : presentPlayers(state).map(key => ({ key, players:[key] })) };
+}
+function resolveCurrentContest(state, ev) {
+  const target = contestTarget(state, ev);
+  if (!target) return null;
+  const op = eventOpOf(state, ev.id);
+  const stored = op.contest;
+  const same = stored?.id === target.id;
+  const legacy = !stored;
+  let phase;
+  if (same) phase = stored.phase;
+  else if (stored || op.resultEntryAt) phase = "awaiting-result";
+  else if (op.startedAt || bracketStarted(state.brackets?.[ev.id]) || stagesStarted(state.stages?.[ev.id]))
+    phase = "in-progress";
+  else if (state.onDeck === ev.id) phase = "betting-open";
+  else phase = op.bettingLockedAt ? "betting-locked" : "scheduled";
+  const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock bets and start")
+    : phase === "betting-locked" ? lifecycleAction("start-event", "Start")
+      : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result")
+        : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting")
+        : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result")
+          : lifecycleAction("record-contest-winner", "Record winner");
+  const odds = op.odds?.[target.id];
+  const bounty = op.bounties?.[target.id];
+  return { ...target, eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
+    phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction,
+    ...(odds && odds.underdog !== null && odds.underdog !== undefined ? { odds } : {}),
+    ...(bounty ? { bounty } : {}) };
+}
+/* Any contest with exactly two sides is a matchup, whatever its format: it
+   pays even and a competitor may back only their own side. Only a wider
+   free-for-all pays 2:1 and leaves every side open to everyone. */
+const wideField = contest => contest?.kind === "ffa" && contest.sides.length > 2;
+/* A wide field pays 2:1 on every side. A two-sided contest pays 1:1, except
+   its underdog's side when the contest carries odds. */
+const contestMult = (contest, sideKey) => wideField(contest) ? OUTRIGHT_MULT
+  : contest?.odds && Number.isInteger(contest.odds.mult) && sideKey !== undefined && sideKey !== null
+    && contest.odds.underdog === sideKey ? contest.odds.mult : 1;
+/* each side's payout, for one payout line per side */
+const contestSideMults = contest => Object.fromEntries((contest?.sides || [])
+  .map(side => [side.key, contestMult(contest, side.key)]));
+function contestBetEligibility(contest, player, sideKey) {
+  const side = contest?.sides.find(item => item.key === sideKey);
+  if (!side || !isActivePlayer(player)) return false;
+  if (wideField(contest)) return true;
+  return !contest.players.includes(player) || side.players.includes(player);
+}
+/* the side a ticket backs, in the contest's own side keys */
+function wagerSide(state, w) {
+  if (w.kind === "match") return w.teamIdx;
+  if (w.kind !== "outright") return w.pickKey;
+  if (!w.pickTeam) return w.pick;
+  if (Number.isInteger(w.teamIdx)) return w.teamIdx;
+  const teams = state.draws?.[w.eventId]?.teams || [];
+  const want = [...(w.pickPlayers || [])].sort().join("|");
+  const index = teams.findIndex(team => [...team.players].sort().join("|") === want);
+  return index < 0 ? null : index;
+}
+/* Outside a wide field a bettor holds one side per contest, so no ticket pair
+   can cover both outcomes. Returns the side this player already backs. */
+function contestSideOf(state, contest, player, events = allEventsOf(state)) {
+  if (!contest || wideField(contest)) return null;
+  const held = (state.wagers || []).find(w => w.player === player && wagerMatchesContest(w, contest)
+    && resolveWager(state, w, events).status === "pending");
+  return held ? wagerSide(state, held) : null;
+}
+/* Shared canonical target check keeps legacy pending tickets readable while
+   preventing an old outright/advance ticket from becoming a new contest bet. */
+function wagerMatchesContest(wager, contest) {
+  if (!contest || wager.eventId !== contest.eventId) return false;
+  if (wager.contestId && wager.contestId !== contest.id) return false;
+  if (contest.kind === "ffa") return wager.kind === "outright"
+    && (!contest.drawId || wager.pickTeam && wager.drawId === contest.drawId);
+  if (contest.kind === "match") return wager.kind === "match" && wager.drawId === contest.drawId
+    && wager.match?.[0] === contest.match[0] && wager.match?.[1] === contest.match[1];
+  return wager.stagesId === contest.stagesId && (contest.kind === "heat"
+    ? wager.kind === "heat" && !wager.final && wager.group === contest.group
+    : wager.kind === "stage" && wager.final === true);
+}
+/* ─────────── exposure after a correction ───────────
+   A correction, undo, void or ruling can shrink a stack under chips it
+   already has riding. In the same write, void each player's newest pending
+   chips and duel antes until exposure fits min(maxRisk, balance) again.
+   Tickets keep their record; settlement stays derived. Mutates the state it
+   is given and returns what went, so a preview can run it on a clone. */
+function enforceExposure(state, now = Date.now()) {
+  if (pokerLive(state) || stacksPosted(state)) return [];
+  const events = allEventsOf(state);
+  const rows = computeStandings(state);
+  const voided = [];
+  for (const { player, pts } of rows) {
+    const limit = Math.max(0, Math.min(maxRisk(pts), pts));
+    const items = [];
+    for (const w of (state.wagers || []).filter(w => w.player === player
+        && resolveWager(state, w, events).status === "pending")) {
+      const chips = Array.isArray(w.chips) && w.chips.length ? w.chips : null;
+      if (!chips) items.push({ w, stake:w.stake, ts:w.updatedAt || w.ts || 0, order:0 });
+      else chips.forEach((chip, index) => items.push({ w, chip, stake:Number(chip.stake) || 0,
+        ts:chip.ts || w.ts || 0, order:index }));
+    }
+    /* only antes a duel actually holds count: accepted duels for both sides,
+       a waiting offer for its sender (the same rule as duelReserve) */
+    for (const d of state.duels || []) {
+      const phase = duelPhase(d, now);
+      if ((phase === "live" && (d.from === player || d.to === player)) || (phase === "offered" && d.from === player))
+        items.push({ d, stake:d.stake, ts:d.acceptedAt || d.ts || 0, order:0 });
+    }
+    let exposure = items.reduce((sum, item) => sum + item.stake, 0);
+    items.sort((a, b) => b.ts - a.ts || b.order - a.order);
+    for (const item of items) {
+      if (exposure <= limit) break;
+      if (item.d) {
+        if (!(item.d.status === "open" && !resolveDuel(item.d).settled)) continue;
+        item.d.status = "void";
+        Object.assign(item.d, { voidedAt:now, voidedBy:"exposure" });
+        voided.push({ type:"duel", id:item.d.id, players:[item.d.from, item.d.to], stake:item.d.stake });
+      } else if (item.chip && item.w.chips.length > 1 && item.w.chips.at(-1) === item.chip) {
+        item.w.chips.pop();
+        item.w.stake = Math.max(0, item.w.stake - item.stake);
+        item.w.updatedAt = now;
+        item.w.voidedChips = [...(item.w.voidedChips || []), { ...item.chip, voidedAt:now }];
+        voided.push({ type:"chip", id:item.w.id, player, eventId:item.w.eventId, stake:item.stake });
+      } else {
+        if (item.w.status === "void") continue;
+        item.w.status = "void";
+        Object.assign(item.w, { voidedAt:now, voidedBy:"exposure" });
+        voided.push({ type:"wager", id:item.w.id, player, eventId:item.w.eventId, stake:item.w.stake });
+        exposure -= item.w.stake - item.stake;
+      }
+      exposure -= item.stake;
+    }
+  }
+  return voided;
+}
+/* chips per player, summed: [{ player, stake }] in first-seen order */
+function refundTotals(items = []) {
+  const totals = new Map();
+  items.forEach(item => { if (item?.player) totals.set(item.player, (totals.get(item.player) || 0) + Number(item.stake || 0)); });
+  return [...totals].map(([player, stake]) => ({ player, stake }));
+}
+/* mark wagers void in place, keeping what they were */
+function voidWagerRecords(state, ids, reason, now = Date.now()) {
+  const wanted = new Set(ids);
+  const events = allEventsOf(state);
+  const voided = [];
+  (state.wagers || []).forEach(wager => {
+    if (!wanted.has(wager.id) || wager.status === "void") return;
+    const was = resolveWager(state, wager, events).status;
+    wager.status = "void";
+    wager.voidReason = reason;
+    wager.voidedAt = now;
+    if (was === "won" || was === "lost") wager.voidedFrom = was;
+    voided.push({ id:wager.id, player:wager.player, stake:Number(wager.stake || 0) });
+  });
+  return voided;
+}
+
+/* ─────────── recorded contests and their correction ───────────
+   Every recorded bracket match, heat and stage final is pushed onto the
+   event's contest stack with what it replaced, so any earlier contest can
+   be corrected. Correcting one rewinds it and every contest recorded after
+   it in the same write. Legacy state carries only lastContest. */
+function contestStackOf(state, evId) {
+  const op = eventOpOf(state, evId);
+  if (Array.isArray(op.contestStack)) return op.contestStack;
+  return op.lastContest ? [op.lastContest] : [];
+}
+/* the short name a commissioner reads: "Play-in 1", "Semifinal 2", "Final", "Heat 3" */
+function contestEntryLabel(state, ev, entry) {
+  if (!entry) return "";
+  if (typeof entry.short === "string" && entry.short) return entry.short;
+  if (entry.kind === "match" && Array.isArray(entry.match)) {
+    const [r, m] = entry.match;
+    const br = state.brackets?.[ev?.id];
+    const size = state.draws?.[ev?.id]?.teams?.length || br?.size;
+    return bracketMatchName({ size, rounds:br?.rounds }, r, m);
+  }
+  if (entry.kind === "heat") return state.stages?.[ev?.id]?.groups?.[entry.group]?.name || `Heat ${Number(entry.group) + 1}`;
+  return "Final";
+}
+const contestOfEntry = (evId, entry) => ({ id:entry.id, eventId:evId, kind:entry.kind, match:entry.match,
+  group:entry.group, stagesId:entry.stagesId, drawId:entry.drawId });
+function restoreContestEntry(state, evId, entry) {
+  if (entry.kind === "match") {
+    const match = state.brackets?.[evId]?.rounds?.[entry.match[0]]?.[entry.match[1]];
+    if (match) match.winner = entry.previousWinner ?? null;
+  } else if (entry.kind === "heat") {
+    const group = state.stages?.[evId]?.groups?.[entry.group];
+    if (group) { group.winner = entry.previousWinner ?? null; group.through = [...(entry.previousThrough || [])]; }
+  } else if (state.stages?.[evId]) state.stages[evId].finalWinner = entry.previousWinner ?? null;
+}
+/* The correction itself, used by the server write AND by the preview, which
+   runs it on a clone: one implementation, so the confirm names exactly what
+   the write does. Returns what moved. */
+function applyContestCorrection(state, ev, contestId, now = Date.now()) {
+  const stack = [...contestStackOf(state, ev.id)];
+  const index = stack.findIndex(entry => entry.id === contestId);
+  if (index < 0) return null;
+  const target = stack[index], later = stack.slice(index + 1);
+  const events = allEventsOf(state);
+  const ids = new Set();
+  /* the next market is undecided by definition: its chips go back */
+  const current = resolveCurrentContest(state, ev);
+  if (current) (state.wagers || []).forEach(wager => {
+    if (wagerMatchesContest(wager, current) && resolveWager(state, wager, events).status === "pending") ids.add(wager.id);
+  });
+  /* contests recorded after the corrected one are replayed from scratch, so
+     every ticket on them goes back, settled or not */
+  later.forEach(entry => {
+    const contest = contestOfEntry(ev.id, entry);
+    (state.wagers || []).forEach(wager => {
+      if (wager.status !== "void" && wagerMatchesContest(wager, contest)) ids.add(wager.id);
+    });
+  });
+  [...stack.slice(index)].reverse().forEach(entry => restoreContestEntry(state, ev.id, entry));
+  const returned = voidWagerRecords(state, [...ids], "Previous result corrected", now);
+  const op = state.eventOps[ev.id];
+  if (target.kind === "match" && state.brackets?.[ev.id])
+    state.brackets[ev.id].next = [target.match[0], target.match[1]];
+  op.contestRevision = Number(op.contestRevision || 0) + 1;
+  op.contest = { id:target.id, revision:op.contestRevision, phase:"in-progress" };
+  op.bettingLockedAt = now;
+  delete op.resultEntryAt;
+  op.contestStack = stack.slice(0, index);
+  if (op.contestStack.length) op.lastContest = op.contestStack.at(-1); else delete op.lastContest;
+  if (state.onDeck === ev.id) state.onDeck = null;
+  /* the undone winnings return to pending; anything they were already
+     backing elsewhere has to fit the restored balance */
+  const exposure = enforceExposure(state, now);
+  return {
+    contestId:target.id,
+    contestRevision:op.contestRevision,
+    label:contestEntryLabel(state, ev, target),
+    rewinds:later.map(entry => contestEntryLabel(state, ev, entry)),
+    voidIds:returned.map(item => item.id),
+    refunds:refundTotals([...returned, ...exposure.filter(item => item.type !== "duel")]),
+    voidDuels:exposure.filter(item => item.type === "duel")
+      .map(item => ({ id:item.id, players:item.players, stake:item.stake })),
+    voided:exposure,
+  };
+}
+/* Whether a recorded contest can be corrected now, and exactly what the
+   correction moves: rewound contests, returned chips, voided duels. With no
+   contestId it answers for the most recent one (the undo). */
+function contestCorrectionAvailability(state, ev, contestId = null, now = Date.now()) {
+  const op = eventOpOf(state, ev?.id);
+  const stack = ev ? contestStackOf(state, ev.id) : [];
+  const entry = contestId ? stack.find(item => item.id === contestId) : stack.at(-1);
+  const short = entry ? contestEntryLabel(state, ev, entry) : "";
+  const response = (blocker, preview = {}) => ({ enabled:!blocker, blocker:blocker || null,
+    contestId:entry?.id || null, contestRevision:Number(op.contestRevision || 0),
+    label:entry ? `Correct ${short}` : null, contest:short || null,
+    rewinds:[], voidIds:[], refunds:[], voidDuels:[], voided:[], ...preview });
+  if (!ev || !entry) return response("No previous contest to correct");
+  if (state.frozen) return response("The board is frozen");
+  if (state.results?.[ev.id]) return response("The event result is already posted");
+  if (state.poker || stacksPosted(state)) return response("The finale is underway");
+  if (state.onDeck && state.onDeck !== ev.id) return response("Close the current betting market first");
+  const rewound = stack.slice(stack.indexOf(entry));
+  if (rewound.some(item => item.drawId && state.draws?.[ev.id]?.id !== item.drawId
+      || item.stagesId && state.stages?.[ev.id]?.id !== item.stagesId))
+    return response("Draw changed, refresh and try again");
+  /* The next contest is undecided by definition, so a mis-tapped winner can
+     be taken back whether its market is open, locked or already playing.
+     Everything the write moves is named up front. */
+  const preview = structuredClone(state);
+  const moved = applyContestCorrection(preview, allEventsOf(preview).find(item => item.id === ev.id), entry.id, now);
+  if (!moved) return response("No previous contest to correct");
+  const { contestId:_id, contestRevision:_revision, label:_label, ...rest } = moved;
+  return response(null, rest);
+}
+const contestUndoAvailability = (state, ev, now = Date.now()) => contestCorrectionAvailability(state, ev, null, now);
+/* every recorded contest, newest first, each with its own availability */
+const contestCorrections = (state, ev, now = Date.now()) => ev
+  ? [...contestStackOf(state, ev.id)].reverse().map(entry => contestCorrectionAvailability(state, ev, entry.id, now)) : [];
+/* One line a confirm can say out loud: "Returns Evan 200, Khoa 100". */
+const refundText = (state, refunds = []) => refunds.length
+  ? `Returns ${refunds.map(item => `${disp(state, item.player)} ${item.stake}`).join(", ")}` : "";
+const duelPairText = (state, players = []) => players.filter(Boolean).map(player => disp(state, player)).join(" vs ");
+/* The whole confirm for a correction: "Rewinds Semifinal 1. Returns Evan
+   200. Voids Jeremy vs Ben duel." Empty when nothing else moves. */
+function correctionText(state, moved = {}) {
+  const duels = (moved.voidDuels || []).map(duel => duelPairText(state, duel.players));
+  return [
+    moved.rewinds?.length ? `Rewinds ${moved.rewinds.join(", ")}` : "",
+    refundText(state, moved.refunds || []),
+    duels.length ? `Voids ${duels.join(", ")} duel${duels.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean).map(line => `${line}.`).join(" ");
+}
+
+/* ─────────── taking an announcement back ───────────
+   A mis-announced event goes back to unannounced while nothing has been
+   played: its chips return, its stored contest and betting stamps clear,
+   and nothing is on deck. Preparation (a draw or heats) stays. */
+function announcementTakeBack(state, ev) {
+  const op = eventOpOf(state, ev?.id);
+  const response = (blocker, extra = {}) => ({ enabled:!blocker, blocker:blocker || null,
+    eventId:ev?.id || null, refunds:[], voidIds:[], ...extra });
+  if (!ev) return response("No such event");
+  const announced = state.onDeck === ev.id || !!op.contest || !!op.bettingOpenedAt || !!op.bettingLockedAt;
+  if (!announced) return response("Not announced");
+  if (state.frozen) return response("The board is frozen");
+  if (state.results?.[ev.id]) return response("Result already posted");
+  if (op.startedAt || op.resultEntryAt || contestStackOf(state, ev.id).length
+      || bracketStarted(state.brackets?.[ev.id]) || stagesStarted(state.stages?.[ev.id]))
+    return response("The event has already started");
+  const events = allEventsOf(state);
+  const pending = (state.wagers || []).filter(wager => wager.eventId === ev.id
+    && resolveWager(state, wager, events).status === "pending");
+  return response(null, { voidIds:pending.map(wager => wager.id), refunds:refundTotals(pending) });
+}
+
+/* ─────────── back to the locker room ───────────
+   Starting the weekend is one confirmed tap on the first real game. It can
+   be taken back only while nothing has happened: no result, no bet, no duel,
+   no game started, no poker table. */
+function lockerRoomAvailability(state) {
+  const response = blocker => ({ enabled:!blocker, blocker:blocker || null });
+  if (!state.live) return response("The weekend has not started");
+  if (state.frozen) return response("The board is frozen");
+  if (Object.keys(state.results || {}).length) return response("A result is posted");
+  if (state.poker) return response("The poker table is set");
+  const events = allEventsOf(state);
+  const started = events.find(ev => state.eventOps?.[ev.id]?.startedAt || contestStackOf(state, ev.id).length);
+  if (started) return response(`${started.name} has started`);
+  if ((state.wagers || []).some(wager => wager.status !== "void")) return response("Bets have been placed");
+  if ((state.duels || []).some(duel => ["offered", "live", "settled"].includes(duelPhase(duel))))
+    return response("Duels have been sent");
+  return response(null);
+}
+
+/* ─────────── the finale, before it is dealt ───────────
+   Side-effect free: what pokerSetup would deal right now. Seats are the
+   players present; away players carry their board total and are not dealt.
+   Unplayed duels are voided by the setup (and restored by a cancel). */
+function pokerSetupPreview(state) {
+  const events = allEventsOf(state);
+  const ev = events.find(item => item.finale) || null;
+  const rows = computeStandings(state);
+  const seated = rows.filter(row => !isAway(state, row.player));
+  const distribution = pokerDistribution(seated);
+  const blockers = [];
+  if (!ev) blockers.push("No poker finale scheduled");
+  else {
+    if (state.frozen) blockers.push("The board is frozen");
+    if (state.shelved?.[ev.id]) blockers.push("The finale is shelved");
+    if (state.results?.[ev.id]) blockers.push("Result already posted");
+  }
+  if ((state.wagers || []).some(w => resolveWager(state, w, events).status === "pending"))
+    blockers.push("Settle or void the open wagers first");
+  if (seated.length < 2) blockers.push("Seat at least two players");
+  if (!distribution.ok) blockers.push(distribution.errors[0] || "Invalid poker stacks");
+  const voidDuels = (state.duels || []).filter(duel => duel.status === "open" && !resolveDuel(duel).settled)
+    .map(duel => ({ id:duel.id, players:[duel.from, duel.to].filter(Boolean), stake:Number(duel.stake || 0),
+      label:duel.to ? duelPairText(state, [duel.from, duel.to]) : `${disp(state, duel.from)} open challenge` }));
+  return {
+    ok:blockers.length === 0,
+    blockers,
+    eventId:ev?.id || null,
+    seats:seated.map(row => row.player),
+    away:rows.filter(row => isAway(state, row.player)).map(row => ({ player:row.player, pts:row.pts })),
+    rows:distribution.rows.map(row => ({ player:row.player, before:row.before, stack:row.stack,
+      grant:row.grant, denominations:row.denominations })),
+    inventory:distribution.inventory,
+    voidDuels,
+    /* an open team MVP vote closes in the deal's write, with the votes it has */
+    closeMvps:Object.keys(state.mvp || {}).filter(evId => mvpOpen(state, evId))
+      .map(evId => ({ eventId:evId, name:events.find(item => item.id === evId)?.name || evId })),
+    total:distribution.total,
+    minimumCount:distribution.minimumCount,
+  };
+}
 function resultReadiness(state, ev) {
   const blockers = [];
   if (state.drafts?.[ev.id] && !state.draws?.[ev.id])
@@ -975,6 +1950,8 @@ function resultReadiness(state, ev) {
   if (bracket && bracketChampion(bracket) === null)
     blockers.push("Complete the bracket");
   const stages = state.stages?.[ev.id];
+  if (needsStageSetup(state, ev)) blockers.push(`Set up ${ev.stageCfg.kind} first`);
+  if (ev.teamCfg?.bracket && !bracket) blockers.push("Set up the bracket first");
   if (stages && (!stageFinalists(stages)
       || stages.finalWinner === null || stages.finalWinner === undefined))
     blockers.push(`Complete the ${stages.kind === "heats" ? "heats" : "pools"} and final`);
@@ -1008,9 +1985,20 @@ function resolveEventLifecycle(state, ev) {
   if (state.shelved?.[ev.id]) return response("shelved");
   if (result) return response("complete");
 
-  if (ev.game === "poker" && ev.finale) {
-    if (!state.poker)
-      return response("setup", lifecycleAction("setup-poker", "Set up the poker table"));
+  if (ev.finale) {
+    if (!state.poker) {
+      /* the board must be still before stacks are dealt; name what moves */
+      const blockers = [];
+      const events = allEventsOf(state);
+      const pendingWagers = (state.wagers || []).filter(w =>
+        resolveWager(state, w, events).status === "pending").length;
+      if (pendingWagers)
+        blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
+      /* unplayed duels never block the finale (pokerSetup voids them), and a
+         negative balance deals as 0 through the minimum-stack grant */
+      return response("setup",
+        lifecycleAction("setup-poker", "Set up the poker table", blockers), blockers);
+    }
     if (op.resultEntryAt)
       return response("result-entry", lifecycleAction("post-poker-result", "Post the final chip counts"));
     if (!state.poker.startedAt)
@@ -1024,24 +2012,30 @@ function resolveEventLifecycle(state, ev) {
     return response("draw-pending", lifecycleAction("continue-draft", `Continue the ${ev.name} draft`));
   if (ev.teamCfg && !draw)
     return response("draw-pending", lifecycleAction("prepare-draw", `Choose players and draw ${ev.name}`));
-  if (state.onDeck === ev.id)
+  if (needsStageSetup(state, ev))
+    return response("setup", lifecycleAction("prepare-stages", `Set up ${ev.stageCfg.kind}`));
+  if (op.contest) {
+    if (op.resultEntryAt)
+      return response("result-entry", lifecycleAction("post-result", `Post the ${ev.name} result`, finish.blockers), finish.blockers);
+    const contest = resolveCurrentContest(state, ev);
+    if (contest) return response(contest.phase === "awaiting-result" ? "result-entry" : contest.phase,
+      contest.nextAction, contest.phase === "in-progress" ? finish.blockers : []);
+    return response("in-progress", lifecycleAction("enter-result", `Enter the ${ev.name} result`, finish.blockers), finish.blockers);
+  }
+  const competitionStarted = !!op.startedAt
+    || bracketStarted(state.brackets?.[ev.id])
+    || stagesStarted(state.stages?.[ev.id]);
+  if (state.onDeck === ev.id && !competitionStarted)
     return response("betting-open", lifecycleAction("lock-betting", `Lock betting on ${ev.name}`));
   if (op.resultEntryAt)
     return response("result-entry",
       lifecycleAction("post-result", `Post the ${ev.name} result`, finish.blockers),
       finish.blockers);
 
-  const competitionStarted = !!op.startedAt
-    || bracketStarted(state.brackets?.[ev.id])
-    || stagesStarted(state.stages?.[ev.id]);
   if (competitionStarted) {
     let action;
-    if (!finish.ok && state.brackets?.[ev.id])
-      action = lifecycleAction("advance-bracket", `Advance the ${ev.name} bracket`, finish.blockers);
-    else if (!finish.ok && state.stages?.[ev.id])
-      action = lifecycleAction("advance-stages",
-        `Advance the ${state.stages[ev.id].kind === "heats" ? "heats" : "pools"}`,
-        finish.blockers);
+    if (resolveCurrentContest(state, ev)?.kind !== "ffa" && !finish.ok)
+      action = lifecycleAction("record-contest-winner", "Record winner");
     else action = lifecycleAction("enter-result", `Enter the ${ev.name} result`);
     return response("in-progress", action, finish.blockers);
   }
@@ -1051,56 +2045,72 @@ function resolveEventLifecycle(state, ev) {
     return response("draw-revealed", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
   return response("setup", lifecycleAction("open-betting", `Open betting on ${ev.name}`));
 }
+/* An event is in play once its competition has started and until its
+   result posts: a locked market, a contest being played, or result entry. */
+function eventInPlay(state, ev) {
+  if (!ev || state.results?.[ev.id] || state.shelved?.[ev.id]) return false;
+  if (ev.finale) return state.poker?.id === ev.id && !!state.poker.startedAt;
+  const phase = resolveEventLifecycle(state, ev).phase;
+  if (phase === "in-progress" || phase === "result-entry") return true;
+  return phase === "betting-locked" && !!state.eventOps?.[ev.id]?.bettingLockedAt;
+}
 function resolveWeekendOperation(state, events = allEventsOf(state)) {
-  const open = events.filter(ev => !state.results?.[ev.id] && !state.shelved?.[ev.id]);
-  if (!open.length) return {
+  const crown = {
     event:null,
     lifecycle:null,
     nextAction:state.frozen ? null : lifecycleAction("crown-champion", "Crown the champion"),
   };
+  /* once the final counts are the standings, nothing else can be announced */
+  if (stacksPosted(state)) return crown;
+  const open = events.filter(ev => !state.results?.[ev.id] && !state.shelved?.[ev.id]);
+  if (!open.length) return crown;
 
-  let event = open.find(ev => ev.id === state.onDeck);
-  if (!event) {
-    /* Pick the most recently touched active operation. This prevents a draft
-       prepared for a later game from hiding an event already underway. */
-    const active = open
-      .map(ev => {
-        const op = eventOpOf(state, ev.id);
-        const draft = state.drafts?.[ev.id];
-        const poker = state.poker?.id === ev.id ? state.poker : null;
-        const at = Math.max(
-          op.resultEntryAt || 0,
-          op.startedAt || 0,
-          op.bettingLockedAt || 0,
-          poker?.startedAt || poker?.ts || 0,
-          draft?.ts || 0,
-        );
-        return { ev, at };
-      })
-      .filter(item => item.at > 0)
-      .sort((a, b) => b.at - a.at);
-    event = active[0]?.ev;
-  }
+  const activity = ev => {
+    const op = eventOpOf(state, ev.id);
+    return Math.max(op.resultEntryAt || 0, op.startedAt || 0, op.bettingLockedAt || 0, op.bettingOpenedAt || 0);
+  };
+  /* Precedence: the dealt poker table, the one open market, anything being
+     played, a running captains draft, then slate order. Preparing a later
+     event (a draw, a draft) never outranks play. */
+  let event = state.poker && !state.results?.[state.poker.id]
+    ? open.find(ev => ev.id === state.poker.id) : null;
+  if (!event) event = open.find(ev => ev.id === state.onDeck);
+  if (!event) event = open.filter(ev => eventInPlay(state, ev))
+    .sort((a, b) => activity(b) - activity(a))[0];
+  if (!event) event = open.filter(ev => state.drafts?.[ev.id] && !state.draws?.[ev.id])
+    .sort((a, b) => Number(state.drafts[b.id].ts || 0) - Number(state.drafts[a.id].ts || 0))[0];
   if (!event) event = open[0];
   const lifecycle = resolveEventLifecycle(state, event);
   return { event, lifecycle, nextAction:lifecycle.nextAction };
 }
 
 export {
-  ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer,
-  AWARDS, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer, isAway, presentPlayers,
+  AWARDS, awardTable, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
+  teamFit, shapeLabel, suggestParticipants,
   normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
   CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
-  allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, wagerBoardEvent, resolveDuel, pokerLive, stacksPosted, pokerLevels, pokerClock, pokerDenoms,
-  pokerDistribution,
+  allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
+  resolveWager, wagerMult, wagerBoardEvent, resolveDuel, pokerLive,
+  DUEL_LAPSE_MS, DUEL_DAILY_LIMIT, duelAccepted, duelLapsed, duelLapsesAt, duelPhase, duelOpen,
+  duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor, pokerDenoms,
+  pokerDistribution, pokerInventory,
+  resultAwards, awardPlan, postCountRuling, postCountRulingApplies,
+  MVP_PTS, MVP_MIN_TEAM, MVP_WINDOW_MS, mvpStands, mvpOpen, mvpAwards,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
+  enforceExposure, refundTotals, voidWagerRecords,
+  contestStackOf, contestEntryLabel, applyContestCorrection, contestCorrectionAvailability, contestCorrections,
+  correctionText, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview,
   playerStrength, strengthMap, refineTeams,
-  makeBracket, ROUND_NAMES, resolveSlot, qaBracketMatchWager, bracketChampion,
+  makeBracket, ROUND_NAMES, MAX_BRACKET, bracketRoundName, bracketMatchName, resolveSlot, qaBracketMatchWager, bracketChampion, bracketMatchOpen, bracketOrder,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
-  resolveEventLifecycle, resolveWeekendOperation,
+  resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
+  contestMult, contestSideMults, wagerSide, contestSideOf,
+  refundText, eventInPlay,
+  BOUNTY_PTS, UNDERDOG_GAP, UNDERDOG_MULT, bountyLeaders, bountyFor, bountyOutcome, bountyAwards, oddsFor,
+  bracketByeSlots, bracketSeeds, seedBracket,
 };

@@ -1,0 +1,296 @@
+/* The TV's bracket advance (M14) and crown (M18). Tokens only, flat, text
+   24px and up. Every animation runs from the scene's shared server instant:
+   --tl is minus the ms already elapsed when this TV started the timeline,
+   so a delay of calc(var(--tl) + 700ms) is "700ms after the write". Each
+   element's resting style is its end state, so reduced motion (shell.css
+   removes every animation) and a TV joining late both show the frame. */
+
+/* ── the bracket ── */
+.tv-bracket-team { position:relative; }
+.tv-bracket-line.is-on path { stroke-width:3px; }
+.tv-bracket-team.is-lost .tv-bracket-faces { opacity:.45; filter:grayscale(1); }
+/* the match being played: one outline that travels, not a border per card */
+.tv-bracket-upnow { position:absolute; z-index:2; border:3px solid var(--bone); border-radius:14px; pointer-events:none; }
+.tv-bracket-upnow-tab { position:absolute; right:-3px; top:-38px; display:inline-flex; align-items:center; padding:5px 12px 4px;
+  border-radius:8px 8px 0 8px; background:var(--bone); color:var(--ink0); font:800 24px/1.1 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.tv-bracket-upnow-tab .fd-beat-dot.tv-beat { width:12px; height:12px; margin-right:8px; vertical-align:0; }
+
+/* the winning row: a bone copy wipes across it and WON stamps, then it
+   settles back to the bracket's own won style */
+.tv-br-win { position:absolute; inset:0; display:flex; align-items:center; gap:10px; padding:0 14px; background:var(--bone);
+  color:var(--ink0); animation:tv-br-wipe 240ms var(--ease-out) calc(var(--tl) + 0ms) both,
+    tv-br-unfill 500ms ease-in-out calc(var(--tl) + 2700ms) both; }
+.tv-bracket-team .tv-br-win .tv-bracket-name { color:var(--ink0); }
+.tv-br-stamp { flex-shrink:0; font:800 28px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;
+  animation:tv-br-stamp var(--motion-stamp) var(--ease-land) calc(var(--tl) + 120ms) both; }
+.tv-bracket.is-full .tv-br-stamp { font-size:34px; }
+@keyframes tv-br-wipe { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }
+@keyframes tv-br-unfill { from { opacity:1; } to { opacity:0; } }
+@keyframes tv-br-stamp { from { opacity:0; transform:scale(1.6) rotate(-8deg); } to { opacity:1; transform:none; } }
+/* the losing row steps back */
+.tv-bracket-team.is-lose-moment .tv-bracket-name { animation:tv-br-lose-name 300ms ease-out calc(var(--tl) + 250ms) both; }
+.tv-bracket-team.is-lose-moment .tv-bracket-faces { animation:tv-br-lose-faces 300ms ease-out calc(var(--tl) + 250ms) both; }
+@keyframes tv-br-lose-name { from { color:var(--bone); } to { color:var(--muted); } }
+@keyframes tv-br-lose-faces { from { opacity:1; filter:none; } to { opacity:.45; filter:grayscale(1); } }
+/* the rail draws behind the riders, who land in the next slot */
+.tv-br-rail { position:absolute; left:0; top:0; z-index:1; overflow:visible; pointer-events:none; }
+.tv-br-rail path { fill:none; stroke:var(--bone); stroke-width:3px; stroke-dasharray:1; stroke-dashoffset:0;
+  animation:tv-br-draw 800ms cubic-bezier(.65,0,.35,1) calc(var(--tl) + 760ms) both; }
+@keyframes tv-br-draw { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+.tv-br-token { position:absolute; left:0; top:0; z-index:3; box-sizing:border-box; display:flex; align-items:center; gap:4px;
+  padding:5px; border-radius:99px; background:var(--paper); border:3px solid var(--bone); box-shadow:var(--shadow-2);
+  opacity:0; pointer-events:none; will-change:transform; }
+.tv-bracket-team.is-arriving > :not(.tv-br-was) { animation:tv-br-arrive 160ms ease-out calc(var(--tl) + 1540ms) both; }
+.tv-br-was { position:absolute; left:14px; top:0; bottom:0; display:flex; align-items:center;
+  animation:tv-br-leave 120ms ease-out calc(var(--tl) + 1540ms) both; }
+.tv-br-was .tv-bracket-name { color:var(--muted); }
+@keyframes tv-br-arrive { from { opacity:0; } to { opacity:1; } }
+@keyframes tv-br-leave { from { opacity:1; } to { opacity:0; } }
+.tv-bracket-match.is-landing { animation:tv-br-land 320ms var(--ease-out) calc(var(--tl) + 1540ms) forwards; }
+@keyframes tv-br-land { 0% { transform:none; border-color:var(--bone); } 40% { transform:translateY(5px); border-color:var(--bone); }
+  100% { transform:none; border-color:var(--line); } }
+
+/* the decided match's card sits in the contest's own space, so the bracket
+   under it stays in view while the winners move through it */
+.tv-contest-slot { position:relative; flex:1; min-height:0; display:flex; flex-direction:column; }
+.tv-advance.is-slot { flex-direction:row; align-items:center; justify-content:space-between; gap:36px; padding:16px 32px;
+  text-align:left; border:1px solid var(--ghost-line); border-radius:18px; }
+.tv-advance-who { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+.tv-advance-line { display:flex; align-items:center; gap:18px; min-width:0; max-width:100%; }
+.tv-advance.is-slot .tv-advance-name { font-size:56px; min-width:0; }
+.tv-advance.is-slot .tv-advance-stamp { font-size:96px; }
+.tv-advance.is-slot .tv-advance-detail { font-size:30px; }
+.tv-advance.is-slot .tv-settle { margin-top:0; flex-shrink:0; }
+.tv-advance-call { display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-width:0; }
+/* with bets to pay: the winner on top, the stamp and what it means beside
+   each other, then the settled chips as one row across the card. Nothing
+   leaves the card; a lost stack fades out on its way to the bank. */
+.tv-advance.is-slot.has-settle { flex-direction:column; align-items:stretch; justify-content:center; gap:22px;
+  padding:22px 36px; overflow:hidden; }
+.tv-advance.is-slot.has-settle .tv-advance-who { flex:0 0 auto; gap:6px; }
+.tv-advance.is-slot.has-settle .tv-advance-name { font-size:56px; min-width:0; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.tv-advance.is-slot.has-settle .tv-advance-call { flex-direction:row; align-items:center; column-gap:36px; max-width:100%; }
+.tv-advance.is-slot.has-settle .tv-advance-stamp { font-size:84px; flex-shrink:0; }
+/* the round and what it means wrap to a second line beside the stamp */
+.tv-advance.is-slot.has-settle .tv-advance-detail { min-width:0; row-gap:2px; column-gap:28px; white-space:nowrap; }
+.tv-advance.is-slot.has-settle .tv-settle { justify-content:flex-start; gap:24px; max-width:100%; }
+.tv-advance.is-slot.has-settle .tv-settle-zone { min-width:0; padding:12px 22px; }
+.tv-advance.is-slot.has-settle .tv-settle-head { font-size:44px; }
+
+/* ── the crown ──
+   At rest (a reload, a late TV, after the produced crown): the champion's
+   frame on their color under the masthead. Playing: the produced crown, a
+   full-canvas takeover whose beats come in as --c-* from CROWN_TIMING. */
+.tv-canvas:has(.tv-crown) .tv-mast { z-index:2; }
+.tv-mast-title, .tv-mast-edition, .tv-status { transition:color .3s; }
+.tv-canvas:has(.tv-crown.is-flooded.is-ink-dark) :is(.tv-mast-title, .tv-mast-edition, .tv-status) { color:var(--ink0); }
+.tv-canvas:has(.tv-crown.is-flooded.is-ink-bone) :is(.tv-mast-title, .tv-mast-edition, .tv-status) { color:var(--bone); }
+.tv-crown { position:absolute; inset:0; }
+/* the champion's color, the whole screen under the masthead's type */
+/* lit glass, not a flat field: their color is the light behind the pane,
+   brighter from above and falling off to its edges and foot, the pane's two
+   reflection bands across it, a halftone of their own ink shading the
+   corner the way a printed backglass shades a field. The middle, where the
+   name and the stack sit, stays their exact color (champ-ink is read
+   against it). */
+.tv-crown-flood { position:absolute; left:0; right:0; top:calc(-1 * var(--tv-mast-h, 118px)); bottom:0; z-index:2;
+  background:var(--lg-bands),
+    radial-gradient(64% 78% at 66% 48%, transparent 46%, color-mix(in srgb, var(--ink0) 34%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bone) 12%, transparent), transparent 26%),
+    var(--champ-color); }
+.tv-crown-flood::after { content:""; position:absolute; right:0; bottom:0; width:46%; height:52%; pointer-events:none;
+  background:radial-gradient(circle, color-mix(in srgb, var(--ink0) 16%, transparent) 0 1.6px, transparent 2.4px) 0 0 / 10px 10px;
+  -webkit-mask-image:linear-gradient(to top left, var(--ink0), transparent 70%); mask-image:linear-gradient(to top left, var(--ink0), transparent 70%); }
+/* at rest the champion's chip turns a few degrees, slowly, a coin on show */
+.tv-crown:not(.is-playing) .tv-crown-coin-spin { animation:tv-coin-show 9s ease-in-out infinite; }
+@keyframes tv-coin-show { 0%, 100% { transform:rotateY(-16deg) rotateX(4deg); } 50% { transform:rotateY(16deg) rotateX(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .tv-crown:not(.is-playing) .tv-crown-coin-spin { animation:none; } }
+
+.tv-crown .tv-champ { position:absolute; z-index:3; inset:0; margin:0; padding:16px 64px 54px; gap:56px;
+  background:transparent; border:0; border-radius:0; color:var(--champ-ink, var(--bone)); }
+/* on the flood the night painting is the composition's left, full height
+   and edge to edge (the frame's padding and the masthead it sits under are
+   bled through), the trophy standing on its desert; the champion's name,
+   numbers, path and plates hold the right */
+.tv-crown .tv-champ.is-bleed { grid-template-columns:744px minmax(0, 1fr); padding-left:56px; }
+.tv-champ.is-bleed .tv-champ-body { padding:0 0 0 8px; }
+.tv-champ.is-bleed .tv-champ-prize { position:static; }
+.tv-champ.is-bleed .tv-champ-sky { position:absolute; left:0; top:calc(-1 * var(--tv-mast-h, 96px)); width:800px; height:1080px;
+  border:0; border-radius:0; }
+.tv-champ.is-bleed .tv-champ-sky svg { display:block; }
+.tv-champ.is-bleed .tv-champ-trophy { bottom:56px; }
+.tv-champ.is-bleed .tv-champ-body { justify-content:center; gap:44px; }
+.tv-crown.is-playing .tv-champ.is-bleed .tv-champ-sky { left:-24px; }
+.tv-crown.is-playing .tv-champ.is-bleed { padding-left:56px; }
+/* the rest frame fills the canvas: the strips under it step out */
+.tv-canvas:has(.tv-crown) :is(.tv-ticker, .tv-horizon) { visibility:hidden; }
+.tv-crown.is-tied .tv-champ { inset:0 64px 54px; padding:28px 48px; background:var(--night2); border:1px solid var(--ghost-line);
+  border-radius:18px; }
+.tv-crown .tv-champ-faces { align-items:center; gap:24px; }
+.tv-crown-coin { display:inline-block; flex-shrink:0; perspective:1400px; }
+.tv-crown-coin-spin { display:block; transform-style:preserve-3d; }
+.tv-crown-word { display:inline-block; white-space:nowrap; }
+/* the champion's name lands in the backglass lettering */
+.tv-crown .tv-champ-name.fd-show { font-weight:900; text-transform:none; letter-spacing:.01em; line-height:1.1; }
+.tv-crown-letter { display:inline-block; }
+
+/* ── the produced crown ── */
+/* pinned to the canvas corner: an "inset:auto" here would leave it at its
+   static place under the masthead */
+.tv-crown.is-playing { position:fixed; inset:0 auto auto 0; width:1920px; height:1080px; z-index:30; }
+/* night falls on the art: the glass darkens over the painting */
+.tv-crown-night { position:absolute; inset:0; background:var(--night-deep); opacity:.9;
+  animation:tv-crown-in var(--c-night-ms) ease-in-out calc(var(--tl) + var(--c-night)) both; }
+.tv-crown-final { position:absolute; left:0; right:0; top:64px; text-align:center; font-size:120px; line-height:1.05; color:var(--bone);
+  animation:tv-crown-in 600ms ease-out calc(var(--tl) + var(--c-title)) both,
+    tv-crown-out 500ms ease-in calc(var(--tl) + var(--c-rise)) both; }
+.tv-crown-hall { position:absolute; inset:0; animation:tv-crown-out 600ms ease-in calc(var(--tl) + var(--c-flood) + 300ms) both; }
+.tv-crown-floor { position:absolute; left:80px; right:80px; top:860px; height:4px; border-radius:99px; background:var(--bone-line); }
+.tv-crown-tower { position:absolute; top:0; bottom:0; width:120px; margin-left:-60px; color:var(--bone); }
+.tv-crown-stack { position:absolute; left:0; right:0; bottom:220px; display:flex; flex-direction:column; align-items:center;
+  transform-origin:50% 100%; animation:tv-tower-stand 520ms var(--ease-land) calc(var(--tl) + var(--stand)) both; }
+@keyframes tv-tower-stand { from { opacity:0; transform:scaleY(.05); } to { opacity:1; transform:none; } }
+.tv-crown-face { display:block; margin-bottom:8px; border-radius:50%; box-shadow:0 0 0 4px var(--tc); }
+/* one picture per tower (an SVG pattern of chips), never an element per chip */
+.tv-crown-chips { display:block; }
+.tv-crown-label { position:absolute; left:-10px; right:-10px; top:878px; display:flex; flex-direction:column; align-items:center; gap:6px;
+  text-align:center; animation:tv-crown-in 300ms ease-out calc(var(--tl) + var(--stand) + 200ms) both; }
+.tv-crown-name { max-width:100%; font:800 26px/1.15 var(--fd-display); text-transform:uppercase; white-space:nowrap; }
+.tv-crown-pts { font:800 28px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
+/* a tower goes dark on its beat: night falls over it (an overlay's
+   opacity, composited, never a filter) and its label dims; its place
+   stamps over it */
+.tv-crown-dark { position:absolute; left:-4px; right:-4px; top:-4px; bottom:-2px; border-radius:14px; background:var(--night-deep);
+  opacity:0; pointer-events:none; animation:tv-tower-shade 500ms ease-in-out calc(var(--tl) + var(--out)) both; }
+@keyframes tv-tower-shade { from { opacity:0; } to { opacity:.62; } }
+.tv-crown-tower.is-out .tv-crown-label { animation-name:tv-crown-in, tv-tower-dim;
+  animation-duration:300ms, 500ms; animation-timing-function:ease-out, ease-in-out;
+  animation-delay:calc(var(--tl) + var(--stand) + 200ms), calc(var(--tl) + var(--out)); animation-fill-mode:both, both; }
+@keyframes tv-tower-dim { from { opacity:1; } to { opacity:.45; } }
+.tv-crown-place { position:absolute; left:-20px; right:-20px; text-align:center; font-size:44px; line-height:1;
+  color:var(--bone); animation:tv-crown-stamp 340ms var(--ease-land) calc(var(--tl) + var(--out)) both; }
+/* the champion's tower rises and cascades */
+.tv-crown-tower.is-champ .tv-crown-stack { animation:tv-tower-stand 520ms var(--ease-land) calc(var(--tl) + var(--stand)) both,
+  tv-tower-rise var(--c-rise-ms) cubic-bezier(.65,0,.35,1) calc(var(--tl) + var(--c-rise)) both; }
+@keyframes tv-tower-rise { from { transform:none; } to { transform:translateY(-150px) scale(1.18); } }
+.tv-crown-fall { position:absolute; left:14px; top:96px; width:92px; height:12px; border-radius:46px / 6px; background:var(--tc);
+  opacity:0; animation:tv-tower-fall 900ms cubic-bezier(.4,0,.9,.6) both;
+  animation-delay:calc(var(--tl) + var(--c-rise) + 700ms + var(--k) * 70ms); }
+@keyframes tv-tower-fall { 0% { opacity:1; transform:translate(0, 0) rotate(0deg); }
+  80% { opacity:1; } 100% { opacity:0; transform:translate(var(--dx), 560px) rotate(200deg); } }
+/* their color floods out from their tower: a circle scaled up, never a clip */
+.tv-crown-panel { position:absolute; inset:24px; z-index:2; border-radius:18px; overflow:hidden; }
+/* a small disc scaled up: a few thousand pixels drawn once, never a
+   screen-sized circle re-rastered every frame */
+.tv-crown-disc { position:absolute; display:block; border-radius:50%; background:var(--champ-color); will-change:transform;
+  left:calc(var(--flood-x) - 24px - var(--flood-disc) / 2); top:calc(var(--flood-y) - 24px - var(--flood-disc) / 2);
+  width:var(--flood-disc); height:var(--flood-disc);
+  animation:tv-crown-disc var(--c-flood-ms) cubic-bezier(.65,0,.35,1) calc(var(--tl) + var(--c-flood)) both; }
+@keyframes tv-crown-disc { from { transform:scale(0); } to { transform:scale(var(--flood-scale)); } }
+.tv-crown-chase { z-index:4; animation:tv-crown-in 300ms linear calc(var(--tl) + var(--c-flood)) both; }
+.tv-crown-frame { position:absolute; left:24px; right:24px; top:var(--tv-mast-h, 118px); bottom:24px; z-index:3; }
+.tv-crown.is-playing .tv-crown-frame .tv-champ { padding:0 32px 20px; }
+.tv-crown.is-playing .tv-crown-frame { animation:tv-crown-in 400ms ease-out calc(var(--tl) + var(--c-chip) - 50ms) both; }
+
+/* the frame arrives over the flood */
+.tv-crown.is-playing .tv-champ-prize { animation:tv-crown-in 400ms ease-out calc(var(--tl) + var(--c-chip) - 50ms) both; }
+.tv-crown.is-playing .tv-crown-coin-spin { animation:tv-crown-coin 1400ms linear calc(var(--tl) + var(--c-chip)) both; }
+.tv-crown.is-playing .tv-crown-photo { animation:tv-crown-pop 320ms var(--ease-land) calc(var(--tl) + var(--c-stats) + 200ms) both; }
+.tv-crown.is-playing .tv-champ-title { animation:tv-crown-stamp 300ms var(--ease-land) calc(var(--tl) + var(--c-tag)) both; }
+.tv-crown.is-playing .tv-crown-letter { animation:tv-crown-letter 380ms var(--ease-land) both; }
+.tv-crown.is-playing .tv-champ-stack { animation:tv-crown-in 300ms ease-out calc(var(--tl) + var(--c-stats)) both; }
+.tv-crown.is-playing .tv-medal { animation:tv-crown-slide 300ms var(--ease-out) both; }
+/* the constellation joins, one line at a time */
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line { animation:tv-line-draw 300ms ease-in-out calc(var(--tl) + var(--c-lines)) both !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(2) { animation-delay:calc(var(--tl) + var(--c-lines) + var(--c-line-stagger)) !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(3) { animation-delay:calc(var(--tl) + var(--c-lines) + 2 * var(--c-line-stagger)) !important; }
+.tv-crown.is-playing .tv-champ-sky .tv-desert-line:nth-of-type(n+4) { animation-delay:calc(var(--tl) + var(--c-lines) + 3 * var(--c-line-stagger)) !important; }
+@keyframes tv-crown-in { from { opacity:0; } to { opacity:1; } }
+@keyframes tv-crown-out { from { opacity:1; } to { opacity:0; } }
+@keyframes tv-crown-pop { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:none; } }
+@keyframes tv-crown-stamp { 0% { opacity:0; transform:scale(1.6) rotate(-4deg); } 70% { opacity:1; transform:scale(.95); }
+  100% { opacity:1; transform:none; } }
+@keyframes tv-crown-letter { from { opacity:0; transform:translateY(60px); } to { opacity:1; transform:none; } }
+@keyframes tv-crown-slide { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:none; } }
+/* a fall, two full turns, one hop, face up */
+@keyframes tv-crown-coin {
+  0% { transform:translateY(-760px) rotateY(0deg); animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  68% { transform:translateY(0) rotateY(720deg); }
+  80% { transform:translateY(0) rotateY(720deg); animation-timing-function:ease-out; }
+  90% { transform:translateY(-24px) rotateY(720deg); animation-timing-function:ease-in; }
+  100% { transform:translateY(0) rotateY(720deg); }
+}
+
+/* ── D3: the class photo ──
+   Full frame over the masthead: the same 1920x1080 composition as the saved
+   poster (results/classPhoto.js). Fresh, the rows fill front to back and the
+   champion lands last; the resting style is the end state. */
+.tv-canvas:has(.tv-class) .tv-mast { visibility:hidden; }
+.tv-class { position:absolute; left:0; top:calc(-1 * var(--tv-mast-h, 118px)); width:1920px; height:1080px; z-index:4; overflow:hidden; background:var(--bg); }
+.tv-class-sky { position:absolute; left:0; top:0; will-change:transform; }
+/* the win lights the glass for its champion: their color washes the
+   finale's night and stands as its disc */
+.tv-class.is-lit .tv-desert[data-phase] { --d-sky:color-mix(in srgb, var(--champ-color) 24%, var(--ink0));
+  --d-disc:var(--champ-color); }
+.tv-class-title { position:absolute; left:0; right:0; margin:0; text-align:center; font-family:var(--fd-display); font-weight:700;
+  line-height:1; text-transform:uppercase; letter-spacing:.01em; color:var(--bone); white-space:nowrap; }
+.tv-class-title b { font-weight:700; color:var(--sun); }
+.tv-class-chip { position:absolute; display:block; }
+.tv-class-tag { position:absolute; box-sizing:border-box; display:grid; place-items:center; border-radius:50%;
+  border:3px solid var(--ink0); background:var(--bone); color:var(--ink0); font-family:var(--fd-display); font-weight:800; line-height:1; }
+.tv-class-name, .tv-class-stack { position:absolute; text-align:center; font-family:var(--fd-display); font-weight:700; line-height:1;
+  white-space:nowrap; overflow-x:clip; overflow-y:visible; }
+.tv-class-name { color:var(--bone); }
+.tv-class-stack { color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-class-slot.is-first .tv-class-tag { background:var(--sun); }
+.tv-class-slot.is-first .tv-class-name { color:var(--sun); }
+.tv-class-slot.is-first .tv-class-stack { color:var(--bone); }
+.tv-class.is-playing .tv-class-slot > * { animation:tv-class-in 420ms var(--ease-land) calc(var(--tl) + var(--at)) both; }
+.tv-class.is-playing .tv-class-title { animation:tv-crown-in 400ms ease-out calc(var(--tl) + 1500ms) both; }
+@keyframes tv-class-in { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:none; } }
+
+/* ── D2: the face-off, the broadcast sting ──
+   A full-canvas takeover: the glass dims, each side slams in from its own
+   edge and squashes as it lands, VS hits inside the live lamp chase and
+   holds, the record types in a letter at a time, and at --faceoff-settle
+   the whole card lifts off the betting board underneath. Resting style is
+   the end state. */
+.tv-faceoff { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px; padding:40px 80px 56px;
+  animation:tv-faceoff-out 500ms ease-in calc(var(--tl) + var(--faceoff-settle, 6600ms)) both; }
+@keyframes tv-faceoff-out { from { opacity:1; } to { opacity:0; } }
+.tv-faceoff-glass { position:absolute; inset:0; background:var(--night-deep); animation:tv-crown-in 900ms var(--ease-out) calc(var(--tl) + 0ms) both; }
+.tv-faceoff-chase { --chase:var(--lamp-live); animation:tv-crown-in 200ms linear calc(var(--tl) + 1900ms) both; }
+.tv-faceoff-head { position:relative; display:flex; flex-direction:column; align-items:center; gap:12px; color:var(--bone);
+  text-align:center; animation:tv-crown-in 400ms ease-out calc(var(--tl) + 500ms) both; }
+.tv-faceoff-round { font-size:72px; line-height:1.1; color:var(--bone); }
+/* the event under the round, as written: a "1v1" never set in capitals */
+.tv-faceoff-event { font:700 40px/1 var(--fd-body); color:var(--muted2); }
+.tv-faceoff-sides { position:relative; width:100%; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:center; gap:40px; }
+.tv-faceoff-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:20px; text-align:center; }
+.tv-faceoff-side.is-left { animation:tv-faceoff-left 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 900ms) both,
+  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1320ms) both; }
+.tv-faceoff-side.is-right { animation:tv-faceoff-right 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 1250ms) both,
+  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1670ms) both; }
+@keyframes tv-faceoff-left { from { opacity:0; transform:translateX(-1100px) skewX(14deg); } to { opacity:1; transform:none; } }
+@keyframes tv-faceoff-right { from { opacity:0; transform:translateX(1100px) skewX(-14deg); } to { opacity:1; transform:none; } }
+/* the landing: a squash and a settle */
+@keyframes tv-faceoff-squash { 0% { transform:none; } 35% { transform:translateY(7px) scale(1.06, .92); }
+  70% { transform:translateY(-2px) scale(.98, 1.02); } 100% { transform:none; } }
+.tv-faceoff-chips { display:flex; justify-content:center; gap:14px; }
+.tv-faceoff-chips.is-wrap { flex-wrap:wrap; max-width:660px; }
+.tv-faceoff-name { max-width:100%; line-height:1.2; color:var(--bone); white-space:nowrap; }
+.tv-faceoff-line { min-height:34px; max-width:100%; animation:tv-crown-in 300ms ease-out calc(var(--tl) + 3900ms) both; }
+.tv-faceoff-vs { position:relative; width:180px; height:180px; border-radius:50%; display:grid; place-items:center; padding-bottom:14px;
+  box-sizing:border-box; background:var(--lamp-live); color:var(--ink0); font-size:84px; line-height:1;
+  animation:tv-faceoff-vs 420ms var(--ease-land) calc(var(--tl) + 1900ms) both; }
+@keyframes tv-faceoff-vs { 0% { opacity:0; transform:scale(2.6) rotate(-12deg); } 60% { opacity:1; transform:scale(.9) rotate(2deg); }
+  100% { opacity:1; transform:none; } }
+/* VS lands hard enough to shake the glass */
+.tv-faceoff-sides { animation:tv-faceoff-shake 260ms linear calc(var(--tl) + 2000ms) both; }
+@keyframes tv-faceoff-shake { 0%, 100% { transform:none; } 20% { transform:translate(-7px, 3px); } 40% { transform:translate(6px, -4px); }
+  60% { transform:translate(-4px, 2px); } 80% { transform:translate(3px, -1px); } }
+.tv-faceoff-record { position:relative; min-height:64px; font-size:56px; line-height:1.1; color:var(--muted2); white-space:pre; }
+.tv-faceoff-record span { animation:tv-faceoff-type 1ms steps(1, end) both; }
+@keyframes tv-faceoff-type { from { opacity:0; } to { opacity:1; } }

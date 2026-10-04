@@ -1,0 +1,24 @@
+.fd-flight-entry-wrap { container-type:inline-size; }
+.fd-flight-entry { display:grid; grid-template-columns:minmax(94px,.8fr) minmax(82px,.9fr) minmax(140px,1.35fr); gap:8px 6px; }
+@container (max-width:340px) {
+  .fd-flight-entry { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fd-flight-time { grid-column:1/-1; }
+}
+
+/* a saved flight as a row: a window cut in the glass, who on the left, the
+   code, then the time in sun and which way. Its own class family: .fd-flight-pass
+   is the player card's (an aspect-ratio 4/5 card), and sharing it once
+   stretched every leg on the House sheet into a card-sized box. */
+.fd-flight-pass { display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; border-radius:10px;
+  background:color-mix(in srgb, var(--ink0) 70%, transparent); box-shadow:var(--glass-edge); color:var(--ink); }
+.fd-flight-pass.is-small { min-height:48px; padding:6px 12px; gap:10px; }
+.fd-flight-pass-who { display:flex; flex-shrink:0; color:var(--muted2); }
+.fd-flight-pass-code { display:flex; align-items:baseline; gap:6px; flex:1; min-width:0; }
+.fd-flight-pass-code small { font:700 13px/1.2 var(--fd-body); letter-spacing:.12em; color:var(--muted2); }
+.fd-flight-pass-code b { font:800 24px/1.15 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-flight-pass-when { display:flex; flex-direction:column; align-items:flex-end; gap:2px; margin-left:auto; padding-left:12px;
+  border-left:1px dashed var(--line); text-align:right; }
+.fd-flight-pass-when b { font:800 22px/1.15 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-flight-pass-when small { font:700 12px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); white-space:nowrap; }
+.fd-flight-pass.is-note { gap:10px; }
+.fd-flight-pass-note { font:600 14px/1.45 var(--fd-body); }

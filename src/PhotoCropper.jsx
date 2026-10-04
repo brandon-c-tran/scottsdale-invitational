@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "./ui/Icon.jsx";
 
 const MAX_ZOOM = 4;
 const MIN_ZOOM = 1;
@@ -236,7 +237,7 @@ export default function PhotoCropper({
       );
       onConfirm?.(canvas.toDataURL("image/jpeg", clamp(quality, 0.5, 0.95)));
     } catch {
-      setError("We couldn't crop that photo. Please try a different image.");
+      setError("That photo could not be cropped. Choose another image.");
     }
   };
 
@@ -272,7 +273,7 @@ export default function PhotoCropper({
           background: var(--paper, #241b12);
           color: var(--ink, #f4ead9);
           box-shadow: var(--shadow-3, 0 14px 40px rgba(10,6,3,0.7));
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: var(--fd-body);
           animation: fd-crop-rise 180ms ease-out both;
         }
         .fd-crop-header {
@@ -283,7 +284,7 @@ export default function PhotoCropper({
         }
         .fd-crop-title {
           margin: 0;
-          font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+          font-family: var(--fd-display);
           font-size: 27px;
           font-weight: 800;
           line-height: 1;
@@ -400,7 +401,7 @@ export default function PhotoCropper({
           min-height: 48px;
           padding: 11px 16px;
           border-radius: 11px;
-          font: 700 15px/1 'Inter', system-ui, sans-serif;
+          font: 700 15px/1 var(--fd-body);
           cursor: pointer;
         }
         .fd-crop-cancel {
@@ -454,7 +455,7 @@ export default function PhotoCropper({
             aria-label="Cancel photo crop"
             onClick={onCancel}
           >
-            <span aria-hidden="true">×</span>
+            <Icon name="close" size={20} />
           </button>
         </header>
 

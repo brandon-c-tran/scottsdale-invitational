@@ -1,0 +1,92 @@
+/* A printed bracket: rounds are columns, connector lines carry winners right.
+   Positions come from bracketLayout; this file only paints. */
+.fd-competition-bracket { min-width:0; }
+.fd-bracket-scroll { overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; padding-bottom:4px;
+  scroll-snap-type:x proximity; }
+/* a swipe lands on a round, never on half a name */
+.fd-competition-bracket:not(.is-compact) .fd-bracket-match { scroll-snap-align:start; }
+.fd-bracket-heads { position:relative; height:22px; margin-bottom:6px; }
+.fd-bracket-heads span { position:absolute; top:0; color:var(--muted2); font:600 13px/22px var(--fd-body);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
+.fd-bracket-stage { position:relative; }
+
+/* connectors: flat, one ink; the path a winner took turns green (won) */
+.fd-bracket-line { position:absolute; overflow:visible; color:var(--ghost-line); pointer-events:none; }
+.fd-bracket-line path { fill:none; stroke:currentColor; stroke-width:1.5px; }
+.fd-bracket-line.is-advanced { color:var(--green); }
+
+.fd-bracket-match { position:absolute; box-sizing:border-box; display:flex; flex-direction:column; min-width:0;
+  border:1px solid var(--line); border-radius:10px; background:var(--paper2); overflow:hidden; }
+/* the live match is lit: the magenta lamp for now */
+.fd-bracket-match.is-current { border-color:var(--lamp-live); }
+.fd-bracket-match-label { flex:0 0 22px; display:flex; align-items:center; justify-content:space-between; gap:4px;
+  padding:0 9px; color:var(--muted); font:500 12px/22px var(--fd-body); border-bottom:1px solid var(--line); white-space:nowrap; }
+.fd-bracket-match-label strong { color:var(--ink); font-weight:600; }
+.fd-bracket-lamp { display:inline-flex; align-items:center; flex-shrink:0; }
+.fd-bracket-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
+
+.fd-bracket-team { flex:1 1 0; display:flex; align-items:center; min-width:0; }
+.fd-bracket-team+.fd-bracket-team { border-top:1px solid var(--line); }
+.fd-bracket-team.is-empty .fd-bracket-name { color:var(--disabled); font-weight:400; }
+.fd-bracket-team.is-winner { background:var(--green-tint); }
+.fd-bracket-team.is-winner .fd-bracket-name,.fd-bracket-outcome { color:var(--green); }
+.fd-bracket-team.is-loser .fd-bracket-name { color:var(--muted); font-weight:400; }
+.fd-bracket-team.is-loser .fd-bracket-players { opacity:.55; }
+/* you: a rounded frame inset from the row edges, so it never fights the card's corners */
+.fd-bracket-team.is-you { box-shadow:none; outline:1.5px solid var(--you); outline-offset:-4px; border-radius:10px; }
+
+/* a team name takes two lines (it breaks at a space or "&") before it is
+   ever cut; the line is tall enough for descenders */
+.fd-bracket-name { flex:1; min-width:0; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
+  line-height:1.25; padding-bottom:1px; overflow-wrap:break-word; }
+.fd-bracket-pick { display:flex; align-items:center; gap:5px; flex:1; min-width:0; height:100%; min-height:44px;
+  padding:0 9px 0 4px; border:0; background:none; color:var(--ink); font:600 12.5px/1.2 var(--fd-body); text-align:left; }
+.fd-bracket-pick:disabled { opacity:1; cursor:default; }
+.fd-bracket-pick:not(:disabled) { cursor:pointer; }
+.fd-bracket-pick:not(:disabled):hover { background:var(--sun-tint); }
+.fd-bracket-pick-hint { flex-shrink:0; padding:3px 7px; border-radius:99px; background:var(--sun); color:var(--ink0);
+  font-size:12px; font-weight:700; }
+.fd-bracket-players { display:flex; align-items:center; flex-shrink:0; padding-left:2px; }
+.fd-bracket-players button { display:grid; place-items:center; width:36px; min-width:36px; height:44px; padding:0;
+  background:none; border:0; cursor:pointer; border-radius:6px; }
+.fd-bracket-players button:first-child { width:44px; min-width:44px; }
+.fd-bracket-players button:disabled { cursor:default; }
+.fd-bracket-pick:focus-visible,.fd-bracket-players button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-3px; }
+
+/* compact: a read-only picture that fits its column */
+.fd-competition-bracket.is-compact .fd-bracket-scroll { overflow:visible; padding:0; }
+.fd-competition-bracket.is-compact .fd-bracket-heads { height:16px; margin-bottom:4px; }
+.fd-competition-bracket.is-compact .fd-bracket-heads span { font-size:12px; line-height:16px; }
+.fd-competition-bracket.is-compact .fd-bracket-match { border-radius:7px; container-type:inline-size; }
+/* a narrow column shows faces, not names cut to three letters */
+@container (max-width:129px) {
+  .fd-competition-bracket.is-compact .fd-bracket-team:not(.is-empty) .fd-bracket-name { display:none; }
+  .fd-competition-bracket.is-compact .fd-bracket-team { justify-content:space-between; }
+}
+.fd-competition-bracket.is-compact .fd-bracket-team { gap:4px; padding:0 5px; color:var(--ink); font:600 12px/1.25 var(--fd-body); }
+.fd-bracket-faces { display:flex; flex-shrink:0; }
+.fd-bracket-faces { gap:3px; }
+.fd-competition-bracket.is-compact .fd-bracket-outcome { font-size:12px; }
+/* a compact row holds two lines of 12px at 1.15, the floor for a clipped box */
+.fd-competition-bracket.is-compact .fd-bracket-name { line-height:1.15; padding-bottom:0; }
+.fd-competition-bracket.is-compact .fd-bracket-faces { gap:1px; }
+
+@media (prefers-reduced-motion:no-preference) {
+  .fd-bracket-match,.fd-bracket-line { transition:border-color .2s ease, color .3s ease; }
+}
+
+/* the glance: one target around a compact bracket */
+.fd-bracket-peek { display:grid; gap:8px; width:100%; min-width:0; padding:12px 14px 14px; border:0; border-top:1px solid var(--line);
+  background:transparent; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.fd-bracket-peek:hover { background:var(--ink-tint); }
+.fd-bracket-peek:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-2px; }
+.fd-bracket-peek-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:20px; }
+.fd-bracket-peek-head>span:first-child { color:var(--muted2); font:600 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
+.fd-bracket-peek-head>span:last-child { display:flex; align-items:center; gap:4px; color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); }
+.fd-bracket-peek.is-card { border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+/* v3.1 byes to the bottom: a bye enters already advanced, its line in from
+   the round it skipped, a lit info lamp at the head of its row */
+.fd-bracket-line.is-bye { color:var(--lamp-info); }
+.fd-bracket-line.is-bye path { stroke-dasharray:4 3; }
+.fd-bracket-bye { --lamp:var(--lamp-info); flex:none; width:10px; height:10px; margin:0 6px 0 4px; }
+.fd-bracket-team.is-bye { background:color-mix(in srgb, var(--lamp-info) 7%, transparent); }

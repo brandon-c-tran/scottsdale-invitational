@@ -1,0 +1,143 @@
+/* Phone takeovers (Backglass): "You're up", the Walkout on the winner's own
+   phone, and your team at the draw. Each floods the screen in the player's
+   identity color (a circle scaled up with transform, never clip-path, so
+   Safari keeps it smooth) with ink read from that color (--moment-ink).
+   Every delay is "this long after the moment started" on the room's clock:
+   --tl is minus the ms already gone when this phone joined. Resting style
+   is the end state; reduced motion (shell.css) shows it at once. */
+.fd-moment { position:fixed; inset:0; z-index:415; display:flex; align-items:center; justify-content:center; overflow:hidden;
+  padding:calc(env(safe-area-inset-top) + 56px) 20px calc(env(safe-area-inset-bottom) + 28px);
+  background:var(--bg); color:var(--moment-ink, var(--ink)); cursor:pointer; -webkit-tap-highlight-color:transparent;
+  animation:fd-moment-in 200ms ease-out calc(var(--tl, 0ms) + 0ms) both,
+    fd-moment-out 400ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 7000ms) - 400ms) both; }
+@keyframes fd-moment-in { from { opacity:0; } to { opacity:1; } }
+@keyframes fd-moment-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
+.fd-moment-flood { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.fd-moment-flood i { position:absolute; left:50%; top:56%; width:300vmax; height:300vmax; margin:-150vmax 0 0 -150vmax;
+  border-radius:50%; will-change:transform; animation:fd-moment-flood 700ms cubic-bezier(.65,0,.35,1) calc(var(--tl, 0ms) + 0ms) both; }
+@keyframes fd-moment-flood { from { transform:scale(0); } to { transform:scale(1); } }
+/* the winner's glass, lit: light through the pane from above the record
+   (white at a low alpha over their color, so it stays their color), a
+   darker foot, and the pane's one hard diagonal reflection */
+.fd-moment-glass { position:absolute; inset:0;
+  background:radial-gradient(ellipse 85% 55% at 50% 46%, color-mix(in srgb, var(--bone) 26%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bone) 10%, transparent) 0, transparent 38%, color-mix(in srgb, var(--ink0) 30%, transparent) 100%),
+    linear-gradient(112deg, transparent 0 58%, color-mix(in srgb, var(--bone) 7%, transparent) 58% 66%, transparent 66%);
+  animation:fd-moment-in 600ms ease-out calc(var(--tl, 0ms) + 500ms) both; }
+.fd-moment-chase { inset:6px; width:calc(100% - 12px); height:calc(100% - 12px); animation:fd-moment-in 300ms ease-out calc(var(--tl, 0ms) + 700ms) both; }
+.fd-moment-chase rect { stroke-width:6; filter:drop-shadow(0 0 5px var(--chase)) drop-shadow(0 0 1px var(--ink0)); rx:22px; ry:22px; }
+.fd-moment-body { position:relative; width:100%; max-width:420px; display:grid; justify-items:center; gap:12px; text-align:center; }
+/* the subline under a takeover's headline: what and where, as units that
+   wrap whole (an event name with a digit keeps its case, OneSafe.jsx) */
+.fd-moment-sub { margin:0; display:flex; flex-wrap:wrap; justify-content:center; align-items:baseline; gap:2px 14px;
+  font:800 19px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase;
+  animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 450ms) both; }
+.fd-moment-sub>span { white-space:nowrap; }
+.fd-moment-sub>.fd-moment-event { font-size:28px; line-height:1.08; letter-spacing:.01em; }
+.fd-moment-word { margin:0; font-size:clamp(56px, 24vw, 120px); line-height:1.02; transform-origin:50% 70%;
+  animation:fd-moment-stamp 380ms var(--ease-land) calc(var(--tl, 0ms) + 250ms) both; }
+@keyframes fd-moment-stamp { 0% { opacity:0; transform:scale(1.8) rotate(-6deg); } 70% { opacity:1; transform:scale(.95) rotate(0deg); }
+  100% { opacity:1; transform:none; } }
+@keyframes fd-moment-rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+.fd-moment-faces { display:flex; align-items:center; justify-content:center; gap:10px; margin:6px 0 2px; }
+.fd-moment-face { display:flex; gap:4px; }
+.fd-moment-face.is-mine { animation:fd-moment-slam-l 360ms cubic-bezier(.2,.9,.3,1) calc(var(--tl, 0ms) + 120ms) both; }
+.fd-moment-face.is-other { animation:fd-moment-slam-r 360ms cubic-bezier(.2,.9,.3,1) calc(var(--tl, 0ms) + 1080ms) both; }
+@keyframes fd-moment-slam-l { from { opacity:0; transform:translateX(-80vw); } to { opacity:1; transform:none; } }
+@keyframes fd-moment-slam-r { from { opacity:0; transform:translateX(80vw); } to { opacity:1; transform:none; } }
+.fd-moment-vs { font:800 22px/1 var(--fd-display); text-transform:uppercase; letter-spacing:.06em;
+  animation:fd-moment-stamp 320ms var(--ease-land) calc(var(--tl, 0ms) + 1000ms) both; }
+.fd-moment-against { margin:0; font:600 20px/1.25 var(--fd-body); animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 1150ms) both; }
+.fd-moment-against b { font-weight:800; }
+.fd-moment-with { margin:-4px 0 0; font:500 15px/1.3 var(--fd-body); }
+.fd-moment-action { margin-top:10px; min-width:220px; min-height:52px; padding:0 24px; border:2px solid var(--moment-ink, var(--ink));
+  border-radius:14px; background:var(--moment-ink, var(--ink)); color:var(--moment-color, var(--bg)); font:700 18px/1 var(--fd-body);
+  cursor:pointer; animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 1400ms) both; }
+.fd-moment-pays { margin:0; font:600 13px/1.3 var(--fd-body); opacity:.85; }
+.fd-moment-x { position:absolute; right:12px; top:calc(env(safe-area-inset-top) + 10px); width:44px; height:44px; border:0;
+  border-radius:12px; background:transparent; color:inherit; font-size:18px; cursor:pointer; }
+/* how long it stays: a bar that runs out at the top */
+.fd-moment-timer { position:absolute; left:0; right:0; top:0; height:3px; background:var(--moment-ink, var(--ink)); opacity:.6;
+  transform-origin:0 50%; animation:fd-moment-timer linear calc(var(--tl, 0ms) + 0ms) both; animation-duration:var(--moment-hold, 7000ms); }
+@keyframes fd-moment-timer { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+
+/* a spectator's banner: both sides, one line, under the header */
+.fd-moment-banner { position:fixed; left:10px; right:10px; top:calc(env(safe-area-inset-top) + 74px); z-index:160; max-width:540px;
+  margin:0 auto; display:flex; align-items:center; border:1px solid var(--lamp-live, var(--line)); border-radius:14px; background:var(--paper2);
+  color:var(--ink); box-shadow:var(--shadow-3);
+  animation:fd-banner-in 320ms var(--ease-land) calc(var(--tl, 0ms) + 0ms) both,
+    fd-banner-out 300ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 5000ms) - 300ms) both; }
+@keyframes fd-banner-in { from { opacity:0; transform:translateY(-24px); } to { opacity:1; transform:none; } }
+@keyframes fd-banner-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
+.fd-moment-banner-main { flex:1; min-width:0; min-height:56px; display:flex; align-items:center; gap:10px; padding:6px 4px 6px 10px;
+  border:0; background:none; color:inherit; text-align:left; cursor:pointer; }
+.fd-moment-banner-chips { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+.fd-moment-banner-chips i { margin:0 4px; font:800 13px/1 var(--fd-display); font-style:normal; text-transform:uppercase; color:var(--muted2); }
+.fd-moment-banner-text { min-width:0; display:grid; }
+.fd-moment-banner-text small { font:700 13px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--lamp-live-text, var(--muted2)); }
+.fd-moment-banner-text b { font:700 16px/1.2 var(--fd-body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-moment-banner-x { flex-shrink:0; width:44px; height:44px; border:0; background:none; color:var(--muted2); font-size:15px; cursor:pointer; }
+
+/* the Walkout on the winner's phone: the whole screen, top to foot. The
+   record is the song's cover as the sleeve with your chip as the disc
+   sliding out of it, both at chip scale; no cover, the chip alone. */
+.fd-moment-walkout { align-items:stretch; }
+.fd-walkout { height:100%; grid-template-rows:auto 1fr auto; align-content:stretch; gap:18px; }
+.fd-walkout-head { display:grid; justify-items:center; gap:8px; }
+.fd-moment-name { margin:0; font-size:clamp(56px, 22vw, 120px); line-height:1.02; overflow-wrap:anywhere;
+  animation:fd-moment-stamp 360ms var(--ease-land) calc(var(--tl, 0ms) + 700ms) both; }
+.fd-walkout-record { --disc:min(214px, 54vw); position:relative; align-self:center; display:flex; align-items:center; justify-content:center;
+  height:calc(var(--disc) + 16px); animation:fd-moment-art 520ms var(--ease-land) calc(var(--tl, 0ms) + 250ms) both; }
+.fd-walkout-record.has-sleeve { width:calc(var(--disc) * 1.62); justify-content:flex-start; }
+.fd-walkout-sleeve { position:relative; z-index:2; width:var(--disc); height:var(--disc); object-fit:cover; border-radius:6px;
+  box-shadow:0 0 0 3px var(--moment-ink, var(--ink)), 0 14px 30px rgba(2,3,10,.45); }
+.fd-walkout-disc { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 4px var(--moment-ink, var(--ink)), 0 12px 28px rgba(2,3,10,.4); }
+.fd-walkout-disc svg { width:var(--disc); height:var(--disc); }
+.fd-walkout-record.has-sleeve .fd-walkout-disc { position:absolute; z-index:1; left:calc(var(--disc) * .62); top:8px;
+  animation:fd-walkout-slide 700ms var(--ease-out) calc(var(--tl, 0ms) + 760ms) both; }
+@keyframes fd-walkout-slide { from { transform:translateX(calc(var(--disc) * -.6)) rotate(-90deg); } to { transform:none; } }
+@keyframes fd-moment-art { from { opacity:0; transform:translateY(60px) scale(.86); } to { opacity:1; transform:none; } }
+.fd-walkout-track { display:grid; justify-items:center; gap:6px; padding-bottom:6px;
+  animation:fd-moment-rise 400ms var(--ease-out) calc(var(--tl, 0ms) + 1100ms) both; }
+.fd-walkout-title { margin:0; font-size:clamp(40px, 13vw, 56px); line-height:1.04; letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
+.fd-walkout-artist { margin:0; font:800 21px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+
+/* the room sorts itself: your team, in poster type, to hold up */
+.fd-moment-team-faces { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:340px; }
+.fd-moment-team-faces > span { display:block; animation:fd-moment-stamp 360ms var(--ease-land) both;
+  animation-delay:calc(var(--tl, 0ms) + 260ms + var(--face, 0) * 110ms); }
+.fd-moment-team-name { margin:6px 0 0; font-size:clamp(56px, 18vw, 120px); line-height:1.02; overflow-wrap:anywhere;
+  animation:fd-moment-stamp 380ms var(--ease-land) calc(var(--tl, 0ms) + 200ms) both; }
+.fd-moment-hold { margin:4px 0 0; font:800 20px/1 var(--fd-display); letter-spacing:.16em; text-transform:uppercase;
+  animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 700ms) both; }
+
+/* a team's win on a teammate's phone: the team's name (sized by its longest
+   word, so it breaks only at spaces), every chip in balanced rows with yours
+   lit in your filament, the singer's chip marked by the song's cover, the
+   song at the foot beside its cover */
+.fd-moment-walkout.is-team .fd-walkout { grid-template-rows:auto 1fr auto; }
+.fd-walkout-teamname { font-size:min(96px, calc((min(100vw, 420px) - 48px) / (var(--name-w, 8) * .54))); overflow-wrap:normal;
+  text-wrap:balance; line-height:1.08; }
+.fd-walkout-squad { --chip:min(var(--chip-max, 104px), calc((min(100vw, 420px) - 40px - (var(--across, 3) - 1) * 14px) / var(--across, 3)));
+  align-self:center; display:grid; justify-items:center; gap:14px; }
+.fd-walkout-row { display:flex; justify-content:center; gap:14px; }
+.fd-walkout-member { position:relative; display:block; line-height:0; border-radius:50%;
+  box-shadow:0 0 0 3px var(--moment-ink, var(--ink)), var(--shadow-2);
+  animation:fd-moment-stamp 360ms var(--ease-land) both; animation-delay:calc(var(--tl, 0ms) + 250ms + var(--i, 0) * 90ms); }
+.fd-walkout-member svg { display:block; width:var(--chip); height:var(--chip); }
+/* you, among your team: the one lit ring on the screen */
+.fd-walkout-member.is-you { box-shadow:0 0 0 3px var(--moment-ink, var(--ink)), 0 0 0 7px var(--you), var(--you-bloom); }
+.fd-walkout-mark { position:absolute; right:-6%; bottom:-6%; width:38%; height:38%; display:grid; place-items:center; overflow:hidden;
+  border-radius:50%; background:var(--moment-ink, var(--ink)); color:var(--moment-color); box-shadow:0 0 0 2px var(--moment-ink, var(--ink)); }
+.fd-walkout-mark img { display:block; width:100%; height:100%; object-fit:cover; }
+.fd-walkout-mark svg { width:55%; height:55%; }
+.fd-walkout-credit { display:flex; align-items:center; gap:14px; min-width:0; max-width:100%; justify-self:center; text-align:left;
+  padding-bottom:6px; animation:fd-moment-rise 400ms var(--ease-out) calc(var(--tl, 0ms) + 1100ms) both; }
+.fd-walkout-credit > img { flex-shrink:0; display:block; width:64px; height:64px; object-fit:cover; border-radius:6px;
+  box-shadow:0 0 0 2px var(--moment-ink, var(--ink)); }
+.fd-walkout-credit-disc { flex-shrink:0; display:grid; place-items:center; width:64px; height:64px; border-radius:50%;
+  background:var(--moment-ink, var(--ink)); color:var(--moment-color); }
+.fd-walkout-credit > span { min-width:0; display:grid; gap:4px; }
+/* Spotify's free text: one line each, then it may clip */
+.fd-walkout-credit-title { margin:0; font-size:28px; line-height:1.16; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-walkout-credit .fd-walkout-artist { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:15px; }

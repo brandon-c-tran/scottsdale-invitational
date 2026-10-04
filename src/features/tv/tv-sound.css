@@ -1,0 +1,27 @@
+/* A5: the TV's one sound control, inside the 1920x1080 canvas: a lit sign
+   in the masthead row beside the clock, its lamp flashing until the click
+   (a muted TV would silence the whole weekend). It sits over the sky, so
+   it never covers the board, the standings or the ticker. Gone after the
+   click. */
+.tv-sound-chip { position:absolute; top:14px; right:calc(var(--tv-edge, 64px) + 210px); z-index:60; display:flex; align-items:center; gap:18px;
+  height:76px; padding:0 30px 0 22px; border:3px solid var(--lamp-live); border-radius:99px; background:var(--night-deep); color:var(--bone);
+  font:600 26px/1 var(--fd-body); box-shadow:var(--shadow-3); cursor:pointer; text-align:left; white-space:nowrap; }
+.tv-sound-chip svg { flex-shrink:0; width:44px; height:44px; color:var(--lamp-live-text); }
+.tv-sound-chip-text { display:flex; align-items:baseline; gap:16px; }
+.tv-sound-chip-text b { font-size:44px; font-weight:900; line-height:1.15; color:var(--bone); }
+.tv-sound-chip-text span { font:600 26px/1.2 var(--fd-body); color:var(--muted2); }
+.tv-sound-chip:focus-visible { outline:3px solid var(--bone); outline-offset:3px; }
+
+/* The TV's "Sound early by": the bottom-left corner, under the ticker and
+   clear of the masthead and clock, shown only while a pointer moves. */
+.tv-early { position:fixed; z-index:75; bottom:calc(8px + env(safe-area-inset-bottom)); left:12px;
+  display:flex; align-items:center; gap:2px; min-height:44px; padding:0 4px 0 14px; border-radius:10px;
+  background:var(--paper); color:var(--ink); border:1.5px solid var(--ghost-line);
+  font:700 15px/1 var(--fd-body); letter-spacing:.04em; transition:opacity .3s; }
+.tv-early.is-idle:not(:focus-within) { opacity:0; pointer-events:none; }
+.tv-early > span { margin-right:6px; white-space:nowrap; }
+.tv-early output { font-variant-numeric:tabular-nums; }
+.tv-early button { min-width:44px; min-height:40px; border:0; border-radius:8px; background:transparent;
+  color:inherit; font:700 20px/1 var(--fd-body); cursor:pointer; }
+.tv-early button:disabled { color:var(--disabled); cursor:default; }
+.tv-early button:focus-visible { outline:2px solid var(--bone); outline-offset:1px; }

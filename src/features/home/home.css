@@ -1,0 +1,276 @@
+.fd-home { padding:12px 16px 24px; }
+.fd-home-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:16px 0; }
+.fd-home-heading h1 { margin:0; font:800 44px/.95 var(--fd-display); letter-spacing:.01em; text-transform:uppercase; }
+.fd-home-text-link { display:inline-flex; align-items:center; justify-content:space-between; gap:6px; min-height:44px; padding:6px 0; border:0; background:none; color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); cursor:pointer; }
+.fd-home-arrow { flex-shrink:0; }
+
+/* The You strip: your own lamp, directly under the header. Your face stands
+   in the painted sky, the rank and reel read through a score window cut in
+   the glass, and the one live line through a window of its own, with its
+   lensed insert in the line's lamp. With nothing live the strip is Home's
+   one lit piece of backglass (a .fd-glass-scene, framed in your filament);
+   with a contest live it is lettered into the contest's painting (is-inset)
+   and the contest's lamp frames them both. */
+.fd-you-strip { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; column-gap:12px; row-gap:10px;
+  width:100%; margin:0; padding:12px 12px 14px; border:0; background:none; color:var(--ink); text-align:left; font:inherit; }
+/* with its own painting the strip ends on its horizon: the painting runs
+   on below the frame by the floor band's depth (8% of the width at the
+   phone crop), so no empty strip of floor is left under the line */
+.fd-you-strip.fd-glass-scene { container-type:inline-size; }
+.fd-you-strip.fd-glass-scene > .fd-glass-art { height:calc(100% + 8cqw - 2px); }
+.fd-you-strip.fd-glass-scene { margin:0 0 12px; padding-bottom:14px; border:1px solid var(--you); border-radius:14px;
+  background:var(--bg); box-shadow:var(--you-bloom), var(--glass-edge); }
+.fd-you-strip.is-inset { position:relative; z-index:1; padding-bottom:4px; }
+button.fd-you-strip { cursor:pointer; }
+button.fd-you-strip:active { transform:scale(.99); }
+.fd-you-strip-face { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 2px var(--ink0), 0 3px 8px rgba(2,3,10,.55); }
+/* the score window: your filament through a dark recess in the painted glass */
+.fd-you-strip-score { justify-self:end; display:flex; align-items:center; gap:12px; padding:5px 8px 5px 12px; color:var(--you);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.9), inset 0 2px 6px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.16), 0 0 0 2px color-mix(in srgb, var(--you) 30%, transparent); }
+.fd-you-strip-rank { font:800 24px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
+.fd-you-strip-score .fd-reel { font:800 32px/1 var(--fd-display); }
+.fd-you-strip-line { grid-column:1 / -1; display:flex; align-items:center; gap:10px; min-width:0; min-height:44px; padding:6px 10px 7px 12px;
+  font:600 15px/1.3 var(--fd-body); }
+/* the model names a team, never a roll call; a team's own long name
+   takes a second line rather than losing letters */
+.fd-you-strip-line>span { flex:1; min-width:0; overflow-wrap:anywhere; }
+/* "You're up vs ..." is a moment, lettered in the show face */
+.fd-you-strip-line>.fd-you-strip-up { font-size:24px; line-height:1.15; letter-spacing:.01em; padding-bottom:1px; }
+.fd-insert.is-live { --lamp:var(--lamp-live); }
+.fd-insert.is-chip { --lamp:var(--sun); }
+.fd-insert.is-info { --lamp:var(--lamp-info); }
+.fd-insert.is-you { --lamp:var(--you); }
+/* the insert carries the lamp; the line reads in bone (amber when it is chips) */
+.fd-you-strip.is-live .fd-you-strip-line { color:var(--ink); }
+/* lettered into a lit contest pane, the pane's frame and its status insert
+   are the screen's one live lamp: the strip's line drops its own */
+.fd-home-focus.is-live .fd-you-strip.is-inset.is-live .fd-you-strip-line>.fd-insert,
+.fd-home-focus.is-pending .fd-you-strip.is-inset.is-live .fd-you-strip-line>.fd-insert { display:none; }
+.fd-you-strip.is-chip .fd-you-strip-line { color:var(--sun); }
+.fd-you-strip-go { color:var(--muted2); }
+
+/* X1: the current contest, lit as a lamp (backglass.css .fd-lamp): steady
+   magenta while it is on, flashing while it waits on a result. It is Home's
+   painting: the scene fills its head, the event's name lettered on the
+   horizon with the game's medallion seated across it, half on the art and
+   half on the floor, the contest on the clear glass below. */
+.fd-home-focus { position:relative; border:1px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--lamp-live) 6%, var(--bg)); box-shadow:var(--glass-edge); }
+.fd-home-focus .fd-chase { z-index:3; }
+.fd-home-scene { display:flex; flex-direction:column; border-radius:13px 13px 0 0; }
+.fd-home-scene:not(.has-you) { padding-top:58px; }
+/* The contest's pane: the painting stands behind your strip and ends on its
+   horizon; the event's name is lettered on the desert floor under it, one
+   dark painted field, never across the horizon. The art keeps its own
+   proportions (bottom-anchored), its sky running on above it and its floor
+   running on under it to the pane's lower edge. */
+.fd-home-focus > .fd-home-scene { display:grid; grid-template-rows:minmax(30px, auto) auto; padding-top:0; }
+.fd-home-focus > .fd-home-scene > .fd-glass-art { grid-area:1 / 1 / 2 / 2; top:auto; bottom:0; height:auto; aspect-ratio:1100 / 944; }
+.fd-home-focus > .fd-home-scene > .fd-glass-art::before,
+.fd-home-focus > .fd-home-scene > .fd-glass-art::after { content:""; position:absolute; left:0; right:0; }
+.fd-home-focus > .fd-home-scene > .fd-glass-art::before { bottom:calc(100% - 1px); height:600px; background:var(--g-sky); }
+.fd-home-focus > .fd-home-scene > .fd-glass-art::after { top:calc(100% - 1px); height:400px; background:var(--g-ground); }
+.fd-home-focus > .fd-home-scene > .fd-you-strip { grid-row:1; }
+.fd-home-focus > .fd-home-scene > .fd-home-event-title { grid-row:2; margin-top:0; padding-top:10px; }
+.fd-home-focus > .fd-home-scene > .fd-home-event-title h2 { padding-bottom:12px; }
+.fd-home-focus > .fd-home-scene > .fd-home-event-title .fd-home-event-go { margin-bottom:16px; }
+.fd-home-event-title { display:flex; align-items:flex-end; gap:12px; min-width:0; margin-top:26px; border:0; padding:0 14px 6px 12px; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+/* Home's one hero line: the event's name in marquee lettering, set as
+   written (show lettering is never uppercased) */
+/* the name is the way into the event sheet: a chevron says so */
+.fd-home-event-go { flex-shrink:0; align-self:flex-end; margin-bottom:18px; color:var(--bone); filter:drop-shadow(0 1px 0 var(--ink0)) drop-shadow(0 0 2px var(--ink0)); }
+.fd-home-event-title h2 { flex:1; min-width:0; margin:0; padding:0 0 16px; font-size:clamp(40px,11.5vw,56px); line-height:1.02; letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
+.fd-home-focus-meta { display:flex; align-items:center; justify-content:space-between; gap:4px 12px; min-height:44px; padding:6px 14px 4px; }
+.fd-home-focus-meta .fd-home-text-link { flex-shrink:0; }
+.fd-home-status { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; color:var(--muted2); font:800 15px/1.1 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; }
+/* the status reads in bone: the lamp insert beside it and the panel's frame
+   carry the live magenta, never the label */
+.fd-home-focus.is-live .fd-home-status, .fd-home-focus.is-pending .fd-home-status { color:var(--ink); }
+/* each unit wraps whole: no separator is ever left at the head of a line */
+.fd-home-status>span { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+.fd-home-focus .fd-home-status>.fd-home-session { color:var(--muted2); }
+/* the label reads with the status; only the amount is chips */
+.fd-home-status>.fd-home-prize { gap:.3em; }
+.fd-home-prize strong { color:var(--sun); font-weight:inherit; }
+/* the medallion: a dark lens in a chrome bezel */
+.fd-home-event-mark { flex-shrink:0; width:56px; height:56px; display:grid; place-items:center; border-radius:50%; background:var(--ink0);
+  box-shadow:0 0 0 2px rgba(0,0,0,.85), 0 0 0 4px color-mix(in srgb, var(--bone) 30%, transparent), 0 4px 10px rgba(2,3,10,.6), inset 0 2px 0 rgba(255,255,255,.1); }
+.fd-home-event-mark svg { width:38px; height:38px; }
+.fd-home-event-description { margin:0; padding:0 14px 4px; color:var(--muted2); font-size:14px; line-height:1.55; }
+.fd-home-contest-label { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; }
+.fd-home-playing { color:var(--you); }
+/* each side is one row: its players (each opens their card), what is bet
+   on it, and under them what its win does to the standings. The sides are
+   one window cut into the pane (dark glass, recessed), rows parted by a
+   hairline, never a card inside the card; yours carries a filament edge. */
+.fd-home-sides { --window:color-mix(in srgb, var(--ink0) 72%, var(--bg)); display:grid; gap:0; overflow:hidden; border-radius:10px; background:var(--window);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.55), inset 0 2px 6px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.06); }
+.fd-home-sides .fd-home-side { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:8px;
+  min-width:0; padding:0 12px; }
+.fd-home-sides .fd-home-side + .fd-home-side { border-top:1px solid var(--line); }
+.fd-home-sides .fd-home-side.is-mine { box-shadow:inset 3px 0 0 var(--you); }
+.fd-home-sides .fd-home-player-links { gap:0 14px; min-width:0; }
+.fd-home-sides .fd-home-player-links button { font-weight:600; }
+.fd-home-side-win { grid-column:1/-1; margin:-6px 0 7px; }
+/* "vs" sits on the hairline between the two sides, in a band of its own,
+   so no name or chip control ever runs under it */
+.fd-home-sides .fd-home-versus { position:relative; display:flex; align-items:center; justify-content:center; height:18px;
+  background:linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat;
+  color:var(--muted2); font:800 14px/1 var(--fd-display); text-transform:uppercase; }
+.fd-home-sides .fd-home-versus>span { padding:2px 8px; background:var(--window); border-radius:99px; }
+.fd-home-pot { flex-shrink:0; white-space:nowrap; }
+.fd-home-pot strong { color:var(--sun); font:800 20px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-home-own-win { padding:8px 14px 0; }
+.fd-home-playing.is-stamping { display:inline-block; animation:fd-home-stamp var(--motion-stamp) var(--ease-land) 380ms both; }
+@keyframes fd-home-stamp { from { opacity:0; transform:scale(1.7); } to { opacity:1; transform:none; } }
+.fd-home-event-actions { display:flex; align-items:center; gap:14px; padding:12px 14px 14px; }
+.fd-home-event-actions .fd-home-primary { flex:0 0 auto; min-width:148px; }
+.fd-home-event-actions .fd-home-text-link { margin-left:auto; }
+/* what is riding: your bet and the room's in amber (chips), the payout once */
+.fd-home-riding { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; margin:0; color:var(--muted2); font:500 14px/1.35 var(--fd-body); }
+.fd-home-riding strong { color:var(--sun); font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+/* what a win means for you, muted, once */
+.fd-home-win-you { margin:8px 0 0; color:var(--muted2); font:500 14px/1.4 var(--fd-body); }
+.fd-home-win-you.is-own { padding:0 14px; }
+/* team games: each side one block, headed by its name, its people a row of
+   photo chips, its win line under them; a quiet vs on a hairline between */
+.fd-home-teams { display:grid; gap:6px; }
+.fd-home-assignment.fd-home-teams { gap:6px; }
+.fd-home-team h3 { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 0 4px; color:var(--ink);
+  font:800 19px/1.15 var(--fd-display); letter-spacing:.01em; text-transform:none; }
+.fd-home-team h3 .fd-home-pot strong { font-size:19px; }
+/* the team's photo chips in one row, each a 44px target; a team wider
+   than the panel wraps whole chips */
+.fd-home-team-faces { display:flex; flex-wrap:wrap; gap:0; margin:0 -4px; }
+.fd-home-team-faces button { display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; }
+/* yours carries a filament rule, like your side of a matchup */
+.fd-home-team { padding-left:10px; box-shadow:inset 2px 0 0 var(--line); }
+.fd-home-team.is-mine { box-shadow:inset 3px 0 0 var(--you); }
+.fd-home-team .fd-home-team-win { display:block; margin:2px 0 0; color:var(--muted2); font:500 14px/1.35 var(--fd-body); letter-spacing:0; text-transform:none; }
+.fd-home-team .fd-home-team-win.is-rank { color:var(--ink); }
+.fd-home-teams-vs { position:relative; display:flex; justify-content:center; margin:2px 0; color:var(--muted2); font:800 14px/1 var(--fd-display); text-transform:uppercase; }
+.fd-home-teams-vs::before { content:""; position:absolute; left:0; right:0; top:50%; height:1px; background:var(--line); }
+.fd-home-teams-vs>span { position:relative; padding:0 10px; background:color-mix(in srgb, var(--lamp-live) 6%, var(--bg)); }
+.fd-home-primary { min-height:48px; display:flex; align-items:center; justify-content:center; gap:10px; flex:1; border:1px solid transparent; border-radius:10px; padding:12px 16px; font:700 15px/1.1 var(--fd-body); text-align:center; cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-home-primary.is-chip { color:var(--ink0); background:var(--sun); border-color:var(--sun); box-shadow:var(--chip-bloom); }
+.fd-home-primary.is-chip.is-quiet { color:var(--sun); background:var(--sun-tint); box-shadow:var(--glass-edge); }
+.fd-home-primary.is-info { color:var(--lamp-info); background:var(--info-tint); border-color:color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-home-event-link { flex-shrink:0; }
+.fd-home-assignment { display:grid; gap:6px; padding:10px 14px 0; border-top:1px solid var(--line); }
+.fd-home-assignment small,.fd-home-result small,.fd-home-betting small { display:flex; align-items:center; gap:7px; font:700 14px/1.2 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; color:var(--muted2); margin-bottom:2px; }
+.fd-home-assignment>strong { font-size:15px; }
+.fd-home-assignment p { margin:0; color:var(--muted2); font-size:14px; line-height:1.5; }
+.fd-home-assignment .fd-home-assignment-status { color:var(--lamp-info); }
+.fd-home-assignment .fd-home-personal { padding:4px 0 0; color:var(--ink); font-weight:600; overflow-wrap:anywhere; }
+.fd-home-since { display:flex; align-items:stretch; gap:4px; margin:0 0 8px; border:1px solid color-mix(in srgb, var(--lamp-info) 40%, transparent); border-radius:10px; background:var(--info-tint); }
+.fd-home-since>button:first-child { display:flex; flex:1; min-width:0; min-height:44px; align-items:center; justify-content:space-between; gap:10px; padding:8px 4px 8px 12px; border:0; background:none; color:var(--ink); font-size:14px; line-height:1.4; text-align:left; cursor:pointer; }
+/* one line: a long winner name ends in an ellipsis, never a second line */
+.fd-home-since>button:first-child>span:first-child { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-home-since>button:first-child .fd-home-arrow { color:var(--lamp-info); }
+.fd-home-since-more { flex:none; margin-left:auto; color:var(--lamp-info); font:700 14px/1 var(--fd-body); }
+.fd-home-since-dismiss { display:grid; place-items:center; flex:0 0 44px; min-height:44px; border:0; border-left:1px solid var(--line); background:none; color:var(--muted2); cursor:pointer; }
+.fd-home-player-links { display:flex; flex-wrap:wrap; gap:3px 12px; }
+.fd-home-player-links button { display:inline-flex; align-items:center; gap:8px; max-width:100%; min-height:44px; padding:3px 0; border:0; background:none; color:var(--ink); text-align:left; font-size:15px; cursor:pointer; }
+.fd-home-player-links button>span { overflow-wrap:anywhere; }
+.fd-home-opponents { display:flex; align-items:center; gap:10px; }
+.fd-home-opponents>span:first-child { color:var(--muted2); font:800 16px/1 var(--fd-display); text-transform:uppercase; }
+/* one line at 375px: the exposure and the standings route never stack */
+.fd-home-board-actions { display:flex; flex-wrap:nowrap; align-items:center; justify-content:flex-end; gap:0 12px; min-width:0; }
+.fd-home-board-actions .fd-home-text-link { white-space:nowrap; }
+.fd-home-exposure { display:inline-flex; align-items:center; gap:4px; min-height:44px; font-size:14px; color:var(--muted2); white-space:nowrap; }
+/* a route like any other: the one quiet link treatment */
+button.fd-home-exposure { background:transparent; border:0; padding:0; color:var(--lamp-info); font-weight:600; cursor:pointer; }
+.fd-home-betting { display:flex; width:100%; align-items:center; gap:12px; padding:12px; margin:14px 0; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
+.fd-home-betting>span:nth-child(2) { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
+.fd-home-betting strong { display:block; font-size:25px; line-height:1.05; overflow-wrap:anywhere; }
+.fd-home-betting small { color:var(--muted2); margin:0; }
+.fd-home-betting>span:last-child { display:flex; align-items:center; gap:4px; font:700 15px/1 var(--fd-body); color:var(--sun); white-space:nowrap; }
+.fd-home-result { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin:20px 0 12px; padding:6px 0; border-bottom:1px solid var(--line); }
+.fd-home-result-event { display:flex; flex-direction:column; gap:4px; flex:1 1 150px; min-width:0; min-height:44px; background:none; border:0; color:var(--ink); padding:4px 0; text-align:left; cursor:pointer; }
+.fd-home-result-event strong { display:block; font-size:25px; line-height:1.05; overflow-wrap:break-word; text-wrap:balance; }
+.fd-home-result-event small { margin:0; }
+.fd-home-result .fd-home-player-links { flex:0 1 auto; }
+.fd-home-result-award { font:800 24px/1 var(--fd-display); color:var(--sun); }
+.fd-home-upcoming .fd-section-heading { margin:26px 0 3px; }
+.fd-home-next { display:flex; align-items:center; gap:12px; width:100%; min-height:68px; padding:12px 0; border:0; border-bottom:1px solid var(--line); background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-next>span:nth-child(2) { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
+.fd-home-next strong { display:block; font-size:24px; line-height:1.05; }
+.fd-home-next small { display:block; font:700 14px/1.1 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; color:var(--muted2); }
+.fd-home-next .fd-home-arrow { color:var(--muted2); }
+.fd-home-leaderboard { margin-top:18px; }
+/* during the weekend the board's heading lands on the first screen: the
+   painting stays, its band shorter, the name lettered smaller */
+.fd-home.is-live .fd-home-scene:not(.has-you) { padding-top:30px; }
+.fd-home.is-live .fd-home-event-title { margin-top:4px; }
+.fd-home.is-live .fd-home-event-title h2 { padding-bottom:10px; font-size:clamp(34px,10vw,42px); }
+.fd-home.is-live .fd-home-event-mark { width:46px; height:46px; }
+.fd-home.is-live .fd-home-event-mark svg { width:32px; height:32px; }
+.fd-home.is-live .fd-home-leaderboard { margin-top:14px; }
+.fd-home.is-live .fd-home-event-actions { padding-top:10px; padding-bottom:12px; }
+/* the actions are one unit: when bets, duels and Standings outgrow the
+   title's line, the whole row drops under it, never one link alone */
+.fd-home-leaderboard .fd-section-heading { margin:0 0 6px; flex-wrap:wrap; row-gap:0; }
+.fd-home-leaderboard .fd-home-board-actions { margin-left:auto; }
+/* the final screen's one lit piece: the night painting bleeds to the frame,
+   your finish in its sky, the champion on its horizon, the rest on glass */
+.fd-home-finish { position:relative; padding:0 18px 18px; border:1px solid var(--line); border-radius:14px;
+  background:color-mix(in srgb, var(--sun) 6%, var(--bg)); box-shadow:var(--glass-edge); }
+.fd-home-finish>.fd-home-scene { margin:0 -18px 14px; }
+.fd-home-finish .fd-home-scene .fd-home-winner { padding:22px 14px 16px; }
+.fd-home-finish-title { margin:0; color:var(--ink); font:800 20px/1.1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-home-winner { display:flex; align-items:center; gap:16px; width:100%; padding:16px 0 4px; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-home-winner strong { font-size:44px; line-height:1; overflow-wrap:anywhere; }
+.fd-home-finish p { color:var(--muted2); font-size:14px; }
+.fd-home-finish p strong { color:var(--sun); font:800 48px/1 var(--fd-display); }
+.fd-home-finish>.fd-home-primary { width:100%; margin-top:20px; }
+.fd-home-poker>.fd-home-text-link { width:100%; }
+.si-sheet .fd-standings-page { padding-left:0; padding-right:0; }
+.fd-home-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
+.fd-home-side { display:flex; align-items:center; gap:10px; min-width:0; }
+.fd-home-side .fd-home-versus { flex-shrink:0; color:var(--muted2); font:800 16px/1 var(--fd-display); text-transform:uppercase; }
+.fd-home-personal small { display:block; margin-top:2px; color:var(--muted2); font-weight:400; }
+/* the bracket path: a row of the pane under a hairline, not a card */
+.fd-home-path { display:flex; align-items:center; justify-content:space-between; gap:10px; width:calc(100% - 28px); min-height:44px; margin:8px 14px 0; padding:2px 0 0; border:0; border-top:1px solid var(--line); border-radius:0; background:none; color:var(--ink); font-size:14px; line-height:1.4; text-align:left; }
+.fd-home-path>span:first-child { min-width:0; overflow-wrap:anywhere; }
+.fd-home-path-link { display:flex; flex-shrink:0; align-items:center; gap:4px; color:var(--lamp-info); font-weight:600; white-space:nowrap; }
+.fd-home-duels { margin:12px 0; min-width:0; }
+.fd-home-duel-waiting { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; min-height:48px; margin-bottom:8px; padding:0 0 0 12px; border:1px solid var(--line); border-radius:10px; background:var(--paper); font-size:14px; color:var(--muted2); }
+.fd-home-duel-waiting>span:first-child { flex:1; min-width:0; overflow-wrap:anywhere; color:var(--ink); }
+.fd-home-duel-waiting small { margin-left:8px; color:var(--sun); font:700 15px/1 var(--fd-display); white-space:nowrap; }
+.fd-home-duel-waiting button { min-height:48px; padding:0 14px; border:0; border-left:1px solid var(--line); background:none; color:var(--lamp-info); font:600 14px/1 var(--fd-body); cursor:pointer; }
+.fd-home-duel-waiting [role=status] { padding:0 14px; }
+.fd-home-duel-waiting p { flex-basis:100%; margin:0 0 8px; color:var(--clay-text); }
+.fd-home-song { display:flex; align-items:center; gap:8px; margin:10px 0 0; color:var(--muted2); font:500 14px/1.4 var(--fd-body); }
+.fd-home-song>.fd-icon { color:var(--sun); }
+.fd-home-song strong { color:var(--ink); font-weight:700; }
+.fd-home-song.is-pick { width:100%; min-height:44px; margin:6px 0 0; padding:0; border:0; background:none; color:var(--ink); font-weight:600; text-align:left; cursor:pointer; }
+.fd-home-song.is-pick>span { flex:1; }
+.fd-home-song.is-pick .fd-home-arrow { color:var(--lamp-info); }
+/* before the weekend: what you still owe, a flashing lamp until it is done */
+.fd-home-setup { margin:0 0 12px; overflow:hidden; }
+.fd-home-setup h2 { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0; padding:12px 12px 8px; color:var(--ink); font:800 20px/1.1 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; }
+.fd-home-setup h2 span { color:var(--lamp-info); font:600 14px/1 var(--fd-body); letter-spacing:0; text-transform:none; }
+.fd-home-setup>button { display:flex; align-items:center; gap:8px; width:100%; min-height:48px; padding:0 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font:600 15px/1.3 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-home-setup>button>span:first-child { flex:1; min-width:0; }
+.fd-home-setup>.fd-home-flights { margin:0; border:0; border-top:1px solid var(--line); border-radius:0; background:none; font:600 15px/1.3 var(--fd-body); }
+.fd-home-setup .fd-home-arrow { color:var(--muted2); }
+.fd-home-flights { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:12px 0 0; padding:0 0 0 12px; border:1px solid var(--line); border-radius:10px; background:var(--paper2); font-size:15px; color:var(--ink); }
+.fd-home-flights>span { flex:1; min-width:0; }
+.fd-home-flights button { min-width:64px; min-height:48px; padding:0 12px; border:0; border-left:1px solid var(--line); background:none; color:var(--lamp-info); font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-home-flights button:disabled { color:var(--disabled); cursor:default; }
+.fd-home-flights p { flex-basis:100%; margin:0 0 8px; color:var(--clay-text); font-size:13px; }
+.fd-home-finish .fd-home-own-finish { display:inline-block; margin:14px 0 0; padding:7px 12px; border-radius:99px; background:var(--finish-color); color:var(--finish-ink); font:600 15px/1.2 var(--fd-body); }
+@media(hover:hover) {
+  .fd-home-event-title:hover h2,.fd-home-text-link:hover,.fd-home-player-links button:hover>span { text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:1px; }
+}
+@media(max-width:350px) {
+  .fd-home { padding-left:12px; padding-right:12px; }
+  .fd-home-heading h1 { font-size:38px; }
+  .fd-home-event-actions { gap:8px; }
+  .fd-home-primary { padding:11px; font-size:14px; }
+  .fd-you-strip-score .fd-reel { font-size:30px; }
+}
+@media(prefers-reduced-motion:reduce) { button.fd-you-strip:active { transform:none; } }
+/* v3.1: a side's payout and its bounty, under the side */
+.fd-home-side:has(> .fd-home-terms) { flex-wrap:wrap; row-gap:4px; }
+.fd-home-terms { flex-basis:100%; flex-wrap:wrap; row-gap:4px; overflow:visible; }
+.fd-home-team .fd-home-terms { margin-top:6px; }

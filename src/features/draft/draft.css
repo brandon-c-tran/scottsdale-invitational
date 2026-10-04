@@ -1,0 +1,141 @@
+/* The live draft in the backglass: whose pick it is now is the magenta lamp
+   (the turn panel, the current seat in the queue, the team picking), your
+   own team carries your filament, a selection (method, captain) is cyan.
+   The picker's name and team names are lettered in the show face. */
+.fd-draft { display:grid; gap:16px; outline:none; }
+.fd-draft button { font-family:var(--fd-body); }
+.fd-draft button:focus-visible,.fd-draft-entry:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+.fd-draft button:disabled { cursor:default; }
+.fd-draft-section-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.fd-draft-section-title h2,.fd-draft-section-title h3 { margin:0; font:800 24px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; }
+.fd-draft-section-title>span { color:var(--muted2); font-size:13px; text-align:right; }
+.fd-draft-note { margin:-6px 0 0; font-size:13px; color:var(--muted2); line-height:1.5; }
+.fd-draft-role { display:flex; align-items:baseline; gap:10px; }
+.fd-draft-role strong { color:var(--ink); font-size:15px; }
+.fd-draft-methods { display:flex; padding:4px; gap:4px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
+.fd-draft-methods button { flex:1; min-height:44px; border:0; border-radius:6px; padding:6px; background:none; color:var(--muted2); font-weight:600; cursor:pointer; }
+.fd-draft-methods button[aria-pressed=true] { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-draft-captain-order { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin:0; padding:0; list-style:none; }
+.fd-draft-captain-order li { min-height:52px; display:flex; gap:8px; align-items:center; padding:4px 8px; border:1px dashed var(--line); border-radius:8px; color:var(--muted); }
+.fd-draft-captain-order li.is-filled { border-style:solid; background:var(--bg); }
+.fd-draft-captain-order li.is-filled button { animation:fd-draft-land .35s ease-out both; }
+.fd-draft-captain-order li>small { font:700 19px var(--fd-display); }
+.fd-draft-captain-order li>span { font-size:12px; }
+.fd-draft-captain-order button { display:flex; flex:1; gap:5px; align-items:center; min-width:0; min-height:44px; padding:0; border:0; background:none; color:var(--ink); cursor:pointer; font-size:12px; }
+.fd-draft-captain-order button span { overflow:hidden; text-overflow:ellipsis; }
+.fd-draft-captain-order button b { margin-left:auto; font-size:16px; color:var(--muted); }
+.fd-draft-pool { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.fd-draft-candidate { display:flex; align-items:center; min-width:0; border:1px solid var(--line); background:var(--bg); border-radius:10px; overflow:hidden; box-shadow:var(--glass-edge); transition:border-color var(--motion-fast),transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast); }
+.fd-draft-candidate:has(.fd-draft-pick:not(:disabled)):hover { border-color:var(--lamp-live); transform:translateY(-2px); }
+.fd-draft-candidate:has(.fd-draft-pick:not(:disabled):active) { transform:scale(.97); }
+/* a captain's own pick lifts off the pool while the write is pending */
+.fd-draft-candidate.is-lifting { border-color:var(--lamp-live); transform:translateY(-3px) scale(1.03); box-shadow:var(--live-bloom), var(--shadow-2); position:relative; z-index:1; }
+.fd-draft-select { display:flex; align-items:center; gap:8px; min-height:64px; width:100%; padding:8px; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-draft-select span { flex:1; min-width:0; overflow-wrap:anywhere; font-size:13px; font-weight:600; }
+.fd-draft-select b { color:var(--muted); font-size:15px; }
+.fd-draft-select[aria-pressed=true] { background:var(--info-tint); box-shadow:inset 0 0 0 1px var(--lamp-info); }
+.fd-draft-select[aria-pressed=true] b { color:var(--lamp-info); }
+.fd-draft-select:disabled:not([aria-pressed=true]) { opacity:.4; }
+.fd-draft-avatar-link { display:grid; place-items:center; width:48px; min-width:48px; min-height:64px; padding:0; border:0; background:none; cursor:pointer; }
+.fd-draft-pick { display:flex; flex:1; min-width:0; min-height:64px; padding:8px 8px 8px 0; flex-direction:column; justify-content:center; align-items:flex-start; gap:5px; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-draft-pick>span { font-size:14px; font-weight:650; overflow-wrap:anywhere; }
+.fd-draft-pick small { font:800 13px/1.15 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted2); }
+.fd-draft-pick:disabled small { color:var(--muted); }
+.fd-draft-turn { position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 16px 22px; background:var(--paper); border:1px solid var(--line); border-radius:14px; box-shadow:var(--glass-edge); overflow:hidden; }
+.fd-draft-turn:not(.is-complete) { border-color:color-mix(in srgb, var(--lamp-live) 55%, transparent); background:color-mix(in srgb, var(--lamp-live) 5%, var(--paper)); }
+.fd-draft-turn.is-mine { border-color:var(--lamp-live); background:color-mix(in srgb, var(--lamp-live) 9%, var(--paper)); box-shadow:var(--live-bloom), var(--glass-edge); }
+.fd-draft-turn.is-complete { border-color:var(--green); }
+.fd-draft-turn-copy { min-width:0; }
+.fd-draft.is-fresh .fd-draft-turn-copy { animation:fd-draft-turn .3s var(--ease-out) both; }
+/* the subline under the headline: units that wrap whole, no separators */
+.fd-draft-turn small { display:flex; flex-wrap:wrap; gap:2px 12px; margin:0 0 6px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-draft-turn small>span { white-space:nowrap; }
+.fd-draft-turn.is-complete small { color:var(--muted2); }
+.fd-draft-turn h2 { margin:0 0 6px; font:900 clamp(36px,10vw,50px)/1.04 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-draft-turn.is-mine h2 { color:var(--ink); text-shadow:0 0 1px var(--lamp-live), 0 0 22px color-mix(in srgb, var(--lamp-live) 55%, transparent); }
+.fd-draft-turn p { font-size:13px; line-height:1.5; margin:0; color:var(--muted2); }
+.fd-draft-turn-chip { display:block; transform:rotate(-9deg); }
+.fd-draft.is-passing .fd-draft-turn-chip { animation:fd-draft-chip .45s var(--ease-land) .3s both; }
+/* your pick: the border breathes on the shared heartbeat (motion.js aligns
+   every fd-beat animation to the server clock) */
+.fd-draft-turn.is-mine::after { content:""; position:absolute; inset:0; border:1px solid var(--lamp-live); border-radius:13px; pointer-events:none;
+  animation:fd-beat var(--motion-beat) ease-in-out infinite; }
+:root[data-fd-link=down] .fd-draft-turn.is-mine::after { animation:none; }
+.fd-draft-progress { position:absolute; bottom:0; left:0; width:100%; height:4px; background:var(--line); }
+.fd-draft-progress>span { display:block; height:100%; background:var(--lamp-live); box-shadow:0 0 8px var(--lamp-live); }
+.fd-draft-turn.is-complete .fd-draft-progress>span { background:var(--green); box-shadow:none; }
+.fd-draft-queue { display:flex; gap:5px; padding:0; margin:-6px 0 0; list-style:none; overflow-x:auto; }
+.fd-draft-queue li { flex:1; min-width:58px; padding:8px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
+.fd-draft-queue li[aria-current] { border-color:var(--lamp-live); background:var(--live-tint); box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 30%, transparent); }
+.fd-draft-queue small { display:block; color:var(--muted2); font:800 13px/1 var(--fd-display); letter-spacing:.06em; margin-bottom:4px; }
+.fd-draft-queue span { display:block; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
+.fd-draft-latest { display:flex; align-items:center; gap:8px; min-height:52px; border-block:1px solid var(--line); }
+.fd-draft.is-fresh .fd-draft-latest { animation:fd-draft-land .4s var(--ease-out) .45s both; }
+.fd-draft-pick-stamp { font:800 30px var(--fd-display); color:var(--lamp-live-text); }
+.fd-draft-latest>span:last-child { margin-left:auto; font-size:13px; color:var(--muted2); text-align:right; }
+.fd-draft-person { display:flex; align-items:center; gap:7px; min-width:0; min-height:44px; max-width:100%; padding:2px 0; background:none; color:var(--ink); border:0; text-align:left; cursor:pointer; }
+.fd-draft-person>span { min-width:0; overflow-wrap:anywhere; font-size:12px; font-weight:600; }
+.fd-draft-available { display:grid; gap:10px; }
+.fd-draft-body { display:grid; gap:16px; align-items:start; }
+.fd-draft-teams { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.fd-draft-team { min-width:0; padding:10px; border:1px solid color-mix(in srgb, var(--draft-color) 60%, var(--line)); border-radius:10px; box-shadow:var(--glass-edge); background:var(--bg); }
+.fd-draft-team.is-picking { border-color:var(--lamp-live); box-shadow:0 0 0 1px var(--lamp-live), 0 0 14px color-mix(in srgb, var(--lamp-live) 30%, transparent); }
+.fd-draft.is-fresh .fd-draft-team { transition:border-color var(--motion-base) ease-out .5s; }
+.fd-draft-team header { display:flex; justify-content:space-between; gap:6px; font-size:12px; color:var(--muted); margin-bottom:5px; }
+.fd-draft-team.is-yours header small { color:var(--you); }
+.fd-draft-team.is-yours { border-color:var(--you); box-shadow:var(--you-bloom); }
+.fd-draft-team-name { display:block; margin:0 0 4px; font:900 23px/1.1 var(--fd-show); overflow-wrap:anywhere; }
+.fd-draft-team header small { font-size:12px; }
+.fd-draft-captain-label { display:block; margin:-3px 0 10px 37px; font-size:12px; color:var(--muted); }
+.fd-draft-team ol { margin:0; padding:0; list-style:none; }
+.fd-draft-team li { border-top:1px solid var(--line); min-height:46px; }
+.fd-draft-team .is-latest { background:var(--live-tint); }
+/* the seat a flying pick is headed for stays empty until it lands */
+.fd-draft-team .is-arriving>* { opacity:0; }
+.fd-draft-team .is-landed>* { animation:fd-draft-seat var(--motion-base) var(--ease-land) both; }
+/* the card in flight (drawn in the flight layer, outside .fd-draft) */
+.fd-draft-flyer { box-sizing:border-box; width:100%; height:100%; display:flex; align-items:center; gap:8px; padding:0 10px;
+  border:1px solid var(--lamp-live); border-radius:10px; background:var(--bg); box-shadow:var(--live-bloom), var(--shadow-2); color:var(--ink);
+  font:650 13px/1.1 var(--fd-body); overflow:hidden; white-space:nowrap; }
+.fd-draft-team .is-empty { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:12px; }
+.fd-draft-empty-chip { width:28px; height:28px; border:1px dashed var(--line); border-radius:50%; flex-shrink:0; }
+.fd-draft-footer { display:grid; gap:10px; border-top:1px solid var(--line); padding-top:12px; }
+.fd-draft-secondary-actions { display:flex; gap:8px; }
+.fd-draft-secondary-actions>* { flex:1; }
+.fd-draft-cancel { display:flex; flex-wrap:wrap; gap:8px; border:1px solid var(--danger-line); border-radius:8px; padding:12px; }
+.fd-draft-cancel p { flex-basis:100%; font-size:13px; margin:0 0 4px; }
+.fd-draft-error { padding:10px 12px; color:var(--clay-text); border:1px solid var(--danger-line); border-radius:10px; margin:0; font-size:13px; }
+.fd-draft-crew>small { text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-size:13px; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
+.fd-draft-crew>div { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.fd-draft-crew>div>span { font-size:12px; color:var(--muted); }
+/* Home's entry: the running draft is live, so a magenta lamp; your pick
+   is the same lamp at full strength */
+.fd-draft-entry { display:flex; align-items:center; gap:12px; width:100%; padding:14px; min-height:88px; margin-bottom:12px;
+  border:1px solid color-mix(in srgb, var(--lamp-live) 55%, transparent); border-radius:14px;
+  background:color-mix(in srgb, var(--lamp-live) 5%, var(--paper)); box-shadow:var(--glass-edge); color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+.fd-draft-entry.is-mine { border-color:var(--lamp-live); background:color-mix(in srgb, var(--lamp-live) 9%, var(--paper)); box-shadow:var(--live-bloom), var(--glass-edge); }
+.fd-draft-entry>span { flex:1; min-width:0; }
+/* teams picked: the lamp is out, the frame goes quiet with it */
+.fd-draft-entry.is-done { border-color:var(--line); background:var(--paper); }
+/* the heading carries its own lamp: flashing for your pick, steady while
+   the draft runs, unlit once the teams are picked */
+.fd-draft-entry strong { display:flex; align-items:center; gap:10px; font:900 29px/1.15 var(--fd-show); margin:0 0 4px; overflow-wrap:anywhere; }
+.fd-draft-entry strong>.fd-insert { flex-shrink:0; }
+.fd-draft-entry>span>span { display:block; font-size:14px; line-height:1.35; color:var(--muted2); }
+.fd-draft-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
+@keyframes fd-draft-chip { from { opacity:0; transform:translateY(-15px) rotate(-28deg) scale(.8); } to { opacity:1; transform:translateY(0) rotate(-9deg) scale(1); } }
+@keyframes fd-draft-land { from { opacity:0; transform:translateY(-8px) scale(.96); } to { opacity:1; transform:none; } }
+@keyframes fd-draft-seat { 0% { transform:translateY(0); } 45% { transform:translateY(-3px); } 100% { transform:none; } }
+@keyframes fd-draft-turn { from { opacity:.3; transform:translateY(5px); } to { opacity:1; transform:none; } }
+@media(min-width:700px) {
+  .fd-draft-pool { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .fd-draft-captain-order { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .fd-draft-teams { grid-template-columns:repeat(var(--draft-columns,2),minmax(0,1fr)); }
+  .fd-draft-turn { padding:20px 22px 24px; }
+  .fd-draft-body:not(.is-complete) { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; }
+  .fd-draft-body .fd-draft-pool { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fd-draft-body:not(.is-complete) .fd-draft-teams { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fd-draft *, .fd-draft *:before, .fd-draft *:after { animation:none!important; transition:none!important; }
+}

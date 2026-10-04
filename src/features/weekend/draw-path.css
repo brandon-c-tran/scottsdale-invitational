@@ -1,0 +1,44 @@
+/* D10: your path after the draw. One row of stops on a line in your
+   color; the final's stop is sun. The resting style is the end state; the
+   drawing is only added motion (reduced motion shows it as it lies). */
+.fd-draw-footer { position:sticky; bottom:0; z-index:4; margin:14px -16px 0;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background:var(--paper); border-top:1px solid var(--line); }
+.fd-draw-footer .fd-announcement-actions { margin-top:12px; }
+/* your chip takes a narrow first column; the stops share the rest */
+.fd-draw-path { --path-you:44px; --path-step:calc((100% - var(--path-you)) / var(--path-steps, 1)); position:relative; }
+.fd-draw-path ol { position:relative; display:grid; grid-template-columns:var(--path-you) repeat(var(--path-steps, 1), minmax(0, 1fr));
+  margin:0; padding:0; list-style:none; }
+.fd-draw-path li { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; text-align:center; }
+.fd-draw-path-line { position:absolute; top:14px; left:calc(var(--path-you) / 2); right:calc(var(--path-step) / 2); height:2px;
+  border-radius:2px; background:var(--fd-you, var(--sun)); transform-origin:left; }
+.fd-draw-path-node { display:grid; place-items:center; width:30px; height:30px; }
+.fd-draw-path-dot { display:block; width:14px; height:14px; box-sizing:border-box; border:2px solid var(--fd-you, var(--sun));
+  border-radius:50%; background:var(--paper); }
+.fd-draw-path li.is-final .fd-draw-path-dot { width:18px; height:18px; border-color:var(--sun); background:var(--sun); }
+.fd-draw-path li.is-won .fd-draw-path-dot { background:var(--fd-you, var(--sun)); }
+.fd-draw-path li.is-lost { opacity:.5; }
+.fd-draw-path b { font:700 12.5px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink);
+  overflow-wrap:break-word; }
+.fd-draw-path li.is-you b { color:var(--fd-you-text, var(--ink)); }
+.fd-draw-path li.is-final b { color:var(--sun); }
+.fd-draw-path small { font:600 12px/1.25 var(--fd-body); color:var(--muted2); overflow-wrap:break-word; }
+.fd-draw-path-note { color:var(--muted2); }
+.fd-draw-path-faces { display:flex; justify-content:center; }
+.fd-draw-path-faces > * + * { margin-left:-8px; }
+.fd-draw-path-faces.is-candidate { opacity:.6; }
+.fd-draw-path-faces.is-candidate > * + * { margin-left:-10px; }
+.fd-draw-path-either { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:1px 3px; }
+.fd-draw-path-either small { font-size:12px; }
+
+/* drawing: the footer rises once the last card has turned, the line runs
+   out from your chip and each stop lands as the line reaches it */
+.fd-draw-footer.is-drawing { animation:fd-path-rise var(--motion-base) var(--ease-out) .45s backwards; }
+.fd-draw-path.is-drawing .fd-draw-path-line { animation:fd-path-line calc((var(--path-stops) - 1) * 240ms) cubic-bezier(.4,0,.6,1) .7s backwards; }
+.fd-draw-path.is-drawing li { animation:fd-path-stop var(--motion-stamp) var(--ease-land) calc(.7s + (var(--i) - .6) * 240ms) backwards; }
+.fd-draw-path.is-drawing li.is-you { animation-delay:.5s; }
+@keyframes fd-path-rise { from { opacity:0; transform:translateY(12px); } }
+@keyframes fd-path-line { from { transform:scaleX(0); } }
+@keyframes fd-path-stop { from { opacity:0; transform:scale(.6); } }
+@media (prefers-reduced-motion: reduce) {
+  .fd-draw-footer.is-drawing, .fd-draw-path.is-drawing .fd-draw-path-line, .fd-draw-path.is-drawing li { animation:none; }
+}

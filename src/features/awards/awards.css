@@ -1,0 +1,132 @@
+/* D6 Awards night. Colors from experience.css tokens only; the TV rules
+   live on the fixed 1920x1080 canvas (24px minimum text). Entrances are
+   measured from the reveal (--tl, fixed at mount), so a TV that joins late
+   lands where the room is; reduced motion removes them (shell.css). */
+
+/* ── the TV ── */
+.tv-awards { align-items:center; justify-content:space-between; padding:8px 60px 18px; gap:12px; }
+@keyframes tv-award-in { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+@keyframes tv-award-rise { from { opacity:0; transform:translateY(48px) scale(.9); } to { opacity:1; transform:none; } }
+@keyframes tv-award-stamp { 0% { opacity:0; transform:rotate(-6deg) scale(1.9); } 70% { opacity:1; transform:rotate(-6deg) scale(.94); }
+  100% { opacity:1; transform:rotate(-6deg) scale(1); } }
+@keyframes tv-award-drop { from { opacity:0; transform:translateY(-60px); } to { opacity:1; transform:none; } }
+/* entrances fill backwards only, so the settled winner lift and the dimmed
+   field (static styles) win once they have played */
+.tv-awards-head { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px;
+  animation:tv-award-in 480ms var(--ease-out) calc(var(--tl) + 0ms) backwards; }
+.tv-awards-head .tv-label { color:var(--sun); }
+.tv-awards-title { font-size:112px; line-height:.92; color:var(--bone); max-width:1760px; }
+.tv-awards-field { flex:1; width:100%; display:flex; justify-content:center; align-items:center; min-height:0; }
+.tv-award-nominee { display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0;
+  transition:opacity 500ms var(--ease-out), transform 500ms var(--ease-out);
+  animation:tv-award-rise 420ms var(--ease-out) calc(var(--tl) + var(--nominee-in, 500ms)) backwards; }
+.tv-award-nominee.is-dim { opacity:.3; }
+.tv-award-nominee.is-winner { transform:translateY(-14px); }
+.tv-award-pile { height:360px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:14px; }
+.tv-awards-field[data-crowded] .tv-award-pile { height:300px; }
+.tv-award-stack { display:block; line-height:0; animation:tv-award-drop 260ms var(--ease-land) both; }
+.tv-award-face { display:block; border-radius:50%; line-height:0; transition:box-shadow 400ms var(--ease-out); }
+.tv-award-nominee.is-winner .tv-award-face { box-shadow:0 0 0 8px var(--nominee-color), var(--shadow-2); }
+.tv-award-name { max-width:100%; color:var(--bone); line-height:1.15; text-align:center; overflow-wrap:normal; }
+.tv-award-votes { min-height:32px; font:600 26px/1.2 var(--fd-body); color:var(--night-text); font-variant-numeric:tabular-nums;
+  white-space:nowrap; }
+.tv-award-stamp { padding:4px 16px 2px; border:5px solid var(--sun); border-radius:10px; color:var(--sun);
+  font-size:56px; line-height:1; transform:rotate(-6deg); white-space:nowrap;
+  animation:tv-award-stamp 320ms var(--ease-land) both; }
+.tv-awards-field[data-crowded] .tv-award-stamp { font-size:32px; border-width:4px; padding:2px 8px 0; }
+.tv-award-stamp.is-still { animation:none; }
+.tv-awards.is-settled .tv-award-stack { animation:none; }
+.tv-awards-foot { min-height:44px; font:700 36px/1.2 var(--fd-body); color:var(--night-text); }
+
+/* ── the phone ──
+   A ballot or an MVP vote that waits on you is a steady magenta lamp (live,
+   now); once you have voted it goes unlit. Revealed results are a plain
+   panel. An award's name is backglass lettering (the show face); your pick is a
+   cyan selection ring, because a selection is navigation, not you. */
+.fd-awards { margin:12px 0; border:1px solid var(--line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge); overflow:hidden; }
+.fd-awards.is-live { background:color-mix(in srgb, var(--lamp-live) 5%, var(--paper)); }
+.fd-awards-entry { width:100%; min-height:60px; display:flex; align-items:center; gap:11px; padding:10px 14px;
+  background:none; border:0; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
+.fd-awards-entry > span:not(.fd-awards-mark):not(.fd-awards-entry-go) { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.fd-awards-entry small { display:flex; align-items:center; gap:7px; color:var(--muted2); font:800 14px/1.2 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; }
+.fd-awards.is-live .fd-awards-entry small { color:var(--ink); }
+.fd-awards-entry small .fd-insert { width:9px; height:9px; }
+/* the headline first, its label as the subline under it (no kicker) */
+.fd-awards-entry small { order:2; }
+.fd-awards-entry strong { font:800 22px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
+.fd-awards-entry-go { font:600 14px/1 var(--fd-body); color:var(--lamp-info); white-space:nowrap; }
+.fd-awards-clock { font:800 24px/1 var(--fd-display); color:var(--lamp-live-text); font-variant-numeric:tabular-nums; }
+.fd-awards-mark { width:34px; height:34px; flex-shrink:0; display:grid; place-items:center; }
+.fd-awards-winner { text-transform:none !important; font:900 26px/1.12 var(--fd-show) !important; letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-awards-chips { color:var(--sun); font:800 20px/1 var(--fd-display); font-style:normal; }
+
+.fd-awards-body { padding:0 14px 14px; border-top:1px solid var(--line); }
+.fd-awards-steps { display:flex; gap:6px; padding:10px 0 2px; }
+.fd-awards-step { flex:1; min-width:0; min-height:44px; display:flex; align-items:center; justify-content:center; gap:6px;
+  border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--muted2); font:800 17px/1 var(--fd-display);
+  cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-awards-step.is-done { color:var(--ink); }
+/* a voted award: its small cyan insert lit */
+.fd-awards-step.is-done::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--lamp-info); flex-shrink:0;
+  box-shadow:0 0 6px var(--lamp-info); }
+.fd-awards-step[aria-current="step"] { border-color:var(--lamp-info); color:var(--lamp-info); background:var(--info-tint);
+  box-shadow:0 0 0 1px var(--lamp-info), 0 0 12px color-mix(in srgb, var(--lamp-info) 28%, transparent); }
+.fd-awards-title { margin:14px 0 10px; font:900 34px/1.06 var(--fd-show); letter-spacing:.01em; color:var(--ink); overflow-wrap:anywhere; }
+.fd-awards-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(60px, 1fr)); gap:4px 2px; }
+.fd-awards-nominee { min-height:76px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:7px 1px 5px;
+  border:0; border-radius:12px; background:transparent; color:var(--ink); font:600 13px/1.15 var(--fd-body); cursor:pointer;
+  transition:background var(--motion-fast) var(--ease-out); }
+.fd-awards-nominee > span:last-child { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-awards-chip { display:block; border-radius:50%; line-height:0; transition:box-shadow var(--motion-fast) var(--ease-out),
+  transform var(--motion-fast) var(--ease-out); }
+.fd-awards-nominee.is-picked { background:var(--info-tint); }
+.fd-awards-nominee.is-picked .fd-awards-chip { box-shadow:0 0 0 3px var(--paper), 0 0 0 5px var(--lamp-info), 0 0 16px color-mix(in srgb, var(--lamp-info) 55%, transparent);
+  transform:scale(1.06); }
+@keyframes fd-awards-pick { 0% { transform:scale(.86); } 60% { transform:scale(1.14); } 100% { transform:scale(1.06); } }
+.fd-awards-nominee.is-picked.is-fresh .fd-awards-chip { animation:fd-awards-pick var(--motion-stamp) var(--ease-land) both; }
+.fd-awards-nominee.is-picked > span:last-child { color:var(--lamp-info); font-weight:800; }
+.fd-awards-nominee:disabled { cursor:default; opacity:.4; }
+.fd-awards-note { margin:10px 0 0; font:500 13px/1.4 var(--fd-body); color:var(--muted2); }
+.fd-awards-error { margin:10px 0 0; font:600 13px/1.35 var(--fd-body); color:var(--clay-text); }
+
+.fd-awards-results { list-style:none; margin:0; padding:0 14px 6px; border-top:1px solid var(--line); }
+.fd-awards-result { display:flex; align-items:center; gap:10px; min-height:56px; padding:6px 0; border-top:1px solid var(--line); }
+.fd-awards-result:first-child { border-top:0; }
+.fd-awards-result > span:first-child { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.fd-awards-result small { color:var(--muted2); font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-awards-result strong { font:900 24px/1.12 var(--fd-show); color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-awards-result-who { display:flex; align-items:center; flex-shrink:0; }
+.fd-awards-result-who button + button { margin-left:-14px; }
+.fd-awards-result-who button { min-width:44px; min-height:44px; display:grid; place-items:center; padding:0; border:0;
+  background:none; cursor:pointer; border-radius:50%; }
+.fd-awards-result-votes { min-width:48px; text-align:right; font:600 13px/1.2 var(--fd-body); color:var(--muted2);
+  font-variant-numeric:tabular-nums; }
+@keyframes fd-awards-new { from { background:var(--live-tint); } to { background:transparent; } }
+.fd-awards-result.is-new { animation:fd-awards-new 1600ms var(--ease-out) both; }
+
+/* ── the commissioner's desk ── */
+.fd-awards-desk { display:flex; flex-direction:column; gap:14px; }
+.fd-awards-count { display:flex; align-items:baseline; gap:8px; }
+.fd-awards-count strong { font:700 56px/1 var(--fd-display); color:var(--ink); font-variant-numeric:tabular-nums; }
+.fd-awards-count span { font:600 15px/1.2 var(--fd-body); color:var(--muted); }
+.fd-awards-edit { border:1px solid var(--line); border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:10px;
+  background:var(--paper); }
+.fd-awards-edit-row { display:flex; gap:8px; align-items:center; }
+.fd-awards-edit input[type="text"] { flex:1; min-width:0; min-height:44px; padding:0 12px; border:1px solid var(--line);
+  border-radius:10px; background:var(--paper2); color:var(--ink); font:600 16px/1.2 var(--fd-body); }
+.fd-awards-toggle { display:flex; gap:6px; }
+.fd-awards-toggle button { min-height:44px; flex:1; border:1px solid var(--line); border-radius:10px; background:transparent;
+  color:var(--muted); font:700 14px/1 var(--fd-body); cursor:pointer; }
+.fd-awards-toggle button[aria-pressed="true"] { border-color:var(--sun); background:var(--sun-tint); color:var(--ink); }
+.fd-awards-check { min-height:44px; display:flex; align-items:center; gap:10px; font:600 14px/1.2 var(--fd-body); color:var(--ink); }
+.fd-awards-check input { width:22px; height:22px; accent-color:var(--sun); }
+.fd-awards-picks { display:grid; grid-template-columns:repeat(auto-fill, minmax(62px, 1fr)); gap:6px; }
+.fd-awards-desk-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.fd-awards-desk-list li { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px;
+  border-top:1px solid var(--line); font:600 15px/1.25 var(--fd-body); color:var(--ink); }
+.fd-awards-desk-list li:first-child { border-top:0; }
+.fd-awards-desk-list small { color:var(--muted); font-weight:600; white-space:nowrap; }
+.fd-awards-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.fd-awards-actions > * { flex:1 1 140px; }

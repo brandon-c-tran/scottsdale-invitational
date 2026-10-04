@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Phone frame</title>
+  <style>body { margin:0; background:#000; } iframe { border:0; display:block; }</style>
+</head>
+<!-- scratch: a real 390px viewport for headless screenshots (Chrome's window
+     will not go below ~500px). ?src=<path>&w=390&h=2400 -->
+<body><script>
+  const q = new URLSearchParams(location.search);
+  /* &ls={"key":"value"} seeds this origin's storage first (a local device) */
+  try { Object.entries(JSON.parse(q.get("ls") || "{}")).forEach(([key, value]) => localStorage.setItem(key, value)); } catch {}
+  const frame = document.createElement("iframe");
+  frame.width = q.get("w") || 390; frame.height = q.get("h") || 2400;
+  frame.src = q.get("src");
+  document.body.append(frame);
+  /* &probe=1 logs the map's tiles after a while (headless debugging) */
+  if (q.get("probe")) setTimeout(() => {
+    const doc = frame.contentDocument;
+    const tiles = [...(doc?.querySelectorAll(".leaflet-tile") || [])];
+    const box = doc?.querySelector(".fd-geo-map-box")?.getBoundingClientRect();
+    console.log("PROBE tiles", tiles.length, "loaded", tiles.filter(t => t.classList.contains("leaflet-tile-loaded")).length,
+      "box", box && `${Math.round(box.width)}x${Math.round(box.height)}`, "first", tiles[0]?.src || "-");
+  }, 9000);
+</script></body>
+</html>

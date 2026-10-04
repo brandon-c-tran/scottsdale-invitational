@@ -73,6 +73,8 @@ import { DirectorPill } from "./features/director/DirectorPill.jsx";
 import { CueRack, useWalkoutWatch } from "./features/director/CueRack.jsx";
 import { TvHealth } from "./features/director/TvHealth.jsx";
 import { CommissionerDock } from "./features/director/CommissionerDock.jsx";
+import { CrewCheck } from "./features/director/CrewCheck.jsx";
+import { crewCheckRun } from "./features/director/crewCheck.js";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { MvpHome, MvpVoteSheet } from "./features/mvp/MvpHome.jsx";
 import { TeamNameCard, TeamNameDesk, TeamNamesHome } from "./features/teams/TeamNameCard.jsx";
@@ -1393,8 +1395,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     }
     if (run.open === "resultEntry") return ev && openResultEntry(ev);
     if (run.open === "draft") return ev && setModal({ type:"draft", ev, pool:run.pool, roles:run.roles });
-    if (run.open === "announceDraw") return ev && setModal({ type:"announceDraw", ev, players:run.players,
-      roles:run.roles, changing:!!run.changing });
+    if (run.open === "crewCheck") return ev && setModal({ type:"crewCheck", ev, roles:run.roles, then:run.then });
     if (["event", "bracket", "result", "skipEvent"].includes(run.open)) return ev && setModal({ type:run.open, ev });
     if (["pokerSetup", "pokerResult", "crown"].includes(run.open)) return setModal({ type:run.open });
   };
@@ -1832,12 +1833,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
             setTab("board");
           }} />
       )}
-      {gmView && modal?.type === "announceDraw" && (
-        <AnnounceDrawSheet state={state} ev={events.find(e => e.id === modal.ev.id) || modal.ev}
-          players={modal.players} roles={modal.roles} changing={modal.changing} onClose={() => setModal(null)}
-          onPlayer={p => pushModal({type:"player", p})}
+      {gmView && modal?.type === "crewCheck" && (
+        <CrewCheck state={state} ev={events.find(e => e.id === modal.ev.id) || modal.ev} roles={modal.roles}
+          confirmLabel={modal.then?.write ? "Announce and draw" : "Captains draft"}
+          onClose={() => setModal(null)} onAway={setAway}
           onConfirm={async (players, roles) => {
-            const result = await announceAndDraw(modal.ev, players, roles);
+            const run = crewCheckRun(modal.then, players, roles);
+            if (!run.write) { directorOpen(run); return { ok:true }; }
+            const result = await directorWrite(run.write, run.payload);
             if (result.ok) setModal(null);
             return result;
           }} />
@@ -3563,76 +3566,6 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
               {pending === device.id ? "Revoking…" : "Revoke"}</ActionButton>
           </div>
         ))}
-    </Sheet>
-  );
-}
-
-/* The director's announce-and-draw beat. The crew is prefilled with whoever
-   has sat out least; Change reopens the choice. Confirm draws and announces
-   in one write so every screen plays the intro before the teams. */
-function AnnounceDrawSheet({ state, ev, players, roles, onClose, onConfirm, onPlayer, changing:startChanging = false }) {
-  const present = presentPlayers(state);
-  const [crew, setCrew] = useState(() => (roles || []).map(item => ({ ...item })));
-  const [changing, setChanging] = useState(!!startChanging);
-  const [pending, setPending] = useState(false), [error, setError] = useState("");
-  const busy = useRef(false);
-  const crewIds = crew.map(item => item.player);
-  const playing = present.filter(player => !crewIds.includes(player));
-  const heats = !ev.teamCfg;
-  const fit = heats
-    ? (playing.length >= (ev.stageCfg?.nGroups || 2) * 2 ? { ok:true } : { ok:false, error:"Heats need at least 2 players each" })
-    : validateEventParticipants(ev, playing, present);
-  const shape = !heats && fit.ok && fit.fit ? shapeLabel(fit.fit) : null;
-  const toggle = player => setCrew(current => current.some(item => item.player === player)
-    ? current.filter(item => item.player !== player)
-    : [...current, { player, role:OVERFLOW_ROLES[current.length % OVERFLOW_ROLES.length] }]);
-  const confirm = async () => {
-    if (busy.current || !fit.ok) return;
-    busy.current = true; setPending(true); setError("");
-    try {
-      const result = await onConfirm(playing, crew);
-      if (!result?.ok) setError(result?.error || "Not saved. Try again.");
-    } catch (failure) { setError(failure?.message || "Not saved. Try again."); }
-    finally { busy.current = false; setPending(false); }
-  };
-  return (
-    <Sheet title={`Announce ${ev.name}`} subtitle={shape || undefined} onClose={onClose} busy={pending}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-        <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)" }}>
-          {crew.length ? <>Crew: {crew.map((item, index) => <React.Fragment key={item.player}>{index ? ", " : ""}
-            <button type="button" className="fd-player-link" onClick={() => onPlayer?.(item.player)}>{disp(state, item.player)}</button>
-            {` (${overflowRoleMeta(item.role).label})`}</React.Fragment>)}</> : "Everyone plays"}
-        </span>
-        <ActionButton compact variant="secondary" disabled={pending} onClick={() => setChanging(value => !value)}>
-          {changing ? "Done" : "Change"}</ActionButton>
-      </div>
-      {changing && (
-        <>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:5, marginBottom:10 }}>
-            {present.map((player, index) => <PlayerChip key={player} name={disp(state, player)} small
-              selected={!crewIds.includes(player)} disabled={pending} onClick={() => toggle(player)}
-              style={centeredGridCell(index, present.length, 3, 5)} />)}
-          </div>
-          {crew.map(item => (
-            <div key={item.player} style={{ display:"flex", alignItems:"center", gap:9, marginBottom:8 }}>
-              <Avatar state={state} p={item.player} size={28} />
-              <span style={{ flex:1, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)" }}>
-                {disp(state, item.player)}</span>
-              <select aria-label={`${disp(state, item.player)} event crew role`} value={item.role} disabled={pending}
-                onChange={event => setCrew(current => current.map(entry => entry.player === item.player
-                  ? { ...entry, role:event.target.value } : entry))}
-                style={{ width:150, maxWidth:"48%", minHeight:44, padding:"8px", borderRadius:9, background:"var(--paper)",
-                  color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:700, fontSize:12 }}>
-                {OVERFLOW_ROLES.map(value => <option key={value} value={value}>{overflowRoleMeta(value).label}</option>)}
-              </select>
-            </div>
-          ))}
-        </>
-      )}
-      {!fit.ok && <p role="alert" style={{ ...pStyle, color:"var(--clay-text)", fontSize:13 }}>{fit.error}</p>}
-      {error && <p role="alert" style={{ ...pStyle, color:"var(--clay-text)", fontSize:13 }}>{error}</p>}
-      <ActionButton disabled={!fit.ok || pending} onClick={confirm} style={{ width:"100%", fontSize:16, padding:"14px" }}>
-        {pending ? "Drawing…" : "Announce and draw"}</ActionButton>
     </Sheet>
   );
 }

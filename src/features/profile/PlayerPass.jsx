@@ -8,6 +8,8 @@ import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { useRisoTilt } from "./useRisoTilt.js";
 import { recordText, seasonStats } from "./seasonStats.js";
+import { BountyLamp } from "../comebacks/Comebacks.jsx";
+import { boardBounty } from "../comebacks/comebacks.js";
 import "./player-pass.css";
 
 // Small card labels need more contrast than the chip's large center stamp.
@@ -53,6 +55,9 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
     { events:events || allEventsOf(state), standings:rows || undefined, viewer }) : null,
   [state, p, events, rows, viewer]);
   const sheet = !!season && (season.active || !!season.versus);
+  /* v3.1: the leader's card carries the bounty lamp */
+  const wanted = useMemo(() => !!p && !!rows && boardBounty(state, events || allEventsOf(state), rows).includes(p),
+    [state, p, events, rows]);
   /* The season can outgrow the 4:5 front, so the turned card grows to fit it. */
   const seasonRef = useRef(null);
   const [backHeight, setBackHeight] = useState(0);
@@ -104,6 +109,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
               </span>
             </span>
             <span className="fd-pass-name">{name}</span>
+            {wanted && <span className="fd-pass-bounty"><BountyLamp /></span>}
             <span className="fd-pass-foot"><span><OneSafe text={EDITION.short} /></span>{number != null && <span><OneSafe text={`PLAYER / ${number}`} /></span>}</span>
           </span>
           <span className={`fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`} aria-hidden={!flipped}>
@@ -148,6 +154,8 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
     settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}`, tone:"chip" },
     settledDuels > 0 && { key:"duels", value:recordText(duels), label:"Quick Draw" },
     season.mvps > 0 && { key:"mvps", value:String(season.mvps), label:season.mvps === 1 ? "Team MVP" : "Team MVPs" },
+    season.bounties?.count > 0 && { key:"bounties", value:signedChips(season.bounties.pts),
+      label:season.bounties.count === 1 ? "Bounty" : `Bounties ${season.bounties.count}`, tone:"chip" },
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
   return <span className="fd-pass-season" ref={bodyRef}>

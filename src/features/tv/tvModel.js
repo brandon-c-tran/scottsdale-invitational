@@ -54,7 +54,9 @@ export const mmss = ms => {
 };
 export const editionLabel = () => EDITION.label || `${EDITION.name} · ${EDITION.year}`;
 /* the betting payout, Brandon's wording: two sides pay 1:1, a wide field 2:1 */
-export const oddsLine = contest => contest ? `Winner pays ${contestMult(contest) === 2 ? "2:1" : "1:1"}` : null;
+/* one line for the whole board; a contest with underdog odds says its
+   payout on each side instead (features/comebacks) */
+export const oddsLine = contest => contest && !contest.odds ? `Winner pays ${contestMult(contest) === 2 ? "2:1" : "1:1"}` : null;
 export const placeName = place => ["1st", "2nd", "3rd"][place - 1] || `${place}th`;
 export const sessionLabel = ev => SESSIONS.find(s => s.id === ev?.session)?.label || null;
 

@@ -279,12 +279,17 @@ function perform(state, show) {
   const ev = director.event;
   if (!action || !model) return false;
   if (model.sides) { apply(state, model.sides[0].run.write, model.sides[0].run.payload, show); return true; }
+  /* the crew check confirms the suggested room as shown */
+  if (model.run?.open === "crewCheck" && model.run.then?.write) {
+    apply(state, model.run.then.write, { ...model.run.then.payload, players:model.run.players, roles:model.run.roles }, show);
+    return true;
+  }
   if (model.run?.write) { apply(state, model.run.write, model.run.payload, show); return true; }
   const contest = ev ? resolveCurrentContest(state, ev) : null;
   switch (action.type) {
     case "captains-draft": {
       /* the captains draft the whole pool, then the commissioner confirms */
-      const pool = model.run.pool?.length ? model.run.pool : ROSTER;
+      const pool = model.run.players?.length ? model.run.players : model.run.pool?.length ? model.run.pool : ROSTER;
       const teams = ev.teamCfg?.teams || 2;
       apply(state, "startDraft", { evId:ev.id, players:pool, roles:model.run.roles || [], captains:pool.slice(0, teams) }, show);
       while (state.drafts[ev.id].pool.length)

@@ -404,3 +404,8 @@
 .fd-wagers-pot.is-held .fd-wagers-pot-head { position:relative; }
 .fd-wagers-pot.is-held .fd-wagers-held-head { font:800 30px/1.15 var(--fd-display); }
 @media (prefers-reduced-motion:reduce) { .fd-wagers-pot.is-held .fd-wagers-backer.is-lost { animation:none; opacity:.45; } }
+/* v3.1 comebacks: a side's payout and its bounty share one row on every card
+   of a two-sided board (a wide board's leader is lit on the standings) */
+/* two short lines, the same on every card: the payout, then the bounty */
+.fd-wagers-terms { flex-direction:column; align-items:flex-start; justify-content:center; gap:4px; height:44px; min-height:44px; padding:0 8px; }
+.fd-wagers-pick.is-one-line > .fd-wagers-terms { display:none; }

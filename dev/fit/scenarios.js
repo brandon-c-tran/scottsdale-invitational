@@ -327,6 +327,35 @@ function awards() {
   return state;
 }
 
+/* v3.1 comebacks: Beer Die's first match opened with a leader on one side
+   and that side 1,000+ ahead, so the board carries Bounty +200 and an
+   underdog paying 2:1. The draw is real; the market is taken back, the
+   leader is ruled up, and betting reopens so the odds are fixed then. */
+export function comebackBoard({ bets = true } = {}) {
+  const state = fresh("event:putt:done");
+  act(state, "announceAndDraw", { evId:"die" });
+  const ev = eventOf(state, "die");
+  const side = resolveCurrentContest(state, ev).sides[0];
+  act(state, "takeBackAnnouncement", { evId:"die" });
+  side.players.forEach((player, i) => act(state, "adjust", { player, delta:i ? 900 : 1500, reason:"fit" }));
+  act(state, "announceEvent", { evId:"die" });
+  const contest = resolveCurrentContest(state, ev);
+  if (bets) contest.sides.forEach((item, k) => ROSTER.filter(player => !contest.players.includes(player)).slice(k * 3, k * 3 + 3)
+    .forEach((player, i) => act(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name, stake:STAKES[i] || 100,
+      contestId:contest.id, contestRevision:contest.revision, match:contest.match, teamIdx:item.key, drawId:contest.drawId } },
+    playerCtx(player))));
+  return state;
+}
+/* the commissioner's pill on Beer Die's draw beat: the crew check opens */
+const crewBeat = () => fresh("event:putt:done");
+/* a bracket of nine seeded on a moved board: the byes sit at the bottom */
+function byeBracket() {
+  const state = fresh("event:putt:done");
+  ROSTER.slice(9).forEach(player => act(state, "setAway", { player, away:true }));
+  act(state, "announceAndDraw", { evId:"bball1" });
+  return state;
+}
+
 /* a stand-in album cover (the audit never reaches Spotify's image host) */
 const FIT_COVER = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <rect width="64" height="64" fill="#1d2b5e"/><circle cx="44" cy="22" r="12" fill="#f2b33d"/>
@@ -341,6 +370,13 @@ function walkoutRecord(state, player, { mvp = false, cover = false } = {}) {
   state.showControl = { ...(state.showControl || {}), audio:{ ...(state.showControl?.audio || {}),
     walkout:{ player, trackId:"3n3Ppam7vgaVa1iaRUc9Lp", startedAt:at, until:at + 30000, auto:true, mvp } } };
   return state;
+}
+
+/* the winning team's song, sung by a winner who is not the phone's viewer
+   (who the rehearsal crowns depends on the comebacks, so it is read back) */
+function teamWinSong(state, evId) {
+  const singer = (state.results?.[evId]?.slots?.[0] || []).find(player => player !== FIT_GUEST) || FIT_GM;
+  return walkoutRecord(state, singer, { cover:true });
 }
 
 /* flights saved on the guest's and the host's own profiles */
@@ -465,7 +501,7 @@ export const TV_SCENARIOS = Object.freeze([
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
   { id:"tv-walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), moment:{ kind:"walkout", t:3000, record:true } },
-  { id:"tv-walkout-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }),
+  { id:"tv-walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"),
     moment:{ kind:"walkout", t:3000, record:true } },
   { id:"tv-faceoff", build:() => fresh("event:pickleball:open"), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-faceoff-solo", build:() => bracketOf(13), moment:{ kind:"faceoff", t:5000 } },
@@ -485,12 +521,16 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-draw-teams4", build:() => fresh("event:trivia:open"), draw:{ ev:"trivia" } },
   { id:"tv-draw-heats-mid", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio", step:2 } },
   { id:"tv-draw-heats", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio" } },
+  /* v3.1 comebacks: the bounty and the underdog's 2:1 on the board and the face-off */
+  { id:"tv-comeback-open", build:() => comebackBoard() },
+  { id:"tv-comeback-faceoff", build:() => comebackBoard({ bets:false }), moment:{ kind:"faceoff", t:5000 } },
+  { id:"tv-bracket9-byes", build:byeBracket },
   { id:"tv-bust", build:() => fresh("poker:live"), moment:{ kind:"bust", t:1500, player:"Richard" } },
   { id:"tv-blinds", build:() => fresh("poker:live"), moment:{ kind:"blinds", t:1500 } },
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },
   { id:"tv-nowplaying-mvp", build:() => walkoutRecord(fresh("event:pickleball:open"), "Jeremy", { mvp:true }), at:{ walkout:12000 } },
   { id:"tv-nowplaying-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), at:{ walkout:12000 } },
-  { id:"tv-nowplaying-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), at:{ walkout:12000 } },
+  { id:"tv-nowplaying-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), at:{ walkout:12000 } },
   /* team names at their longest on every board that letters them */
   { id:"tv-names-team", build:() => longNames(fresh("event:bball5:open"), "bball5") },
   { id:"tv-names-team4", build:() => longNames(fresh("event:volley:open"), "volley") },
@@ -498,7 +538,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-names-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball") },
   { id:"tv-names-podium", build:() => longNames(posted("event:bball5:open", "bball5"), "bball5"), at:{ result:3600 } },
   { id:"tv-names-faceoff", build:() => longNames(fresh("event:volley:open"), "volley"), moment:{ kind:"faceoff", t:5000 } },
-  { id:"tv-names-nowplaying", build:() => walkoutRecord(longNames(fresh("event:bball5:done"), "bball5"), "Brandon", { cover:true }),
+  { id:"tv-names-nowplaying", build:() => teamWinSong(longNames(fresh("event:bball5:done"), "bball5"), "bball5"),
     at:{ walkout:12000 } },
 ]);
 
@@ -590,7 +630,7 @@ export const PHONE_SCENARIOS = Object.freeze([
      both winning sides; another member's song plays): "walkout" lands the
      song on a fresh frame and holds the takeover once it has stamped */
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
-  { id:"walkout-team7", build:() => walkoutRecord(fresh("event:bball5:done"), "Brandon", { cover:true }), settle:false, tabs:[],
+  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },
   /* naming your team: the card on Home (a team of seven, a team of three),
      writing your own, and the longest names on every phone board */
@@ -600,6 +640,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"names-long-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia"), tabs:["home", "bets"] },
   { id:"names-long-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball"), tabs:["bets"], sheets:["event"] },
   { id:"gm-names", build:() => fresh("event:volley:open"), viewer:"gm", tabs:[], sheets:["event"] },
+  /* v3.1: the crew check before a draw, a bounty matchup and an underdog board */
+  { id:"gm-crew-check", build:crewBeat, viewer:"gm", tabs:["home"], sheets:["crew-check"] },
+  { id:"comeback-board", build:() => comebackBoard(), tabs:["home", "bets"], sheets:["card"] },
+  { id:"bracket9-byes", build:byeBracket, tabs:[], sheets:["event"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

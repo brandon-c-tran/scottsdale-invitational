@@ -67,7 +67,9 @@ test("the full bracket draws columns, one line per fed slot, and marks the live 
   const s = liveBracket();
   const html = render(React.createElement(CompetitionBracket, { state:s, ev:eightBall(s), me:ROSTER[1], onPlayer:noop }));
   assert.equal(count(html, /class="fd-bracket-match[ "]/g), 5, "two play-ins, two semifinals, a final");
-  assert.equal(count(html, /class="fd-bracket-line/g), 4, "semifinal feeds and both final feeds");
+  assert.equal(count(html, /class="fd-bracket-line(?! is-bye)/g), 4, "semifinal feeds and both final feeds");
+  assert.equal(count(html, /class="fd-bracket-line is-bye/g), 2, "the two byes enter already advanced");
+  assert.equal(count(html, /aria-label="Bye"/g), 2, "each bye carries its lamp");
   assert.equal(count(html, /fd-bracket-match is-current/g), 1);
   assert.match(html, /Betting open/);
   assert.match(html, /Semifinal 1/, "numbered rounds read singular");

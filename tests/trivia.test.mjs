@@ -216,11 +216,13 @@ test("the director runs it: start, reveal, next, scores at a round's end, final 
     else if (beat.type === "trivia-next") act(state, "triviaNext", { questionId:beat.questionId });
     else if (beat.type === "trivia-finish") {
       const winner = triviaStandings(state.trivia)[0];
-      const before = computeStandings(state).find(row => row.player === winner.players[0]).pts;
+      const before = computeStandings(state).find(row => row.player === winner.players[0]);
       const done = act(state, "triviaFinish", { evId:"trivia" });
       assert.deepEqual(state.results.trivia.slots[0], winner.players);
       assert.deepEqual(done.extra.slots, state.results.trivia.slots);
-      assert.equal(computeStandings(state).find(row => row.player === winner.players[0]).pts, before + 1600, "the payout follows");
+      const after = computeStandings(state).find(row => row.player === winner.players[0]);
+      /* a leader bounty (v3.1) may ride on the same result */
+      assert.equal(after.pts - (after.bountyPts - before.bountyPts), before.pts + 1600, "the payout follows");
       assert.ok(state.mvp.trivia, "a winning team of three votes its MVP");
     }
   }

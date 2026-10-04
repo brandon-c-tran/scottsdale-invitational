@@ -14,6 +14,7 @@ import {
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   enforceExposure, refundTotals, voidWagerRecords, contestStackOf, contestEntryLabel, applyContestCorrection,
   contestCorrectionAvailability, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview, wagerSide,
+  bountyFor, oddsFor, seedBracket,
 } from "../shared/core.js";
 import {
   SHOW_HISTORY_LIMIT,
@@ -196,8 +197,9 @@ const wagerTargetKey = wager => wager?.targetKey || JSON.stringify([
       ? ["team", wager?.drawId, [...(wager?.pickPlayers || [])].sort()]
       : ["player", wager?.pick]), ...(wagerMult(wager) === OUTRIGHT_MULT ? [] : [wagerMult(wager)])]
     : wager?.kind === "match"
-      ? ["match", wager?.drawId, wager?.match, wager?.teamIdx]
-      : [wager?.kind, wager?.stagesId, !!wager?.final, wager?.group, wager?.pickKey],
+      ? ["match", wager?.drawId, wager?.match, wager?.teamIdx, ...(wagerMult(wager) === 1 ? [] : [wagerMult(wager)])]
+      : [wager?.kind, wager?.stagesId, !!wager?.final, wager?.group, wager?.pickKey,
+        ...(wagerMult(wager) === 1 ? [] : [wagerMult(wager)])],
 ]);
 const samePlayers = (left, right) => Array.isArray(left) && Array.isArray(right)
   && left.length === right.length
@@ -287,6 +289,8 @@ const reopenCompetition = (state, evId) => {
 };
 const resetContestSetup = (state, evId) => {
   const op = eventOp(state, evId);
+  delete op.odds;
+  delete op.bounties;
   delete op.contest;
   delete op.lastContest;
   delete op.contestStack;
@@ -310,10 +314,39 @@ const contestReferenceError = (state, ev, payload, required = false) => {
     return err("Contest changed, refresh and try again");
   return null;
 };
+/* Underdog odds are fixed when a contest's market first opens. A contest
+   that opens again (a correction replaying it) keeps what it opened with. */
+const stampOdds = (state, op, target, now) => {
+  if (op.odds?.[target.id]) return;
+  const odds = oddsFor(state, target);
+  if (!odds) return;
+  op.odds = { ...(op.odds || {}), [target.id]:{ underdog:odds.underdog ?? null,
+    ...(odds.underdog !== null && odds.underdog !== undefined ? { mult:odds.mult } : {}), gap:odds.gap, at:now } };
+};
+/* The leader bounty is stamped when a contest's betting locks: the leaders
+   who play in it, as the board stands at that moment. A fresh lock replaces
+   whatever an earlier lock of the same contest stamped. */
+const stampBounty = (state, ev, now) => {
+  const contest = resolveCurrentContest(state, ev);
+  if (!contest || ev.finale) return;
+  const op = eventOp(state, ev.id);
+  const bounty = bountyFor(state, contest);
+  const rest = { ...(op.bounties || {}) };
+  delete rest[contest.id];
+  if (bounty) rest[contest.id] = { players:bounty.players, kind:contest.kind,
+    ...(contest.match ? { match:[...contest.match] } : {}),
+    ...(contest.group !== undefined ? { group:contest.group } : {}),
+    ...(contest.stagesId ? { stagesId:contest.stagesId } : {}),
+    ...(contest.drawId ? { drawId:contest.drawId } : {}),
+    ...(contest.kind === "ffa" ? { field:bounty.field } : {}),
+    at:now };
+  if (Object.keys(rest).length) op.bounties = rest; else delete op.bounties;
+};
 const openContest = (state, ev, now = Date.now()) => {
   const target = resolveCurrentContest(state, ev);
   if (!target) return err("Set up the next contest first");
   const op = eventOp(state, ev.id);
+  stampOdds(state, op, target, now);
   const revision = Number(op.contestRevision || 0) + 1;
   op.contestRevision = revision;
   op.contest = { id:target.id, revision, phase:"betting-open" };
@@ -923,7 +956,8 @@ export const ACTIONS = {
       return err("You can only back yourself or your team in this contest");
     const held = contestSideOf(state, contest, player, events);
     if (held !== null && held !== sideKey) return err("One side per contest. Your chips are on the other side");
-    if (clean.kind === "outright") clean.mult = contestMult(contest);
+    /* every new ticket keeps the payout it was placed at */
+    clean.mult = contestMult(contest, sideKey);
 
     /* Exposure and balance remain server authoritative. */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
@@ -1311,6 +1345,7 @@ export const ACTIONS = {
       const op = eventOp(state, closing);
       op.bettingLockedAt = Date.now();
       if (op.contest) op.contest.phase = "betting-locked";
+      if (ev) stampBounty(state, ev, op.bettingLockedAt);
       state.onDeck = null;
       return ok({ eventId:closing });
     }
@@ -1408,7 +1443,7 @@ export const ACTIONS = {
       draw.roles = normalizeOverflowRoles(compatible.players, present, crew, ev);
       state.draws[evId] = draw;
       delete state.stages[evId];
-      if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(draw.teams.length);
+      if (ev.teamCfg.bracket) state.brackets[evId] = seedBracket(state, draw);
       else delete state.brackets[evId];
       op.drawRevealedAt = now;
       drew = true;
@@ -1447,6 +1482,7 @@ export const ACTIONS = {
     const lifecycle = resolveEventLifecycle(state, ev);
     if (lifecycle.phase === "betting-open") {
       op.bettingLockedAt = Date.now();
+      stampBounty(state, ev, op.bettingLockedAt);
       state.onDeck = null;
     } else if (lifecycle.phase !== "betting-locked") {
       return err(lifecycle.nextAction?.label || "Open betting first");
@@ -1925,7 +1961,7 @@ export const ACTIONS = {
     state.draws[evId] = draw;
     delete state.stages[evId];
     resetContestSetup(state, evId);
-    if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(draw.teams.length);
+    if (ev.teamCfg.bracket) state.brackets[evId] = seedBracket(state, draw);
     else delete state.brackets[evId];
     eventOp(state, evId).drawRevealedAt = Date.now();
     return ok();
@@ -1948,6 +1984,8 @@ export const ACTIONS = {
       delete op.bettingOpenedAt;
       delete op.bettingLockedAt;
       delete op.contest;
+      delete op.odds;
+      delete op.bounties;
     }
     return ok();
   },
@@ -2185,7 +2223,7 @@ export const ACTIONS = {
       teams:d.teams.map((team, index) => ({ captain:team.captain, players:[...team.players],
         ...(names[index] ? { name:names[index] } : {}) })) };
     delete state.stages[evId];
-    if (ev.teamCfg.bracket) state.brackets[evId] = makeBracket(state.draws[evId].teams.length);
+    if (ev.teamCfg.bracket) state.brackets[evId] = seedBracket(state, state.draws[evId]);
     else delete state.brackets[evId];
     resetContestSetup(state, evId);
     eventOp(state, evId).drawRevealedAt = now;

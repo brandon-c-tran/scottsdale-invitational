@@ -5,13 +5,15 @@ import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { FACEOFF_TIMING as F, faceOffChipSize } from "./faceOff.js";
 import { Takeover } from "./TVTakeover.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
+import { SideTerms } from "../comebacks/Comebacks.jsx";
+import { contestTerms } from "../comebacks/comebacks.js";
 
 /* a display size that keeps a side's name on one line in its half, so both
    halves stand at the same height: Big Shoulders 900 runs about 0.5em a letter */
 export const faceOffNameSize = text =>
   Math.max(48, Math.min(120, Math.floor(740 / (Math.max(4, String(text || "").length) * 0.5))));
 
-function FaceOffSide({ side, from, lines }) {
+function FaceOffSide({ side, from, lines, terms = null }) {
   const size = faceOffChipSize(side.players.length);
   return (
     <div className={`tv-faceoff-side is-${from}`}>
@@ -20,6 +22,7 @@ function FaceOffSide({ side, from, lines }) {
       </div>
       <div className="fd-show tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
       <div className="tv-faceoff-line"><TVWinLine lines={lines} sideKey={side.key} /></div>
+      {terms && <SideTerms tv terms={terms} className="tv-faceoff-terms" />}
     </div>
   );
 }
@@ -32,6 +35,8 @@ function FaceOffSide({ side, from, lines }) {
 export function FaceOff({ state, events, ev, contest, view, moment }) {
   const lines = useContestWinLines(state, ev, contest, events);
   const record = view.record || "";
+  const terms = contestTerms(state, contest);
+  const termsOf = side => terms?.any ? terms.sides[side.key] || null : null;
   return (
     <Takeover kind="faceoff" className="tv-faceoff" label={`${view.event}${view.label ? `, ${view.label}` : ""}: ${
       view.sides.map(side => side.name).join(" vs ")}`}
@@ -43,9 +48,9 @@ export function FaceOff({ state, events, ev, contest, view, moment }) {
         {view.label && <span className="tv-faceoff-event">{view.event}</span>}
       </div>
       <div className="tv-faceoff-sides">
-        <FaceOffSide side={view.sides[0]} from="left" lines={lines} />
+        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} />
         <div className="fd-show tv-faceoff-vs">VS</div>
-        <FaceOffSide side={view.sides[1]} from="right" lines={lines} />
+        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} />
       </div>
       <div className="tv-display tv-faceoff-record" aria-label={record || undefined}>
         {[...record].map((ch, i) => <span key={i} aria-hidden="true"

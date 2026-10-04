@@ -3,7 +3,7 @@
    use (resultAwards, resolveWager, resolveDuel, rulings, the poker count) in
    the order they happened, so its last point is always the board's number. */
 
-import { EDITION, ROSTER, SESSIONS, START, allEventsOf, computeStandings, contestStackOf, disp, mvpAwards,
+import { EDITION, ROSTER, SESSIONS, START, allEventsOf, bountyAwards, computeStandings, contestStackOf, disp, mvpAwards,
   postCountRuling, postCountRulingApplies, resolveDuel, resolveWager, resultAwards } from "../../../shared/core.js";
 import { wagerPickName } from "./resultMoment.js";
 
@@ -50,6 +50,9 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
   }
   for (const mvp of mvpAwards(state))
     if (mvp.player === player) changes.push({ at:mvp.at, delta:mvp.pts, kind:"mvp", eventId:mvp.eventId });
+  for (const bounty of bountyAwards(state, events))
+    if (bounty.player === player) changes.push({ at:bounty.at, delta:bounty.pts, kind:"bounty", eventId:bounty.eventId,
+      contestId:bounty.contestId, from:bounty.from });
   for (const wager of state.wagers || []) {
     if (wager?.player !== player) continue;
     const resolved = resolveWager(state, wager, events);
@@ -69,7 +72,7 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
     if (ruling?.player !== player || ruling.removedAt || postCountRuling(ruling)) continue;
     changes.push({ at:Number(ruling.ts) || 0, delta:Number(ruling.delta) || 0, kind:"ruling", id:ruling.id });
   }
-  const order = { award:0, mvp:1, bet:2, duel:3, ruling:4 };
+  const order = { award:0, mvp:1, bounty:2, bet:3, duel:4, ruling:5 };
   return changes.map((change, index) => ({ ...change, index }))
     .sort((a, b) => a.at - b.at || order[a.kind] - order[b.kind] || a.index - b.index)
     .map(({ index, ...change }) => change);
@@ -182,6 +185,10 @@ export function lastCardModel(state, player, { events = allEventsOf(state), stan
   const mvps = changes.filter(item => item.kind === "mvp").map(item => eventName(item.eventId));
   if (mvps.length) facts.push({ id:"mvp", label:mvps.length === 1 ? "Team MVP" : "Team MVPs",
     value:mvps.length <= 2 ? mvps.join(", ") : String(mvps.length) });
+  /* v3.1: the leader bounties collected */
+  const bounties = changes.filter(item => item.kind === "bounty");
+  if (bounties.length) facts.push({ id:"bounty", label:bounties.length === 1 ? "Bounty" : `Bounties ${bounties.length}`,
+    value:signed(bounties.reduce((sum, item) => sum + item.delta, 0)) });
   if (bestBet) facts.push({ id:"best", label:`Best bet on ${bestBet.pick}`, value:signed(bestBet.delta) });
   else if (betRecord) facts.push({ id:"bets", label:`Bets ${betRecord.won}–${betRecord.lost}`, value:signed(betRecord.net) });
   if (quickDraw) facts.push({ id:"qd", label:`Quick Draw ${quickDraw.won}–${quickDraw.lost}`, value:signed(quickDraw.net) });

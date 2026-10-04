@@ -60,7 +60,7 @@ function assertCoherent(state, label) {
       assert.equal(row.pts, (stacks.stacks[row.player] ?? 0) + after, `${label}: ${row.player} is their counted stack`);
     } else {
       const ruled = rulings.reduce((sum, a) => sum + a.delta, 0);
-      assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.betNet + row.duelNet + ruled,
+      assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.bountyPts + row.betNet + row.duelNet + ruled,
         `${label}: ${row.player} standings are derived`);
     }
   }

@@ -139,12 +139,14 @@ test("the TV's team walkout fits the canvas by construction, 2 to 7 and long nam
 });
 
 const drawnName = (state, players) => state.draws.bball5.teams.find(team => team.players.includes(players[0])).name;
+/* a drawn name may carry an apostrophe ("Richard's Rattlers"); markup escapes it */
+const inHtml = text => String(text).replace(/&/g, "&amp;").replace(/'/g, "&#x27;").replace(/"/g, "&quot;");
 test("the TV walks out the team: its name, every chip, the singer marked, the song credited", () => {
   const { state } = buildScenario(TV_SCENARIOS, "tv-walkout-team7");
   const view = ui.walkoutView(state, allEventsOf(state));
   const html = render(state, React.createElement(ui.TVWalkout, { state, moment:{ ...view, id:"m", anchor:0, elapsed:3000 } }));
   assert.match(html, /tv-walkout is-team/);
-  assert.ok(html.includes(view.team.name) && view.team.name === drawnName(state, view.team.players));
+  assert.ok(html.includes(inHtml(view.team.name)) && view.team.name === drawnName(state, view.team.players));
   assert.equal((html.match(/class="tv-walkout-member[ "]/g) || []).length, 7);
   assert.equal((html.match(/tv-walkout-mark/g) || []).length, 1, "one chip carries the song");
   assert.match(html, /tv-walkout-member is-singer/);
@@ -163,7 +165,7 @@ test("a teammate's phone: the team's name, everyone's chip, theirs lit", () => {
   const html = render(state, React.createElement(ui.PhoneWalkout, { state, me:"Richard",
     moment:{ ...view, id:"m", anchor:0, elapsed:1500 } }));
   assert.match(html, /fd-moment-walkout is-team/);
-  assert.ok(html.includes(drawnName(state, view.team.players)));
+  assert.ok(html.includes(inHtml(drawnName(state, view.team.players))));
   assert.equal((html.match(/fd-walkout-member/g) || []).length, 7);
   assert.match(html, /fd-walkout-member is-you"/, "you, lit among them (not the singer)");
   assert.match(html, /fd-walkout-member is-singer/);
@@ -179,7 +181,7 @@ test("the Now playing strip leads with the team, then the song", () => {
   const html = render(state, React.createElement(ui.NowPlaying, { state, events, now:() => at }));
   assert.match(html, /tv-now is-team/);
   assert.equal((html.match(/<span style="--i:/g) || []).length, 7, "the chip stack");
-  assert.ok(html.indexOf(name) >= 0 && html.indexOf(name) < html.indexOf("Mr. Brightside"));
+  assert.ok(html.indexOf(inHtml(name)) >= 0 && html.indexOf(inHtml(name)) < html.indexOf("Mr. Brightside"));
   assert.ok(ui.nowTeamNameSize("Henry Nguyen & Squilliam", 2) >= 24 && ui.nowTeamNameSize("The Sidewinders", 7) <= 28);
   const solo = buildScenario(TV_SCENARIOS, "tv-nowplaying").state;
   assert.equal(nowPlayingModel(solo, allEventsOf(solo), solo.showControl.audio.walkout.startedAt + 12000).team, null);

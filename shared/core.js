@@ -271,8 +271,22 @@ const SLOT_META = [
 
 const OUTRIGHT_MULT = 2; // a wide field's winner pays 2:1; everything else pays even
 /* A ticket keeps the payout it was placed at. Outright tickets written before
-   two-sided events paid even carry no mult and stay 2:1. */
-const wagerMult = w => w?.kind === "outright" ? (Number.isInteger(w.mult) ? w.mult : OUTRIGHT_MULT) : 1;
+   two-sided events paid even carry no mult and stay 2:1; every other ticket
+   written before underdog odds carries none and stays 1:1. */
+const wagerMult = w => Number.isInteger(w?.mult) && w.mult >= 1 ? w.mult
+  : w?.kind === "outright" ? OUTRIGHT_MULT : 1;
+
+/* ── comebacks (v3.1) ──
+   Leader bounty: whoever leads the board when a contest's betting locks is
+   stamped on it; beating them pays every winner BOUNTY_PTS from the bank.
+   Underdog odds: a two-sided contest whose sides sit UNDERDOG_GAP apart
+   (the gap in average chips per player, times the smaller side's size)
+   pays the lower side's
+   winning tickets UNDERDOG_MULT, fixed when its betting opens.
+   Byes to the bottom: a bracket's byes go to the lowest-ranked teams. */
+const BOUNTY_PTS = 2 * PT;
+const UNDERDOG_GAP = 10 * PT;
+const UNDERDOG_MULT = 2;
 
 /* head-to-head phone duels: challenge one player or anyone, the other side
    accepts, both play a 5-second minigame on their own phone, the pot settles
@@ -672,7 +686,7 @@ function resolveWager(state, w, events) {
     if (!match) return { status:"void", delta:0 };
     if (match.winner === null || match.winner === undefined) return { status:"pending", delta:0 };
     const won = match.winner === w.teamIdx;
-    return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
   if (w.kind === "stage" || w.kind === "heat") {
     const st = state.stages[w.eventId];
@@ -684,18 +698,18 @@ function resolveWager(state, w, events) {
     if (w.final) {
       if (st.finalWinner === null || st.finalWinner === undefined) return { status:"pending", delta:0 };
       const won = st.finalWinner === w.pickKey;
-      return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+      return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
     }
     const g = st.groups[w.group];
     if (!g) return { status:"void", delta:0 };
     if (w.kind === "heat") {
       if (g.winner === null || g.winner === undefined) return { status:"pending", delta:0 };
       const won = g.winner === w.pickKey;
-      return { status:won ? "won" : "lost", delta:won ? w.stake : -w.stake };
+      return { status:won ? "won" : "lost", delta:won ? wagerMult(w) * w.stake : -w.stake };
     }
     if ((g.through || []).length < st.advance) return { status:"pending", delta:0 };
     const won = g.through.includes(w.pickKey);
-    return { status: won ? "won" : "lost", delta: won ? w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
   }
   return { status:"void", delta:0 };
 }
@@ -1052,9 +1066,100 @@ function mvpAwards(state) {
     .map(([eventId, record]) => ({ eventId, player:record.winner, pts:MVP_PTS, at:Number(record.closedAt) }));
 }
 
+/* -- Leader bounty --
+   eventOps[ev].bounties[contestId] = { players, kind, match?, group?, stagesId?,
+   drawId?, field?, at }, stamped when the contest's betting locks (or it
+   starts) and never moved by later standings. Derived like an award: the
+   contest's winning side earns BOUNTY_PTS each only while the recorded
+   outcome has a bounty player on a losing side and none on the winning side,
+   so a correction, undo or cleared result takes it back with no write of its
+   own. Never in the poker finale; never to a leader. */
+const bountyLeaders = (state, rows = computeStandings(state)) => {
+  if (!rows.length) return [];
+  const top = Math.max(...rows.map(row => row.pts));
+  return rows.filter(row => row.pts === top).map(row => row.player);
+};
+/* The bounty a contest would carry if it locked now: the leaders who play
+   in it, when someone else in it could collect. Null before the weekend
+   (everyone tied at 1,000 is a contest of leaders) and in the finale. */
+function bountyFor(state, contest, rows = computeStandings(state)) {
+  if (!contest?.sides?.length || pokerLive(state) || stacksPosted(state)) return null;
+  const field = [...new Set(contest.sides.flatMap(side => side.players || []))];
+  const leaders = bountyLeaders(state, rows);
+  const players = leaders.filter(player => field.includes(player));
+  if (!players.length || field.every(player => players.includes(player))) return null;
+  return { players, field };
+}
+/* who won a contest that carried a bounty, and who it was played among, from
+   the official record as it stands now; null while undecided or stale */
+function bountyOutcome(state, ev, record) {
+  const draw = state.draws?.[ev.id];
+  const teamOf = key => draw?.teams?.[key]?.players || null;
+  if (record.drawId && draw?.id !== record.drawId) return null;
+  if (record.kind === "match") {
+    const br = state.brackets?.[ev.id];
+    const match = br?.rounds?.[record.match?.[0]]?.[record.match?.[1]];
+    if (!match || match.winner === null || match.winner === undefined) return null;
+    const sides = [resolveSlot(br, match.a), resolveSlot(br, match.b)].map(teamOf).filter(Boolean);
+    return { winners:teamOf(match.winner) || [], field:sides.flat() };
+  }
+  if (record.kind === "heat" || record.kind === "stage-final") {
+    const st = state.stages?.[ev.id];
+    if (!st || st.id !== record.stagesId) return null;
+    const keys = record.kind === "heat" ? st.groups?.[record.group]?.entrants || [] : stageFinalists(st) || [];
+    const winner = record.kind === "heat" ? st.groups?.[record.group]?.winner : st.finalWinner;
+    if (winner === null || winner === undefined) return null;
+    return { winners:stageEntrantView(state, st, winner).players,
+      field:keys.flatMap(key => stageEntrantView(state, st, key).players) };
+  }
+  const result = state.results?.[ev.id];
+  if (!result || result.stacks || !result.slots?.[0]?.length) return null;
+  return { winners:result.slots[0], field:Array.isArray(record.field) ? record.field
+    : (result.slots || []).flat() };
+}
+/* every bounty the record pays now: { eventId, contestId, player, pts, at, from } */
+function bountyAwards(state, events = allEventsOf(state)) {
+  const out = [];
+  for (const ev of events) {
+    const bounties = state.eventOps?.[ev.id]?.bounties;
+    if (!bounties || ev.finale || state.shelved?.[ev.id]) continue;
+    for (const [contestId, record] of Object.entries(bounties)) {
+      if (!record || !Array.isArray(record.players) || !record.players.length) continue;
+      const outcome = bountyOutcome(state, ev, record);
+      if (!outcome || !outcome.winners.length) continue;
+      if (record.players.some(player => outcome.winners.includes(player))) continue;
+      if (!record.players.some(player => outcome.field.includes(player))) continue;
+      const entry = contestStackOf(state, ev.id).find(item => item.id === contestId);
+      const at = Number(entry?.decidedAt) || Number(state.results?.[ev.id]?.ts) || Number(record.at) || 0;
+      outcome.winners.forEach(player => out.push({ eventId:ev.id, contestId, player, pts:BOUNTY_PTS, at,
+        from:[...record.players] }));
+    }
+  }
+  return out;
+}
+
+/* -- Underdog odds --
+   A two-sided contest's gap is the difference in its sides' average chips
+   per player times the smaller side's size: a 1v1 needs 1,000 chips between
+   them, a pair 1,000 combined, a 7 v 6 compares at six players. UNDERDOG_GAP
+   or more, the lower side is the underdog and its winning tickets pay
+   UNDERDOG_MULT. Stored at market open (eventOps[ev].odds[contestId]) and on
+   each ticket, so later standings never move it. */
+function oddsFor(state, contest, rows = computeStandings(state)) {
+  if (!contest || contest.sides?.length !== 2 || pokerLive(state) || stacksPosted(state)) return null;
+  const pts = Object.fromEntries(rows.map(row => [row.player, row.pts]));
+  const counted = contest.sides.map(side => (side.players || []).filter(player => pts[player] !== undefined));
+  if (counted.some(players => !players.length)) return null;
+  const strength = counted.map(players => players.reduce((sum, player) => sum + pts[player], 0) / players.length);
+  const gap = Math.abs(strength[0] - strength[1]) * Math.min(counted[0].length, counted[1].length);
+  if (gap < UNDERDOG_GAP) return { underdog:null, gap:Math.round(gap) };
+  const low = strength[0] < strength[1] ? 0 : 1;
+  return { underdog:contest.sides[low].key, mult:UNDERDOG_MULT, gap:Math.round(gap) };
+}
+
 function computeStandings(state) {
-  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {}, mvpPts = {};
-  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; mvpPts[p] = 0; });
+  const pts = {}, wins = {}, betNet = {}, duelNet = {}, awardPts = {}, mvpPts = {}, bountyPts = {};
+  ROSTER.forEach(p => { pts[p] = START; wins[p] = 0; betNet[p] = 0; duelNet[p] = 0; awardPts[p] = 0; mvpPts[p] = 0; bountyPts[p] = 0; });
   const evs = allEventsOf(state);
   Object.entries(state.results || {}).forEach(([eid, res]) => {
     const ev = evs.find(e => e.id === eid); if (!ev || !res) return;
@@ -1070,6 +1175,11 @@ function computeStandings(state) {
     if (pts[player] === undefined) return;
     pts[player] += award;
     mvpPts[player] += award;
+  });
+  bountyAwards(state, evs).forEach(({ player, pts:award }) => {
+    if (pts[player] === undefined) return;
+    pts[player] += award;
+    bountyPts[player] += award;
   });
   (state.wagers || []).forEach(w => {
     const r = resolveWager(state, w, evs);
@@ -1114,7 +1224,7 @@ function computeStandings(state) {
     return i >= 0 ? i : stacksRes?.stacks?.[p] === 0 ? -1 : Infinity;
   };
   const rows = ROSTER.map(p => ({ player:p, pts:pts[p], wins:wins[p], betNet:betNet[p], duelNet:duelNet[p], awardPts:awardPts[p],
-    mvpPts:mvpPts[p] }))
+    mvpPts:mvpPts[p], bountyPts:bountyPts[p] }))
     .sort((x,y) => lead(y.player) - lead(x.player) || y.pts - x.pts
       || (stacksRes ? outRank(y.player) - outRank(x.player) : 0)
       || y.wins - x.wins || x.player.localeCompare(y.player));
@@ -1275,6 +1385,57 @@ function seededBracket(n) {
   }
   return { size:n, rounds };
 }
+/* The slots that sit out the first round (their first match comes later). */
+function bracketByeSlots(br) {
+  const first = new Set();
+  (br?.rounds?.[0] || []).forEach(match => [match.a, match.b]
+    .forEach(slot => { if (slot?.t !== undefined) first.add(slot.t); }));
+  const out = [];
+  for (let t = 0; t < (br?.size || 0); t++) if (!first.has(t)) out.push(t);
+  return out;
+}
+/* a stable tie-break from the draw's own id, so a seeding replays */
+const seedHash = text => {
+  let h = 2166136261;
+  for (const ch of String(text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return h;
+};
+/* Byes to the bottom: the bracket's bye slots go to the lowest-ranked teams
+   (average chips per player, ties broken by a hash of the drawn teams), lowest first into
+   the earliest slot; every other team keeps its draw order. A board where
+   every team is level (before the weekend) keeps the draw order as drawn.
+   Returns seeds[slot] = draw team index. */
+function bracketSeeds(state, draw, br) {
+  const teams = draw?.teams || [];
+  const identity = teams.map((_, index) => index);
+  const byes = bracketByeSlots(br);
+  if (!byes.length || teams.length !== br?.size) return identity;
+  const pts = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
+  const average = team => (team.players || []).reduce((sum, player) => sum + (pts[player] ?? START), 0)
+    / Math.max(1, (team.players || []).length);
+  const strength = teams.map(average);
+  if (strength.every(value => value === strength[0])) return identity;
+  const tieKey = index => seedHash((teams[index].players || []).join("|"));
+  const ranked = [...identity].sort((a, b) => strength[a] - strength[b]
+    || tieKey(a) - tieKey(b) || a - b);
+  const bottom = ranked.slice(0, byes.length);
+  const rest = identity.filter(index => !bottom.includes(index));
+  return identity.map(slot => byes.includes(slot) ? bottom[byes.indexOf(slot)] : rest.shift());
+}
+/* The bracket a draw plays, seeded so its byes go to the bottom. The seed
+   order rides on the bracket (seeds[slot] = team) and the teams that sit
+   out the first round on byes, so the draw replays exactly. */
+function seedBracket(state, draw, n = draw?.teams?.length) {
+  const br = makeBracket(n);
+  if (!br) return null;
+  const byeSlots = bracketByeSlots(br);
+  const seeds = bracketSeeds(state, draw, br);
+  const remap = slot => slot && slot.t !== undefined ? { ...slot, t:seeds[slot.t] } : slot;
+  br.rounds = br.rounds.map(round => round.map(match => ({ ...match, a:remap(match.a), b:remap(match.b) })));
+  br.seeds = seeds;
+  if (byeSlots.length) br.byes = byeSlots.map(slot => seeds[slot]);
+  return br;
+}
 const ROUND_NAMES = { 2:["Final"], 3:["Semifinal","Final"], 4:["Semifinals","Final"],
   5:["Play-in","Semifinals","Final"], 6:["Play-in","Semifinals","Final"],
   7:["Quarterfinals","Semifinals","Final"], 8:["Quarterfinals","Semifinals","Final"] };
@@ -1429,14 +1590,25 @@ function resolveCurrentContest(state, ev) {
         : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting")
         : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result")
           : lifecycleAction("record-contest-winner", "Record winner");
+  const odds = op.odds?.[target.id];
+  const bounty = op.bounties?.[target.id];
   return { ...target, eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
-    phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction };
+    phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction,
+    ...(odds && odds.underdog !== null && odds.underdog !== undefined ? { odds } : {}),
+    ...(bounty ? { bounty } : {}) };
 }
 /* Any contest with exactly two sides is a matchup, whatever its format: it
    pays even and a competitor may back only their own side. Only a wider
    free-for-all pays 2:1 and leaves every side open to everyone. */
 const wideField = contest => contest?.kind === "ffa" && contest.sides.length > 2;
-const contestMult = contest => wideField(contest) ? OUTRIGHT_MULT : 1;
+/* A wide field pays 2:1 on every side. A two-sided contest pays 1:1, except
+   its underdog's side when the contest carries odds. */
+const contestMult = (contest, sideKey) => wideField(contest) ? OUTRIGHT_MULT
+  : contest?.odds && Number.isInteger(contest.odds.mult) && sideKey !== undefined && sideKey !== null
+    && contest.odds.underdog === sideKey ? contest.odds.mult : 1;
+/* each side's payout, for one payout line per side */
+const contestSideMults = contest => Object.fromEntries((contest?.sides || [])
+  .map(side => [side.key, contestMult(contest, side.key)]));
 function contestBetEligibility(contest, player, sideKey) {
   const side = contest?.sides.find(item => item.key === sideKey);
   if (!side || !isActivePlayer(player)) return false;
@@ -1937,6 +2109,8 @@ export {
   makeBracket, ROUND_NAMES, MAX_BRACKET, bracketRoundName, bracketMatchName, resolveSlot, qaBracketMatchWager, bracketChampion, bracketMatchOpen, bracketOrder,
   EVENT_PHASES, EVENT_PHASE_LABELS, eventOpOf, resultReadiness,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, contestUndoAvailability,
-  contestMult, wagerSide, contestSideOf,
+  contestMult, contestSideMults, wagerSide, contestSideOf,
   refundText, eventInPlay,
+  BOUNTY_PTS, UNDERDOG_GAP, UNDERDOG_MULT, bountyLeaders, bountyFor, bountyOutcome, bountyAwards, oddsFor,
+  bracketByeSlots, bracketSeeds, seedBracket,
 };

@@ -5,7 +5,7 @@
    states (dev/fit/scenarios.js). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY_STATE, SESSIONS, allEventsOf } from "../shared/core.js";
+import { EMPTY_STATE, SESSIONS, allEventsOf, computeStandings } from "../shared/core.js";
 import { fresh, longNames, act } from "../dev/fit/scenarios.js";
 import {
   CUP_TV, ENGRAVE, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateEngraving, plateNameWidth,
@@ -127,9 +127,14 @@ test("the TV's cup keeps the 24px floor and stays inside the canvas", () => {
 });
 
 test("the crown engraves the champion on the cup", () => {
-  const cup = cupOf(fresh("crowned"));
+  const state = fresh("crowned");
+  const cup = cupOf(state);
   assert.equal(cup.crowned, true);
-  assert.equal(cup.champions.length, 1);
+  /* the cup carries whoever tops the frozen board: one champion, or every
+     co-champion on a tie (the rehearsal's totals move with the v3.1 bounties) */
+  const standings = computeStandings(state);
+  const top = standings.filter(row => row.pts === standings[0].pts).map(row => row.player).sort();
+  assert.deepEqual(cup.champions.map(champ => champ.player).sort(), top);
   assert.equal(cup.posted, cup.total, "every plate engraved by the crown");
 });
 

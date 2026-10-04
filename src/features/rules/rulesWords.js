@@ -10,7 +10,8 @@
    (fieldday, betting, duels, draws, safety, payouts).
 
    STATUS: reviewed by Brandon on /dev/rules-review.html (Oct 3, 2026); his one
-   edit (safety.camera) is applied. */
+   edit (safety.camera) is applied. The comebacks set (comebacks.*, v3.1) is
+   awaiting Brandon's review. */
 export const RULES_WORDS = Object.freeze({
   /* Long Putt (putting) */
   "putting.1": "Three putts",
@@ -172,6 +173,13 @@ export const RULES_WORDS = Object.freeze({
   "duels.lapse": "Lapses after 10 minutes",
   "duels.finale": "Void once poker deals",
 
+  /* comebacks (v3.1): awaiting Brandon's review */
+  "comebacks.1": "Beat the leader: +200",
+  "comebacks.2": "Underdog: Winner pays 2:1",
+  "comebacks.gap": "Underdog: 1,000 behind",
+  "comebacks.3": "Byes to the bottom",
+  "comebacks.lock": "Leader fixed at lock",
+
   /* draws */
   "draws.1": "Teams balanced by skill",
   "draws.2": "Results count more later",
@@ -203,6 +211,7 @@ export const RULES_TITLES = Object.freeze({
   betting: "Betting",
   duels: "Duels",
   draws: "Draws",
+  comebacks: "Comebacks",
   safety: "House rules",
   payouts: "Payouts",
 });

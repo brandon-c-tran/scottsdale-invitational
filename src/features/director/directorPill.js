@@ -9,6 +9,7 @@ import {
 import { postedFinalUndo } from "../../../shared/show.js";
 import { geoPlayers } from "../../../shared/geo.js";
 import { triviaGame } from "../../../shared/trivia.js";
+import { bountyLine, contestBountyPlayers, payLine } from "../comebacks/comebacks.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 const SCENE_BEATS = ["advance-scene", "clear-scene", "start-champion-scene", "replay-winner-scene",
@@ -50,6 +51,12 @@ export function lastWinnerUndo(state, ev) {
   return postedFinalUndo(state, ev) || contestUndoAvailability(state, ev);
 }
 
+/* A beat that draws people (teams, heats, a draft pool) opens the crew
+   check first; its confirm runs `then` with the players and crew it shows. */
+export const drawsPeople = beat => Array.isArray(beat?.players) && beat.players.length > 0;
+export const crewCheck = (ev, beat, then) => ({ open:"crewCheck", evId:ev.id,
+  players:[...(beat.players || [])], roles:(beat.roles || []).map(item => ({ ...item })), then });
+
 export function directorPill(state, events, director, { me = null, now = Date.now() } = {}) {
   const beat = director?.nextAction;
   if (!beat) return null;
@@ -60,8 +67,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   const reference = contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
   /* the first weekend-starting write is confirmed by the App's act(), which
      the pill's writes go through; startsWeekend only marks it */
-  const weekend = run => run?.write && !state.live && WEEKEND_WRITES.includes(run.write)
-    ? { ...run, startsWeekend:true } : run;
+  const weekend = run => run?.then?.write ? { ...run, then:weekend(run.then) }
+    : run?.write && !state.live && WEEKEND_WRITES.includes(run.write) ? { ...run, startsWeekend:true } : run;
   const matchup = contest && contest.kind !== "ffa" && contest.sides.length === 2
     ? contest.sides.map(side => sideName(state, side)).join(" vs ") : "";
   const lines = [];
@@ -98,8 +105,9 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       run = { write:"announceEvent", payload:{ evId:ev.id, ...reference } };
       break;
     case "announce-draw": {
-      run = { write:"announceAndDraw", payload:{ evId:ev.id,
-        ...(Array.isArray(beat.players) && beat.players.length ? { players:beat.players, roles:beat.roles || [] } : {}) } };
+      /* a draw of people never runs from the pill without the crew check */
+      const write = { write:"announceAndDraw", payload:{ evId:ev.id } };
+      run = drawsPeople(beat) ? crewCheck(ev, beat, write) : write;
       break;
     }
     case "lock-start":
@@ -113,7 +121,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       run = { open:"event", evId:ev.id };
       break;
     case "continue-draft": run = { open:"draft", evId:ev.id }; break;
-    case "captains-draft": run = { open:"draft", evId:ev.id, pool:beat.players, roles:beat.roles || [] }; break;
+    case "captains-draft": run = crewCheck(ev, beat, { open:"draft", evId:ev.id }); break;
     case "setup-poker": case "start-poker": run = { open:"pokerSetup" }; break;
     case "run-poker": run = { open:"pokerClock" }; break;
     case "post-poker-result": run = { open:"pokerResult" }; break;
@@ -157,6 +165,14 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       && resolveWager(state, wager, events).status === "pending").length;
     lines.push(`${bets} bet${bets === 1 ? "" : "s"} in`);
   }
+  /* v3.1: the underdog's payout and the bounty, said once on the beat
+     that locks them in */
+  if (beat.type === "lock-start" && contest) {
+    const underdog = contest.odds ? contest.sides.find(side => side.key === contest.odds.underdog) : null;
+    if (underdog) lines.push(`${sideName(state, underdog)}: ${payLine(contest.odds.mult)}`);
+    const wanted = contestBountyPlayers(state, contest);
+    if (wanted.length) lines.push(`${bountyLine()} on ${namesOf(state, wanted)}`);
+  }
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) lines.push("You’re playing");
   if (beat.type === "geo-reveal" && state.geo) {
     const players = geoPlayers(state, ROSTER, { isActivePlayer, isAway }).length;
@@ -189,13 +205,12 @@ export function directorPill(state, events, director, { me = null, now = Date.no
      then the edge cases (kind "skip") last; the pill shows only the beat */
   const extras = [];
   (director.extras || []).forEach(extra => {
-    if (extra.type === "change-crew")
-      extras.push({ label:extra.label, run:{ open:"announceDraw", evId:ev.id, players:beat.players, roles:beat.roles, changing:true } });
-    else if (extra.type === "captains-draft")
-      extras.push({ label:extra.label, run:{ open:"draft", evId:ev.id, pool:beat.players, roles:beat.roles || [] } });
+    /* the crew check is the beat itself now: no separate Change crew */
+    if (extra.type === "change-crew") return;
+    if (extra.type === "captains-draft")
+      extras.push({ label:extra.label, run:crewCheck(ev, beat, { open:"draft", evId:ev.id }) });
     else if (extra.type === "random-draw")
-      extras.push({ label:extra.label, run:{ write:"announceAndDraw", payload:{ evId:ev.id,
-        ...(Array.isArray(beat.players) && beat.players.length ? { players:beat.players, roles:beat.roles || [] } : {}) } } });
+      extras.push({ label:extra.label, run:crewCheck(ev, beat, { write:"announceAndDraw", payload:{ evId:ev.id } }) });
     else if (extra.type === "swap-in")
       extras.push({ label:extra.label, run:{ open:"event", evId:ev.id } });
     else if (extra.type === "close-mvp")

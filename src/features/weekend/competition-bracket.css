@@ -84,3 +84,9 @@
 .fd-bracket-peek-head>span:first-child { color:var(--muted2); font:600 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
 .fd-bracket-peek-head>span:last-child { display:flex; align-items:center; gap:4px; color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); }
 .fd-bracket-peek.is-card { border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+/* v3.1 byes to the bottom: a bye enters already advanced, its line in from
+   the round it skipped, a lit info lamp at the head of its row */
+.fd-bracket-line.is-bye { color:var(--lamp-info); }
+.fd-bracket-line.is-bye path { stroke-dasharray:4 3; }
+.fd-bracket-bye { --lamp:var(--lamp-info); flex:none; width:10px; height:10px; margin:0 6px 0 4px; }
+.fd-bracket-team.is-bye { background:color-mix(in srgb, var(--lamp-info) 7%, transparent); }

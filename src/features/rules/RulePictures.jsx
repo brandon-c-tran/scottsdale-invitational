@@ -548,6 +548,29 @@ export const RULE_PICTURES = {
     <Lit>{stack(46, 34, 6, 14)}</Lit>
     {crown(46, 9, 0.85)}
   </g>,
+  /* comebacks (v3.1): the bounty, the underdog, the bye */
+  "comebacks.1":<g>
+    {floor()}
+    <Faint>{stack(14, 34, 3, 11)}</Faint>
+    <g>{stack(32, 34, 8, 11)}</g>
+    <circle cx="32" cy="2.6" r="2" />
+    {trail("M20 21Q24 12 27 10")}{head(27.4, 9.6, -40)}
+    <Lit><Num x={51} y={22} size={12}>+200</Num></Lit>
+  </g>,
+  "comebacks.2":<g>
+    {floor()}
+    <g>{stack(14, 34, 7, 11)}</g>
+    <Faint>{stack(50, 34, 2, 11)}</Faint>
+    <Lit><Num x={50} y={21} size={12}>2:1</Num></Lit>
+    <Faint><path d="M24 9.5h4M36 9.5h4" /></Faint>
+  </g>,
+  "comebacks.3":<g>
+    <path d="M4 7h10v8H4M14 11h8M4 27h10" />
+    <path d="M22 11v10h10" />
+    <Lit><path d="M14 27H32" strokeDasharray="2 2" /><circle cx="9" cy="27" r="2.6" {...F} /></Lit>
+    <path d="M32 21v6M32 24h14" />
+    {crown(52, 25, 0.75)}
+  </g>,
   "draws.1":<g>
     <path d="M32 7v27M24 34h16M12 11h40" />
     <path d="M12 11 7 22M12 11l5 11M52 11l-5 11M52 11l5 11" />

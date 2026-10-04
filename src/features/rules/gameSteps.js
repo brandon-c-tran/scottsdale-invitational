@@ -33,13 +33,14 @@ export const STEP_SETS = Object.freeze({
   betting:{ steps:4, notes:[["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["fix", "fix"], ["void", "void"]] },
   duels:{ steps:4, win:4, notes:[["early", "early"], ["even", "tie"], ["fouls", "tie"], ["daily", "daily"], ["pair", "pair"], ["lapse", "lapse"], ["finale", "cards"]] },
   draws:{ steps:3, notes:[["private", "private"]] },
+  comebacks:{ steps:3, notes:[["lock", "lock"], ["gap", "floor"]] },
   safety:{ steps:0, notes:[["optional", "drink"], ["na", "na"], ["forced", "forced"], ["water", "water"], ["own", "own"],
     ["contact", "contact"], ["house", "home"], ["camera", "camera"], ["stop", "stop"]] },
   payouts:{ steps:0, notes:[["team", "group"], ["semis", "semis"], ["crew", "crew"], ["ties", "tie"], ["crown", "putt"]] },
 });
 
 /* the weekend's rule sets, in the order the Rules sheet reads them */
-export const RULE_SET_ORDER = Object.freeze(["fieldday", "betting", "duels", "draws", "safety"]);
+export const RULE_SET_ORDER = Object.freeze(["fieldday", "betting", "comebacks", "duels", "draws", "safety"]);
 
 /* a game id (or an event carrying `game` and `variant`) to its set id */
 export function stepSetId(game, variant) {

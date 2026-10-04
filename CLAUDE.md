@@ -529,9 +529,16 @@ PRODUCTION `2f961de0-b233-4f9c-8c25-7c3a77a4636f`, deployed by Brandon without a
 snapshot at his call (branch and tags pushed to origin). Then in-app Trivia
 merged and the TV next-event card fix landed (commit `b6aec4c`, 880 tests):
 staging `e06dd248-3361-49b9-a6cd-2acc89603f09`, PRODUCTION
-`a61d5030-56cf-42fb-8b96-05906f1bee41` (Oct 3). Roll production back
-with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522` (the Sept 30
-code with its secrets). Local dev
+`a61d5030-56cf-42fb-8b96-05906f1bee41` (Oct 3). Then **v3** (tag `v3`, commit
+`02d2187`: personalized team names, the lit podium and beauty pass, the
+cup, the one-card draw reveal, score reels; staging `da7153b2`) and **v3.1**
+(tag `v3.1`, commit `32c1727`: leader bounty, underdog odds, byes to the
+bottom, the crew check before draws; 938 tests, the 290-view fit audit and
+the local e2e pass; staging `4cb9f47b-e003-4115-823c-dddca6e087fe`) went to
+PRODUCTION as `0f480665-2271-4e9e-a61b-f91f89ddc4ac` (Oct 3, `APP_VERSION`
+"v3"). Roll production back one release with `npx wrangler rollback
+a61d5030-56cf-42fb-8b96-05906f1bee41`, or to the Sept 30 code with its
+secrets with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522`. Local dev
 note: a stale `vite dev`/workerd left running holds `.wrangler/state` and
 makes every new dev server fail on its first `/ws` or `/api`; stop old ones.
 

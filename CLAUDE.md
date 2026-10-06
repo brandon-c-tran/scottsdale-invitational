@@ -632,9 +632,17 @@ cup, the one-card draw reveal, score reels; staging `da7153b2`) and **v3.1**
 bottom, the crew check before draws; 938 tests, the 290-view fit audit and
 the local e2e pass; staging `4cb9f47b-e003-4115-823c-dddca6e087fe`) went to
 PRODUCTION as `0f480665-2271-4e9e-a61b-f91f89ddc4ac` (Oct 3, `APP_VERSION`
-"v3"). Roll production back one release with `npx wrangler rollback
-a61d5030-56cf-42fb-8b96-05906f1bee41`, or to the Sept 30 code with its
-secrets with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522`. Local dev
+"v3"). Then **v4** (tag `v4`, commit `ec06c1a`, Oct 5; 1002 tests and the
+364-view fit audit: autopilot, solo Trivia, Not coming and flexible crew,
+arrivals lobby with the TV's QR, the live Quick Draw showdown, the bounty
+and team MVP cut, and the critique passes) went to staging as
+`29f2207c-7ef4-4486-9fb6-8159211ce41b` and PRODUCTION as
+`6ee2caa4-51f4-42c4-b98e-1b3f41ba0166` (`APP_VERSION` "v4"), deployed at
+Brandon's call without a snapshot; production's state (13 profiles, no game
+progress) loaded clean. Roll production back one release with `npx wrangler
+rollback 0f480665-2271-4e9e-a61b-f91f89ddc4ac`, two with `npx wrangler
+rollback a61d5030-56cf-42fb-8b96-05906f1bee41`, or to the Sept 30 code with
+its secrets with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522`. Local dev
 note: a stale `vite dev`/workerd left running holds `.wrangler/state` and
 makes every new dev server fail on its first `/ws` or `/api`; stop old ones.
 
